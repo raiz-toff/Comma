@@ -621,7 +621,7 @@ This is the most important foundation task. Get the schema right and everything 
    // 6. Initialize router
    // 7. Check if onboarding complete → route accordingly
    // 8. Set up beforeinstallprompt capture
-   // 9. Run on-open notifications check
+   // 9. Run on-open notifications check (no-op until user.onboardingComplete — see Vault-active gate)
    // 10. Run purge old deleted records
    // 11. Run backup overdue check
    ```
@@ -648,6 +648,20 @@ This is the most important foundation task. Get the schema right and everything 
    ```
 
 **Features covered:** 165 (offline indicator), 271 (dashboard header), 299 (error boundaries — wrap router render in try/catch)
+
+---
+
+### Vault-active gate (onboarding vs “real” session)
+
+There is **no server login**: the vault always has a local `users` row (id `1`). During `#/onboarding` that user may already exist with partial data, so **presence of a user row is not enough** to treat the app as fully set up.
+
+**Rule:** Product and financial surface nudges must run only when **`user.onboardingComplete === true`**.
+
+- Implement **`isUserVaultActive(user)`** / **`isVaultActive()`** in `src/core/vault-gate.js` (or equivalent single helper).
+- **P8** — `checkAllNotifications()` (and `createNotification` as a safety net) return immediately when the vault is not active, so no daily summary, tax, backup, goal, or arbitrage cards fire during onboarding.
+- **P13** — changelog, tips, review nudge, and wellbeing toasts are skipped until the vault is active; **`window.__macadam.debug`** may still attach so developer utilities work during onboarding if needed.
+
+The hash router already forces `#/onboarding` when incomplete; this gate prevents **parallel** notification/polish modules from firing on the same boot path.
 
 ---
 
@@ -1346,6 +1360,7 @@ All components are plain JS functions that return HTML strings OR manipulate DOM
 
 #### Subtasks:
 1. `src/modules/notifications/notifications.js`:
+   - **Vault-active gate:** if `!user.onboardingComplete`, skip the entire sweep (shared helper from `vault-gate.js`); `createNotification` should also no-op when inactive (defense in depth).
    - `checkAllNotifications()` — called on every app-open
    - Daily summary toast (Feature 195)
    - Mid-week goal alert (Feature 196)
@@ -1480,6 +1495,9 @@ All components are plain JS functions that return HTML strings OR manipulate DOM
 **Features:** 219–225, 292–303
 
 #### Subtasks:
+
+**Vault-active gate:** In `initP13()`, run changelog / tips / review / wellbeing only when `user.onboardingComplete` (same helper as P8); keep `window.__macadam.debug` available during onboarding when useful for development.
+
 1. App logo + animated SVG splash screen (Feature 292)
 2. Changelog pop-up on version update (Feature 293)
 3. "Did You Know?" rotating tips system (Feature 294)

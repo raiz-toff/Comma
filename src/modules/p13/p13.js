@@ -1,4 +1,5 @@
 import { db, getAppState, setAppState } from '../../core/db.js';
+import { isVaultActive } from '../../core/vault-gate.js';
 import { showModal, showToast } from '../../ui/components.js';
 
 const APP_VERSION = '1.0.0';
@@ -182,6 +183,7 @@ export async function initP13() {
     generateSyntheticData,
     schemaDump: buildSchemaDump,
   };
+  if (!(await isVaultActive())) return;
   await maybeShowChangelog();
   await maybeShowDidYouKnowTip();
   await maybeShowReviewNudge();

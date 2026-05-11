@@ -4,6 +4,7 @@
  */
 
 import { db, getAppState, getUser } from '../../core/db.js';
+import { isUserVaultActive } from '../../core/vault-gate.js';
 import { showNotifyCard } from '../../ui/components.js';
 import { getNextTaxDeadline } from '../../utils/locale.js';
 
@@ -118,6 +119,7 @@ function getPrefForType(prefs, type) {
  */
 async function createNotification(type, title, message, opts = {}) {
   const user = await getUser();
+  if (!isUserVaultActive(user)) return false;
   const pref = getPrefForType(user?.notificationPrefs, type);
   if (!pref.enabled || pref.frequency === 'off') return false;
 
@@ -423,7 +425,7 @@ async function checkMilestonesAndArbitrage(user, allShifts, weekShifts) {
  */
 export async function checkAllNotifications() {
   const user = await getUser();
-  if (!user) return;
+  if (!user || !isUserVaultActive(user)) return;
   const now = new Date();
   const today = ymd(now);
   const weekStartDay = Math.max(0, Math.min(6, num(user?.locale?.weekStartDay, 0)));

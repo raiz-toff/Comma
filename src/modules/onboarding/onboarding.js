@@ -582,6 +582,7 @@ export async function mountOnboarding(root) {
         normalizeTaxRegionForCountry(draft);
         pruneSelectedPlatformsForRegion(draft, platformRows);
         persistSession(draft);
+        render();
       });
     }
 

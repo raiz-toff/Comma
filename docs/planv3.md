@@ -96,8 +96,13 @@ macadam/
 │   │   │   ├── CA.country.js
 │   │   │   └── index.js            ← CountryRegistry
 │   │   ├── provinces/
-│   │   │   ├── _TEMPLATE.province.js
-│   │   │   ├── ON.province.js      ← fully populated, the reference
+│   │   │   ├── CA/
+│   │   │   │   ├── _TEMPLATE.province.js
+│   │   │   │   └── ON.province.js   ← reference (Canada)
+│   │   │   ├── US/
+│   │   │   │   ├── _usStateProvince.js
+│   │   │   │   ├── AL.province.js … (one file per state + DC)
+│   │   │   │   └── …
 │   │   │   └── index.js            ← ProvinceRegistry
 │   │   ├── widgets/
 │   │   │   ├── _TEMPLATE.widget.js
@@ -931,7 +936,7 @@ online/offline events → update `store.isOnline` → header indicator reacts
    - recordRetentionYears: 6
    - filingForm: T2125
 
-4. Province file: `src/registry/provinces/ON.province.js` — fully populated:
+4. Province file: `src/registry/provinces/CA/ON.province.js` — fully populated:
    - salesTax: HST 13%, registration threshold $30k, ITC enabled, quarterly filing
    - HST quarterly due dates: Apr 30, Jul 31, Oct 31, Jan 31
    - incomeTax: federal + Ontario brackets (2025), suggestedSetAsidePct: 27

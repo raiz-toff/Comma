@@ -58,6 +58,7 @@ export const strings = {
     },
     provinces: {
       on: 'Ontario',
+      us: { state: 'State' },
     },
     onboarding: {
       title: 'Welcome to Macadam',
@@ -890,6 +891,7 @@ export const strings = {
     },
     provinces: {
       on: 'Ontario',
+      us: { state: 'État' },
     },
     onboarding: {
       title: 'Bienvenue sur Macadam',

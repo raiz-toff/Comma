@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node build.js --dev",
     "build": "node build.js --prod",
+    "rebuild:provinces": "node scripts/rebuild-province-index.js",
     "preview": "npx serve dist"
   },
   "devDependencies": {

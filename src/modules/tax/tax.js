@@ -9,6 +9,7 @@ import { formatCurrency, formatLargeNumber, formatPercent } from '../../utils/fo
 import { getAllTaxDeadlines, getLocaleConfig } from '../../utils/locale.js';
 import { getCountryTaxProfile } from '../../registry/countries/index.js';
 import { WITHHOLDING_PRESETS_CA, WITHHOLDING_PRESETS_US } from '../../registry/tax/withholding-presets.js';
+import { ProvinceRegistry } from '../../registry/provinces/index.js';
 import { t } from '../../utils/strings.js';
 import { renderProgressRing, showToast } from '../../ui/components.js';
 
@@ -67,14 +68,22 @@ function downloadTextFile(filename, text, mime) {
  * @param {ReturnType<typeof getCountryTaxProfile>} taxProfile
  */
 function buildRegionOptions(taxProfile) {
-  const map =
-    taxProfile.regionPresetType === 'CA'
-      ? WITHHOLDING_PRESETS_CA
-      : taxProfile.regionPresetType === 'US'
-        ? WITHHOLDING_PRESETS_US
-        : null;
-  if (!map) return [];
-  return Object.entries(map).map(([code, rate]) => ({ code, rate }));
+  if (taxProfile.regionPresetType === 'CA') {
+    const map = WITHHOLDING_PRESETS_CA;
+    return Object.entries(map).map(([code, rate]) => ({ code, rate }));
+  }
+  if (taxProfile.regionPresetType === 'US') {
+    const provs = ProvinceRegistry.getByCountry('US');
+    return provs
+      .map((p) => {
+        const code = p.id;
+        const rate = WITHHOLDING_PRESETS_US[code];
+        return Number.isFinite(rate) ? { code, rate } : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.code.localeCompare(b.code));
+  }
+  return [];
 }
 
 /**
@@ -89,7 +98,14 @@ function defaultRegionCode(taxProfile) {
  */
 function getTaxRatePresets(taxProfile) {
   if (taxProfile.regionPresetType === 'CA') return WITHHOLDING_PRESETS_CA;
-  if (taxProfile.regionPresetType === 'US') return WITHHOLDING_PRESETS_US;
+  if (taxProfile.regionPresetType === 'US') {
+    const out = /** @type {Record<string, number>} */ ({});
+    for (const p of ProvinceRegistry.getByCountry('US')) {
+      const v = WITHHOLDING_PRESETS_US[p.id];
+      if (Number.isFinite(v)) out[p.id] = v;
+    }
+    return out;
+  }
   return /** @type {Record<string, number>} */ ({});
 }
 

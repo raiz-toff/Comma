@@ -96,7 +96,7 @@ export function getWithholdingPresetPct(regionPresetType, regionCode) {
   return null;
 }
 
-/** Sorted US state / DC codes that have a withholding hint. */
+/** Sorted US state / DC codes that have a withholding preset (mirrors `ProvinceRegistry.getByCountry('US')` ids). */
 export function listUsWithholdingRegionCodes() {
   return Object.keys(WITHHOLDING_PRESETS_US).sort();
 }

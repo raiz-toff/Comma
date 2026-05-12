@@ -32,7 +32,7 @@ import { t } from '../../utils/strings.js';
 import { getLocaleConfig, getProvinceDef } from '../../utils/locale.js';
 import { CountryRegistry, getCountryTaxProfile } from '../../registry/countries/index.js';
 import { ProvinceRegistry } from '../../registry/provinces/index.js';
-import { getWithholdingPresetPct, listUsWithholdingRegionCodes } from '../../registry/tax/withholding-presets.js';
+import { getWithholdingPresetPct } from '../../registry/tax/withholding-presets.js';
 import { resolveAvailablePlatformIds } from '../../registry/market/resolve.js';
 import { getPlatformColor, renderPlatformBadge } from '../../ui/components.js';
 
@@ -56,6 +56,20 @@ function goalDollarsFromCents(cents, fallbackDollars) {
   return Math.round(c / 100);
 }
 
+/** Human-readable label for a province / state row (US uses region display names). */
+function subdivisionOptionLabel(p) {
+  if (String(p.countryId || '').toUpperCase() === 'US') {
+    try {
+      const dn = new Intl.DisplayNames(['en-US'], { type: 'region' });
+      return dn.of(`US-${p.id}`) || p.id;
+    } catch {
+      return p.id;
+    }
+  }
+  const def = getProvinceDef(p.id);
+  return typeof def?.labelKey === 'string' ? t(def.labelKey) : p.id;
+}
+
 /**
  * @param {Record<string, unknown>} user
  * @returns {OnboardingDraft}
@@ -72,10 +86,10 @@ export function defaultDraftFromUser(user) {
   const provs = ProvinceRegistry.getByCountry(country);
   let taxRegion = typeof u.provinceId === 'string' && u.provinceId ? String(u.provinceId).toUpperCase() : '';
   if (provs.length) {
-    if (!taxRegion || !provs.some((p) => p.id === taxRegion)) taxRegion = provs[0].id;
-  } else if (taxProf.regionPresetType === 'US') {
-    const keys = listUsWithholdingRegionCodes();
-    if (!keys.includes(taxRegion)) taxRegion = String(taxProf.defaultRegionCode || 'CA').toUpperCase();
+    const defCode = String(taxProf.defaultRegionCode || '').toUpperCase();
+    const pickDefault = () =>
+      defCode && provs.some((p) => p.id === defCode) ? defCode : provs.slice().sort((a, b) => a.id.localeCompare(b.id))[0].id;
+    if (!taxRegion || !provs.some((p) => p.id === taxRegion)) taxRegion = pickDefault();
   } else {
     taxRegion = String(taxProf.defaultRegionCode || '').toUpperCase();
   }
@@ -119,7 +133,7 @@ function whyBlock(summaryKey, bodyKey) {
 }
 
 /**
- * After `country` changes, keep `taxRegion` consistent with the next step (province list or US presets).
+ * After `country` changes, keep `taxRegion` consistent with the subdivision catalog (`ProvinceRegistry.getByCountry`).
  * @param {OnboardingDraft} draft
  */
 export function normalizeTaxRegionForCountry(draft) {
@@ -133,13 +147,6 @@ export function normalizeTaxRegionForCountry(draft) {
   if (provs.length > 1) {
     const r = String(draft.taxRegion || '').toUpperCase();
     draft.taxRegion = provs.some((p) => p.id === r) ? r : '';
-    return;
-  }
-  const tax = getCountryTaxProfile(country);
-  if (tax.regionPresetType === 'US') {
-    const keys = listUsWithholdingRegionCodes();
-    const r = String(draft.taxRegion || '').toUpperCase();
-    draft.taxRegion = keys.includes(r) ? r : '';
     return;
   }
   draft.taxRegion = String(draft.taxRegion || '').trim().toUpperCase();
@@ -212,19 +219,11 @@ export function renderStepInner(step, draft, platformRows) {
         control = `<select id="ob-region-input" class="input" data-field="taxRegion" aria-label="${esc(regionLabel)}">
           ${provs
             .map((p) => {
-              const def = getProvinceDef(p.id);
-              const lab = typeof def?.labelKey === 'string' ? t(def.labelKey) : p.id;
+              const lab = subdivisionOptionLabel(p);
               const sel = String(draft.taxRegion || '').toUpperCase() === p.id ? 'selected' : '';
               return `<option value="${esc(p.id)}" ${sel}>${esc(lab)}</option>`;
             })
             .join('')}
-        </select>`;
-      } else if (tax.regionPresetType === 'US') {
-        const keys = listUsWithholdingRegionCodes();
-        const cur = String(draft.taxRegion || '').toUpperCase();
-        control = `<select id="ob-region-input" class="input" data-field="taxRegion" aria-label="${esc(regionLabel)}">
-          <option value="">${esc(t('onboarding.steps.taxRegionPlaceholder'))}</option>
-          ${keys.map((k) => `<option value="${esc(k)}" ${cur === k ? 'selected' : ''}>${esc(k)}</option>`).join('')}
         </select>`;
       } else {
         control = `
@@ -439,12 +438,6 @@ export function validateStep(step, draft, platformRows = []) {
       if (provs.length) {
         const r = String(draft.taxRegion || '').toUpperCase();
         return provs.some((p) => p.id === r) ? null : 'onboarding.validation.region';
-      }
-      const tax = getCountryTaxProfile(country);
-      if (tax.regionPresetType === 'US') {
-        const keys = listUsWithholdingRegionCodes();
-        const r = String(draft.taxRegion || '').toUpperCase();
-        return keys.includes(r) ? null : 'onboarding.validation.region';
       }
       return null;
     }

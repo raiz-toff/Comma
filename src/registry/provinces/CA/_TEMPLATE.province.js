@@ -1,6 +1,6 @@
 /**
- * Template for a province/territory definition (plan F9).
- * Copy to `{CODE}.province.js` and register in `index.js`.
+ * Template for a Canadian province / territory (plan F9).
+ * Copy to `CA/{CODE}.province.js`, then register in `../index.js`.
  */
 export default {
   id: 'XX',

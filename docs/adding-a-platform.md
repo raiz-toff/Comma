@@ -12,7 +12,7 @@ For broader registry philosophy, see [`Registry_arch.md`](Registry_arch.md) in t
 2. Fill **required** fields and optional sections (`specificSchema`, `alertChecks`, etc.).
 3. Add or reuse a **logo** SVG in [`src/registry/platforms/_logos.js`](../src/registry/platforms/_logos.js).
 4. Register the module in [`src/registry/platforms/index.js`](../src/registry/platforms/index.js): `import` + entry in the `PLATFORMS` array (**keep `other` last**).
-5. If the platform should appear for a **province-first** market (e.g. Ontario), add its `id` to that province’s `availablePlatforms` (e.g. [`src/registry/provinces/ON.province.js`](../src/registry/provinces/ON.province.js)).
+5. If the platform should appear for a **province-first** market (e.g. Ontario), add its `id` to that province’s `availablePlatforms` (e.g. [`src/registry/provinces/CA/ON.province.js`](../src/registry/provinces/CA/ON.province.js)).
 6. Run `node build.js --prod` and fix any validation issues reported at startup (`assertPlatformRegistryValid` in `main.js`).
 
 ---
@@ -120,7 +120,7 @@ const PLATFORMS = [
 
 ## Province / market availability
 
-Ontario (and other provinces) expose **`availablePlatforms`**: an array of platform **`id`** strings. If your platform operates in that market, append its `id` there (e.g. [`ON.province.js`](../src/registry/provinces/ON.province.js) `availablePlatforms`).
+Ontario (and other provinces) expose **`availablePlatforms`**: an array of platform **`id`** strings. If your platform operates in that market, append its `id` there (e.g. [`CA/ON.province.js`](../src/registry/provinces/CA/ON.province.js) `availablePlatforms`).
 
 If you skip this step, the catalog still loads, but onboarding and province-driven UX may not surface the platform where you expect.
 
@@ -170,7 +170,7 @@ Base terminology comes from the platform definition. Active rows in IndexedDB `p
 | Typedefs | `src/registry/types.js` (`PlatformCatalogEntry`) |
 | Terminology merge | `src/registry/platforms/terminology.js` |
 | Shift form extras | `src/modules/shifts/shift-form.js` (reads `specificSchema`) |
-| Ontario market list | `src/registry/provinces/ON.province.js` |
+| Ontario market list | `src/registry/provinces/CA/ON.province.js` |
 
 If you add a new **analytics module** name, you must implement the corresponding checks in analytics (or leave the flag `false` until you do).
 

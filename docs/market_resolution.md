@@ -5,7 +5,8 @@ Single narrative for **country-first, province-override** market data, shared ta
 **Code entrypoints**
 
 - [`src/registry/market/resolve.js`](../src/registry/market/resolve.js) — `getMarketContext`, `resolveAvailablePlatformIds`.
-- [`src/registry/tax/withholding-presets.js`](../src/registry/tax/withholding-presets.js) — `WITHHOLDING_PRESETS_CA` / `WITHHOLDING_PRESETS_US`, `getWithholdingPresetPct`, `listUsWithholdingRegionCodes`.
+- [`src/registry/tax/withholding-presets.js`](../src/registry/tax/withholding-presets.js) — `WITHHOLDING_PRESETS_CA` / `WITHHOLDING_PRESETS_US`, `getWithholdingPresetPct`, `listUsWithholdingRegionCodes` (US ids mirror `ProvinceRegistry.getByCountry('US')`).
+- [`src/registry/provinces/`](../src/registry/provinces/) — `ProvinceRegistry`: **`{ISO}/*.province.js`** (one folder per two-letter country: `CA/`, `US/`, `UK/`, …). Run **`npm run rebuild:provinces`** to refresh [`index.js`](../src/registry/provinces/index.js) from those folders. US states default through [`US/_usStateProvince.js`](../src/registry/provinces/US/_usStateProvince.js); keep [`withholding-presets.js`](../src/registry/tax/withholding-presets.js) `WITHHOLDING_PRESETS_US` in sync when adding a US code.
 - **`store.marketContext`** — same shape as `getMarketContext(...)` after each user sync (see [`store.js`](../src/core/store.js)).
 
 ---
@@ -48,6 +49,7 @@ Platform ids stay **lowercase** end-to-end (Dexie seeds, defs, resolvers).
 | Source | Rule |
 |--------|------|
 | Maps | Only [`withholding-presets.js`](../src/registry/tax/withholding-presets.js) — do not duplicate in modules. |
+| **Subdivisions** | One `*.province.js` per region under [`provinces/{ISO}/`](../src/registry/provinces/) (see [`CA/ON`](../src/registry/provinces/CA/ON.province.js), [`US/`](../src/registry/provinces/US/) + [`_usStateProvince.js`](../src/registry/provinces/US/_usStateProvince.js)). Refresh [`index.js`](../src/registry/provinces/index.js) with **`npm run rebuild:provinces`**. US: also add `WITHHOLDING_PRESETS_US` when withholding applies. |
 | Selector | Country `tax.regionPresetType` is `'CA'`, `'US'`, or `null` (UK has no map). |
 | Fallback | US unknown code uses `tax.defaultWithholdingPct`; CA unknown should not occur if region matches catalog. |
 
@@ -84,7 +86,7 @@ Canonical conversion helpers live next to the modules that own the forms (shift 
 | Field | `DEFAULT_USER` ([`db.js`](../src/core/db.js)) | Registry / product intent |
 |-------|-----------------------------------------------|----------------------------|
 | `countryId` / `locale.country` | `CA` | Matches [`CA.country.js`](../src/registry/countries/CA.country.js). |
-| `provinceId` | `ON` | Matches [`ON.province.js`](../src/registry/provinces/ON.province.js) as default catalog market. |
+| `provinceId` | `ON` | Matches [`CA/ON.province.js`](../src/registry/provinces/CA/ON.province.js) as default catalog market. |
 | `taxWithholdingPct` | `29` | Matches **`WITHHOLDING_PRESETS_CA.ON`** in [`withholding-presets.js`](../src/registry/tax/withholding-presets.js) (not `tax.defaultWithholdingPct` 28 — preset row is the seed for set-aside UI). |
 
 Logical migration **schema 1** backfills `countryId` / `provinceId`; non-CA users must not receive **`ON`** as `provinceId` when absent — use **`''`** except Canada → **`ON`**.

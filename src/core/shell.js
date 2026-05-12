@@ -2,13 +2,13 @@
  * App shell markup inside `#app` (F5): header, sidebar, main + view container, timer bar, toast + modal hosts.
  */
 
-import { getAppState } from './db.js';
 import { getIcon } from '../ui/icons.js';
 import { t } from '../utils/strings.js';
 import { store } from './store.js';
 import { initFAB, showDrawer, showModal, showToast } from '../ui/components.js';
 import { mountPlatformSwitcher } from '../modules/platforms/platforms.js';
 import { openGlobalSearchOverlay } from '../modules/search/search.js';
+import { exitDemoToOnboardingStart } from '../modules/onboarding/onboarding.js';
 import { renderShiftForm } from '../modules/shifts/shift-form.js';
 import { restoreShiftTimerFromLocalStorage, saveShift, stopShiftTimer, startShiftTimer } from '../modules/shifts/shifts.js';
 
@@ -70,6 +70,33 @@ function bindOfflineIndicator() {
 /**
  * @param {HTMLElement} root `#app`
  */
+function bindDemoModeBar(root) {
+  const bar = root.querySelector('#demo-mode-bar');
+  if (!bar) return;
+
+  const apply = (isDemo) => {
+    const on = Boolean(isDemo);
+    bar.hidden = !on;
+    if (on) bar.removeAttribute('hidden');
+    else bar.setAttribute('hidden', '');
+  };
+  apply(store.get('demoMode'));
+  store.subscribe('demoMode', (v) => apply(v));
+
+  bar.querySelector('[data-exit-demo]')?.addEventListener('click', async () => {
+    try {
+      await exitDemoToOnboardingStart();
+      showToast({ type: 'success', message: t('app.exitDemoToast'), duration: 4500 });
+    } catch (e) {
+      console.error('[macadam shell] exit demo failed', e);
+      showToast({ type: 'error', message: t('errors.generic'), duration: 2800 });
+    }
+  });
+}
+
+/**
+ * @param {HTMLElement} root `#app`
+ */
 export async function renderAppShell(root) {
   if (clockTimer) clearInterval(clockTimer);
   if (shiftTimerInterval) clearInterval(shiftTimerInterval);
@@ -80,7 +107,20 @@ export async function renderAppShell(root) {
   root.innerHTML = `
     <a href="#view-container" class="skip-link" data-skip-link>${escapeHtml(t('app.skipToContent'))}</a>
     <div class="app-shell">
-      <header class="app-header" role="banner" aria-label="${escapeAttr(t('app.headerAria'))}">
+      <div class="app-shell-chrome">
+        <div
+          id="demo-mode-bar"
+          class="demo-mode-bar"
+          role="status"
+          aria-live="polite"
+          hidden
+        >
+          <span class="demo-mode-bar-text">${escapeHtml(t('app.demoModeBanner'))}</span>
+          <button type="button" class="btn btn-sm demo-mode-bar-exit" data-exit-demo>
+            ${escapeHtml(t('app.exitDemo'))}
+          </button>
+        </div>
+        <header class="app-header" role="banner" aria-label="${escapeAttr(t('app.headerAria'))}">
         <div class="app-header-avatar" aria-hidden="true">${initials}</div>
         <div id="platform-tabs-slot" class="platform-tabs app-header-platforms" aria-label="${escapeAttr(t('platforms.switcher'))}"></div>
         <div class="app-header-spacer"></div>
@@ -92,7 +132,8 @@ export async function renderAppShell(root) {
         <a href="#/settings" class="app-header-settings" data-nav-route="#/settings" aria-label="${escapeAttr(t('app.navSettings'))}">
           ${getIcon('settings', 22, 'header-settings-icon')}
         </a>
-      </header>
+        </header>
+      </div>
       <div class="app-body">
         <nav class="app-sidebar" aria-label="${escapeAttr(t('app.navAria'))}">
           ${navLink('#/dashboard', 'home', 'app.navDashboard')}
@@ -141,6 +182,7 @@ export async function renderAppShell(root) {
   }
 
   bindOfflineIndicator();
+  bindDemoModeBar(root);
   root.querySelector('[data-open-global-search]')?.addEventListener('click', () => {
     void openGlobalSearchOverlay();
   });

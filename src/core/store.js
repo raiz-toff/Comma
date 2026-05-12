@@ -51,6 +51,7 @@ const STATE_KEYS = [
   'isOnline',
   'pendingBadgeUnlock',
   'lastRoute',
+  'demoMode',
 ];
 
 /** @type {Record<string, unknown>} */
@@ -72,6 +73,7 @@ const state = {
   isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
   pendingBadgeUnlock: null,
   lastRoute: null,
+  demoMode: false,
 };
 
 /** @type {Map<string, Set<(v: unknown, old: unknown) => void>>} */
@@ -422,6 +424,11 @@ export const store = {
           this.set('currentWeekEarnings', e);
           break;
         }
+        case 'demoMode': {
+          const raw = await getAppState('demo_mode');
+          this.set('demoMode', raw === true);
+          break;
+        }
         case 'theme': {
           const u = await getUser();
           const th = u?.theme && ALLOWED_THEMES.has(u.theme) ? u.theme : 'auto';
@@ -446,15 +453,18 @@ export const store = {
       streakRaw,
       xpTotalRaw,
       xpLevelRaw,
+      demoRaw,
     ] = await Promise.all([
       loadActivePlatforms(),
       getAppState('active_shift_start'),
       getAppState('streak_count'),
       getAppState('xp_total'),
       getAppState('xp_level'),
+      getAppState('demo_mode'),
     ]);
 
     this.set('platforms', platforms);
+    this.set('demoMode', demoRaw === true);
     this.set('activeShiftTimer', normalizeActiveShiftTimer(activeRaw));
     this.set('streakDays', num(streakRaw, 0));
     this.set('xpTotal', num(xpTotalRaw, 0));
@@ -500,7 +510,12 @@ function wireStoreToBus() {
 
   bus.on(SHIFT_SAVED, () => schedule(() => store.refresh('currentWeekEarnings')));
   bus.on(SHIFT_DELETED, () => schedule(() => store.refresh('currentWeekEarnings')));
-  bus.on(GOAL_UPDATED, () => schedule(() => store.refresh('currentWeekGoal')));
+  bus.on(GOAL_UPDATED, () =>
+    schedule(async () => {
+      await store.refresh('currentWeekGoal');
+      await store.refresh('demoMode');
+    }),
+  );
   bus.on(PLATFORM_CHANGED, () => schedule(() => store.refresh('platforms')));
   bus.on(SHIFT_TIMER_START, () => schedule(() => store.refresh('activeShiftTimer')));
   bus.on(SHIFT_TIMER_STOP, () => schedule(() => store.refresh('activeShiftTimer')));

@@ -34,6 +34,9 @@ export const strings = {
       headerAria: 'App header',
       navAria: 'Main navigation',
       skipToContent: 'Skip to main content',
+      demoModeBanner: 'Demo mode — 2025 sample shifts and expenses (three platforms), not your real data.',
+      exitDemo: 'Exit demo',
+      exitDemoToast: 'Demo ended. Sample shifts were removed — finish setup from the beginning to use Macadam with your own data.',
     },
     common: {
       save: 'Save',
@@ -78,7 +81,7 @@ export const strings = {
         'Onboarding step copy is finalized in Phase 2 (orchestrator + steps.js). Keys exist so `t()` stays stable.',
       tryDemo: 'Try demo first',
       demoEnabled:
-        'Demo vault opened — two weeks of sample shifts are in your log. Explore the app; adjust anything later in Settings.',
+        'Demo vault opened — 2025 sample year: three platforms, weekday shifts, and expenses. Explore the app; adjust anything later in Settings.',
       resumeTitle: 'Continue setup?',
       resumeMessage: 'You started onboarding earlier this session. Continue where you left off, or start over.',
       resumeContinue: 'Continue',
@@ -235,7 +238,10 @@ export const strings = {
         secondVehicle: 'Fill in the second vehicle or turn off “add another”.',
         tax: 'Enter a withholding percentage between 0 and 80.',
       },
-      sample: { load: 'Load two weeks of sample shifts', loaded: 'Sample shifts added — marked as placeholders.' },
+      sample: {
+        load: 'Load a full 2025 demo year (shifts + expenses, three platforms)',
+        loaded: '2025 demo data added — shifts are placeholders; expenses are tagged in notes.',
+      },
     },
     shifts: {
       addShift: 'Add shift',
@@ -867,6 +873,11 @@ export const strings = {
       headerAria: 'En-tête de l’app',
       navAria: 'Navigation principale',
       skipToContent: 'Passer au contenu principal',
+      demoModeBanner:
+        'Mode démo — quarts et dépenses fictifs pour 2025 (trois plateformes), pas vos vraies données.',
+      exitDemo: 'Quitter la démo',
+      exitDemoToast:
+        'Fin de la démo. Les quarts fictifs ont été supprimés — terminez la configuration depuis le début pour utiliser Macadam avec vos données.',
     },
     common: {
       save: 'Enregistrer',
@@ -911,7 +922,7 @@ export const strings = {
         'Le texte détaillé de l’accueil arrive en phase 2 (orchestrateur + steps.js). Les clés restent stables pour `t()`.',
       tryDemo: 'Essayer la démo',
       demoEnabled:
-        'Coffre démo ouvert — deux semaines de quarts fictifs sont ajoutés. Explorez l’app ; modifiez tout cela plus tard dans Paramètres.',
+        'Coffre démo ouvert — année 2025 fictive : trois plateformes, quarts en semaine et dépenses. Explorez l’app ; modifiez tout cela plus tard dans Paramètres.',
       resumeTitle: 'Poursuivre la configuration ?',
       resumeMessage: 'Une configuration est déjà en cours pour cette session. Reprendre ou recommencer.',
       resumeContinue: 'Continuer',
@@ -1068,7 +1079,10 @@ export const strings = {
         secondVehicle: 'Remplissez le 2e véhicule ou décochez l’option.',
         tax: 'Indiquez un pourcentage entre 0 et 80.',
       },
-      sample: { load: 'Charger deux semaines d’exemple', loaded: 'Quarts d’exemple ajoutés (marqueurs).' },
+      sample: {
+        load: 'Charger une année démo 2025 (quarts + dépenses, trois plateformes)',
+        loaded: 'Données démo 2025 ajoutées — quarts fictifs ; dépenses repérées dans les notes.',
+      },
     },
     shifts: {
       addShift: 'Ajouter un quart',

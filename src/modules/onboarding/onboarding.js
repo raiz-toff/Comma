@@ -4,7 +4,7 @@
 
 import { db, saveUser, getUser, getAppState, setAppState } from '../../core/db.js';
 import { store } from '../../core/store.js';
-import { Router } from '../../core/router.js';
+import { Router, updateOnboardingFocusClass } from '../../core/router.js';
 import {
   bus,
   ONBOARDING_COMPLETE,
@@ -35,6 +35,16 @@ import {
 export const ONBOARDING_SESSION_KEY = 'macadam_onboarding_session_v3';
 
 const SAMPLE_NOTE = '[Macadam sample data]';
+
+/** Demo vault: three catalog platforms (Dexie seed always includes these ids). */
+const DEMO_SAMPLE_PLATFORM_IDS = ['doordash', 'ubereats', 'instacart'];
+
+function ymdFromDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 function nowIso() {
   return new Date().toISOString();
@@ -134,70 +144,151 @@ function downloadJson(filename, obj) {
 }
 
 /**
- * Insert two weeks of sample shifts (Feature 262). Watermarked via `isPlaceholder` + notes.
+ * Demo vault: three active platforms, weekday earnings across calendar 2025, and sample expenses (watermarked).
  */
 export async function loadSampleData() {
   const user = await getUser();
-  const platformId =
-    (Array.isArray(user?.platforms) && user.platforms[0]) ||
-    (await db.platforms.filter((p) => p.active).first())?.id ||
-    getDefaultSamplePlatformId();
   const countryId = typeof user?.countryId === 'string' && user.countryId ? String(user.countryId).toUpperCase() : 'CA';
   const pList = ProvinceRegistry.getByCountry(countryId);
   const sampleProvinceId =
     (typeof user?.provinceId === 'string' && user.provinceId.trim() && String(user.provinceId).toUpperCase()) ||
     (pList[0]?.id ?? 'ON');
+
+  await activatePlatformSet(DEMO_SAMPLE_PLATFORM_IDS, 'sample');
+
   const t0 = nowIso();
-  const rows = [];
-  for (let d = 0; d < 14; d += 1) {
-    const dt = new Date();
-    dt.setDate(dt.getDate() - d);
-    const y = dt.getFullYear();
-    const m = String(dt.getMonth() + 1).padStart(2, '0');
-    const day = String(dt.getDate()).padStart(2, '0');
-    const dateStr = `${y}-${m}-${day}`;
-    rows.push({
-      platformId,
-      date: dateStr,
-      startTime: '11:00',
-      endTime: '15:00',
-      durationMinutes: 240,
-      grossEarnings: Math.round((80 + d * 3) * 100),
-      tips: Math.round(12 * 100),
-      bonusEarnings: Math.round(5 * 100),
-      deliveryCount: 8 + (d % 4),
-      distanceKm: 40 + d,
-      deadMilesKm: 0,
-      provinceId: sampleProvinceId,
-      onlineMinutes: 250,
-      activeMinutes: 200,
-      vehicleId: null,
-      weather: 'Clear',
-      mood: '🙂',
-      notes: SAMPLE_NOTE,
-      isTemplate: false,
-      templateName: null,
-      isPlaceholder: true,
-      isMultiApp: false,
-      multiAppSplit: {},
-      deletedAt: null,
-      createdAt: t0,
-      updatedAt: t0,
-    });
+  const shiftRows = [];
+  const expenseRows = [];
+  let weekdayShiftCount = 0;
+  const start2025 = new Date(2025, 0, 1, 12, 0, 0, 0);
+
+  for (let d = new Date(2025, 0, 1, 12, 0, 0, 0); d.getFullYear() === 2025; d.setDate(d.getDate() + 1)) {
+    const dow = d.getDay();
+    const dateStr = ymdFromDate(d);
+    const dayOfYear = Math.round((d.getTime() - start2025.getTime()) / 86400000);
+
+    if (dow >= 1 && dow <= 5) {
+      const platformId = DEMO_SAMPLE_PLATFORM_IDS[weekdayShiftCount % 3];
+      const seed = weekdayShiftCount * 13 + dow;
+      const grossDollars = 68 + (seed % 42) + (weekdayShiftCount % 3) * 5.5;
+      const tipsDollars = 9 + (seed % 8) + (weekdayShiftCount % 4) * 1.25;
+      shiftRows.push({
+        platformId,
+        date: dateStr,
+        startTime: '10:30',
+        endTime: '15:00',
+        durationMinutes: 240 + (seed % 90),
+        grossEarnings: Math.round(grossDollars * 100),
+        tips: Math.round(tipsDollars * 100),
+        bonusEarnings: Math.round((3 + (seed % 5)) * 100),
+        deliveryCount: 6 + (seed % 7),
+        distanceKm: 28 + (seed % 55),
+        deadMilesKm: seed % 4,
+        provinceId: sampleProvinceId,
+        onlineMinutes: 220 + (seed % 80),
+        activeMinutes: 170 + (seed % 70),
+        vehicleId: null,
+        weather: seed % 3 === 0 ? 'Rain' : seed % 3 === 1 ? 'Cloudy' : 'Clear',
+        mood: '🙂',
+        notes: SAMPLE_NOTE,
+        isTemplate: false,
+        templateName: null,
+        isPlaceholder: true,
+        isMultiApp: false,
+        multiAppSplit: {},
+        deletedAt: null,
+        createdAt: t0,
+        updatedAt: t0,
+      });
+      weekdayShiftCount += 1;
+    }
+
+    if (dow === 1) {
+      expenseRows.push({
+        category: 'fuel',
+        customCategory: '',
+        amount: Math.round(3200 + (dayOfYear % 38) * 95),
+        businessPct: 100,
+        date: dateStr,
+        provinceId: sampleProvinceId,
+        platformId: DEMO_SAMPLE_PLATFORM_IDS[dayOfYear % 3],
+        notes: `${SAMPLE_NOTE} Demo fuel.`,
+        receiptData: null,
+        isRecurring: false,
+        recurringInterval: null,
+        recurringNextDate: null,
+        hstPaid: 0,
+        confirmedPaid: true,
+        deletedAt: null,
+        createdAt: t0,
+        updatedAt: t0,
+        source: 'manual',
+        shiftId: null,
+      });
+    } else if (dow === 3) {
+      const cats = ['parking', 'phone', 'supplies', 'meals'];
+      const cat = cats[(dayOfYear >> 1) % 4];
+      const baseByCat = { parking: 1400, phone: 8999, supplies: 2899, meals: 2199 };
+      const base = baseByCat[cat] ?? 1500;
+      expenseRows.push({
+        category: cat,
+        customCategory: '',
+        amount: Math.round(base + (dayOfYear % 17) * 55),
+        businessPct: cat === 'meals' ? 50 : 100,
+        date: dateStr,
+        provinceId: sampleProvinceId,
+        platformId: DEMO_SAMPLE_PLATFORM_IDS[(dayOfYear + 1) % 3],
+        notes: `${SAMPLE_NOTE} Demo ${cat}.`,
+        receiptData: null,
+        isRecurring: false,
+        recurringInterval: null,
+        recurringNextDate: null,
+        hstPaid: 0,
+        confirmedPaid: true,
+        deletedAt: null,
+        createdAt: t0,
+        updatedAt: t0,
+        source: 'manual',
+        shiftId: null,
+      });
+    }
   }
-  await db.shifts.bulkAdd(rows);
+
+  await db.shifts.bulkAdd(shiftRows);
+  await db.expenses.bulkAdd(expenseRows);
   await setAppState('demo_mode', true);
   bus.emit(GOAL_UPDATED, { source: 'sample' });
 }
 
-/** Remove sample shifts created by `loadSampleData`. */
+/** Remove sample shifts and expenses created by `loadSampleData`. */
 export async function clearSampleData() {
   const all = await db.shifts.filter((s) => s.isPlaceholder === true || (typeof s.notes === 'string' && s.notes.includes(SAMPLE_NOTE))).toArray();
   for (const s of all) {
     if (s.id != null) await db.shifts.delete(s.id);
   }
+  const demoExpenses = await db.expenses
+    .filter((e) => typeof e.notes === 'string' && e.notes.includes(SAMPLE_NOTE))
+    .toArray();
+  for (const e of demoExpenses) {
+    if (e.id != null) await db.expenses.delete(e.id);
+  }
   await setAppState('demo_mode', false);
   bus.emit(GOAL_UPDATED, { source: 'sample_clear' });
+}
+
+/**
+ * Leave demo: remove sample shifts, discard onboarding session progress, mark setup incomplete, go to step 1.
+ */
+export async function exitDemoToOnboardingStart() {
+  await clearSampleData();
+  clearSession();
+  await saveUser({ onboardingComplete: false, onboardingStep: 0 });
+  await store.refresh('user');
+  await store.refresh('demoMode');
+  await store.refresh('currentWeekEarnings');
+  await store.refresh('currentWeekGoal');
+  updateOnboardingFocusClass(true);
+  Router.navigate('#/onboarding');
 }
 
 /**
@@ -235,11 +326,12 @@ export async function resetVault(opts = {}) {
 }
 
 /**
- * @param {OnboardingDraft} draft
+ * @param {string[]} platformIds ordered; all others deactivated.
+ * @param {string} [busSource]
  */
-async function applyPlatformsFromDraft(draft) {
+async function activatePlatformSet(platformIds, busSource = 'onboarding') {
   const ts = nowIso();
-  const ids = new Set(draft.selectedPlatforms);
+  const ids = new Set(platformIds);
   const all = await db.platforms.toArray();
   for (const p of all) {
     const active = ids.has(p.id);
@@ -248,13 +340,20 @@ async function applyPlatformsFromDraft(draft) {
       deactivatedAt: active ? null : p.deactivatedAt || ts,
     });
   }
-  const primary = draft.selectedPlatforms[0] || null;
+  const primary = platformIds[0] || null;
   await saveUser({
-    platforms: [...draft.selectedPlatforms],
+    platforms: [...platformIds],
     primaryPlatform: primary,
   });
   await store.refresh('platforms');
-  bus.emit(PLATFORM_CHANGED, { source: 'onboarding' });
+  bus.emit(PLATFORM_CHANGED, { source: busSource });
+}
+
+/**
+ * @param {OnboardingDraft} draft
+ */
+async function applyPlatformsFromDraft(draft) {
+  await activatePlatformSet(draft.selectedPlatforms, 'onboarding');
 }
 
 /**

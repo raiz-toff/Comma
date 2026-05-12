@@ -161,7 +161,7 @@ function renderOnboardingLanding() {
             <p class="onboarding-landing-card-body">${esc(t('onboarding.landing.featVaultBody'))}</p>
           </li>
           <li class="onboarding-landing-card card card-raised">
-            <span class="onboarding-landing-card-icon" aria-hidden="true">${landingIcon('clock', 24)}</span>
+            <span class="onboarding-landing-card-icon" aria-hidden="true">${landingIcon('calendar', 24)}</span>
             <h3 class="onboarding-landing-card-title">${esc(t('onboarding.landing.featShiftsTitle'))}</h3>
             <p class="onboarding-landing-card-body">${esc(t('onboarding.landing.featShiftsBody'))}</p>
           </li>

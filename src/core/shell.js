@@ -136,9 +136,9 @@ export async function renderAppShell(root) {
       <div class="app-body">
         <nav class="app-sidebar" aria-label="${escapeAttr(t('app.navAria'))}">
           ${navLink('#/dashboard', 'home', 'app.navDashboard')}
-          ${navLink('#/shifts', 'clock', 'app.navShifts')}
+          ${navLink('#/shifts', 'calendar', 'app.navShifts')}
           ${navLink('#/analytics', 'trending-up', 'app.navAnalytics')}
-          ${navLink('#/tax', 'percent', 'app.navTax')}
+          ${navLink('#/tax', 'tax', 'app.navTax')}
           ${navLink('#/vehicles', 'truck', 'app.navVehicles')}
           ${navLink('#/schedule', 'calendar', 'app.navSchedule')}
           ${navLink('#/goals', 'trophy', 'app.navGoals')}
@@ -154,7 +154,7 @@ export async function renderAppShell(root) {
       </div>
       <nav class="bottom-nav" aria-label="${escapeAttr(t('app.navAria'))}">
         ${bottomNavButton('#/dashboard', 'home', 'app.navDashboard')}
-        ${bottomNavButton('#/shifts', 'clock', 'app.navShifts')}
+        ${bottomNavButton('#/shifts', 'calendar', 'app.navShifts')}
         ${bottomNavButton('#/analytics', 'trending-up', 'app.navAnalytics')}
         ${bottomNavButton('#/goals', 'trophy', 'app.navGoals')}
         ${bottomNavButton('#/settings', 'settings', 'app.navSettings')}

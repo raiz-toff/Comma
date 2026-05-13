@@ -153,6 +153,69 @@ function mergeOptions(a, b) {
   return out;
 }
 
+/**
+ * Chart.js canvas cannot paint CSS `var()` / `color-mix()` strings — resolve to computed RGB(A).
+ * @param {unknown} value
+ * @param {string} fallback
+ * @param {'fill' | 'stroke'} kind
+ */
+function resolveCssPaintForCanvas(value, fallback, kind) {
+  if (typeof document === 'undefined') return fallback;
+  if (value == null) return fallback;
+  if (Array.isArray(value)) {
+    return value.map((v) => resolveCssPaintForCanvas(v, fallback, kind));
+  }
+  const s = String(value).trim();
+  if (!s) return fallback;
+  const lower = s.toLowerCase();
+  if (!lower.includes('var(') && !lower.includes('color-mix(')) return s;
+
+  const probe = document.createElement('div');
+  probe.setAttribute('data-macadam-chart-color-probe', '');
+  probe.style.cssText =
+    'position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;';
+  if (kind === 'stroke') {
+    probe.style.border = '2px solid';
+    probe.style.setProperty('border-color', s, 'important');
+  } else {
+    probe.style.backgroundColor = s;
+  }
+  document.documentElement.appendChild(probe);
+  const cs = getComputedStyle(probe);
+  const resolved = kind === 'stroke' ? cs.borderColor : cs.backgroundColor;
+  probe.remove();
+  if (!resolved || resolved === 'rgba(0, 0, 0, 0)' || resolved === 'transparent') return fallback;
+  return resolved;
+}
+
+/**
+ * @param {unknown} dataset
+ */
+function resolveDatasetColors(dataset) {
+  if (!dataset || typeof dataset !== 'object') return dataset;
+  const d = /** @type {Record<string, unknown>} */ ({ ...dataset });
+  const fillFb = '#94a3b8';
+  const strokeFb = '#64748b';
+  if ('backgroundColor' in d && d.backgroundColor != null) {
+    d.backgroundColor = resolveCssPaintForCanvas(d.backgroundColor, fillFb, 'fill');
+  }
+  if ('borderColor' in d && d.borderColor != null) {
+    d.borderColor = resolveCssPaintForCanvas(d.borderColor, strokeFb, 'stroke');
+  }
+  return d;
+}
+
+/**
+ * @param {any} data Chart.js data object
+ */
+function resolveChartDataColors(data) {
+  if (!data || !Array.isArray(data.datasets)) return data;
+  return {
+    ...data,
+    datasets: data.datasets.map((ds) => resolveDatasetColors(ds)),
+  };
+}
+
 function baseOptions() {
   return {
     responsive: true,
@@ -181,9 +244,10 @@ function instantiate(canvas, type, cfg) {
   ensureDefaults();
   destroyChart(canvas);
   const options = mergeOptions(baseOptions(), cfg.options || {});
+  const data = resolveChartDataColors(cfg.data);
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
-  const instance = new Chart(ctx, { type, data: cfg.data, options });
+  const instance = new Chart(ctx, { type, data, options });
   instanceByCanvas.set(canvas, instance);
   return instance;
 }

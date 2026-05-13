@@ -405,8 +405,33 @@ samp {
     display: flex;
   }
 
+  /*
+   * Lock the shell to the viewport so only `.app-main` scrolls.
+   * Without this, the document grows and the sidebar scrolls away with the page.
+   */
+  body {
+    overflow: hidden;
+    height: 100dvh;
+  }
+
+  #app {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .app-shell {
+    overflow: hidden;
+  }
+
+  .app-body {
+    overflow: hidden;
+  }
+
   .app-main {
+    min-height: 0;
     padding-bottom: var(--space-8);
+    overscroll-behavior-y: contain;
   }
 
   .bento-grid {

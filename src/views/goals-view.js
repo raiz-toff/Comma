@@ -27,24 +27,24 @@ export async function render(root, ctx) {
 
       <section class="bento-grid" style="margin-top: var(--space-4);">
         <article class="card stat-card bento-cell-1x1">
-          <p>${esc(t('goals.xp'))}</p>
-          <strong>${esc(formatLargeNumber(data.xpTotal))}</strong>
-          <small>${esc(t('goals.level'))} ${esc(formatLargeNumber(data.xpLevel))}</small>
+          <span class="stat-label">${esc(t('goals.xp'))}</span>
+          <span class="stat-value">${esc(formatLargeNumber(data.xpTotal))}</span>
+          <span class="stat-meta">${esc(t('goals.level'))} ${esc(formatLargeNumber(data.xpLevel))}</span>
         </article>
         <article class="card stat-card bento-cell-1x1">
-          <p>${esc(t('goals.streakDays'))}</p>
-          <strong>${esc(formatLargeNumber(data.streakDays))}</strong>
-          <small>${esc(t('goals.weeksHit'))}: ${esc(formatLargeNumber(data.weekGoalStreak))}</small>
+          <span class="stat-label">${esc(t('goals.streakDays'))}</span>
+          <span class="stat-value">${esc(formatLargeNumber(data.streakDays))}</span>
+          <span class="stat-meta">${esc(t('goals.weeksHit'))}: ${esc(formatLargeNumber(data.weekGoalStreak))}</span>
         </article>
         <article class="card stat-card bento-cell-1x1">
-          <p>${esc(t('goals.badges'))}</p>
-          <strong>${esc(formatLargeNumber(unlockedBadges.length))}</strong>
-          <small>${esc(t('goals.of'))} ${esc(formatLargeNumber(data.badges.length))}</small>
+          <span class="stat-label">${esc(t('goals.badges'))}</span>
+          <span class="stat-value">${esc(formatLargeNumber(unlockedBadges.length))}</span>
+          <span class="stat-meta">${esc(t('goals.of'))} ${esc(formatLargeNumber(data.badges.length))}</span>
         </article>
         <article class="card stat-card bento-cell-1x1">
-          <p>${esc(t('goals.thermometer'))}</p>
-          <strong>${esc(formatPercent(data.thermometer.progress * 100, 0))}</strong>
-          <small>${esc(formatCurrency(data.thermometer.current))}</small>
+          <span class="stat-label">${esc(t('goals.thermometer'))}</span>
+          <span class="stat-value">${esc(formatPercent(data.thermometer.progress * 100, 0))}</span>
+          <span class="stat-meta">${esc(formatCurrency(data.thermometer.current))}</span>
         </article>
       </section>
 

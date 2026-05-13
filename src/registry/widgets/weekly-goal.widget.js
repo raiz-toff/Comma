@@ -14,7 +14,7 @@ export default {
     const v = Number(c?.data?.weeklyProjection) || 0;
     const country = String(c?.data?.localeCountry || 'US');
     const currency = String(c?.data?.currency || 'USD');
-    return `<p>${esc(t('analytics.projection'))}</p><strong>${esc(formatCurrency(v, country, { currency }))}</strong>`;
+    return `<span class="stat-label">${esc(t('analytics.projection'))}</span><span class="stat-value">${esc(formatCurrency(v, country, { currency }))}</span>`;
   },
   afterRender: (_el, _ctx) => {},
   destroy: (_el) => {},

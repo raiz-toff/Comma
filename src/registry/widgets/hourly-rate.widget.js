@@ -14,7 +14,7 @@ export default {
     const rate = Number(c?.data?.annual?.hourlyRate) || 0;
     const country = String(c?.data?.localeCountry || 'US');
     const currency = String(c?.data?.currency || 'USD');
-    return `<p>${esc(t('analytics.hourlyRate'))}</p><strong>${esc(formatCurrency(rate, country, { currency }))}</strong>`;
+    return `<span class="stat-label">${esc(t('analytics.hourlyRate'))}</span><span class="stat-value">${esc(formatCurrency(rate, country, { currency }))}</span>`;
   },
   afterRender: (_el, _ctx) => {},
   destroy: (_el) => {},

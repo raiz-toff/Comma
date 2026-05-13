@@ -143,8 +143,10 @@ function downloadJson(filename, obj) {
   URL.revokeObjectURL(url);
 }
 
+import { DEMO_SAMPLE_DATA_YEAR } from '../demo/sample-year.js';
+
 /**
- * Demo vault: three active platforms, weekday earnings across calendar 2025, and sample expenses (watermarked).
+ * Demo vault: three active platforms, weekday earnings across the sample calendar year, and sample expenses (watermarked).
  */
 export async function loadSampleData() {
   const user = await getUser();
@@ -160,9 +162,13 @@ export async function loadSampleData() {
   const shiftRows = [];
   const expenseRows = [];
   let weekdayShiftCount = 0;
-  const start2025 = new Date(2025, 0, 1, 12, 0, 0, 0);
+  const start2025 = new Date(DEMO_SAMPLE_DATA_YEAR, 0, 1, 12, 0, 0, 0);
 
-  for (let d = new Date(2025, 0, 1, 12, 0, 0, 0); d.getFullYear() === 2025; d.setDate(d.getDate() + 1)) {
+  for (
+    let d = new Date(DEMO_SAMPLE_DATA_YEAR, 0, 1, 12, 0, 0, 0);
+    d.getFullYear() === DEMO_SAMPLE_DATA_YEAR;
+    d.setDate(d.getDate() + 1)
+  ) {
     const dow = d.getDay();
     const dateStr = ymdFromDate(d);
     const dayOfYear = Math.round((d.getTime() - start2025.getTime()) / 86400000);
@@ -257,6 +263,7 @@ export async function loadSampleData() {
   await db.shifts.bulkAdd(shiftRows);
   await db.expenses.bulkAdd(expenseRows);
   await setAppState('demo_mode', true);
+  store.set('demoMode', true);
   bus.emit(GOAL_UPDATED, { source: 'sample' });
 }
 
@@ -273,6 +280,7 @@ export async function clearSampleData() {
     if (e.id != null) await db.expenses.delete(e.id);
   }
   await setAppState('demo_mode', false);
+  store.set('demoMode', false);
   bus.emit(GOAL_UPDATED, { source: 'sample_clear' });
 }
 

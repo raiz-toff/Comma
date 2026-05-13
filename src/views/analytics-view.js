@@ -14,10 +14,16 @@ import {
   renderEarningsVsHoursChart,
   renderHourlyTrendChart,
 } from '../modules/analytics/analytics-charts.js';
+import { bus, NAVIGATION, PLATFORM_CHANGED, SHIFT_DELETED, SHIFT_SAVED } from '../core/events.js';
 import { t } from '../utils/strings.js';
 import { store } from '../core/store.js';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** @param {string} h */
+function isAnalyticsRouteHash(h) {
+  return h === '#/analytics' || h === '#/analytics/week' || h.startsWith('#/analytics/');
+}
 
 function esc(v) {
   return String(v ?? '')
@@ -27,20 +33,29 @@ function esc(v) {
     .replace(/"/g, '&quot;');
 }
 
-/** @param {HTMLElement} root @param {Record<string, unknown>} ctx */
-export async function render(root, ctx) {
+/** @type {WeakMap<HTMLElement, () => void>} */
+const teardownByRoot = new WeakMap();
+
+/**
+ * @param {HTMLElement} root
+ * @param {Record<string, unknown>} ctx
+ */
+async function paintAnalytics(root, ctx) {
   void ctx;
   const now = new Date();
   const user = store.get('user');
+  const platformFilter = String(store.get('activePlatformId') ?? 'all');
   const localeCountry = user?.locale?.country || 'US';
+  const y = now.getFullYear();
+  const m = now.getMonth() + 1;
   const [monthSummary, rolling, bestDay, bestHour, deadMiles, zeroDays, scatter] = await Promise.all([
-    getMonthlySummary(now.getMonth() + 1, now.getFullYear()),
-    getRolling30DayTrend(),
-    getBestDayOfWeek(),
-    getBestTimeOfDay(),
-    getDeadMilesSummary(),
-    getZerodays(now.getMonth() + 1, now.getFullYear()),
-    getEarningsVsHoursScatter(`${now.getFullYear()}-01-01`, `${now.getFullYear()}-12-31`),
+    getMonthlySummary(m, y, platformFilter),
+    getRolling30DayTrend(platformFilter),
+    getBestDayOfWeek(platformFilter),
+    getBestTimeOfDay(platformFilter),
+    getDeadMilesSummary(platformFilter),
+    getZerodays(m, y, platformFilter),
+    getEarningsVsHoursScatter(`${y}-01-01`, `${y}-12-31`, platformFilter),
   ]);
 
   const metricCtx = { summary: monthSummary, zeroDaysLength: zeroDays.length };
@@ -51,8 +66,8 @@ export async function render(root, ctx) {
       if (!row) return '';
       const title = row.messageKey ? t(row.messageKey) : row.label;
       return `<article class="card stat-card bento-cell-1x1">
-          <p>${esc(title)}</p>
-          <strong>${esc(row.value)}</strong>
+          <span class="stat-label">${esc(title)}</span>
+          <span class="stat-value">${esc(row.value)}</span>
         </article>`;
     })
     .join('');
@@ -112,4 +127,51 @@ export async function render(root, ctx) {
       }),
     );
   }
+}
+
+/** @param {HTMLElement} root @param {Record<string, unknown>} ctx */
+export async function render(root, ctx) {
+  const prev = teardownByRoot.get(root);
+  if (typeof prev === 'function') prev();
+
+  let disposed = false;
+  const rerender = () => {
+    if (disposed) return;
+    void paintAnalytics(root, ctx);
+  };
+
+  /** @type {(() => void)[]} */
+  const unsubs = [];
+
+  const cleanup = () => {
+    if (disposed) return;
+    disposed = true;
+    while (unsubs.length) {
+      const u = unsubs.pop();
+      try {
+        if (typeof u === 'function') u();
+      } catch {
+        /* ignore */
+      }
+    }
+    teardownByRoot.delete(root);
+  };
+
+  unsubs.push(bus.on(PLATFORM_CHANGED, rerender));
+  unsubs.push(bus.on(SHIFT_SAVED, rerender));
+  unsubs.push(bus.on(SHIFT_DELETED, rerender));
+  unsubs.push(
+    bus.on(NAVIGATION, (payload) => {
+      const h =
+        payload && typeof payload === 'object' && payload && 'hash' in payload
+          ? String(/** @type {{ hash?: string }} */ (payload).hash)
+          : '';
+      if (isAnalyticsRouteHash(h)) return;
+      cleanup();
+    }),
+  );
+
+  teardownByRoot.set(root, cleanup);
+
+  await paintAnalytics(root, ctx);
 }

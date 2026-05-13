@@ -12,7 +12,7 @@ export default {
   render: async (ctx) => {
     const c = /** @type {{ data?: { streakCount?: number } } }} */ (ctx);
     const n = Number(c?.data?.streakCount) || 0;
-    return `<p>${esc(t('analytics.streak'))}</p><strong>${esc(formatLargeNumber(n))}</strong>`;
+    return `<span class="stat-label">${esc(t('analytics.streak'))}</span><span class="stat-value">${esc(formatLargeNumber(n))}</span>`;
   },
   afterRender: (_el, _ctx) => {},
   destroy: (_el) => {},

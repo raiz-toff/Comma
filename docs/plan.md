@@ -1179,23 +1179,66 @@ All components are plain JS functions that return HTML strings OR manipulate DOM
    - `addCustomCategory(name, emoji)` → saves to user prefs
    - `getAllCategories()` → preset + custom categories
 
-4. Expense list view:
+4. Expense list view (`#/expenses` → `views/expenses-view.js` → `renderExpensesView`):
    - Sortable, filterable table (Feature 92)
    - Filter: date range, category, platform, amount range, receipt attached
    - Sort: date, amount, category, platform
    - Receipt thumbnail if attached
    - Edit / delete inline actions
+   - **Route + nav:** sidebar + shell link to `#/expenses`; ledger teardown on navigation; refresh on `PLATFORM_CHANGED`
 
-5. Auto-calculation wiring:
-   - When a shift is saved, `calcAutoFuelCost()` runs and auto-creates a fuel expense for that shift (if user has a vehicle with efficiency set)
-   - Shows as pre-filled expense, driver confirms or edits (Feature 83, 84)
+5. Shift-linked fuel **suggestion** (not auto-post):
+   - When a shift is saved with distance logged and the linked vehicle has efficiency + fuel price (or EV data), compute estimated fuel/energy cost.
+   - Show a **toast** after save: estimated amount, **[Add expense]** (opens expense form pre-filled: category Fuel/EV charge, amount estimate editable, date, platform, vehicle, business-use 100%) and **Dismiss**.
+   - Silent skip if distance missing or vehicle incomplete.
 
-6. Fuel price tracker (Feature 96):
+6. Recurring expense **confirmation** (on app-open, not a stack of modals):
+   - For `recurringNextDate <= today`, show **one** confirmation card (most overdue first): title, interval, amount, “Did you pay this in [Month Year]?”, actions **Yes, paid** (creates expense, advances `recurringNextDate`), **Edit amount** (mini form), **Skip** (snooze e.g. 3 days, no record).
+   - Other due items appear on next open or via Recurring tab in the expense experience.
+
+7. Fuel price tracker (Feature 96):
    - `updateFuelPrice(vehicleId, price)` → saves to fuelPrices table with timestamp
    - Historical fuel price list (sortable by date)
    - Line chart of fuel price over time (wired in Phase 2 analytics)
 
 **Features covered:** 83–100
+
+---
+
+### F12b — Expense experience (UX beyond CRUD)
+
+**Purpose:** F12 delivered data layer + form + table; this task defines the **driver-facing expense product**: collection entry points, page layout, business-use % engine, and tax linkage.
+
+#### Expense collection — four entry points
+
+1. **Manual add** — FAB / “Add expense” → existing expense form (F12).
+2. **Shift auto-suggestion** — After `SHIFT_SAVED`, if shift has distance and vehicle has efficiency + price: toast with estimate; **Add expense** opens form pre-filled; never auto-create rows without user action.
+3. **Recurring confirmation** — On app-open, at most **one** card for the most overdue recurring expense; Yes / Edit / Skip (snooze) as in F12 §6 above.
+4. **CSV bulk import** — Papa Parse, mapping, preview, append/replace (existing plan / reports).
+
+#### Expense page (`#/expenses`) — target layout (incremental build)
+
+Four tabs (order fixed): **All** · **By category** · **Recurring** · **Deductions**.
+
+- **All:** Period summary (totals, deductible, ratio), filters/sort/search, month-grouped cards (platform, date, business %, receipt, recurring badge, expandable detail + CRA line ref).
+- **By category:** Grouped totals for T2125-style prep; banner for vehicle business-use % (odometer-based or estimate) with link to update readings.
+- **Recurring:** List active recurring definitions with next due, edit/pause/delete, add recurring.
+- **Deductions:** Year summary by CRA line bucket (vehicle actual cost, equipment, phone, fees, professional), estimated total deductions, net taxable bridge to tax module; links to tax dashboard / T2125 export.
+
+#### Business-use % (CRA-critical)
+
+- **Path A — Odometer:** total km from odometer log; business km = sum of shift distances in period; % = business ÷ total.
+- **Path B — Estimate:** if no odometer readings, prompt for estimated annual total km; compute %; show “using estimate” banner until odometer data exists.
+- Recalculate when shifts, odometer readings, or manual estimate change; persist e.g. `user.currentBusinessUsePct` (or derived cache) so vehicle-line deductions update live.
+
+#### Module touchpoints
+
+- **`calculations.js`** — business-use % engine (shared by expenses + tax).
+- **`#/tax`** — tax dashboard; optional `#/tax/deductions` or embedded Deductions tab mirroring expense Deductions.
+- **Vehicles** — odometer log UI (readings + history) feeding Path A.
+- **Search / global** — surface expenses where relevant (P7).
+
+**Dependencies:** F12, F8 (vehicles/shifts data), P2 tax surfaces for line mapping and exports.
 
 ---
 

@@ -138,6 +138,7 @@ export async function renderAppShell(root) {
           ${navLink('#/dashboard', 'home', 'app.navDashboard')}
           ${navLink('#/shifts', 'calendar', 'app.navShifts')}
           ${navLink('#/analytics', 'trending-up', 'app.navAnalytics')}
+          ${navLink('#/expenses', 'receipt', 'app.navExpenses')}
           ${navLink('#/tax', 'tax', 'app.navTax')}
           ${navLink('#/vehicles', 'truck', 'app.navVehicles')}
           ${navLink('#/schedule', 'calendar', 'app.navSchedule')}

@@ -21,7 +21,7 @@ import { assertShiftFieldRegistryValid, ShiftFieldRegistry } from './registry/sh
 import { renderAppShell } from './core/shell.js';
 import { initPlatforms } from './modules/platforms/platforms.js';
 import { runOnOpenNotificationCheck } from './modules/notifications/notifications.js';
-import { generateRecurringExpenses, initExpensesModule } from './modules/expenses/expenses.js';
+import { initExpensesModule, runRecurringExpensePromptOnce } from './modules/expenses/expenses.js';
 import { initGoalsModule } from './modules/goals/goals.js';
 import { initSearchModule } from './modules/search/search.js';
 import { apiSpecMarkdown, initP13 } from './modules/p13/p13.js';
@@ -238,9 +238,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   try {
-    await generateRecurringExpenses();
+    await runRecurringExpensePromptOnce();
   } catch (e) {
-    console.warn('[macadam] recurring expenses generation skipped', e);
+    console.warn('[macadam] recurring expense prompt skipped', e);
   }
 
   try {

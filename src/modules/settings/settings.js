@@ -1,12 +1,16 @@
 import SortableMod from '../../libs/sortable.min.js';
 import { db, getUser, saveUser, getAppState, setAppState, purgeOldDeleted } from '../../core/db.js';
 import { store } from '../../core/store.js';
-import { bus, THEME_CHANGED, PLATFORM_CHANGED } from '../../core/events.js';
+import { bus, THEME_CHANGED, PLATFORM_CHANGED, GOAL_UPDATED } from '../../core/events.js';
 import { showConfirm, showToast } from '../../ui/components.js';
 import { t } from '../../utils/strings.js';
-import { resetVault } from '../onboarding/onboarding.js';
+import { resetVault, exitDemoToOnboardingStart } from '../onboarding/onboarding.js';
+import { exportVaultBackupJson } from '../reports/reports.js';
+import { CountryRegistry, getCountryTaxProfile } from '../../registry/countries/index.js';
+import { ProvinceRegistry } from '../../registry/provinces/index.js';
 import { mountSettingsPlatforms } from './platforms-settings.js';
 import { formatShortcutOverlayListItems } from './keyboard-shortcuts.js';
+import { normalizeAccentHex } from './settings-utils.js';
 
 const Sortable = /** @type {any} */ (SortableMod).default || SortableMod;
 const DEBUG_TAP_WINDOW_MS = 5500;
@@ -35,6 +39,46 @@ const WIDGET_CHOICES = [
   'recentShifts',
 ];
 const HERO_STAT_CHOICES = ['gross', 'net', 'hours', 'orders', 'tips', 'expenses', 'distance'];
+
+const WORK_SCHEDULE_PRESETS = ['flexible', 'weekdays', 'evenings', 'weekends'];
+
+/** @param {Record<string, unknown>} u */
+function workSchedulePresetFromUser(u) {
+  const ws = u?.workSchedule;
+  if (ws && typeof ws === 'object' && typeof ws.preset === 'string' && WORK_SCHEDULE_PRESETS.includes(ws.preset)) {
+    return ws.preset;
+  }
+  if (typeof ws === 'string' && WORK_SCHEDULE_PRESETS.includes(ws)) return ws;
+  return 'flexible';
+}
+
+/** @param {string} country */
+function provinceLabelKeyForCountry(country) {
+  const tax = getCountryTaxProfile(country);
+  if (tax?.regionLabel === 'state') return 'onboarding.steps.state';
+  return 'onboarding.steps.province';
+}
+
+const SETTINGS_TAB_ENTRIES = [
+  ['you', 'settings.tabYou'],
+  ['appearance', 'settings.tabAppearance'],
+  ['platforms', 'settings.tabPlatforms'],
+  ['alerts', 'settings.tabAlerts'],
+  ['data', 'settings.tabData'],
+  ['about', 'settings.tabAbout'],
+];
+const SETTINGS_TAB_ID_SET = new Set(SETTINGS_TAB_ENTRIES.map(([id]) => id));
+
+/** @param {Record<string, unknown>} ctx */
+function getInitialSettingsTab(ctx) {
+  if (ctx?.settingsTab === 'about') return 'about';
+  if (typeof window === 'undefined') return 'you';
+  const raw = window.location.hash || '';
+  const q = raw.indexOf('?');
+  if (q === -1) return 'you';
+  const tab = new URLSearchParams(raw.slice(q + 1)).get('tab');
+  return SETTINGS_TAB_ID_SET.has(tab) ? tab : 'you';
+}
 
 function esc(s) {
   return String(s ?? '')
@@ -95,10 +139,9 @@ function applyDensity(density) {
 }
 
 async function exportVaultSnapshot() {
-  const tableNames = ['users', 'platforms', 'shifts', 'expenses', 'vehicles', 'goals', 'notifications', 'backupLog', 'appState'];
   const tables = {};
-  for (const name of tableNames) {
-    tables[name] = await db[name].toArray();
+  for (const table of db.tables) {
+    tables[table.name] = await table.toArray();
   }
   const payload = {
     app: 'Macadam',
@@ -230,19 +273,86 @@ export async function mountSettings(root, ctx = {}) {
   const notificationPrefs = defaultNotificationPrefs(user.notificationPrefs);
   const widgets = Array.isArray(user.dashboardWidgets) && user.dashboardWidgets.length ? [...user.dashboardWidgets] : [...WIDGET_CHOICES];
   const heroStats = Array.isArray(user.heroStats) && user.heroStats.length ? [...user.heroStats] : ['gross', 'hours', 'orders'];
-  const aboutMode = ctx?.settingsTab === 'about';
   let debugTapCount = 0;
   let debugTapStartedAt = 0;
   let exportedThisSession = false;
+
+  const initialSettingsTab = getInitialSettingsTab(ctx);
+  const aboutMode = initialSettingsTab === 'about';
+  const tabButtonsHtml = SETTINGS_TAB_ENTRIES.map(([id, key]) => {
+    const sel = id === initialSettingsTab;
+    return `<button type="button" role="tab" class="settings-tab-btn" data-settings-tab="${id}" id="settings-tab-${id}" aria-controls="settings-panel-${id}" aria-selected="${sel ? 'true' : 'false'}" tabindex="${sel ? '0' : '-1'}">${esc(t(key))}</button>`;
+  }).join('');
+
+  const demoMode = Boolean(store.get('demoMode'));
+  const countryId = String(user.countryId || user?.locale?.country || 'CA').toUpperCase();
+  const provinceIdSel = String(user.provinceId || '').toUpperCase();
+  const countries = CountryRegistry.getAll();
+  const countriesOpts = countries
+    .map((c) => `<option value="${esc(c.id)}" ${c.id === countryId ? 'selected' : ''}>${esc(t(c.labelKey))}</option>`)
+    .join('');
+  const provincesForCountry = ProvinceRegistry.getByCountry(countryId);
+  const provincesOpts = provincesForCountry.length
+    ? provincesForCountry
+        .map((p) => {
+          const lab = typeof p.labelKey === 'string' ? t(p.labelKey) : String(p.id);
+          const sel = String(p.id).toUpperCase() === provinceIdSel ? 'selected' : '';
+          return `<option value="${esc(p.id)}" ${sel}>${esc(lab)}</option>`;
+        })
+        .join('')
+    : `<option value="">${esc(t('common.optional'))}</option>`;
+  const distFromUser = user?.locale?.distanceUnit === 'mi' || user?.locale?.distanceUnit === 'km' ? user.locale.distanceUnit : null;
+  const cdef0 = CountryRegistry.getById(countryId);
+  const distanceUnit =
+    distFromUser || (cdef0.distanceUnit === 'mi' || cdef0.distanceUnit === 'km' ? cdef0.distanceUnit : 'km');
+  const activePlats = await db.platforms.filter((p) => p.active === true).toArray();
+  activePlats.sort((a, b) => (Number(a.priority) || 0) - (Number(b.priority) || 0));
+  const primaryId = user.primaryPlatform != null ? String(user.primaryPlatform) : '';
+  const platformOpts =
+    `<option value="">${esc(t('settings.primaryPlatformNone'))}</option>` +
+    activePlats
+      .map((p) => `<option value="${esc(String(p.id))}" ${String(p.id) === primaryId ? 'selected' : ''}>${esc(String(p.name || p.id))}</option>`)
+      .join('');
+  const schedPreset = workSchedulePresetFromUser(user);
+  const hstOnboarding = Boolean(getCountryTaxProfile(countryId).hstOnboarding);
+  const weeklyD = (Number(user.weeklyGoal) || 0) / 100;
+  const monthlyD = (Number(user.monthlyGoal) || 0) / 100;
+  const annualD = (Number(user.annualGoal) || 0) / 100;
+  const provinceFieldLabelKey = provinceLabelKeyForCountry(countryId);
+  const userAccentNorm = normalizeAccentHex(user.accentColor);
 
   applyAccent(user.accentColor || null);
   applyFontSize(user.fontSize || 'medium');
   applyDensity(user.layoutDensity || 'comfortable');
 
+  const th = (id) => (initialSettingsTab === id ? '' : 'hidden');
   root.className = 'settings-root';
   root.innerHTML = `
+    <div class="settings-layout">
+      <div class="settings-nav-column">
+        <header class="settings-view-header">
+          <h1 class="app-header-title settings-view-title">${esc(t('settings.title'))}</h1>
+          <p class="text-secondary settings-view-subtitle">${esc(t('settings.subtitle'))}</p>
+        </header>
+        <nav class="settings-tabs" role="tablist" aria-label="${esc(t('settings.tabsAriaLabel'))}">
+          ${tabButtonsHtml}
+        </nav>
+      </div>
+      <div class="settings-panels">
+        <div class="settings-tabpanel" id="settings-panel-you" role="tabpanel" aria-labelledby="settings-tab-you" data-settings-panel="you" ${th('you')}>
+    ${
+      demoMode
+        ? `
     <section class="settings-view-section card card-raised">
-      <h2 class="settings-section-title">Profile</h2>
+      <p class="text-secondary settings-section-lead">${esc(t('settings.demoBanner'))}</p>
+      <div class="settings-actions">
+        <button type="button" class="btn btn-primary btn-sm" data-exit-demo>${esc(t('settings.exitDemoBtn'))}</button>
+      </div>
+    </section>`
+        : ''
+    }
+    <section class="settings-view-section card card-raised">
+      <h3 class="settings-subsection-title">${esc(t('settings.groupProfileTitle'))}</h3>
       <div class="settings-grid">
         <label class="input-group">
           <span class="input-label">Display name</span>
@@ -259,7 +369,77 @@ export async function mountSettings(root, ctx = {}) {
     </section>
 
     <section class="settings-view-section card card-raised">
-      <h2 class="settings-section-title">Locale & appearance</h2>
+      <h3 class="settings-subsection-title">${esc(t('settings.groupLocationTitle'))}</h3>
+      <p class="text-secondary settings-section-lead">${esc(t('settings.groupLocationLead'))}</p>
+      <div class="settings-grid">
+        <label class="input-group">
+          <span class="input-label">${esc(t('settings.labelCountry'))}</span>
+          <select class="input" data-setting-country>${countriesOpts}</select>
+        </label>
+        <label class="input-group">
+          <span class="input-label" data-setting-province-label>${esc(t(provinceFieldLabelKey))}</span>
+          <select class="input" data-setting-province>${provincesOpts}</select>
+        </label>
+        <label class="input-group">
+          <span class="input-label">${esc(t('settings.labelDistanceUnit'))}</span>
+          <select class="input" data-setting-distance-unit>
+            <option value="km" ${distanceUnit === 'km' ? 'selected' : ''}>${esc(t('onboarding.steps.unitKm'))}</option>
+            <option value="mi" ${distanceUnit === 'mi' ? 'selected' : ''}>${esc(t('onboarding.steps.unitMi'))}</option>
+          </select>
+        </label>
+        <label class="input-group">
+          <span class="input-label">${esc(t('settings.labelPrimaryPlatform'))}</span>
+          <select class="input" data-setting-primary-platform>${platformOpts}</select>
+        </label>
+      </div>
+      <div class="settings-actions">
+        <button type="button" class="btn btn-primary btn-sm" data-save-market>${esc(t('settings.saveMarket'))}</button>
+      </div>
+    </section>
+
+    <section class="settings-view-section card card-raised">
+      <h3 class="settings-subsection-title">${esc(t('settings.goalsTaxSectionTitle'))}</h3>
+      <p class="text-secondary settings-section-lead">${esc(t('settings.goalsTaxSectionLead'))}</p>
+      <div class="settings-grid">
+        <label class="input-group">
+          <span class="input-label">${esc(t('settings.labelWeeklyGoalDollars'))}</span>
+          <input class="input" type="number" inputmode="decimal" min="0" step="10" data-setting-weekly-goal-dollars value="${esc(String(weeklyD))}" />
+        </label>
+        <label class="input-group">
+          <span class="input-label">${esc(t('settings.labelMonthlyGoalDollars'))}</span>
+          <input class="input" type="number" inputmode="decimal" min="0" step="50" data-setting-monthly-goal-dollars value="${esc(String(monthlyD))}" />
+        </label>
+        <label class="input-group">
+          <span class="input-label">${esc(t('settings.labelAnnualGoalDollars'))}</span>
+          <input class="input" type="number" inputmode="decimal" min="0" step="100" data-setting-annual-goal-dollars value="${esc(String(annualD))}" />
+        </label>
+        <label class="input-group">
+          <span class="input-label">${esc(t('settings.labelTaxWithhold'))}</span>
+          <input class="input" type="number" inputmode="decimal" min="0" max="60" step="0.5" data-setting-tax-withhold value="${esc(String(Number(user.taxWithholdingPct) || 0))}" />
+        </label>
+        <label class="input-group">
+          <span class="input-label">${esc(t('settings.labelWorkSchedule'))}</span>
+          <select class="input" data-setting-work-schedule>
+            ${WORK_SCHEDULE_PRESETS.map(
+              (preset) =>
+                `<option value="${esc(preset)}" ${schedPreset === preset ? 'selected' : ''}>${esc(t(`onboarding.schedule.${preset}`))}</option>`,
+            ).join('')}
+          </select>
+        </label>
+        <label class="settings-check" data-setting-hst-row style="${hstOnboarding ? '' : 'display:none'}">
+          <input type="checkbox" data-setting-hst ${user.hstRegistered ? 'checked' : ''} />
+          ${esc(t('onboarding.steps.hstToggle'))}
+        </label>
+      </div>
+      <div class="settings-actions">
+        <button type="button" class="btn btn-primary btn-sm" data-save-goals-tax>${esc(t('settings.saveGoalsTax'))}</button>
+      </div>
+    </section>
+        </div>
+        <div class="settings-tabpanel" id="settings-panel-appearance" role="tabpanel" aria-labelledby="settings-tab-appearance" data-settings-panel="appearance" ${th('appearance')}>
+    <section class="settings-view-section card card-raised">
+      <h2 class="settings-section-title">${esc(t('settings.lookFeelSectionTitle'))}</h2>
+      <p class="text-secondary settings-section-lead">${esc(t('settings.lookFeelSectionLead'))}</p>
       <div class="settings-grid">
         <label class="input-group">
           <span class="input-label">${esc(t('settings.currency'))}</span>
@@ -315,14 +495,24 @@ export async function mountSettings(root, ctx = {}) {
         </label>
       </div>
       <div class="settings-accent">
-        <p class="input-label">Accent color</p>
-        <div class="settings-accent-swatches" data-setting-accent-swatches>
-          ${PRESET_ACCENTS.map((hex) => `<button type="button" class="settings-accent-dot" data-accent="${hex}" style="--accent:${hex}" aria-label="Set accent ${hex}"></button>`).join('')}
+        <p class="input-label">${esc(t('settings.accentLabel'))}</p>
+        <div class="settings-accent-row">
+          <div
+            class="settings-accent-tabs"
+            role="radiogroup"
+            aria-label="${esc(t('settings.accentPresetsAria'))}"
+            data-setting-accent-swatches
+          >
+            ${PRESET_ACCENTS.map((hex) => {
+              const sel = Boolean(userAccentNorm && userAccentNorm === normalizeAccentHex(hex));
+              return `<button type="button" role="radio" class="settings-accent-tab${sel ? ' is-selected' : ''}" data-accent="${esc(hex)}" style="--accent:${hex}" aria-checked="${sel ? 'true' : 'false'}" aria-label="${esc(`${t('settings.accentPresetUse')} ${hex}`)}"></button>`;
+            }).join('')}
+          </div>
+          <label class="settings-accent-hex-inline">
+            <span class="settings-accent-hex-label">${esc(t('settings.accentCustomHex'))}</span>
+            <input class="input" data-setting-accent-hex value="${esc(user.accentColor || '')}" placeholder="#F5A623" />
+          </label>
         </div>
-        <label class="input-group">
-          <span class="input-label">Custom hex</span>
-          <input class="input" data-setting-accent-hex value="${esc(user.accentColor || '')}" placeholder="#F5A623" />
-        </label>
       </div>
       <div class="settings-actions">
         <button type="button" class="btn btn-primary btn-sm" data-save-display>${esc(t('common.save'))}</button>
@@ -330,8 +520,8 @@ export async function mountSettings(root, ctx = {}) {
     </section>
 
     <section class="settings-view-section card card-raised">
-      <h2 class="settings-section-title">Dashboard personalization</h2>
-      <p class="text-secondary settings-section-lead">Drag to reorder widgets. Pick up to 3 hero stats.</p>
+      <h2 class="settings-section-title">${esc(t('settings.dashboardSectionTitle'))}</h2>
+      <p class="text-secondary settings-section-lead">${esc(t('settings.dashboardSectionLead'))}</p>
       <ul class="settings-sortable-list" data-widget-sort>
         ${widgets.map((w) => `<li class="settings-sortable-item" data-widget="${esc(w)}">${esc(w)}</li>`).join('')}
       </ul>
@@ -350,9 +540,14 @@ export async function mountSettings(root, ctx = {}) {
         <button type="button" class="btn btn-primary btn-sm" data-save-dashboard>${esc(t('common.save'))}</button>
       </div>
     </section>
-
+        </div>
+        <div class="settings-tabpanel" id="settings-panel-platforms" role="tabpanel" aria-labelledby="settings-tab-platforms" data-settings-panel="platforms" ${th('platforms')}>
+    <section class="settings-view-section card card-raised" data-platforms-host></section>
+        </div>
+        <div class="settings-tabpanel" id="settings-panel-alerts" role="tabpanel" aria-labelledby="settings-tab-alerts" data-settings-panel="alerts" ${th('alerts')}>
     <section class="settings-view-section card card-raised">
       <h2 class="settings-section-title">${esc(t('settings.notifications'))}</h2>
+      <p class="text-secondary settings-section-lead">${esc(t('settings.notificationsLead'))}</p>
       <div class="settings-grid settings-tight-grid">
         ${Object.entries(notificationPrefs)
           .map(([k, v]) => `<label class="settings-check"><input type="checkbox" data-setting-notif="${esc(k)}" ${v ? 'checked' : ''} /> ${esc(k)}</label>`)
@@ -360,16 +555,21 @@ export async function mountSettings(root, ctx = {}) {
       </div>
       <div class="settings-actions">
         <button type="button" class="btn btn-primary btn-sm" data-save-notifications>${esc(t('common.save'))}</button>
-        <button type="button" class="btn btn-secondary btn-sm" data-open-shortcuts>Keyboard shortcuts</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-open-shortcuts>${esc(t('settings.shortcutsTitle'))}</button>
       </div>
     </section>
-
-    <section class="settings-view-section card card-raised" data-platforms-host></section>
-
+    <section class="settings-view-section card card-raised" data-pwa-settings-host></section>
+        </div>
+        <div class="settings-tabpanel" id="settings-panel-data" role="tabpanel" aria-labelledby="settings-tab-data" data-settings-panel="data" ${th('data')}>
     <section class="settings-view-section card card-raised">
-      <h2 class="settings-section-title">Data health</h2>
-      <p class="text-secondary settings-section-lead">Vault usage, integrity checks, and archive helpers.</p>
+      <h2 class="settings-section-title">${esc(t('settings.dataVaultSectionTitle'))}</h2>
+      <p class="text-secondary settings-section-lead">${esc(t('settings.dataSectionLead'))}</p>
       <div class="settings-data-health" data-data-health-output>Loading...</div>
+      <div class="settings-actions settings-wrap">
+        <a class="btn btn-primary btn-sm" href="#/reports">${esc(t('settings.openReportsBtn'))}</a>
+        <button type="button" class="btn btn-secondary btn-sm" data-export-vault-reports>${esc(t('settings.exportVaultBtn'))}</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-export-snapshot>${esc(t('settings.quickSnapshotBtn'))}</button>
+      </div>
       <div class="settings-row-inline">
         <label class="input-group">
           <span class="input-label">Auto-archive deleted records older than days</span>
@@ -383,7 +583,7 @@ export async function mountSettings(root, ctx = {}) {
       <pre class="settings-pre" data-integrity-output aria-live="polite"></pre>
     </section>
 
-    <section class="settings-view-section card card-raised">
+    <section class="settings-view-section card card-raised settings-danger-card">
       <h2 class="settings-section-title">${esc(t('settings.dangerZone'))}</h2>
       <div class="settings-grid">
         <label class="input-group">
@@ -403,7 +603,8 @@ export async function mountSettings(root, ctx = {}) {
         <button type="button" class="btn btn-danger btn-sm" data-reset-vault>Reset vault</button>
       </div>
     </section>
-
+        </div>
+        <div class="settings-tabpanel" id="settings-panel-about" role="tabpanel" aria-labelledby="settings-tab-about" data-settings-panel="about" ${th('about')}>
     <section class="settings-view-section card card-raised">
       <h2 class="settings-section-title">${esc(t('settings.about'))}</h2>
       <p class="text-secondary settings-section-lead">Version ${esc(window.__macadam?.version || '1.0.0')} · local-first data vault.</p>
@@ -423,6 +624,9 @@ export async function mountSettings(root, ctx = {}) {
       <button type="button" class="btn btn-ghost btn-sm" data-debug-tap>${aboutMode ? 'About mode active' : 'Tap app version 5 times to unlock debug mode'}</button>
       <p class="text-xs text-secondary" data-debug-hint></p>
     </section>
+        </div>
+      </div>
+    </div>
   `;
 
   const shortcuts = mountKeyboardOverlay(root);
@@ -434,26 +638,69 @@ export async function mountSettings(root, ctx = {}) {
     Sortable.create(widgetSort, { animation: 150, ghostClass: 'sortable-ghost' });
   }
 
+  function replaceSettingsTabHash(tab) {
+    try {
+      if (window.location.hash === '#/settings/about' && tab === 'about') return;
+      const base = `${window.location.pathname}${window.location.search}`;
+      window.history.replaceState(null, '', `${base}#/settings?tab=${encodeURIComponent(tab)}`);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function applySettingsTab(tab, { fromClick = false } = {}) {
+    if (!SETTINGS_TAB_ID_SET.has(tab)) return;
+    root.querySelectorAll('[data-settings-tab]').forEach((btn) => {
+      const id = btn.getAttribute('data-settings-tab');
+      const on = id === tab;
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      btn.tabIndex = on ? 0 : -1;
+    });
+    root.querySelectorAll('[data-settings-panel]').forEach((pan) => {
+      const id = pan.getAttribute('data-settings-panel');
+      if (id === tab) pan.removeAttribute('hidden');
+      else pan.setAttribute('hidden', '');
+    });
+    if (fromClick) {
+      replaceSettingsTabHash(tab);
+      const b = /** @type {HTMLElement | null} */ (root.querySelector(`[data-settings-tab="${tab}"]`));
+      b?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  }
+
+  root.querySelectorAll('[data-settings-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-settings-tab');
+      if (!id || !SETTINGS_TAB_ID_SET.has(id)) return;
+      applySettingsTab(id, { fromClick: true });
+    });
+  });
+
   async function refreshDataHealth() {
     const out = root.querySelector('[data-data-health-output]');
     if (!out) return;
-    const [stats, backupRows, shiftCount, expenseCount, users] = await Promise.all([
+    const [stats, backupRows, shiftCount, expenseCount, users, vehicleCount, goalCount] = await Promise.all([
       dbStats(),
       db.backupLog.orderBy('createdAt').reverse().limit(5).toArray(),
       db.shifts.count(),
       db.expenses.count(),
       db.users.count(),
+      db.vehicles.count(),
+      db.goals.count(),
     ]);
     const usage = estimateBytes({
       shifts: shiftCount,
       expenses: expenseCount,
       users,
+      vehicles: vehicleCount,
+      goals: goalCount,
       backupRows,
       stats,
     });
     out.innerHTML = `
       <p><strong>Estimated vault size:</strong> ${esc(formatBytes(usage))}</p>
       <p><strong>Shift count:</strong> ${esc(stats.count)} · <strong>Date range:</strong> ${esc(stats.minDate || 'n/a')} to ${esc(stats.maxDate || 'n/a')} · <strong>Total km:</strong> ${esc(stats.totalKm.toFixed(1))}</p>
+      <p><strong>IndexedDB rows (approx):</strong> shifts ${esc(String(shiftCount))}, expenses ${esc(String(expenseCount))}, users ${esc(String(users))}, vehicles ${esc(String(vehicleCount))}, goals ${esc(String(goalCount))}</p>
       <p><strong>Recent backups:</strong> ${backupRows.length ? esc(backupRows.map((r) => r.createdAt).join(' | ')) : 'none yet'}</p>
     `;
   }
@@ -498,6 +745,17 @@ export async function mountSettings(root, ctx = {}) {
     showToast({ type: 'success', message: 'Display settings saved.' });
   });
 
+  function refreshAccentPresetSelection() {
+    const input = /** @type {HTMLInputElement | null} */ (root.querySelector('[data-setting-accent-hex]'));
+    const v = normalizeAccentHex(input?.value || '');
+    root.querySelectorAll('[data-accent]').forEach((btn) => {
+      const hx = normalizeAccentHex(btn.getAttribute('data-accent') || '');
+      const on = Boolean(v && hx === v);
+      btn.classList.toggle('is-selected', on);
+      btn.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+  }
+
   root.querySelectorAll('[data-accent]').forEach((el) => {
     el.addEventListener('click', () => {
       const hex = el.getAttribute('data-accent');
@@ -505,7 +763,16 @@ export async function mountSettings(root, ctx = {}) {
       if (!hex || !input) return;
       input.value = hex;
       applyAccent(hex);
+      refreshAccentPresetSelection();
     });
+  });
+
+  root.querySelector('[data-setting-accent-hex]')?.addEventListener('input', (e) => {
+    const raw = e.target instanceof HTMLInputElement ? e.target.value.trim() : '';
+    const ok = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(raw);
+    if (ok) applyAccent(raw);
+    else if (!raw) applyAccent(null);
+    refreshAccentPresetSelection();
   });
 
   root.querySelector('[data-save-dashboard]')?.addEventListener('click', async () => {
@@ -531,6 +798,93 @@ export async function mountSettings(root, ctx = {}) {
   });
 
   root.querySelector('[data-open-shortcuts]')?.addEventListener('click', () => shortcuts.open());
+
+  function renderProvinceOptions(country) {
+    const list = ProvinceRegistry.getByCountry(country);
+    const provSelect = root.querySelector('[data-setting-province]');
+    if (!(provSelect instanceof HTMLSelectElement)) return;
+    const cur = String(provSelect.value || '');
+    const nextPid = list.find((p) => String(p.id).toUpperCase() === cur.toUpperCase())?.id ?? (list[0] ? list[0].id : '');
+    provSelect.innerHTML = list.length
+      ? list
+          .map((p) => {
+            const lab = typeof p.labelKey === 'string' ? t(p.labelKey) : String(p.id);
+            const sel = String(p.id) === String(nextPid) ? 'selected' : '';
+            return `<option value="${esc(p.id)}" ${sel}>${esc(lab)}</option>`;
+          })
+          .join('')
+      : `<option value="">${esc(t('common.optional'))}</option>`;
+    const labEl = root.querySelector('[data-setting-province-label]');
+    if (labEl) labEl.textContent = t(provinceLabelKeyForCountry(country));
+    const hstRow = root.querySelector('[data-setting-hst-row]');
+    if (hstRow instanceof HTMLElement) {
+      hstRow.style.display = getCountryTaxProfile(country).hstOnboarding ? '' : 'none';
+    }
+  }
+
+  root.querySelector('[data-setting-country]')?.addEventListener('change', (e) => {
+    const sel = /** @type {HTMLSelectElement} */ (e.target);
+    renderProvinceOptions(String(sel.value || 'CA').toUpperCase());
+  });
+
+  root.querySelector('[data-save-market]')?.addEventListener('click', async () => {
+    const country = String(/** @type {HTMLSelectElement} */ (root.querySelector('[data-setting-country]'))?.value || 'CA').toUpperCase();
+    const provSel = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-province]'));
+    const rawProv = provSel instanceof HTMLSelectElement ? String(provSel.value || '').trim().toUpperCase() : '';
+    const plist = ProvinceRegistry.getByCountry(country);
+    const match = plist.find((p) => String(p.id).toUpperCase() === rawProv);
+    const provinceId = match ? match.id : plist[0] ? plist[0].id : '';
+    const distanceUnitSel = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-distance-unit]'));
+    const distanceUnit = distanceUnitSel?.value === 'mi' ? 'mi' : 'km';
+    const primaryRaw = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-primary-platform]'))?.value;
+    const primaryPlatform = primaryRaw && String(primaryRaw).trim() ? String(primaryRaw).trim() : null;
+    const cdef = CountryRegistry.getById(country);
+    const prevLocale = user?.locale && typeof user.locale === 'object' ? user.locale : {};
+    await saveUser({
+      countryId: country,
+      provinceId: provinceId || '',
+      primaryPlatform,
+      locale: {
+        ...prevLocale,
+        country,
+        currency: cdef.currency,
+        currencySymbol: cdef.symbol,
+        distanceUnit,
+      },
+    });
+    await store.refresh('user');
+    bus.emit(PLATFORM_CHANGED, { source: 'settings_market' });
+    showToast({ type: 'success', message: t('settings.marketSaved'), duration: 2200 });
+  });
+
+  root.querySelector('[data-save-goals-tax]')?.addEventListener('click', async () => {
+    const country = String(/** @type {HTMLSelectElement} */ (root.querySelector('[data-setting-country]'))?.value || 'CA').toUpperCase();
+    const weeklyDol = Number(/** @type {HTMLInputElement} */ (root.querySelector('[data-setting-weekly-goal-dollars]'))?.value || 0);
+    const monthlyDol = Number(/** @type {HTMLInputElement} */ (root.querySelector('[data-setting-monthly-goal-dollars]'))?.value || 0);
+    const annualDol = Number(/** @type {HTMLInputElement} */ (root.querySelector('[data-setting-annual-goal-dollars]'))?.value || 0);
+    let taxWithholdingPct = Number(/** @type {HTMLInputElement} */ (root.querySelector('[data-setting-tax-withhold]'))?.value ?? 0);
+    if (!Number.isFinite(taxWithholdingPct)) taxWithholdingPct = 0;
+    taxWithholdingPct = Math.max(0, Math.min(60, taxWithholdingPct));
+    const presetRaw = String(/** @type {HTMLSelectElement} */ (root.querySelector('[data-setting-work-schedule]'))?.value || 'flexible');
+    const safePreset = WORK_SCHEDULE_PRESETS.includes(presetRaw) ? presetRaw : 'flexible';
+    const hstEl = /** @type {HTMLInputElement | null} */ (root.querySelector('[data-setting-hst]'));
+    const hstOn = Boolean(getCountryTaxProfile(country).hstOnboarding);
+    await saveUser({
+      weeklyGoal: Math.round(weeklyDol * 100),
+      monthlyGoal: Math.round(monthlyDol * 100),
+      annualGoal: Math.round(annualDol * 100),
+      taxWithholdingPct,
+      workSchedule: { preset: safePreset, label: t(`onboarding.schedule.${safePreset}`) },
+      hstRegistered: hstOn && hstEl ? hstEl.checked : false,
+    });
+    await store.refresh('user');
+    bus.emit(GOAL_UPDATED, { source: 'settings_goals_tax' });
+    showToast({ type: 'success', message: t('settings.goalsTaxSaved'), duration: 2200 });
+  });
+
+  root.querySelector('[data-exit-demo]')?.addEventListener('click', async () => {
+    await exitDemoToOnboardingStart();
+  });
 
   root.querySelector('[data-run-integrity]')?.addEventListener('click', async () => {
     const out = root.querySelector('[data-integrity-output]');
@@ -573,6 +927,31 @@ export async function mountSettings(root, ctx = {}) {
         showToast({ type: 'info', message: 'Platform reset complete.' });
       },
     });
+  });
+
+  root.querySelector('[data-export-snapshot]')?.addEventListener('click', async () => {
+    try {
+      await exportVaultSnapshot();
+      exportedThisSession = true;
+      await refreshDataHealth();
+      showToast({ type: 'success', message: t('settings.quickSnapshotToast'), duration: 2200 });
+    } catch (e) {
+      console.error(e);
+      showToast({ type: 'error', message: t('errors.exportFailed') });
+    }
+  });
+
+  root.querySelector('[data-export-vault-reports]')?.addEventListener('click', async () => {
+    try {
+      await exportVaultBackupJson();
+      await setAppState('last_backup', new Date().toISOString());
+      exportedThisSession = true;
+      await refreshDataHealth();
+      showToast({ type: 'success', message: t('settings.exportVaultToast'), duration: 2400 });
+    } catch (e) {
+      console.error(e);
+      showToast({ type: 'error', message: t('errors.exportFailed') });
+    }
   });
 
   root.querySelector('[data-export-backup]')?.addEventListener('click', async () => {

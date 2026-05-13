@@ -7,7 +7,8 @@ export default {
   defaultVisible: false,
   category: 'misc',
   /** @param {unknown} _ctx */
-  render: async (_ctx) => `<p>${esc('Schedule')}</p><strong class="text-secondary">—</strong>`,
+  render: async (_ctx) =>
+    `<span class="stat-label">${esc('Schedule')}</span><span class="stat-value is-placeholder">—</span>`,
   afterRender: (_el, _ctx) => {},
   destroy: (_el) => {},
 };

@@ -15,7 +15,7 @@ export default {
     const country = String(c?.data?.localeCountry || 'US');
     const currency = String(c?.data?.currency || 'USD');
     const cls = delta >= 0 ? 'trend-up' : 'trend-down';
-    return `<p>${esc(t('analytics.compare'))}</p><strong class="${cls}">${esc(formatCurrency(delta, country, { currency }))}</strong>`;
+    return `<span class="stat-label">${esc(t('analytics.compare'))}</span><span class="stat-value ${cls}">${esc(formatCurrency(delta, country, { currency }))}</span>`;
   },
   afterRender: (_el, _ctx) => {},
   destroy: (_el) => {},

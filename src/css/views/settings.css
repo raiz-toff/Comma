@@ -1,7 +1,7 @@
 /* Macadam — settings view (F10 platforms section) */
 
 .settings-view {
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto;
   padding: var(--space-4) var(--space-3);
 }
@@ -12,8 +12,156 @@
   gap: var(--space-4);
 }
 
-.settings-view-header {
-  margin-bottom: var(--space-5);
+/* ---- Tabbed settings (Option A) ---------------------------------------- */
+.settings-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: stretch;
+}
+
+.settings-tabs {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: var(--space-1);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: var(--space-1);
+  margin: 0 calc(-1 * var(--space-2));
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Left rail: title + tab list (sticky on wide screens while panels scroll) */
+.settings-nav-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.settings-nav-column .settings-view-header {
+  margin-bottom: 0;
+}
+
+.settings-view-title {
+  font-size: var(--text-xl);
+}
+
+.settings-view-subtitle {
+  margin-top: var(--space-2);
+  margin-bottom: 0;
+}
+
+.settings-tabs::-webkit-scrollbar {
+  height: 4px;
+}
+
+.settings-tab-btn {
+  flex: 0 0 auto;
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-pill);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.settings-tab-btn:hover {
+  color: var(--color-text-primary);
+  border-color: color-mix(in srgb, var(--color-brand) 35%, var(--color-border));
+}
+
+.settings-tab-btn[aria-selected='true'] {
+  background: color-mix(in srgb, var(--color-brand) 16%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-brand) 45%, var(--color-border));
+  color: var(--color-text-primary);
+}
+
+.settings-tab-btn:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.settings-panels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.settings-tabpanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.settings-tabpanel[hidden] {
+  display: none !important;
+}
+
+@media (min-width: 900px) {
+  .settings-layout {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: var(--space-5);
+  }
+
+  .settings-nav-column {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    z-index: 2;
+    width: 200px;
+    flex-shrink: 0;
+    padding-right: var(--space-4);
+    border-right: 1px solid var(--color-border);
+    background: var(--color-bg);
+  }
+
+  .settings-tabs {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    overflow-x: visible;
+    overflow-y: visible;
+    width: 100%;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0;
+    padding-bottom: 0;
+    border-right: none;
+  }
+
+  .settings-tab-btn {
+    width: 100%;
+    text-align: left;
+    border-radius: var(--radius-md);
+    white-space: normal;
+  }
+
+  .settings-panels {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.settings-subsection-title {
+  font-size: var(--text-md);
+  font-weight: 700;
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-primary);
 }
 
 .settings-grid {
@@ -41,19 +189,88 @@
   margin-top: var(--space-4);
 }
 
-.settings-accent-swatches {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(28px, 1fr));
-  gap: var(--space-2);
-  margin: var(--space-2) 0 var(--space-3);
+.settings-accent-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
 }
 
-.settings-accent-dot {
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: var(--radius-pill);
+.settings-accent-hex-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 160px;
+  min-width: min(100%, 11rem);
+  margin: 0;
+  cursor: text;
+}
+
+.settings-accent-hex-inline .input {
+  flex: 1;
+  min-width: 0;
+  max-width: 12rem;
+}
+
+.settings-accent-hex-label {
+  flex-shrink: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* Compact preset strip — segmented “tabs” with color chips */
+.settings-accent-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  margin: 0;
+  max-width: 100%;
+  background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.settings-accent-tab {
+  position: relative;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
   background: var(--accent, var(--color-brand));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-text-primary) 18%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent);
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.settings-accent-tab:hover {
+  transform: scale(1.07);
+  z-index: 1;
+}
+
+.settings-accent-tab:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  z-index: 2;
+}
+
+.settings-accent-tab.is-selected {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-text-primary) 28%, transparent),
+    0 0 0 2px var(--color-text-primary);
+  z-index: 1;
 }
 
 .settings-sortable-list {
@@ -145,12 +362,29 @@
   display: grid;
   gap: var(--space-2);
   font-size: var(--text-sm);
+  padding-left: var(--space-4);
+  list-style: disc;
+}
+
+.settings-shortcuts-list li {
+  line-height: 1.45;
 }
 
 .settings-shortcuts-actions {
   margin-top: var(--space-3);
   display: flex;
   justify-content: flex-end;
+}
+
+.settings-danger-card {
+  border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-danger) 6%, var(--color-surface));
+}
+
+.settings-data-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 html[data-layout-density='compact'] {

@@ -493,6 +493,33 @@
   color: var(--color-text-muted);
 }
 
+/* Single chrome: .card provides surface, border, shadow, padding */
+.card.stat-card {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.stat-card .stat-meta {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.stat-card .stat-value.is-placeholder {
+  color: var(--color-text-muted);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+.stat-card .stat-value.trend-up {
+  color: var(--color-success);
+}
+
+.stat-card .stat-value.trend-down {
+  color: var(--color-danger);
+}
+
 /* Trends */
 .trend-up {
   color: var(--color-success);

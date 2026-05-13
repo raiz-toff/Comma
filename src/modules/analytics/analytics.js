@@ -1,4 +1,4 @@
-import { db } from '../../core/db.js';
+import { db, getAppState } from '../../core/db.js';
 import { MetricRegistry, getMetricValue } from '../../registry/metrics/index.js';
 import { formatCurrency, formatLargeNumber } from '../../utils/formatters.js';
 import {
@@ -12,7 +12,7 @@ import {
   calcTipRate,
   projectWeekEarnings,
 } from '../../utils/calculations.js';
-import { getTotalExpensesForPeriod } from '../expenses/expenses.js';
+import { getOutOfPocketExpensesForPeriod, getTotalExpensesForPeriod } from '../expenses/expenses.js';
 import { platformAnalyticsEnabled } from '../../registry/platforms/terminology.js';
 
 function num(v, fallback = 0) {
@@ -62,6 +62,52 @@ async function listShiftsBetween(startDate, endDate) {
     .between(startDate, endDate, true, true)
     .filter((row) => row.deletedAt == null)
     .toArray();
+}
+
+/**
+ * Same rule as shifts list / header switcher: `'all'` keeps every shift; otherwise `platformId` must match.
+ * @template T
+ * @param {T[]} shifts
+ * @param {string} [activePlatformId='all']
+ * @returns {T[]}
+ */
+function filterShiftsByActivePlatform(shifts, activePlatformId = 'all') {
+  const pid = String(activePlatformId ?? 'all');
+  if (pid === 'all') return shifts;
+  return shifts.filter((s) => String(/** @type {{ platformId?: unknown }} */ (s).platformId ?? '') === pid);
+}
+
+/**
+ * Streak for dashboard: app-wide when filter is `all`; otherwise consecutive calendar days
+ * with at least one shift on that platform (most recent work day backward until a gap).
+ * @param {string} [activePlatformId='all']
+ * @returns {Promise<number>}
+ */
+export async function getStreakCountForActiveFilter(activePlatformId = 'all') {
+  const pid = String(activePlatformId ?? 'all');
+  if (pid === 'all') {
+    const raw = await getAppState('streak_count');
+    return Number(raw) || 0;
+  }
+  const rows = filterShiftsByActivePlatform(
+    await db.shifts.filter((s) => s.deletedAt == null).toArray(),
+    pid,
+  );
+  const dates = [...new Set(rows.map((s) => String(s.date || '')).filter(Boolean))].sort((a, b) =>
+    b.localeCompare(a),
+  );
+  if (dates.length === 0) return 0;
+  let streak = 1;
+  for (let i = 1; i < dates.length; i += 1) {
+    const newer = dates[i - 1];
+    const older = dates[i];
+    const dNew = new Date(`${newer}T12:00:00`);
+    const dOld = new Date(`${older}T12:00:00`);
+    const diff = Math.round((dNew.getTime() - dOld.getTime()) / 86400000);
+    if (diff === 1) streak += 1;
+    else break;
+  }
+  return streak;
 }
 
 function getDurationMinutes(shift) {
@@ -193,6 +239,146 @@ function aggregateSummary(rows) {
   };
 }
 
+/**
+ * Fast totals from raw shifts (no per-shift expense DB lookups).
+ * @param {Record<string, unknown>[]} shifts
+ */
+function aggregateShiftsLight(shifts) {
+  let gross = 0;
+  let tips = 0;
+  let bonus = 0;
+  let orders = 0;
+  let minutes = 0;
+  for (const s of shifts) {
+    gross += grossCents(s) / 100;
+    tips += num(s.tips) / 100;
+    bonus += num(s.bonusEarnings ?? s.bonus) / 100;
+    orders += num(s.deliveryCount ?? s.orders);
+    minutes += getDurationMinutes(s);
+  }
+  const hourlyRate = calcHourlyRate(gross, minutes);
+  return {
+    count: shifts.length,
+    gross,
+    tips,
+    bonus,
+    orders,
+    minutes,
+    hourlyRate,
+  };
+}
+
+/** @param {string} dateStr @param {number} deltaDays @returns {string} */
+function addDaysToYmd(dateStr, deltaDays) {
+  const d = new Date(`${dateStr}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  d.setDate(d.getDate() + deltaDays);
+  return ymd(d);
+}
+
+/** @param {string} dateStr @param {number} weekStartDay 0=Sun … 6=Sat @returns {string} */
+function startOfWeekForYmd(dateStr, weekStartDay) {
+  const d = new Date(`${dateStr}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  const delta = (d.getDay() - weekStartDay + 7) % 7;
+  d.setDate(d.getDate() - delta);
+  return ymd(d);
+}
+
+/** @param {string} a @param {string} b */
+function ymdMax(a, b) {
+  return String(a) >= String(b) ? String(a) : String(b);
+}
+
+/** @param {string} a @param {string} b */
+function ymdMin(a, b) {
+  return String(a) <= String(b) ? String(a) : String(b);
+}
+
+/**
+ * Financial KPIs for a date range, scoped by platform switcher (`activePlatformId`).
+ * @param {string} startDate YYYY-MM-DD
+ * @param {string} endDate YYYY-MM-DD
+ * @param {string} [activePlatformId='all']
+ * @param {number} [weekStartDay=0] matches `user.locale.weekStartDay`
+ */
+export async function getFinancialOverviewForRange(startDate, endDate, activePlatformId = 'all', weekStartDay = 0) {
+  const empty = {
+    count: 0,
+    gross: 0,
+    tips: 0,
+    bonus: 0,
+    orders: 0,
+    minutes: 0,
+    hourlyRate: 0,
+    expense: 0,
+    outOfPocket: 0,
+    netIncome: 0,
+    hours: 0,
+    avgRateHr: 0,
+    effectivePerHr: 0,
+    perDelivery: 0,
+    bestWeek: /** @type {{ index: number; net: number; start: string; end: string } | null} */ (null),
+    worstWeek: /** @type {{ index: number; net: number; start: string; end: string } | null} */ (null),
+  };
+  if (!startDate || !endDate || String(startDate) > String(endDate)) return empty;
+
+  const shifts = filterShiftsByActivePlatform(await listShiftsBetween(startDate, endDate), activePlatformId);
+  const s = aggregateShiftsLight(shifts);
+  const pid = String(activePlatformId ?? 'all') === 'all' ? undefined : String(activePlatformId);
+  const [expenseCents, oopCents] = await Promise.all([
+    getTotalExpensesForPeriod(startDate, endDate, pid),
+    getOutOfPocketExpensesForPeriod(startDate, endDate, pid),
+  ]);
+  const expense = expenseCents / 100;
+  const outOfPocket = oopCents / 100;
+  const netIncome = s.gross - expense;
+  const hours = s.minutes / 60;
+  const avgRateHr = s.hourlyRate;
+  const effectivePerHr = hours > 0 ? netIncome / hours : 0;
+  const perDelivery = calcEarningsPerOrder(s.gross, s.orders);
+
+  let segmentStart = startDate;
+  /** @type {{ index: number; net: number; start: string; end: string; gross: number }[]} */
+  const weekNets = [];
+  let weekIdx = 0;
+  let guard = 0;
+  while (segmentStart <= endDate && guard < 520) {
+    guard += 1;
+    const weekAnchor = startOfWeekForYmd(segmentStart, weekStartDay);
+    const weekEndFromAnchor = addDaysToYmd(weekAnchor, 6);
+    const effStart = ymdMax(segmentStart, weekAnchor);
+    const effEnd = ymdMin(endDate, weekEndFromAnchor);
+    const segShifts = filterShiftsByActivePlatform(await listShiftsBetween(effStart, effEnd), activePlatformId);
+    const seg = aggregateShiftsLight(segShifts);
+    const expC = await getTotalExpensesForPeriod(effStart, effEnd, pid);
+    const net = seg.gross - expC / 100;
+    weekIdx += 1;
+    weekNets.push({ index: weekIdx, net, start: effStart, end: effEnd, gross: seg.gross });
+    segmentStart = addDaysToYmd(effEnd, 1);
+  }
+
+  let best = /** @type {typeof weekNets[0] | null} */ (null);
+  let worst = /** @type {typeof weekNets[0] | null} */ (null);
+  for (const w of weekNets) {
+    if (best == null || w.net > best.net) best = w;
+    if (worst == null || w.net < worst.net) worst = w;
+  }
+
+  return {
+    ...s,
+    expense,
+    outOfPocket,
+    netIncome,
+    hours,
+    avgRateHr,
+    effectivePerHr,
+    perDelivery,
+    bestWeek: best,
+    worstWeek: worst,
+  };
+}
+
 export async function getDailySummary(date) {
   const shifts = await listShiftsBetween(date, date);
   const rows = await hydrateDerived(shifts);
@@ -208,25 +394,40 @@ export async function getWeeklySummary(startDate) {
   return aggregateSummary(rows);
 }
 
-export async function getMonthlySummary(month, year) {
+/**
+ * @param {number} month
+ * @param {number} year
+ * @param {string} [activePlatformId='all']
+ */
+export async function getMonthlySummary(month, year, activePlatformId = 'all') {
   const { start, end } = monthRange(month, year);
-  const shifts = await listShiftsBetween(start, end);
+  const shifts = filterShiftsByActivePlatform(await listShiftsBetween(start, end), activePlatformId);
   const rows = await hydrateDerived(shifts);
   return aggregateSummary(rows);
 }
 
-export async function getAnnualSummary(year) {
+/**
+ * @param {number} year
+ * @param {string} [activePlatformId='all'] from `store.get('activePlatformId')` — limits metrics to one platform
+ */
+export async function getAnnualSummary(year, activePlatformId = 'all') {
   const { start, end } = yearRange(year);
-  const shifts = await listShiftsBetween(start, end);
+  const shifts = filterShiftsByActivePlatform(await listShiftsBetween(start, end), activePlatformId);
   const rows = await hydrateDerived(shifts);
   return aggregateSummary(rows);
 }
 
-export async function getRolling30DayTrend() {
+/**
+ * @param {string} [activePlatformId='all']
+ */
+export async function getRolling30DayTrend(activePlatformId = 'all') {
   const today = new Date();
   const start = new Date(today);
   start.setDate(start.getDate() - 29);
-  const shifts = await listShiftsBetween(ymd(start), ymd(today));
+  const shifts = filterShiftsByActivePlatform(
+    await listShiftsBetween(ymd(start), ymd(today)),
+    activePlatformId,
+  );
   const byDay = new Map();
   for (const s of shifts) {
     byDay.set(s.date, (byDay.get(s.date) || 0) + grossCents(s));
@@ -241,8 +442,14 @@ export async function getRolling30DayTrend() {
   return { points, regression: calcLinearRegression(points) };
 }
 
-export async function getBestDayOfWeek() {
-  const shifts = await db.shifts.filter((s) => s.deletedAt == null).toArray();
+/**
+ * @param {string} [activePlatformId='all']
+ */
+export async function getBestDayOfWeek(activePlatformId = 'all') {
+  const shifts = filterShiftsByActivePlatform(
+    await db.shifts.filter((s) => s.deletedAt == null).toArray(),
+    activePlatformId,
+  );
   const buckets = new Map();
   for (const s of shifts) {
     const d = new Date(`${s.date}T00:00:00`);
@@ -257,8 +464,14 @@ export async function getBestDayOfWeek() {
   return best;
 }
 
-export async function getBestTimeOfDay() {
-  const shifts = await db.shifts.filter((s) => s.deletedAt == null).toArray();
+/**
+ * @param {string} [activePlatformId='all']
+ */
+export async function getBestTimeOfDay(activePlatformId = 'all') {
+  const shifts = filterShiftsByActivePlatform(
+    await db.shifts.filter((s) => s.deletedAt == null).toArray(),
+    activePlatformId,
+  );
   const buckets = new Map();
   for (const s of shifts) {
     const startTime = String(s.startTime || '');
@@ -273,8 +486,14 @@ export async function getBestTimeOfDay() {
   return best;
 }
 
-export async function getDeadMilesSummary() {
-  const shifts = await db.shifts.filter((s) => s.deletedAt == null).toArray();
+/**
+ * @param {string} [activePlatformId='all']
+ */
+export async function getDeadMilesSummary(activePlatformId = 'all') {
+  const shifts = filterShiftsByActivePlatform(
+    await db.shifts.filter((s) => s.deletedAt == null).toArray(),
+    activePlatformId,
+  );
   let deadKm = 0;
   let businessKm = 0;
   for (const s of shifts) {
@@ -316,8 +535,14 @@ export async function getPlatformComparison() {
   return out;
 }
 
-export async function getIncomeSourceBreakdown() {
-  const shifts = await db.shifts.filter((s) => s.deletedAt == null).toArray();
+/**
+ * @param {string} [activePlatformId='all']
+ */
+export async function getIncomeSourceBreakdown(activePlatformId = 'all') {
+  const shifts = filterShiftsByActivePlatform(
+    await db.shifts.filter((s) => s.deletedAt == null).toArray(),
+    activePlatformId,
+  );
   let baseCents = 0;
   let tipsCents = 0;
   let bonusCents = 0;
@@ -342,9 +567,14 @@ export async function getPersonalRecords() {
   return calcPersonalRecords(normalized);
 }
 
-export async function getZerodays(month, year) {
+/**
+ * @param {number} month
+ * @param {number} year
+ * @param {string} [activePlatformId='all']
+ */
+export async function getZerodays(month, year, activePlatformId = 'all') {
   const { start, end } = monthRange(month, year);
-  const shifts = await listShiftsBetween(start, end);
+  const shifts = filterShiftsByActivePlatform(await listShiftsBetween(start, end), activePlatformId);
   const worked = new Set(shifts.map((s) => s.date));
   const startDate = new Date(`${start}T00:00:00`);
   const endDate = new Date(`${end}T00:00:00`);
@@ -363,11 +593,19 @@ export async function getEarningsPerKm(startDate, endDate) {
   return calcEarningsPerKm(gross / 100, distance);
 }
 
-export async function getWeeklyProjection() {
-  const today = new Date();
+/**
+ * @param {string} [activePlatformId='all']
+ * @param {{ anchorDate?: Date }} [options] Use `anchorDate` instead of today for week boundaries (demo sample year).
+ */
+export async function getWeeklyProjection(activePlatformId = 'all', options = {}) {
+  const raw = /** @type {{ anchorDate?: unknown }} */ (options).anchorDate;
+  const today =
+    raw instanceof Date && !Number.isNaN(/** @type {Date} */ (raw).getTime())
+      ? new Date(/** @type {Date} */ (raw).getTime())
+      : new Date();
   const start = startOfWeek(today, 1);
   const end = endOfWeek(today, 1);
-  const shifts = await listShiftsBetween(ymd(start), ymd(end));
+  const shifts = filterShiftsByActivePlatform(await listShiftsBetween(ymd(start), ymd(end)), activePlatformId);
   const points = shifts.map((s) => ({
     startAt: `${s.date}T${String(s.startTime || '00:00')}:00`,
     gross: grossCents(s) / 100,
@@ -375,8 +613,15 @@ export async function getWeeklyProjection() {
   return projectWeekEarnings(points, today);
 }
 
-export async function getTopEarningShifts(limit = 10) {
-  const rows = await db.shifts.filter((s) => s.deletedAt == null).toArray();
+/**
+ * @param {number} [limit=10]
+ * @param {string} [activePlatformId='all']
+ */
+export async function getTopEarningShifts(limit = 10, activePlatformId = 'all') {
+  const rows = filterShiftsByActivePlatform(
+    await db.shifts.filter((s) => s.deletedAt == null).toArray(),
+    activePlatformId,
+  );
   return rows
     .map((s) => ({
       id: s.id,
@@ -389,9 +634,13 @@ export async function getTopEarningShifts(limit = 10) {
     .slice(0, Math.max(1, limit));
 }
 
-export async function getCumulativeYtdSeries(year = new Date().getFullYear()) {
+/**
+ * @param {number} [year]
+ * @param {string} [activePlatformId='all']
+ */
+export async function getCumulativeYtdSeries(year = new Date().getFullYear(), activePlatformId = 'all') {
   const { start, end } = yearRange(year);
-  const shifts = await listShiftsBetween(start, end);
+  const shifts = filterShiftsByActivePlatform(await listShiftsBetween(start, end), activePlatformId);
   const byDay = new Map();
   for (const s of shifts) {
     byDay.set(s.date, (byDay.get(s.date) || 0) + grossCents(s));
@@ -410,16 +659,29 @@ export async function getCumulativeYtdSeries(year = new Date().getFullYear()) {
   return { labels, values };
 }
 
-export async function getEarningsVsHoursScatter(startDate, endDate) {
-  const shifts = await listShiftsBetween(startDate, endDate);
+/**
+ * @param {string} startDate
+ * @param {string} endDate
+ * @param {string} [activePlatformId='all']
+ */
+export async function getEarningsVsHoursScatter(startDate, endDate, activePlatformId = 'all') {
+  const shifts = filterShiftsByActivePlatform(await listShiftsBetween(startDate, endDate), activePlatformId);
   return shifts.map((s) => ({
     x: getDurationMinutes(s) / 60,
     y: grossCents(s) / 100,
   }));
 }
 
-export async function getWeekOverWeek() {
-  const now = new Date();
+/**
+ * @param {string} [activePlatformId='all']
+ * @param {{ anchorDate?: Date }} [options] Use `anchorDate` instead of today for week boundaries (demo sample year).
+ */
+export async function getWeekOverWeek(activePlatformId = 'all', options = {}) {
+  const raw = /** @type {{ anchorDate?: unknown }} */ (options).anchorDate;
+  const now =
+    raw instanceof Date && !Number.isNaN(/** @type {Date} */ (raw).getTime())
+      ? new Date(/** @type {Date} */ (raw).getTime())
+      : new Date();
   const thisWeekStart = startOfWeek(now, 1);
   const thisWeekEnd = endOfWeek(now, 1);
   const lastWeekStart = new Date(thisWeekStart);
@@ -430,13 +692,22 @@ export async function getWeekOverWeek() {
     listShiftsBetween(ymd(thisWeekStart), ymd(thisWeekEnd)),
     listShiftsBetween(ymd(lastWeekStart), ymd(lastWeekEnd)),
   ]);
-  const thisGross = thisWeek.reduce((sum, s) => sum + grossCents(s), 0);
-  const lastGross = lastWeek.reduce((sum, s) => sum + grossCents(s), 0);
+  const tw = filterShiftsByActivePlatform(thisWeek, activePlatformId);
+  const lw = filterShiftsByActivePlatform(lastWeek, activePlatformId);
+  const thisGross = tw.reduce((sum, s) => sum + grossCents(s), 0);
+  const lastGross = lw.reduce((sum, s) => sum + grossCents(s), 0);
   return { thisGross: thisGross / 100, lastGross: lastGross / 100, delta: (thisGross - lastGross) / 100 };
 }
 
-export async function getRecentActivity(limit = 8) {
-  const rows = await db.shifts.filter((s) => s.deletedAt == null).toArray();
+/**
+ * @param {number} [limit=8]
+ * @param {string} [activePlatformId='all']
+ */
+export async function getRecentActivity(limit = 8, activePlatformId = 'all') {
+  const rows = filterShiftsByActivePlatform(
+    await db.shifts.filter((s) => s.deletedAt == null).toArray(),
+    activePlatformId,
+  );
   return rows
     .sort((a, b) => String(b.updatedAt || b.date).localeCompare(String(a.updatedAt || a.date)))
     .slice(0, Math.max(1, limit))

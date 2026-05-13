@@ -7,6 +7,7 @@ import { store } from './store.js';
 import { render as renderDashboard } from '../views/dashboard.js';
 import { render as renderShifts } from '../views/shifts-view.js';
 import { render as renderAnalytics } from '../views/analytics-view.js';
+import { render as renderExpenses } from '../views/expenses-view.js';
 import { render as renderTax } from '../views/tax-view.js';
 import { render as renderVehicles } from '../views/vehicles-view.js';
 import { render as renderSchedule } from '../views/schedule-view.js';
@@ -42,6 +43,7 @@ function resolveRouteDef(hash) {
     { hash: '#/dashboard', name: 'dashboard', render: renderDashboard },
     { hash: '#/shifts', name: 'shifts', render: renderShifts },
     { hash: '#/analytics', name: 'analytics', render: renderAnalytics },
+    { hash: '#/expenses', name: 'expenses', render: renderExpenses },
     { hash: '#/tax', name: 'tax', render: renderTax },
     { hash: '#/vehicles', name: 'vehicles', render: renderVehicles },
     { hash: '#/schedule', name: 'schedule', render: renderSchedule },

@@ -9,7 +9,11 @@ import { t } from '../../utils/strings.js';
 
 function moneyTick(value) {
   const n = Number(value);
-  return `$${Number.isFinite(n) ? n.toFixed(0) : '0'}`;
+  if (!Number.isFinite(n)) return '$0';
+  const abs = Math.abs(n);
+  if (abs >= 1000) return `$${(n / 1000).toFixed(1)}k`;
+  if (abs < 10) return `$${n.toFixed(2)}`;
+  return `$${n.toFixed(0)}`;
 }
 
 export function renderHourlyTrendChart(canvas, labels, values) {

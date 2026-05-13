@@ -1095,9 +1095,14 @@ export async function renderExpensesView(root, ctx = {}) {
   const ac = new AbortController();
   const { signal } = ac;
 
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  let filterDebounce = null;
   const onFilterInput = () => {
-    page = 1;
-    void refreshAllPanels();
+    if (filterDebounce) clearTimeout(filterDebounce);
+    filterDebounce = setTimeout(() => {
+      page = 1;
+      void refreshAllPanels();
+    }, 250); // 250ms debounce for smoother typing/filtering
   };
 
   root.addEventListener('input', onFilterInput, { signal });
@@ -1159,14 +1164,13 @@ export async function renderExpensesView(root, ctx = {}) {
       }
 
       if (action === 'new-expense') {
-        await openExpenseEditor({
+        void openExpenseEditor({
           categories,
           platformRows,
           isHstRegistered: Boolean(user?.hstRegistered),
           currencySymbol: user?.locale?.currencySymbol || '$',
           onSave: saveExpense,
-        });
-        await refreshAllPanels();
+        }).then(() => refreshAllPanels());
         return;
       }
 
@@ -1174,17 +1178,49 @@ export async function renderExpensesView(root, ctx = {}) {
       const id = Number(rowEl?.getAttribute('data-expense-id'));
       if (!Number.isFinite(id) || id <= 0) return;
       if (action === 'edit') {
-        const row = await db.expenses.get(id);
-        if (!row) return;
-        await openExpenseEditor({
-          initial: row,
-          categories,
-          platformRows,
-          isHstRegistered: Boolean(user?.hstRegistered),
-          currencySymbol: user?.locale?.currencySymbol || '$',
-          onSave: async (payload) => updateExpense(id, payload),
+        // Open modal IMMEDIATELY with a loading state to provide instant feedback
+        const handle = showModal({
+          title: t('expenses.editTitle'),
+          content: `
+            <div class="expense-edit-loading">
+              <div class="shimmer-line"></div>
+              <div class="shimmer-line shimmer-line--short"></div>
+              <div class="shimmer-line"></div>
+              <p class="expense-loading-text">${esc(t('common.loading'))}...</p>
+            </div>
+          `,
+          actions: [],
         });
-        await refreshAllPanels();
+
+        void db.expenses.get(id).then(row => {
+          if (!row) {
+            handle.close();
+            return;
+          }
+          
+          const formApi = renderExpenseForm({
+            initial: row,
+            categories,
+            platformRows,
+            isHstRegistered: Boolean(user?.hstRegistered),
+            currencySymbol: user?.locale?.currencySymbol || '$',
+            onSave: async (payload) => {
+              await updateExpense(id, payload);
+              handle.close();
+              void refreshAllPanels();
+            },
+            onCancel: () => handle.close()
+          });
+
+          // Swap loading state for the actual form
+          handle.body.innerHTML = '';
+          handle.body.appendChild(formApi.el);
+
+          // Focus first input
+          setTimeout(() => {
+            handle.body.querySelector('input, select, textarea')?.focus();
+          }, 0);
+        });
       }
       if (action === 'delete') {
         await deleteExpense(id);

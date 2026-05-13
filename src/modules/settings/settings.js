@@ -11,6 +11,11 @@ import { ProvinceRegistry } from '../../registry/provinces/index.js';
 import { mountSettingsPlatforms } from './platforms-settings.js';
 import { formatShortcutOverlayListItems } from './keyboard-shortcuts.js';
 import { normalizeAccentHex } from './settings-utils.js';
+import {
+  getOrderedDashboardWidgetIds,
+  getAllSelectableWidgetIds,
+  WidgetRegistry,
+} from '../../registry/widgets/index.js';
 
 const Sortable = /** @type {any} */ (SortableMod).default || SortableMod;
 const DEBUG_TAP_WINDOW_MS = 5500;
@@ -28,16 +33,7 @@ const PRESET_ACCENTS = [
   '#D97706',
   '#6B7280',
 ];
-const WIDGET_CHOICES = [
-  'earnings',
-  'weeklyGoal',
-  'streak',
-  'hourlyRate',
-  'taxJar',
-  'expenses',
-  'schedule',
-  'recentShifts',
-];
+const WIDGET_CHOICES = getAllSelectableWidgetIds();
 const HERO_STAT_CHOICES = ['gross', 'net', 'hours', 'orders', 'tips', 'expenses', 'distance'];
 
 const WORK_SCHEDULE_PRESETS = ['flexible', 'weekdays', 'evenings', 'weekends'];
@@ -523,7 +519,18 @@ export async function mountSettings(root, ctx = {}) {
       <h2 class="settings-section-title">${esc(t('settings.dashboardSectionTitle'))}</h2>
       <p class="text-secondary settings-section-lead">${esc(t('settings.dashboardSectionLead'))}</p>
       <ul class="settings-sortable-list" data-widget-sort>
-        ${widgets.map((w) => `<li class="settings-sortable-item" data-widget="${esc(w)}">${esc(w)}</li>`).join('')}
+        ${widgets
+          .map((wObj) => {
+            const id = typeof wObj === 'string' ? wObj : wObj?.id;
+            const size = typeof wObj === 'string' ? '1x1' : wObj?.size || '1x1';
+            const def = WidgetRegistry.getById(id);
+            const label = def ? def.label : id;
+            return `<li class="settings-sortable-item" data-widget-id="${esc(id)}" data-widget-size="${esc(size)}">
+              <span class="settings-widget-label">${esc(label)} <small style="opacity:0.5">(${esc(size)})</small></span>
+              <button type="button" class="btn btn-ghost btn-xs settings-widget-remove" data-remove-widget="${esc(id)}" aria-label="Remove ${esc(label)}">✕</button>
+            </li>`;
+          })
+          .join('')}
       </ul>
       <div class="settings-grid settings-tight-grid">
         ${HERO_STAT_CHOICES.map((s) => `<label class="settings-check"><input type="checkbox" data-hero-stat="${esc(s)}" ${heroStats.includes(s) ? 'checked' : ''} /> ${esc(s)}</label>`).join('')}
@@ -776,11 +783,16 @@ export async function mountSettings(root, ctx = {}) {
   });
 
   root.querySelector('[data-save-dashboard]')?.addEventListener('click', async () => {
-    const order = [...root.querySelectorAll('[data-widget-sort] [data-widget]')].map((el) => String(el.getAttribute('data-widget')));
+    const order = [...root.querySelectorAll('[data-widget-sort] [data-widget-id]')].map((el) => ({
+      id: String(el.getAttribute('data-widget-id')),
+      size: String(el.getAttribute('data-widget-size') || '1x1'),
+      visible: true
+    }));
     const selectedHero = [...root.querySelectorAll('[data-hero-stat]:checked')].map((el) => String(el.getAttribute('data-hero-stat'))).slice(0, 3);
     const bentoLayout = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-bento]'))?.value || 'balanced';
     await saveUser({ dashboardWidgets: order, heroStats: selectedHero, bentoLayout });
     await store.refresh('user');
+    bus.emit('dashboard:updated');
     showToast({ type: 'success', message: 'Dashboard personalization saved.' });
   });
 

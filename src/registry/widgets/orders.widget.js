@@ -11,8 +11,8 @@ export default {
   /** @param {unknown} ctx */
   render: async (ctx) => {
     const c = /** @type {{ data?: { annual?: { orders?: number } } }} */ (ctx);
-    const n = Number(c?.data?.annual?.orders) || 0;
-    return `<span class="stat-label">${esc(t('analytics.orders'))}</span><span class="stat-value">${esc(formatLargeNumber(n))}</span>`;
+    const n = Number(c?.data?.financial?.orders) || 0;
+    return `<span class="stat-label">${esc(t('views.dashboard.financial.deliveries'))}</span><span class="stat-value">${esc(formatLargeNumber(n))}</span>`;
   },
   afterRender: (_el, _ctx) => {},
   destroy: (_el) => {},

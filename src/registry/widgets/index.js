@@ -15,6 +15,28 @@ import streak from './streak.widget.js';
 import taxJar from './tax-jar.widget.js';
 import weekCompare from './week-compare.widget.js';
 import weeklyGoal from './weekly-goal.widget.js';
+import incomeBreakdown from './income-breakdown.widget.js';
+import weeklyProjection from './weekly-projection.widget.js';
+import avgRate from './avg-rate.widget.js';
+import bestDay from './best-day.widget.js';
+import bestHour from './best-hour.widget.js';
+import deadMiles from './dead-miles.widget.js';
+import deliveries from './deliveries.widget.js';
+import effectiveRate from './effective-rate.widget.js';
+import monthGross from './month-gross.widget.js';
+import monthHourly from './month-hourly.widget.js';
+import monthOrders from './month-orders.widget.js';
+import netIncome from './net-income.widget.js';
+import outOfPocket from './out-of-pocket.widget.js';
+import perDelivery from './per-delivery.widget.js';
+import platformActivity from './platform-activity.widget.js';
+import rollingTrend from './rolling-trend.widget.js';
+import scatter from './scatter.widget.js';
+import stabilityScore from './stability-score.widget.js';
+import tipsTotal from './tips-total.widget.js';
+import totalExpenses from './total-expenses.widget.js';
+import totalHours from './total-hours.widget.js';
+import zeroDays from './zero-days.widget.js';
 
 /** First bento stat strip — matches legacy `views/dashboard.js` layout. */
 export const DASHBOARD_STAT_STRIP_IDS = ['earnings', 'weeklyGoal', 'orders', 'weekCompare'];
@@ -51,6 +73,28 @@ const WIDGETS = [
   schedule,
   recentShifts,
   placeholder,
+  incomeBreakdown,
+  weeklyProjection,
+  avgRate,
+  bestDay,
+  bestHour,
+  deadMiles,
+  deliveries,
+  effectiveRate,
+  monthGross,
+  monthHourly,
+  monthOrders,
+  netIncome,
+  outOfPocket,
+  perDelivery,
+  platformActivity,
+  rollingTrend,
+  scatter,
+  stabilityScore,
+  tipsTotal,
+  totalExpenses,
+  totalHours,
+  zeroDays,
 ];
 
 /** @type {Map<string, WidgetDefinition>} */
@@ -130,4 +174,21 @@ export const WidgetRegistry = {
 
 export function assertWidgetRegistryValid() {
   for (const w of WIDGETS) validateWidgetDefinition(w);
+}
+
+/**
+ * @param {string} [category] If omitted, returns all non-placeholder widgets.
+ * @returns {WidgetDefinition[]}
+ */
+export function getWidgetsByCategory(category) {
+  return WIDGETS.filter((w) => {
+    if (w.id === 'placeholder') return false;
+    if (category && w.category !== category) return false;
+    return true;
+  });
+}
+
+/** All widget IDs excluding placeholder — used by settings widget manager */
+export function getAllSelectableWidgetIds() {
+  return WIDGETS.filter((w) => w.id !== 'placeholder').map((w) => w.id);
 }

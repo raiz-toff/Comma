@@ -31,6 +31,7 @@ const CSS_ORDER = [
   'components.css',
   'layout.css',
   'animations.css',
+  'widgets_theme.css',
 ];
 
 async function ensureDist() {

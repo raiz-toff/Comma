@@ -1092,3 +1092,107 @@
   font-size: var(--text-sm);
   color: var(--color-text-secondary);
 }
+
+/* Dashboard Widget Removal Button */
+.dashboard-widget-remove {
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  z-index: 10 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.2s ease !important;
+  background: var(--color-surface-raised) !important;
+  border: 1px solid var(--color-border) !important;
+  color: var(--color-text-secondary) !important;
+  border-radius: 50% !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.card:hover .dashboard-widget-remove {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.dashboard-widget-remove:hover {
+  color: var(--color-error) !important;
+  border-color: var(--color-error) !important;
+  background: rgba(244, 63, 94, 0.1) !important;
+}
+
+/* Minimalist View All Link */
+.dashboard-explore-minimal {
+  display: flex;
+  justify-content: flex-start;
+  margin: var(--space-2) 0 var(--space-6);
+  padding-left: var(--space-1);
+}
+
+.minimal-cta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  text-decoration: none;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  opacity: 0.8;
+  transition: all 0.2s ease;
+}
+
+.minimal-cta:hover {
+  color: var(--color-brand);
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+.minimal-cta-icon {
+  display: flex;
+  align-items: center;
+}
+
+.minimal-cta-arrow {
+  transition: transform 0.2s ease;
+}
+
+.minimal-cta:hover .minimal-cta-arrow {
+  transform: translateX(4px);
+}
+
+@media (max-width: 768px) {
+  .dashboard-explore-minimal {
+    margin: var(--space-4) 0 var(--space-8);
+  }
+}
+
+/* Mobile Safety Buffer */
+@media (max-width: 768px) {
+  .dashboard-view {
+    padding-bottom: 140px !important; /* Extra room for FAB + Bottom Nav */
+  }
+  
+  .financial-dash-highlights {
+    margin-bottom: var(--space-4);
+  }
+}
+
+/* Absolute Mobile Clearance */
+.dashboard-mobile-spacer {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .dashboard-mobile-spacer {
+    display: block !important;
+    height: 180px !important; /* Massive physical gap */
+    width: 100% !important;
+    pointer-events: none !important;
+  }
+}

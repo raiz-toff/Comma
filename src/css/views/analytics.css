@@ -1,6 +1,322 @@
-/* Macadam — analytics view (Phase 2). F3 stub. */
-/*
- * Sections (fill in later):
- * - Chart containers
- * - Week / range toolbar
- */
+.analytics-view {
+  padding: var(--space-6);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-8);
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.view-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.analytics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: var(--space-8);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-6);
+}
+
+.analytics-title h1 {
+  font-size: var(--text-3xl);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--color-text-main);
+  margin-bottom: 4px;
+}
+
+.analytics-title p {
+  color: var(--color-text-secondary);
+  font-size: var(--text-base);
+}
+
+.analytics-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.analytics-pro-tip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  background: color-mix(in srgb, var(--color-brand) 8%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-brand) 20%, var(--color-border));
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-10);
+}
+
+.pro-tip-icon {
+  color: var(--color-brand);
+  background: color-mix(in srgb, var(--color-brand) 15%, transparent);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pro-tip-content {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-main);
+}
+
+.pro-tip-content strong {
+  color: var(--color-brand);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.analytics-section-title h3 {
+  font-size: var(--text-sm);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.section-divider {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(to right, var(--color-border), transparent);
+}
+
+.analytics-card-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0 var(--space-2) 0;
+}
+
+.analytics-card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.card[data-widget-id] {
+  position: relative !important;
+}
+
+.card[data-widget-id]:hover {
+  overflow: visible !important;
+  z-index: 200 !important;
+}
+
+.widget-action-wrapper {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.toggle-widget-menu {
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+}
+
+.card:hover .toggle-widget-menu,
+.widget-command-stack.is-visible + .toggle-widget-menu, /* If menu is open */
+.widget-action-wrapper:focus-within .toggle-widget-menu {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Ensure button stays visible when its specific menu is open */
+.widget-action-wrapper:has(.widget-command-stack.is-visible) .toggle-widget-menu {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Premium Command Stack UI - High Visibility Manual Toggle */
+.widget-command-stack {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+  z-index: 3000;
+  transform: translateY(-10px) scale(0.9);
+}
+
+.widget-command-stack.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.stack-label {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-brand);
+  margin-bottom: 2px;
+  opacity: 0.9;
+}
+
+.primary-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.action-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 44px; /* Slightly wider for the grid */
+  height: 44px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.action-tile:hover {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+  color: white;
+  transform: scale(1.05) translateY(-2px);
+}
+
+.tile-shape {
+  border: 1.5px solid currentColor;
+  opacity: 0.8;
+}
+
+.shape-1x1 { width: 10px; height: 10px; border-radius: 1px; }
+.shape-2x1 { width: 18px; height: 10px; border-radius: 1px; }
+.shape-2x2 { width: 18px; height: 18px; border-radius: 2px; }
+.shape-1x2 { width: 10px; height: 18px; border-radius: 1px; }
+.shape-4x1 { width: 24px; height: 8px; border-radius: 1px; }
+.shape-4x2 { width: 24px; height: 16px; border-radius: 1px; }
+
+.tile-label {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+/* Active Widgets Ribbon (Minimalist Inventory) */
+.active-widgets-ribbon {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 8px;
+  padding: 8px 0 16px 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.active-widgets-ribbon::-webkit-scrollbar {
+  display: none;
+}
+
+.active-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 6px 12px;
+  border-radius: 100px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.active-chip:hover {
+  border-color: var(--color-brand);
+  transform: translateY(-1px);
+}
+
+.chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.chip-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-main);
+}
+
+.chip-size {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-raised);
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.analytics-manage-link {
+  margin-top: -8px;
+}
+
+.active-widget-item .badge {
+  font-size: 8px;
+  opacity: 0.7;
+  padding: 0 4px;
+}
+
+.active-widget-item .btn-error {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  min-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.active-widget-item:hover .btn-error {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.widget-config-row {
+  display: flex;
+  gap: 8px;
+}

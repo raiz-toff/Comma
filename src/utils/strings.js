@@ -415,6 +415,25 @@ export const strings = {
       earningsVsHours: 'Earnings vs Hours',
       emptyTitle: 'Not enough data yet',
       emptyMessage: 'Log a few shifts to unlock charts and insights.',
+      
+      // New Sync & Insight Strings
+      performanceModules: 'Performance Modules',
+      deepInsights: 'Deep Insights',
+      statModules: 'Summary Stats',
+      addToDashboard: 'Add to Dashboard',
+      onDashboard: 'On Dashboard',
+      addedToDashboard: 'Added to dashboard',
+      
+      // Widget specific labels (if needed by i18n helper)
+      platformActivity: 'Platform Mix',
+      incomeBreakdown: 'Income Breakdown',
+      basePay: 'Base Pay',
+      tipsLabel: 'Tips',
+      bonusPromo: 'Bonus / Promo',
+      weeklyProjection: 'Weekly Projection',
+      projectionLead: 'Estimated total for this week.',
+      stabilityScore: 'Stability Score',
+      stabilityLead: 'How consistent your weekly earnings are.',
     },
     notifications: {
       title: 'Notifications',

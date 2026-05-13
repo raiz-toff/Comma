@@ -124,8 +124,18 @@ export async function renderAppShell(root) {
         <div class="app-header-avatar" aria-hidden="true">${initials}</div>
         <div id="platform-tabs-slot" class="platform-tabs app-header-platforms" aria-label="${escapeAttr(t('platforms.switcher'))}"></div>
         <div class="app-header-spacer"></div>
+        <div class="app-header-actions">
+          <a class="btn btn-secondary btn-xs header-btn" href="#/analytics/week" title="${escapeAttr(t('views.dashboard.financial.weeklyLog'))}">
+            ${getIcon('calendar', 16)} <span class="header-btn-text">${escapeHtml(t('views.dashboard.financial.weeklyLog'))}</span>
+          </a>
+          <a class="btn btn-secondary btn-xs header-btn" href="#/expenses" title="${escapeAttr(t('views.dashboard.financial.expensesNav'))}">
+            ${getIcon('receipt', 16)} <span class="header-btn-text">${escapeHtml(t('views.dashboard.financial.expensesNav'))}</span>
+          </a>
+          <a class="btn btn-primary btn-xs header-btn" href="#/reports" title="${escapeAttr(t('views.dashboard.financial.export'))}">
+            ${getIcon('export', 16)} <span class="header-btn-text">${escapeHtml(t('views.dashboard.financial.export'))}</span>
+          </a>
+        </div>
         <time id="header-clock" class="app-header-clock"></time>
-        <span id="offline-indicator" class="offline-pill" role="status" aria-live="polite" data-online="true"></span>
         <button type="button" class="app-header-search" data-open-global-search aria-label="${escapeAttr(t('app.navSearch'))}">
           ${getIcon('search', 22, 'header-search-icon')}
         </button>
@@ -159,7 +169,10 @@ export async function renderAppShell(root) {
         ${bottomNavButton('#/shifts', 'calendar', 'app.navShifts')}
         ${bottomNavButton('#/analytics', 'trending-up', 'app.navAnalytics')}
         ${bottomNavButton('#/goals', 'trophy', 'app.navGoals')}
-        ${bottomNavButton('#/settings', 'settings', 'app.navSettings')}
+        <button type="button" class="nav-link" id="bottom-nav-more" aria-label="More Pages">
+          ${getIcon('layout-grid', 20, 'nav-icon')}
+          <span>More</span>
+        </button>
       </nav>
     </div>
   `;
@@ -190,10 +203,46 @@ export async function renderAppShell(root) {
   mountPlatformSwitcher(root.querySelector('#platform-tabs-slot'));
   await hydrateShiftTimerBar(root.querySelector('#shift-timer-bar'));
 
+  root.querySelector('#bottom-nav-more')?.addEventListener('click', () => {
+    openMoreNavMenu();
+  });
+
   store.subscribe('user', () => {
     const av = root.querySelector('.app-header-avatar');
     if (av) av.textContent = initialsFromUser(store.get('user'));
   });
+
+  function openMoreNavMenu() {
+    const morePages = [
+      { href: '#/expenses', icon: 'receipt', label: 'app.navExpenses' },
+      { href: '#/tax', icon: 'bolt', label: 'app.navTax' },
+      { href: '#/vehicles', icon: 'fuel', label: 'app.navVehicles' },
+      { href: '#/schedule', icon: 'clock', label: 'app.navSchedule' },
+      { href: '#/reports', icon: 'receipt', label: 'app.navReports' },
+      { href: '#/settings', icon: 'settings', label: 'app.navSettings' },
+    ];
+
+    const drawer = showDrawer({
+      title: 'More Insights & Tools',
+      content: `
+        <div class="more-nav-list">
+          ${morePages.map(p => `
+            <a href="${p.href}" class="more-nav-item" data-nav-more-link>
+              <div class="more-nav-icon">${getIcon(p.icon, 22)}</div>
+              <span class="more-nav-label">${t(p.label)}</span>
+              <div class="more-nav-arrow">${getIcon('chevron-left', 14)}</div>
+            </a>
+          `).join('')}
+        </div>
+      `,
+      snapPoints: [0.5, 0.85],
+    });
+
+    // Close drawer when a link is clicked
+    drawer.body.querySelectorAll('[data-nav-more-link]').forEach(link => {
+      link.addEventListener('click', () => drawer.close());
+    });
+  }
 
   function openQuickShiftDrawer() {
     const drawer = showDrawer({

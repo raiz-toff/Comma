@@ -13,6 +13,9 @@ import { getIcon } from '../ui/icons.js';
 import { formatCurrency } from '../utils/formatters.js';
 import { defaultRangeForPreset } from '../utils/date-range-presets.js';
 import { t } from '../utils/strings.js';
+import { getOrderedDashboardWidgetIds, renderWidgetCellsInnerHtml, WidgetRegistry } from '../registry/widgets/index.js';
+import { buildWidgetDataContext } from '../modules/analytics/widget-data.js';
+import { afterRenderWidgets } from '../registry/widgets/after-render.js';
 
 const DASHBOARD_RANGE_KEY = 'macadam-dashboard-range-v1';
 const MONTHLY_ROWS_PER_PAGE = 15;
@@ -100,6 +103,35 @@ async function paintDashboard(root, ctx) {
     getFinancialOverviewForRange(range.start, range.end, platformFilter, weekStartDay),
     getFinancialMonthlyBreakdown(range.start, range.end, platformFilter),
   ]);
+
+  // 1. Data Context for Widgets
+  const widgetCtx = await buildWidgetDataContext({ start: range.start, end: range.end }, platformFilter, weekStartDay);
+  widgetCtx.data.financial = fin; // Inject pre-fetched financial data
+
+  // 2. Render Widgets from Registry
+  const rawWidgets = Array.isArray(user?.dashboardWidgets) ? user.dashboardWidgets : [];
+  const widgetCells = await Promise.all(rawWidgets.map(async (wObj) => {
+    try {
+      const id = typeof wObj === 'string' ? wObj : wObj?.id;
+      const size = typeof wObj === 'string' ? '1x1' : wObj?.size || '1x1';
+      const def = WidgetRegistry.getById(id);
+      if (!def) return null;
+      return { id, size, html: await def.render(widgetCtx) };
+    } catch (err) {
+      console.error('Widget render failed:', err);
+      return null;
+    }
+  }));
+
+  const widgetCardsHtml = widgetCells
+    .filter(Boolean)
+    .map(
+      (cell) => `
+        <article class="card bento-cell-${cell.size}" data-widget-id="${esc(cell.id)}">
+          ${cell.html}
+        </article>`,
+    )
+    .join('');
   const localeCountry = user?.locale?.country || 'US';
   const currency = user?.locale?.currency || 'USD';
 
@@ -214,13 +246,6 @@ async function paintDashboard(root, ctx) {
           <h1 class="financial-dash-title">${esc(t('views.dashboard.financial.title'))}</h1>
           <p class="financial-dash-subtitle">${esc(t('views.dashboard.financial.subtitle'))}</p>
         </div>
-        <div class="financial-dash-actions">
-          <a class="btn btn-secondary" href="#/analytics/week">${esc(t('views.dashboard.financial.weeklyLog'))}</a>
-          <a class="btn btn-secondary" href="#/expenses">${esc(t('views.dashboard.financial.expensesNav'))}</a>
-          <a class="btn btn-primary financial-dash-export" href="#/reports">${getIcon('export', 18, 'financial-dash-export-icon')}${esc(
-            t('views.dashboard.financial.export'),
-          )}</a>
-        </div>
       </header>
 
       <div class="financial-dash-filter card" data-dashboard-filter>
@@ -246,66 +271,16 @@ async function paintDashboard(root, ctx) {
         </div>
       </div>
 
-      <div class="financial-dash-primary">
-        <article class="card financial-kpi financial-kpi--large">
-          <div class="financial-kpi-icon" aria-hidden="true">${getIcon('dollar', 24)}</div>
-          <div class="financial-kpi-body">
-            <span class="financial-kpi-label">${esc(t('views.dashboard.financial.totalEarnings'))}</span>
-            <span class="financial-kpi-value">${fmt(fin.gross)}</span>
-            <span class="financial-kpi-trend" aria-hidden="true">—</span>
-          </div>
-        </article>
-        <article class="card financial-kpi financial-kpi--large">
-          <div class="financial-kpi-icon" aria-hidden="true">${getIcon('chart-line', 24)}</div>
-          <div class="financial-kpi-body">
-            <span class="financial-kpi-label">${esc(t('views.dashboard.financial.netIncome'))}</span>
-            <span class="financial-kpi-value">${fmt(fin.netIncome)}</span>
-            <span class="financial-kpi-trend" aria-hidden="true">—</span>
-          </div>
-        </article>
-        <article class="card financial-kpi financial-kpi--large">
-          <div class="financial-kpi-icon" aria-hidden="true">${getIcon('bolt', 24)}</div>
-          <div class="financial-kpi-body">
-            <span class="financial-kpi-label">${esc(t('views.dashboard.financial.avgRateHr'))}</span>
-            <span class="financial-kpi-value">${fmt(fin.avgRateHr)}</span>
-            <span class="financial-kpi-trend" aria-hidden="true">—</span>
-          </div>
-        </article>
-        <article class="card financial-kpi financial-kpi--large">
-          <div class="financial-kpi-icon" aria-hidden="true">${getIcon('clock', 24)}</div>
-          <div class="financial-kpi-body">
-            <span class="financial-kpi-label">${esc(t('views.dashboard.financial.totalHours'))}</span>
-            <span class="financial-kpi-value">${hoursStr}</span>
-            <span class="financial-kpi-trend" aria-hidden="true">—</span>
-          </div>
-        </article>
+      <div class="bento-grid" style="margin-bottom: var(--space-6);">
+        ${widgetCardsHtml}
       </div>
 
-      <div class="financial-dash-secondary">
-        <article class="card financial-metric">
-          <span class="financial-metric-label">${esc(t('views.dashboard.financial.deliveries'))}</span>
-          <span class="financial-metric-value">${esc(String(Math.round(fin.orders || 0)))}</span>
-        </article>
-        <article class="card financial-metric">
-          <span class="financial-metric-label">${esc(t('views.dashboard.financial.perDelivery'))}</span>
-          <span class="financial-metric-value financial-metric-value--accent">${fmt(fin.perDelivery)}</span>
-        </article>
-        <article class="card financial-metric">
-          <span class="financial-metric-label">${esc(t('views.dashboard.financial.tipsTotal'))}</span>
-          <span class="financial-metric-value financial-metric-value--positive">${fmt(fin.tips)}</span>
-        </article>
-        <article class="card financial-metric">
-          <span class="financial-metric-label">${esc(t('views.dashboard.financial.expensesMetric'))}</span>
-          <span class="financial-metric-value financial-metric-value--negative">${fmt(fin.expense)}</span>
-        </article>
-        <article class="card financial-metric">
-          <span class="financial-metric-label">${esc(t('views.dashboard.financial.outOfPocket'))}</span>
-          <span class="financial-metric-value financial-metric-value--negative">${fmt(fin.outOfPocket)}</span>
-        </article>
-        <article class="card financial-metric">
-          <span class="financial-metric-label">${esc(t('views.dashboard.financial.effectivePerHr'))}</span>
-          <span class="financial-metric-value financial-metric-value--accent">${fmt(fin.effectivePerHr)}</span>
-        </article>
+      <div class="dashboard-explore-minimal">
+        <a href="#/analytics" class="minimal-cta">
+          <span class="minimal-cta-icon">${getIcon('layout-grid', 18)}</span>
+          <span class="minimal-cta-text">View All Analytics</span>
+          <span class="minimal-cta-arrow">${getIcon('arrow-right', 14)}</span>
+        </a>
       </div>
 
       <article class="card financial-monthly-card">
@@ -359,6 +334,9 @@ async function paintDashboard(root, ctx) {
           </div>
         </article>
       </div>
+
+      <!-- Physical Spacer for Mobile Clearance -->
+      <div class="dashboard-mobile-spacer"></div>
     </section>
   `;
 
@@ -373,7 +351,7 @@ async function paintDashboard(root, ctx) {
     void paintDashboard(root, ctx);
   };
 
-  root.onclick = (ev) => {
+  root.onclick = async (ev) => {
     const el = /** @type {HTMLElement | null} */ (
       ev.target &&
       /** @type {HTMLElement} */ (ev.target).closest(
@@ -430,6 +408,9 @@ async function paintDashboard(root, ctx) {
       applyPreset(preset);
     }
   };
+
+  // After-render for all widgets
+  afterRenderWidgets(root, widgetCtx);
 }
 
 /** @param {HTMLElement} root @param {Record<string, unknown>} ctx */
@@ -466,6 +447,7 @@ export async function render(root, ctx) {
   unsubs.push(bus.on(SHIFT_DELETED, rerender));
   unsubs.push(bus.on(EXPENSE_SAVED, rerender));
   unsubs.push(bus.on(DATA_IMPORTED, rerender));
+  unsubs.push(bus.on('dashboard:updated', rerender));
   unsubs.push(
     bus.on(NAVIGATION, (payload) => {
       const h =

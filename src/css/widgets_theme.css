@@ -1,0 +1,127 @@
+/*
+  ╔══════════════════════════════════════════════════════════════╗
+  ║   MACADAM BENTO V2 — WIDGET THEME SYSTEM                     ║
+  ║   Color-coded profiles, Hover Glows, & Responsive Grid       ║
+  ╚══════════════════════════════════════════════════════════════╝
+*/
+
+:root {
+  /* Profiles */
+  --wp-financial-a: #10b981;
+  --wp-financial-r: 16, 185, 129;
+  
+  --wp-growth-a: #8b5cf6;
+  --wp-growth-r: 139, 92, 246;
+  
+  --wp-activity-a: #3b82f6;
+  --wp-activity-r: 59, 130, 246;
+  
+  --wp-intelligence-a: #f59e0b;
+  --wp-intelligence-r: 245, 158, 11;
+  
+  --wp-critical-a: #f43f5e;
+  --wp-critical-r: 244, 63, 94;
+}
+
+/* Bento Grid System */
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+}
+
+.bento-cell-1x1 { grid-column: span 1; grid-row: span 1; }
+.bento-cell-2x1 { grid-column: span 2; grid-row: span 1; }
+.bento-cell-1x2 { grid-column: span 1; grid-row: span 2; }
+.bento-cell-2x2 { grid-column: span 2; grid-row: span 2; }
+.bento-cell-4x1 { grid-column: span 4; grid-row: span 1; }
+.bento-cell-4x2 { grid-column: span 4; grid-row: span 2; }
+
+@media (min-width: 768px) {
+  .bento-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  /* Analytics view stays vertical/dual-column for better browsing */
+  .analytics-view .bento-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Widget Card Refinements */
+.card[data-widget-id] {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card[data-widget-id]:hover {
+  overflow: visible !important;
+  z-index: 50;
+  transform: translateY(-2px);
+  border-color: rgba(var(--war, var(--wp-activity-r)), 0.4);
+  box-shadow: 
+    0 12px 24px -8px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(var(--war, var(--wp-activity-r)), 0.1);
+}
+
+/* Profiles Mapping */
+.card[data-widget-id="earnings"],
+.card[data-widget-id="netIncome"],
+.card[data-widget-id="totalExpenses"],
+.card[data-widget-id="monthGross"] { --wa: var(--wp-financial-a); --war: var(--wp-financial-r); }
+
+.card[data-widget-id="weeklyGoal"],
+.card[data-widget-id="weeklyProjection"],
+.card[data-widget-id="streak"] { --wa: var(--wp-growth-a); --war: var(--wp-growth-r); }
+
+.card[data-widget-id="orders"],
+.card[data-widget-id="deliveries"],
+.card[data-widget-id="totalHours"] { --wa: var(--wp-activity-a); --war: var(--wp-activity-r); }
+
+.card[data-widget-id="bestDay"],
+.card[data-widget-id="bestHour"],
+.card[data-widget-id="rollingTrend"],
+.card[data-widget-id="scatter"] { --wa: var(--wp-intelligence-a); --war: var(--wp-intelligence-r); }
+
+/* Hover Reveal Controls */
+.analytics-card-header {
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  margin-bottom: var(--space-2);
+}
+
+.card:hover .analytics-card-header {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Stat Typography for Bento */
+.card .stat-label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.card .stat-value {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  color: var(--color-text-main);
+  line-height: 1.1;
+}
+
+/* 2x2 Custom Content Scaling */
+.bento-cell-2x2 .stat-value {
+  font-size: var(--text-4xl);
+}

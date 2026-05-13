@@ -295,31 +295,91 @@ samp {
   background: transparent;
 }
 
-.platform-tab {
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-xs);
-  font-weight: 600;
+/* ── Sliding pill: collapsed base state ── */
+.platform-switcher--tabs {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--color-surface-raised);
   border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  border: 1px solid transparent;
-  transition:
-    background-color var(--transition-base),
-    color var(--transition-base),
-    border-color var(--transition-base);
-}
-
-.platform-tab:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-}
-
-.platform-tab[aria-selected='true'] {
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-  border-color: var(--color-border);
+  padding: 4px;
+  overflow: hidden;
+  max-width: 36px; /* Fits 28px tab + 2 * 4px padding */
+  transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
   box-shadow: var(--shadow-sm);
+  white-space: nowrap;
 }
 
+.platform-tab {
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: calc(var(--radius-md) - 2px);
+  border: none;
+  color: var(--color-text-main);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none; /* Disable clicks on hidden elements */
+  transition: opacity 0.2s ease-in, padding 0.3s ease, width 0.3s ease;
+}
+
+/* Collapsed active tab perfectly frames the logo */
+.platform-switcher--tabs:not(.is-expanded) .platform-tab[aria-selected='true'] {
+  padding: 0;
+  width: 28px;
+  justify-content: center;
+}
+
+.platform-switcher--tabs:not(.is-expanded) .platform-tab[aria-selected='true'] .platform-tab-label {
+  max-width: 0;
+  opacity: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.platform-switcher--tabs:not(.is-expanded) .platform-tab[aria-selected='true'] .platform-tab-inner {
+  gap: 0;
+}
+
+/* Active platform always visible & first */
+.platform-tab[aria-selected='true'] {
+  order: -1;
+  opacity: 1;
+  pointer-events: auto;
+  background: var(--platform-color);
+  color: #ffffff;
+}
+
+/* ── Expanded state ── */
+.platform-switcher--tabs.is-expanded {
+  max-width: 480px; /* Reduced from 100vw to eliminate max-width transition delay */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch; /* Native iOS feel */
+  scrollbar-width: none;
+}
+
+.platform-switcher--tabs.is-expanded::-webkit-scrollbar {
+  display: none;
+}
+
+.platform-switcher--tabs.is-expanded .platform-tab {
+  opacity: 1;
+  pointer-events: auto;
+  background: transparent;
+  color: var(--color-text-main);
+}
+
+/* Maintain active coloring when expanded */
+.platform-switcher--tabs.is-expanded .platform-tab[aria-selected='true'] {
+  background: var(--platform-color);
+  color: #ffffff;
+}
+
+/* ── Tab sub-elements ── */
 .platform-tab--has-logo {
   display: inline-flex;
   align-items: center;
@@ -342,38 +402,31 @@ samp {
   color: var(--platform-color, var(--color-brand));
 }
 
+.platform-tab[aria-selected='true'] .platform-tab-logo {
+  color: inherit !important;
+}
+
 .platform-tab-logo :is(svg) {
   display: block;
   width: 1rem;
   height: 1rem;
 }
 
-.platform-tab[data-platform-id='ubereats'] .platform-tab-logo {
+.platform-tab[data-platform-id='ubereats']:not([aria-selected='true']) .platform-tab-logo {
   color: var(--color-text-primary);
 }
 
 .platform-tab-label {
   min-width: 0;
+  max-width: 120px;
+  opacity: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
 }
 
-.platform-tab--draggable {
-  border-left: 3px solid var(--platform-color, var(--color-brand));
-}
-
-.platform-tab--fixed {
-  border-left: 3px solid transparent;
-}
-
-.platform-switcher--tabs {
-  display: flex;
-  flex-wrap: nowrap;
-  flex: 0 0 auto;
-  gap: var(--space-1);
-  align-items: center;
-}
+/* (borders removed for sliding pill design) */
 
 .sortable-ghost {
   opacity: 0.55;

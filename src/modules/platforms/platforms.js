@@ -55,8 +55,7 @@ export async function initPlatforms() {
   await store.refresh('platforms');
 }
 
-/** Viewport width at or below which “tabs” preference renders as the compact dropdown. */
-const PLATFORM_SWITCHER_COMPACT_MQ = '(max-width: 720px)';
+/* Media-query dropdown fallback removed — tabs mode now uses CSS max-width slide. */
 
 /**
  * @param {'tabs'|'dropdown'} mode
@@ -87,18 +86,25 @@ export function renderPlatformSwitcher(mode, opts) {
     </div>`;
   }
 
+  const allLabel = String(t('app.platformAll'));
+  const allInitial = allLabel.charAt(0).toUpperCase();
+  const allInner = `<span class="platform-tab-inner"><span class="platform-tab-logo" aria-hidden="true"><span style="font-size:13px;font-weight:800;line-height:1;">${esc(allInitial)}</span></span><span class="platform-tab-label">${esc(allLabel)}</span></span>`;
+
   const tabs = [
-    `<button type="button" class="platform-tab platform-tab--fixed" data-platform-id="all" data-draggable="false" aria-selected="${selectedId === 'all' ? 'true' : 'false'}" style="--platform-color:var(--color-text-muted)">${esc(t('app.platformAll'))}</button>`,
+    `<button type="button" class="platform-tab platform-tab--fixed platform-tab--has-logo" data-platform-id="all" data-draggable="false" aria-selected="${selectedId === 'all' ? 'true' : 'false'}" style="--platform-color:var(--color-text-muted)">${allInner}</button>`,
     ...activeRows.map((p) => {
       const id = String(p.id);
       const label = typeof p.name === 'string' && p.name ? p.name : id;
       const col = typeof p.color === 'string' && p.color ? p.color : getPlatformConfig(id).color;
       const sel = selectedId === id ? 'true' : 'false';
-      const logo = resolvePlatformLogoHtml(id);
-      const inner = logo
-        ? `<span class="platform-tab-inner"><span class="platform-tab-logo" aria-hidden="true">${logo}</span><span class="platform-tab-label">${esc(label)}</span></span>`
-        : esc(label);
-      return `<button type="button" class="platform-tab platform-tab--draggable${logo ? ' platform-tab--has-logo' : ''}" draggable="false" data-platform-id="${esc(
+      
+      let logo = resolvePlatformLogoHtml(id);
+      if (!logo) {
+        logo = `<span style="font-size:13px;font-weight:800;line-height:1;">${esc(label.charAt(0).toUpperCase())}</span>`;
+      }
+      
+      const inner = `<span class="platform-tab-inner"><span class="platform-tab-logo" aria-hidden="true">${logo}</span><span class="platform-tab-label">${esc(label)}</span></span>`;
+      return `<button type="button" class="platform-tab platform-tab--draggable platform-tab--has-logo" draggable="false" data-platform-id="${esc(
         id,
       )}" aria-selected="${sel}" style="--platform-color:${esc(col)}">${inner}</button>`;
     }),
@@ -124,13 +130,16 @@ export function mountPlatformSwitcher(slot) {
   /** @type {{ destroy: () => void } | null} */
   let sortableInst = null;
 
-  /** @type {() => void} */
-  let removeMediaListener = () => {};
-
-  const mq =
-    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      ? window.matchMedia(PLATFORM_SWITCHER_COMPACT_MQ)
-      : null;
+  const onDocClick = (e) => {
+    const tablist = slot.querySelector('.platform-switcher--tabs');
+    if (!tablist || !tablist.classList.contains('is-expanded')) return;
+    if (!tablist.contains(/** @type {Node} */ (e.target))) {
+      tablist.classList.remove('is-expanded');
+    }
+  };
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', onDocClick);
+  }
 
   const render = async () => {
     if (sortableInst) {
@@ -144,8 +153,7 @@ export function mountPlatformSwitcher(slot) {
 
     const user = store.get('user');
     const modeRaw = user && typeof user.platformSwitcherMode === 'string' ? user.platformSwitcherMode : 'tabs';
-    const mode = modeRaw === 'dropdown' ? 'dropdown' : 'tabs';
-    const displayMode = mode === 'dropdown' || (mq && mq.matches) ? 'dropdown' : 'tabs';
+    const displayMode = modeRaw === 'dropdown' ? 'dropdown' : 'tabs';
     const activeRows = /** @type {PlatformRow[]} */ (store.get('platforms') || []);
     const count = activeRows.length;
 
@@ -174,9 +182,15 @@ export function mountPlatformSwitcher(slot) {
 
     const setFilter = (id) => {
       const next = id === 'all' || ids.has(id) ? id : 'all';
-      store.set('activePlatformId', next);
-      bus.emit(PLATFORM_CHANGED, { platformId: next, source: 'switcher' });
+      // Apply visual state instantly for snappy UI
       applySelectionVisual(next);
+      
+      // Defer global state updates until AFTER the 300ms CSS collapse animation finishes
+      // so the heavy re-renders don't block the main thread and drop animation frames.
+      setTimeout(() => {
+        store.set('activePlatformId', next);
+        bus.emit(PLATFORM_CHANGED, { platformId: next, source: 'switcher' });
+      }, 300);
     };
 
     if (displayMode === 'dropdown') {
@@ -189,13 +203,29 @@ export function mountPlatformSwitcher(slot) {
       return;
     }
 
+    /* ── Sliding pill: expand / select+collapse ── */
     const tablist = slot.querySelector('.platform-switcher--tabs');
     if (tablist) {
       tablist.addEventListener('click', (e) => {
         const tEl = /** @type {HTMLElement | null} */ (e.target && /** @type {HTMLElement} */ (e.target).closest('[data-platform-id]'));
-        if (!tEl || !tablist.contains(tEl)) return;
-        const id = tEl.getAttribute('data-platform-id');
-        if (id) setFilter(id);
+
+        // 1. Expand on tap if currently collapsed
+        if (!tablist.classList.contains('is-expanded')) {
+          tablist.classList.add('is-expanded');
+          return;
+        }
+
+        // 2. If open, and a tab is clicked, update active and collapse
+        if (tEl) {
+          const id = tEl.getAttribute('data-platform-id');
+          if (id) {
+            setFilter(id);
+            tablist.classList.remove('is-expanded');
+          }
+        } else {
+          // 3. Close if clicked outside tabs but inside container
+          tablist.classList.remove('is-expanded');
+        }
       });
     }
 
@@ -222,22 +252,10 @@ export function mountPlatformSwitcher(slot) {
     }
   };
 
-  const run = () => {
+  const run = (payload) => {
+    if (payload && payload.source === 'switcher') return;
     void render();
   };
-
-  const onMediaChange = () => run();
-  if (mq && typeof mq.addEventListener === 'function') {
-    mq.addEventListener('change', onMediaChange);
-    removeMediaListener = () => {
-      mq.removeEventListener('change', onMediaChange);
-    };
-  } else if (mq && typeof mq.addListener === 'function') {
-    mq.addListener(onMediaChange);
-    removeMediaListener = () => {
-      mq.removeListener(onMediaChange);
-    };
-  }
 
   run();
   store.subscribe('platforms', run);
@@ -245,7 +263,9 @@ export function mountPlatformSwitcher(slot) {
   const off = bus.on(PLATFORM_CHANGED, run);
 
   const teardown = () => {
-    removeMediaListener();
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('click', onDocClick);
+    }
     off();
     store.unsubscribe('platforms', run);
     store.unsubscribe('user', run);

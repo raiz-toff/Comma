@@ -22,7 +22,7 @@ By treating gig work like a real business, Macadam gives you the same analytics 
 
 ---
 
-## 📱 App Interface
+## App Interface
 
 Experience a state-of-the-art interface designed for speed and clarity.
 
@@ -66,7 +66,7 @@ Manage your business costs with region-specific tax categories and fine-tune you
 
 ---
 
-## ⚡️ Features
+## Features
 
 * **Multi-App Intelligence**: Define which platforms you run. Macadam understands their unique terms (Peak Pay vs. Surge) and provides platform-specific form fields.
 * **True Net Earnings**: Auto-calculates your real hourly rate after fuel, maintenance, and vehicle depreciation.
@@ -77,7 +77,7 @@ Manage your business costs with region-specific tax categories and fine-tune you
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 Requires [Node.js](https://nodejs.org/) (v18+) solely for the local build server.
 
@@ -99,7 +99,7 @@ Open `http://localhost:3000` (or whatever port `serve` assigns) in your browser.
 
 ---
 
-## 🏗 Tech Stack
+## Tech Stack
 
 Macadam is an exercise in stripping away modern web bloat:
 
@@ -112,7 +112,7 @@ Macadam is an exercise in stripping away modern web bloat:
 
 ---
 
-## 📖 Documentation
+## Documentation
 
 Macadam is built on a highly modular **Registry Architecture** that separates core engine logic from market/platform specifics. Check out the `docs/` folder to understand how it works or how to extend it.
 
@@ -124,7 +124,7 @@ Macadam is built on a highly modular **Registry Architecture** that separates co
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md) to learn how to set up your environment, follow our architectural patterns, and submit pull requests.
 
@@ -132,6 +132,6 @@ We ask all contributors to abide by our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 
-## 📄 License
+## License
 
 Macadam is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for more details.

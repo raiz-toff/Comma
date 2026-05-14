@@ -22,6 +22,50 @@ By treating gig work like a real business, Macadam gives you the same analytics 
 
 ---
 
+## 📱 App Interface
+
+Experience a state-of-the-art interface designed for speed and clarity.
+
+### Dashboard & Analytics
+The heart of Macadam. A high-fidelity Bento-style dashboard providing real-time insights into your earnings, expenses, and goal progress.
+
+![Dashboard Overview](docs/images/image.png)
+
+<table width="100%">
+  <tr>
+    <td width="50%" align="center">
+      <strong>Platform Switcher</strong><br/>
+      <img src="docs/images/image-2.png" alt="Platform Switcher" /><br/>
+      <em>Seamlessly switch with a touch-optimized sliding pill.</em>
+    </td>
+    <td width="50%" align="center">
+      <strong>Visual Goals</strong><br/>
+      <img src="docs/images/image-3.png" alt="Visual Goals" /><br/>
+      <em>Track targets with interactive SVG progress rings.</em>
+    </td>
+  </tr>
+</table>
+
+### Expenses & Settings
+Manage your business costs with region-specific tax categories and fine-tune your experience with modular settings.
+
+<table width="100%">
+  <tr>
+    <td width="50%" align="center">
+      <strong>Expense Tracking</strong><br/>
+      <img src="docs/images/image-1.png" alt="Expense Tracking" /><br/>
+      <em>Detailed management with tax set-aside hints.</em>
+    </td>
+    <td width="50%" align="center">
+      <strong>Modular Settings</strong><br/>
+      <img src="docs/images/image-4.png" alt="Settings" /><br/>
+      <em>A tabbed, organized interface for personalization.</em>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## ⚡️ Features
 
 * **Multi-App Intelligence**: Define which platforms you run. Macadam understands their unique terms (Peak Pay vs. Surge) and provides platform-specific form fields.

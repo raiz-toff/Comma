@@ -24,6 +24,30 @@
   color: var(--color-text-secondary);
 }
 
+.dashboard-section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  opacity: 0.8;
+  animation: kpi-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+}
+
+.dashboard-section-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.dashboard-section-line {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(to right, var(--color-border), transparent);
+}
+
 .expenses-tabstrip {
   display: flex;
   flex-wrap: wrap;
@@ -819,68 +843,126 @@
   }
 }
 
-.financial-dash-primary {
+.dashboard-hero-stats {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-3);
-  width: 100%;
-}
-
-@media (min-width: 720px) {
-  .financial-dash-primary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 
 @media (min-width: 1024px) {
-  .financial-dash-primary {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+  .dashboard-hero-stats {
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
-.financial-kpi {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  min-height: 5.5rem;
-}
-
-.financial-kpi-icon {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-brand) 12%, var(--color-surface));
-  color: var(--color-brand);
-}
-
-.financial-kpi-icon svg {
-  display: block;
-}
-
-.financial-kpi-body {
+.hero-stat-item {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  padding: var(--space-3);
+  position: relative;
   min-width: 0;
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
 }
 
-.financial-kpi-label {
-  font-size: var(--text-xs);
+.hero-stat-item:nth-child(3n) {
+  border-right: none;
+}
+
+@media (min-width: 1024px) {
+  .hero-stat-item {
+    border-bottom: none;
+  }
+  .hero-stat-item:nth-child(3n) {
+    border-right: 1px solid var(--color-border);
+  }
+  .hero-stat-item:last-child {
+    border-right: none;
+  }
+}
+
+.hero-stat-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.04em;
   color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: var(--space-1);
 }
 
-.financial-kpi-value {
-  font-size: var(--text-xl);
+.hero-stat-delta {
+  font-size: 9px;
   font-weight: 800;
-  font-variant-numeric: tabular-nums;
+}
+.hero-stat-delta.is-up { color: var(--color-success); }
+.hero-stat-delta.is-down { color: var(--color-danger); }
+
+.hero-stat-value {
+  font-size: var(--text-base);
+  font-weight: 900;
   color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  position: relative;
+  z-index: 2;
+}
+
+.hero-stat-viz {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+}
+
+.hero-stat-viz.kpi-viz--spark {
+  height: 40%;
+  opacity: 0.15;
+}
+
+.hero-stat-viz.kpi-viz--spark svg {
+  width: 100%;
+  height: 100%;
+}
+
+.hero-stat-viz.kpi-viz--spark path {
+  fill: none;
+  stroke: var(--stat-color, var(--color-brand));
+  stroke-width: 3;
+}
+
+.hero-stat-viz.kpi-viz--bar {
+  height: 2px;
+  background: transparent;
+}
+
+.hero-stat-viz.kpi-viz--bar .kpi-bar-fill {
+  height: 100%;
+  background: var(--stat-color, var(--color-brand));
+  opacity: 0.6;
+}
+
+@media (min-width: 480px) {
+  .hero-stat-item {
+    padding: var(--space-4);
+  }
+  .hero-stat-value {
+    font-size: var(--text-lg);
+  }
+}
+
+@media (min-width: 1280px) {
+  .hero-stat-value {
+    font-size: 1.75rem;
+  }
 }
 
 .financial-kpi-trend {

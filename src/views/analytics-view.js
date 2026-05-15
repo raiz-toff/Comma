@@ -25,6 +25,16 @@ function esc(v) {
 /** @type {WeakMap<HTMLElement, () => void>} */
 const teardownByRoot = new WeakMap();
 
+const ANALYTICS_TAB_KEY = 'comma-analytics-active-tab-v1';
+
+function loadActiveTab() {
+  return sessionStorage.getItem(ANALYTICS_TAB_KEY) || 'perf';
+}
+
+function saveActiveTab(tab) {
+  sessionStorage.setItem(ANALYTICS_TAB_KEY, tab);
+}
+
 /**
  * @param {HTMLElement} root
  * @param {Record<string, unknown>} _ctx
@@ -105,133 +115,111 @@ async function paintAnalytics(root, _ctx) {
 
     <section class="view-body" style="padding-bottom: var(--space-20);">
       
-      <!-- 1. ACTIVE ON DASHBOARD -->
-      ${currentWidgets.length > 0 ? `
-        <div class="analytics-section-title">
-          <h3>${esc(t('analytics.onDashboard'))}</h3>
-          <span class="section-divider"></span>
-        </div>
-        <div class="active-widgets-ribbon">
-          ${currentWidgets.map(wObj => {
-            const id = typeof wObj === 'string' ? wObj : wObj?.id;
-            const def = WidgetRegistry.getById(id);
-            const size = (typeof wObj === 'string' ? null : wObj?.size) || def?.defaultSize || '1x1';
-            if (!def) return '';
-            
-            // Map profile to color variable (Financial, Growth, etc)
-            const profile = def.profile || 'activity';
-            const colorVar = `--wp-${profile}-a`;
-            
+      <div class="analytics-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="analytics-nav-column">
+          <div class="analytics-tabs">
+            <button type="button" class="analytics-tab-btn${loadActiveTab() === 'perf' ? ' is-active' : ''}" data-analytics-tab="perf" aria-selected="${loadActiveTab() === 'perf'}">
+              <span>${esc(t('analytics.performanceModules'))}</span>
+            </button>
+            <button type="button" class="analytics-tab-btn${loadActiveTab() === 'insights' ? ' is-active' : ''}" data-analytics-tab="insights" aria-selected="${loadActiveTab() === 'insights'}">
+              <span>${esc(t('analytics.deepInsights'))}</span>
+            </button>
+            <button type="button" class="analytics-tab-btn${loadActiveTab() === 'stats' ? ' is-active' : ''}" data-analytics-tab="stats" aria-selected="${loadActiveTab() === 'stats'}">
+              <span>${esc(t('analytics.statModules'))}</span>
+            </button>
+          </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="analytics-panels">
+          
+          ${await (async () => {
+            const activeTab = loadActiveTab();
+            let categoryWidgetIds = [];
+            if (activeTab === 'perf') {
+              categoryWidgetIds = ['rollingTrend', 'scatter', 'bestDay', 'bestHour', 'deadMiles', 'streak', 'weekCompare'];
+            } else if (activeTab === 'insights') {
+              categoryWidgetIds = ['platformActivity', 'incomeBreakdown', 'weeklyProjection', 'stabilityScore', 'taxJar', 'recentShifts', 'schedule'];
+            } else {
+              categoryWidgetIds = ['earnings', 'netIncome', 'totalHours', 'deliveries', 'tipsTotal', 'expenses', 'avgRate', 'effectiveRate', 'zeroDays', 'monthGross', 'monthHourly', 'monthOrders', 'outOfPocket', 'perDelivery'];
+            }
+
+            // Filter "On Dashboard" to only show widgets from THIS category
+            const onDashInCategory = currentWidgets.filter(wObj => {
+              const id = typeof wObj === 'string' ? wObj : wObj?.id;
+              return categoryWidgetIds.includes(id);
+            });
+
+            const available = categoryWidgetIds.filter(id => !currentWidgets.find(w => (typeof w === 'string' ? w : w.id) === id));
+
             return `
-              <div class="active-chip">
-                <span class="chip-dot" style="background: var(${colorVar})"></span>
-                <span class="chip-label">${esc(def.label)}</span>
-                <span class="chip-size">${esc(size)}</span>
+              <!-- 1. ACTIVE ON DASHBOARD (Filtered by Tab) -->
+              ${onDashInCategory.length > 0 ? `
+                <div class="analytics-section-title">
+                  <h3>${esc(t('analytics.onDashboard'))}</h3>
+                  <span class="section-divider"></span>
+                </div>
+                <div class="active-widgets-ribbon">
+                  ${onDashInCategory.map(wObj => {
+                    const id = typeof wObj === 'string' ? wObj : wObj?.id;
+                    const def = WidgetRegistry.getById(id);
+                    const size = (typeof wObj === 'string' ? null : wObj?.size) || def?.defaultSize || '1x1';
+                    if (!def) return '';
+                    const profile = def.profile || 'activity';
+                    const colorVar = `--wp-${profile}-a`;
+                    return `
+                      <div class="active-chip">
+                        <span class="chip-dot" style="background: var(${colorVar})"></span>
+                        <span class="chip-label">${esc(def.label)}</span>
+                        <span class="chip-size">${esc(size)}</span>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+                
+                <div class="analytics-tab-breaker">
+                  <span class="breaker-label">Available Insights</span>
+                  <div class="breaker-line"></div>
+                </div>
+              ` : ''}
+
+              <!-- TAB CONTENT (Available Widgets) -->
+              <div class="analytics-tab-content">
+                ${available.length === 0 ? `
+                  <div class="analytics-empty-tab">
+                    ${getIcon('check-circle', 48)}
+                    <p>All widgets from this category are already on your dashboard!</p>
+                  </div>
+                ` : `
+                  <section class="bento-grid bento-layout-${user?.bentoLayout || 'balanced'}" style="margin-top: var(--space-2);">
+                    ${(await Promise.all(available.map(async (id) => {
+                      const w = WidgetRegistry.getById(id);
+                      if (!w) return '';
+                      return `
+                        <article class="card bento-cell-${w.defaultSize}" data-widget-id="${esc(id)}">
+                          <div class="analytics-card-header">
+                            ${renderWidgetControls(id, currentWidgets)}
+                          </div>
+                          <div class="analytics-card-content">
+                            ${await w.render(widgetCtx)}
+                          </div>
+                        </article>
+                      `;
+                    }))).join('')}
+                  </section>
+                `}
               </div>
             `;
-          }).join('')}
-        </div>
-        <div class="analytics-manage-link" style="margin-top: var(--space-4); margin-bottom: var(--space-8);">
-          <a href="#/settings?tab=appearance" class="btn btn-ghost btn-xs">
-            ${getIcon('settings', 14)} Manage active widgets in Settings
-          </a>
-        </div>
-      ` : ''}
+          })()}
 
-      <!-- PRO TIP BANNER -->
-      <div class="analytics-pro-tip card card-raised">
-        <div class="pro-tip-icon">${getIcon('streak', 20)}</div>
-        <div class="pro-tip-content">
-          <strong>PRO TIP:</strong> Hover over any insight below to instantly add it to your dashboard in any size (1x1, 2x1, or 2x2)!
-        </div>
+          <div class="analytics-manage-link" style="margin-top: var(--space-12); text-align: center;">
+            <a href="#/settings?tab=appearance" class="btn btn-ghost btn-sm">
+              ${getIcon('settings', 16)} Manage active widgets in Settings
+            </a>
+          </div>
+        </main>
       </div>
-
-      <!-- 2. AVAILABLE PERFORMANCE MODULES -->
-      ${await (async () => {
-        const perfIds = ['rollingTrend', 'scatter', 'bestDay', 'bestHour', 'deadMiles', 'streak', 'weekCompare'];
-        const available = perfIds.filter(id => !currentWidgets.find(w => (typeof w === 'string' ? w : w.id) === id));
-        if (available.length === 0) return '';
-        return `
-          <div class="analytics-section-title">
-            <h3>${esc(t('analytics.performanceModules'))}</h3>
-            <span class="section-divider"></span>
-          </div>
-          <section class="bento-grid bento-layout-${user?.bentoLayout || 'balanced'}" style="margin-top: var(--space-2); margin-bottom: var(--space-8);">
-            ${(await Promise.all(available.map(async (id) => {
-              const w = WidgetRegistry.getById(id);
-              if (!w) return '';
-              return `
-                <article class="card bento-cell-${w.defaultSize}" data-widget-id="${esc(id)}">
-                  <div class="analytics-card-header">
-                    ${renderWidgetControls(id, currentWidgets)}
-                  </div>
-                  <div class="analytics-card-content">
-                    ${await w.render(widgetCtx)}
-                  </div>
-                </article>
-              `;
-            }))).join('')}
-          </section>
-        `;
-      })()}
-
-      <!-- 3. AVAILABLE DEEP INSIGHTS -->
-      ${await (async () => {
-        const deepIds = ['platformActivity', 'incomeBreakdown', 'weeklyProjection', 'stabilityScore', 'taxJar', 'recentShifts', 'schedule'];
-        const available = deepIds.filter(id => !currentWidgets.find(w => (typeof w === 'string' ? w : w.id) === id));
-        if (available.length === 0) return '';
-        return `
-          <div class="analytics-section-title">
-            <h3>${esc(t('analytics.deepInsights'))}</h3>
-            <span class="section-divider"></span>
-          </div>
-          <section class="bento-grid bento-layout-${user?.bentoLayout || 'balanced'}" style="margin-top: var(--space-2); margin-bottom: var(--space-8);">
-            ${(await Promise.all(available.map(async (id) => {
-              const w = WidgetRegistry.getById(id);
-              if (!w) return '';
-              return `
-                <article class="card bento-cell-${w.defaultSize}" data-widget-id="${esc(id)}">
-                  <div class="analytics-card-header">
-                    ${renderWidgetControls(id, currentWidgets)}
-                  </div>
-                  <div class="analytics-card-content">
-                    ${await w.render(widgetCtx)}
-                  </div>
-                </article>
-              `;
-            }))).join('')}
-          </section>
-        `;
-      })()}
-
-      <!-- 4. AVAILABLE SUMMARY STATS -->
-      ${await (async () => {
-        const statIds = ['earnings', 'netIncome', 'totalHours', 'deliveries', 'tipsTotal', 'expenses', 'avgRate', 'effectiveRate', 'zeroDays', 'monthGross', 'monthHourly', 'monthOrders', 'outOfPocket', 'perDelivery'];
-        const available = statIds.filter(id => !currentWidgets.find(w => (typeof w === 'string' ? w : w.id) === id));
-        if (available.length === 0) return '';
-        return `
-          <div class="analytics-section-title">
-            <h3>${esc(t('analytics.statModules'))}</h3>
-            <span class="section-divider"></span>
-          </div>
-          <section class="bento-grid bento-layout-${user?.bentoLayout || 'balanced'}" style="margin-top: var(--space-2);">
-            ${(await Promise.all(available.map(async (id) => {
-              const w = WidgetRegistry.getById(id);
-              if (!w) return '';
-              return `
-                <article class="card bento-cell-${w.defaultSize}" data-widget-id="${esc(id)}">
-                  <div class="analytics-card-header">
-                    ${renderWidgetControls(id, currentWidgets)}
-                  </div>
-                  <div class="analytics-card-content">
-                    ${await w.render(widgetCtx)}
-                  </div>
-                </article>
-              `;
-            }))).join('')}
-          </section>
-        `;
-      })()}
     </section>
 
   `;
@@ -277,6 +265,17 @@ export async function render(root, ctx) {
   const handleAddClick = async (ev) => {
     const target = ev.target;
     if (!(target instanceof HTMLElement)) return;
+
+    // 0. Tab Switching
+    const tabBtn = target.closest('[data-analytics-tab]');
+    if (tabBtn) {
+      const tab = tabBtn.dataset.analyticsTab;
+      if (tab) {
+        saveActiveTab(tab);
+        rerender();
+      }
+      return;
+    }
 
     // 1. Toggle Main Widget Size Menu
     const toggleBtn = target.closest('.toggle-widget-menu');

@@ -378,6 +378,10 @@ export const strings = {
       weekPartialToast: 'Saved {ok} shifts; {skip} skipped.',
       emptyFilteredTitle: 'No shifts in this range',
       emptyFilteredMessage: 'Try a wider date range or different filters.',
+      kpiNet: 'Net Income',
+      sections: {
+        insights: 'Business Insights',
+      },
     },
     analytics: {
       title: 'Analytics',
@@ -1027,6 +1031,13 @@ export const strings = {
           monthlyPageNext: 'Next',
           monthlyPageStatus: 'Page {current} of {total}',
           monthlyPagerAria: 'Monthly breakdown table pages',
+          kpiGross: 'Gross Earnings',
+          kpiExpenses: 'Business Expenses',
+          kpiTax: 'Tax Set Aside',
+          kpiNet: 'Net After Tax',
+          sections: {
+            insights: 'Further Analysis',
+          },
         },
       },
       shifts: {
@@ -1036,7 +1047,12 @@ export const strings = {
       },
       analytics: {
         title: 'Analytics',
-        placeholderBody: 'Route-level analytics layout finalizes in Phase 2 (`views/analytics-view.js`).',
+        subtitle: 'Explore insights and customize your dashboard',
+        onDashboard: 'Active on Dashboard',
+        performanceModules: 'Performance Module',
+        deepInsights: 'Deep Insights',
+        statModules: 'Summary Stats',
+        addedToDashboard: 'Widget added to dashboard',
       },
       tax: {
         title: 'Tax',
@@ -2111,6 +2127,13 @@ export const strings = {
           monthlyPageNext: 'Suivant',
           monthlyPageStatus: 'Page {current} sur {total}',
           monthlyPagerAria: 'Pagination du tableau mensuel',
+          kpiGross: 'Gains bruts',
+          kpiExpenses: 'Dépenses d’entreprise',
+          kpiTax: 'Mise de côté fiscale',
+          kpiNet: 'Net après impôts',
+          sections: {
+            insights: 'Analyses d’activité',
+          },
         },
       },
       shifts: {
@@ -2120,7 +2143,12 @@ export const strings = {
       },
       analytics: {
         title: 'Analytique',
-        placeholderBody: 'Mise en page analytique en phase 2 (`views/analytics-view.js`).',
+        subtitle: 'Explorez vos analyses et personnalisez votre tableau de bord',
+        onDashboard: 'Actif sur le tableau de bord',
+        performanceModules: 'Module de performance',
+        deepInsights: 'Analyses approfondies',
+        statModules: 'Stats de synthèse',
+        addedToDashboard: 'Widget ajouté au tableau de bord',
       },
       tax: {
         title: 'Impôts',

@@ -17,6 +17,8 @@ import { getDemoAnalyticsAnchorDate } from '../modules/demo/sample-year.js';
 import { getOrderedDashboardWidgetIds, renderWidgetCellsInnerHtml, WidgetRegistry } from '../registry/widgets/index.js';
 import { buildWidgetDataContext } from '../modules/analytics/widget-data.js';
 import { afterRenderWidgets } from '../registry/widgets/after-render.js';
+import { getCountryTaxProfile } from '../registry/countries/index.js';
+import { calcTaxSetAside } from '../utils/calculations.js';
 
 const DASHBOARD_RANGE_KEY = 'comma-dashboard-range-v1';
 const DASHBOARD_FILTER_EXPANDED_KEY = 'comma-dashboard-filter-expanded-v1';
@@ -29,6 +31,11 @@ function esc(v) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function num(v, fallback = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
 }
 
 /** @returns {{ start: string; end: string; preset: string } | null} */
@@ -121,7 +128,13 @@ async function paintDashboard(root, ctx) {
   widgetCtx.data.financial = fin; // Inject pre-fetched financial data
 
   // 2. Render Widgets from Registry
-  const widgetIds = getOrderedDashboardWidgetIds(user, widgetCtx);
+  const widgetIds = getOrderedDashboardWidgetIds(user, widgetCtx).filter(id => ![
+    'earnings',
+    'expenses',
+    'netIncome',
+    'taxJar'
+  ].includes(id));
+
   const widgetCells = await Promise.all(widgetIds.map(async (id) => {
     try {
       const def = WidgetRegistry.getById(id);
@@ -155,6 +168,376 @@ async function paintDashboard(root, ctx) {
   const fmt = (v) => esc(formatCurrency(Number(v) || 0, localeCountry, { currency }));
   const fmtNum = (v, frac = 2) => esc(Number(v || 0).toFixed(frac));
   const hoursStr = `${fmtNum(fin.hours, 2)} ${esc(t('views.dashboard.financial.hoursSuffix'))}`;
+ 
+  // --- Visuals for KPI Blocks (Matching Widgets) ---
+  const taxProfile = getCountryTaxProfile(localeCountry);
+  const taxRatePct = num(user?.taxWithholdingPct, taxProfile.defaultWithholdingPct);
+  const taxSetAside = calcTaxSetAside(fin.gross, taxRatePct);
+  const takeHomePay = fin.netIncome - taxSetAside;
+
+  const rollingPoints = widgetCtx.data.rollingTrend?.points?.slice(-14).map(p => Number(p.y) || 0) || [0,0,0,0,0,0,0];
+  const maxP = Math.max(...rollingPoints, 1);
+  const minP = Math.min(...rollingPoints);
+  const rangeP = (maxP - minP) || 1;
+  const svgW = 100, svgH = 30;
+  const sparkPath = rollingPoints.map((p, i) => {
+    const x = (i / (rollingPoints.length - 1)) * svgW;
+    const y = svgH - ((p - minP) / rangeP) * svgH;
+    return `${x},${y}`;
+  }).join(' L ');
+
+  const burnRatio = fin.gross > 0 ? Math.min(100, (fin.expense / fin.gross) * 100) : 0;
+  const netMargin = fin.gross > 0 ? Math.min(100, (takeHomePay / fin.gross) * 100) : 0;
+  const taxJarRatio = fin.gross > 0 ? Math.min(100, (taxSetAside / (fin.gross * 0.3)) * 100) : 0; // Relative to 30% goal
+
+  const wc = widgetCtx.data.weekCompare;
+  const isUp = (wc?.delta || 0) >= 0;
+  const deltaPct = wc?.lastGross > 0 ? ((wc.delta / wc.lastGross) * 100).toFixed(1) : '0.0';
+
+  // ---------------------------------------------------------------------------
+  // Helper: build SVG arc path for circular progress (cx=cy=18, r=14)
+  // ---------------------------------------------------------------------------
+  const arc = (pct) => {
+    const r = 14, cx = 18, cy = 18;
+    const angle = Math.min(pct / 100, 0.9999) * 2 * Math.PI;
+    const x = cx + r * Math.sin(angle);
+    const y = cy - r * Math.cos(angle);
+    const large = angle > Math.PI ? 1 : 0;
+    return `M ${cx} ${cy - r} A ${r} ${r} 0 ${large} 1 ${x} ${y}`;
+  };
+
+  const kpiBlocksHtml = `
+    <style>
+      @keyframes kpi-fade-up {
+        from { opacity: 0; transform: translateY(18px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes kpi-bar-grow {
+        from { width: 0%; }
+      }
+      @keyframes kpi-spark-draw {
+        from { stroke-dashoffset: 400; }
+        to   { stroke-dashoffset: 0; }
+      }
+      @keyframes kpi-arc-draw {
+        from { stroke-dasharray: 0 200; }
+      }
+      @keyframes kpi-number-pop {
+        0%   { transform: scale(0.85); opacity: 0; }
+        60%  { transform: scale(1.04); }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      @keyframes kpi-pulse-ring {
+        0%   { transform: scale(1); opacity: 0.5; }
+        100% { transform: scale(1.55); opacity: 0; }
+      }
+      @keyframes kpi-gradient-shift {
+        0%   { background-position: 0% 50%; }
+        50%  { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+
+      .kpi-hero-strip {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1px;
+        background: var(--color-border);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        margin-bottom: var(--space-6);
+        position: relative;
+      }
+      @media (min-width: 900px) {
+        .kpi-hero-strip { grid-template-columns: repeat(4, 1fr); }
+      }
+
+      .kpi-hero-strip::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg,
+          color-mix(in srgb, var(--color-brand) 6%, transparent),
+          transparent 40%,
+          color-mix(in srgb, var(--color-success) 5%, transparent) 80%,
+          transparent
+        );
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .kpi-card {
+        position: relative;
+        z-index: 1;
+        background: var(--color-surface);
+        padding: var(--space-4) var(--space-4) var(--space-3);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+        overflow: hidden;
+        animation: kpi-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+        transition: background 0.2s;
+        min-height: 140px;
+      }
+      .kpi-card:hover { background: var(--color-surface-raised); }
+      .kpi-card:nth-child(1) { animation-delay: 0.05s; }
+      .kpi-card:nth-child(2) { animation-delay: 0.12s; }
+      .kpi-card:nth-child(3) { animation-delay: 0.19s; }
+      .kpi-card:nth-child(4) { animation-delay: 0.26s; }
+
+      /* Accent stripe at top */
+      .kpi-card::after {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: var(--kpi-accent);
+        opacity: 0.9;
+      }
+
+      .kpi-card-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--space-2);
+      }
+
+      .kpi-label-group { flex: 1; min-width: 0; }
+
+      .kpi-label {
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--color-text-secondary);
+        margin-bottom: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .kpi-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        padding: 2px 6px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .kpi-badge--up   { background: color-mix(in srgb, var(--color-success) 18%, var(--color-surface)); color: var(--color-success); }
+      .kpi-badge--down { background: color-mix(in srgb, var(--color-danger)  18%, var(--color-surface)); color: var(--color-danger); }
+      .kpi-badge--neutral { background: color-mix(in srgb, var(--color-text-secondary) 12%, var(--color-surface)); color: var(--color-text-secondary); }
+
+      /* Arc viz (circular mini-gauge) */
+      .kpi-arc-wrap {
+        flex-shrink: 0;
+        width: 36px;
+        height: 36px;
+        position: relative;
+      }
+      .kpi-arc-wrap svg { display: block; overflow: visible; }
+      .kpi-arc-bg   { fill: none; stroke: var(--color-border); stroke-width: 2.5; }
+      .kpi-arc-fill {
+        fill: none;
+        stroke: var(--kpi-accent);
+        stroke-width: 2.5;
+        stroke-linecap: round;
+        animation: kpi-arc-draw 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.4s both;
+        stroke-dasharray: var(--arc-len, 88) 200;
+      }
+      .kpi-arc-pct {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 8px;
+        font-weight: 800;
+        color: var(--kpi-accent);
+        letter-spacing: -0.02em;
+      }
+
+      /* Main value */
+      .kpi-value {
+        font-size: 1.6rem;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+        color: var(--color-text-primary);
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+        animation: kpi-number-pop 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both;
+      }
+
+      /* Spark line */
+      .kpi-spark {
+        width: 100%;
+        height: 30px;
+        overflow: visible;
+      }
+      .kpi-spark-path {
+        fill: none;
+        stroke: var(--kpi-accent);
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 400;
+        stroke-dashoffset: 0;
+        animation: kpi-spark-draw 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.35s both;
+      }
+      .kpi-spark-area {
+        fill: var(--kpi-accent);
+        opacity: 0.08;
+      }
+
+      /* Bar track */
+      .kpi-bar-track {
+        height: 4px;
+        border-radius: 2px;
+        background: color-mix(in srgb, var(--kpi-accent) 14%, var(--color-border));
+        overflow: hidden;
+        margin-top: auto;
+      }
+      .kpi-bar-fill {
+        height: 100%;
+        border-radius: 2px;
+        background: var(--kpi-accent);
+        animation: kpi-bar-grow 1s cubic-bezier(0.22, 1, 0.36, 1) 0.4s both;
+      }
+
+      /* Pulse dot (gross card only) */
+      .kpi-pulse-wrap {
+        position: absolute;
+        top: var(--space-4);
+        right: var(--space-4);
+        width: 8px;
+        height: 8px;
+      }
+      .kpi-pulse-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: var(--kpi-accent);
+        position: absolute;
+      }
+      .kpi-pulse-ring {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        border: 1.5px solid var(--kpi-accent);
+        animation: kpi-pulse-ring 1.5s ease-out 0.6s infinite;
+      }
+
+      /* Subtle noise texture overlay per card */
+      .kpi-card-noise {
+        position: absolute;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+        background-size: 100px 100px;
+        opacity: 0.018;
+        pointer-events: none;
+        mix-blend-mode: overlay;
+        z-index: 0;
+      }
+    </style>
+
+    <div class="kpi-hero-strip" role="list" aria-label="Financial KPIs">
+
+      <!-- ① GROSS EARNINGS -->
+      <div class="kpi-card" style="--kpi-accent: var(--color-brand);" role="listitem">
+        <div class="kpi-card-noise"></div>
+        <div class="kpi-card-top">
+          <div class="kpi-label-group">
+            <div class="kpi-label">${esc(t('views.dashboard.financial.kpiGross')) || 'Gross Earnings'}</div>
+            <span class="kpi-badge ${isUp ? 'kpi-badge--up' : 'kpi-badge--down'}">
+              ${isUp ? '↑' : '↓'} ${deltaPct}% vs last
+            </span>
+          </div>
+          <!-- Live pulse dot instead of arc for gross -->
+          <div class="kpi-pulse-wrap">
+            <div class="kpi-pulse-dot"></div>
+            <div class="kpi-pulse-ring"></div>
+          </div>
+        </div>
+        <div class="kpi-value">${fmt(fin.gross)}</div>
+        <svg class="kpi-spark" viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="none">
+          <path class="kpi-spark-area" d="M 0,${svgH} L ${sparkPath} L ${svgW},${svgH} Z" />
+          <path class="kpi-spark-path" d="M ${sparkPath}" />
+        </svg>
+      </div>
+
+      <!-- ② EXPENSES -->
+      <div class="kpi-card" style="--kpi-accent: var(--color-danger);" role="listitem">
+        <div class="kpi-card-noise"></div>
+        <div class="kpi-card-top">
+          <div class="kpi-label-group">
+            <div class="kpi-label">${esc(t('views.dashboard.financial.kpiExpenses')) || 'Expenses'}</div>
+            <span class="kpi-badge kpi-badge--neutral">${burnRatio.toFixed(1)}% of gross</span>
+          </div>
+          <div class="kpi-arc-wrap">
+            <svg viewBox="0 0 36 36" width="36" height="36">
+              <circle class="kpi-arc-bg" cx="18" cy="18" r="14"/>
+              <path class="kpi-arc-fill" style="--arc-len: ${((Math.min(burnRatio, 100) / 100) * 87.96).toFixed(1)}"
+                d="${arc(burnRatio)}" />
+            </svg>
+            <div class="kpi-arc-pct">${Math.round(burnRatio)}%</div>
+          </div>
+        </div>
+        <div class="kpi-value">${fmt(fin.expense)}</div>
+        <div class="kpi-bar-track">
+          <div class="kpi-bar-fill" style="width: ${burnRatio}%"></div>
+        </div>
+      </div>
+
+      <!-- ③ TAX SET-ASIDE -->
+      <div class="kpi-card" style="--kpi-accent: var(--color-warning);" role="listitem">
+        <div class="kpi-card-noise"></div>
+        <div class="kpi-card-top">
+          <div class="kpi-label-group">
+            <div class="kpi-label">${esc(t('views.dashboard.financial.kpiTax')) || 'Tax Set-Aside'}</div>
+            <span class="kpi-badge kpi-badge--neutral">${taxRatePct}% rate</span>
+          </div>
+          <div class="kpi-arc-wrap">
+            <svg viewBox="0 0 36 36" width="36" height="36">
+              <circle class="kpi-arc-bg" cx="18" cy="18" r="14"/>
+              <path class="kpi-arc-fill" style="--arc-len: ${((Math.min(taxJarRatio, 100) / 100) * 87.96).toFixed(1)}"
+                d="${arc(taxJarRatio)}" />
+            </svg>
+            <div class="kpi-arc-pct">${Math.round(taxJarRatio)}%</div>
+          </div>
+        </div>
+        <div class="kpi-value">${fmt(taxSetAside)}</div>
+        <div class="kpi-bar-track">
+          <div class="kpi-bar-fill" style="width: ${Math.min(taxJarRatio, 100)}%"></div>
+        </div>
+      </div>
+
+      <!-- ④ NET TAKE-HOME -->
+      <div class="kpi-card" style="--kpi-accent: var(--color-success);" role="listitem">
+        <div class="kpi-card-noise"></div>
+        <div class="kpi-card-top">
+          <div class="kpi-label-group">
+            <div class="kpi-label">${esc(t('views.dashboard.financial.kpiNet')) || 'Net Take-Home'}</div>
+            <span class="kpi-badge ${netMargin >= 40 ? 'kpi-badge--up' : netMargin >= 20 ? 'kpi-badge--neutral' : 'kpi-badge--down'}">${netMargin.toFixed(1)}% margin</span>
+          </div>
+          <div class="kpi-arc-wrap">
+            <svg viewBox="0 0 36 36" width="36" height="36">
+              <circle class="kpi-arc-bg" cx="18" cy="18" r="14"/>
+              <path class="kpi-arc-fill" style="--arc-len: ${((Math.min(netMargin, 100) / 100) * 87.96).toFixed(1)}"
+                d="${arc(netMargin)}" />
+            </svg>
+            <div class="kpi-arc-pct">${Math.round(netMargin)}%</div>
+          </div>
+        </div>
+        <div class="kpi-value">${fmt(takeHomePay)}</div>
+        <div class="kpi-bar-track">
+          <div class="kpi-bar-fill" style="width: ${Math.min(netMargin, 100)}%"></div>
+        </div>
+      </div>
+
+    </div>
+  `;
 
   const presetActive = (p) => (range.preset === p ? ' is-active' : '');
 
@@ -299,6 +682,13 @@ async function paintDashboard(root, ctx) {
             </div>
           </div>
         </div>
+      </div>
+
+      ${kpiBlocksHtml}
+
+      <div class="dashboard-section-header">
+        <span class="dashboard-section-label">${esc(t('views.dashboard.financial.sections.insights')) || 'Further Insights'}</span>
+        <div class="dashboard-section-line"></div>
       </div>
 
       ${widgetCardsHtml ? `

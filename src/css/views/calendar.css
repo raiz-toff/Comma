@@ -335,6 +335,55 @@
   }
 }
 
+@media (max-width: 768px) {
+  .schedule-week-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .schedule-month-cell {
+    min-height: 80px;
+    padding: var(--space-2);
+  }
+}
+
+@media (max-width: 600px) {
+  .schedule-week-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-2);
+  }
+  .schedule-month-grid {
+    border-radius: var(--radius-lg);
+  }
+  .schedule-month-cell {
+    min-height: 60px;
+    padding: 4px;
+  }
+  .schedule-month-day {
+    font-size: 10px;
+  }
+  .schedule-month-earn {
+    font-size: 9px;
+  }
+  .schedule-platform-dots {
+    top: 2px;
+    right: 2px;
+    gap: 2px;
+  }
+  .schedule-platform-dots .dot {
+    width: 4px;
+    height: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .schedule-scatter-container {
+    height: 280px;
+    gap: var(--space-2);
+  }
+  .schedule-scatter-axis-y {
+    width: 60px;
+  }
+}
+
 /* Day Detail Modal */
 .day-detail-modal {
   display: flex;
@@ -352,6 +401,13 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-4);
+}
+
+@media (max-width: 480px) {
+  .day-detail-summary {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
 }
 
 .day-detail-summary .metric-card {
@@ -487,3 +543,4 @@
   font-weight: 800;
   color: var(--color-success);
 }
+

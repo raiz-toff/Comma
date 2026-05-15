@@ -173,6 +173,7 @@ function handleRoute() {
   updateNavActive(hash);
 
   viewRoot.textContent = '';
+  viewRoot.className = '';
   try {
     const maybe = def.render(viewRoot, def.context);
     if (maybe && typeof /** @type {{ then?: unknown }} */ (maybe).then === 'function') {

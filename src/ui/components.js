@@ -506,10 +506,10 @@ export function showToast(opts) {
 
   const messageId = `mt-msg-${Math.random().toString(36).slice(2, 9)}`;
   root.innerHTML = `
-    <span class="comma-toast-icon" aria-hidden="true">${getIcon(iconName, 18, 'comma-toast-icon-svg')}</span>
+    <span class="comma-toast-icon" aria-hidden="true">${getIcon(iconName, 20, 'comma-toast-icon-svg')}</span>
     <span id="${messageId}" class="comma-toast-message"></span>
     <span class="comma-toast-actions"></span>
-    <button type="button" class="comma-toast-close" aria-label="${escapeAttr(t('ui.toast.dismiss'))}">${getIcon('x', 14, 'comma-toast-close-icon')}</button>
+    <button type="button" class="comma-toast-close" aria-label="${escapeAttr(t('ui.toast.dismiss'))}">${getIcon('x', 18, 'comma-toast-close-icon')}</button>
   `;
   const msgEl = root.querySelector('.comma-toast-message');
   if (msgEl) msgEl.textContent = String(message ?? '');
@@ -614,13 +614,13 @@ export function showNotifyCard(opts) {
   root.setAttribute('aria-labelledby', titleId);
 
   root.innerHTML = `
-    <span class="comma-notify-icon" aria-hidden="true">${getIcon(icon, 22, 'comma-notify-icon-svg')}</span>
+    <span class="comma-notify-icon" aria-hidden="true">${getIcon(icon, 24, 'comma-notify-icon-svg')}</span>
     <div class="comma-notify-body">
       <h3 id="${titleId}" class="comma-notify-title"></h3>
       <p class="comma-notify-message"></p>
       <div class="comma-notify-actions"></div>
     </div>
-    <button type="button" class="comma-notify-close" aria-label="${escapeAttr(t('ui.toast.dismiss'))}">${getIcon('x', 14, 'comma-notify-close-icon')}</button>
+    <button type="button" class="comma-notify-close" aria-label="${escapeAttr(t('ui.toast.dismiss'))}">${getIcon('x', 18, 'comma-notify-close-icon')}</button>
   `;
   const tEl = root.querySelector('.comma-notify-title');
   if (tEl) tEl.textContent = String(title ?? '');

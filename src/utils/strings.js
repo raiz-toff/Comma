@@ -102,8 +102,7 @@ export const strings = {
           'Weekly targets, streaks, and simple charts help you pace yourself without spreadsheet fatigue.',
         footnote: 'Setup takes a few minutes. Prefer a tour first? Try the demo — a full sample year you can clear anytime.',
       },
-      demoEnabled:
-        'Demo vault opened — 2025 sample year: three platforms, weekday shifts, and expenses. Explore the app; adjust anything later in Settings.',
+      demoEnabled: 'Demo vault loaded. Explore 2025 sample data.',
       resumeTitle: 'Continue setup?',
       resumeMessage: 'You started onboarding earlier this session. Continue where you left off, or start over.',
       resumeContinue: 'Continue',
@@ -1218,8 +1217,7 @@ export const strings = {
         footnote:
           'Quelques minutes pour tout régler. Envie d’un tour d’horizon ? Essayez la démo — une année d’exemple effaçable quand vous voulez.',
       },
-      demoEnabled:
-        'Coffre démo ouvert — année 2025 fictive : trois plateformes, quarts en semaine et dépenses. Explorez l’app ; modifiez tout cela plus tard dans Paramètres.',
+      demoEnabled: 'Coffre démo chargé. Explorez les données de 2025.',
       resumeTitle: 'Poursuivre la configuration ?',
       resumeMessage: 'Une configuration est déjà en cours pour cette session. Reprendre ou recommencer.',
       resumeContinue: 'Continuer',

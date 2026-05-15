@@ -718,12 +718,12 @@
   gap: var(--space-2);
   min-width: 240px;
   max-width: min(480px, 100%);
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-surface);
+  padding: var(--space-3) var(--space-5);
+  background: linear-gradient(to bottom, var(--color-surface), color-mix(in srgb, var(--color-surface) 96%, var(--color-border)));
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 8px 32px -4px rgba(0,0,0,0.12), var(--shadow-md);
   font-size: var(--text-sm);
   font-weight: 500;
   transform: translateY(16px);
@@ -772,8 +772,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   color: var(--color-text-muted);
   background: transparent;
@@ -834,12 +834,12 @@
   align-items: start;
   gap: var(--space-3);
   width: min(420px, 100%);
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-surface);
+  padding: var(--space-4) var(--space-5);
+  background: linear-gradient(165deg, var(--color-surface), color-mix(in srgb, var(--color-surface) 97%, var(--color-brand) 3%));
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 12px 48px -8px rgba(0,0,0,0.16), var(--shadow-lg);
   transform: translateY(16px);
   opacity: 0;
   transition:
@@ -861,8 +861,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   border-radius: var(--radius-md);
   background: var(--color-surface-raised);
   color: var(--color-text-secondary);
@@ -874,9 +874,10 @@
 
 .comma-notify-title {
   margin: 0 0 var(--space-1);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--color-text-primary);
 }
 
@@ -897,8 +898,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   color: var(--color-text-muted);
   align-self: start;

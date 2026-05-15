@@ -288,17 +288,38 @@ export async function clearSampleData() {
  * Leave demo: wipe the local IndexedDB vault, then hard-reload. Startup re-seeds a first-run DB and opens onboarding.
  */
 export async function exitDemoToOnboardingStart() {
+  // 1. Clear all session and persistent state
   clearSession();
   try {
     sessionStorage.clear();
+    localStorage.clear();
   } catch {
     /* ignore */
   }
-  await db.delete();
+
+  // 2. Wipe the database. This is a hard reset.
+  try {
+    if (db.isOpen()) {
+      await db.close();
+    }
+    await db.delete();
+  } catch (e) {
+    console.warn('[comma onboarding] db delete during exit failed', e);
+  }
+
+  // 3. Inform the user
   showToast({ type: 'success', message: t('app.exitDemoToast'), duration: 2600 });
-  window.location.hash = '#/onboarding';
-  await new Promise((r) => setTimeout(r, 400));
-  window.location.reload();
+
+  // 4. Redirect to onboarding and reload. 
+  // We use window.location.href change followed by reload to ensure we don't 
+  // stay on the dashboard with a deleted database for even a frame.
+  const target = window.location.origin + window.location.pathname + '#/onboarding';
+  window.location.href = target;
+  
+  // A tiny delay to let the browser process the hash change before the hard reload
+  setTimeout(() => {
+    window.location.reload();
+  }, 60);
 }
 
 /**

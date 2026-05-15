@@ -203,6 +203,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.__comma.router = Router;
     Router.init();
 
+    // Features & Registries
     try {
       assertPlatformRegistryValid();
       assertCountryRegistryValid();
@@ -215,84 +216,54 @@ document.addEventListener('DOMContentLoaded', async () => {
       assertExpenseCategoryRegistryValid();
       assertGoalTypeRegistryValid();
       assertShiftFieldRegistryValid();
-      console.log(
-        `[comma] Registry ok: ${PlatformRegistry.getAll().length} platforms, ${CountryRegistry.getAll().length} countries, ${ProvinceRegistry.getAll().length} provinces, ${WidgetRegistry.getAll().length} widgets, ${NotificationRegistry.getAll().length} notification defs, ${BadgeRegistry.getAll().length} badge defs, ${MetricRegistry.getAll().length} metrics, ${ReportRegistry.getAll().length} report sections, ${ExpenseCategoryRegistry.getAll().length} expense categories, ${GoalTypeRegistry.getAll().length} goal types (${GoalScopeRegistry.getAll().length} scopes), ${ShiftFieldRegistry.getAll().length} global shift fields`,
-      );
     } catch (regErr) {
       console.error('[comma] registry validation failed', regErr);
     }
 
-    store.subscribe('user', () => {
-      updateOnboardingFocusClass(!store.get('user')?.onboardingComplete);
-    });
+    try {
+      await runOnOpenNotificationCheck();
+      await runRecurringExpensePromptOnce();
+      await purgeOldDeleted('shifts', 30);
+      await purgeOldDeleted('expenses', 30);
+      await checkBackupOverdue();
+      await initP13();
+    } catch (e) {
+      console.warn('[comma] post-boot tasks failed', e);
+    }
+
+    try {
+      initPwaModule();
+      void tryRegisterDeferredSync();
+      window.addEventListener('online', () => void tryRegisterDeferredSync());
+      onDeferredReplay(async (items) => {
+        for (const it of items) {
+          try {
+            bus.emit('pwa:replay-deferred-export', it);
+          } catch (err) {
+            console.warn('[comma] deferred replay dispatch failed', err);
+          }
+        }
+      });
+      const intent = parseShareTargetIntent();
+      if (intent) {
+        window.__comma.shareIntent = intent;
+        bus.emit('pwa:share-intent', intent);
+      }
+    } catch (e) {
+      console.warn('[comma] pwa init failed', e);
+    }
+
+    window.__comma.apiSpecMarkdown = apiSpecMarkdown;
+
+    // Finalize: Hide splash only after EVERYTHING is ready
+    if (splash) {
+      splash.classList.add('is-done');
+      setTimeout(() => splash.remove(), 400);
+    }
   } catch (err) {
     console.error('[comma] boot failed', err);
-    app.textContent = t('errors.dbOpen');
+    if (app) app.textContent = t('errors.dbOpen');
+    if (splash) splash.remove();
     return;
-  }
-
-  try {
-    await runOnOpenNotificationCheck();
-  } catch (e) {
-    console.warn('[comma] on-open notifications skipped', e);
-  }
-
-  try {
-    await runRecurringExpensePromptOnce();
-  } catch (e) {
-    console.warn('[comma] recurring expense prompt skipped', e);
-  }
-
-  try {
-    await purgeOldDeleted('shifts', 30);
-    await purgeOldDeleted('expenses', 30);
-  } catch (e) {
-    console.warn('[comma] purge old deleted skipped', e);
-  }
-
-  try {
-    await checkBackupOverdue();
-  } catch (e) {
-    console.warn('[comma] backup overdue check skipped', e);
-  }
-
-  try {
-    await initP13();
-  } catch (e) {
-    console.warn('[comma] p13 init skipped', e);
-  }
-
-  /* P12 — PWA deep features wiring. */
-  try {
-    initPwaModule();
-    /* Feature 241: re-register sync on app start and on reconnect. */
-    void tryRegisterDeferredSync();
-    window.addEventListener('online', () => void tryRegisterDeferredSync());
-    /* Page-side replay listener — modules that own actual replay logic can
-     * extend this via the bus; here we just clear unsupported items to avoid
-     * indefinite queue growth. The Reports module is the primary replayer. */
-    onDeferredReplay(async (items) => {
-      for (const it of items) {
-        try {
-          bus.emit('pwa:replay-deferred-export', it);
-        } catch (err) {
-          console.warn('[comma] deferred replay dispatch failed', err);
-        }
-      }
-    });
-    /* Feature 244: surface a share-target intent if present. */
-    const intent = parseShareTargetIntent();
-    if (intent) {
-      window.__comma.shareIntent = intent;
-      bus.emit('pwa:share-intent', intent);
-    }
-  } catch (e) {
-    console.warn('[comma] p12 pwa init skipped', e);
-  }
-
-  window.__comma.apiSpecMarkdown = apiSpecMarkdown;
-  if (splash) {
-    splash.classList.add('is-done');
-    setTimeout(() => splash.remove(), 320);
   }
 });

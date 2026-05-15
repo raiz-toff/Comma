@@ -277,7 +277,7 @@ export async function showLocalNotification(opts) {
   if (Notification.permission !== 'granted') return false;
   const init = {
     body: opts.body || '',
-    icon: opts.icon || 'icons/icon-192.svg',
+    icon: opts.icon || 'web-app-manifest-192x192.png',
     tag: opts.tag,
     data: opts.data,
     silent: !!opts.silent,

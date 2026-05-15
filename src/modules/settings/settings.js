@@ -615,8 +615,8 @@ export async function mountSettings(root, ctx = {}) {
       <div class="settings-actions settings-wrap">
         <button type="button" class="btn btn-secondary btn-sm" data-open-install>Install COMMA</button>
         <a class="btn btn-secondary btn-sm" href="#/about">Data Portability Manifesto</a>
-        <a class="btn btn-secondary btn-sm" href="https://github.com/" target="_blank" rel="noopener noreferrer">Changelog</a>
-        <a class="btn btn-secondary btn-sm" href="mailto:support@comma.app">Support</a>
+        <a class="btn btn-secondary btn-sm" href="https://github.com/raiz-toff/comma/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">Changelog</a>
+        <a class="btn btn-secondary btn-sm" href="https://github.com/raiz-toff/comma/issues/new" target="_blank" rel="noopener noreferrer">Support</a>
         <button type="button" class="btn btn-secondary btn-sm" data-share-comma>Share COMMA</button>
         <a class="btn btn-secondary btn-sm" href="https://en.wikipedia.org/wiki/Glossary_of_economics" target="_blank" rel="noopener noreferrer">Driver Financial Glossary</a>
       </div>

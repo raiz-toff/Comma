@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/icons/icon-512.svg" alt="COMMA Logo" width="128" />
+  <img src="public/web-app-manifest-512x512.png" alt="COMMA Logo" width="128" />
   <h1>COMMA</h1>
   <p><strong>A fast, local-first earnings tracker built exclusively for gig economy delivery drivers.</strong></p>
 

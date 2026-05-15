@@ -443,8 +443,17 @@ samp {
 /* Bento grid */
 .bento-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(1, 1fr);
   gap: var(--space-3);
+}
+
+@media (min-width: 480px) {
+  .bento-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .bento-cell-2x1, .bento-cell-2x2, .bento-cell-4x1, .bento-cell-4x2 {
+    grid-column: span 2;
+  }
 }
 
 .bento-grid.bento-layout-compact {
@@ -455,41 +464,27 @@ samp {
   gap: var(--space-6);
 }
 
-.bento-cell-1x1 {
-  grid-column: span 1;
-  grid-row: span 1;
-  min-height: 120px;
-}
-
-.bento-cell-2x1 {
-  grid-column: span 2;
-  grid-row: span 1;
-  min-height: 120px;
-}
-
-.bento-cell-1x2 {
-  grid-column: span 1;
-  grid-row: span 2;
-  min-height: 200px;
-}
-
-.bento-cell-2x2 {
-  grid-column: span 2;
-  grid-row: span 2;
-  min-height: 220px;
-}
-
-.bento-cell-4x1 {
-  grid-column: span 2; /* Cap at 2 columns on mobile */
-  grid-row: span 1;
-  min-height: 120px;
-}
-
+.bento-cell-1x1,
+.bento-cell-2x1,
+.bento-cell-1x2,
+.bento-cell-2x2,
+.bento-cell-4x1,
 .bento-cell-4x2 {
-  grid-column: span 2; /* Cap at 2 columns on mobile */
-  grid-row: span 2;
+  grid-column: span 1;
+}
+
+.bento-cell-1x1,
+.bento-cell-2x1,
+.bento-cell-4x1 {
+  min-height: 120px;
+}
+
+.bento-cell-1x2,
+.bento-cell-2x2,
+.bento-cell-4x2 {
   min-height: 220px;
 }
+
 
 /* Bottom drawer (FAB quick-add) */
 .drawer-backdrop {

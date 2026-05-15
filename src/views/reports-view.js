@@ -105,12 +105,12 @@ export async function render(root, ctx) {
             <button class="reports-period-btn" data-period="custom">${esc(t('reports.custom'))}</button>
           </div>
 
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-4);">
+          <div class="reports-filter-grid">
             <label class="field">
               <span class="field-label">Platform Filter</span>
               <input class="input" name="platformId" placeholder="e.g. doordash" />
             </label>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: var(--space-2);">
+            <div class="reports-date-grid">
               <label class="field">
                 <span class="field-label">Start</span>
                 <input class="input" type="date" name="startDate" />
@@ -175,14 +175,14 @@ export async function render(root, ctx) {
 
         <div style="margin-top: var(--space-8); border-top: 1px solid var(--color-border); padding-top: var(--space-8);">
           <div class="import-section">
-            <div style="background: var(--color-brand); color: white; padding: var(--space-4); border-radius: 50%;">
+            <div style="background: var(--color-brand); color: white; padding: var(--space-4); border-radius: 50%; margin-bottom: var(--space-4); display: inline-flex;">
               ${getIcon('upload-cloud', 32)}
             </div>
             <div>
               <h3 style="margin-bottom: var(--space-1);">Import Vault Backup</h3>
-              <p style="color: var(--color-text-secondary); font-size: var(--text-sm);">Restore your data from a COMMA JSON export file.</p>
+              <p style="color: var(--color-text-secondary); font-size: var(--text-sm); margin-bottom: var(--space-4);">Restore your data from a COMMA JSON export file.</p>
             </div>
-            <div style="display: flex; gap: var(--space-2); align-items: center;">
+            <div class="import-controls">
               <input class="input" type="file" accept="application/json" data-action="import-file" style="max-width: 240px;" />
               <button class="btn btn-danger" data-action="import-json" type="button">Restore Backup</button>
             </div>
@@ -211,7 +211,7 @@ export async function render(root, ctx) {
     currentReport = await periodPayload(currentPeriod, form);
     const rows = summaryRows(currentReport);
     reportSlot.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
         <h2 style="margin: 0;">${esc(t('reports.reportCard'))}</h2>
         <span style="font-size: var(--text-xs); color: var(--color-text-secondary); font-weight: 700; text-transform: uppercase;">
           ${esc(currentReport.startDate)} — ${esc(currentReport.endDate)}
@@ -260,16 +260,16 @@ export async function render(root, ctx) {
     const annual = await getAnnualReport(year);
     const yir = getYearInReviewModel(year, annual);
     yirSlot.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); flex-wrap: wrap; gap: var(--space-2);">
         <h2 style="margin:0;">Year in Review</h2>
         ${getIcon('award', 20, 'text-brand')}
       </div>
       <div data-yir-card class="yir-card">
-        <h3>${esc(yir.title)}</h3>
+        <h3 style="font-size: var(--text-xl); font-weight: 800; margin: 0 0 var(--space-4) 0;">${esc(yir.title)}</h3>
         <div style="display:flex; flex-direction:column; gap: var(--space-1); opacity: 0.9; font-size: var(--text-sm);">
           <p>Generated on ${esc(yir.generatedAt)}</p>
           <div style="height: 1px; background: rgba(255,255,255,0.2); margin: var(--space-2) 0;"></div>
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);">
+          <div class="yir-grid">
             <div>
               <p style="font-size: 10px; text-transform: uppercase; font-weight: 700;">Gross Earnings</p>
               <p style="font-size: var(--text-lg); font-weight: 800;">${esc(formatMoney(yir.summary.gross))}</p>

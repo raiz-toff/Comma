@@ -58,14 +58,15 @@ export default {
           display: flex;
           flex-direction: column;
           height: 100%;
-          justify-content: space-between;
-          padding: 4px;
+          justify-content: flex-start;
+          padding: 2px;
         }
 
         .ar-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          margin-bottom: 12px;
         }
 
         .ar-icon-wrap {
@@ -75,33 +76,32 @@ export default {
           width: 32px;
           height: 32px;
           border-radius: 8px;
-          background: color-mix(in srgb, ${tierColor} 15%, transparent);
-          color: ${tierColor};
+          background: color-mix(in srgb, #0ea5e9 12%, var(--color-surface-raised));
+          color: #0ea5e9;
         }
 
         .ar-tier-badge {
-          font-size: 0.65rem;
+          font-size: 10px;
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          padding: 2px 8px;
-          border-radius: 4px;
+          padding: 3px 8px;
+          border-radius: 6px;
+          border: 1px solid var(--color-border);
+          background: var(--color-surface-raised);
+          color: var(--color-text-main);
         }
-        .ar-tier-elite { background: color-mix(in srgb, #f5a623 15%, transparent); color: #f5a623; border: 1px solid color-mix(in srgb, #f5a623 30%, transparent); }
-        .ar-tier-pro { background: color-mix(in srgb, var(--color-success) 15%, transparent); color: var(--color-success); border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent); }
-        .ar-tier-active { background: color-mix(in srgb, var(--color-info) 15%, transparent); color: var(--color-info); border: 1px solid color-mix(in srgb, var(--color-info) 30%, transparent); }
-        .ar-tier-standard { background: var(--color-surface-raised); color: var(--color-text-muted); }
 
         .ar-body {
-          margin-top: 12px;
+          margin-top: 0;
           animation: arSlideIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
         .ar-val {
-          font-size: 2.1rem;
+          font-size: 1.8rem;
           font-weight: 900;
-          line-height: 1;
-          letter-spacing: -0.04em;
+          line-height: 1.1;
+          letter-spacing: -0.03em;
           color: var(--color-text-main);
           font-variant-numeric: tabular-nums;
         }
@@ -110,54 +110,73 @@ export default {
           display: flex;
           align-items: center;
           gap: 4px;
-          font-size: 0.7rem;
+          font-size: 11px;
           font-weight: 700;
           color: var(--color-text-muted);
-          margin-top: 6px;
+          margin-top: 4px;
         }
 
         .ar-unit {
-          font-size: 0.9rem;
-          font-weight: 700;
-          color: var(--color-text-muted);
-          margin-left: 2px;
+          font-size: 0.55em;
+          font-weight: 800;
+          color: #0ea5e9;
+          margin-left: 4px;
+          opacity: 0.9;
         }
 
         .ar-stars {
           display: flex;
-          gap: 2px;
-          margin-top: 8px;
-          color: ${tierColor};
-          opacity: 0.8;
+          gap: 3px;
+          margin-top: 10px;
+          color: #0ea5e9;
+          opacity: 0.9;
         }
       </style>
     `;
 
-    // Render stars based on tier
-    const starCount = rate >= 35 ? 3 : rate >= 25 ? 2 : rate >= 18 ? 1 : 0;
     const starsHTML = Array.from({ length: 3 }).map((_, i) => {
       const active = i < starCount;
       return `<svg width="12" height="12" fill="${active ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
     }).join('');
+
+    // Generate a simple sparkline for the background
+    const rollingPoints = Array.from({ length: 12 }).map(() => rate * (0.8 + Math.random() * 0.4));
+    const maxP = Math.max(...rollingPoints, 1);
+    const minP = Math.min(...rollingPoints);
+    const rng = (maxP - minP) || 1;
+    const sparkPath = rollingPoints.map((p, i) => {
+      const x = (i / (rollingPoints.length - 1)) * 100;
+      const y = 40 - ((p - minP) / rng) * 25;
+      return `${x},${y}`;
+    }).join(' L ');
 
     return `
       ${scopedStyles}
       <div class="ar-container">
         <div class="ar-header">
           <div class="ar-icon-wrap">${_IC_ZAP}</div>
-          <div class="ar-tier-badge ${tierClass}">${esc(tier)}</div>
         </div>
 
-        <div class="ar-body">
+        <div class="ar-body" style="position: relative; z-index: 2;">
           <div class="ar-val">
             ${esc(fmtRate)}<span class="ar-unit">/hr</span>
           </div>
           <div class="ar-sub">
             <span>Avg over ${hours.toFixed(1)} hrs</span>
           </div>
-          <div class="ar-stars">
-            ${starsHTML}
-          </div>
+        </div>
+
+        <!-- Background Graph -->
+        <svg viewBox="0 0 100 40" preserveAspectRatio="none" style="position: absolute; bottom: 35px; left: 0; width: 100%; height: 35px; opacity: 0.15; color: #0ea5e9; pointer-events: none; z-index: 1;">
+          <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M ${sparkPath}" />
+        </svg>
+
+        <!-- Bottom Tier Pill -->
+        <div style="margin-top: auto; display: flex;">
+           <div style="background: var(--color-surface-raised); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; color: var(--color-text-main); display: flex; gap: 6px; align-items: center; border: 1px solid var(--color-border);">
+              <span style="color: #0ea5e9;">${esc(tier)}</span> 
+              <span style="opacity: 0.7; font-size: 9px;">EFFICIENCY</span>
+           </div>
         </div>
       </div>
     `;

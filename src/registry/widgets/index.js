@@ -4,13 +4,10 @@
  * @see docs/feature_modularity.md
  */
 
-import earnings from './earnings.widget.js';
-import expenses from './expenses.widget.js';
 import placeholder from './placeholder.widget.js';
 import recentShifts from './recent-shifts.widget.js';
 import schedule from './schedule.widget.js';
 import streak from './streak.widget.js';
-import taxJar from './tax-jar.widget.js';
 import weekCompare from './week-compare.widget.js';
 
 import incomeBreakdown from './income-breakdown.widget.js';
@@ -21,36 +18,31 @@ import bestHour from './best-hour.widget.js';
 import deadMiles from './dead-miles.widget.js';
 import deliveries from './deliveries.widget.js';
 import effectiveRate from './effective-rate.widget.js';
-import monthGross from './month-gross.widget.js';
 import monthHourly from './month-hourly.widget.js';
 import monthOrders from './month-orders.widget.js';
-import netIncome from './net-income.widget.js';
-import outOfPocket from './out-of-pocket.widget.js';
 import perDelivery from './per-delivery.widget.js';
 import platformActivity from './platform-activity.widget.js';
 import rollingTrend from './rolling-trend.widget.js';
 import scatter from './scatter.widget.js';
 import stabilityScore from './stability-score.widget.js';
 import tipsTotal from './tips-total.widget.js';
-import totalHours from './total-hours.widget.js';
 import zeroDays from './zero-days.widget.js';
 
 /** First bento stat strip — matches legacy `views/dashboard.js` layout. */
-export const DASHBOARD_STAT_STRIP_IDS = ['earnings', 'weeklyProjection', 'deliveries', 'weekCompare'];
+export const DASHBOARD_STAT_STRIP_IDS = ['weeklyProjection', 'deliveries', 'weekCompare'];
 
-/** Preferred ids for the top stat strip when user `dashboardWidgets` is set. */
+/** Preferred ids for the top stat strip when user \`dashboardWidgets\` is set. */
 export const DASHBOARD_STRIP_SLOT_ID_SET = new Set(DASHBOARD_STAT_STRIP_IDS);
 
-/** Default order when `user.dashboardWidgets` is unset (aligned with settings `WIDGET_CHOICES`). */
+/** Default order when \`user.dashboardWidgets\` is unset (aligned with settings \`WIDGET_CHOICES\`). */
 export const DEFAULT_DASHBOARD_WIDGET_ORDER = [
-  'earnings',
   'weeklyProjection',
   'streak',
-  'avgRate',
-  'taxJar',
-  'expenses',
   'schedule',
   'recentShifts',
+  'platformActivity',
+  'deliveries',
+  'monthOrders',
 ];
 
 /** @typedef {{ user?: unknown; store?: unknown; data?: Record<string, unknown> }} WidgetContext */
@@ -59,10 +51,6 @@ export const DEFAULT_DASHBOARD_WIDGET_ORDER = [
 
 /** @type {WidgetDefinition[]} */
 const WIDGETS = [
-  earnings,
-
-  taxJar,
-  expenses,
   schedule,
   recentShifts,
   placeholder,
@@ -74,11 +62,8 @@ const WIDGETS = [
   deadMiles,
   deliveries,
   effectiveRate,
-  monthGross,
   monthHourly,
   monthOrders,
-  netIncome,
-  outOfPocket,
   perDelivery,
   platformActivity,
   rollingTrend,
@@ -87,7 +72,6 @@ const WIDGETS = [
   weekCompare,
   streak,
   tipsTotal,
-  totalHours,
   zeroDays,
 ];
 

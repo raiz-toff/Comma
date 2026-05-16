@@ -133,8 +133,8 @@ export default {
       <div class="wr">
         <div class="wh">
           <div class="wi">${_IC_PLATFORMS}</div>
-          <span class="wl">${esc(t('analytics.platformMix'))}</span>
-          ${dominant ? `<div class="pa-dominant-badge">${esc(dominant.platformId)}</div>` : ''}
+          <span class="wl">${esc(t('analytics.platformActivity'))}</span>
+          ${dominant ? `<div class="pa-dominant-badge">${esc(dominant.platformId.toUpperCase())}</div>` : ''}
         </div>
         <div class="pa-container">
           <div class="pa-bar">

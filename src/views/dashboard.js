@@ -192,14 +192,71 @@ async function paintDashboard(root, ctx) {
   const minP = Math.min(...rollingPoints);
   const rangeP = (maxP - minP) || 1;
   const svgW = 100, svgH = 30;
-  const sparkPath = rollingPoints.map((p, i) => {
-    const x = (i / (rollingPoints.length - 1)) * svgW;
-    const y = svgH - ((p - minP) / rangeP) * svgH;
-    return `${x},${y}`;
-  }).join(' L ');
+  const getSparkPath = (pts, height = 30) => {
+    if (!pts || pts.length < 2) return "0,30 100,30";
+    const max = Math.max(...pts, 1);
+    const min = Math.min(...pts);
+    const rng = (max - min) || 1;
+    return pts.map((p, i) => {
+      const x = (i / (pts.length - 1)) * 100;
+      const y = height - ((p - min) / rng) * height;
+      return `${x},${y}`;
+    }).join(' L ');
+  };
+
+  const getSparkPathStep = (pts, height = 30) => {
+    if (!pts || pts.length < 2) return "0,30 100,30";
+    const max = Math.max(...pts, 1);
+    const min = Math.min(...pts);
+    const rng = (max - min) || 1;
+    let path = "";
+    pts.forEach((p, i) => {
+      const x = (i / (pts.length - 1)) * 100;
+      const y = height - ((p - min) / rng) * height;
+      if (i === 0) path += `${x},${y}`;
+      else {
+        const prevX = ((i - 1) / (pts.length - 1)) * 100;
+        path += ` L ${x},${path.split(',').pop().split(' ').pop()} L ${x},${y}`;
+      }
+    });
+    return path;
+  };
+
+  const getSparkPathCurve = (pts, height = 30) => {
+    if (!pts || pts.length < 2) return "0,30 100,30";
+    const max = Math.max(...pts, 1);
+    const min = Math.min(...pts);
+    const rng = (max - min) || 1;
+    return pts.reduce((acc, p, i) => {
+      const x = (i / (pts.length - 1)) * 100;
+      const y = height - ((p - min) / rng) * height;
+      if (i === 0) return `${x},${y}`;
+      const prevX = ((i - 1) / (pts.length - 1)) * 100;
+      const cpX = prevX + (x - prevX) / 2;
+      return `${acc} C ${cpX},${acc.split(',').pop().split(' ').pop()} ${cpX},${y} ${x},${y}`;
+    }, "");
+  };
+
+  const sparkPathGross   = getSparkPath(rollingPoints);
+  const sparkPathStep    = getSparkPathStep(rollingPoints.map((p, i) => p * (0.2 + (i % 3) * 0.05))); 
+  const sparkPathCurve   = getSparkPathCurve(rollingPoints.map((p, i) => p * (0.6 + (i % 2) * 0.02)));
+
+  const hoursSparkBars = rollingPoints.map((p, i) => {
+    const h = Math.max(4, (p / maxP) * 16);
+    return `<div style="flex: 1; height: ${h}px; background: currentColor; border-radius: 1px;"></div>`;
+  }).join('');
 
   const burnRatio = fin.gross > 0 ? Math.min(100, (fin.expense / fin.gross) * 100) : 0;
   const netMargin = fin.gross > 0 ? Math.min(100, (takeHomePay / fin.gross) * 100) : 0;
+  
+  if (fin.avgRateHr == null) {
+    fin.avgRateHr = fin.hours > 0 ? fin.gross / fin.hours : 0;
+  }
+
+  const sparkPathRate = getSparkPath(rollingPoints.map((p, i) => {
+    const h = (p / (maxP || 1)) * 40; // Mock variation based on gross trend
+    return h;
+  }));
   const taxJarRatio = fin.gross > 0 ? Math.min(100, (taxSetAside / (fin.gross * 0.3)) * 100) : 0; 
   const hoursRatio = Math.min(100, (hoursVal / 40) * 100);
 
@@ -300,17 +357,6 @@ async function paintDashboard(root, ctx) {
       .kpi-card:nth-child(3) { animation-delay: 0.19s; }
       .kpi-card:nth-child(4) { animation-delay: 0.26s; }
       .kpi-card:nth-child(5) { animation-delay: 0.33s; }
-      .kpi-card:nth-child(5) { animation-delay: 0.33s; }
-
-      /* Accent stripe at top */
-      .kpi-card::after {
-        content: '';
-        position: absolute;
-        top: 0; left: 0; right: 0;
-        height: 3px;
-        background: var(--kpi-accent);
-        opacity: 0.9;
-      }
 
       .kpi-card-top {
         display: flex;
@@ -351,12 +397,12 @@ async function paintDashboard(root, ctx) {
       /* Arc viz (circular mini-gauge) */
       .kpi-arc-wrap {
         flex-shrink: 0;
-        width: 36px;
-        height: 36px;
+        width: 38px;
+        height: 38px;
         position: relative;
       }
       .kpi-arc-wrap svg { display: block; overflow: visible; }
-      .kpi-arc-bg   { fill: none; stroke: var(--color-border); stroke-width: 2.5; }
+      .kpi-arc-bg   { fill: none; stroke: var(--color-border); stroke-width: 2.5; opacity: 0.4; }
       .kpi-arc-fill {
         fill: none;
         stroke: var(--kpi-accent);
@@ -371,7 +417,7 @@ async function paintDashboard(root, ctx) {
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 8px;
+        font-size: 8.5px;
         font-weight: 800;
         color: var(--kpi-accent);
         letter-spacing: -0.02em;
@@ -411,17 +457,19 @@ async function paintDashboard(root, ctx) {
 
       /* Bar track */
       .kpi-bar-track {
-        height: 4px;
-        border-radius: 2px;
-        background: color-mix(in srgb, var(--kpi-accent) 14%, var(--color-border));
+        height: 10px;
+        border-radius: 20px;
+        background: color-mix(in srgb, var(--kpi-accent) 8%, var(--color-border));
         overflow: hidden;
         margin-top: auto;
+        position: relative;
       }
       .kpi-bar-fill {
         height: 100%;
-        border-radius: 2px;
-        background: var(--kpi-accent);
+        border-radius: 20px;
+        background: linear-gradient(to right, color-mix(in srgb, var(--kpi-accent) 60%, white), var(--kpi-accent));
         animation: kpi-bar-grow 1s cubic-bezier(0.22, 1, 0.36, 1) 0.4s both;
+        position: relative;
       }
 
       /* Pulse dot (gross card only) */
@@ -458,126 +506,157 @@ async function paintDashboard(root, ctx) {
         z-index: 0;
       }
 
-      /* Orbital dial for Hours */
-      .th-dial-svg {
-        position: absolute;
-        bottom: -20%;
-        right: -15%;
-        width: 100%;
-        height: 100%;
-        color: var(--kpi-accent);
-        opacity: 0.08;
-        pointer-events: none;
-        z-index: 0;
+      /* Container Layout — Responsive Grid for 6 cards */
+      .kpi-hero-strip {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--space-3);
+        margin-bottom: var(--space-6);
+        animation: kpi-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1);
       }
-      .th-ring-outer { transform-origin: center; animation: th-spin-cw 20s linear infinite; }
-      .th-ring-inner { transform-origin: center; animation: th-spin-ccw 12s linear infinite; }
+      @media (min-width: 768px) {
+        .kpi-hero-strip {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+      @media (min-width: 1200px) {
+        .kpi-hero-strip {
+          grid-template-columns: repeat(6, 1fr);
+        }
+      }
+
+      @keyframes kpi-fade-up {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
     </style>
 
     <div class="kpi-hero-strip" role="list" aria-label="Financial KPIs">
 
-      <!-- ① GROSS EARNINGS -->
-      <div class="kpi-card" style="--kpi-accent: var(--color-brand);" role="listitem">
+      <!-- ① GROSS EARNINGS - Classic Sparkline -->
+      <div class="kpi-card" style="--kpi-accent: #14b8a6;" role="listitem">
         <div class="kpi-card-noise"></div>
         <div class="kpi-card-top">
           <div class="kpi-label-group">
             <div class="kpi-label">${esc(t('views.dashboard.financial.kpiGross')) || 'Gross Earnings'}</div>
-            <span class="kpi-badge ${isUp ? 'kpi-badge--up' : 'kpi-badge--down'}">
-              ${isUp ? '↑' : '↓'} ${deltaPct}% vs last
-            </span>
           </div>
-          <!-- Live pulse dot instead of arc for gross -->
           <div class="kpi-pulse-wrap">
             <div class="kpi-pulse-dot"></div>
             <div class="kpi-pulse-ring"></div>
           </div>
         </div>
         <div class="kpi-value">${fmt(fin.gross)}</div>
-        <svg class="kpi-spark" viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="none">
-          <path class="kpi-spark-area" d="M 0,${svgH} L ${sparkPath} L ${svgW},${svgH} Z" />
-          <path class="kpi-spark-path" d="M ${sparkPath}" />
+        
+        <svg class="kpi-spark" viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="none" style="margin-bottom: var(--space-2); height: 45px;">
+          <path class="kpi-spark-area" d="M 0,${svgH} L ${sparkPathGross} L ${svgW},${svgH} Z" style="fill: var(--kpi-accent); opacity: 0.12;" />
+          <path class="kpi-spark-path" d="M ${sparkPathGross}" style="stroke: var(--kpi-accent); stroke-width: 2.5; opacity: 1;" />
         </svg>
+
+        <div style="margin-top: auto; display: flex;">
+           <div style="background: var(--color-surface-raised); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; color: var(--color-text-main); display: flex; gap: 6px; align-items: center; border: 1px solid var(--color-border);">
+              <span class="${isUp ? 'kpi-badge--up' : 'kpi-badge--down'}" style="background:none; padding:0; font-size: 11px;">${isUp ? '↑' : '↓'} ${deltaPct}%</span> 
+              <span style="opacity: 0.7; font-size: 9px;">VS LAST</span>
+           </div>
+        </div>
       </div>
 
-      <!-- ② EXPENSES -->
-      <div class="kpi-card" style="--kpi-accent: var(--color-danger);" role="listitem">
+      <!-- ② AVG RATE - Sloping Peak -->
+      <div class="kpi-card" style="--kpi-accent: #f59e0b;" role="listitem">
+        <div class="kpi-card-noise"></div>
+        <div class="kpi-card-top">
+          <div class="kpi-label-group">
+            <div class="kpi-label">${esc(t('views.dashboard.financial.avgRateHr')) || 'Avg $/hr'}</div>
+          </div>
+        </div>
+        <div class="kpi-value" style="display: flex; align-items: baseline; gap: 4px;">
+           <span>${fmt(fin.avgRateHr || 0)}</span><span style="font-size: 0.5em; opacity: 0.7; font-weight: 800;">/hr</span>
+        </div>
+
+        <svg class="kpi-spark" viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="none" style="margin-bottom: var(--space-2); height: 45px;">
+          <path class="kpi-spark-area" d="M 0,${svgH} L ${sparkPathRate} L ${svgW},${svgH} Z" style="fill: var(--kpi-accent); opacity: 0.12;" />
+          <path fill="none" stroke="var(--kpi-accent)" stroke-width="2.5" d="M ${sparkPathRate}" style="opacity: 1;" />
+        </svg>
+
+        <div style="margin-top: auto; display: flex;">
+           <div style="background: var(--color-surface-raised); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; color: var(--color-text-main); display: flex; gap: 6px; align-items: center; border: 1px solid var(--color-border);">
+              <span style="color: #f59e0b;">${(fin.avgRateHr || 0) >= 35 ? 'ELITE' : (fin.avgRateHr || 0) >= 25 ? 'PRO' : 'ACTIVE'}</span> 
+              <span style="opacity: 0.7; font-size: 9px;">EFFICIENCY</span>
+           </div>
+        </div>
+      </div>
+
+      <!-- ③ EXPENSES - Step Chart -->
+      <div class="kpi-card" style="--kpi-accent: #06b6d4;" role="listitem">
         <div class="kpi-card-noise"></div>
         <div class="kpi-card-top">
           <div class="kpi-label-group">
             <div class="kpi-label">${esc(t('views.dashboard.financial.kpiExpenses')) || 'Expenses'}</div>
-            <span class="kpi-badge kpi-badge--neutral">${burnRatio.toFixed(1)}% of gross</span>
-          </div>
-          <div class="kpi-arc-wrap">
-            <svg viewBox="0 0 36 36" width="36" height="36">
-              <circle class="kpi-arc-bg" cx="18" cy="18" r="14"/>
-              <path class="kpi-arc-fill" style="--arc-len: ${((Math.min(burnRatio, 100) / 100) * 87.96).toFixed(1)}"
-                d="${arc(burnRatio)}" />
-            </svg>
-            <div class="kpi-arc-pct">${Math.round(burnRatio)}%</div>
           </div>
         </div>
         <div class="kpi-value">${fmt(fin.expense)}</div>
-        <div class="kpi-bar-track">
-          <div class="kpi-bar-fill" style="width: ${burnRatio}%"></div>
+
+        <svg class="kpi-spark" viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="none" style="margin-bottom: var(--space-2); height: 45px;">
+          <path class="kpi-spark-area" d="M 0,${svgH} L ${sparkPathStep} L ${svgW},${svgH} Z" style="fill: var(--kpi-accent); opacity: 0.1;" />
+          <path fill="none" stroke="var(--kpi-accent)" stroke-width="2.5" d="M ${sparkPathStep}" style="opacity: 0.8;" />
+        </svg>
+
+        <div style="margin-top: auto; display: flex;">
+           <div style="background: var(--color-surface-raised); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; color: var(--color-text-main); display: flex; gap: 6px; align-items: center; border: 1px solid var(--color-border);">
+              <span style="color: #06b6d4;">${burnRatio.toFixed(1)}%</span> 
+              <span style="opacity: 0.7; font-size: 9px;">OF GROSS</span>
+           </div>
         </div>
       </div>
 
-      <!-- ③ TAX SET-ASIDE -->
-      <div class="kpi-card" style="--kpi-accent: var(--color-warning);" role="listitem">
+      <!-- ④ TAX SET-ASIDE - Dot Matrix -->
+      <div class="kpi-card" style="--kpi-accent: #0ea5e9;" role="listitem">
         <div class="kpi-card-noise"></div>
         <div class="kpi-card-top">
           <div class="kpi-label-group">
             <div class="kpi-label">${esc(t('views.dashboard.financial.kpiTax')) || 'Tax Set-Aside'}</div>
-            <span class="kpi-badge kpi-badge--neutral">${taxRatePct}% rate</span>
-          </div>
-          <div class="kpi-arc-wrap">
-            <svg viewBox="0 0 36 36" width="36" height="36">
-              <circle class="kpi-arc-bg" cx="18" cy="18" r="14"/>
-              <path class="kpi-arc-fill" style="--arc-len: ${((Math.min(taxJarRatio, 100) / 100) * 87.96).toFixed(1)}"
-                d="${arc(taxJarRatio)}" />
-            </svg>
-            <div class="kpi-arc-pct">${Math.round(taxJarRatio)}%</div>
           </div>
         </div>
         <div class="kpi-value">${fmt(taxSetAside)}</div>
-        <div class="kpi-bar-track">
-          <div class="kpi-bar-fill" style="width: ${Math.min(taxJarRatio, 100)}%"></div>
+
+        <div style="display: flex; gap: 3px; height: 35px; align-items: flex-end; margin-bottom: 12px; color: var(--kpi-accent);">
+           ${Array.from({ length: 14 }).map((_, i) => `<div style="width: 4px; height: 4px; border-radius: 1px; background: currentColor; opacity: ${0.4 + (i / 14) * 0.6}"></div>`).join('')}
+        </div>
+
+        <div style="margin-top: auto; display: flex;">
+           <div style="background: var(--color-surface-raised); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; color: var(--color-text-main); display: flex; gap: 6px; align-items: center; border: 1px solid var(--color-border);">
+              <span style="color: #0ea5e9;">${taxRatePct}%</span> 
+              <span style="opacity: 0.7; font-size: 9px;">TAX RATE</span>
+           </div>
         </div>
       </div>
 
-      <!-- ④ NET TAKE-HOME -->
-      <div class="kpi-card" style="--kpi-accent: var(--color-success);" role="listitem">
+      <!-- ⑤ NET TAKE-HOME - Curved Wave -->
+      <div class="kpi-card" style="--kpi-accent: #3b82f6;" role="listitem">
         <div class="kpi-card-noise"></div>
         <div class="kpi-card-top">
           <div class="kpi-label-group">
             <div class="kpi-label">${esc(t('views.dashboard.financial.kpiNet')) || 'Net Take-Home'}</div>
-            <span class="kpi-badge ${netMargin >= 40 ? 'kpi-badge--up' : netMargin >= 20 ? 'kpi-badge--neutral' : 'kpi-badge--down'}">${netMargin.toFixed(1)}% margin</span>
-          </div>
-          <div class="kpi-arc-wrap">
-            <svg viewBox="0 0 36 36" width="36" height="36">
-              <circle class="kpi-arc-bg" cx="18" cy="18" r="14"/>
-              <path class="kpi-arc-fill" style="--arc-len: ${((Math.min(netMargin, 100) / 100) * 87.96).toFixed(1)}"
-                d="${arc(netMargin)}" />
-            </svg>
-            <div class="kpi-arc-pct">${Math.round(netMargin)}%</div>
           </div>
         </div>
         <div class="kpi-value">${fmt(takeHomePay)}</div>
-        <div class="kpi-bar-track">
-          <div class="kpi-bar-fill" style="width: ${Math.min(netMargin, 100)}%"></div>
+
+        <svg class="kpi-spark" viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="none" style="margin-bottom: var(--space-2); height: 45px;">
+          <path class="kpi-spark-area" d="M 0,${svgH} L ${sparkPathCurve} L ${svgW},${svgH} Z" style="fill: var(--kpi-accent); opacity: 0.12;" />
+          <path fill="none" stroke="var(--kpi-accent)" stroke-width="2.5" d="M ${sparkPathCurve}" style="opacity: 1;" />
+        </svg>
+
+        <div style="margin-top: auto; display: flex;">
+           <div style="background: var(--color-surface-raised); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; color: var(--color-text-main); display: flex; gap: 6px; align-items: center; border: 1px solid var(--color-border);">
+              <span style="color: #3b82f6;">${netMargin.toFixed(1)}%</span> 
+              <span style="opacity: 0.7; font-size: 9px;">MARGIN</span>
+           </div>
         </div>
       </div>
 
-      <!-- ⑤ TOTAL HOURS -->
-      <div class="kpi-card" style="--kpi-accent: #3b82f6;" role="listitem">
+      <!-- ⑥ TOTAL HOURS - Activity Pillars -->
+      <div class="kpi-card" style="--kpi-accent: #6366f1;" role="listitem">
         <div class="kpi-card-noise"></div>
         
-        <!-- Spinning Orbital Background -->
-        <svg class="th-dial-svg" viewBox="0 0 100 100">
-          <circle class="th-ring-outer" cx="50" cy="50" r="44" fill="none" stroke="currentColor" stroke-width="4" stroke-dasharray="12 16" stroke-linecap="round"></circle>
-          <circle class="th-ring-inner" cx="50" cy="50" r="28" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="6 10" stroke-linecap="round"></circle>
-        </svg>
-
         <div class="kpi-card-top" style="margin-bottom: var(--space-1);">
           <div class="kpi-label-group">
              <div class="kpi-label" style="margin-bottom: 0;">${esc(t('views.dashboard.financial.totalHours'))}</div>
@@ -589,14 +668,14 @@ async function paintDashboard(root, ctx) {
            <span style="font-size: 0.45em; font-weight: 900; margin-left: 6px; color: #3b82f6; letter-spacing: 0.05em;">HRS</span>
         </div>
 
+        <div style="display: flex; height: 35px; align-items: flex-end; gap: 2px; margin-top: 10px; margin-bottom: 8px; color: var(--kpi-accent);">
+           ${hoursSparkBars.replace(/opacity: 0.15/g, 'opacity: 0.6')}
+        </div>
+
         <div style="margin-top: auto; display: flex;">
            <div style="background: var(--color-surface-raised); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; color: var(--color-text-main); display: flex; gap: 6px; align-items: center; border: 1px solid var(--color-border);">
               <span style="color: #3b82f6;">${exactHours}h ${exactMinutes}m</span> <span style="opacity: 0.7; font-size: 9px;">ACTIVE</span>
            </div>
-        </div>
-
-        <div class="kpi-bar-track" style="margin-top: var(--space-3);">
-          <div class="kpi-bar-fill" style="width: ${hoursRatio}%"></div>
         </div>
       </div>
 
@@ -750,35 +829,7 @@ async function paintDashboard(root, ctx) {
 
       ${kpiBlocksHtml}
 
-      <div class="dashboard-section-header">
-        <span class="dashboard-section-label">${esc(t('views.dashboard.financial.sections.insights')) || 'Further Insights'}</span>
-        <div class="dashboard-section-line"></div>
-      </div>
-
-      ${widgetCardsHtml ? `
-        <div class="bento-grid bento-layout-${user?.bentoLayout || 'balanced'}" style="margin-bottom: var(--space-6);">
-          ${widgetCardsHtml}
-        </div>
-      ` : `
-        <div class="dashboard-empty-state">
-          <div class="empty-state-icon">${getIcon('layout-grid', 48)}</div>
-          <h3>Your dashboard is empty</h3>
-          <p>Add some insights from the analytics page to start tracking your performance.</p>
-          <a href="#/analytics" class="btn btn-primary btn-sm">
-            ${getIcon('trending-up', 18)} Browse Analytics
-          </a>
-        </div>
-      `}
-
-      <div class="dashboard-explore-minimal">
-        <a href="#/analytics" class="minimal-cta">
-          <span class="minimal-cta-icon">${getIcon('layout-grid', 18)}</span>
-          <span class="minimal-cta-text">View All Analytics</span>
-          <span class="minimal-cta-arrow">${getIcon('arrow-right', 14)}</span>
-        </a>
-      </div>
-
-      <article class="card financial-monthly-card">
+      <article class="card financial-monthly-card" style="margin-bottom: var(--space-6);">
         <div class="financial-monthly-head">
           <h2 class="financial-monthly-title">${getIcon('calendar', 20, 'financial-monthly-title-icon')} ${esc(t('views.dashboard.financial.monthlyBreakdownTitle'))}</h2>
           <div class="financial-monthly-actions" role="group" aria-label="${esc(t('views.dashboard.financial.monthlyBreakdownTitle'))}">
@@ -810,6 +861,26 @@ async function paintDashboard(root, ctx) {
         </div>
         ${monthlyPagerHtml}
       </article>
+
+      <div class="dashboard-section-header">
+        <span class="dashboard-section-label">${esc(t('views.dashboard.financial.sections.insights')) || 'Further Insights'}</span>
+        <div class="dashboard-section-line"></div>
+      </div>
+
+      ${widgetCardsHtml ? `
+        <div class="bento-grid bento-layout-${user?.bentoLayout || 'balanced'}" style="margin-bottom: var(--space-6);">
+          ${widgetCardsHtml}
+        </div>
+      ` : `
+        <div class="dashboard-empty-state">
+          <div class="empty-state-icon">${getIcon('layout-grid', 48)}</div>
+          <h3>Your dashboard is empty</h3>
+          <p>Add some insights from the analytics page to start tracking your performance.</p>
+          <a href="#/analytics" class="btn btn-primary btn-sm">
+            ${getIcon('trending-up', 18)} Browse Analytics
+          </a>
+        </div>
+      `}
 
       <div class="financial-dash-highlights">
         <article class="financial-highlight financial-highlight--best">

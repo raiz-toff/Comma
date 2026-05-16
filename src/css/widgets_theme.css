@@ -1,63 +1,56 @@
 /*
   ╔══════════════════════════════════════════════════════════════╗
-  ║   COMMA BENTO — WIDGET THEME v2                            ║
-  ║   Production-grade design system for all 31 bento widgets    ║
+  ║   COMMA BENTO — PREMIUM DESIGN SYSTEM v3                   ║
+  ║   Production-grade aesthetics for all 31 bento widgets       ║
   ╚══════════════════════════════════════════════════════════════╝
 */
 
 :root {
-  /* Core Status Colors */
-  --color-pos: #10b981;
-  --color-neg: #f43f5e;
-  --color-warn: #f59e0b;
-  --color-neu: var(--color-text-muted, #64748b);
-  
-  /* Shared RGB equivalents for opacity manipulation */
-  --rgb-pos: 16, 185, 129;
-  --rgb-neg: 244, 63, 94;
-  --rgb-warn: 245, 158, 11;
-  --rgb-neu: 100, 116, 139;
+  /* Premium Palette Mapping */
+  --clr-teal: #14b8a6;
+  --clr-sky:  #0ea5e9;
+  --clr-blue: #3b82f6;
+  --clr-indi: #6366f1;
+  --clr-amb:  #f59e0b;
 }
 
 /* ══════════════════════════════════════════════════════════════
    1. COLOR PROFILES
    ══════════════════════════════════════════════════════════════ */
 
-/* Financial — Blue */
+/* Performance & Financial — Sky Blue */
 [data-widget-id="earnings"], [data-widget-id="netIncome"], [data-widget-id="avgRate"],
-[data-widget-id="totalHours"], [data-widget-id="deliveries"], [data-widget-id="tipsTotal"],
+[data-widget-id="totalHours"], [data-widget-id="tipsTotal"],
 [data-widget-id="effectiveRate"], [data-widget-id="perDelivery"], [data-widget-id="hourlyRate"] {
-  --wa: var(--color-brand);
-  --war: var(--color-brand-rgb);
+  --wa: var(--clr-sky);
 }
 
-/* Growth — Amber */
-[data-widget-id="weeklyGoal"], [data-widget-id="streak"], 
-[data-widget-id="weeklyProjection"], [data-widget-id="monthGross"] {
-  --wa: var(--color-warn);
-  --war: var(--rgb-warn);
-}
-
-/* Activity — Emerald */
-[data-widget-id="orders"], [data-widget-id="platformActivity"], 
+/* Volume & Activity — Indigo */
+[data-widget-id="deliveries"], [data-widget-id="orders"], [data-widget-id="platformActivity"], 
 [data-widget-id="recentShifts"], [data-widget-id="monthOrders"], [data-widget-id="schedule"] {
-  --wa: var(--color-pos);
-  --war: var(--rgb-pos);
+  --wa: var(--clr-indi);
 }
 
-/* Intelligence — Violet */
-[data-widget-id="rollingTrend"], [data-widget-id="scatter"], [data-widget-id="stabilityScore"],
+/* Growth & Achievements — Teal */
+[data-widget-id="weeklyGoal"], [data-widget-id="streak"], 
+[data-widget-id="weeklyProjection"], [data-widget-id="monthGross"],
+[data-widget-id="rollingTrend"], [data-widget-id="stabilityScore"] {
+  --wa: var(--clr-teal);
+  --is-insight: 1;
+}
+
+/* Insights & Analytics — Blue */
 [data-widget-id="bestDay"], [data-widget-id="bestHour"], [data-widget-id="monthHourly"],
-[data-widget-id="weekCompare"], [data-widget-id="incomeBreakdown"] {
-  --wa: #8b5cf6;
-  --war: 139, 92, 246;
+[data-widget-id="weekCompare"], [data-widget-id="incomeBreakdown"], [data-widget-id="scatter"] {
+  --wa: var(--clr-blue);
+  --is-insight: 1;
 }
 
-/* Critical — Rose */
+/* Critical & Expenses — Amber/Rose */
 [data-widget-id="deadMiles"], [data-widget-id="taxJar"], [data-widget-id="expenses"],
 [data-widget-id="outOfPocket"], [data-widget-id="totalExpenses"], [data-widget-id="zeroDays"] {
-  --wa: var(--color-neg);
-  --war: var(--rgb-neg);
+  --wa: var(--clr-amb);
+  --is-insight: 1;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -65,20 +58,18 @@
    ══════════════════════════════════════════════════════════════ */
 
 .card[data-widget-id] {
-  transition: box-shadow 0.25s ease, transform 0.25s ease;
+  transition: box-shadow 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   position: relative;
   overflow: hidden;
-  will-change: transform, box-shadow;
-  transform: translateZ(0); /* Hardware acceleration trigger */
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
 }
 
-.card[data-widget-id]:hover,
-.card[data-widget-id]:focus-within {
-  box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.1);
-  transform: translateY(-0.125rem);
+.card[data-widget-id]:hover {
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.25);
+  transform: translateY(-2px);
 }
-
-
 
 /* ══════════════════════════════════════════════════════════════
    3. WIDGET LAYOUT PRIMITIVES
@@ -88,190 +79,125 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  gap: 0.3125rem;
-  position: relative;
-  z-index: 1;
+  gap: 0.5rem;
+  padding: 8px;
 }
 
 .wh {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  flex-shrink: 0;
+  gap: 0.5rem;
+  margin-bottom: 2px;
 }
 
 .wi {
-  width: 1.625rem;
-  height: 1.625rem;
-  border-radius: 0.4375rem;
-  background: rgba(var(--war, 0, 0, 0), 0.1);
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--wa) 12%, var(--color-surface-raised));
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
   color: var(--wa);
+  flex-shrink: 0;
 }
 
 .wi svg {
-  width: 0.8125rem;
-  height: 0.8125rem;
+  width: 16px;
+  height: 16px;
   stroke: currentColor;
-  fill: none;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  stroke-width: 2.5;
 }
 
 .wl {
-  font-size: 0.625rem;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--wa);
-  opacity: 0.75;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
   flex: 1;
-  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .wb {
-  font-size: 0.5625rem;
-  font-weight: 700;
-  padding: 0.125rem 0.4375rem;
-  border-radius: 9999px;
-  background: rgba(var(--war, 0, 0, 0), 0.1);
-  color: var(--wa);
-  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  color: var(--color-text-main);
+  text-transform: uppercase;
   letter-spacing: 0.04em;
-  flex-shrink: 0;
-  line-height: 1.6;
 }
 
-.wb.pos { background: rgba(var(--rgb-pos), 0.12); color: var(--color-pos); }
-.wb.neg { background: rgba(var(--rgb-neg), 0.12); color: var(--color-neg); }
-.wb.neu { background: rgba(var(--rgb-neu), 0.10); color: var(--color-neu); }
-.wb.warn{ background: rgba(var(--rgb-warn), 0.12); color: var(--color-warn); }
+.wb.acc { color: var(--wa); border-color: color-mix(in srgb, var(--wa) 30%, var(--color-border)); }
+.wb.pos { color: var(--clr-teal); border-color: color-mix(in srgb, var(--clr-teal) 30%, var(--color-border)); }
+.wb.neg { color: var(--color-danger); border-color: color-mix(in srgb, var(--color-danger) 30%, var(--color-border)); }
 
 .wv {
-  font-size: clamp(1.25rem, 3.8vw, 1.875rem);
-  font-weight: 800;
-  line-height: 1.05;
-  color: var(--color-text-primary, #f1f5f9);
-  letter-spacing: -0.025em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex-shrink: 0;
+  font-size: 1.75rem;
+  font-weight: 900;
+  line-height: 1.1;
+  color: var(--color-text-main);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 
 .wv .cur {
-  font-size: 0.52em;
-  font-weight: 700;
-  opacity: 0.5;
-  vertical-align: super;
-  margin-right: 0.0625rem;
+  font-size: 0.55em;
+  font-weight: 800;
+  opacity: 0.6;
+  margin-right: 2px;
 }
 
 .wv .unit {
-  font-size: 0.42em;
-  font-weight: 600;
-  opacity: 0.5;
-  margin-left: 0.1875rem;
+  font-size: 0.45em;
+  font-weight: 800;
+  color: var(--wa);
+  margin-left: 4px;
 }
 
 .ws {
-  font-size: 0.6875rem;
-  color: var(--color-text-muted, #64748b);
-  font-weight: 500;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-weight: 700;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  flex-shrink: 0;
-}
-
-.ws svg {
-  width: 0.6875rem;
-  height: 0.6875rem;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  flex-shrink: 0;
+  gap: 4px;
 }
 
 .wt {
   display: inline-flex;
   align-items: center;
-  gap: 0.125rem;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  flex-shrink: 0;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 800;
 }
 
-.wt svg {
-  width: 0.6875rem;
-  height: 0.6875rem;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.wt.up  { color: var(--color-pos); }
-.wt.dn  { color: var(--color-neg); }
-.wt.neu { color: var(--color-neu); }
-
-.wd {
-  height: 1px;
-  background: rgba(var(--war, 0, 0, 0), 0.08);
-  flex-shrink: 0;
-  margin: 0.0625rem 0;
-}
-
-.wf {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: auto;
-  padding-top: 0.125rem;
-  flex-shrink: 0;
-}
+.wt.up { color: var(--clr-teal); }
+.wt.dn { color: var(--color-danger); }
 
 /* ══════════════════════════════════════════════════════════════
-   4. PROGRESS BAR
+   4. PROGRESS BAR (Aligned to 10px Thick Style)
    ══════════════════════════════════════════════════════════════ */
 
 .wpb {
   width: 100%;
-  height: 0.3125rem;
-  background: rgba(var(--war, 0, 0, 0), 0.1);
-  border-radius: 9999px;
+  height: 10px;
+  background: color-mix(in srgb, var(--wa) 8%, var(--color-border));
+  border-radius: 20px;
   overflow: hidden;
-  flex-shrink: 0;
+  margin-top: auto;
 }
 
 .wpf {
   height: 100%;
-  border-radius: 9999px;
-  background: var(--wa);
-  position: relative;
-  transition: width 0.65s cubic-bezier(0.4, 0, 0.2, 1);
-  max-width: 100%;
-}
-
-.wpf::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 0.625rem;
-  background: rgba(255, 255, 255, 0.25);
-  border-radius: 9999px;
+  border-radius: 20px;
+  background: linear-gradient(to right, color-mix(in srgb, var(--wa) 60%, white), var(--wa));
+  transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -280,43 +206,32 @@
 
 .wss {
   display: flex;
-  gap: 0.3125rem;
-  flex-shrink: 0;
+  gap: 6px;
 }
 
 .wsc {
   flex: 1;
-  min-width: 0;
+  padding: 8px 10px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
-  gap: 0.0625rem;
-  padding: 0.3125rem 0.5rem;
-  background: rgba(var(--war, 0, 0, 0), 0.07);
-  border-radius: 0.5rem;
+  gap: 2px;
 }
 
 .wscl {
-  font-size: 0.5625rem;
-  font-weight: 700;
+  font-size: 9px;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-text-muted, #64748b);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: var(--color-text-muted);
 }
 
 .wscv {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--color-text-primary, #f1f5f9);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--color-text-main);
 }
-
-.wscv.pos { color: var(--color-pos); }
-.wscv.neg { color: var(--color-neg); }
 .wscv.acc { color: var(--wa); }
 
 /* ══════════════════════════════════════════════════════════════
@@ -325,42 +240,29 @@
 
 .wdow {
   display: flex;
-  gap: 0.1875rem;
+  gap: 4px;
   align-items: flex-end;
-  flex: 1;
-  min-height: 0;
-}
-
-.wdow-d {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.1875rem;
-  height: 100%;
-  justify-content: flex-end;
+  height: 60px;
 }
 
 .wdow-b {
   width: 100%;
-  border-radius: 0.1875rem 0.1875rem 0.125rem 0.125rem;
-  background: rgba(var(--war, 0, 0, 0), 0.12);
-  transition: background 0.2s, height 0.3s ease;
-  min-height: 0.25rem;
+  border-radius: 4px 4px 2px 2px;
+  background: color-mix(in srgb, var(--wa) 15%, var(--color-border));
+  min-height: 4px;
 }
 
 .wdow-b.act {
   background: var(--wa);
-  box-shadow: 0 0.125rem 0.5rem rgba(var(--war, 0, 0, 0), 0.35);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--wa) 30%, transparent);
 }
 
 .wdow-l {
-  font-size: 0.46875rem;
-  font-weight: 700;
-  color: var(--color-text-muted, #64748b);
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.02em;
-  flex-shrink: 0;
+  margin-top: 4px;
 }
 
 .wdow-l.act { color: var(--wa); }
@@ -371,64 +273,30 @@
 
 .who {
   display: flex;
-  gap: 0.125rem;
-  height: 0.875rem;
-  flex-shrink: 0;
+  gap: 2px;
+  height: 12px;
 }
 
 .who-p {
   flex: 1;
-  border-radius: 0.125rem;
-  background: rgba(var(--war, 0, 0, 0), 0.1);
-  transition: background 0.2s;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--wa) 15%, var(--color-border));
 }
 
-.who-p.pk { background: var(--wa); box-shadow: 0 0.0625rem 0.375rem rgba(var(--war, 0, 0, 0), 0.4); }
-.who-p.nr { background: rgba(var(--war, 0, 0, 0), 0.35); }
+.who-p.pk { background: var(--wa); }
 
 /* ══════════════════════════════════════════════════════════════
-   8. CALENDAR DOTS
+   8. MISC
    ══════════════════════════════════════════════════════════════ */
 
-.wcg {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 0.1875rem;
-  flex: 1;
-}
-
-.wcd {
-  aspect-ratio: 1;
-  border-radius: 0.1875rem;
-  background: rgba(var(--war, 0, 0, 0), 0.1);
-  transition: background 0.15s;
-}
-
-.wcd.z  { background: var(--wa); }
-.wcd.nt { background: rgba(var(--rgb-pos), 0.25); }  
-.wcd.ft { opacity: 0.25; }                           
-
-/* ══════════════════════════════════════════════════════════════
-   9. MISC & RESPONSIVE
-   ══════════════════════════════════════════════════════════════ */
-
-.wch { flex: 1; min-height: 0; position: relative; }
-.wch canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
-
-.warc { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.warc svg path.arc-fill { transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
-
-@media (max-width: 30em) { /* 480px */
-  .wv    { font-size: 1.25rem; }
-  .wss   { gap: 0.25rem; }
-  .wdow  { gap: 0.125rem; }
+@media (max-width: 480px) {
+  .wv { font-size: 1.5rem; }
+  .wsc { padding: 6px 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  * {
     animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
   }
 }

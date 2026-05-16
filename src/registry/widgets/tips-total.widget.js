@@ -105,19 +105,20 @@ export default {
         <!-- Header -->
         <div class="tt-header">
           <div class="tt-icon-wrap">
-            <!-- Sparkle / Star Icon indicating bonus value -->
+            <!-- Sparkle / Star Icon -->
             <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
               <path d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4z"></path>
             </svg>
           </div>
           <span class="stat-label">${esc(labelText)}</span>
+          <button type="button" class="btn btn-sm btn-success" style="margin-left: auto; padding: 2px 8px; font-size: 11px; height: 24px;">+ Add</button>
         </div>
 
         <!-- Metric Body -->
         <div class="tt-body">
           <div class="tt-value">${esc(formattedTips)}</div>
           
-          <!-- Intelligence Badge (Only show if > 0 to avoid 0% clutter) -->
+          <!-- Intelligence Badge -->
           ${tipsPct > 0 ? `
             <div class="tt-badge">
               <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24" style="color: var(--widget-accent);">
@@ -126,7 +127,7 @@ export default {
               <span><span class="tt-badge-highlight">${tipsPct.toFixed(1)}%</span> of total earnings</span>
             </div>
           ` : `
-            <div class="tt-badge">Awaiting tips</div>
+            <div class="tt-badge" style="background: rgba(150, 150, 150, 0.1); border: 1px solid rgba(255,255,255,0.05);">Awaiting tips</div>
           `}
         </div>
 

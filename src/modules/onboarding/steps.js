@@ -143,41 +143,88 @@ function landingIcon(name, size = 22) {
 function renderOnboardingLanding() {
   return `
     <div class="onboarding-landing">
+      <!-- Hero Section -->
       <header class="onboarding-landing-hero">
-        <p class="onboarding-landing-kicker">${esc(t('onboarding.landing.kicker'))}</p>
-        <h1 class="onboarding-landing-title">${esc(t('onboarding.landing.heroTitle'))}</h1>
-        <p class="onboarding-landing-lead">${esc(t('onboarding.landing.heroLead'))}</p>
-        <div class="onboarding-landing-actions">
-          <button type="button" class="btn btn-primary btn-lg onboarding-landing-primary" data-start-onboarding>${esc(t('onboarding.landing.startCta'))}</button>
-          <button type="button" class="btn btn-secondary btn-lg" data-demo>${esc(t('onboarding.tryDemo'))}</button>
+        <div class="hero-content">
+          <p class="onboarding-landing-kicker">${esc(t('onboarding.landing.kicker'))}</p>
+          <h1 class="onboarding-landing-title">${esc(t('onboarding.landing.heroTitle'))}</h1>
+          <p class="onboarding-landing-lead">${esc(t('onboarding.landing.heroLead'))}</p>
+          
+          <div class="onboarding-landing-actions">
+            <button type="button" class="btn btn-primary btn-lg onboarding-landing-primary" data-start-onboarding>${esc(t('onboarding.landing.startCta'))}</button>
+            <button type="button" class="btn btn-secondary btn-lg" data-demo>${esc(t('onboarding.tryDemo'))}</button>
+          </div>
+          
+          <div class="onboarding-landing-restore">
+            <button type="button" class="btn btn-ghost btn-sm onboarding-restore-link" data-action="restore-vault">
+              ${getIcon('database', 18)} <span>${esc(t('onboarding.landing.restoreLink'))}</span>
+            </button>
+          </div>
+        </div>
+        
+        <div class="hero-visual">
+          <div class="hero-browser-frame">
+            <img src="/image.png" alt="COMMA Dashboard" class="hero-screenshot" />
+          </div>
         </div>
       </header>
-      <section class="onboarding-landing-section" aria-labelledby="ob-landing-how">
-        <h2 id="ob-landing-how" class="onboarding-landing-section-title">${esc(t('onboarding.landing.sectionTitle'))}</h2>
-        <ul class="onboarding-landing-grid">
-          <li class="onboarding-landing-card card card-raised">
-            <span class="onboarding-landing-card-icon" aria-hidden="true">${landingIcon('vault', 24)}</span>
-            <h3 class="onboarding-landing-card-title">${esc(t('onboarding.landing.featVaultTitle'))}</h3>
-            <p class="onboarding-landing-card-body">${esc(t('onboarding.landing.featVaultBody'))}</p>
-          </li>
-          <li class="onboarding-landing-card card card-raised">
-            <span class="onboarding-landing-card-icon" aria-hidden="true">${landingIcon('calendar', 24)}</span>
-            <h3 class="onboarding-landing-card-title">${esc(t('onboarding.landing.featShiftsTitle'))}</h3>
-            <p class="onboarding-landing-card-body">${esc(t('onboarding.landing.featShiftsBody'))}</p>
-          </li>
-          <li class="onboarding-landing-card card card-raised">
-            <span class="onboarding-landing-card-icon" aria-hidden="true">${landingIcon('percent', 24)}</span>
-            <h3 class="onboarding-landing-card-title">${esc(t('onboarding.landing.featTaxTitle'))}</h3>
-            <p class="onboarding-landing-card-body">${esc(t('onboarding.landing.featTaxBody'))}</p>
-          </li>
-          <li class="onboarding-landing-card card card-raised">
-            <span class="onboarding-landing-card-icon" aria-hidden="true">${landingIcon('trophy', 24)}</span>
-            <h3 class="onboarding-landing-card-title">${esc(t('onboarding.landing.featGoalsTitle'))}</h3>
-            <p class="onboarding-landing-card-body">${esc(t('onboarding.landing.featGoalsBody'))}</p>
-          </li>
-        </ul>
-        <p class="onboarding-landing-footnote">${esc(t('onboarding.landing.footnote'))}</p>
+
+      <!-- Section 1: Dashboard -->
+      <section class="onboarding-feature-row">
+        <div class="feature-text">
+          <span class="feature-kicker">Analytics</span>
+          <h2 class="feature-title">${esc(t('onboarding.landing.featShiftsTitle'))}</h2>
+          <p class="feature-body">${esc(t('onboarding.landing.featShiftsBody'))}</p>
+        </div>
+        <div class="feature-visual">
+          <div class="feature-browser-frame">
+            <img src="/image.png" alt="Statistics" class="feature-screenshot" />
+          </div>
+        </div>
       </section>
+
+      <!-- Section 2: Expenses (Reversed) -->
+      <section class="onboarding-feature-row is-reversed">
+        <div class="feature-text">
+          <span class="feature-kicker">Finance</span>
+          <h2 class="feature-title">${esc(t('onboarding.landing.featTaxTitle'))}</h2>
+          <p class="feature-body">${esc(t('onboarding.landing.featTaxBody'))}</p>
+        </div>
+        <div class="feature-visual">
+          <div class="feature-browser-frame">
+            <img src="/image-1.png" alt="Expenses" class="feature-screenshot" />
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Platforms -->
+      <section class="onboarding-feature-row">
+        <div class="feature-text">
+          <span class="feature-kicker">Workflow</span>
+          <h2 class="feature-title">Multi-Platform Mastery</h2>
+          <p class="feature-body">Switch between platforms effortlessly. COMMA adapts its terminology and tracking to match exactly how you work.</p>
+        </div>
+        <div class="feature-visual">
+          <div class="feature-browser-frame">
+            <img src="/image-2.png" alt="Platforms" class="feature-screenshot" />
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 4: Drive (Bento Style) -->
+      <section class="onboarding-bento-section">
+        <div class="bento-card">
+          <div class="bento-content">
+            <span class="feature-kicker">Privacy First</span>
+            <h2 class="feature-title">${esc(t('onboarding.landing.featVaultTitle'))}</h2>
+            <p class="feature-body">${esc(t('onboarding.landing.featVaultBody'))}</p>
+          </div>
+          <div class="bento-visual">
+            <img src="/image-3.png" alt="Google Drive" class="bento-screenshot" />
+          </div>
+        </div>
+      </section>
+
       <footer class="onboarding-landing-footer">
         <nav class="onboarding-landing-footer-nav">
           <a href="/privacy.html" target="_blank" class="onboarding-landing-footer-link">${esc(t('onboarding.landing.privacyLink'))}</a>

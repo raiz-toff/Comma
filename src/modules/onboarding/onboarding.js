@@ -18,9 +18,11 @@ import { getLocaleConfig } from '../../utils/locale.js';
 import { getCountryTaxProfile } from '../../registry/countries/index.js';
 import { ProvinceRegistry } from '../../registry/provinces/index.js';
 import { getDefaultSamplePlatformId } from '../../registry/platforms/index.js';
-import { showConfirm, showToast } from '../../ui/components.js';
+import { showConfirm, showToast, showModal } from '../../ui/components.js';
+import { getIcon } from '../../ui/icons.js';
 import { requestToken, isDriveConnected } from '../backup/drive-auth.js';
 import { listAvailableBackups, runRestore } from '../backup/restore-engine.js';
+import { deserializeVault } from '../backup/vault-serializer.js';
 import {
   TOTAL_STEPS,
   defaultDraftFromUser,
@@ -50,6 +52,124 @@ function ymdFromDate(d) {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+async function handleRestoreVault() {
+  const modal = showModal({
+    title: t('onboarding.landing.restoreLink') || 'Restore existing vault',
+    content: `
+      <div class="restore-choice-grid">
+        <button type="button" class="restore-choice-btn card" data-restore-type="drive">
+          <span class="restore-choice-icon">${getIcon('google-drive', 28)}</span>
+          <span class="restore-choice-label">Google Drive</span>
+          <span class="restore-choice-desc">Restore from your cloud backups</span>
+        </button>
+        <button type="button" class="restore-choice-btn card" data-restore-type="local">
+          <span class="restore-choice-icon">${getIcon('upload', 28)}</span>
+          <span class="restore-choice-label">Local Backup</span>
+          <span class="restore-choice-desc">Import a .comdb or .json file</span>
+        </button>
+      </div>
+      <input type="file" id="ob-restore-file" accept=".comdb,.json" style="display:none" />
+    `,
+    size: 'sm',
+    actions: []
+  });
+
+  const driveBtn = modal.root.querySelector('[data-restore-type="drive"]');
+  driveBtn?.addEventListener('click', async () => {
+    modal.close();
+    if (!isDriveConnected()) {
+      requestToken();
+    } else {
+      const backups = await listAvailableBackups();
+      if (backups.length > 0) {
+        showRestoreChoiceModal(backups);
+      } else {
+        showToast({ type: 'info', message: t('settings.backupRestoreEmpty') || 'No backups found in your Drive.' });
+      }
+    }
+  });
+
+  const localBtn = modal.root.querySelector('[data-restore-type="local"]');
+  const fileInput = modal.root.querySelector('#ob-restore-file');
+  localBtn?.addEventListener('click', () => fileInput?.click());
+
+  fileInput?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    modal.close();
+    
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      
+      const confirmed = await showConfirm({
+        title: 'Confirm Restore',
+        message: 'This will replace all current data. Are you sure?',
+        confirmText: 'Restore Now',
+        danger: true
+      });
+
+      if (confirmed) {
+        const res = await (data.magic === 'COMMA_VAULT' ? runRestoreFromFile(data) : deserializeVault(data));
+        if (res.success) {
+          showToast({ type: 'success', message: 'Vault restored ✓' });
+          setTimeout(() => window.location.reload(), 1000);
+        } else {
+          showToast({ type: 'error', message: res.error || 'Restore failed.' });
+        }
+      }
+    } catch (err) {
+      showToast({ type: 'error', message: 'Invalid file format.' });
+    }
+  });
+}
+
+async function showRestoreChoiceModal(backups) {
+  const modal = showModal({
+    title: t('settings.backupRestoreTitle'),
+    content: `
+      <div class="restore-list">
+        ${backups.map(b => `
+          <div class="restore-item">
+            <div class="restore-info">
+              <p class="restore-date">${new Date(b.encryptedAt).toLocaleString()}</p>
+              <p class="restore-meta text-xs text-secondary">${b.deviceHint || 'Unknown Device'} · v${b.appVersion}</p>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" data-restore-id="${b.id}">Restore</button>
+          </div>
+        `).join('')}
+      </div>
+    `,
+    size: 'sm'
+  });
+
+  modal.root.querySelectorAll('[data-restore-id]').forEach(btn => {
+    btn.onclick = async () => {
+      const id = btn.dataset.restoreId;
+      modal.close();
+      const confirmed = await showConfirm({
+        title: t('settings.backupRestoreConfirmTitle'),
+        message: t('settings.backupRestoreConfirmMessage'),
+        requireType: 'RESTORE',
+        danger: true
+      });
+      if (confirmed) {
+        const res = await runRestore(id);
+        if (res.success) {
+          showToast({ type: 'success', message: 'Vault restored ✓' });
+          setTimeout(() => window.location.reload(), 1000);
+        } else {
+          showToast({ type: 'error', message: res.error });
+        }
+      }
+    };
+  });
+}
+
+async function runRestoreFromFile(wrapper) {
+  return { success: false, error: 'Encrypted local files must be restored via Google Drive for key synchronization.' };
 }
 
 function interpolate(str, vars) {
@@ -832,6 +952,10 @@ export async function mountOnboarding(root) {
         }
       });
     }
+
+    body.querySelector('[data-action="restore-vault"]')?.addEventListener('click', () => {
+      handleRestoreVault();
+    });
 
     body.querySelector('[data-start-onboarding]')?.addEventListener('click', () => {
       draft.landingComplete = true;

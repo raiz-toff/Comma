@@ -85,14 +85,17 @@ export const strings = {
       tryDemo: 'Try demo first',
       landing: {
         kicker: 'Local-first gig earnings',
+        heroTitle: 'Your gig data, private by design.',
         heroLead:
           'COMMA is a privacy-first gig earnings and expense tracker for multi-app drivers. Securely log shifts, track your week, and get tax-ready snapshots — all stored locally on your device.',
         startCta: 'Start onboarding',
+        restoreLink: 'Restore existing vault',
         privacyLink: 'Privacy Policy',
+        screenshotsTitle: 'See some snapshots below',
         sectionTitle: 'What COMMA does for you',
         featVaultTitle: 'Private vault',
         featVaultBody:
-          'No cloud login to get started. Your earnings history and exports stay in your browser until you choose to back them up.',
+          'No account needed. Your data stays on your device, and you can securely back it up to your own Google Drive whenever you want.',
         featShiftsTitle: 'Shift timeline',
         featShiftsBody:
           'Capture platforms, hours, distance, tips, and bonuses in one place so nothing slips through the cracks.',
@@ -913,6 +916,10 @@ export const strings = {
       clearedToast: 'Cleared tag from {count} shifts.',
       unallocated: 'Unallocated (no shift that day)',
     },
+    changelog: {
+      title: "What's New",
+      subtitle: "Securely backup your vault to your own Google Drive.",
+    },
     reports: {
       title: 'Reports',
       subtitle: 'Period summaries and export tools.',
@@ -1252,16 +1259,18 @@ export const strings = {
         'Le texte détaillé de l’accueil arrive en phase 2 (orchestrateur + steps.js). Les clés restent stables pour `t()`.',
       tryDemo: 'Essayer la démo',
       landing: {
-        kicker: 'Gains de gig, local d’abord',
-        heroTitle: 'Bienvenue sur COMMA',
+        kicker: 'Revenus de gig locaux',
+        heroTitle: 'Vos données de gig, privées par conception.',
         heroLead:
           'COMMA est un suivi des revenus et des dépenses de gig respectueux de la vie privée pour les chauffeurs multi-applications. Enregistrez vos shifts en toute sécurité, suivez votre semaine et obtenez des aperçus prêts pour les impôts — le tout stocké localement sur votre appareil.',
         startCta: 'Commencer l\'intégration',
+        restoreLink: 'Restaurer un coffre existant',
         privacyLink: 'Politique de confidentialité',
+        screenshotsTitle: 'Voir quelques aperçus ci-dessous',
         sectionTitle: 'Ce que COMMA vous apporte',
         featVaultTitle: 'Coffre privé',
         featVaultBody:
-          'Pas de compte cloud pour démarrer. Historique et exports restent dans le navigateur jusqu’à ce que vous sauvegardiez.',
+          'Aucun compte requis. Vos données restent sur votre appareil, et vous pouvez les sauvegarder en toute sécurité sur votre propre Google Drive quand vous le souhaitez.',
         featShiftsTitle: 'Fil des quarts',
         featShiftsBody:
           'Plateformes, heures, distance, pourboires et primes au même endroit pour ne rien oublier.',

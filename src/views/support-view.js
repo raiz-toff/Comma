@@ -148,7 +148,7 @@ export async function render(root, ctx) {
     const msg = fd.get('message') || '';
 
     const subject = `[COMMA Support] ${feedbackType}`;
-    const body = `Hi Raj,\n\nHope you are doing great! I am writing to you regarding the Macadam web app. Here are my thoughts:\n\n` +
+    const body = `Hi Raj,\n\nHope you are doing great! I am writing to you regarding the COMMA web app. Here are my thoughts:\n\n` +
       `----------------------------------------\n` +
       `${msg || '(No custom message provided)'}\n` +
       `----------------------------------------\n\n` +

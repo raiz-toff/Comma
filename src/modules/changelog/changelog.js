@@ -7,7 +7,7 @@ import { showModal } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
 import { t } from '../../utils/strings.js';
 
-export const APP_VERSION = '1.2.0';
+export const APP_VERSION = '1.3.0';
 const STORAGE_KEY = 'comma_last_seen_version';
 
 /**
@@ -46,26 +46,34 @@ export function showChangelogModal(lastVersion = '') {
 
       <div class="changelog-highlights">
         <div class="changelog-item">
-          <div class="changelog-item-icon">${getIcon('google-drive', 24)}</div>
+          <div class="changelog-item-icon">${getIcon('layout-grid', 24)}</div>
           <div class="changelog-item-text">
-            <h4>Google Drive Cloud Backup</h4>
-            <p>Your vault is now more secure. Sync your data across devices with official Google Drive integration.</p>
+            <h4>Interactive Shift Breakdowns</h4>
+            <p>Click shift rows or timeline blocks to slide open sleek glassmorphic accordions with computed hourly rates, tips, base pay, and custom notes.</p>
           </div>
         </div>
         
         <div class="changelog-item">
-          <div class="changelog-item-icon">${getIcon('vault', 24)}</div>
+          <div class="changelog-item-icon">${getIcon('bolt', 24)}</div>
           <div class="changelog-item-text">
-            <h4>Vault Resilience</h4>
-            <p>New background sync and proactive token renewal ensures your backup session never drops.</p>
+            <h4>Horizontal Mobile Filters</h4>
+            <p>Presets now slide smoothly on mobile viewports without wrapping, keeping your controls incredibly clean and readable.</p>
           </div>
         </div>
 
         <div class="changelog-item">
-          <div class="changelog-item-icon">${getIcon('shield', 24)}</div>
+          <div class="changelog-item-icon">${getIcon('clock', 24)}</div>
           <div class="changelog-item-text">
-            <h4>Demo Mode Protection</h4>
-            <p>Safety guards now prevent sample data from accidentally overwriting your real cloud backups.</p>
+            <h4>Year-to-Date (YTD) Preset</h4>
+            <p>Quickly filter all dashboard metrics and shift logs to evaluate your performance starting from January 1st to today with a single tap.</p>
+          </div>
+        </div>
+
+        <div class="changelog-item">
+          <div class="changelog-item-icon">${getIcon('filter', 24)}</div>
+          <div class="changelog-item-text">
+            <h4>Auto-Collapsing Drawers</h4>
+            <p>Selecting any filter preset or clicking apply now automatically collapses the date filter drawer to maximize your screen space.</p>
           </div>
         </div>
       </div>

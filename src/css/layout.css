@@ -771,6 +771,9 @@ samp {
   .app-sidebar {
     display: none;
   }
+  .app-shell-chrome {
+    position: static; /* Let the header naturally scroll up and out of the viewport on mobile devices */
+  }
 }
 
 /* Print */

@@ -94,7 +94,9 @@ export async function renderNotificationsView(root) {
   root.appendChild(container);
 
   async function loadNotifications() {
-    const all = await db.notifications.orderBy('createdAt').reverse().toArray();
+    const rawItems = await db.notifications.orderBy('createdAt').reverse().toArray();
+    // Filter out internal system throttle keys which lack titles/messages
+    const all = rawItems.filter(n => !n.id.startsWith('notif:throttle:'));
     const unreadCount = all.filter((n) => !n.read && !n.dismissed).length;
 
     // Update actions box

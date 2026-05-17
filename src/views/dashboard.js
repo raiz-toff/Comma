@@ -828,10 +828,10 @@ async function paintDashboard(root, ctx) {
         </div>
       </header>
 
-      <div class="financial-filter-container card" style="margin-bottom: var(--space-4); background: var(--bg-card, #27272a); border: 1px solid var(--border-color, #3f3f46); border-radius: var(--radius-lg, 12px); overflow: hidden; padding: 0;">
+      <div class="financial-filter-container card" style="margin-bottom: var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; padding: 0;">
         <button type="button" class="financial-dash-filter-summary" data-dashboard-toggle-shortcuts aria-expanded="${loadDashboardShortcutsExpanded()}" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: var(--space-3) var(--space-4); background: transparent; border: none; cursor: pointer; color: inherit; text-align: left;">
           <span class="financial-dash-summary-left" style="display: flex; align-items: center; gap: var(--space-2); font-weight: 600;">
-            <span class="financial-dash-summary-icon" style="color: var(--color-primary, #10b981);">${getIcon('calendar', 18)}</span>
+            <span class="financial-dash-summary-icon" style="color: var(--color-brand, #10b981);">${getIcon('calendar', 18)}</span>
             <span class="financial-dash-summary-text">${range.start} &ndash; ${range.end}</span>
           </span>
           <span class="financial-dash-summary-right" style="display: flex; align-items: center; gap: var(--space-2);">
@@ -840,7 +840,7 @@ async function paintDashboard(root, ctx) {
           </span>
         </button>
 
-        <div class="financial-filter-body" style="display: ${loadDashboardShortcutsExpanded() ? 'block' : 'none'}; border-top: 1px solid var(--border-color, #3f3f46); padding: var(--space-3) var(--space-4); background: var(--bg-surface, #18181b);">
+        <div class="financial-filter-body" style="display: ${loadDashboardShortcutsExpanded() ? 'block' : 'none'}; border-top: 1px solid var(--color-border); padding: var(--space-3) var(--space-4); background: var(--color-surface-raised);">
           <div class="filter-shortcut-bar" style="display: flex; gap: var(--space-3); align-items: center; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
             <div class="financial-dash-presets">
               <button type="button" class="btn financial-dash-preset ${range.preset === 'day' ? 'is-active' : ''}" data-dashboard-preset="day">${esc(t('views.dashboard.financial.presetDay'))}</button>
@@ -855,7 +855,7 @@ async function paintDashboard(root, ctx) {
             <button type="button" class="btn ${loadDashboardFilterExpanded() ? 'btn-primary' : 'btn-ghost'} btn-sm" data-dashboard-toggle-filter style="white-space:nowrap;">${esc(t('views.dashboard.financial.presetCustom'))} ${getIcon(loadDashboardFilterExpanded() ? 'chevron-up' : 'chevron-down', 14)}</button>
           </div>
 
-          <div class="financial-dash-filter" data-dashboard-filter style="display: ${loadDashboardFilterExpanded() ? 'block' : 'none'}; margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px dashed var(--border-color, #3f3f46);">
+          <div class="financial-dash-filter" data-dashboard-filter style="display: ${loadDashboardFilterExpanded() ? 'block' : 'none'}; margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px dashed var(--color-border);">
             <div class="financial-dash-filter-content" style="padding: 0;">
               <div class="financial-dash-filter-bar" style="flex-wrap: wrap;">
                 <div class="financial-dash-filter-left">
@@ -967,6 +967,7 @@ async function paintDashboard(root, ctx) {
       startInput._fp = window.flatpickr(startInput, {
         dateFormat: 'Y-m-d',
         defaultDate: range.start,
+        locale: { firstDayOfWeek: weekStartDay },
         onChange: function(selectedDates) {
           if (selectedDates.length === 1) {
             const s = window.flatpickr.formatDate(selectedDates[0], "Y-m-d");
@@ -984,6 +985,7 @@ async function paintDashboard(root, ctx) {
       endInput._fp = window.flatpickr(endInput, {
         dateFormat: 'Y-m-d',
         defaultDate: range.end,
+        locale: { firstDayOfWeek: weekStartDay },
         onChange: function(selectedDates) {
           if (selectedDates.length === 1) {
             const e = window.flatpickr.formatDate(selectedDates[0], "Y-m-d");

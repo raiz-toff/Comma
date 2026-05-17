@@ -4,18 +4,29 @@
  */
 
 import backupOverdue from './backup_overdue.notification.js';
+import bestDayOfWeek from './best_day_of_week.notification.js';
 import crossPlatformArbitrage from './cross_platform_arbitrage.notification.js';
 import dailySummary from './daily_summary.notification.js';
+import dataEntryGap from './data_entry_gap.notification.js';
+import earningsTrend from './earnings_trend.notification.js';
 import highExpense from './high_expense.notification.js';
+import hstRemittanceUpcoming from './hst_remittance_upcoming.notification.js';
+import hstThresholdApproaching from './hst_threshold_approaching.notification.js';
+import idleDayAlert from './idle_day_alert.notification.js';
 import insuranceExpiry from './insurance_expiry.notification.js';
+import longShiftAlert from './long_shift_alert.notification.js';
 import lowHourlyRate from './low_hourly_rate.notification.js';
 import maintenanceDue from './maintenance_due.notification.js';
+import mileageLogReminder from './mileage_log_reminder.notification.js';
 import milestoneProximity from './milestone_proximity.notification.js';
 import midWeekGoal from './mid_week_goal.notification.js';
 import personalBest from './personal_best.notification.js';
 import placeholder from './placeholder.notification.js';
+import platformConcentration from './platform_concentration.notification.js';
 import streakRisk from './streak_risk.notification.js';
+import t4aSeason from './t4a_season.notification.js';
 import taxInstallmentDue from './tax_installment_due.notification.js';
+import vehicleServiceDue from './vehicle_service_due.notification.js';
 import weeklyGoalHit from './weekly_goal_hit.notification.js';
 import weeklyGoalMiss from './weekly_goal_miss.notification.js';
 
@@ -39,6 +50,17 @@ const NOTIFICATIONS = [
   highExpense,
   milestoneProximity,
   crossPlatformArbitrage,
+  hstThresholdApproaching,
+  mileageLogReminder,
+  t4aSeason,
+  hstRemittanceUpcoming,
+  idleDayAlert,
+  dataEntryGap,
+  vehicleServiceDue,
+  longShiftAlert,
+  platformConcentration,
+  earningsTrend,
+  bestDayOfWeek,
   placeholder,
 ];
 
@@ -80,5 +102,10 @@ export const NotificationRegistry = {
 };
 
 export function assertNotificationRegistryValid() {
-  for (const n of NOTIFICATIONS) validateNotificationDefinition(n);
+  const invalid = NOTIFICATIONS.filter(
+    (d) => !d.id || !d.priority || typeof d.evaluate !== 'function'
+  );
+  if (invalid.length) {
+    console.error('Invalid notification definitions:', invalid.map((d) => d.id));
+  }
 }

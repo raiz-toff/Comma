@@ -17,10 +17,18 @@ export async function serializeVault() {
     tables[table.name] = await table.toArray();
   }
 
+  const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(tables)));
+  const hashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,'0')).join('');
+  const rowCounts = {};
+  for (const [name, list] of Object.entries(tables)) {
+    rowCounts[name] = Array.isArray(list) ? list.length : 0;
+  }
+
   const payload = {
     exportedAt: new Date().toISOString(),
     schemaVersion: await getAppState('schema_version') || CURRENT_LOGICAL_SCHEMA_VERSION,
-    tables: tables
+    tables: tables,
+    integrity: { sha256: hashHex, rowCounts }
   };
 
   return JSON.stringify(payload);
@@ -40,6 +48,18 @@ export async function deserializeVault(data) {
     return { success: false, error: 'Vault is missing data tables.' };
   }
 
+  if (data.integrity) {
+    try {
+      const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(data.tables)));
+      const hashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,'0')).join('');
+      if (hashHex !== data.integrity.sha256) {
+        return { success: false, error: 'Backup integrity validation failed (hash mismatch). File may be corrupted or truncated.' };
+      }
+    } catch (err) {
+      console.warn('[vault-serializer] Skipping integrity check due to crypto error', err);
+    }
+  }
+
   // Basic validation of schema version
   const backupVersion = Number(data.schemaVersion) || 0;
   if (backupVersion > CURRENT_LOGICAL_SCHEMA_VERSION) {
@@ -53,11 +73,13 @@ export async function deserializeVault(data) {
     await db.transaction('rw', db.tables, async () => {
       // 1. Clear all current tables
       for (const table of db.tables) {
+        if (table.name === 'appState') continue;
         await table.clear();
       }
 
       // 2. Import data into each table
       for (const [tableName, rows] of Object.entries(data.tables)) {
+        if (tableName === 'appState') continue;
         const table = db.table(tableName);
         if (table && Array.isArray(rows)) {
           // Use bulkPut to preserve IDs and handle potential overlaps

@@ -1391,3 +1391,35 @@ export function renderPlatformBadge(platformId, label) {
   }
   return `<span class="badge badge-platform badge-platform--has-logo" role="img" aria-label="${escapeAttr(lbl)}" style="--platform-color:${escapeAttr(color)}" data-platform-id="${escapeAttr(id)}"><span class="badge-platform-logo" aria-hidden="true">${logo}</span><span class="badge-platform-label">${escapeHtml(lbl)}</span></span>`;
 }
+
+/* ------------------------------------------------------------------------- */
+/* Date Pickers                                                              */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * Attaches Flatpickr to any `<input type="date">` element within the given root.
+ * Ensures the app uses the custom calendar library consistently everywhere.
+ * @param {HTMLElement | Document} root
+ */
+export function initDatePickers(root) {
+  if (!window.flatpickr) return;
+  const inputs = root.querySelectorAll('input[type="date"]');
+  for (const input of inputs) {
+    if (!input._fp) {
+      input._fp = window.flatpickr(input, {
+        dateFormat: 'Y-m-d',
+        disableMobile: true, // Forces Flatpickr custom UI over native on all devices
+        onChange: function (selectedDates, dateStr, instance) {
+          input.value = dateStr;
+          // Trigger native events so app routing/state controllers pick up the change
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+      // Flatpickr usually converts to 'text' if needed but let's ensure styling remains consistent:
+      input.classList.add('flatpickr-input-upgraded');
+      input.style.cursor = 'pointer';
+    }
+  }
+}
+

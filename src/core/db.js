@@ -27,7 +27,7 @@ const STORES_V3 = {
   badges: '&id',
   xpLog: '++id, createdAt',
   challenges: '&id, active',
-  notifications: '&id, read, createdAt',
+  notifications: '&id, read, dismissed, createdAt',
   backupLog: '++id, createdAt',
   appState: '&key, updatedAt',
 };
@@ -230,6 +230,14 @@ class COMMADatabase extends Dexie {
           if (row.hstPaid == null && row.hstItcAmount != null) row.hstPaid = row.hstItcAmount;
           if (row.confirmedPaid == null) row.confirmedPaid = !row.isRecurring;
         });
+      });
+    this.version(4)
+      .stores({
+        ...STORES_V3,
+        notifications: '&id, read, dismissed, createdAt',
+      })
+      .upgrade((tx) => {
+        void tx;
       });
   }
 }

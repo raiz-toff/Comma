@@ -134,7 +134,9 @@ export function normalizeExpenseInput(input) {
     input.amountCents != null && Number.isFinite(Number(input.amountCents))
       ? Math.max(0, Math.round(Number(input.amountCents)))
       : dollarsToCents(amountRaw);
-  const businessPct = Math.max(0, Math.min(100, num(input.businessPct, 100)));
+  const catDef = ExpenseCategoryRegistry.getById(category);
+  const isDeductible = catDef ? catDef.deductible !== false : true;
+  const businessPct = isDeductible ? Math.max(0, Math.min(100, num(input.businessPct, 100))) : 0;
   const provinceId = resolveExpenseProvinceId(input);
   const hstPaidRaw = input.hstPaid != null ? input.hstPaid : input.hstItcAmount;
   const hstPaid = Math.max(0, dollarsToCents(hstPaidRaw));
@@ -724,10 +726,10 @@ export async function renderExpensesView(root, ctx = {}) {
             </div>
           </div>
 
-          <div class="financial-filter-container card" style="margin-bottom: var(--space-4); background: var(--bg-card, #27272a); border: 1px solid var(--border-color, #3f3f46); border-radius: var(--radius-lg, 12px); overflow: hidden; padding: 0;">
+          <div class="financial-filter-container card" style="margin-bottom: var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; padding: 0;">
             <button type="button" class="financial-dash-filter-summary" data-expenses-toggle-shortcuts aria-expanded="true" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: var(--space-3) var(--space-4); background: transparent; border: none; cursor: pointer; color: inherit; text-align: left;">
               <span class="financial-dash-summary-left" style="display: flex; align-items: center; gap: var(--space-2); font-weight: 600;">
-                <span class="financial-dash-summary-icon" style="color: var(--color-primary, #10b981);">${getIcon('calendar', 18)}</span>
+                <span class="financial-dash-summary-icon" style="color: var(--color-brand, #10b981);">${getIcon('calendar', 18)}</span>
                 <span class="financial-dash-summary-text" data-expenses-summary>${esc(t('common.all'))}</span>
               </span>
               <span class="financial-dash-summary-right" style="display: flex; align-items: center; gap: var(--space-2);">
@@ -736,7 +738,7 @@ export async function renderExpensesView(root, ctx = {}) {
               </span>
             </button>
 
-            <div class="financial-filter-body" data-expenses-shortcut-bar style="display: block; border-top: 1px solid var(--border-color, #3f3f46); padding: var(--space-3) var(--space-4); background: var(--bg-surface, #18181b);">
+            <div class="financial-filter-body" data-expenses-shortcut-bar style="display: block; border-top: 1px solid var(--color-border); padding: var(--space-3) var(--space-4); background: var(--color-surface-raised);">
               <div class="filter-shortcut-bar" style="display: flex; gap: var(--space-3); align-items: center; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
                 <div class="shifts-presets-group">
                   <button type="button" class="btn expenses-preset-btn" data-expenses-preset="day">${esc(t('views.dashboard.financial.presetDay'))}</button>
@@ -751,7 +753,7 @@ export async function renderExpensesView(root, ctx = {}) {
                 <button type="button" class="btn btn-ghost btn-sm" data-expenses-toggle-filter style="white-space:nowrap;">Custom Filter <span data-expenses-custom-chevron>${getIcon('chevron-down', 14)}</span></button>
               </div>
 
-              <div class="expenses-filter-content" data-expenses-filter style="display: none; margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px dashed var(--border-color, #3f3f46);">
+              <div class="expenses-filter-content" data-expenses-filter style="display: none; margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px dashed var(--color-border);">
                 <div style="display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-bottom: var(--space-3);">
                   <div class="expenses-filter-dates" style="display: flex; gap: var(--space-2); align-items: center;">
                     <div class="input-with-icon" style="position: relative;">
@@ -901,6 +903,7 @@ export async function renderExpensesView(root, ctx = {}) {
         controls.startInput._fp = window.flatpickr(controls.startInput, {
           dateFormat: 'Y-m-d',
           defaultDate: currentStartDate || new Date(),
+          locale: { firstDayOfWeek: Number(user?.locale?.weekStartDay ?? 0) },
           onChange: function(selectedDates) {
             if (selectedDates.length === 1) {
               currentStartDate = window.flatpickr.formatDate(selectedDates[0], "Y-m-d");
@@ -922,6 +925,7 @@ export async function renderExpensesView(root, ctx = {}) {
         controls.endInput._fp = window.flatpickr(controls.endInput, {
           dateFormat: 'Y-m-d',
           defaultDate: currentEndDate || new Date(),
+          locale: { firstDayOfWeek: Number(user?.locale?.weekStartDay ?? 0) },
           onChange: function(selectedDates) {
             if (selectedDates.length === 1) {
               currentEndDate = window.flatpickr.formatDate(selectedDates[0], "Y-m-d");
@@ -966,7 +970,11 @@ export async function renderExpensesView(root, ctx = {}) {
   }
 
   function paintKpiAndCharts(rows) {
-    const totalCents = rows.reduce((acc, r) => acc + num(r.amount) * (num(r.businessPct, 100) / 100), 0);
+    const totalCents = rows.reduce((acc, r) => {
+      const cat = ExpenseCategoryRegistry.getById(r.category);
+      const ded = cat ? cat.deductible !== false : true;
+      return acc + (ded ? num(r.amount) * (num(r.businessPct, 100) / 100) : 0);
+    }, 0);
     const kTotal = root.querySelector('[data-kpi="total"]');
     const kCount = root.querySelector('[data-kpi="count"]');
     const kAvg = root.querySelector('[data-kpi="avg"]');
@@ -985,7 +993,9 @@ export async function renderExpensesView(root, ctx = {}) {
     const byCat = new Map();
     for (const row of rows) {
       const id = String(row.category || 'other');
-      const amt = num(row.amount) * (num(row.businessPct, 100) / 100);
+      const cat = ExpenseCategoryRegistry.getById(id);
+      const ded = cat ? cat.deductible !== false : true;
+      const amt = ded ? num(row.amount) * (num(row.businessPct, 100) / 100) : num(row.amount);
       byCat.set(id, (byCat.get(id) || 0) + amt);
     }
     const entries = [...byCat.entries()].sort((a, b) => b[1] - a[1]);
@@ -1007,7 +1017,9 @@ export async function renderExpensesView(root, ctx = {}) {
     for (const row of rows) {
       const ym = String(row.date || '').slice(0, 7);
       if (ym.length !== 7) continue;
-      const amt = num(row.amount) * (num(row.businessPct, 100) / 100);
+      const cat = ExpenseCategoryRegistry.getById(row.category);
+      const ded = cat ? cat.deductible !== false : true;
+      const amt = ded ? num(row.amount) * (num(row.businessPct, 100) / 100) : num(row.amount);
       byMonth.set(ym, (byMonth.get(ym) || 0) + amt);
     }
     const monthKeys = [...byMonth.keys()].sort();
@@ -1087,10 +1099,16 @@ export async function renderExpensesView(root, ctx = {}) {
       return;
     }
 
-    const totalsCents = searched.reduce((acc, r) => acc + num(r.amount) * (num(r.businessPct, 100) / 100), 0);
+    const totalsCents = searched.reduce((acc, r) => {
+      const cat = ExpenseCategoryRegistry.getById(r.category);
+      const ded = cat ? cat.deductible !== false : true;
+      return acc + (ded ? num(r.amount) * (num(r.businessPct, 100) / 100) : 0);
+    }, 0);
     const rowsHtml = slice
       .map((row) => {
-        const amt = num(row.amount) * (num(row.businessPct, 100) / 100);
+        const cat = ExpenseCategoryRegistry.getById(row.category);
+        const ded = cat ? cat.deductible !== false : true;
+        const amt = ded ? num(row.amount) * (num(row.businessPct, 100) / 100) : num(row.amount);
         const tone = categoryPillTone(row.category);
         const desc = expenseDescriptionCell(row);
         const notes = expenseNotesCell(row);
@@ -1124,7 +1142,9 @@ export async function renderExpensesView(root, ctx = {}) {
     const totals = new Map();
     for (const row of rows) {
       const key = String(row.category || 'other');
-      const amt = num(row.amount) * (num(row.businessPct, 100) / 100);
+      const cat = ExpenseCategoryRegistry.getById(key);
+      const ded = cat ? cat.deductible !== false : true;
+      const amt = ded ? num(row.amount) * (num(row.businessPct, 100) / 100) : num(row.amount);
       totals.set(key, (totals.get(key) || 0) + amt);
     }
     const entries = [...totals.entries()].sort((a, b) => b[1] - a[1]);

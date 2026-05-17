@@ -138,9 +138,6 @@ export async function renderAppShell(root) {
           </a>
         </div>
         <time id="header-clock" class="app-header-clock"></time>
-        <button type="button" class="app-header-search" data-open-global-search aria-label="${escapeAttr(t('app.navSearch'))}">
-          ${getIcon('search', 22, 'header-search-icon')}
-        </button>
         <a href="#/notifications" class="app-header-notifications" data-nav-route="#/notifications" aria-label="Notifications" style="position:relative; display:flex; align-items:center;">
           ${getIcon('bell', 22, 'header-bell-icon')}
           <span id="header-unread-badge" style="position:absolute; top:-4px; right:-4px; background:var(--color-danger); color:white; font-size:10px; font-weight:700; border-radius:10px; padding:2px 5px; display:none;"></span>
@@ -163,6 +160,7 @@ export async function renderAppShell(root) {
           ${navLink('#/reports', 'bag', 'app.navReports')}
           ${navLink('#/import', 'file-plus', 'app.navImport')}
           ${navLink('#/settings', 'settings', 'app.navSettings')}
+          ${navLink('#/support', 'info', 'app.navSupport')}
         </nav>
         <main class="app-main" role="main" id="app-main">
           <div id="shift-timer-bar" class="shift-timer-bar is-collapsed" hidden></div>
@@ -259,6 +257,7 @@ export async function renderAppShell(root) {
       { href: '#/reports', icon: 'receipt', label: 'app.navReports' },
       { href: '#/import', icon: 'file-plus', label: 'app.navImport' },
       { href: '#/settings', icon: 'settings', label: 'app.navSettings' },
+      { href: '#/support', icon: 'info', label: 'app.navSupport' },
     ];
 
     const drawer = showDrawer({

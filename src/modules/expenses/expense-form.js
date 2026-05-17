@@ -188,6 +188,26 @@ export function renderExpenseForm(options = {}) {
     if (confirmedWrap instanceof HTMLElement) confirmedWrap.hidden = !rec;
   }
 
+  function syncBusinessPctDeductibility() {
+    if (!form) return;
+    const catDef = ExpenseCategoryRegistry.getById(selectedCategory);
+    const deductible = catDef ? catDef.deductible !== false : true;
+    if (!deductible) {
+      form.businessPct.value = '0';
+      form.businessPct.disabled = true;
+      const field = form.businessPct.closest('.field');
+      if (field) field.style.opacity = '0.5';
+    } else {
+      form.businessPct.disabled = false;
+      const field = form.businessPct.closest('.field');
+      if (field) field.style.opacity = '1';
+      if (form.businessPct.value === '0') {
+        form.businessPct.value = initial.businessPct != null ? String(initial.businessPct) : '100';
+      }
+    }
+    updateBusinessLabel();
+  }
+
   renderCategoryGrid();
 
   if (form) {
@@ -208,7 +228,7 @@ export function renderExpenseForm(options = {}) {
           ? Boolean(initial.confirmedPaid)
           : false;
     }
-    updateBusinessLabel();
+    syncBusinessPctDeductibility();
     syncRecurringVisibility();
   }
 
@@ -234,6 +254,7 @@ export function renderExpenseForm(options = {}) {
     if (categoryId) {
       selectedCategory = categoryId;
       renderCategoryGrid();
+      syncBusinessPctDeductibility();
     }
   });
 

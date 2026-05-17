@@ -37,6 +37,7 @@ import './utils/locale.js';
 import './utils/strings.js';
 import { t } from './utils/strings.js';
 import './ui/icons.js';
+import { initDatePickers } from './ui/components.js';
 import { initAdaptiveTheme } from './core/adaptive-theme.js';
 import { initDriveAuth } from './modules/backup/drive-auth.js';
 import { initBackupTriggers } from './modules/backup/backup-triggers.js';
@@ -274,6 +275,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // What's New
     initChangelog();
+
+    // Global Date Picker Interceptor
+    const pickerObserver = new MutationObserver((mutations) => {
+      let shouldInit = false;
+      for (const m of mutations) {
+        if (m.addedNodes.length > 0) {
+          shouldInit = true;
+          break;
+        }
+      }
+      if (shouldInit) initDatePickers(document.body);
+    });
+    pickerObserver.observe(document.body, { childList: true, subtree: true });
+    // Catch anything already rendered
+    initDatePickers(document.body);
 
     // Finalize: Hide splash only after EVERYTHING is ready
     if (splash) {

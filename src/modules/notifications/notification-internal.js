@@ -27,6 +27,17 @@ export const NOTIFICATION_IDS = Object.freeze({
   highExpense: 'high_expense',
   milestoneProximity: 'milestone_proximity',
   crossPlatformArbitrage: 'cross_platform_arbitrage',
+  hstThreshold: 'hst_threshold_approaching',
+  mileageLogReminder: 'mileage_log_reminder',
+  t4aSeason: 't4a_season',
+  hstRemittanceUpcoming: 'hst_remittance_upcoming',
+  idleDayAlert: 'idle_day_alert',
+  dataEntryGap: 'data_entry_gap',
+  vehicleServiceDue: 'vehicle_service_due',
+  longShiftAlert: 'long_shift_alert',
+  platformConcentration: 'platform_concentration',
+  earningsTrend: 'earnings_trend',
+  bestDayOfWeek: 'best_day_of_week',
 });
 
 const DEFAULT_NOTIFICATION_SETTINGS = Object.freeze({
@@ -49,6 +60,19 @@ export function ymd(d) {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
+
+/**
+ * Subtract days from a Date or YYYY-MM-DD string.
+ * @param {Date|string} date
+ * @param {number} days
+ * @returns {string} YYYY-MM-DD string
+ */
+export function subtractDays(date, days) {
+  const d = typeof date === 'string' ? new Date(date + 'T00:00:00') : new Date(date.getTime());
+  d.setDate(d.getDate() - days);
+  return ymd(d);
+}
+
 
 export function startOfDay(d) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -77,13 +101,21 @@ export function weekBounds(date, weekStartDay) {
 /**
  * @param {string} type
  * @param {Date} date
- * @param {'day'|'week'|'ever'} scope
+ * @param {'day'|'week'|'month'|'quarter'|'ever'} scope
  */
 export function makeNotificationId(type, date, scope = 'day') {
   if (scope === 'ever') return `notif:${type}:ever`;
   if (scope === 'week') {
     const wk = weekBounds(date, 1);
     return `notif:${type}:week:${ymd(wk.start)}`;
+  }
+  if (scope === 'month') {
+    const ym = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    return `notif:${type}:month:${ym}`;
+  }
+  if (scope === 'quarter') {
+    const q = Math.floor(date.getMonth() / 3) + 1;
+    return `notif:${type}:quarter:${date.getFullYear()}-Q${q}`;
   }
   return `notif:${type}:day:${ymd(date)}`;
 }
@@ -115,11 +147,29 @@ export function getPrefForType(prefs, type) {
   return normalizeTypePref(prefs[type]);
 }
 
+let toastQueue = [];
+let queueFlushing = false;
+
+async function flushToastQueue() {
+  if (queueFlushing) return;
+  queueFlushing = true;
+  while (toastQueue.length > 0) {
+    const cardOpts = toastQueue.shift();
+    try {
+      showNotifyCard(cardOpts);
+    } catch (e) {
+      console.error('[notification-internal] showNotifyCard failed', e);
+    }
+    await new Promise((r) => setTimeout(r, 800));
+  }
+  queueFlushing = false;
+}
+
 /**
  * @param {string} type
  * @param {string} title
  * @param {string} message
- * @param {{ tone?: 'info'|'warning'|'success'|'celebration', scope?: 'day'|'week'|'ever', dedupeKey?: string }} [opts]
+ * @param {{ tone?: 'info'|'warning'|'success'|'celebration', scope?: 'day'|'week'|'month'|'quarter'|'ever', dedupeKey?: string }} [opts]
  */
 export async function createNotification(type, title, message, opts = {}) {
   const user = await getUser();
@@ -144,7 +194,7 @@ export async function createNotification(type, title, message, opts = {}) {
     shownAt: null,
   });
 
-  showNotifyCard({
+  toastQueue.push({
     title,
     message,
     icon: 'bell',
@@ -161,10 +211,34 @@ export async function createNotification(type, title, message, opts = {}) {
       },
     ],
   });
+  void flushToastQueue();
 
   await db.notifications.update(id, {
     shownAt: nowIso(),
   });
+
+  // Write throttle keys to persist daily/weekly frequency preferences
+  const weekStartDay = Math.max(0, Math.min(6, num(user?.locale?.weekStartDay, 0)));
+  const todayStr = ymd(now);
+  const weekStartStr = ymd(weekBounds(now, weekStartDay).start);
+
+  try {
+    await Promise.all([
+      db.notifications.put({
+        id: `notif:throttle:${type}:day:${todayStr}`,
+        read: true,
+        createdAt: nowIso(),
+      }),
+      db.notifications.put({
+        id: `notif:throttle:${type}:week:${weekStartStr}`,
+        read: true,
+        createdAt: nowIso(),
+      })
+    ]);
+  } catch (err) {
+    // ignore throttle write errors
+  }
+
   bus.emit('notification:unread-change');
   return true;
 }
@@ -186,7 +260,8 @@ export async function getWeeklyGoal(user, weekStart, weekEnd) {
   if (fallback > 0) return fallback / 100;
 
   const history = await db.shifts
-    .filter((s) => s.deletedAt == null && String(s.date) >= weekStart && String(s.date) <= weekEnd)
+    .where('date').between(weekStart, weekEnd, true, true)
+    .filter((s) => s.deletedAt == null)
     .toArray();
   return history.reduce((sum, s) => {
     const raw = s.grossEarnings ?? s.gross;

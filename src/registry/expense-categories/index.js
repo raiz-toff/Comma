@@ -21,6 +21,7 @@ const PRESET_EXPENSE_CATEGORIES = [
   { id: 'bank_fees', emoji: '🏦', deductible: true, vehicleRelated: false },
   { id: 'software', emoji: '💻', deductible: true, vehicleRelated: false },
   { id: 'accounting', emoji: '🧮', deductible: true, vehicleRelated: false },
+  { id: 'out_of_pocket', emoji: '💳', deductible: false, vehicleRelated: false },
   { id: 'other', emoji: '🧾', deductible: true, vehicleRelated: false },
 ];
 

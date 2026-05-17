@@ -61,8 +61,10 @@ function downloadTextFile(filename, text, mime) {
   a.download = filename;
   document.body.appendChild(a);
   a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  setTimeout(() => {
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, 150);
 }
 
 /**

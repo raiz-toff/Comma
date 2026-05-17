@@ -74,8 +74,20 @@ async function maybeShowReviewNudge() {
   if (dismissed || count < 8 || count % 4 !== 0) return;
   showModal({
     title: 'Enjoying COMMA?',
-    content: '<p>A quick app review helps other drivers discover the app.</p>',
+    content: '<p>If you\'re finding COMMA helpful, a quick thank you or suggestion goes a long way! You can also support the developer directly.</p>',
     actions: [
+      {
+        label: 'Say Thanks & Support',
+        class: 'btn btn-primary',
+        onClick: () => {
+          showToast({
+            type: 'success',
+            message: 'Thank you so much for your support! 💚',
+            duration: 3500,
+          });
+          window.location.hash = '#/support';
+        }
+      },
       {
         label: 'Later',
         class: 'btn btn-secondary',

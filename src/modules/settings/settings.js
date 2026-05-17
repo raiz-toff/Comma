@@ -749,19 +749,23 @@ export async function mountSettings(root, ctx = {}) {
       })()}
     </div>
     <div class="settings-tabpanel" id="settings-panel-about" role="tabpanel" aria-labelledby="settings-tab-about" data-settings-panel="about" ${th('about')}>
-      <section class="settings-view-section card card-raised">
-        <h2 class="settings-section-title">${esc(t('settings.about'))}</h2>
-        <p class="text-secondary settings-section-lead">Version ${esc(window.__comma?.version || '1.0.0')} · local-first data vault.</p>
-        <div class="settings-actions settings-wrap">
+      <section class="settings-view-section card card-raised" style="display: flex; flex-direction: column; gap: var(--space-4);">
+        <div>
+          <h2 class="settings-section-title" style="margin-bottom: var(--space-1);">${esc(t('settings.about'))}</h2>
+          <p class="text-secondary settings-section-lead" style="font-size: var(--text-sm); margin: 0;">
+            Version <span style="cursor: pointer; font-weight: 700; text-decoration: underline; color: var(--color-brand);" data-debug-tap>${esc(window.__comma?.version || '1.0.0')}</span><span id="debug-note" style="font-size: var(--text-xs); color: var(--color-text-secondary); margin-left: var(--space-1);"></span> · local-first data vault.
+          </p>
+        </div>
+        <div class="settings-actions settings-wrap" style="display: flex; flex-wrap: wrap; gap: var(--space-2);">
           <button type="button" class="btn btn-secondary btn-sm" data-open-install>Install COMMA</button>
           <a class="btn btn-secondary btn-sm" href="#/about">Data Portability Manifesto</a>
           <a class="btn btn-secondary btn-sm" href="https://github.com/raiz-toff/comma/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">Changelog</a>
-          <a class="btn btn-secondary btn-sm" href="https://github.com/raiz-toff/comma/issues/new" target="_blank" rel="noopener noreferrer">Support</a>
+          <a class="btn btn-secondary btn-sm" href="#/support">Support & Feedback</a>
           <button type="button" class="btn btn-secondary btn-sm" data-share-comma>Share COMMA</button>
           <a class="btn btn-secondary btn-sm" href="https://en.wikipedia.org/wiki/Glossary_of_economics" target="_blank" rel="noopener noreferrer">Driver Financial Glossary</a>
+          <button type="button" class="btn btn-primary btn-sm" style="display: none;" data-open-dev-tools>Open Developer Tools</button>
         </div>
-        <button type="button" class="btn btn-ghost btn-sm" data-debug-tap>${aboutMode ? 'About mode active' : 'Tap app version 5 times to unlock debug mode'}</button>
-        <p class="text-xs text-secondary" data-debug-hint></p>
+        <p class="text-xs text-secondary" style="margin: 0; min-height: var(--space-4);" data-debug-hint></p>
       </section>
     </div>
   </div>
@@ -909,37 +913,39 @@ export async function mountSettings(root, ctx = {}) {
     });
   });
 
-  root.querySelector('[data-save-display]')?.addEventListener('click', async () => {
-    const currency = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-currency]'))?.value || 'USD';
-    const activeBtn = /** @type {HTMLElement | null} */ (root.querySelector('[data-theme].is-active'));
-    const theme = activeBtn?.dataset.theme || 'auto';
-    const fontSize = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-font]'))?.value || 'medium';
-    const layoutDensity = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-density]'))?.value || 'comfortable';
-    const dateFormat = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-date-format]'))?.value || 'YYYY-MM-DD';
-    const weekStartDay = Number(/** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-week-start]'))?.value || 0);
-    const timeFormat = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-time-format]'))?.value || '12h';
-    const accentRaw = /** @type {HTMLInputElement | null} */ (root.querySelector('[data-setting-accent-hex]'))?.value || '';
-    const accentColor = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(accentRaw.trim()) ? accentRaw.trim() : null;
-    const prevLocale = user?.locale && typeof user.locale === 'object' ? user.locale : {};
-    await saveUser({
-      theme: theme === 'light' || theme === 'dark' || theme === 'auto' ? theme : 'auto',
-      accentColor,
-      fontSize,
-      layoutDensity: layoutDensity === 'compact' ? 'compact' : 'comfortable',
-      locale: {
-        ...prevLocale,
-        currency,
-        dateFormat,
-        weekStartDay: weekStartDay === 1 ? 1 : 0,
-        timeFormat: timeFormat === '24h' ? '24h' : '12h',
-      },
+  root.querySelectorAll('[data-save-display]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const currency = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-currency]'))?.value || 'USD';
+      const activeBtn = /** @type {HTMLElement | null} */ (root.querySelector('[data-theme].is-active'));
+      const theme = activeBtn?.dataset.theme || 'auto';
+      const fontSize = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-font]'))?.value || 'medium';
+      const layoutDensity = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-density]'))?.value || 'comfortable';
+      const dateFormat = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-date-format]'))?.value || 'YYYY-MM-DD';
+      const weekStartDay = Number(/** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-week-start]'))?.value || 0);
+      const timeFormat = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-time-format]'))?.value || '12h';
+      const accentRaw = /** @type {HTMLInputElement | null} */ (root.querySelector('[data-setting-accent-hex]'))?.value || '';
+      const accentColor = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(accentRaw.trim()) ? accentRaw.trim() : null;
+      const prevLocale = user?.locale && typeof user.locale === 'object' ? user.locale : {};
+      await saveUser({
+        theme: theme === 'light' || theme === 'dark' || theme === 'auto' ? theme : 'auto',
+        accentColor,
+        fontSize,
+        layoutDensity: layoutDensity === 'compact' ? 'compact' : 'comfortable',
+        locale: {
+          ...prevLocale,
+          currency,
+          dateFormat,
+          weekStartDay: weekStartDay === 1 ? 1 : 0,
+          timeFormat: timeFormat === '24h' ? '24h' : '12h',
+        },
+      });
+      updateAccentColor();
+      applyFontSize(fontSize);
+      applyDensity(layoutDensity);
+      await store.refresh('user');
+      bus.emit(THEME_CHANGED, { theme });
+      showToast({ type: 'success', message: 'Display settings saved.' });
     });
-    updateAccentColor();
-    applyFontSize(fontSize);
-    applyDensity(layoutDensity);
-    await store.refresh('user');
-    bus.emit(THEME_CHANGED, { theme });
-    showToast({ type: 'success', message: 'Display settings saved.' });
   });
 
   function refreshAccentPresetSelection() {
@@ -1242,7 +1248,16 @@ export async function mountSettings(root, ctx = {}) {
     }
   });
 
+  root.querySelector('[data-open-dev-tools]')?.addEventListener('click', () => {
+    window.location.hash = '#/debug';
+  });
+
   root.querySelector('[data-debug-tap]')?.addEventListener('click', async () => {
+    const isUnlocked = await getAppState('debug_mode_unlocked');
+    if (isUnlocked) {
+      window.location.hash = '#/debug';
+      return;
+    }
     const now = Date.now();
     if (now - debugTapStartedAt > DEBUG_TAP_WINDOW_MS) {
       debugTapStartedAt = now;
@@ -1250,21 +1265,36 @@ export async function mountSettings(root, ctx = {}) {
     }
     debugTapCount += 1;
     const hint = root.querySelector('[data-debug-hint]');
+    const debugNote = root.querySelector('#debug-note');
     if (debugTapCount >= 5) {
       await setAppState('debug_mode_unlocked', true);
-      if (hint) hint.textContent = 'Debug mode unlocked.';
-      showToast({ type: 'success', message: 'Debug mode unlocked.' });
+      if (hint) hint.textContent = 'Developer Tools are unlocked.';
+      if (debugNote) debugNote.textContent = ' (click to view)';
+      
+      const devToolsBtn = root.querySelector('[data-open-dev-tools]');
+      if (devToolsBtn) devToolsBtn.style.display = 'inline-flex';
+
+      showToast({ type: 'success', message: 'Debug mode unlocked! Opening Dev Tools...' });
       debugTapCount = 0;
       debugTapStartedAt = now;
+      setTimeout(() => {
+        window.location.hash = '#/debug';
+      }, 500);
       return;
     }
     if (hint) hint.textContent = `${5 - debugTapCount} more taps to unlock debug mode.`;
   });
 
   const debugUnlocked = await getAppState('debug_mode_unlocked');
+  const debugNote = root.querySelector('#debug-note');
   if (debugUnlocked) {
     const hint = root.querySelector('[data-debug-hint]');
-    if (hint) hint.textContent = 'Debug mode is already unlocked.';
+    if (hint) hint.textContent = 'Developer Tools are unlocked.';
+    if (debugNote) debugNote.textContent = ' (click to view)';
+    const btn = root.querySelector('[data-open-dev-tools]');
+    if (btn) btn.style.display = 'inline-flex';
+  } else {
+    if (debugNote) debugNote.textContent = ' (tap 5 times to unlock)';
   }
 
   await refreshDataHealth();

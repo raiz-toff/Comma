@@ -256,6 +256,11 @@ export function renderShiftForm(opts = {}) {
               <span class="field-hint">${escapeHtml(distanceUnit() === 'mi' ? t('shifts.unitMiles') : t('shifts.unitKm'))}</span>
             </label>
 
+            <label class="field">
+              <span class="field-label">${escapeHtml(t('shifts.outOfPocketExpense'))}</span>
+              <input class="input" name="outOfPocketExpense" inputmode="decimal" placeholder="0.00" />
+            </label>
+
             <div class="field field--span2 is-hidden" data-ps-wrap>
               <span class="field-label">${escapeHtml(t('shifts.platformExtras'))}</span>
               <div class="shifts-advanced-grid" data-ps-fields></div>
@@ -325,6 +330,7 @@ export function renderShiftForm(opts = {}) {
   const vehicleSel = /** @type {HTMLSelectElement | null} */ (wrapper.querySelector('select[name="vehicleId"]'));
   const weatherSel = /** @type {HTMLSelectElement | null} */ (wrapper.querySelector('select[name="weather"]'));
   const deadMilesEl = /** @type {HTMLInputElement | null} */ (wrapper.querySelector('input[name="deadMilesKm"]'));
+  const outOfPocketExpenseEl = /** @type {HTMLInputElement | null} */ (wrapper.querySelector('input[name="outOfPocketExpense"]'));
   const notesEl = /** @type {HTMLTextAreaElement | null} */ (wrapper.querySelector('textarea[name="notes"]'));
   const moodHidden = /** @type {HTMLInputElement | null} */ (wrapper.querySelector('input[name="mood"]'));
   const bonusLabel = /** @type {HTMLElement | null} */ (wrapper.querySelector('[data-bonus-label]'));
@@ -622,6 +628,7 @@ export function renderShiftForm(opts = {}) {
   seed('activeMinutes', initial.activeMinutes ?? '');
   seed('weather', initial.weather ?? '');
   seed('deadMilesKm', initial.deadMilesKm ?? '');
+  seed('outOfPocketExpense', initial.outOfPocketExpense ?? '');
   seed('notes', initial.notes ?? '');
   if (typeof initial.mood === 'string') setMood(initial.mood);
 
@@ -651,6 +658,7 @@ export function renderShiftForm(opts = {}) {
     const deadRaw = deadMilesEl?.value ? Math.max(0, num(deadMilesEl.value)) : 0;
     const deadMilesKm =
       deadRaw > 0 ? (unit === 'mi' ? deadRaw * 1.60934 : deadRaw) : null;
+    const outOfPocketExpense = outOfPocketExpenseEl?.value ? Number(outOfPocketExpenseEl.value) : null;
     const mood = moodHidden?.value ? String(moodHidden.value) : null;
     const notes = notesEl?.value ? String(notesEl.value) : '';
 
@@ -696,6 +704,7 @@ export function renderShiftForm(opts = {}) {
       vehicleId,
       weather,
       deadMilesKm,
+      outOfPocketExpense,
       mood,
       notes,
       platformSpecific,

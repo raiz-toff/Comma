@@ -21,6 +21,8 @@ import { render as renderPrint } from '../views/print-view.js';
 import { render as renderImportHelp } from '../views/import-help-view.js';
 import { render as renderImport } from '../views/import-view.js';
 import { render as renderNotifications } from '../views/notifications-view.js';
+import { render as renderSupport } from '../views/support-view.js';
+import { render as renderDebug } from '../views/debug-view.js';
 import { t } from '../utils/strings.js';
 
 let activeViewCleanup = null;
@@ -61,6 +63,8 @@ function resolveRouteDef(hash) {
     { hash: '#/about', name: 'about', render: renderAbout },
     { hash: '#/print', name: 'print', render: renderPrint },
     { hash: '#/import-guide', name: 'reports', render: renderImportHelp },
+    { hash: '#/support', name: 'support', render: renderSupport },
+    { hash: '#/debug', name: 'debug', render: renderDebug },
   ];
   const row = table.find((r) => r.hash === hash);
   return row ? { hash: row.hash, name: row.name, context: buildContext(row), render: row.render } : null;

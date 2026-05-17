@@ -260,6 +260,16 @@ async function submitShiftFromForm(formApi, onSaved) {
 async function openShiftFormModal({ initial, onSaved, title, mode = 'full', submitLabel }) {
   const editingId =
     initial && typeof initial === 'object' && 'id' in initial ? Number(/** @type {{ id?: unknown }} */ (initial).id) : NaN;
+
+  if (Number.isFinite(editingId)) {
+    const oopExpense = await db.expenses
+      .filter((e) => e.deletedAt == null && Number(e.shiftId) === editingId && e.category === 'out_of_pocket')
+      .first();
+    if (oopExpense && oopExpense.amount != null) {
+      initial.outOfPocketExpense = oopExpense.amount / 100;
+    }
+  }
+
   const formApi = renderShiftForm({
     mode,
     initial: initial || {},
@@ -331,10 +341,10 @@ export async function render(root, ctx) {
           const storedShortcuts = localStorage.getItem('comma_shifts_shortcuts_collapsed');
           const shortcutsCollapsed = storedShortcuts === null ? true : storedShortcuts === 'true';
           return `
-        <div class="financial-filter-container card" style="margin-bottom: var(--space-4); background: var(--bg-card, #27272a); border: 1px solid var(--border-color, #3f3f46); border-radius: var(--radius-lg, 12px); overflow: hidden; padding: 0;">
+        <div class="financial-filter-container card" style="margin-bottom: var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; padding: 0;">
           <button type="button" class="financial-dash-filter-summary" data-shifts-toggle-shortcuts aria-expanded="${!shortcutsCollapsed}" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: var(--space-3) var(--space-4); background: transparent; border: none; cursor: pointer; color: inherit; text-align: left;">
             <span class="financial-dash-summary-left" style="display: flex; align-items: center; gap: var(--space-2); font-weight: 600;">
-              <span class="financial-dash-summary-icon" style="color: var(--color-primary, #10b981);">${getIcon('calendar', 18)}</span>
+              <span class="financial-dash-summary-icon" style="color: var(--color-brand, #10b981);">${getIcon('calendar', 18)}</span>
               <span class="financial-dash-summary-text" data-shifts-summary></span>
             </span>
             <span class="financial-dash-summary-right" style="display: flex; align-items: center; gap: var(--space-2);">
@@ -343,7 +353,7 @@ export async function render(root, ctx) {
             </span>
           </button>
 
-          <div class="financial-filter-body" data-shifts-shortcut-bar style="display: ${shortcutsCollapsed ? 'none' : 'block'}; border-top: 1px solid var(--border-color, #3f3f46); padding: var(--space-3) var(--space-4); background: var(--bg-surface, #18181b);">
+          <div class="financial-filter-body" data-shifts-shortcut-bar style="display: ${shortcutsCollapsed ? 'none' : 'block'}; border-top: 1px solid var(--color-border); padding: var(--space-3) var(--space-4); background: var(--color-surface-raised);">
             <div class="filter-shortcut-bar" style="display: flex; gap: var(--space-3); align-items: center; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
               <div class="shifts-presets-group">
                 <button type="button" class="btn shifts-preset-btn" data-shifts-preset="day">${escapeHtml(t('views.dashboard.financial.presetDay'))}</button>
@@ -357,7 +367,7 @@ export async function render(root, ctx) {
               </div>
               <button type="button" class="btn ${filterCollapsed ? 'btn-ghost' : 'btn-primary'} btn-sm" data-shifts-toggle-filter style="white-space:nowrap;">${escapeHtml(t('views.dashboard.financial.presetCustom'))} <span data-shifts-custom-chevron>${getIcon(filterCollapsed ? 'chevron-down' : 'chevron-up', 14)}</span></button>
             </div>
-            <div class="shifts-filter" data-shifts-filter style="display: ${filterCollapsed || shortcutsCollapsed ? 'none' : 'block'}; margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px dashed var(--border-color, #3f3f46);">
+            <div class="shifts-filter" data-shifts-filter style="display: ${filterCollapsed || shortcutsCollapsed ? 'none' : 'block'}; margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px dashed var(--color-border);">
               <div class="shifts-filter-content" style="padding: 0;">
                 <div class="shifts-filter-bar" style="flex-wrap: wrap; align-items: center; justify-content: space-between;">
                   <div class="shifts-filter-left">
@@ -471,6 +481,7 @@ export async function render(root, ctx) {
           startInput._fp = window.flatpickr(startInput, {
             dateFormat: 'Y-m-d',
             defaultDate: range.start,
+            locale: { firstDayOfWeek: weekStartDay },
             onChange: function(selectedDates) {
               if (selectedDates.length === 1) {
                 const s = window.flatpickr.formatDate(selectedDates[0], "Y-m-d");
@@ -492,6 +503,7 @@ export async function render(root, ctx) {
           endInput._fp = window.flatpickr(endInput, {
             dateFormat: 'Y-m-d',
             defaultDate: range.end,
+            locale: { firstDayOfWeek: weekStartDay },
             onChange: function(selectedDates) {
               if (selectedDates.length === 1) {
                 const e = window.flatpickr.formatDate(selectedDates[0], "Y-m-d");

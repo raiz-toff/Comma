@@ -19,7 +19,7 @@ import {
   renameFile 
 } from './drive-api.js';
 import { getAccessToken, ensureAccessToken, requestToken, isDriveConnected } from './drive-auth.js';
-import { setAppState } from '../../core/db.js';
+import { setAppState, getUser, saveUser, CURRENT_LOGICAL_SCHEMA_VERSION } from '../../core/db.js';
 import { bus } from '../../core/events.js';
 import { store } from '../../core/store.js';
 
@@ -74,7 +74,7 @@ export async function runBackup({ silent = false } = {}) {
     const wrapper = {
       magic: 'COMMA_VAULT',
       formatVersion: 1,
-      schemaVersion: 3, // TODO: Get from serializeVault
+      schemaVersion: CURRENT_LOGICAL_SCHEMA_VERSION,
       appVersion: window.__comma?.version || '1.0.0',
       encryptedAt: new Date().toISOString(),
       deviceHint: navigator.userAgent.split(') ')[0].split(' (')[1] || 'Unknown Device',
@@ -90,6 +90,14 @@ export async function runBackup({ silent = false } = {}) {
     // 6. Cleanup
     const now = new Date().toISOString();
     await setAppState('last_backup', now);
+    try {
+      const user = await getUser();
+      if (user) {
+        await saveUser({ lastBackupAt: now });
+      }
+    } catch (e) {
+      console.warn('[backup-engine] failed to save lastBackupAt to user profile', e);
+    }
     localStorage.setItem('comma_vault_dirty', 'false');
     
     backupInProgress = false;

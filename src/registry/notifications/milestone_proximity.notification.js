@@ -3,6 +3,7 @@ import {
   createNotification,
   sumGross,
 } from '../../modules/notifications/notification-internal.js';
+import { db } from '../../core/db.js';
 
 export default {
   id: NOTIFICATION_IDS.milestoneProximity,
@@ -12,9 +13,12 @@ export default {
   priority: 21,
   userToggleable: true,
   condition: async () => false,
-  /** @param {{ allShifts: Array<Record<string, unknown>> }} ctx */
+  /** @param {Record<string, unknown>} ctx */
   evaluate: async (ctx) => {
-    const lifetimeGross = sumGross(ctx.allShifts);
+    void ctx;
+    // Lazily load full shift history when needed
+    const allShifts = await db.shifts.filter((s) => s.deletedAt == null).toArray();
+    const lifetimeGross = sumGross(allShifts);
     const milestones = [1000, 5000, 10000, 25000, 50000, 100000];
     const nextMilestone = milestones.find((m) => lifetimeGross < m);
     if (nextMilestone != null) {
@@ -30,3 +34,4 @@ export default {
     }
   },
 };
+

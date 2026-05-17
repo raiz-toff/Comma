@@ -6,6 +6,86 @@ function esc(v) {
     .replace(/"/g, '&quot;');
 }
 
+function renderPrintPlatformBreakdown(report) {
+  const shifts = Array.isArray(report?.shifts) ? report.shifts : [];
+  if (!shifts.length) return '<p>No shifts logged in this period.</p>';
+
+  const map = new Map();
+  const getDollars = (cents) => {
+    if (cents == null) return 0;
+    const n = Number(cents);
+    return Number.isFinite(n) ? n / 100 : 0;
+  };
+  
+  for (const s of shifts) {
+    const pId = s.platformId || 'unknown';
+    if (!map.has(pId)) {
+      map.set(pId, {
+        platformId: pId,
+        gross: 0,
+        tips: 0,
+        bonus: 0,
+        clockMinutes: 0,
+        activeMinutes: 0,
+        orders: 0,
+      });
+    }
+    const data = map.get(pId);
+    data.gross += s.grossEarnings != null ? getDollars(s.grossEarnings) : Number(s.gross || 0);
+    data.tips += s.tips != null ? getDollars(s.tips) : Number(s.tips || 0);
+    data.bonus += s.bonusEarnings != null ? getDollars(s.bonusEarnings) : Number(s.bonus || 0);
+    data.clockMinutes += Number(s.durationMinutes ?? s.onlineMinutes ?? s.activeMinutes ?? 0);
+    data.activeMinutes += Number(s.activeMinutes ?? s.durationMinutes ?? s.onlineMinutes ?? 0);
+    data.orders += Number(s.deliveryCount ?? s.orders ?? 0);
+  }
+
+  let html = `
+    <table style="width:100%; border-collapse:collapse; font-size:12px; margin-top:10px;">
+      <thead>
+        <tr style="border-bottom:1px solid #ccc; text-align:left;">
+          <th style="padding:6px 0;">Platform</th>
+          <th style="padding:6px 0; text-align:right;">Gross</th>
+          <th style="padding:6px 0; text-align:right;">Tips</th>
+          <th style="padding:6px 0; text-align:right;">Total</th>
+          <th style="padding:6px 0; text-align:right;">Clock Hours</th>
+          <th style="padding:6px 0; text-align:right;">Active Hours</th>
+          <th style="padding:6px 0; text-align:right;">Orders</th>
+          <th style="padding:6px 0; text-align:right;">Clock Hourly</th>
+          <th style="padding:6px 0; text-align:right;">Active Hourly</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  for (const p of map.values()) {
+    const total = p.gross + p.tips + p.bonus;
+    const clockHours = p.clockMinutes > 0 ? p.clockMinutes / 60 : 0;
+    const activeHours = p.activeMinutes > 0 ? p.activeMinutes / 60 : 0;
+    const hourly = clockHours > 0 ? p.gross / clockHours : 0;
+    const activeHourly = activeHours > 0 ? p.gross / activeHours : 0;
+
+    html += `
+      <tr style="border-bottom:1px solid #eee;">
+        <td style="padding:6px 0; text-transform:capitalize; font-weight:bold;">${esc(p.platformId)}</td>
+        <td style="padding:6px 0; text-align:right;">$${p.gross.toFixed(2)}</td>
+        <td style="padding:6px 0; text-align:right;">$${p.tips.toFixed(2)}</td>
+        <td style="padding:6px 0; text-align:right; font-weight:bold;">$${total.toFixed(2)}</td>
+        <td style="padding:6px 0; text-align:right;">${clockHours.toFixed(1)}h</td>
+        <td style="padding:6px 0; text-align:right;">${activeHours.toFixed(1)}h</td>
+        <td style="padding:6px 0; text-align:right;">${p.orders}</td>
+        <td style="padding:6px 0; text-align:right;">$${hourly.toFixed(2)}/hr</td>
+        <td style="padding:6px 0; text-align:right;">$${activeHourly.toFixed(2)}/hr</td>
+      </tr>
+    `;
+  }
+
+  html += `
+      </tbody>
+    </table>
+  `;
+  return html;
+}
+
 /** @param {HTMLElement} root @param {Record<string, unknown>} ctx */
 export function render(root, ctx) {
   const container = document.createElement('div');
@@ -53,6 +133,14 @@ export function render(root, ctx) {
           : ''
       }
       ${
+        template.platform_breakdown
+          ? `<section class="card" style="margin-top:var(--space-3);">
+              <h2>Platform Breakdown</h2>
+              ${renderPrintPlatformBreakdown(report)}
+            </section>`
+          : ''
+      }
+      ${
         template.notes
           ? `<section class="card" style="margin-top:var(--space-3);">
               <h2>Notes</h2>
@@ -60,6 +148,18 @@ export function render(root, ctx) {
             </section>`
           : ''
       }
+      <style>
+        @media print {
+          .print-controls { display: none !important; }
+          .print-view { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; }
+          .print-view h1 { font-size: 24pt; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 4px; }
+          .print-view h2 { font-size: 18pt; color: #444; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-top: 24px; }
+          .print-view .card { border: none !important; box-shadow: none !important; padding: 0 !important; margin-top: 16px !important; }
+          .print-view table th { background-color: #f5f5f5 !important; border-bottom: 2px solid #ccc !important; }
+          .print-view table td { border-bottom: 1px solid #eee !important; }
+          .print-view p { font-size: 12pt; line-height: 1.5; margin: 8px 0; }
+        }
+      </style>
       <section class="card print-controls" style="margin-top:var(--space-3); border: 2px solid var(--color-brand); background: var(--color-bg-secondary);">
         <h2 style="margin-top:0;">Ready to print</h2>
         <p style="font-size: var(--text-sm); color: var(--color-text-secondary); margin-bottom: var(--space-4);">The print dialog should open automatically. If not, click the button below.</p>

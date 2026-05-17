@@ -57,11 +57,11 @@ export function getLocaleConfig(country) {
 
 /**
  * @param {string} country
+ * @param {Date} [now]
  * @returns {{ date: Date, daysUntil: number, label: string }}
  */
-export function getNextTaxDeadline(country) {
+export function getNextTaxDeadline(country, now = new Date()) {
   const cfg = getLocaleConfig(country);
-  const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const y = now.getFullYear();
   const entries = [];
@@ -81,11 +81,12 @@ export function getNextTaxDeadline(country) {
   const next = upcoming[0] || entries[0];
   if (!next) {
     const fallback = new Date(y, 11, 31);
-    return { date: fallback, daysUntil: Math.ceil((fallback - now) / 86400000), label: 'Tax deadline' };
+    return { date: fallback, daysUntil: Math.ceil((fallback.getTime() - now.getTime()) / 86400000), label: 'Tax deadline' };
   }
-  const daysUntil = Math.ceil((next.date.getTime() - Date.now()) / 86400000);
+  const daysUntil = Math.ceil((next.date.getTime() - now.getTime()) / 86400000);
   return { date: next.date, daysUntil, label: next.label };
 }
+
 
 /**
  * @param {string} country

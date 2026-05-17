@@ -12,6 +12,7 @@ import { bus, SHIFT_DELETED, SHIFT_SAVED, SHIFT_TIMER_START, SHIFT_TIMER_STOP } 
 import { store } from '../../core/store.js';
 import { acquireWakeLock, releaseWakeLock } from '../pwa/pwa.js';
 import { extractShiftPlatformSpecific } from '../platforms/platform-specific.js';
+import { saveExpense, updateExpense, deleteExpense } from '../expenses/expenses.js';
 
 const LS_TIMER_KEY = 'comma_active_shift_timer';
 const APP_STATE_TIMER_KEY = 'active_shift_start';
@@ -303,6 +304,39 @@ export async function saveShiftsBulk(shifts) {
   });
 }
 
+async function syncShiftOutOfPocketExpense(shiftId, outOfPocketExpense, date, platformId) {
+  const existing = await db.expenses
+    .filter((e) => e.deletedAt == null && Number(e.shiftId) === Number(shiftId) && e.category === 'out_of_pocket')
+    .first();
+
+  const amtRaw = Number(outOfPocketExpense);
+  if (Number.isFinite(amtRaw) && amtRaw > 0) {
+    const amountCents = Math.round(amtRaw * 100);
+    if (existing) {
+      await updateExpense(existing.id, {
+        amount: amountCents,
+        date,
+        platformId,
+        businessPct: 0,
+      });
+    } else {
+      await saveExpense({
+        category: 'out_of_pocket',
+        amount: amountCents,
+        date,
+        platformId,
+        businessPct: 0,
+        notes: `Out-of-pocket ordering expense during shift`,
+        shiftId,
+      });
+    }
+  } else {
+    if (existing) {
+      await deleteExpense(existing.id);
+    }
+  }
+}
+
 /**
  * Insert shift (Feature 33–46 + save action).
  * Emits SHIFT_SAVED with `{ id }`.
@@ -315,6 +349,9 @@ export async function saveShift(shiftData) {
   if (conflict) throw new Error('shift:conflict');
 
   const id = await db.shifts.add(row);
+  if (shiftData.outOfPocketExpense != null) {
+    await syncShiftOutOfPocketExpense(id, shiftData.outOfPocketExpense, row.date, row.platformId);
+  }
   bus.emit(SHIFT_SAVED, { id });
   return id;
 }
@@ -371,6 +408,9 @@ export async function updateShift(id, patch) {
   if (conflict) throw new Error('shift:conflict');
 
   await db.shifts.put(next);
+  if (patch.outOfPocketExpense !== undefined) {
+    await syncShiftOutOfPocketExpense(id, patch.outOfPocketExpense, next.date, next.platformId);
+  }
   bus.emit(SHIFT_SAVED, { id });
 }
 
@@ -380,6 +420,12 @@ export async function updateShift(id, patch) {
  */
 export async function deleteShift(id) {
   await softDelete('shifts', id);
+  const oop = await db.expenses
+    .filter((e) => e.deletedAt == null && Number(e.shiftId) === Number(id) && e.category === 'out_of_pocket')
+    .toArray();
+  for (const e of oop) {
+    await deleteExpense(e.id);
+  }
   bus.emit(SHIFT_DELETED, { id });
 }
 
@@ -389,6 +435,12 @@ export async function deleteShift(id) {
  */
 export async function restoreShift(id) {
   await restoreDeleted('shifts', id);
+  const oop = await db.expenses
+    .filter((e) => e.deletedAt != null && Number(e.shiftId) === Number(id) && e.category === 'out_of_pocket')
+    .toArray();
+  for (const e of oop) {
+    await restoreDeleted('expenses', e.id);
+  }
   bus.emit(SHIFT_SAVED, { id });
 }
 

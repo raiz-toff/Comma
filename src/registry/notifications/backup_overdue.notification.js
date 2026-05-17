@@ -2,8 +2,8 @@ import {
   NOTIFICATION_IDS,
   createNotification,
   daysBetween,
-  getAppState,
 } from '../../modules/notifications/notification-internal.js';
+import { getUser } from '../../core/db.js';
 
 export default {
   id: NOTIFICATION_IDS.backupOverdue,
@@ -13,11 +13,14 @@ export default {
   priority: 28,
   userToggleable: true,
   condition: async () => false,
-  evaluate: async () => {
-    const lastBackup = await getAppState('last_backup');
+  /** @param {{ now: Date }} ctx */
+  evaluate: async (ctx) => {
+    const user = await getUser();
+    const lastBackup = user?.lastBackupAt;
     if (typeof lastBackup === 'string' && lastBackup) {
       const d = new Date(lastBackup);
-      if (!Number.isNaN(d.getTime()) && daysBetween(d, new Date()) >= 14) {
+      const now = ctx?.now || new Date();
+      if (!Number.isNaN(d.getTime()) && daysBetween(d, now) >= 14) {
         await createNotification(
           NOTIFICATION_IDS.backupOverdue,
           'Backup recommended',
@@ -25,6 +28,14 @@ export default {
           { scope: 'week', tone: 'warning' },
         );
       }
+    } else {
+      // If never backed up, show recommendation
+      await createNotification(
+        NOTIFICATION_IDS.backupOverdue,
+        'Backup recommended',
+        'Your data is not backed up yet. A fresh export keeps your data safe.',
+        { scope: 'week', tone: 'warning' },
+      );
     }
   },
 };

@@ -567,6 +567,16 @@ async function showDayDetailModal(dateStr, model, root) {
 }
 
 async function handleAddPlan(root, model) {
+  const activePlats = await db.platforms.filter((p) => p.active === true).toArray();
+  activePlats.sort((a, b) => (Number(a.priority) || 0) - (Number(b.priority) || 0));
+  
+  let platformOpts = '';
+  if (activePlats.length > 0) {
+    platformOpts = activePlats.map(p => `<option value="${esc(String(p.id))}">${esc(String(p.name || p.id))}</option>`).join('');
+  } else {
+    platformOpts = `<option value="other">other</option>`;
+  }
+
   const wrap = document.createElement('div');
   wrap.className = 'form-grid';
   wrap.style.display = 'grid';
@@ -588,7 +598,9 @@ async function handleAddPlan(root, model) {
     </div>
     <div class="field">
       <label class="label">Platform ID</label>
-      <input type="text" class="input" name="platformId" value="other" placeholder="e.g. doordash" />
+      <select class="input" name="platformId">
+        ${platformOpts}
+      </select>
     </div>
   `;
 

@@ -1,6 +1,5 @@
 import PapaMod from '../libs/papaparse.min.js';
-import html2canvasMod from '../libs/html2canvas.min.js';
-import QRCodeMod from '../libs/qrcode.min.js';
+import { db } from '../core/db.js';
 import { store } from '../core/store.js';
 import { showToast, showModal } from '../ui/components.js';
 import { t } from '../utils/strings.js';
@@ -10,6 +9,7 @@ import {
   copySummaryToClipboard,
   exportAllExpensesCsv,
   exportAllShiftsCsv,
+  exportMileageLogCsv,
   exportTaxSummaryCsv,
   exportTaxSummaryJson,
   exportVaultBackupJson,
@@ -19,7 +19,6 @@ import {
   getDefaultReportTemplate,
   getMonthlyReportCard,
   getPlatformReport,
-  getWeeklyQrText,
   getWeeklyReportCard,
   getYearInReviewModel,
   previewVaultImportDiff,
@@ -31,8 +30,62 @@ import { ReportRegistry } from '../registry/reports/index.js';
 import '../css/views/reports.css';
 
 const Papa = /** @type {any} */ (PapaMod).default || PapaMod;
-const html2canvas = /** @type {any} */ (html2canvasMod).default || html2canvasMod;
-const QRCode = /** @type {any} */ (QRCodeMod).default || QRCodeMod;
+
+function generateYirSvg(yir) {
+  const grossStr = formatMoney(yir.summary.gross);
+  const netStr = formatMoney(yir.summary.net);
+  const shiftsStr = String(yir.summary.shiftCount);
+  const hoursStr = `${yir.summary.hours.toFixed(1)}h`;
+  
+  return `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 350" width="600" height="350">
+  <defs>
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0066ff" stop-opacity="1" />
+      <stop offset="100%" stop-color="#f7931e" stop-opacity="1" />
+    </linearGradient>
+    <style>
+      .title { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 800; fill: #ffffff; }
+      .meta { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; fill: rgba(255, 255, 255, 0.7); }
+      .divider { stroke: rgba(255, 255, 255, 0.2); stroke-width: 1px; }
+      .stat-label { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 700; fill: rgba(255, 255, 255, 0.65); letter-spacing: 1px; text-transform: uppercase; }
+      .stat-val { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 32px; font-weight: 900; fill: #ffffff; }
+    </style>
+  </defs>
+  
+  <!-- Card Background -->
+  <rect width="600" height="350" rx="24" fill="url(#cardGrad)" />
+  
+  <!-- Decorative Accent Glows -->
+  <circle cx="550" cy="50" r="100" fill="#ffffff" fill-opacity="0.05" />
+  <circle cx="50" cy="300" r="150" fill="#000000" fill-opacity="0.1" />
+
+  <!-- Header -->
+  <text x="40" y="65" class="title">${yir.title}</text>
+  <text x="40" y="98" class="meta">Generated on ${yir.generatedAt}</text>
+  
+  <!-- Divider -->
+  <line x1="40" y1="120" x2="560" y2="120" class="divider" />
+  
+  <!-- Stats Grid -->
+  <!-- Row 1 Left: Gross -->
+  <text x="40" y="165" class="stat-label">Gross Earnings</text>
+  <text x="40" y="208" class="stat-val">${grossStr}</text>
+  
+  <!-- Row 1 Right: Net -->
+  <text x="320" y="165" class="stat-label">Net Profit</text>
+  <text x="320" y="208" class="stat-val">${netStr}</text>
+  
+  <!-- Row 2 Left: Shifts -->
+  <text x="40" y="270" class="stat-label">Shifts Logged</text>
+  <text x="40" y="310" class="stat-val">${shiftsStr}</text>
+  
+  <!-- Row 2 Right: Hours -->
+  <text x="320" y="270" class="stat-label">Road Hours</text>
+  <text x="320" y="310" class="stat-val">${hoursStr}</text>
+</svg>
+  `.trim();
+}
 
 function esc(v) {
   return String(v ?? '')
@@ -110,9 +163,11 @@ export async function render(root, ctx) {
           </div>
 
           <div class="reports-filter-grid">
-            <label class="field">
+            <label class="field" data-slot="platform-filter">
               <span class="field-label">Platform Filter</span>
-              <input class="input" name="platformId" placeholder="e.g. doordash" />
+              <select class="input" name="platformId">
+                <option value="all">All Platforms</option>
+              </select>
             </label>
             <div class="reports-date-grid">
               <label class="field">
@@ -134,10 +189,11 @@ export async function render(root, ctx) {
           </div>
           <div class="reports-template-grid">
             <label class="template-check"><input data-template-section="overview" type="checkbox" /> Overview</label>
+            <label class="template-check"><input data-template-section="platform_breakdown" type="checkbox" /> Platforms</label>
             <label class="template-check"><input data-template-section="shifts" type="checkbox" /> Shifts</label>
             <label class="template-check"><input data-template-section="expenses" type="checkbox" /> Expenses</label>
             <label class="template-check"><input data-template-section="chart" type="checkbox" /> Review</label>
-            <label class="template-check"><input data-template-section="qr" type="checkbox" /> QR Code</label>
+            <label class="template-check"><input data-template-section="qr" type="checkbox" /> Share Stats</label>
             <label class="template-check"><input data-template-section="notes" type="checkbox" /> Notes</label>
           </div>
         </section>
@@ -165,6 +221,7 @@ export async function render(root, ctx) {
           <div class="export-btn-group">
             <button class="btn btn-secondary" data-action="csv-shifts" type="button">${getIcon('file-text', 16)} Export Shifts CSV</button>
             <button class="btn btn-secondary" data-action="csv-expenses" type="button">${getIcon('file-text', 16)} Export Expenses CSV</button>
+            <button class="btn btn-secondary" data-action="csv-mileage" type="button">${getIcon('map', 16)} Export Mileage Log CSV</button>
           </div>
 
           <div class="export-btn-group">
@@ -174,6 +231,11 @@ export async function render(root, ctx) {
 
           <div class="export-btn-group">
             <button class="btn btn-secondary" data-action="json-backup" type="button">${getIcon('shield', 16)} Vault Backup</button>
+          </div>
+
+          <div style="grid-column: 1 / -1; margin-top: var(--space-2); padding: var(--space-3); background-color: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-xs); color: var(--color-text-secondary); display: flex; gap: var(--space-2); align-items: flex-start;">
+            <span style="font-size: 1.1rem; line-height: 1;">⚠️</span>
+            <span><strong>Disclaimers & Compliance:</strong> All exported reports, CSVs, and JSON files are planning-grade tools. Please verify all calculations and contemporaneous mileage logs with a certified accountant before final filing.</span>
           </div>
         </div>
 
@@ -187,7 +249,7 @@ export async function render(root, ctx) {
   `;
 
   const form = {
-    platformId: /** @type {HTMLInputElement} */ (container.querySelector('[name="platformId"]')),
+    platformId: /** @type {HTMLSelectElement} */ (container.querySelector('[name="platformId"]')),
     startDate: /** @type {HTMLInputElement} */ (container.querySelector('[name="startDate"]')),
     endDate: /** @type {HTMLInputElement} */ (container.querySelector('[name="endDate"]')),
   };
@@ -203,7 +265,40 @@ export async function render(root, ctx) {
   async function refreshReport() {
     currentReport = await periodPayload(currentPeriod, form);
     const rows = summaryRows(currentReport);
-    reportSlot.innerHTML = `
+
+    // Synchronize UI date inputs with the dynamically computed preset range
+    if (currentPeriod !== 'custom') {
+      if (form.startDate._fp) {
+        form.startDate._fp.setDate(currentReport.startDate, false);
+      } else {
+        form.startDate.value = currentReport.startDate;
+      }
+      if (form.endDate._fp) {
+        form.endDate._fp.setDate(currentReport.endDate, false);
+      } else {
+        form.endDate.value = currentReport.endDate;
+      }
+    }
+
+    if (!currentReport.hasData) {
+      reportSlot.innerHTML = `
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--space-8) var(--space-4); text-align: center;">
+          <div style="font-size: 3rem; margin-bottom: var(--space-4);">📊</div>
+          <h3 style="margin: 0 0 var(--space-2) 0; font-size: var(--text-lg); font-weight: 700;">No Activity This Period</h3>
+          <p style="color: var(--color-text-secondary); max-width: 320px; margin: 0; font-size: var(--text-sm);">
+            You haven't logged any shifts or expenses for the selected dates.
+          </p>
+        </div>
+      `;
+      qrSlot.style.display = 'none';
+      yirSlot.style.display = 'none';
+      return;
+    }
+
+    qrSlot.style.display = 'block';
+    yirSlot.style.display = 'block';
+
+    let metricsHtml = `
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
         <h2 style="margin: 0;">${esc(t('reports.reportCard'))}</h2>
         <span style="font-size: var(--text-xs); color: var(--color-text-secondary); font-weight: 700; text-transform: uppercase;">
@@ -220,33 +315,42 @@ export async function render(root, ctx) {
       </div>
     `;
 
-    if (template.sections.qr) {
-      qrSlot.innerHTML = `
-        <div style="display:flex; flex-direction:column; align-items:center; gap:var(--space-4);">
-          <h2 style="margin:0; width:100%; text-align:left;">Weekly QR Export</h2>
-          <div class="qr-container">
-            <canvas width="200" height="200" data-qr></canvas>
-          </div>
-          <p style="font-size: var(--text-xs); color: var(--color-text-secondary); text-align:center;">Scan this on your secondary device to sync the weekly stats.</p>
+    if (currentReport.summary.isNetNegative) {
+      metricsHtml += `
+        <div class="warning-banner" style="margin-top: var(--space-4); padding: var(--space-3); background-color: var(--color-warning-light, rgba(239, 68, 68, 0.15)); border: 1px solid var(--color-warning, #ef4444); border-radius: var(--radius-md); color: var(--color-warning-dark, #ef4444); display: flex; align-items: center; gap: var(--space-2); font-weight: 600; font-size: var(--text-sm);">
+          <span style="font-size: 1.2rem;">⚠️</span>
+          <span>Expenses exceeded gross this period — see expense breakdown</span>
         </div>
       `;
-      const canvas = /** @type {HTMLCanvasElement|null} */ (qrSlot.querySelector('[data-qr]'));
-      if (canvas && typeof QRCode === 'function') {
-        try {
-          const qr = QRCode(0, 'M');
-          qr.addData(getWeeklyQrText(currentReport, store.get('user')));
-          qr.make();
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            const cellSize = 200 / qr.getModuleCount();
-            qr.renderTo2dContext(ctx, cellSize);
-          }
-        } catch (err) {
-          console.error('QR Render failed:', err);
-        }
+    }
+
+    if (template.sections.platform_breakdown) {
+      const pbSection = ReportRegistry.getById('platform_breakdown');
+      if (pbSection) {
+        const pbHtml = await pbSection.renderHTML(currentReport, store.get('user'));
+        metricsHtml += `
+          <div style="margin-top: var(--space-6); border-top: 1px solid var(--color-border); padding-top: var(--space-4);">
+            <h3 style="margin: 0 0 var(--space-2) 0; font-size: var(--text-md); font-weight: 700;">Platform Breakdown</h3>
+            ${pbHtml}
+          </div>
+        `;
       }
+    }
+
+    reportSlot.innerHTML = metricsHtml;
+
+    if (template.sections.qr) {
+      qrSlot.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:flex-start; gap:var(--space-3); width:100%;">
+          <h2 style="margin:0; font-size: var(--text-md); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary);">Share Stats</h2>
+          <p style="font-size: var(--text-xs); color: var(--color-text-secondary); margin: 0; line-height: 1.4;">Export this period's performance metrics securely using your device's native sharing capabilities.</p>
+          <button class="btn btn-primary" data-action="share-native" type="button" style="width:100%; display:flex; align-items:center; justify-content:center; gap:var(--space-2); margin-top:var(--space-2); padding: var(--space-3) var(--space-4);">
+            ${getIcon('share-2', 16)} Share Stats via OS Sheet
+          </button>
+        </div>
+      `;
     } else {
-      qrSlot.innerHTML = '<h2>Weekly QR Export</h2><p style="color:var(--color-text-secondary); margin-top: var(--space-4);">Disabled by template builder.</p>';
+      qrSlot.innerHTML = '<h2 style="margin:0; font-size: var(--text-md); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary);">Share Stats</h2><p style="color:var(--color-text-secondary); margin-top: var(--space-4); font-size: var(--text-xs);">Disabled by template builder.</p>';
     }
 
     const year = new Date(currentReport.endDate).getFullYear();
@@ -289,6 +393,33 @@ export async function render(root, ctx) {
   }
 
   await refreshReport();
+
+  // Populate dynamic platform filter
+  const allShifts = await db.shifts.toArray();
+  const allExpenses = await db.expenses.toArray();
+  const activePlatforms = new Set();
+  for (const s of allShifts) if (s.platformId) activePlatforms.add(s.platformId);
+  for (const e of allExpenses) if (e.platformId) activePlatforms.add(e.platformId);
+  const platformsArray = Array.from(activePlatforms).sort();
+  
+  if (platformsArray.length > 0) {
+    form.platformId.innerHTML = `
+      <option value="all">All Platforms</option>
+      ${platformsArray.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('')}
+    `;
+  }
+
+  const switchToCustomAndRefresh = async () => {
+    container.querySelectorAll('[data-period]').forEach(b => b.classList.remove('is-active'));
+    const customBtn = container.querySelector('[data-period="custom"]');
+    if (customBtn) customBtn.classList.add('is-active');
+    currentPeriod = 'custom';
+    await refreshReport();
+  };
+
+  form.startDate.addEventListener('change', switchToCustomAndRefresh);
+  form.endDate.addEventListener('change', switchToCustomAndRefresh);
+  form.platformId.addEventListener('change', switchToCustomAndRefresh);
 
   container.querySelectorAll('[data-period]').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -348,6 +479,10 @@ export async function render(root, ctx) {
       const count = await exportAllExpensesCsv();
       showToast({ type: 'success', message: `Exported ${count} expenses.`, duration: 1800 });
     }
+    if (action === 'csv-mileage') {
+      const count = await exportMileageLogCsv();
+      showToast({ type: 'success', message: `Exported mileage log for ${count} shifts.`, duration: 1800 });
+    }
     if (action === 'json-backup') {
       await exportVaultBackupJson();
       showToast({ type: 'success', message: 'Vault backup exported.', duration: 1800 });
@@ -369,12 +504,70 @@ export async function render(root, ctx) {
       showToast({ type: 'success', message: 'Backup restored.', duration: 1800 });
       await refreshReport();
     }
+    if (action === 'share-native') {
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: `COMMA Weekly Stats: ${currentReport.startDate} to ${currentReport.endDate}`,
+            text: `COMMA Performance Report (${currentReport.startDate} to ${currentReport.endDate}):\n` +
+                  `- Gross Earnings: ${formatMoney(currentReport.summary.gross)}\n` +
+                  `- Net Profit: ${formatMoney(currentReport.summary.net)}\n` +
+                  `- Shifts Logged: ${currentReport.summary.shiftCount}\n` +
+                  `- Road Hours: ${currentReport.summary.hours.toFixed(1)}h\n` +
+                  `- Distance: ${currentReport.summary.distanceKm.toFixed(1)} km`,
+          });
+          showToast({ type: 'success', message: 'Stats shared successfully.', duration: 1800 });
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            console.error('Share failed:', err);
+            showToast({ type: 'error', message: 'Sharing failed.', duration: 1800 });
+          }
+        }
+      } else {
+        // Fallback: copy to clipboard
+        const copied = await copySummaryToClipboard(currentReport, store.get('user'));
+        if (copied) {
+          showToast({ type: 'success', message: 'Share sheet not supported. Summary copied to clipboard!', duration: 2500 });
+        }
+      }
+    }
     if (action === 'capture-yir') {
-      const card = container.querySelector('[data-yir-card]');
-      if (!(card instanceof HTMLElement)) return;
-      const canvas = await html2canvas(card, { backgroundColor: '#ffffff', scale: 2 });
-      exportYearInReviewPng(canvas.toDataURL('image/png'), new Date(currentReport.endDate).getFullYear());
-      showToast({ type: 'success', message: 'Year in review exported.', duration: 1800 });
+      const year = new Date(currentReport.endDate).getFullYear();
+      const annual = await getAnnualReport(year);
+      const yir = getYearInReviewModel(year, annual);
+      
+      const svgText = generateYirSvg(yir);
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = 600;
+      canvas.height = 350;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
+      const img = new Image();
+      const svgBlob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      
+      try {
+        await new Promise((resolve, reject) => {
+          img.onload = () => {
+            ctx.drawImage(img, 0, 0);
+            URL.revokeObjectURL(url);
+            resolve();
+          };
+          img.onerror = (e) => {
+            URL.revokeObjectURL(url);
+            reject(new Error('SVG Image loading failed'));
+          };
+          img.src = url;
+        });
+        
+        exportYearInReviewPng(canvas.toDataURL('image/png'), year);
+        showToast({ type: 'success', message: 'Year in review exported.', duration: 1800 });
+      } catch (err) {
+        console.error('PNG Capture failed:', err);
+        showToast({ type: 'error', message: 'Failed to export Year in Review image.', duration: 1800 });
+      }
     }
   });
 }

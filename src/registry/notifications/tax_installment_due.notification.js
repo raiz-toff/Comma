@@ -13,12 +13,13 @@ export default {
   priority: 22,
   userToggleable: true,
   condition: async () => false,
-  /** @param {{ user: Record<string, unknown> }} ctx */
+  /** @param {{ user: Record<string, unknown>; now: Date }} ctx */
   evaluate: async (ctx) => {
     const user = ctx.user;
     const country = String(user?.locale?.country || 'US').toUpperCase();
-    const nextTax = getNextTaxDeadline(country);
+    const nextTax = getNextTaxDeadline(country, ctx.now);
     const taxProfile = getCountryTaxProfile(country);
+
     const reminderWindow =
       typeof taxProfile.taxInstallmentReminderDays === 'number' && Number.isFinite(taxProfile.taxInstallmentReminderDays)
         ? Math.max(0, Math.floor(taxProfile.taxInstallmentReminderDays))

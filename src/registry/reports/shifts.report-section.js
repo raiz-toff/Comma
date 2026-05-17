@@ -18,8 +18,45 @@ export default {
   renderCSV: (report) => {
     const r = /** @type {{ shifts?: Array<Record<string, unknown>> }} */ (report);
     const rows = Array.isArray(r.shifts) ? r.shifts : [];
-    const header = ['id', 'date', 'platformId', 'gross'];
-    const body = rows.map((s) => [s.id, s.date, s.platformId, s.gross ?? s.grossEarnings]);
+    const header = [
+      'id',
+      'date',
+      'provinceId',
+      'platformId',
+      'startTime',
+      'endTime',
+      'durationMinutes',
+      'gross',
+      'tips',
+      'bonus',
+      'orders',
+      'distanceKm',
+      'deadMilesKm',
+      'notes',
+    ];
+    
+    const getDollars = (cents) => {
+      if (cents == null) return 0;
+      const n = Number(cents);
+      return Number.isFinite(n) ? n / 100 : 0;
+    };
+
+    const body = rows.map((s) => [
+      s.id,
+      s.date,
+      s.provinceId || '',
+      s.platformId || '',
+      s.startTime || '',
+      s.endTime || '',
+      Number(s.durationMinutes ?? s.onlineMinutes ?? 0),
+      s.grossEarnings != null ? getDollars(s.grossEarnings) : Number(s.gross || 0),
+      s.tips != null ? getDollars(s.tips) : 0,
+      s.bonusEarnings != null ? getDollars(s.bonusEarnings) : Number(s.bonus || 0),
+      s.deliveryCount ?? s.orders ?? 0,
+      s.distanceKm ?? 0,
+      s.deadMilesKm ?? s.deadKm ?? 0,
+      s.notes ?? '',
+    ]);
     return [header, ...body];
   },
 };

@@ -14,9 +14,10 @@ export default {
   priority: 25,
   userToggleable: true,
   condition: async () => false,
-  evaluate: async () => {
+  /** @param {{ now: Date }} ctx */
+  evaluate: async (ctx) => {
     const expenses = await db.expenses.filter((e) => e.deletedAt == null).toArray();
-    const now = new Date();
+    const now = ctx?.now || new Date();
     const maintenanceRows = expenses.filter((e) => String(e.category || '') === 'maintenance');
     if (maintenanceRows.length === 0) return;
     const last = maintenanceRows

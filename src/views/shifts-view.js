@@ -364,6 +364,7 @@ export async function render(root, ctx) {
                 <button type="button" class="btn shifts-preset-btn" data-shifts-preset="q3">${escapeHtml(t('views.dashboard.financial.presetQ3'))}</button>
                 <button type="button" class="btn shifts-preset-btn" data-shifts-preset="q4">${escapeHtml(t('views.dashboard.financial.presetQ4'))}</button>
                 <button type="button" class="btn shifts-preset-btn" data-shifts-preset="year">${escapeHtml(t('views.dashboard.financial.presetYear'))}</button>
+                <button type="button" class="btn shifts-preset-btn" data-shifts-preset="ytd">${escapeHtml(t('views.dashboard.financial.presetYtd'))}</button>
               </div>
               <button type="button" class="btn ${filterCollapsed ? 'btn-ghost' : 'btn-primary'} btn-sm" data-shifts-toggle-filter style="white-space:nowrap;">${escapeHtml(t('views.dashboard.financial.presetCustom'))} <span data-shifts-custom-chevron>${getIcon(filterCollapsed ? 'chevron-down' : 'chevron-up', 14)}</span></button>
             </div>
@@ -424,7 +425,7 @@ export async function render(root, ctx) {
     const presetSummary = root.querySelector('[data-shifts-summary-preset]');
     if (presetSummary) {
       const p = range.preset;
-      presetSummary.textContent = p === 'custom' ? 'Custom' : p.charAt(0).toUpperCase() + p.slice(1);
+      presetSummary.textContent = p === 'custom' ? 'Custom' : (p === 'ytd' ? 'YTD' : p.charAt(0).toUpperCase() + p.slice(1));
     }
 
     const storedFilter = localStorage.getItem('comma_shifts_toolbar_collapsed');
@@ -601,6 +602,7 @@ export async function render(root, ctx) {
 
     const applyBtn = e.target instanceof Element ? e.target.closest('[data-shifts-apply]') : null;
     if (applyBtn) {
+      localStorage.setItem('comma_shifts_shortcuts_collapsed', 'true');
       localStorage.setItem('comma_shifts_toolbar_collapsed', 'true');
       await paint();
       return;
@@ -618,6 +620,8 @@ export async function render(root, ctx) {
         const r = defaultRangeForPreset(preset, shiftsFilterAnchorDate(), wsd);
         saveShiftsRange(r);
         saveShiftsPageIdx(r.start, r.end, r.preset, 0);
+        localStorage.setItem('comma_shifts_shortcuts_collapsed', 'true');
+        localStorage.setItem('comma_shifts_toolbar_collapsed', 'true');
         await paint();
         return;
       }

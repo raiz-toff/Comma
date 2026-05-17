@@ -353,6 +353,12 @@ export function render(root, ctx) {
               </select>
             </div>
             <div class="import-field-group">
+              <label>Out-of-pocket Order Cost</label>
+              <select class="import-upload-select" data-map="outOfPocketExpense">
+                ${renderColumnOptions(state.mappings.outOfPocketExpense, 'outOfPocketExpense')}
+              </select>
+            </div>
+            <div class="import-field-group">
               <label>Custom Notes</label>
               <select class="import-upload-select" data-map="notes">
                 ${renderColumnOptions(state.mappings.notes, 'notes')}
@@ -420,7 +426,7 @@ export function render(root, ctx) {
           </div>
         `;
       }
-      renderSpreadsheetGrid(gridViewer, ['startTime', 'endTime', 'platformId', 'orders', 'distanceKm', 'notes', 'category', 'businessPct']);
+      renderSpreadsheetGrid(gridViewer, ['startTime', 'endTime', 'platformId', 'orders', 'distanceKm', 'outOfPocketExpense', 'notes', 'category', 'businessPct']);
 
     } else if (state.step === 5) {
       // ── STEP 5: SMART PREVIEW & STRICTION VALIDATION ───────────────────
@@ -713,6 +719,7 @@ export function render(root, ctx) {
           if (norm.includes('platform') || norm.includes('app')) state.mappings.platformId = idx;
           if (norm.includes('order') || norm.includes('deliver')) state.mappings.orders = idx;
           if (norm.includes('distance') || norm.includes('km') || norm.includes('mile')) state.mappings.distanceKm = idx;
+          if (norm.includes('out of pocket') || norm.includes('pocket') || norm.includes('oop')) state.mappings.outOfPocketExpense = idx;
           if (norm.includes('note')) state.mappings.notes = idx;
           if (norm.includes('category')) state.mappings.category = idx;
           if (norm.includes('business')) state.mappings.businessPct = idx;
@@ -853,7 +860,11 @@ export function render(root, ctx) {
               if (state.importType === 'expenses') {
                 await saveExpense({ ...item.obj, updatedAt: new Date().toISOString() });
               } else {
-                await saveShift({ ...item.obj, updatedAt: new Date().toISOString() });
+                await saveShift({
+                  ...item.obj,
+                  outOfPocketExpense: item.outOfPocketExpense,
+                  updatedAt: new Date().toISOString()
+                });
               }
               accepted.push(item.obj);
             } catch (err) {
@@ -942,6 +953,7 @@ export function render(root, ctx) {
       const platformVal = getVal('platformId') || 'other';
       const ordersVal = getVal('orders');
       const distanceVal = getVal('distanceKm');
+      const outOfPocketExpenseVal = getValOrNull('outOfPocketExpense') ?? '0';
       const notesVal = getVal('notes') || '';
       
       const categoryVal = getVal('category') || 'other';
@@ -997,6 +1009,15 @@ export function render(root, ctx) {
         state.validationErrors.push(`Row ${lineNum}: Distance value "${distanceVal}" is not a valid number`);
         continue;
       }
+      const outOfPocketNum = outOfPocketExpenseVal ? Number(outOfPocketExpenseVal) : 0;
+      if (outOfPocketExpenseVal && isNaN(outOfPocketNum)) {
+        state.validationErrors.push(`Row ${lineNum}: Out-of-pocket value "${outOfPocketExpenseVal}" is not a valid number`);
+        continue;
+      }
+      if (outOfPocketNum < 0) {
+        state.validationErrors.push(`Row ${lineNum}: Out-of-pocket value "${outOfPocketExpenseVal}" cannot be negative`);
+        continue;
+      }
 
       // Build target object and validate with core normalize functions
       if (state.importType === 'expenses') {
@@ -1047,7 +1068,7 @@ export function render(root, ctx) {
             }
           }
 
-          tempParsed.push({ lineNum, type: 'shift', obj: rowObj });
+          tempParsed.push({ lineNum, type: 'shift', obj: rowObj, outOfPocketExpense: outOfPocketNum });
         } catch (err) {
           let msg = err.message || 'Shift validation error';
           if (msg === 'shift:date:too_old') msg = 'Shift date is more than 2 years old (vault archive policy)';
@@ -1082,7 +1103,7 @@ export function render(root, ctx) {
                   .first();
                 if (existingShift) {
                   state.conflictErrors.push(`Row ${item.lineNum}: Possible duplicate — a shift with the same date, platform, and gross already exists`);
-                  state.conflictingObjects.push({ lineNum: item.lineNum, type: item.type, obj: item.obj });
+                  state.conflictingObjects.push({ lineNum: item.lineNum, type: item.type, obj: item.obj, outOfPocketExpense: item.outOfPocketExpense });
                   continue;
                 }
 
@@ -1091,13 +1112,13 @@ export function render(root, ctx) {
                   const hasConflict = await checkConflict(item.obj.date, item.obj.startTime, item.obj.endTime, { platformId: item.obj.platformId });
                   if (hasConflict) {
                     state.conflictErrors.push(`Row ${item.lineNum}: Shift overlaps with another shift on ${item.obj.date} (${item.obj.startTime} — ${item.obj.endTime})`);
-                    state.conflictingObjects.push({ lineNum: item.lineNum, type: item.type, obj: item.obj });
+                    state.conflictingObjects.push({ lineNum: item.lineNum, type: item.type, obj: item.obj, outOfPocketExpense: item.outOfPocketExpense });
                     continue;
                   }
                 }
                 await db.shifts.add(item.obj);
               }
-              state.parsedObjects.push({ lineNum: item.lineNum, type: item.type, obj: item.obj });
+              state.parsedObjects.push({ lineNum: item.lineNum, type: item.type, obj: item.obj, outOfPocketExpense: item.outOfPocketExpense });
             } catch (err) {
               state.validationErrors.push(`Row ${item.lineNum}: Database write simulation failed — ${err.message || err}`);
             }

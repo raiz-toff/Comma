@@ -138,7 +138,10 @@ export async function filterShifts(filters = {}) {
     if (filters.endDate && str(row.date) > str(filters.endDate)) return false;
     if (filters.platformId && str(row.platformId) !== str(filters.platformId)) return false;
     if (filters.vehicleId && str(row.vehicleId) !== str(filters.vehicleId)) return false;
-    const gc = num(row.grossEarnings ?? row.gross);
+    const base = num(row.grossEarnings ?? row.gross);
+    const tips = num(row.tips);
+    const bonus = num(row.bonusEarnings ?? row.bonus);
+    const gc = base + tips + bonus;
     if (filters.minGross != null && gc < num(filters.minGross) * 100) return false;
     if (filters.maxGross != null && gc > num(filters.maxGross) * 100) return false;
     if (filters.minHours != null && calcShiftHours(row) < num(filters.minHours)) return false;

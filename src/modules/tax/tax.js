@@ -129,7 +129,7 @@ async function loadTaxSummary(year) {
     .filter((row) => row.deletedAt == null)
     .toArray();
 
-  const grossCents = shifts.reduce((sum, s) => sum + num(s.grossEarnings ?? s.gross), 0);
+  const grossCents = shifts.reduce((sum, s) => sum + num(s.grossEarnings ?? s.gross) + num(s.tips) + num(s.bonusEarnings ?? s.bonus), 0);
   const gross = grossCents / 100;
   const businessExpensesCents = expenses.reduce(
     (sum, e) => sum + num(e.amount) * (num(e.businessPct, 100) / 100),

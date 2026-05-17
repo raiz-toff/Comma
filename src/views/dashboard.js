@@ -851,6 +851,7 @@ async function paintDashboard(root, ctx) {
               <button type="button" class="btn financial-dash-preset ${range.preset === 'q3' ? 'is-active' : ''}" data-dashboard-preset="q3">${esc(t('views.dashboard.financial.presetQ3'))}</button>
               <button type="button" class="btn financial-dash-preset ${range.preset === 'q4' ? 'is-active' : ''}" data-dashboard-preset="q4">${esc(t('views.dashboard.financial.presetQ4'))}</button>
               <button type="button" class="btn financial-dash-preset ${range.preset === 'year' ? 'is-active' : ''}" data-dashboard-preset="year">${esc(t('views.dashboard.financial.presetYear'))}</button>
+              <button type="button" class="btn financial-dash-preset ${range.preset === 'ytd' ? 'is-active' : ''}" data-dashboard-preset="ytd">${esc(t('views.dashboard.financial.presetYtd'))}</button>
             </div>
             <button type="button" class="btn ${loadDashboardFilterExpanded() ? 'btn-primary' : 'btn-ghost'} btn-sm" data-dashboard-toggle-filter style="white-space:nowrap;">${esc(t('views.dashboard.financial.presetCustom'))} ${getIcon(loadDashboardFilterExpanded() ? 'chevron-up' : 'chevron-down', 14)}</button>
           </div>
@@ -1024,6 +1025,7 @@ async function paintDashboard(root, ctx) {
     }
 
     if (el.hasAttribute('data-dashboard-apply')) {
+      saveDashboardShortcutsExpanded(false);
       saveDashboardFilterExpanded(false);
       void paintDashboard(root, ctx);
       return;
@@ -1061,6 +1063,8 @@ async function paintDashboard(root, ctx) {
       // @ts-ignore
       const r = defaultRangeForPreset(preset, anchorDate, weekStartDay);
       saveDashboardRange(r);
+      saveDashboardShortcutsExpanded(false);
+      saveDashboardFilterExpanded(false);
       void paintDashboard(root, ctx);
     }
   };

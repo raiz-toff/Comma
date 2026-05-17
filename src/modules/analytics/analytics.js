@@ -20,9 +20,20 @@ function num(v, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-/** Shift gross stored as integer cents (plan v3). */
+/**
+ * Returns total earnings for a shift in CENTS.
+ * Handles both new schema (grossEarnings / tips / bonusEarnings in cents)
+ * and legacy schema (gross / tips / bonus in dollars).
+ */
 function grossCents(shift) {
-  return num(shift.grossEarnings ?? shift.gross);
+  const isNew = shift.grossEarnings !== undefined;
+  if (isNew) {
+    return num(shift.grossEarnings) + num(shift.tips) + num(shift.bonusEarnings ?? 0);
+  }
+  // Legacy: all values are in dollars — convert to cents
+  return Math.round(
+    (num(shift.gross) + num(shift.tips) + num(shift.bonus)) * 100
+  );
 }
 
 function ymd(d) {
@@ -182,8 +193,9 @@ async function hydrateDerived(shifts) {
       const gc = grossCents(shift);
       const gross = gc / 100;
       const durationMinutes = getDurationMinutes(shift);
-      const tips = num(shift.tips) / 100;
-      const bonus = num(shift.bonusEarnings ?? shift.bonus) / 100;
+      const isNew = shift.grossEarnings !== undefined;
+      const tips  = isNew ? num(shift.tips) / 100 : num(shift.tips);
+      const bonus = isNew ? num(shift.bonusEarnings ?? 0) / 100 : num(shift.bonus);
       const orders = num(shift.deliveryCount ?? shift.orders);
       const distanceKm = num(shift.distanceKm);
       const expenseCents = await getTotalExpensesForPeriod(shift.date, shift.date, shift.platformId || undefined);
@@ -250,10 +262,17 @@ function aggregateShiftsLight(shifts) {
   let orders = 0;
   let minutes = 0;
   for (const s of shifts) {
+    const isNew = s.grossEarnings !== undefined;
+    // grossCents() already includes tips+bonus; pull individual breakdowns separately
     gross += grossCents(s) / 100;
-    tips += num(s.tips) / 100;
-    bonus += num(s.bonusEarnings ?? s.bonus) / 100;
-    orders += num(s.deliveryCount ?? s.orders);
+    if (isNew) {
+      tips  += num(s.tips) / 100;
+      bonus += num(s.bonusEarnings ?? 0) / 100;
+    } else {
+      tips  += num(s.tips);
+      bonus += num(s.bonus);
+    }
+    orders  += num(s.deliveryCount ?? s.orders);
     minutes += getDurationMinutes(s);
   }
   const hourlyRate = calcHourlyRate(gross, minutes);
@@ -549,9 +568,9 @@ export async function getRolling30DayTrend(activePlatformId = 'all', options = {
 /**
  * @param {string} [activePlatformId='all']
  */
-export async function getBestDayOfWeek(activePlatformId = 'all') {
+export async function getBestDayOfWeek(startDate, endDate, activePlatformId = 'all') {
   const shifts = filterShiftsByActivePlatform(
-    await db.shifts.filter((s) => s.deletedAt == null).toArray(),
+    await listShiftsBetween(startDate, endDate),
     activePlatformId,
   );
   const buckets = new Map();
@@ -561,7 +580,8 @@ export async function getBestDayOfWeek(activePlatformId = 'all') {
     const key = String(day);
     buckets.set(key, (buckets.get(key) || 0) + grossCents(s));
   }
-  let best = { day: 0, gross: 0 };
+  if (buckets.size === 0) return { day: -1, gross: 0 };
+  let best = { day: -1, gross: -1 };
   for (const [key, gross] of buckets.entries()) {
     if (gross > best.gross) best = { day: Number(key), gross };
   }
@@ -569,11 +589,13 @@ export async function getBestDayOfWeek(activePlatformId = 'all') {
 }
 
 /**
+ * @param {string} startDate
+ * @param {string} endDate
  * @param {string} [activePlatformId='all']
  */
-export async function getBestTimeOfDay(activePlatformId = 'all') {
+export async function getBestTimeOfDay(startDate, endDate, activePlatformId = 'all') {
   const shifts = filterShiftsByActivePlatform(
-    await db.shifts.filter((s) => s.deletedAt == null).toArray(),
+    await listShiftsBetween(startDate, endDate),
     activePlatformId,
   );
   const buckets = new Map();
@@ -583,7 +605,8 @@ export async function getBestTimeOfDay(activePlatformId = 'all') {
     if (!Number.isFinite(hour)) continue;
     buckets.set(hour, (buckets.get(hour) || 0) + grossCents(s));
   }
-  let best = { hour: 0, gross: 0 };
+  if (buckets.size === 0) return { hour: -1, gross: 0 };
+  let best = { hour: -1, gross: -1 };
   for (const [hour, gross] of buckets.entries()) {
     if (gross > best.gross) best = { hour, gross };
   }
@@ -591,11 +614,13 @@ export async function getBestTimeOfDay(activePlatformId = 'all') {
 }
 
 /**
+ * @param {string} startDate
+ * @param {string} endDate
  * @param {string} [activePlatformId='all']
  */
-export async function getDeadMilesSummary(activePlatformId = 'all') {
+export async function getDeadMilesSummary(startDate, endDate, activePlatformId = 'all') {
   const shifts = filterShiftsByActivePlatform(
-    await db.shifts.filter((s) => s.deletedAt == null).toArray(),
+    await listShiftsBetween(startDate, endDate),
     activePlatformId,
   );
   let deadKm = 0;
@@ -672,18 +697,17 @@ export async function getPersonalRecords() {
 }
 
 /**
- * @param {number} month
- * @param {number} year
+ * @param {string} startDate
+ * @param {string} endDate
  * @param {string} [activePlatformId='all']
  */
-export async function getZerodays(month, year, activePlatformId = 'all') {
-  const { start, end } = monthRange(month, year);
-  const shifts = filterShiftsByActivePlatform(await listShiftsBetween(start, end), activePlatformId);
+export async function getZerodays(startDate, endDate, activePlatformId = 'all') {
+  const shifts = filterShiftsByActivePlatform(await listShiftsBetween(startDate, endDate), activePlatformId);
   const worked = new Set(shifts.map((s) => s.date));
-  const startDate = new Date(`${start}T00:00:00`);
-  const endDate = new Date(`${end}T00:00:00`);
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
   const zeroDays = [];
-  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const key = ymd(d);
     if (!worked.has(key)) zeroDays.push(key);
   }
@@ -773,6 +797,8 @@ export async function getEarningsVsHoursScatter(startDate, endDate, activePlatfo
   return shifts.map((s) => ({
     x: getDurationMinutes(s) / 60,
     y: grossCents(s) / 100,
+    date: s.date,
+    platformId: s.platformId,
   }));
 }
 

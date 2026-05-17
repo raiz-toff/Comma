@@ -56,8 +56,8 @@ function calculatePlatformSummaries(shifts) {
       clockHours,
       activeHours,
       orders: p.orders,
-      hourly: clockHours > 0 ? p.gross / clockHours : 0,
-      activeHourly: activeHours > 0 ? p.gross / activeHours : 0,
+      hourly: clockHours > 0 ? totalEarnings / clockHours : 0,
+      activeHourly: activeHours > 0 ? totalEarnings / activeHours : 0,
     };
   });
 }

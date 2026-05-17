@@ -155,9 +155,9 @@ export function normalizeShiftInput(input) {
     durationMinutes = minutesBetween(date, startTime, endTime);
   }
 
-  const grossEarnings = centsFromInput(input, ['grossEarnings']) ?? dollarsToCents(input.gross);
-  const tips = centsFromInput(input, ['tips']) ?? dollarsToCents(input.tips);
-  const bonusEarnings = centsFromInput(input, ['bonusEarnings']) ?? dollarsToCents(input.bonus);
+  const grossEarnings = input.grossEarnings !== undefined ? Number(input.grossEarnings) : (dollarsToCents(input.gross) ?? 0);
+  const tips = input.grossEarnings !== undefined ? Number(input.tips ?? 0) : (dollarsToCents(input.tips) ?? 0);
+  const bonusEarnings = input.grossEarnings !== undefined ? Number(input.bonusEarnings ?? 0) : (dollarsToCents(input.bonus) ?? 0);
 
   const deliveryCount = clampNum(input.deliveryCount ?? input.orders, { min: 0 });
   const distanceKm = clampNum(input.distanceKm, { min: 0 });
@@ -311,10 +311,9 @@ async function syncShiftOutOfPocketExpense(shiftId, outOfPocketExpense, date, pl
 
   const amtRaw = Number(outOfPocketExpense);
   if (Number.isFinite(amtRaw) && amtRaw > 0) {
-    const amountCents = Math.round(amtRaw * 100);
     if (existing) {
       await updateExpense(existing.id, {
-        amount: amountCents,
+        amount: amtRaw,
         date,
         platformId,
         businessPct: 0,
@@ -322,7 +321,7 @@ async function syncShiftOutOfPocketExpense(shiftId, outOfPocketExpense, date, pl
     } else {
       await saveExpense({
         category: 'out_of_pocket',
-        amount: amountCents,
+        amount: amtRaw,
         date,
         platformId,
         businessPct: 0,
@@ -366,9 +365,22 @@ export async function updateShift(id, patch) {
   const prev = await db.shifts.get(id);
   if (!prev) throw new Error('shift:not_found');
 
+  const nextPatch = { ...patch };
+  if (nextPatch.gross !== undefined) {
+    nextPatch.grossEarnings = dollarsToCents(nextPatch.gross);
+    delete nextPatch.gross;
+  }
+  if (nextPatch.tips !== undefined) {
+    nextPatch.tips = dollarsToCents(nextPatch.tips);
+  }
+  if (nextPatch.bonus !== undefined) {
+    nextPatch.bonusEarnings = dollarsToCents(nextPatch.bonus);
+    delete nextPatch.bonus;
+  }
+
   const next = {
     ...prev,
-    ...patch,
+    ...nextPatch,
     updatedAt: nowIso(),
   };
 

@@ -790,20 +790,27 @@
 
 .financial-dash-presets {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  scrollbar-width: none;
   align-items: stretch;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface-raised);
-  overflow: hidden;
+}
+
+.financial-dash-presets::-webkit-scrollbar {
+  display: none;
 }
 
 .financial-dash-preset.btn {
+  flex: 0 0 auto !important;
   border-radius: 0;
   border-width: 0 1px 0 0;
   border-color: var(--color-border);
   border-style: solid;
   padding-inline: var(--space-3);
+  white-space: nowrap !important;
 }
 
 .financial-dash-preset.btn:last-child {
@@ -831,10 +838,10 @@
   }
   .financial-dash-presets {
     width: 100%;
-    justify-content: center;
+    justify-content: flex-start !important;
   }
   .financial-dash-preset.btn {
-    flex: 1;
+    flex: 0 0 auto !important;
   }
 }
 

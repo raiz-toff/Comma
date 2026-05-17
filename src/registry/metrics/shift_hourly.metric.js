@@ -23,9 +23,11 @@ export default {
   messageKey: 'analytics.hourlyRate',
   /** @param {unknown} shift @param {unknown} [_vehicle] */
   calcPerShift: (shift, _vehicle) => {
-    const cents =
-      Number(/** @type {any} */ (shift)?.grossEarnings ?? /** @type {any} */ (shift)?.gross ?? 0) || 0;
-    const grossDollars = cents / 100;
+    const s = /** @type {any} */ (shift);
+    const base = Number(s?.grossEarnings ?? s?.gross ?? 0);
+    const tips = Number(s?.tips ?? 0);
+    const bonus = Number(s?.bonusEarnings ?? s?.bonus ?? 0);
+    const grossDollars = (base + tips + bonus) / 100;
     const mins = durationMinutes(shift);
     return mins > 0 ? calcHourlyRate(grossDollars, mins) : null;
   },

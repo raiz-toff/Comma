@@ -60,8 +60,8 @@ export async function render(root) {
           </div>
           
           <div style="background: var(--color-surface-raised); padding: var(--space-4); border-radius: var(--radius-md); font-family: var(--font-mono); font-size: 11px; margin-bottom: var(--space-6); border: 1px solid var(--color-border); overflow-x: auto;">
-            date,platformId,startTime,endTime,gross,tips,bonus,orders,distanceKm,deadMilesKm,notes<br>
-            2026-05-10,ubereats,17:00,21:30,120.50,15.00,5.00,8,12.5,4.2,"Evening rush"
+            date,platformId,startTime,endTime,gross,tips,bonus,orders,distanceKm,deadMilesKm,outOfPocketExpense,notes<br>
+            2026-05-10,ubereats,17:00,21:30,120.50,15.00,5.00,8,12.5,4.2,25.50,"Evening rush"
           </div>
 
           <table style="width: 100%; border-collapse: collapse; font-size: var(--text-sm);">
@@ -103,6 +103,12 @@ export async function render(root) {
                 <td><code>Number</code></td>
                 <td>—</td>
                 <td>Unpaid travel distance.</td>
+              </tr>
+              <tr style="border-bottom: 1px solid var(--color-border);">
+                <td style="padding: var(--space-2); font-weight: 700;">outOfPocketExpense</td>
+                <td><code>Number</code></td>
+                <td>pocket, oop</td>
+                <td>Out-of-pocket order cost (deductibility locked at 0%).</td>
               </tr>
             </tbody>
           </table>
@@ -183,7 +189,7 @@ export async function render(root) {
     const action = target.getAttribute('data-action');
     
     if (action === 'dl-shift-tpl') {
-      const csv = 'date,platformId,startTime,endTime,gross,tips,bonus,orders,distanceKm,deadMilesKm,notes\\n2026-05-10,ubereats,17:00,21:30,120.50,15.00,5.00,8,12.5,4.2,"Morning"';
+      const csv = 'date,platformId,startTime,endTime,gross,tips,bonus,orders,distanceKm,deadMilesKm,outOfPocketExpense,notes\\n2026-05-10,ubereats,17:00,21:30,120.50,15.00,5.00,8,12.5,4.2,25.50,"Morning"';
       downloadCsv('comma_shifts.csv', csv.replace(/\\\\n/g, '\\n'));
     }
     if (action === 'dl-expense-tpl') {

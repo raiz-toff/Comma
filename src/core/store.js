@@ -210,7 +210,9 @@ async function computeCurrentWeekEarnings(user) {
     for (const s of shifts) {
       const raw = s?.grossEarnings ?? s?.gross;
       const dollars = s?.grossEarnings != null ? num(raw) / 100 : num(raw);
-      sum += dollars;
+      const tips = s?.grossEarnings != null ? num(s?.tips) / 100 : num(s?.tips);
+      const bonus = s?.grossEarnings != null ? num(s?.bonusEarnings ?? s?.bonus) / 100 : num(s?.bonus);
+      sum += dollars + tips + bonus;
     }
     return sum;
   } catch {

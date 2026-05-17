@@ -87,9 +87,18 @@ function summarize(shifts, expenses) {
   let distanceKm = 0;
 
   for (const s of shifts) {
-    gross += centsToReport(num(s.grossEarnings ?? s.gross));
-    tips += centsToReport(num(s.tips));
-    bonus += centsToReport(num(s.bonusEarnings ?? s.bonus));
+    const isNew = s.grossEarnings !== undefined;
+    if (isNew) {
+      // New schema: grossEarnings, tips, bonusEarnings are all in cents
+      gross += centsToReport(num(s.grossEarnings));
+      tips  += centsToReport(num(s.tips));
+      bonus += centsToReport(num(s.bonusEarnings ?? 0));
+    } else {
+      // Legacy schema: gross, tips, bonus are in dollars already
+      gross += num(s.gross);
+      tips  += num(s.tips);
+      bonus += num(s.bonus);
+    }
     orders += num(s.deliveryCount ?? s.orders);
     clockMinutes += num(s.durationMinutes ?? s.onlineMinutes ?? s.activeMinutes);
     activeMinutes += num(s.activeMinutes ?? s.durationMinutes ?? s.onlineMinutes);
@@ -505,7 +514,12 @@ export async function exportTaxSummaryJson(year = new Date().getFullYear()) {
       platformBreakdown[pId] = { gross: 0, orders: 0, distanceKm: 0 };
     }
     const data = platformBreakdown[pId];
-    data.gross += getDollars(s.grossEarnings ?? s.gross);
+    // Tips and bonus included in total gross for platform breakdown
+    if (s.grossEarnings !== undefined) {
+      data.gross += getDollars(num(s.grossEarnings) + num(s.tips) + num(s.bonusEarnings ?? 0));
+    } else {
+      data.gross += num(s.gross) + num(s.tips) + num(s.bonus);
+    }
     data.orders += num(s.deliveryCount ?? s.orders);
     data.distanceKm += num(s.distanceKm);
   }

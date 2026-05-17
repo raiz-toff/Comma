@@ -126,6 +126,8 @@ export default {
       // We embed raw data into data-attributes for the custom hover interactions later
       return `<circle class="sc-dot" cx="${px}" cy="${py}" r="4.5" 
                 data-x="${d.x}" data-y="${d.y}" 
+                data-date="${d.date || ''}"
+                data-platform="${d.platformId || ''}"
                 style="animation-delay: ${index * 0.02}s"></circle>`;
     }).join('');
 
@@ -205,41 +207,63 @@ export default {
           animation: drawLine 2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
         }
 
+        /* Laser Crosshair Guides */
+        .sc-guide-line {
+          stroke: var(--widget-accent, #8b5cf6);
+          stroke-width: 1.2px;
+          stroke-dasharray: 3 3;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.15s ease;
+        }
+
         /* Data Points */
         .sc-dot {
           fill: var(--widget-accent, #8b5cf6);
+          stroke: transparent;
+          stroke-width: 8px; /* Large invisible hit area to prevent pixel-hunting */
           opacity: 0; /* Starting state for animation */
           transform-origin: center;
           transform-box: fill-box;
           animation: scatterPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-          transition: all 0.2s ease;
+          transition: r 0.15s ease, fill 0.15s ease, stroke 0.15s ease, stroke-width 0.15s ease, opacity 0.15s ease;
           cursor: crosshair;
         }
         
         /* Interactive Hover States */
         .sc-dot:hover {
-          fill: var(--color-text-main, #fff);
-          opacity: 1 !important; /* Override animation */
-          r: 6;
-          filter: drop-shadow(0 0 6px var(--widget-accent));
+          fill: #fff !important;
+          stroke: var(--widget-accent, #8b5cf6) !important;
+          stroke-width: 2.5px !important;
+          opacity: 1 !important;
+          r: 6.5;
         }
 
-        /* Dynamic CSS-Based Tooltip (Injected by JS on hover) */
+        /* Premium Glassmorphic Tooltip */
         .sc-tooltip {
-          position: absolute; pointer-events: none; opacity: 0;
-          background: var(--color-surface-raised, #222);
-          border: 1px solid color-mix(in srgb, var(--widget-accent) 40%, transparent);
-          box-shadow: 0 8px 16px rgba(0,0,0,0.4);
-          padding: 8px 12px; border-radius: 8px;
-          transform: translate(-50%, -120%);
-          transition: opacity 0.2s, top 0.1s, left 0.1s;
+          position: absolute; 
+          pointer-events: none; 
+          opacity: 0;
+          background: rgba(18, 18, 18, 0.88);
+          backdrop-filter: blur(12px) saturate(180%);
+          -webkit-backdrop-filter: blur(12px) saturate(180%);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          box-shadow: 0 12px 24px -4px rgba(0, 0, 0, 0.5), 
+                      0 0 0 1px rgba(255, 255, 255, 0.02);
+          padding: 10px 14px; 
+          border-radius: 12px;
+          transition: opacity 0.15s cubic-bezier(0.2, 0.8, 0.2, 1), 
+                      transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
           z-index: 100;
-          backdrop-filter: blur(8px);
+          min-width: 155px;
         }
-        .sc-tooltip-val { font-size: 1rem; font-weight: 800; color: var(--color-text-main); font-variant-numeric: tabular-nums; }
+        .sc-tooltip-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; }
+        .sc-tooltip-date { font-size: 0.7rem; font-weight: 800; color: var(--color-text-main); }
+        .sc-tooltip-plat { font-size: 0.6rem; font-weight: 900; letter-spacing: 0.05em; padding: 2px 5px; border-radius: 4px; background: rgba(255,255,255,0.06); }
+        .sc-tooltip-val { font-size: 0.95rem; font-weight: 800; color: var(--color-text-main); font-variant-numeric: tabular-nums; }
         .sc-tooltip-lbl { font-size: 0.65rem; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em;}
         .sc-tooltip-row { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; }
-        .sc-tooltip-hr { height: 1px; background: rgba(255,255,255,0.1); margin: 6px 0; }
+        .sc-tooltip-hr { height: 1px; background: rgba(255,255,255,0.08); margin: 6px 0; }
         
         /* Legends */
         .sc-legend { display: flex; justify-content: space-between; font-size: 0.6rem; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 8px; }
@@ -270,7 +294,7 @@ export default {
               </span>
             </div>
           </div>
-
+ 
           <!-- Intelligence Readout -->
           <div class="sc-stats-group">
             <div class="sc-stat-pill">
@@ -294,6 +318,10 @@ export default {
             <!-- Median Crosshairs -->
             <line class="sc-axis-line" x1="${pxMed}" y1="0" x2="${pxMed}" y2="${svgH}"></line>
             <line class="sc-axis-line" x1="0" y1="${pyMed}" x2="${svgW}" y2="${pyMed}"></line>
+
+            <!-- Dynamic Laser Guides -->
+            <line class="sc-guide-line sc-guide-x" x1="0" y1="0" x2="0" y2="0"></line>
+            <line class="sc-guide-line sc-guide-y" x1="0" y1="0" x2="0" y2="0"></line>
 
             <!-- Statistical Trendline -->
             ${trendlineHTML}
@@ -324,6 +352,8 @@ export default {
     const wrap = el.querySelector('.sc-chart-wrap');
     const tooltip = el.querySelector('.sc-tooltip');
     const dots = el.querySelectorAll('.sc-dot');
+    const guideX = el.querySelector('.sc-guide-x');
+    const guideY = el.querySelector('.sc-guide-y');
     
     if (!wrap || !tooltip || !container) return;
 
@@ -340,14 +370,33 @@ export default {
         // Extract the raw data stored in HTML attributes
         const xVal = parseFloat(target.getAttribute('data-x') || '0');
         const yVal = parseFloat(target.getAttribute('data-y') || '0');
+        const dateStr = target.getAttribute('data-date') || '';
+        const platform = target.getAttribute('data-platform') || '';
         
         // Format the hover data
         const fmtEarn = formatCurrency(yVal, country, { currency });
         const fmtHrs = `${xVal.toFixed(1)}h`;
         const effectiveRate = xVal > 0 ? formatCurrency(yVal / xVal, country, { currency }) : '$0.00';
 
+        // Date formatting: e.g. "Sunday, May 17"
+        let dateHtml = '';
+        if (dateStr) {
+          const dObj = new Date(`${dateStr}T00:00:00`);
+          if (!Number.isNaN(dObj.getTime())) {
+            const formattedDate = dObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', weekday: 'short' });
+            dateHtml = `<div class="sc-tooltip-date">${formattedDate}</div>`;
+          }
+        }
+        
+        // Platform Badge
+        let platformHtml = '';
+        if (platform) {
+          platformHtml = `<span class="sc-tooltip-plat" style="color: var(--color-${platform.toLowerCase()}, var(--widget-accent));">${platform.toUpperCase()}</span>`;
+        }
+
         // Build the tooltip DOM
         tooltip.innerHTML = `
+          ${dateHtml ? `<div class="sc-tooltip-header">${dateHtml} ${platformHtml}</div>` : ''}
           <div class="sc-tooltip-row">
             <span class="sc-tooltip-lbl">Earnings</span>
             <span class="sc-tooltip-val" style="color: var(--color-success, #10b981);">${fmtEarn}</span>
@@ -368,22 +417,64 @@ export default {
         const dotRect = target.getBoundingClientRect();
         
         // Compute relative X and Y
-        const relX = dotRect.left - wrapRect.left + (dotRect.width / 2);
-        const relY = dotRect.top - wrapRect.top;
+        let relX = dotRect.left - wrapRect.left + (dotRect.width / 2);
+        let relY = dotRect.top - wrapRect.top;
+
+        // Position Clamp to avoid overflow clipping
+        const tooltipWidth = 160;
+        const padding = 12;
+
+        if (relY < 65) {
+          // If too close to the top, render below the dot
+          tooltip.style.transform = 'translate(-50%, 15px)';
+        } else {
+          // Otherwise render above the dot
+          tooltip.style.transform = 'translate(-50%, -115%)';
+        }
+
+        // Clamp X so it doesn't leak off the left or right edges
+        if (relX < (tooltipWidth / 2) + padding) {
+          relX = (tooltipWidth / 2) + padding;
+        } else if (relX > wrapRect.width - (tooltipWidth / 2) - padding) {
+          relX = wrapRect.width - (tooltipWidth / 2) - padding;
+        }
 
         // Apply positions and reveal
         tooltip.style.left = `${relX}px`;
         tooltip.style.top = `${relY}px`;
         tooltip.style.opacity = '1';
 
+        // Laser Guide Crosshairs snap
+        if (guideX && guideY) {
+          const cx = target.getAttribute('cx');
+          const cy = target.getAttribute('cy');
+          
+          guideX.setAttribute('x1', '0');
+          guideX.setAttribute('y1', cy);
+          guideX.setAttribute('x2', cx);
+          guideX.setAttribute('y2', cy);
+          guideX.style.opacity = '0.35';
+
+          guideY.setAttribute('x1', cx);
+          guideY.setAttribute('y1', cy);
+          guideY.setAttribute('x2', cx);
+          guideY.setAttribute('y2', '160'); // Height is 160
+          guideY.style.opacity = '0.35';
+        }
+
         // Dim other dots to create focus on the hovered one
-        dots.forEach(d => { if (d !== target) d.style.opacity = '0.2'; });
+        dots.forEach(d => { if (d !== target) d.style.opacity = '0.15'; });
       });
 
       // Mouse Leave: Hide tooltip and restore other dots
       dot.addEventListener('mouseleave', () => {
         tooltip.style.opacity = '0';
-        dots.forEach(d => d.style.opacity = '0.6'); // Restore to standard non-hover opacity
+        dots.forEach(d => d.style.opacity = '0.65'); // Restore
+        
+        if (guideX && guideY) {
+          guideX.style.opacity = '0';
+          guideY.style.opacity = '0';
+        }
       });
     });
   },

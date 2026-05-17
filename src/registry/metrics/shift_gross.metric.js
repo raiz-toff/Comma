@@ -9,9 +9,10 @@ export default {
   messageKey: 'shifts.gross',
   /** @param {unknown} shift @param {unknown} [_vehicle] */
   calcPerShift: (shift, _vehicle) => {
-    const s = /** @type {{ gross?: unknown; grossEarnings?: unknown }} */ (shift);
-    const cents = Number(s?.grossEarnings ?? s?.gross ?? 0);
-    if (!Number.isFinite(cents)) return 0;
-    return cents / 100;
+    const s = /** @type {any} */ (shift);
+    const base = Number(s?.grossEarnings ?? s?.gross ?? 0);
+    const tips = Number(s?.tips ?? 0);
+    const bonus = Number(s?.bonusEarnings ?? s?.bonus ?? 0);
+    return (base + tips + bonus) / 100;
   },
 };

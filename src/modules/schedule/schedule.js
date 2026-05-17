@@ -299,8 +299,13 @@ function renderWeekGrid(model) {
     const bucket = model.weekTotals.get(key) || { gross: 0, minutes: 0, shifts: [], plan: [] };
     const hours = bucket.minutes / 60;
     const hasData = bucket.shifts.length > 0 || bucket.plan.length > 0;
+    
+    const isToday = key === ymd(model.now);
+    const hoursLeft = Math.max(0, 24 - model.now.getHours() - (model.now.getMinutes() / 60));
+    const hoursDisplay = isToday ? `${hoursLeft.toFixed(1)}h left` : `${hours.toFixed(1)}h`;
+
     days.push(`
-      <article class="schedule-week-cell ${model.offDays.has(key) ? 'is-off-day' : ''} ${hasData ? 'is-clickable' : ''}" data-date="${esc(key)}">
+      <article class="schedule-week-cell ${isToday ? 'is-today' : ''} ${model.offDays.has(key) ? 'is-off-day' : ''} ${hasData ? 'is-clickable' : ''}" data-date="${esc(key)}">
         <header>
           <strong>${esc(dayName(day.getDay()))}</strong>
           <span>${esc(day.getDate())}</span>
@@ -323,7 +328,7 @@ function renderWeekGrid(model) {
         </div>
         <footer>
           <span>${esc(formatCurrency(bucket.gross, model.localeCountry, { currency: model.currency }))}</span>
-          <span>${esc(hours.toFixed(1))}h</span>
+          <span>${esc(hoursDisplay)}</span>
         </footer>
       </article>
     `);
@@ -356,9 +361,20 @@ function renderMonthGrid(model) {
     const hasData = entry.platforms.size > 0;
     const bucket = bucketForHeat(entry.gross);
     const dots = [...entry.platforms].slice(0, 4);
+
+    const isToday = key === ymd(model.now);
+    let todayBadgeHtml = '';
+    if (isToday) {
+      const hoursLeft = Math.max(0, 24 - model.now.getHours() - (model.now.getMinutes() / 60));
+      todayBadgeHtml = `<span class="sch-month-today-indicator">${hoursLeft.toFixed(1)}h left</span>`;
+    }
+
     cells.push(`
-      <div class="schedule-month-cell ${inMonth ? '' : 'is-outside'} heat-${bucket} ${model.offDays.has(key) ? 'is-off-day' : ''} ${hasData ? 'is-clickable' : ''}" data-date="${esc(key)}">
-        <div class="schedule-month-day">${esc(d.getDate())}</div>
+      <div class="schedule-month-cell ${isToday ? 'is-today' : ''} ${inMonth ? '' : 'is-outside'} heat-${bucket} ${model.offDays.has(key) ? 'is-off-day' : ''} ${hasData ? 'is-clickable' : ''}" data-date="${esc(key)}">
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <div class="schedule-month-day">${esc(d.getDate())}</div>
+          ${todayBadgeHtml}
+        </div>
         <div class="schedule-month-earn">${entry.gross > 0 ? esc(formatCurrency(entry.gross, model.localeCountry, { currency: model.currency })) : ''}</div>
         <div class="schedule-platform-dots">${dots.map((pid) => `<span class="dot dot-${esc(pid)}"></span>`).join('')}</div>
       </div>
@@ -439,7 +455,11 @@ function renderScatter(model) {
             .map((point) => {
               const x = (point.hours / maxHours) * 100;
               const y = 100 - (point.gross / maxGross) * 100;
-              return `<span class="schedule-point" style="left:${esc(x.toFixed(2))}%;top:${esc(y.toFixed(2))}%;" title="${esc(`${point.date}: ${point.hours.toFixed(1)}h / ${formatCurrency(point.gross, model.localeCountry, { currency: model.currency })}`)}"></span>`;
+              return `<span class="schedule-point" style="left:${esc(x.toFixed(2))}%;top:${esc(y.toFixed(2))}%;" 
+                        data-date="${esc(point.date)}" 
+                        data-hours="${point.hours}" 
+                        data-gross="${point.gross}" 
+                        data-rate="${point.rate}"></span>`;
             })
             .join('')}
         </div>
@@ -471,7 +491,7 @@ function render24hTimeline(dayShifts, dayPlans) {
       const bEnd = Math.min(rowEnd, eH);
       const left = ((bStart - rowStart) / 12) * 100;
       const width = ((bEnd - bStart) / 12) * 100;
-      return `<div class="day-timeline-block is-shift" style="left:${left}%; width:${Math.max(1, width)}%;" title="${s.startTime}-${s.endTime}"></div>`;
+      return `<div class="day-timeline-block is-shift is-clickable" data-shift-id="${esc(s.id)}" style="left:${left}%; width:${Math.max(1, width)}%;" title="${esc(`${s.platformId}: ${s.startTime}-${s.endTime}`)}"></div>`;
     }).join('');
 
     const plansInRow = dayPlans.map(p => {
@@ -541,13 +561,49 @@ async function showDayDetailModal(dateStr, model, root) {
     <h3 class="day-detail-title">Shift Details</h3>
     <div class="day-detail-list">
       ${dayShifts.length === 0 && dayPlans.length === 0 ? '<p class="schedule-empty">No activity scheduled for this day.</p>' : ''}
-      ${dayShifts.map(s => `
-        <div class="day-detail-row">
-          <span class="badge" data-platform-id="${esc(s.platformId)}">${esc(s.platformId)}</span>
-          <span class="time">${esc(s.startTime)} - ${esc(s.endTime)}</span>
-          <span class="earn">${esc(formatCurrency(grossFromShift(s), model.localeCountry, { currency: model.currency }))}</span>
-        </div>
-      `).join('')}
+      ${dayShifts.map(s => {
+        const durationHrs = (s.activeMinutes || s.onlineMinutes || minutesFromShift(s)) / 60;
+        const hourlyRate = durationHrs > 0 ? grossFromShift(s) / durationHrs : 0;
+        const fmtRate = formatCurrency(hourlyRate, model.localeCountry, { currency: model.currency });
+        const basePay = (num(s.grossEarnings) - num(s.tips) - num(s.bonusEarnings)) / 100;
+        
+        return `
+          <div class="day-detail-row is-clickable" data-shift-id="${esc(s.id)}">
+            <span class="badge" data-platform-id="${esc(s.platformId)}">${esc(s.platformId)}</span>
+            <span class="time">${esc(s.startTime)} - ${esc(s.endTime)}</span>
+            <span class="earn">${esc(formatCurrency(grossFromShift(s), model.localeCountry, { currency: model.currency }))}</span>
+          </div>
+          <div class="day-shift-overview" id="overview-${esc(s.id)}">
+            <div class="sch-overview-grid">
+              <div class="sch-overview-cell">
+                <span class="sch-overview-lbl">Hourly Rate</span>
+                <span class="sch-overview-val" style="color: var(--color-brand); font-weight:800;">${esc(fmtRate)}/h</span>
+              </div>
+              <div class="sch-overview-cell">
+                <span class="sch-overview-lbl">Base Pay</span>
+                <span class="sch-overview-val">${esc(formatCurrency(basePay, model.localeCountry, { currency: model.currency }))}</span>
+              </div>
+              <div class="sch-overview-cell">
+                <span class="sch-overview-lbl">Tips</span>
+                <span class="sch-overview-val" style="color: var(--color-success);">${esc(formatCurrency(num(s.tips) / 100, model.localeCountry, { currency: model.currency }))}</span>
+              </div>
+              <div class="sch-overview-cell">
+                <span class="sch-overview-lbl">Bonus</span>
+                <span class="sch-overview-val">${esc(formatCurrency(num(s.bonusEarnings) / 100, model.localeCountry, { currency: model.currency }))}</span>
+              </div>
+              <div class="sch-overview-cell">
+                <span class="sch-overview-lbl">Deliveries</span>
+                <span class="sch-overview-val">${esc(s.deliveryCount || 0)}</span>
+              </div>
+              <div class="sch-overview-cell">
+                <span class="sch-overview-lbl">Distance</span>
+                <span class="sch-overview-val">${esc(s.distanceKm || 0)} km</span>
+              </div>
+            </div>
+            ${s.notes ? `<div class="sch-overview-notes"><strong>Notes:</strong> ${esc(s.notes)}</div>` : ''}
+          </div>
+        `;
+      }).join('')}
       ${dayPlans.map(p => `
         <div class="day-detail-row is-plan">
           <span class="badge">PLAN</span>
@@ -557,6 +613,56 @@ async function showDayDetailModal(dateStr, model, root) {
       `).join('')}
     </div>
   `;
+
+  // Attach interactive toggle logic for shift rows and timeline blocks
+  const toggleOverview = (shiftId) => {
+    if (!shiftId) return;
+    const row = content.querySelector(`.day-detail-row[data-shift-id="${shiftId}"]`);
+    const overview = content.querySelector(`#overview-${shiftId}`);
+    if (!row || !overview) return;
+    
+    const isExpanded = overview.classList.contains('is-expanded');
+    
+    // Collapse all other overviews
+    content.querySelectorAll('.day-shift-overview').forEach(el => {
+      el.classList.remove('is-expanded');
+      el.style.maxHeight = '0';
+      el.style.padding = '0';
+      el.style.opacity = '0';
+      el.style.borderTop = 'none';
+      el.style.borderBottom = 'none';
+      el.style.marginTop = '0';
+    });
+    content.querySelectorAll('.day-detail-row').forEach(el => {
+      el.classList.remove('is-active');
+    });
+
+    if (!isExpanded) {
+      overview.classList.add('is-expanded');
+      row.classList.add('is-active');
+      overview.style.maxHeight = '280px';
+      overview.style.padding = 'var(--space-3) var(--space-4)';
+      overview.style.opacity = '1';
+      overview.style.borderTop = '1px solid var(--color-border)';
+      overview.style.borderBottom = '1px solid var(--color-border)';
+      overview.style.marginTop = '4px';
+    }
+  };
+
+  content.addEventListener('click', (e) => {
+    const target = /** @type {HTMLElement} */ (e.target);
+    const row = target.closest('.day-detail-row[data-shift-id]');
+    if (row) {
+      toggleOverview(row.getAttribute('data-shift-id'));
+      return;
+    }
+
+    const block = target.closest('.day-timeline-block[data-shift-id]');
+    if (block) {
+      toggleOverview(block.getAttribute('data-shift-id'));
+      return;
+    }
+  });
 
   showModal({
     title: `${dayName(date.getDay())}, ${date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}`,
@@ -729,9 +835,180 @@ export async function renderScheduleModule(root, ctx = {}) {
           </h2>
         </div>
         ${renderScatter(model)}
+        
+        <div class="sch-efficiency-guide">
+          <header class="sch-guide-header">
+            <h3>How to Read This Chart</h3>
+          </header>
+          <div class="sch-guide-grid">
+            <div class="sch-guide-item">
+              <div>
+                <h4>Shift Efficiency (Dots)</h4>
+                <p>Each green dot represents a single shift. Its position shows the relation between <strong>duration (X-axis)</strong> and <strong>earnings (Y-axis)</strong>. Hover over any dot to see exact details.</p>
+              </div>
+            </div>
+            <div class="sch-guide-item">
+              <div>
+                <h4>Trend Line</h4>
+                <p>The dashed line represents your baseline earning trajectory. Shifts <strong>above the line</strong> are high-value, highly-efficient shifts. Shifts <strong>below the line</strong> had lower hourly returns.</p>
+              </div>
+            </div>
+            <div class="sch-guide-item">
+              <div>
+                <h4>Actionable Strategy</h4>
+                <p>Identify the shifts furthest above the trendline, note their starting times and platforms, and plan future shifts to match their patterns to optimize your earnings.</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
     </section>
   `;
+
+  // Set up Schedule Scatter Interactive Hover States
+  const scatterPoints = root.querySelectorAll('.schedule-point');
+  const scatterWrap = root.querySelector('.schedule-scatter');
+  if (scatterWrap && scatterPoints.length > 0) {
+    // Create tooltip element dynamically if not present
+    let tooltip = scatterWrap.querySelector('.sch-scatter-tooltip');
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.className = 'sch-scatter-tooltip';
+      scatterWrap.appendChild(tooltip);
+    }
+
+    // Create horizontal and vertical laser guides dynamically if not present
+    let guideX = scatterWrap.querySelector('.sch-scatter-guide-x');
+    if (!guideX) {
+      guideX = document.createElement('div');
+      guideX.className = 'sch-scatter-guide-x';
+      scatterWrap.appendChild(guideX);
+    }
+    let guideY = scatterWrap.querySelector('.sch-scatter-guide-y');
+    if (!guideY) {
+      guideY = document.createElement('div');
+      guideY.className = 'sch-scatter-guide-y';
+      scatterWrap.appendChild(guideY);
+    }
+
+    const showPointDetails = (target) => {
+      const date = target.getAttribute('data-date') || '';
+      const hours = parseFloat(target.getAttribute('data-hours') || '0');
+      const gross = parseFloat(target.getAttribute('data-gross') || '0');
+      const rate = parseFloat(target.getAttribute('data-rate') || '0');
+
+      // Formatted strings
+      const fmtEarn = formatCurrency(gross, model.localeCountry, { currency: model.currency });
+      const fmtHrs = `${hours.toFixed(1)}h`;
+      const fmtRate = formatCurrency(rate, model.localeCountry, { currency: model.currency });
+
+      let dateHtml = '';
+      if (date) {
+        const dObj = new Date(`${date}T00:00:00`);
+        if (!Number.isNaN(dObj.getTime())) {
+          dateHtml = dObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', weekday: 'short' });
+        }
+      }
+
+      // Build HTML
+      tooltip.innerHTML = `
+        ${dateHtml ? `<div class="sch-tooltip-header">${dateHtml}</div>` : ''}
+        <div class="sch-tooltip-row">
+          <span class="sch-tooltip-lbl">Earnings</span>
+          <span class="sch-tooltip-val" style="color: var(--color-success, #10b981);">${fmtEarn}</span>
+        </div>
+        <div class="sch-tooltip-row">
+          <span class="sch-tooltip-lbl">Hours</span>
+          <span class="sch-tooltip-val">${fmtHrs}</span>
+        </div>
+        <div class="sch-tooltip-hr"></div>
+        <div class="sch-tooltip-row">
+          <span class="sch-tooltip-lbl">Rate</span>
+          <span class="sch-tooltip-val" style="color: var(--color-brand, #3b82f6); font-weight:800;">${fmtRate}/h</span>
+        </div>
+      `;
+
+      // Tooltip positioning
+      const pctLeft = parseFloat(target.style.left);
+      const pctTop = parseFloat(target.style.top);
+
+      // Convert percentage coordinates to pixels based on scatter wrap size
+      const wrapW = scatterWrap.clientWidth;
+      const wrapH = scatterWrap.clientHeight;
+      const posX = (pctLeft / 100) * wrapW;
+      const posY = (pctTop / 100) * wrapH;
+
+      // Position tooltip and clamp bounds
+      const tooltipWidth = 155;
+      const padding = 10;
+      
+      let relX = posX;
+      let relY = posY;
+
+      if (relY < 65) {
+        tooltip.style.transform = 'translate(-50%, 15px)';
+      } else {
+        tooltip.style.transform = 'translate(-50%, -115%)';
+      }
+
+      if (relX < (tooltipWidth / 2) + padding) {
+        relX = (tooltipWidth / 2) + padding;
+      } else if (relX > wrapW - (tooltipWidth / 2) - padding) {
+        relX = wrapW - (tooltipWidth / 2) - padding;
+      }
+
+      tooltip.style.left = `${relX}px`;
+      tooltip.style.top = `${relY}px`;
+      tooltip.style.opacity = '1';
+
+      // Laser guides snap
+      guideX.style.top = `${posY}px`;
+      guideX.style.width = `${posX}px`;
+      guideX.style.opacity = '0.35';
+
+      guideY.style.left = `${posX}px`;
+      guideY.style.top = `${posY}px`;
+      guideY.style.height = `${wrapH - posY}px`;
+      guideY.style.opacity = '0.35';
+
+      // Dim other points
+      scatterPoints.forEach(p => { if (p !== target) p.style.opacity = '0.15'; else p.style.opacity = '1'; });
+    };
+
+    const hidePointDetails = () => {
+      tooltip.style.opacity = '0';
+      guideX.style.opacity = '0';
+      guideY.style.opacity = '0';
+      scatterPoints.forEach(p => { p.style.opacity = '1'; });
+    };
+
+    scatterPoints.forEach(point => {
+      // Hover behaviors for desktop mouse
+      point.addEventListener('mouseenter', (e) => {
+        showPointDetails(/** @type {HTMLElement} */ (e.target));
+      });
+      point.addEventListener('mouseleave', () => {
+        hidePointDetails();
+      });
+
+      // Click/Tap behavior for touch screens and hybrid devices
+      point.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showPointDetails(/** @type {HTMLElement} */ (e.target));
+      });
+    });
+
+    // Dismiss tooltip on tapping anywhere else on the document
+    const onDocClick = (e) => {
+      if (e.target && !/** @type {HTMLElement} */ (e.target).closest('.schedule-point') && !/** @type {HTMLElement} */ (e.target).closest('.sch-scatter-tooltip')) {
+        hidePointDetails();
+      }
+    };
+    document.addEventListener('click', onDocClick);
+
+    // Keep track of document click listener for proper cleanup
+    root._scheduleDocClick = onDocClick;
+  }
 
   const onClick = (e) => {
     const target = e.target;
@@ -761,6 +1038,10 @@ export async function renderScheduleModule(root, ctx = {}) {
   if (typeof prevTeardown === 'function') prevTeardown();
   root._scheduleTeardown = () => {
     root.removeEventListener('click', onClick);
+    if (root._scheduleDocClick) {
+      document.removeEventListener('click', root._scheduleDocClick);
+      root._scheduleDocClick = null;
+    }
     offPlatform();
   };
 

@@ -55,7 +55,7 @@ export async function buildWidgetDataContext(range, platformFilter, weekStartDay
     scatter,
   ] = await Promise.all([
     getFinancialOverviewForRange(range.start, range.end, platformFilter),
-    getMonthlySummary(y, m, platformFilter),
+    getMonthlySummary(m, y, platformFilter),
     getBestDayOfWeek(range.start, range.end, platformFilter),
     getBestTimeOfDay(range.start, range.end, platformFilter),
     getDeadMilesSummary(range.start, range.end, platformFilter),

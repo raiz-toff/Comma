@@ -117,16 +117,28 @@ export default {
 
     const listItems = sortedPlatforms.map(p => {
       const color = `var(--color-${p.platformId}, var(--color-other))`;
+      const pct = totalGross > 0 ? Math.round((p.gross / totalGross) * 100) : 0;
       return `
         <div class="pa-item">
           <div class="pa-item-info">
             <div class="pa-dot" style="background-color: ${color};"></div>
             <span class="pa-name">${esc(p.platformId)}</span>
           </div>
-          <span class="pa-val">${formatCurrency(p.gross / 100, country, { currency })}</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:0.65rem;color:var(--color-text-muted);font-weight:700;">${pct}%</span>
+            <span class="pa-val">${formatCurrency(p.gross / 100, country, { currency })}</span>
+          </div>
         </div>
       `;
     }).join('');
+
+    // Format month label e.g. "2026-05" → "May 2026"
+    const monthLabel = (() => {
+      try {
+        const [yr, mo] = latest.month.split('-');
+        return new Date(Number(yr), Number(mo) - 1, 1).toLocaleDateString('en', { month: 'short', year: 'numeric' });
+      } catch { return latest.month; }
+    })();
 
     return `
       ${scopedStyles}
@@ -136,6 +148,7 @@ export default {
           <span class="wl">${esc(t('analytics.platformActivity'))}</span>
           ${dominant ? `<div class="pa-dominant-badge">${esc(dominant.platformId.toUpperCase())}</div>` : ''}
         </div>
+        <div style="font-size:0.62rem;color:var(--color-text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">${esc(monthLabel)}</div>
         <div class="pa-container">
           <div class="pa-bar">
             ${segments}

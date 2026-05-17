@@ -774,6 +774,9 @@ samp {
   .app-shell-chrome {
     position: static; /* Let the header naturally scroll up and out of the viewport on mobile devices */
   }
+  .app-main {
+    overflow: visible; /* Let the main document body handle the scrolling on mobile to allow Safari/Chrome headers to hide */
+  }
 }
 
 /* Print */

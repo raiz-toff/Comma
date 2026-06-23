@@ -272,4 +272,11 @@ Stop execution immediately upon closing the append stream. Await PM verification
 - **Database Impact:** None.
 - **State:** Completed Task 2.2 by implementing the PlatformBadge component that dynamically renders color-coded pills corresponding to platforms defined in `src/registry/platforms.ts`.
 
+### Task 2.3 Completed: CurrencyText - 2026-06-23T05:18:00-04:00
+- **Files Created/Modified:**
+  - Created: `src/components/ui/CurrencyText.tsx`
+- **Database Impact:** None.
+- **State:** Completed Task 2.3 by implementing the CurrencyText component which automatically formats currency amounts according to standard locale codes (CAD or USD) derived from user settings. Applies dynamic colors (green for positive, red for negative, slate-muted for zero) based on the value.
+
+
 

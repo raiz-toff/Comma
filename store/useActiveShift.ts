@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { insertShift } from "../src/database/queries/shifts";
-
 import { type PlatformKey } from "../src/registry/platforms";
 
 export type GigPlatform = PlatformKey;
@@ -10,7 +9,8 @@ export interface CompletedShiftPayload {
   vehicleId: string;
   startTime: number;
   endTime: number;
-  trackedMileage: number;
+  activeMileage: number;
+  deadMileage: number;
 }
 
 interface ActiveShiftState {
@@ -19,13 +19,14 @@ interface ActiveShiftState {
   vehicleId: string | null;
   startTime: number | null; // Unix epoch in milliseconds
   elapsedSeconds: number;
-  trackedMileage: number;
+  activeMileage: number;
+  deadMileage: number;
   
   // Actions
   startShift: (platform: GigPlatform, vehicleId: string) => void;
   endShift: () => Promise<CompletedShiftPayload | null>;
   incrementTimer: () => void;
-  updateMileage: (addedMiles: number) => void;
+  updateMileage: (activeMiles: number, deadMiles: number) => void;
   reset: () => void;
 }
 
@@ -35,7 +36,8 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
   vehicleId: null,
   startTime: null,
   elapsedSeconds: 0,
-  trackedMileage: 0,
+  activeMileage: 0,
+  deadMileage: 0,
 
   startShift: (platform, vehicleId) => set({
     isActive: true,
@@ -43,7 +45,8 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     vehicleId,
     startTime: Date.now(),
     elapsedSeconds: 0,
-    trackedMileage: 0
+    activeMileage: 0,
+    deadMileage: 0,
   }),
 
   endShift: async () => {
@@ -51,7 +54,7 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     if (!state.isActive || !state.startTime || !state.platform || !state.vehicleId) return null;
     
     const endTime = Date.now();
-    const durationSeconds = state.elapsedSeconds; // Use elapsedSeconds from state as it represents actual tracked active time
+    const durationSeconds = state.elapsedSeconds;
     const shiftId = `shift_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
     const payload = {
@@ -62,9 +65,9 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
       endTime: new Date(endTime),
       grossRevenue: 0.0,
       tipsRevenue: 0.0,
-      trackedMileage: state.trackedMileage,
-      activeMileage: state.trackedMileage,
-      deadMileage: 0.0,
+      trackedMileage: state.activeMileage + state.deadMileage,
+      activeMileage: state.activeMileage,
+      deadMileage: state.deadMileage,
       durationSeconds: durationSeconds,
       pausedSeconds: 0,
     };
@@ -80,7 +83,8 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
       vehicleId: state.vehicleId,
       startTime: state.startTime,
       endTime,
-      trackedMileage: state.trackedMileage,
+      activeMileage: state.activeMileage,
+      deadMileage: state.deadMileage,
     };
     return completedPayload;
   },
@@ -89,8 +93,9 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     elapsedSeconds: state.isActive ? state.elapsedSeconds + 1 : state.elapsedSeconds 
   })),
 
-  updateMileage: (addedMiles) => set((state) => ({ 
-    trackedMileage: Number((state.trackedMileage + addedMiles).toFixed(2))
+  updateMileage: (activeMiles, deadMiles) => set((state) => ({ 
+    activeMileage: Number((state.activeMileage + activeMiles).toFixed(2)),
+    deadMileage: Number((state.deadMileage + deadMiles).toFixed(2))
   })),
 
   reset: () => set({
@@ -99,6 +104,7 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     vehicleId: null,
     startTime: null,
     elapsedSeconds: 0,
-    trackedMileage: 0
+    activeMileage: 0,
+    deadMileage: 0
   })
 }));

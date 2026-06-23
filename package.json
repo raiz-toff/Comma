@@ -43,6 +43,7 @@
     "expo-sqlite": "~56.0.5",
     "expo-status-bar": "~56.0.4",
     "expo-task-manager": "~56.0.19",
+    "expo-web-browser": "~56.0.5",
     "lucide-react-native": "^1.21.0",
     "nativewind": "^4.2.6",
     "papaparse": "^5.5.4",

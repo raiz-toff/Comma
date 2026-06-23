@@ -51,7 +51,9 @@
           "locationAlwaysAndWhenInUsePermission": "Comma tracks GPS in the background during active delivery shifts to calculate active delivery miles vs dead miles (commuting and waiting). All location data stays 100% on your device and is never uploaded."
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      "expo-asset",
+      "expo-web-browser"
     ],
     "extra": {
       "router": {},

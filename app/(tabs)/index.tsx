@@ -121,13 +121,16 @@ export default function HomeScreen() {
     isActive,
     platform: activePlatform,
     elapsedSeconds,
-    trackedMileage,
+    activeMileage,
+    deadMileage,
     startShift,
     endShift,
     incrementTimer,
     updateMileage,
     reset,
   } = useActiveShift();
+
+  const trackedMileage = activeMileage + deadMileage;
 
   const {
     isOnboardingCompleted,
@@ -449,7 +452,7 @@ export default function HomeScreen() {
                     variant="outline"
                     size="sm"
                     className="border-slate-800 bg-slate-900 px-3 py-2 flex flex-row items-center gap-1.5"
-                    onPress={() => updateMileage(0.5)}
+                    onPress={() => updateMileage(0.5, 0)}
                   >
                     <PlusIcon size={14} color="#cbd5e1" />
                     <Text className="text-xs font-semibold text-slate-300">

@@ -524,10 +524,12 @@ export default function HomeScreen() {
   };
 
   const platformLabels: Record<GigPlatform, string> = {
-    ubereats: "Uber Eats",
     doordash: "DoorDash",
-    skip: "Skip",
+    ubereats: "Uber Eats",
+    skip: "SkipTheDishes",
     instacart: "Instacart",
+    amazonflex: "Amazon Flex",
+    foodora: "Foodora",
     lyft: "Lyft",
     amazon: "Amazon Flex",
     other: "Other",
@@ -696,77 +698,6 @@ export default function HomeScreen() {
             )}
           </View>
         </View>
-
-        {/* PWA-Parity Platform Switcher (Filter) */}
-        <View style={styles.platformSwitcherOuter}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.platformSwitcherScroll}
-          >
-            <Pressable
-              onPress={() => setActivePlatformFilter("all")}
-              style={[
-                styles.platformTab,
-                activePlatformFilter === "all" && styles.platformTabActive,
-              ]}
-            >
-              <View style={styles.platformTabInner}>
-                <View style={[styles.platformTabLogo, { backgroundColor: "#27272a" }]}>
-                  <Text style={styles.platformTabLogoText}>A</Text>
-                </View>
-                <Text style={[
-                  styles.platformTabLabel,
-                  activePlatformFilter === "all" && styles.platformTabLabelActive,
-                ]}>
-                  All
-                </Text>
-              </View>
-            </Pressable>
-
-            {(profile?.selectedPlatforms || ["doordash", "ubereats", "skip"]).map((pId) => {
-              const isSelected = activePlatformFilter === pId;
-              const label = platformLabels[pId as GigPlatform] || pId;
-              
-              const colors: Record<string, string> = {
-                doordash: "#ef4444",
-                ubereats: "#10b981",
-                skip: "#f97316",
-                other: "#818cf8",
-              };
-              const pColor = colors[pId] || "#818cf8";
-              const initial = label.charAt(0).toUpperCase();
-
-              return (
-                <Pressable
-                  key={pId}
-                  onPress={() => setActivePlatformFilter(pId)}
-                  style={[
-                    styles.platformTab,
-                    isSelected && styles.platformTabActive,
-                    isSelected && { borderColor: pColor },
-                  ]}
-                >
-                  <View style={styles.platformTabInner}>
-                    <View style={[
-                      styles.platformTabLogo, 
-                      { backgroundColor: isSelected ? pColor : "#1c1c1a" }
-                    ]}>
-                      <Text style={styles.platformTabLogoText}>{initial}</Text>
-                    </View>
-                    <Text style={[
-                      styles.platformTabLabel,
-                      isSelected && styles.platformTabLabelActive,
-                    ]}>
-                      {label}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-
         {/* Date Range Collapsible Filter Bar */}
         <View style={styles.filterCard}>
           <Pressable

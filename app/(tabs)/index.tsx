@@ -1,19 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { ScrollView, View, ActivityIndicator, TouchableOpacity, Alert, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button } from "../src/components/ui/button";
+import { Button } from "../../src/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../src/components/ui/card";
-import { Text } from "../src/components/ui/text";
-import { useActiveShift, type GigPlatform } from "../store/useActiveShift";
-import { useSettingsStore } from "../store/useSettingsStore";
-import OnboardingWizard from "../components/OnboardingWizard";
-import { cn } from "../src/lib/utils";
+} from "../../src/components/ui/card";
+import { Text } from "../../src/components/ui/text";
+import { useActiveShift, type GigPlatform } from "../../store/useActiveShift";
+import { useSettingsStore } from "../../store/useSettingsStore";
+import OnboardingWizard from "../../components/OnboardingWizard";
+import { cn } from "../../src/lib/utils";
 
 // Custom vector icons implemented as pure Views to avoid react-native-svg native dependency
 const PlayIcon = ({ size = 16, color = "white" }: { size?: number; color?: string }) => (

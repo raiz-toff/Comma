@@ -332,6 +332,14 @@ Stop execution immediately upon closing the append stream. Await PM verification
 - **Database Impact:** Upserts updated `profile` JSON to the `settings` table (key=`profile`) on each save action.
 - **State:** Completed Task 3.4. Implemented the full Settings screen with five sections: (1) Profile: inline editing of name, country, and region, (2) Platforms: multi-select toggle grid using PlatformBadge, (3) Locale: distance unit toggle (km/mi), tax withholding percentage with preset quick-taps, (4) Data & Backup: stub buttons for future Phase 9/12 features, (5) Danger Zone: full app reset with confirmation prompt and demo data clear button.
 
+### Task 4.1 Completed: Shifts list screen - 2026-06-23T05:48:00-04:00
+- **Files Created/Modified:**
+  - Created: `app/(tabs)/shifts/index.tsx`, `src/components/shifts/ShiftCard.tsx`
+  - Removed: `app/(tabs)/shifts.tsx` (via `git rm`)
+- **Database Impact:** Reads paginated shifts from `getShiftsPaginated()` with page, date-range, and platform filters.
+- **State:** Completed Task 4.1. Replaced the simple shifts list view with a fully functional paginated history log under `app/(tabs)/shifts/index.tsx`. Features include ShiftCard component displaying hours, distance, total earnings, platform badge, and notes; a toggleable filter bar with multi-platform selector chips, cross-platform date pickers (web native date inputs, custom keyboard text inputs on native mobile); and a pagination "Load More" button.
+
+
 
 
 

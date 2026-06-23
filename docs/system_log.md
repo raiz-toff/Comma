@@ -221,3 +221,9 @@ Stop execution immediately upon closing the append stream. Await PM verification
   - Modified: `drizzle/migrations.js`, `drizzle/meta/_journal.json`, `drizzle/meta/0006_snapshot.json`
 - **Database Impact:** Extended the `expenses` table with optional columns: `vehicle_id` (references vehicles.id), `notes` (text), and `receipt_uri` (text).
 - **State:** Database schema has been successfully modified and a migration created to be executed on the client database during initialization. TypeScript type check compiles successfully with zero errors.
+
+### Task Completed: Create query files (typed shells only) - 2026-06-23T04:08:00-04:00
+- **Files Created/Modified:**
+  - Created: `src/database/queries/shifts.ts`, `src/database/queries/expenses.ts`, `src/database/queries/vehicles.ts`, `src/database/queries/goals.ts`, `src/database/queries/analytics.ts`, `src/database/queries/tax.ts`
+- **Database Impact:** None (query interfaces only).
+- **State:** Created typed shell query files importing the `db` client and specifying standard, typed signatures to represent all database interactions across subsequent phases. TypeScript check passes with zero errors.

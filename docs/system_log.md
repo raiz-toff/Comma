@@ -266,3 +266,10 @@ Stop execution immediately upon closing the append stream. Await PM verification
 - **Database Impact:** None.
 - **State:** Pre-installed all upcoming native dependencies for remaining phases (location, task manager, image picker, document picker, print, secure store, auth session, datetimepicker, quick-crypto) and configured their permissions and config plugins in `app.json` to consolidate them into a single EAS build.
 
+### Task 2.2 Completed: Platform registry and PlatformBadge - 2026-06-23T05:11:00-04:00
+- **Files Created/Modified:**
+  - Created: `src/components/ui/PlatformBadge.tsx`
+- **Database Impact:** None.
+- **State:** Completed Task 2.2 by implementing the PlatformBadge component that dynamically renders color-coded pills corresponding to platforms defined in `src/registry/platforms.ts`.
+
+

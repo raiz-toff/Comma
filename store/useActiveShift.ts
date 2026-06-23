@@ -1,7 +1,9 @@
 import { create } from "zustand";
 import { insertShift } from "../src/database/queries/shifts";
 
-export type GigPlatform = "doordash" | "ubereats" | "skip" | "other";
+import { type PlatformKey } from "../src/registry/platforms";
+
+export type GigPlatform = PlatformKey;
 
 export interface CompletedShiftPayload {
   platform: GigPlatform;

@@ -201,8 +201,11 @@ export default function HomeScreen() {
   // Platform label dictionary
   const platformLabels: Record<GigPlatform, string> = {
     doordash: "DoorDash",
-    ubereats: "UberEats",
+    ubereats: "Uber Eats",
     skip: "Skip",
+    instacart: "Instacart",
+    lyft: "Lyft",
+    amazon: "Amazon Flex",
     other: "Other",
   };
 

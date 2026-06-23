@@ -1,5 +1,5 @@
 export const PLATFORMS = {
-  uber_eats:   { label: "Uber Eats",       color: "#06C167", textColor: "#000000" },
+  ubereats:    { label: "Uber Eats",       color: "#06C167", textColor: "#000000" },
   doordash:    { label: "DoorDash",         color: "#FF3008", textColor: "#FFFFFF" },
   skip:        { label: "SkipTheDishes",    color: "#FF6600", textColor: "#FFFFFF" },
   instacart:   { label: "Instacart",        color: "#43B02A", textColor: "#FFFFFF" },

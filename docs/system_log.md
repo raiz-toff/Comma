@@ -307,6 +307,14 @@ Stop execution immediately upon closing the append stream. Await PM verification
 - **Database Impact:** Reads and aggregates shifts data using SQL `COALESCE`, `SUM`, and `COUNT`. Inserts new shifts on duty completion.
 - **State:** Completed Task 3.1. Implemented query helpers `getTodayStats`, `getWeekStats`, `getActiveVehicle`, and `getGoalProgress` with Drizzle SQL aggregates. Wired the active shift hero card to write on endShift, and rendered Today, This Week, Miles Tracked, and Weekly Goal BentoCards on the dashboard using React Query.
 
+### Task 3.2 Completed: Add Shift: manual entry form - 2026-06-23T05:32:00-04:00
+- **Files Created/Modified:**
+  - Created: `app/shift/add.tsx`
+  - Modified: `app/(tabs)/index.tsx`, `src/database/queries/vehicles.ts`, `src/registry/platforms.ts`, `store/useActiveShift.ts`
+- **Database Impact:** Inserts manually entered shift details (payout, tips, active/dead mileage, duration, platform, vehicle, timestamps) to the `shifts` table.
+- **State:** Completed Task 3.2. Scaffolded `/shift/add` modal screen. Features include platform selector grid using `PlatformBadge`, dynamic vehicle dropdown from the database using radio cards, date/time pickers styled cross-platform for web and native mobile, numeric inputs for revenue/tips/mileage, and a notes textbox. Saving validation triggers database insert and cache invalidation.
+
+
 
 
 

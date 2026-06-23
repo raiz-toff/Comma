@@ -318,7 +318,20 @@ Stop execution immediately upon closing the append stream. Await PM verification
 - **Files Created/Modified:**
   - Modified: `app/(tabs)/shifts.tsx`
 - **Database Impact:** Reads paginated shifts from `getShiftsPaginated()` and deletes shifts from the `shifts` table via `deleteShift(id)`.
-- **State:** Completed Task 3.3. Replaced the shifts screen placeholder with a high-fidelity list view. It features grouping by Month-Year headers, SectionHeader with action links to the Add Shift modal, EmptyState integration when no shifts are logged, and list rows displaying platform badge, duration, active mileage, gross payout, tips indicators, and inline deletion triggers with cross-platform confirm prompts.
+- **State:** Completed Task 3.3 (Megaplan). Replaced the shifts screen placeholder with a high-fidelity list view. It features grouping by Month-Year headers, SectionHeader with action links to the Add Shift modal, EmptyState integration when no shifts are logged, and list rows displaying platform badge, duration, active mileage, gross payout, tips indicators, and inline deletion triggers with cross-platform confirm prompts.
+
+### Task 3.3 Vehicles Completed: Vehicles management screen - 2026-06-23T05:39:00-04:00
+- **Files Created/Modified:**
+  - Created: `app/vehicles/index.tsx`, `app/vehicles/[id].tsx`, `src/database/queries/maintenance.ts`
+- **Database Impact:** Reads vehicles from `getVehicles()`. Inserts, updates, deletes vehicles. Reads and inserts/deletes `maintenanceLogs` rows via Drizzle. Fetches vehicle stats (total shifts, total active mileage) using SQL aggregates.
+- **State:** Completed Task 3.3 Vehicles. Implemented vehicles list screen with inline add-vehicle form, and vehicle detail screen with editable info, shift/mileage stats, and full maintenance log CRUD (add/delete) with emoji icons per log type and odometer reading support.
+
+### Task 3.4 Completed: Settings screen - 2026-06-23T05:39:30-04:00
+- **Files Created/Modified:**
+  - Created: `app/settings/index.tsx`
+- **Database Impact:** Upserts updated `profile` JSON to the `settings` table (key=`profile`) on each save action.
+- **State:** Completed Task 3.4. Implemented the full Settings screen with five sections: (1) Profile: inline editing of name, country, and region, (2) Platforms: multi-select toggle grid using PlatformBadge, (3) Locale: distance unit toggle (km/mi), tax withholding percentage with preset quick-taps, (4) Data & Backup: stub buttons for future Phase 9/12 features, (5) Danger Zone: full app reset with confirmation prompt and demo data clear button.
+
 
 
 

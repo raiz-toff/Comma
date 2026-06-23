@@ -213,3 +213,11 @@ Stop execution immediately upon closing the append stream. Await PM verification
   - Modified: `drizzle/migrations.js`, `drizzle/meta/_journal.json`, `drizzle/meta/0005_snapshot.json`
 - **Database Impact:** Added the `goals` table with columns: `id` (primary key), `label` (text), `target_value` (real), `unit` (text), `period` (text), `is_active` (boolean), and `created_at` (timestamp).
 - **State:** Database schema has been successfully modified, and the onboarding complete action was updated to persist driver goals into the database. TypeScript type check compiles successfully with zero errors.
+
+### Task Completed: Extend expenses table - 2026-06-23T04:06:00-04:00
+- **Files Created/Modified:**
+  - Modified: `src/database/schema.ts`
+  - Created: `drizzle/0006_organic_toad_men.sql`
+  - Modified: `drizzle/migrations.js`, `drizzle/meta/_journal.json`, `drizzle/meta/0006_snapshot.json`
+- **Database Impact:** Extended the `expenses` table with optional columns: `vehicle_id` (references vehicles.id), `notes` (text), and `receipt_uri` (text).
+- **State:** Database schema has been successfully modified and a migration created to be executed on the client database during initialization. TypeScript type check compiles successfully with zero errors.

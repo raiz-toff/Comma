@@ -7,6 +7,7 @@ import m0002 from './0002_ancient_typhoid_mary.sql';
 import m0003 from './0003_bizarre_firedrake.sql';
 import m0004 from './0004_clear_peter_quill.sql';
 import m0005 from './0005_dazzling_squadron_supreme.sql';
+import m0006 from './0006_organic_toad_men.sql';
 
   export default {
     journal,
@@ -16,7 +17,8 @@ m0001,
 m0002,
 m0003,
 m0004,
-m0005
+m0005,
+m0006
     }
   }
   

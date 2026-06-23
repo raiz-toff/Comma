@@ -52,6 +52,9 @@ export const expenses = sqliteTable('expenses', {
   amount: real('amount').notNull(),
   date: integer('date', { mode: 'timestamp' }).notNull(),
   isDeductible: integer('is_deductible', { mode: 'boolean' }).default(true).notNull(),
+  vehicleId:   text('vehicle_id').references(() => vehicles.id), // optional
+  notes:       text('notes'),
+  receiptUri:  text('receipt_uri'),  // local file URI for photo receipts
 });
 
 export const goals = sqliteTable('goals', {

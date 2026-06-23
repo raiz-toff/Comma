@@ -6,6 +6,7 @@ import m0001 from './0001_opposite_zombie.sql';
 import m0002 from './0002_ancient_typhoid_mary.sql';
 import m0003 from './0003_bizarre_firedrake.sql';
 import m0004 from './0004_clear_peter_quill.sql';
+import m0005 from './0005_dazzling_squadron_supreme.sql';
 
   export default {
     journal,
@@ -14,7 +15,8 @@ import m0004 from './0004_clear_peter_quill.sql';
 m0001,
 m0002,
 m0003,
-m0004
+m0004,
+m0005
     }
   }
   

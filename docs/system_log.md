@@ -205,3 +205,11 @@ Stop execution immediately upon closing the append stream. Await PM verification
   - Modified: `drizzle/migrations.js`, `drizzle/meta/_journal.json`, `drizzle/meta/0004_snapshot.json`
 - **Database Impact:** Added the `maintenance_logs` table with columns: `id` (primary key), `vehicle_id` (references vehicles.id), `type` (text), `cost` (real), `odometer` (real), `date` (timestamp), and `notes` (text).
 - **State:** Database schema has been successfully modified and a migration created to be executed on the client database during initialization. TypeScript type check compiles successfully with zero errors.
+
+### Task Completed: Add goals table - 2026-06-23T04:05:00-04:00
+- **Files Created/Modified:**
+  - Modified: `src/database/schema.ts`, `store/useSettingsStore.ts`
+  - Created: `drizzle/0005_dazzling_squadron_supreme.sql`
+  - Modified: `drizzle/migrations.js`, `drizzle/meta/_journal.json`, `drizzle/meta/0005_snapshot.json`
+- **Database Impact:** Added the `goals` table with columns: `id` (primary key), `label` (text), `target_value` (real), `unit` (text), `period` (text), `is_active` (boolean), and `created_at` (timestamp).
+- **State:** Database schema has been successfully modified, and the onboarding complete action was updated to persist driver goals into the database. TypeScript type check compiles successfully with zero errors.

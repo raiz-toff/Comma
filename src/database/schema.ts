@@ -54,6 +54,16 @@ export const expenses = sqliteTable('expenses', {
   isDeductible: integer('is_deductible', { mode: 'boolean' }).default(true).notNull(),
 });
 
+export const goals = sqliteTable('goals', {
+  id:          text('id').primaryKey(),
+  label:       text('label').notNull(),
+  targetValue: real('target_value').notNull(),
+  unit:        text('unit').notNull(),    // 'currency'|'hours'|'shifts'|'mileage'
+  period:      text('period').notNull(),  // 'daily'|'weekly'|'monthly'|'yearly'
+  isActive:    integer('is_active', { mode: 'boolean' }).default(true).notNull(),
+  createdAt:   integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { Platform } from "react-native";
 import { db } from "../src/database/client";
-import { settings, vehicles, shifts, expenses } from "../src/database/schema";
+import { settings, vehicles, shifts, expenses, goals } from "../src/database/schema";
 import { eq } from "drizzle-orm";
 
 const isWeb = Platform.OS === "web";
@@ -133,9 +133,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         ? {
             nickname: vehicleRows[0].name,
             type: vehicleRows[0].type,
-            make: "",
-            model: "",
-            year: "",
+            make: vehicleRows[0].make || "",
+            model: vehicleRows[0].model || "",
+            year: vehicleRows[0].year ? vehicleRows[0].year.toString() : "",
           }
         : null;
 
@@ -209,6 +209,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         id: "vehicle_" + Date.now(),
         name: vehicle.nickname.trim() || "Default Vehicle",
         type: vehicle.type || "gas",
+        make: vehicle.make?.trim() || null,
+        model: vehicle.model?.trim() || null,
+        year: vehicle.year ? parseInt(vehicle.year, 10) : null,
         isActive: true,
         createdAt: new Date(),
       });
@@ -219,7 +222,45 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           id: "vehicle2_" + Date.now(),
           name: vehicle2.nickname.trim() || "Secondary Vehicle",
           type: vehicle2.type || "gas",
+          make: vehicle2.make?.trim() || null,
+          model: vehicle2.model?.trim() || null,
+          year: vehicle2.year ? parseInt(vehicle2.year, 10) : null,
           isActive: false,
+          createdAt: new Date(),
+        });
+      }
+
+      // Insert goals from profile
+      if (finalProfile.weeklyGoal > 0) {
+        await db.insert(goals).values({
+          id: "goal_weekly_" + Date.now(),
+          label: "Weekly Revenue Goal",
+          targetValue: finalProfile.weeklyGoal,
+          unit: "currency",
+          period: "weekly",
+          isActive: true,
+          createdAt: new Date(),
+        });
+      }
+      if (finalProfile.monthlyGoal > 0) {
+        await db.insert(goals).values({
+          id: "goal_monthly_" + (Date.now() + 1),
+          label: "Monthly Revenue Goal",
+          targetValue: finalProfile.monthlyGoal,
+          unit: "currency",
+          period: "monthly",
+          isActive: true,
+          createdAt: new Date(),
+        });
+      }
+      if (finalProfile.annualGoal > 0) {
+        await db.insert(goals).values({
+          id: "goal_yearly_" + (Date.now() + 2),
+          label: "Yearly Revenue Goal",
+          targetValue: finalProfile.annualGoal,
+          unit: "currency",
+          period: "yearly",
+          isActive: true,
           createdAt: new Date(),
         });
       }
@@ -253,10 +294,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     try {
       // Delete all settings rows
       await db.delete(settings);
-      // Delete all vehicles, shifts, expenses (Hard Reset)
+      // Delete all vehicles, shifts, expenses, goals (Hard Reset)
       await db.delete(vehicles);
       await db.delete(shifts);
       await db.delete(expenses);
+      await db.delete(goals);
 
       set({
         isOnboardingCompleted: false,
@@ -384,6 +426,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       await db.delete(vehicles);
       await db.delete(shifts);
       await db.delete(expenses);
+      await db.delete(goals);
 
       set({
         isOnboardingCompleted: false,

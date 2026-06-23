@@ -29,6 +29,8 @@ import {
   getFinancialMonthlyBreakdown,
 } from "../../src/database/queries/analytics";
 import Svg, { Path, Circle, Rect, Defs, LinearGradient, Stop } from "react-native-svg";
+import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
+import { PLATFORMS } from "../../src/registry/platforms";
 
 // --- Vector Icons as simple view paths to avoid third party native dependencies ---
 const PlayIcon = ({ size = 14, color = "white" }: { size?: number; color?: string }) => (
@@ -359,6 +361,9 @@ export default function HomeScreen() {
 
   const trackedMileage = activeMileage + deadMileage;
 
+  // ── PWA adaptive-theme.js equivalent ──────────────────────────────────
+  const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
+
   const getEtaString = () => {
     const d = new Date();
     d.setHours(d.getHours() + customHours);
@@ -682,18 +687,18 @@ export default function HomeScreen() {
             {!isActive ? (
               <Pressable
                 onPress={handleStartShiftWizardStart}
-                style={styles.compactStartBtn}
+                style={[styles.compactStartBtn, { backgroundColor: accentColor }]}
               >
-                <PlayIcon size={12} color="white" />
-                <Text style={styles.compactStartBtnText}>Start Shift</Text>
+                <PlayIcon size={12} color={accentColorContrast} />
+                <Text style={[styles.compactStartBtnText, { color: accentColorContrast }]}>Start Shift</Text>
               </Pressable>
             ) : (
               <Pressable
                 onPress={() => setShowBigClockOverlay(true)}
-                style={styles.compactActiveBtn}
+                style={[styles.compactActiveBtn, { backgroundColor: accentColorDim, borderColor: accentColor + "55" }]}
               >
-                <View style={styles.pulseDotActive} />
-                <Text style={styles.compactActiveBtnText}>Active Shift</Text>
+                <View style={[styles.pulseDotActive, { backgroundColor: accentColor }]} />
+                <Text style={[styles.compactActiveBtnText, { color: accentColor }]}>Active Shift</Text>
               </Pressable>
             )}
           </View>
@@ -705,7 +710,7 @@ export default function HomeScreen() {
             style={styles.filterSummary}
           >
             <View style={styles.filterSummaryLeft}>
-              <CalendarIcon size={16} color="#10b981" />
+              <CalendarIcon size={16} color={accentColor} />
               <Text style={styles.filterSummaryText}>
                 {dateRange.start} – {dateRange.end}
               </Text>
@@ -735,9 +740,15 @@ export default function HomeScreen() {
                     <Pressable
                       key={p}
                       onPress={() => handleSelectPreset(p)}
-                      style={[styles.presetItemBtn, active && styles.presetItemBtnActive]}
+                      style={[
+                        styles.presetItemBtn,
+                        active && { backgroundColor: accentColor, borderColor: accentColor },
+                      ]}
                     >
-                      <Text style={[styles.presetItemBtnText, active && styles.presetItemBtnTextActive]}>
+                      <Text style={[
+                        styles.presetItemBtnText,
+                        active && { color: accentColorContrast, fontWeight: "700" },
+                      ]}>
                         {p === "ytd" ? "YTD" : p.charAt(0).toUpperCase() + p.slice(1)}
                       </Text>
                     </Pressable>
@@ -767,8 +778,8 @@ export default function HomeScreen() {
                       style={styles.customDateTextInput}
                     />
                   </View>
-                  <Pressable onPress={handleApplyCustomDates} style={styles.customApplyBtn}>
-                    <Text style={styles.customApplyBtnText}>Apply</Text>
+                  <Pressable onPress={handleApplyCustomDates} style={[styles.customApplyBtn, { backgroundColor: accentColor }]}>
+                    <Text style={[styles.customApplyBtnText, { color: accentColorContrast }]}>Apply</Text>
                   </Pressable>
                 </View>
               )}
@@ -853,13 +864,8 @@ export default function HomeScreen() {
                     <Text style={styles.modalSectionLabel}>Choose a platform to track:</Text>
                     <View style={styles.platformBadgeRow}>
                       {(profile?.selectedPlatforms || ["doordash", "ubereats", "skip"]).map((pId) => {
-                        const pColors: Record<string, string> = {
-                          doordash: "#ef4444",
-                          ubereats: "#10b981",
-                          skip: "#f97316",
-                          other: "#818cf8",
-                        };
-                        const pColor = pColors[pId] || "#10b981";
+                        const pColor = PLATFORMS[pId as GigPlatform]?.color ?? "#6b7280";
+                        const isSelectedWizard = selectedPlatformId === pId;
                         return (
                           <Pressable
                             key={pId}
@@ -871,8 +877,8 @@ export default function HomeScreen() {
                               flexDirection: "row",
                               alignItems: "center",
                               width: "100%",
-                              backgroundColor: "#1c1c1a",
-                              borderColor: "#262624",
+                              backgroundColor: isSelectedWizard ? pColor + "18" : "#1c1c1a",
+                              borderColor: isSelectedWizard ? pColor : "#262624",
                               borderWidth: 1,
                               borderRadius: 12,
                               padding: 14,
@@ -880,10 +886,10 @@ export default function HomeScreen() {
                             }}
                           >
                             <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: pColor }} />
-                            <Text style={{ fontWeight: "600", color: "#ffffff", flex: 1, fontSize: 13 }}>
+                            <Text style={{ fontWeight: "700", color: isSelectedWizard ? pColor : "#ffffff", flex: 1, fontSize: 13 }}>
                               {platformLabels[pId as GigPlatform] || pId}
                             </Text>
-                            <Text style={{ color: "#71717a", fontSize: 16 }}>→</Text>
+                            <Text style={{ color: isSelectedWizard ? pColor : "#71717a", fontSize: 16 }}>→</Text>
                           </Pressable>
                         );
                       })}
@@ -905,29 +911,29 @@ export default function HomeScreen() {
                         onPress={() => setTargetMode(false)}
                         style={{
                           flex: 1,
-                          backgroundColor: !targetMode ? "#10b981" : "#1c1c1a",
+                          backgroundColor: !targetMode ? accentColor : "#1c1c1a",
                           paddingVertical: 12,
                           borderRadius: 8,
                           alignItems: "center",
                           borderWidth: 1,
-                          borderColor: !targetMode ? "#10b981" : "#262624",
+                          borderColor: !targetMode ? accentColor : "#262624",
                         }}
                       >
-                        <Text style={{ color: "white", fontWeight: "700", fontSize: 12 }}>No, just track</Text>
+                        <Text style={{ color: !targetMode ? accentColorContrast : "#a1a1aa", fontWeight: "700", fontSize: 12 }}>No, just track</Text>
                       </Pressable>
                       <Pressable
                         onPress={() => setTargetMode(true)}
                         style={{
                           flex: 1,
-                          backgroundColor: targetMode ? "#10b981" : "#1c1c1a",
+                          backgroundColor: targetMode ? accentColor : "#1c1c1a",
                           paddingVertical: 12,
                           borderRadius: 8,
                           alignItems: "center",
                           borderWidth: 1,
-                          borderColor: targetMode ? "#10b981" : "#262624",
+                          borderColor: targetMode ? accentColor : "#262624",
                         }}
                       >
-                        <Text style={{ color: "white", fontWeight: "700", fontSize: 12 }}>Yes, set time</Text>
+                        <Text style={{ color: targetMode ? accentColorContrast : "#a1a1aa", fontWeight: "700", fontSize: 12 }}>Yes, set time</Text>
                       </Pressable>
                     </View>
 
@@ -946,7 +952,7 @@ export default function HomeScreen() {
                               }}
                               style={{
                                 flex: 1,
-                                backgroundColor: customHours === h && customMinutes === 0 ? "#10b981" : "#161615",
+                                backgroundColor: customHours === h && customMinutes === 0 ? accentColor : "#161615",
                                 paddingVertical: 6,
                                 borderRadius: 6,
                                 alignItems: "center",
@@ -1015,7 +1021,7 @@ export default function HomeScreen() {
                       <Pressable
                         onPress={handleStartShiftWizardSubmit}
                         style={{
-                          backgroundColor: "#10b981",
+                          backgroundColor: accentColor,
                           borderRadius: 8,
                           paddingVertical: 10,
                           paddingHorizontal: 20,
@@ -1024,8 +1030,8 @@ export default function HomeScreen() {
                           gap: 6,
                         }}
                       >
-                        <PlayIcon size={10} color="white" />
-                        <Text style={{ color: "white", fontWeight: "700", fontSize: 12 }}>START SHIFT</Text>
+                        <PlayIcon size={10} color={accentColorContrast} />
+                        <Text style={{ color: accentColorContrast, fontWeight: "700", fontSize: 12 }}>START SHIFT</Text>
                       </Pressable>
                     </View>
                   </View>

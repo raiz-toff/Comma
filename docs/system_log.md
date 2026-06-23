@@ -296,6 +296,13 @@ Stop execution immediately upon closing the append stream. Await PM verification
 - **Database Impact:** None.
 - **State:** Completed Task 2.6 by implementing the SectionHeader component which displays a standardized header text along with an optional interactive right-aligned action link.
 
+### Task 2.7 Completed: Expense category registry - 2026-06-23T05:26:00-04:00
+- **Files Created/Modified:**
+  - Created: `src/registry/expenseCategories.ts`
+- **Database Impact:** None.
+- **State:** Completed Task 2.7 by creating the EXPENSE_CATEGORIES registry map and exporting its keys/types.
+
+
 
 
 

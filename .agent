@@ -1,0 +1,586 @@
+# COMMA Mobile — Migration Mega Plan (.agent)
+# ═══════════════════════════════════════════════════════════════════════════════
+# This is the authoritative step-by-step migration guide from the COMMA web PWA
+# (vanilla JS + Dexie + CSS) to the Expo/React Native mobile app.
+#
+# PURPOSE: Keep every future AI conversation on-track by providing a checklist
+# of exactly what needs to be built, in what order, and why.
+#
+# STATUS KEY:  ✅ Done  |  🔲 Not Started  |  🔨 In Progress
+# ═══════════════════════════════════════════════════════════════════════════════
+
+## 0. CURRENT STATE SNAPSHOT (Baseline)
+
+### Web App (SOURCE — what we're migrating FROM)
+- Stack: Vanilla JS, esbuild, Dexie (IndexedDB), CSS custom properties
+- Router: Hash-based (#/dashboard, #/shifts, etc.)
+- 18 views: dashboard, shifts, analytics, expenses, tax, vehicles, schedule,
+  goals, reports, import, settings, support, onboarding, notifications,
+  about, print, import-help, debug
+- Design System: DM Sans/Serif/Mono fonts, CSS tokens (colors, spacing, radii,
+  shadows, transitions), light/dark/auto theming
+- Complex features: shift timer with big-clock overlay, GPS tracking, 
+  platform registry (DoorDash/UberEats/Foodora/Skip/Instacart/AmazonFlex),
+  widget-based bento dashboard, sparkline KPI cards, analytics charts,
+  expense categories, goal types, badges/XP, notifications, backup/drive,
+  CSV import, PDF reports, search overlay, PWA install
+- Data: 14 Dexie object stores (users, platforms, shifts, expenses, vehicles,
+  vehicleMaintenanceLogs, vehicleOdometerLog, fuelPrices, goals, goalHistory,
+  badges, xpLog, challenges, notifications, backupLog, appState)
+
+### Mobile App (TARGET — current state)
+- Stack: Expo SDK 56, React Native 0.85, TypeScript, Expo Router, 
+  NativeWind v4 + Tailwind v3, Drizzle ORM + expo-sqlite, Zustand, 
+  TanStack React Query
+- Screens: 1 (index.tsx — basic dashboard with shift timer + projection card)
+- Components: OnboardingWizard, OnboardingSteps, CongratulationsSheet
+- UI Primitives: Button, Card, Text (shadcn-mobile / React Native Reusables)
+- Schema: 4 tables (vehicles, shifts, expenses, settings)
+- Stores: useActiveShift, useSettingsStore, useCounterStore (unused)
+
+### GAP ANALYSIS
+The mobile app has ~5% of the web app's feature surface. The critical path is:
+1. Design system parity (colors, tokens, theming)
+2. Navigation/routing scaffold (tab + stack navigation)
+3. Database schema expansion (match web's 14 stores)
+4. Core views (dashboard → shifts → analytics → expenses)
+5. Feature modules (goals, reports, settings, etc.)
+6. Polish features (badges, search, backup, notifications)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+## PHASE 1: FOUNDATION — Design System & Navigation Shell
+## Target: App looks and feels like the web app's visual language
+═══════════════════════════════════════════════════════════════════════════════
+
+### Step 1.1 — Design Tokens & Theme System                          ✅
+Migrate the web's CSS token system to NativeWind/Tailwind equivalents.
+
+SOURCE FILES:
+  - src/css/tokens.css (color primitives, spacing, typography, radii, shadows)
+  - src/css/themes.css (light/dark/auto overrides)
+
+ACTIONS:
+  □ Update tailwind.config.js to define ALL web color tokens:
+    - Brand: #10b981 (--color-brand)
+    - Platform colors: doordash=#ff3008, ubereats=#142328, foodora=#e2006a,
+      skip=#f96302, instacart=#43b02a, amazonflex=#ff9900, other=#6b7280
+    - Semantic light: bg=#fafaf8, surface=#ffffff, surface-raised=#f2f0eb,
+      border=#e5e2da, text-primary=#1a1916, text-secondary=#6b6860,
+      text-muted=#a09d96, success=#22c55e, warning=#f59e0b, danger=#ef4444,
+      info=#3b82f6
+    - Semantic dark: bg=#12110f, surface=#1c1b18, surface-raised=#262522,
+      border=#3d3a35, text-primary=#f4f2ed, text-secondary=#b8b4ab,
+      text-muted=#7a7670
+  □ Update src/global.css HSL variables to match web tokens exactly
+  □ Add spacing scale: 4,8,12,16,20,24,32,40,48,64
+  □ Add radii: sm=6, md=10, lg=16, xl=24, pill=999
+  □ Add shadow definitions matching web's shadow-sm/md/lg/xl
+  □ Configure font family references (DM Sans equivalent or Inter)
+  □ Set up dark mode as default class="dark" on root
+
+VALIDATION:
+  - Create a ThemeShowcase component rendering all tokens
+  - Compare side-by-side with web app in dark mode
+
+### Step 1.2 — Tab Navigation Shell (App Shell Parity)               🔲
+Build the navigation skeleton matching web's sidebar + bottom nav.
+
+SOURCE FILES:
+  - src/core/shell.js (renderAppShell — sidebar nav, bottom nav, header)
+  - src/core/router.js (route table, 18 routes)
+
+ACTIONS:
+  □ Convert app/ to use Expo Router tabs layout:
+    app/
+    ├── (tabs)/
+    │   ├── _layout.tsx        ← Tab navigator (5 primary tabs)
+    │   ├── index.tsx           ← Dashboard
+    │   ├── shifts.tsx          ← Shifts list
+    │   ├── analytics.tsx       ← Analytics
+    │   ├── goals.tsx           ← Goals
+    │   └── more.tsx            ← "More" menu (expenses, tax, vehicles,
+    │                              schedule, reports, import, settings, support)
+    ├── shifts/
+    │   ├── [id].tsx            ← Shift detail/edit
+    │   └── new.tsx             ← New shift form
+    ├── expenses/
+    │   └── index.tsx           ← Expenses view
+    ├── settings/
+    │   └── index.tsx           ← Settings view
+    ├── onboarding/
+    │   └── index.tsx           ← Onboarding wizard
+    ├── notifications/
+    │   └── index.tsx           ← Notifications
+    └── _layout.tsx             ← Root layout (providers)
+
+  □ Build custom bottom tab bar matching web's bottom-nav:
+    - 5 tabs: Dashboard, Shifts, Analytics, Goals, More
+    - Icons: use lucide-react-native (home, calendar, trending-up, trophy, layout-grid)
+    - Active state: brand color (#10b981) with label visible
+    - Inactive state: muted color
+  □ Build header component matching web's app-header:
+    - Left: Avatar initials circle
+    - Center: Platform tabs switcher (scrollable horizontal)
+    - Right: Clock, Notifications bell (with badge), Settings gear
+  □ Wire the "More" tab to open a bottom sheet (using @gorhom/bottom-sheet)
+    matching web's openMoreNavMenu drawer
+
+VALIDATION:
+  - Navigate between all 5 tabs
+  - Header shows avatar, platform tabs, clock, notification bell, settings
+  - "More" opens drawer with remaining navigation items
+
+### Step 1.3 — UI Primitives Expansion                                🔲
+Expand the shadcn-mobile component library to cover web's component set.
+
+SOURCE FILES:
+  - src/ui/components.js (51KB — drawers, modals, toasts, FAB, skeletons,
+    date pickers, tabs, chips, popovers, progress bars, stat cards)
+
+ACTIONS:
+  □ Add these RNR primitives via components.json / manual scaffold:
+    - Badge (for notification counts, status indicators)
+    - Input / TextInput (for forms)
+    - Switch / Toggle (for settings)
+    - Select / Dropdown (for platform selection, categories)
+    - BottomSheet (already have @gorhom/bottom-sheet)
+    - Toast (notification toasts — use react-native-toast or custom)
+    - Modal / Dialog (confirmation dialogs)
+    - Tabs (for dashboard section switching)
+    - Progress (progress bars for goals)
+    - Skeleton (loading shimmer placeholders)
+    - Separator (divider lines)
+    - Avatar (user profile circle)
+  □ Each component should use the design tokens from Step 1.1
+  □ Each component should support dark mode via NativeWind
+
+VALIDATION:
+  - Render a component gallery screen showing all primitives
+  - All components look consistent with web app's visual language
+
+═══════════════════════════════════════════════════════════════════════════════
+
+## PHASE 2: DATA LAYER — Schema Expansion & Store Architecture
+## Target: Full data model parity with the web app
+═══════════════════════════════════════════════════════════════════════════════
+
+### Step 2.1 — Drizzle Schema Expansion                               🔲
+Expand the 4-table schema to match web's full data model.
+
+SOURCE FILES:
+  - src/core/db.js (STORES_V3 definition, DEFAULT_USER, APP_STATE_KEY_DEFAULTS)
+
+ACTIONS:
+  □ Add new tables to src/database/schema.ts:
+    - platforms (id, name, color, terminology JSON, weeklyGoal, monthlyGoal,
+      taxRatePct, notes, priority, active, addedAt, deactivatedAt, 
+      platformSpecific JSON)
+    - goals (id, type, scope, platformId, target, active, createdAt)
+    - goalHistory (id, goalId, periodStart, value)
+    - badges (id, name, description, icon, unlockedAt, notified)
+    - xpLog (id, amount, reason, createdAt)
+    - challenges (id, active, type, config JSON)
+    - notifications (id, type, title, body, read, dismissed, createdAt, data JSON)
+    - appState (key, value, updatedAt)
+    - vehicleMaintenanceLogs (id, vehicleId, date, type, cost, notes)
+    - vehicleOdometerLog (id, vehicleId, date, reading)
+    - fuelPrices (id, vehicleId, date, pricePerUnit, totalCost, liters)
+    - backupLog (id, createdAt, type, status)
+  □ Expand existing tables to match web's fields:
+    - shifts: add date (YYYY-MM-DD string), platformId, provinceId, 
+      grossEarnings (cents), bonusEarnings (cents), tips (cents), 
+      deliveryCount, durationMinutes, deadMilesKm, customFields JSON,
+      deletedAt (soft delete), onlineStartTime, onlineEndTime
+    - expenses: add platformId, provinceId, hstPaid, confirmedPaid, 
+      isRecurring, recurringInterval, deletedAt, description
+    - vehicles: add make, model, year, odometerStart, fuelType, 
+      insuranceCost, notes
+  □ Expand users/settings to store full DEFAULT_USER shape from web:
+    - Store as JSON in settings table (key="user") OR create a users table
+  □ Generate new Drizzle migration via `npm run db:generate`
+  □ Write migration logic to preserve existing data
+
+VALIDATION:
+  - Run `npx expo start`, confirm DB initializes without errors
+  - Insert and query from each new table via Drizzle Studio
+
+### Step 2.2 — Platform Registry                                     🔲
+Port the web's platform registry (catalog of gig platforms).
+
+SOURCE FILES:
+  - src/registry/platforms/index.js
+  - src/registry/platforms/terminology.js
+
+ACTIONS:
+  □ Create src/registry/platforms.ts with typed platform definitions:
+    - DoorDash, UberEats, Foodora, SkipTheDishes, Instacart, AmazonFlex, Other
+    - Each has: id, name, color, icon, terminology (orderLabel, earningsLabel)
+  □ Seed platforms table on first run (matching web's DEFAULT_PLATFORMS)
+  □ Create usePlatformsStore or integrate into useSettingsStore
+
+VALIDATION:
+  - Platforms appear in onboarding selection
+  - Platform colors render correctly in shift cards
+
+### Step 2.3 — Store Architecture Refactor                            🔲
+Refactor Zustand stores to match web's reactive store pattern.
+
+SOURCE FILES:
+  - src/core/store.js (STATE_KEYS, loadFromDB, refresh, subscribe)
+  - src/core/events.js (event bus pattern)
+
+ACTIONS:
+  □ Refactor useSettingsStore to handle full user profile (match DEFAULT_USER):
+    - countryId, provinceId, locale object, theme, accentColor, fontSize,
+      layoutDensity, dashboardWidgets, platformSwitcherMode, etc.
+  □ Create useShiftsStore (or use TanStack Query hooks):
+    - CRUD operations for shifts
+    - Weekly earnings computation
+    - Active shift timer state
+  □ Create useExpensesStore:
+    - CRUD operations for expenses
+    - Category aggregation
+  □ Create useGoalsStore:
+    - Goal CRUD, progress tracking
+  □ Create useAppStateStore:
+    - Schema version, streak data, XP, demo mode, backup status
+  □ Implement event-bus-like pattern using Zustand middleware or
+    a simple EventEmitter for cross-store reactivity
+
+VALIDATION:
+  - All stores load from DB on app start
+  - Changes persist across app restarts
+
+═══════════════════════════════════════════════════════════════════════════════
+
+## PHASE 3: CORE VIEWS — Visual Feature Parity (The Big 4)
+## Target: Dashboard, Shifts, Analytics, Expenses match web 1:1
+═══════════════════════════════════════════════════════════════════════════════
+
+### Step 3.1 — Dashboard Redesign (KPI Cards + Widgets)               🔲
+Rebuild dashboard to match web's financial overview with bento grid.
+
+SOURCE FILES:
+  - src/views/dashboard.js (1318 lines — KPI strip, widget grid, monthly table)
+  - src/css/views/dashboard.css (30KB)
+  - src/registry/widgets/ (widget registry system)
+
+ACTIONS:
+  □ Build KPI Hero Strip component (2-column mobile grid):
+    - Card 1: Gross Earnings (value + sparkline + vs-last badge)
+    - Card 2: Avg $/hr (tabbed Active/Online + sparkline)
+    - Card 3: Business Expenses (value + step chart + % of gross badge)
+    - Card 4: Tax Set-Aside (value + dot matrix + tax rate badge)
+    - Card 5: Net Take-Home (value + curved wave + margin badge)
+    - Card 6: Total Hours (tabbed Active/Online + pillar bars)
+    Each card: animated entry (fade-up), noise texture overlay, accent color
+  □ Build sparkline component using react-native-svg or pure View math
+  □ Build widget bento grid:
+    - Weekly Projection (progress bar towards goal)
+    - Consecutive Momentum (streak counter)
+    - Schedule widget
+    - Recent Activity list
+  □ Build date range filter bar (preset buttons: week/month/quarter/year/all)
+  □ Build monthly breakdown table (paginated)
+  □ Add "Start Shift" / "Active Shift" button in header
+  □ Platform tab switcher filters all dashboard data
+
+VALIDATION:
+  - Dashboard renders 6 KPI cards with animations
+  - Sparklines/charts render correctly
+  - Date range switching reloads data
+  - Platform filter works
+
+### Step 3.2 — Shifts View                                           🔲
+Full shift management: list, create, edit, delete, timer.
+
+SOURCE FILES:
+  - src/views/shifts-view.js (42KB — shift list, calendar view, bulk actions)
+  - src/modules/shifts/shift-form.js (35KB — comprehensive shift entry form)
+  - src/modules/shifts/shifts.js (24KB — CRUD, timer, calculations)
+  - src/modules/shifts/big-clock.js (31KB — full-screen timer overlay)
+  - src/css/views/shifts.css, src/css/views/calendar.css, src/css/views/big-clock.css
+
+ACTIONS:
+  □ Build ShiftList component:
+    - Grouped by date (section list)
+    - Each row: platform badge (colored), gross earnings, hourly rate,
+      duration, delivery count
+    - Swipe-to-delete with undo toast
+    - Pull-to-refresh
+  □ Build ShiftForm component (bottom sheet or full screen):
+    - Platform selector, date picker, start/end time pickers
+    - Gross earnings, tips, bonus inputs (in cents internally)
+    - Delivery count, distance driven
+    - Notes field
+    - Custom fields per platform
+  □ Build ShiftTimer system:
+    - Start/stop/pause timer with platform selection
+    - Persistent timer bar at top of screen (matches web's shift-timer-bar)
+    - Timer state persists in AsyncStorage + SQLite
+    - Big Clock overlay (full-screen timer with large digits)
+    - GPS distance tracking via expo-location
+  □ Wire to Drizzle: insert, update, soft-delete, restore
+  □ Calendar view toggle (optional — Phase 5)
+
+VALIDATION:
+  - Create a shift via form, see it in list
+  - Start timer, navigate away, timer persists
+  - Big clock overlay shows elapsed time
+  - Edit and delete shifts work
+
+### Step 3.3 — Analytics View                                        🔲
+Charts and insights matching web's analytics dashboard.
+
+SOURCE FILES:
+  - src/views/analytics-view.js (15KB)
+  - src/modules/analytics/analytics.js
+  - src/modules/analytics/widget-data.js
+  - src/ui/charts.js (18KB — Chart.js wrappers)
+  - src/css/views/analytics.css
+
+ACTIONS:
+  □ Build analytics data layer:
+    - getFinancialOverviewForRange (gross, net, expenses, hours, rates)
+    - getRollingTrend (14-day sparkline data)
+    - getWeeklyComparison (this week vs last week delta)
+  □ Build chart components (using react-native-chart-kit or victory-native):
+    - Earnings bar chart (daily/weekly/monthly)
+    - Earnings trend line chart
+    - Platform breakdown pie/donut chart
+    - Hours distribution chart
+  □ Build period switcher: Day / Week / Month / Quarter / Year / Custom
+  □ Build insights cards:
+    - Best/worst day, busiest platform, peak hours
+    - Earnings per delivery, per km
+
+VALIDATION:
+  - Charts render with real data
+  - Period switching reloads data
+  - Platform filter applies
+
+### Step 3.4 — Expenses View                                         🔲
+Expense tracking with categories and deduction flagging.
+
+SOURCE FILES:
+  - src/views/expenses-view.js (2KB — view wrapper)
+  - src/modules/expenses/expenses.js
+  - src/registry/expense-categories/index.js
+  - src/css/views/dashboard.css (expense widgets section)
+
+ACTIONS:
+  □ Build ExpenseList component:
+    - Grouped by month
+    - Each row: category icon, description, amount, date, deductible badge
+    - Swipe-to-delete
+  □ Build ExpenseForm (bottom sheet):
+    - Category selector (Fuel, Maintenance, Insurance, Phone, Parking, 
+      Tolls, Supplies, Other)
+    - Amount, date, description
+    - Platform association (optional)
+    - Deductible toggle
+    - Recurring toggle (with interval selection)
+  □ Build expense summary widgets:
+    - Total expenses, count, average, category count
+    - Category breakdown donut chart
+    - Monthly trend bar chart
+  □ Build expense category registry (typed, with icons and colors)
+
+VALIDATION:
+  - Add/edit/delete expenses
+  - Category breakdown chart renders
+  - Recurring expense prompt works
+
+═══════════════════════════════════════════════════════════════════════════════
+
+## PHASE 4: SECONDARY VIEWS — Completing the Feature Set
+## Target: All remaining web views have mobile equivalents
+═══════════════════════════════════════════════════════════════════════════════
+
+### Step 4.1 — Goals View                                             🔲
+SOURCE: src/views/goals-view.js (20KB), src/modules/goals/goals.js
+
+ACTIONS:
+  □ Goal types: earnings, hours, deliveries, savings
+  □ Goal scopes: daily, weekly, monthly, annual
+  □ Progress bars with animated fill
+  □ Goal history tracking
+  □ Confetti animation on goal completion
+
+### Step 4.2 — Settings View                                          🔲
+SOURCE: src/views/settings-view.js, src/modules/settings/
+
+ACTIONS:
+  □ Profile section: name, avatar, country/province
+  □ Platforms section: activate/deactivate, reorder, custom colors
+  □ Locale section: currency, distance unit, date format, week start day
+  □ Appearance: theme toggle (light/dark/auto), accent color, font size, density
+  □ Tax section: withholding %, HST registration
+  □ Data section: export, import, backup, reset
+  □ About section: version, changelog, support links
+
+### Step 4.3 — Reports & Export View                                  🔲
+SOURCE: src/views/reports-view.js (27KB), src/modules/reports/
+
+ACTIONS:
+  □ Date range selector for report period
+  □ Report types: earnings summary, tax summary, expense report, mileage log
+  □ Export formats: CSV, PDF (using expo-print or expo-sharing)
+  □ Platform and category filters
+  □ Report preview before export
+
+### Step 4.4 — Import View                                            🔲
+SOURCE: src/views/import-view.js (51KB)
+
+ACTIONS:
+  □ CSV import for shifts and expenses
+  □ Column mapping wizard
+  □ Preview and validation before import
+  □ Duplicate detection
+  □ Import progress indicator
+
+### Step 4.5 — Tax View                                               🔲
+SOURCE: src/views/tax-view.js (placeholder in web)
+
+ACTIONS:
+  □ Tax withholding calculator
+  □ Quarterly tax estimate
+  □ Deduction summary (mileage + expenses)
+  □ HST/GST calculations for Canada
+  □ Tax year summary export
+
+### Step 4.6 — Vehicles View                                          🔲
+SOURCE: src/views/vehicles-view.js (placeholder in web)
+
+ACTIONS:
+  □ Vehicle CRUD (name, type, make, model, year)
+  □ Odometer logging
+  □ Fuel price tracking
+  □ Maintenance log
+  □ Vehicle expense summary
+
+### Step 4.7 — Notifications View                                     🔲
+SOURCE: src/views/notifications-view.js, src/modules/notifications/
+
+ACTIONS:
+  □ Notification list with read/unread states
+  □ Notification types: milestone, warning, info, badge-unlocked
+  □ Push notification integration (expo-notifications)
+  □ Unread badge count on tab bar and header bell
+
+### Step 4.8 — Support & About View                                   🔲
+SOURCE: src/views/support-view.js (9KB), src/views/about-view.js
+
+ACTIONS:
+  □ FAQ / help content
+  □ Contact / feedback form
+  □ App version and changelog
+  □ Open source licenses
+  □ Debug view (for development)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+## PHASE 5: POLISH & ADVANCED FEATURES
+## Target: Feature parity + mobile-native advantages
+═══════════════════════════════════════════════════════════════════════════════
+
+### Step 5.1 — Onboarding Flow Refinement                             🔲
+Match web's multi-step onboarding (country → profile → platforms → vehicle → 
+goals → demo data option).
+
+SOURCE: src/modules/onboarding/onboarding.js (38KB), steps.js (29KB)
+
+### Step 5.2 — Badges & Gamification System                           🔲
+SOURCE: src/registry/badges/, src/registry/metrics/
+
+ACTIONS:
+  □ Badge registry with unlock conditions
+  □ XP system with level progression
+  □ Streak tracking (consecutive days worked)
+  □ Challenge system
+  □ Badge unlock celebration animation
+
+### Step 5.3 — Search Overlay                                         🔲
+SOURCE: src/modules/search/search.js, src/css/views/search.css
+
+ACTIONS:
+  □ Global search overlay (shifts, expenses, platforms, settings)
+  □ Fuzzy search using fuse.js equivalent
+  □ Recent searches
+  □ Quick action results
+
+### Step 5.4 — Backup & Sync                                          🔲
+SOURCE: src/modules/backup/, src/modules/backup/drive-auth.js
+
+ACTIONS:
+  □ Local JSON backup export/import
+  □ Google Drive backup integration
+  □ Auto-backup on shift completion
+  □ Backup history log
+
+### Step 5.5 — Schedule View                                          🔲
+SOURCE: src/views/schedule-view.js (placeholder)
+
+ACTIONS:
+  □ Weekly schedule planner
+  □ Shift scheduling with platform assignment
+  □ Calendar integration (expo-calendar)
+
+### Step 5.6 — GPS & Location Tracking                                🔲
+SOURCE: src/core/gps-tracker.js (8KB)
+
+ACTIONS:
+  □ Background location tracking during active shifts (expo-location)
+  □ Distance accumulation (dead miles vs active miles)
+  □ Location permissions flow
+  □ Battery-efficient tracking mode
+
+### Step 5.7 — Localization / i18n                                    🔲
+SOURCE: src/utils/strings.js (102KB — full string catalog)
+
+ACTIONS:
+  □ Extract all strings to i18n system (expo-localization + i18next or similar)
+  □ Support English (default), with architecture for future languages
+  □ Country-specific formatting (CA vs US currency, distance, date)
+
+### Step 5.8 — Country & Province Registry                            🔲
+SOURCE: src/registry/countries/, src/registry/provinces/
+
+ACTIONS:
+  □ Country definitions (CA, US) with tax profiles
+  □ Province/state definitions with tax rates
+  □ Market context resolution (min wage, mileage rates)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+## EXECUTION RULES
+═══════════════════════════════════════════════════════════════════════════════
+
+1. ALWAYS complete a step fully before starting the next
+2. ALWAYS update the status checkbox (🔲→🔨→✅) when starting/finishing a step  
+3. NEVER skip Phase 1 — it's the visual foundation everything else depends on
+4. ALWAYS refer to web source files listed under each step for exact behavior
+5. ALWAYS test on Android device/emulator after each step (not just web)
+6. ALWAYS use expo-sqlite via Drizzle — no web-only localStorage hacks
+7. ALWAYS keep the Platform.OS === "web" guard in _layout.tsx for SQLiteProvider
+8. ALWAYS read Expo SDK 56 docs at https://docs.expo.dev/versions/v56.0.0/
+9. When building UI, compare with web app running at localhost:3000
+10. Prefer bottom sheets over full modals for forms (mobile UX best practice)
+
+## DEPENDENCY NOTES
+- react-native-svg: needed for sparklines/charts (install + rebuild native)
+- expo-location: needed for GPS tracking (Phase 5.6)
+- expo-notifications: needed for push notifications (Phase 4.7)
+- expo-print / expo-sharing: needed for PDF export (Phase 4.3)
+- react-native-chart-kit or victory-native: needed for analytics charts
+- fuse.js: needed for fuzzy search (Phase 5.3)
+- @react-native-async-storage/async-storage: needed for timer persistence
+
+## FILE NAMING CONVENTIONS
+- Screens: app/(tabs)/screenName.tsx or app/feature/index.tsx
+- Components: src/components/feature/ComponentName.tsx
+- Stores: store/useFeatureStore.ts
+- Hooks: hooks/useFeatureName.ts
+- Utils: utils/featureName.ts
+- Registry: src/registry/registryName.ts

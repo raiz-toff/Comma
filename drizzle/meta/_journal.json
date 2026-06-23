@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1782191300543,
+      "tag": "0000_concerned_zodiak",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1782195532656,
+      "tag": "0001_opposite_zombie",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1782201058176,
+      "tag": "0002_ancient_typhoid_mary",
+      "breakpoints": true
+    }
+  ]
+}

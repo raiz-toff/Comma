@@ -1,0 +1,11 @@
+import { Config, defineConfig } from "drizzle-kit";
+
+export default defineConfig({
+  dialect: "sqlite",
+  driver: "expo",
+  schema: "./src/database/schema.ts",
+  out: "./drizzle",
+  dbCredentials: {
+    url: "comma.db",
+  },
+}) satisfies Config;

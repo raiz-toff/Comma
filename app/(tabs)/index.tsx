@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ScrollView, View, ActivityIndicator, Pressable, StyleSheet, Alert, Platform } from "react-native";
+import { ScrollView, View, ActivityIndicator, Pressable, StyleSheet, Alert, Platform, TextInput, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "../../src/components/ui/button";
@@ -270,6 +270,67 @@ const CircularProgress = ({ pct, color, size = 32 }: { pct: number; color: strin
   );
 };
 
+function ymd(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function startOfWeekDate(d: Date, weekStartDay: number) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const delta = (x.getDay() - weekStartDay + 7) % 7;
+  x.setDate(x.getDate() - delta);
+  return x;
+}
+
+function defaultRangeForPreset(preset: string, now: Date, weekStartDay: number) {
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const today = ymd(now);
+  if (preset === "day") {
+    return { start: today, end: today, preset: "day" };
+  }
+  if (preset === "week") {
+    return { start: ymd(startOfWeekDate(now, weekStartDay)), end: today, preset: "week" };
+  }
+  if (preset === "month") {
+    const start = `${y}-${String(m + 1).padStart(2, "0")}-01`;
+    const end = ymd(new Date(y, m + 1, 0));
+    return { start, end, preset: "month" };
+  }
+  if (preset === "q1") return { start: `${y}-01-01`, end: `${y}-03-31`, preset: "q1" };
+  if (preset === "q2") return { start: `${y}-04-01`, end: `${y}-06-30`, preset: "q2" };
+  if (preset === "q3") return { start: `${y}-07-01`, end: `${y}-09-30`, preset: "q3" };
+  if (preset === "q4") return { start: `${y}-10-01`, end: `${y}-12-31`, preset: "q4" };
+  if (preset === "year") {
+    return { start: `${y}-01-01`, end: `${y}-12-31`, preset: "year" };
+  }
+  if (preset === "ytd") {
+    return { start: `${y}-01-01`, end: today, preset: "ytd" };
+  }
+  return { start: `${y - 1}-01-01`, end: today, preset: "all" };
+}
+
+const CalendarIcon = ({ size = 18, color = "#10b981" }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+    <Path d="M16 2v4M8 2v4M3 10h18" />
+  </Svg>
+);
+
+const ChevronDownIcon = ({ size = 16, color = "#a1a1aa" }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M6 9l6 6 6-6" />
+  </Svg>
+);
+
+const ChevronUpIcon = ({ size = 16, color = "#a1a1aa" }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M18 15l-6-6-6 6" />
+  </Svg>
+);
+
 export default function HomeScreen() {
   const queryClient = useQueryClient();
   
@@ -303,10 +364,50 @@ export default function HomeScreen() {
   const [avgRateTab, setAvgRateTab] = useState<"active" | "online">("active");
   const [hoursTab, setHoursTab] = useState<"active" | "online">("active");
 
+  // Date Range and Filter States matching PWA
+  const [dateRange, setDateRange] = useState(() => {
+    const today = new Date();
+    return defaultRangeForPreset("month", today, 0);
+  });
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [filterExpanded, setFilterExpanded] = useState(false);
+  const [showPlatformPicker, setShowPlatformPicker] = useState(false);
+  const [showActiveShiftModal, setShowActiveShiftModal] = useState(false);
+
   // Load Settings on Mount
   useEffect(() => {
     loadSettings();
   }, []);
+
+  // Sync date range preset week start day once profile settings are loaded
+  useEffect(() => {
+    const today = new Date();
+    setDateRange(defaultRangeForPreset(dateRange.preset, today, 0));
+  }, [profile?.country]);
+
+  const handleSelectPreset = (preset: string) => {
+    if (preset === "custom") {
+      setCustomStart(dateRange.start);
+      setCustomEnd(dateRange.end);
+      setDateRange((prev) => ({ ...prev, preset: "custom" }));
+      return;
+    }
+    const weekStartDay = 0;
+    const range = defaultRangeForPreset(preset, new Date(), weekStartDay);
+    setDateRange(range);
+    setFilterExpanded(false);
+  };
+
+  const handleApplyCustomDates = () => {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(customStart) || !dateRegex.test(customEnd)) {
+      Alert.alert("Invalid Format", "Dates must be in YYYY-MM-DD format.");
+      return;
+    }
+    setDateRange({ start: customStart, end: customEnd, preset: "custom" });
+    setFilterExpanded(false);
+  };
 
   // Set up timer effect for active shift
   useEffect(() => {
@@ -341,17 +442,17 @@ export default function HomeScreen() {
     enabled: isOnboardingCompleted,
   });
 
-  // Period stats for the current month overview
+  // Period stats for the selected overview range
   const { data: financialOverview } = useQuery({
-    queryKey: ["analytics", "financialOverview", activePlatformFilter],
-    queryFn: () => getFinancialOverviewForRange(startOfMonth, endOfMonth, activePlatformFilter, 0),
+    queryKey: ["analytics", "financialOverview", activePlatformFilter, dateRange.start, dateRange.end],
+    queryFn: () => getFinancialOverviewForRange(new Date(dateRange.start), new Date(dateRange.end + "T23:59:59"), activePlatformFilter, 0),
     enabled: isOnboardingCompleted,
   });
 
   // Monthly table breakdown
   const { data: monthlyBreakdown } = useQuery({
-    queryKey: ["analytics", "monthlyBreakdown", activePlatformFilter],
-    queryFn: () => getFinancialMonthlyBreakdown(startOfYear, endOfYear, activePlatformFilter),
+    queryKey: ["analytics", "monthlyBreakdown", activePlatformFilter, dateRange.start, dateRange.end],
+    queryFn: () => getFinancialMonthlyBreakdown(new Date(dateRange.start), new Date(dateRange.end + "T23:59:59"), activePlatformFilter),
     enabled: isOnboardingCompleted,
   });
 
@@ -480,67 +581,196 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Active Shift Component */}
-        <View style={[styles.activeShiftCard, isActive && styles.activeShiftCardActive]}>
-          <View style={styles.activeShiftHeader}>
-            <View style={styles.statusGroup}>
-              <View style={[styles.statusDot, isActive ? styles.statusDotActive : styles.statusDotInactive]} />
-              <Text style={[styles.statusText, isActive ? styles.statusTextActive : styles.statusTextInactive]}>
-                {isActive
-                  ? `STATUS: ON-DUTY • ${platformLabels[activePlatform || "other"]}`
-                  : "STATUS: OFF-DUTY"}
-              </Text>
-            </View>
-            {isActive && (
-              <View style={styles.activeLabel}>
-                <Text style={styles.activeLabelText}>ACTIVE</Text>
-              </View>
+        {/* PWA-Parity Homepage Header */}
+        <View style={styles.homepageHeader}>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>Financial Overview</Text>
+            <Text style={styles.headerSubtitle}>
+              Track your delivery performance and earnings.
+            </Text>
+          </View>
+          <View style={styles.headerActions}>
+            {!isActive ? (
+              <Pressable
+                onPress={() => setShowPlatformPicker(true)}
+                style={styles.compactStartBtn}
+              >
+                <PlayIcon size={12} color="white" />
+                <Text style={styles.compactStartBtnText}>Start Shift</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={() => setShowActiveShiftModal(true)}
+                style={styles.compactActiveBtn}
+              >
+                <View style={styles.pulseDotActive} />
+                <Text style={styles.compactActiveBtnText}>Active Shift</Text>
+              </Pressable>
             )}
           </View>
+        </View>
 
-          <View style={styles.activeShiftBody}>
-            {!isActive ? (
-              // Idle Shift Starter
-              <View style={{ gap: 14 }}>
-                <View style={{ gap: 6 }}>
-                  <Text style={styles.idleTitle}>Select Active Platform:</Text>
-                  <View style={styles.platformSelectorRow}>
-                    {(profile.selectedPlatforms || ["doordash", "ubereats", "skip"]).map((pId) => (
-                      <Pressable
-                        key={pId}
-                        onPress={() => setSelectedPlatform(pId as any)}
-                        style={[
-                          styles.platformBtn,
-                          selectedPlatform === pId && styles.platformBtnSelected
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.platformBtnText,
-                            selectedPlatform === pId && styles.platformBtnTextSelected
-                          ]}
-                        >
-                          {platformLabels[pId as GigPlatform] || pId}
-                        </Text>
-                      </Pressable>
-                    ))}
+        {/* Date Range Collapsible Filter Bar */}
+        <View style={styles.filterCard}>
+          <Pressable
+            onPress={() => setFilterExpanded(!filterExpanded)}
+            style={styles.filterSummary}
+          >
+            <View style={styles.filterSummaryLeft}>
+              <CalendarIcon size={16} color="#10b981" />
+              <Text style={styles.filterSummaryText}>
+                {dateRange.start} – {dateRange.end}
+              </Text>
+            </View>
+            <View style={styles.filterSummaryRight}>
+              <View style={styles.filterPresetBadge}>
+                <Text style={styles.filterPresetBadgeText}>
+                  {dateRange.preset === "custom"
+                    ? "Custom"
+                    : dateRange.preset.charAt(0).toUpperCase() + dateRange.preset.slice(1)}
+                </Text>
+              </View>
+              {filterExpanded ? (
+                <ChevronUpIcon size={14} color="#71717a" />
+              ) : (
+                <ChevronDownIcon size={14} color="#71717a" />
+              )}
+            </View>
+          </Pressable>
+
+          {filterExpanded && (
+            <View style={styles.filterExpandedContent}>
+              <View style={styles.presetButtonsRow}>
+                {["day", "week", "month", "year", "ytd", "custom"].map((p) => {
+                  const active = dateRange.preset === p;
+                  return (
+                    <Pressable
+                      key={p}
+                      onPress={() => handleSelectPreset(p)}
+                      style={[styles.presetItemBtn, active && styles.presetItemBtnActive]}
+                    >
+                      <Text style={[styles.presetItemBtnText, active && styles.presetItemBtnTextActive]}>
+                        {p === "ytd" ? "YTD" : p.charAt(0).toUpperCase() + p.slice(1)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {dateRange.preset === "custom" && (
+                <View style={styles.customRangeInputsRow}>
+                  <View style={styles.customDateInputContainer}>
+                    <Text style={styles.customDateInputLabel}>Start Date</Text>
+                    <TextInput
+                      value={customStart}
+                      onChangeText={setCustomStart}
+                      placeholder="YYYY-MM-DD"
+                      placeholderTextColor="#52525b"
+                      style={styles.customDateTextInput}
+                    />
                   </View>
+                  <View style={styles.customDateInputContainer}>
+                    <Text style={styles.customDateInputLabel}>End Date</Text>
+                    <TextInput
+                      value={customEnd}
+                      onChangeText={setCustomEnd}
+                      placeholder="YYYY-MM-DD"
+                      placeholderTextColor="#52525b"
+                      style={styles.customDateTextInput}
+                    />
+                  </View>
+                  <Pressable onPress={handleApplyCustomDates} style={styles.customApplyBtn}>
+                    <Text style={styles.customApplyBtnText}>Apply</Text>
+                  </Pressable>
                 </View>
+              )}
+            </View>
+          )}
+        </View>
 
-                <Pressable onPress={handleStartShift} style={styles.startShiftBtn}>
-                  <PlayIcon size={14} color="white" />
-                  <Text style={styles.startShiftBtnText}>START SHIFT</Text>
+        {/* Platform Selector Modal */}
+        <Modal
+          visible={showPlatformPicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowPlatformPicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Start New Shift</Text>
+                <Pressable onPress={() => setShowPlatformPicker(false)} style={styles.closeBtn}>
+                  <Text style={styles.closeBtnText}>×</Text>
                 </Pressable>
               </View>
-            ) : (
-              // Active Shift Dashboard
-              <View style={{ gap: 14 }}>
-                <View style={styles.timerDisplay}>
-                  <Text style={styles.timerDigits}>{formatTime(elapsedSeconds)}</Text>
-                  <Text style={styles.timerLabel}>Elapsed Duration</Text>
+
+              <View style={styles.modalBody}>
+                <Text style={styles.modalSectionLabel}>Select Active Platform:</Text>
+                <View style={styles.platformBadgeRow}>
+                  {(profile?.selectedPlatforms || ["doordash", "ubereats", "skip"]).map((pId) => (
+                    <Pressable
+                      key={pId}
+                      onPress={() => setSelectedPlatform(pId as any)}
+                      style={[
+                        styles.platformBadgeBtn,
+                        selectedPlatform === pId && styles.platformBadgeBtnActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.platformBadgeBtnText,
+                          selectedPlatform === pId && styles.platformBadgeBtnTextActive,
+                        ]}
+                      >
+                        {platformLabels[pId as GigPlatform] || pId}
+                      </Text>
+                    </Pressable>
+                  ))}
                 </View>
 
-                <View style={styles.activeMileageRow}>
+                <Pressable
+                  onPress={() => {
+                    setShowPlatformPicker(false);
+                    handleStartShift();
+                  }}
+                  style={styles.modalSubmitBtn}
+                >
+                  <PlayIcon size={12} color="white" />
+                  <Text style={styles.modalSubmitBtnText}>START LOGGING</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Active Shift Control Modal */}
+        <Modal
+          visible={showActiveShiftModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowActiveShiftModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <View style={styles.pulseDotActive} />
+                  <Text style={styles.modalTitle}>
+                    On Duty: {platformLabels[activePlatform || "other"]}
+                  </Text>
+                </View>
+                <Pressable onPress={() => setShowActiveShiftModal(false)} style={styles.closeBtn}>
+                  <Text style={styles.closeBtnText}>×</Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.modalBody}>
+                <View style={styles.modalTimerContainer}>
+                  <Text style={styles.modalTimerDigits}>{formatTime(elapsedSeconds)}</Text>
+                  <Text style={styles.modalTimerLabel}>ELAPSED DURATION</Text>
+                </View>
+
+                <View style={styles.modalMileageRow}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                     <View style={styles.mileageIconBg}>
                       <View style={{ width: 14, height: 14, borderRadius: 7, borderWidth: 1.5, borderColor: "#818cf8" }} />
@@ -548,25 +778,31 @@ export default function HomeScreen() {
                     <View>
                       <Text style={styles.mileageLabel}>Tracked Distance</Text>
                       <Text style={styles.mileageValue}>
-                        {trackedMileage.toFixed(2)} {profile.distanceUnit}
+                        {trackedMileage.toFixed(2)} {profile?.distanceUnit}
                       </Text>
                     </View>
                   </View>
 
                   <Pressable onPress={() => updateMileage(0.5, 0)} style={styles.addMileBtn}>
                     <PlusIcon size={12} color="#ffffff" />
-                    <Text style={styles.addMileBtnText}>+0.5 {profile.distanceUnit}</Text>
+                    <Text style={styles.addMileBtnText}>+0.5 {profile?.distanceUnit}</Text>
                   </Pressable>
                 </View>
 
-                <Pressable onPress={handleEndShift} style={styles.endShiftBtn}>
-                  <SquareIcon size={14} color="white" />
-                  <Text style={styles.endShiftBtnText}>END SHIFT</Text>
+                <Pressable
+                  onPress={() => {
+                    setShowActiveShiftModal(false);
+                    handleEndShift();
+                  }}
+                  style={styles.modalEndShiftBtn}
+                >
+                  <SquareIcon size={12} color="white" />
+                  <Text style={styles.modalEndShiftBtnText}>END ACTIVE SHIFT</Text>
                 </Pressable>
               </View>
-            )}
+            </View>
           </View>
-        </View>
+        </Modal>
 
         {/* KPI Hero Grid - High Fidelity PWA Port */}
         <View style={styles.kpiGrid}>
@@ -1361,5 +1597,353 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "900",
     letterSpacing: 1,
+  },
+  homepageHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  headerTextContainer: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#ffffff",
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: "#a1a1aa",
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  headerActions: {
+    justifyContent: "center",
+    alignItems: "flex-end",
+  },
+  compactStartBtn: {
+    backgroundColor: "#10b981",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    shadowColor: "#10b981",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  compactStartBtnText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  compactActiveBtn: {
+    backgroundColor: "#ef4444",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    shadowColor: "#ef4444",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  compactActiveBtnText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  pulseDotActive: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#ffffff",
+  },
+  filterCard: {
+    backgroundColor: "#161615",
+    borderColor: "#262624",
+    borderWidth: 1,
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  filterSummary: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 12,
+  },
+  filterSummaryLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  filterSummaryText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  filterSummaryRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  filterPresetBadge: {
+    backgroundColor: "#262624",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  filterPresetBadgeText: {
+    color: "#a1a1aa",
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  filterExpandedContent: {
+    borderTopWidth: 1,
+    borderTopColor: "#262624",
+    padding: 12,
+    backgroundColor: "#1c1c1a",
+    gap: 12,
+  },
+  presetButtonsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  presetItemBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: "#161615",
+    borderColor: "#262624",
+    borderWidth: 1,
+  },
+  presetItemBtnActive: {
+    backgroundColor: "#10b981",
+    borderColor: "#10b981",
+  },
+  presetItemBtnText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#a1a1aa",
+  },
+  presetItemBtnTextActive: {
+    color: "#ffffff",
+  },
+  customRangeInputsRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: "#262624",
+    paddingTop: 12,
+  },
+  customDateInputContainer: {
+    flex: 1,
+    gap: 4,
+  },
+  customDateInputLabel: {
+    fontSize: 10,
+    color: "#71717a",
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  customDateTextInput: {
+    backgroundColor: "#161615",
+    borderColor: "#262624",
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    color: "#ffffff",
+    fontSize: 12,
+  },
+  customApplyBtn: {
+    backgroundColor: "#10b981",
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  customApplyBtnText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#161615",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderColor: "#262624",
+    borderTopWidth: 1,
+    padding: 16,
+    paddingBottom: 32,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#262624",
+    paddingBottom: 12,
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#ffffff",
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  closeBtnText: {
+    fontSize: 22,
+    color: "#71717a",
+    fontWeight: "600",
+  },
+  modalBody: {
+    gap: 16,
+  },
+  modalSectionLabel: {
+    fontSize: 11,
+    color: "#71717a",
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  platformBadgeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  platformBadgeBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#1c1c1a",
+    borderColor: "#262624",
+    borderWidth: 1,
+  },
+  platformBadgeBtnActive: {
+    borderColor: "#10b981",
+    backgroundColor: "rgba(16, 185, 129, 0.08)",
+  },
+  platformBadgeBtnText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#a1a1aa",
+  },
+  platformBadgeBtnTextActive: {
+    color: "#10b981",
+  },
+  modalSubmitBtn: {
+    backgroundColor: "#10b981",
+    borderRadius: 8,
+    paddingVertical: 12,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 8,
+  },
+  modalSubmitBtnText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  modalTimerContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0d0d0c",
+    paddingVertical: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#262624",
+  },
+  modalTimerDigits: {
+    fontSize: 36,
+    fontWeight: "900",
+    color: "#ffffff",
+    fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace",
+    letterSpacing: 1,
+  },
+  modalTimerLabel: {
+    fontSize: 10,
+    color: "#a1a1aa",
+    textTransform: "uppercase",
+    fontWeight: "700",
+    marginTop: 4,
+    letterSpacing: 0.5,
+  },
+  modalMileageRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#0d0d0c",
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#262624",
+  },
+  modalMileageLabel: {
+    fontSize: 9,
+    color: "#a1a1aa",
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  modalMileageValue: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#ffffff",
+    marginTop: 2,
+  },
+  modalAddMileBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#1c1c1a",
+    borderWidth: 1,
+    borderColor: "#262624",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  modalAddMileBtnText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#ffffff",
+  },
+  modalEndShiftBtn: {
+    backgroundColor: "#ef4444",
+    borderRadius: 8,
+    paddingVertical: 12,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 8,
+  },
+  modalEndShiftBtnText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "700",
   },
 });

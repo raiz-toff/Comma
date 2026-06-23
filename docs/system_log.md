@@ -339,6 +339,14 @@ Stop execution immediately upon closing the append stream. Await PM verification
 - **Database Impact:** Reads paginated shifts from `getShiftsPaginated()` with page, date-range, and platform filters.
 - **State:** Completed Task 4.1. Replaced the simple shifts list view with a fully functional paginated history log under `app/(tabs)/shifts/index.tsx`. Features include ShiftCard component displaying hours, distance, total earnings, platform badge, and notes; a toggleable filter bar with multi-platform selector chips, cross-platform date pickers (web native date inputs, custom keyboard text inputs on native mobile); and a pagination "Load More" button.
 
+### Task 4.2 Completed: Shift detail screen - 2026-06-23T05:50:00-04:00
+- **Files Created/Modified:**
+  - Created: `app/(tabs)/shifts/[id].tsx`
+  - Modified: `src/database/queries/expenses.ts`
+- **Database Impact:** Fetches shift details from `getShiftById(id)` and linked expenses via `getExpensesByShift(id)`. Allows inserting (`insertExpense`) and deleting (`deleteExpense`) expenses. Shift deletion cascades.
+- **State:** Completed Task 4.2. Implemented the Shift Detail screen at `app/(tabs)/shifts/[id].tsx`. Features include total payout header, quick stats grid (duration, hourly rate, total distance), shift notes card, mileage split breakdown card with a custom dual-colored progress bar, a linked expenses list with inline category-specific item logging (fuel, wash, maintenance, etc.) and item deletion triggers, and a red destructive shift delete action that prompts before cascade delete.
+
+
 
 
 

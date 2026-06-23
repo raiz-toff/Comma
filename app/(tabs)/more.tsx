@@ -2,6 +2,7 @@ import React from "react";
 import { View, ScrollView, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { Target, BarChart3, Calendar, Car, Settings, Info } from "lucide-react-native";
 import { Text } from "../../src/components/ui/text";
 
 // Pure View Icon components for visual polish without react-native-svg
@@ -12,18 +13,18 @@ const ChevronRightIcon = ({ color = "#64748b" }) => (
 interface MenuItemProps {
   title: string;
   subtitle: string;
-  iconChar: string;
+  icon: React.ComponentType<{ size?: number; color?: string }>;
   onPress: () => void;
 }
 
-const MenuItem = ({ title, subtitle, iconChar, onPress }: MenuItemProps) => (
+const MenuItem = ({ title, subtitle, icon: Icon, onPress }: MenuItemProps) => (
   <TouchableOpacity
     onPress={onPress}
     className="flex flex-row items-center justify-between p-4 bg-slate-900/60 border border-slate-800/60 rounded-xl mb-3 active:bg-slate-800/60"
   >
     <View className="flex flex-row items-center gap-3.5">
       <View className="w-10 h-10 rounded-xl bg-[#1c1b18] border border-[#3d3a35] items-center justify-center">
-        <Text className="text-lg">{iconChar}</Text>
+        <Icon size={20} color="#10b981" />
       </View>
       <View className="flex flex-col">
         <Text className="text-sm font-bold text-slate-100">{title}</Text>
@@ -47,37 +48,37 @@ export default function MoreScreen() {
           <MenuItem
             title="Goals"
             subtitle="Manage earnings, mileage, and hour goals"
-            iconChar="🎯"
+            icon={Target}
             onPress={() => router.push("/goals")}
           />
           <MenuItem
             title="Reports"
             subtitle="Export spreadsheets and summaries"
-            iconChar="📊"
+            icon={BarChart3}
             onPress={() => router.push("/reports")}
           />
           <MenuItem
             title="Schedule"
             subtitle="Adjust weekly shifts presets"
-            iconChar="📅"
+            icon={Calendar}
             onPress={() => router.push("/schedule")}
           />
           <MenuItem
             title="Vehicles"
             subtitle="Add, edit, or delete active vehicles"
-            iconChar="🚗"
+            icon={Car}
             onPress={() => router.push("/vehicles")}
           />
           <MenuItem
             title="Settings"
             subtitle="Configure profile and backup preferences"
-            iconChar="⚙️"
+            icon={Settings}
             onPress={() => router.push("/settings")}
           />
           <MenuItem
             title="About"
             subtitle="System status, license, and version info"
-            iconChar="ℹ️"
+            icon={Info}
             onPress={() => router.push("/about")}
           />
         </View>

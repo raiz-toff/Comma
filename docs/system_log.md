@@ -354,15 +354,53 @@ Stop execution immediately upon closing the append stream. Await PM verification
 - **State:** Completed Task 4.3. Installed `papaparse` package for fast, client-side CSV parsing. Implemented the CSV Import Wizard screen featuring a 4-step wizard: (1) Document picker for selecting CSV files (expo-document-picker), (2) Mapping interface that matches headers dynamically and lets drivers configure them, (3) Preview of the first 5 parsed records with summary of valid and skipped rows, (4) DB transaction ingestion showing final statistics. Added launch triggers inside the Settings screen under the Data section.
 
 
+### Phase 5 & 6 Completed: Expenses List & Modal - 2026-06-23T06:30:00-04:00
+- **Files Created/Modified:**
+  - Created: `app/(tabs)/expenses/index.tsx`, `app/expense/add.tsx`
+  - Modified: `src/database/queries/expenses.ts`
+- **Database Impact:** Reads and groups expenses by month; handles adding/updating/deleting individual expense rows.
+- **State:** Completed Phase 5 & 6. Built the grouped SectionList for expenses, a deductible/non-deductible toggle, and the Add/Edit Expense modal supporting category selection, receipt attachment (using camera/gallery), vehicle linking, and notes.
 
+### Phase 7 Completed: Tax Calculations & Dashboard - 2026-06-23T07:15:00-04:00
+- **Files Created/Modified:**
+  - Created: `utils/taxCalculations.ts`, `app/(tabs)/tax/index.tsx`
+- **Database Impact:** Reads earnings and vehicle mileage to calculate CRA (Canada) and IRS (US) tax deductions.
+- **State:** Completed Phase 7. Implemented tax calculations logic (pensionable earnings, self-employment tax, mileage deductions, write-offs). Added a region-aware dashboard displaying YTD estimates, deductions value, and quarterly tax reminders.
 
+### Phase 8 Completed: Goals UI & Tracking - 2026-06-23T08:45:00-04:00
+- **Files Created/Modified:**
+  - Created: `app/goals/index.tsx`
+  - Modified: `src/database/queries/goals.ts`, `store/useSettingsStore.ts`
+- **Database Impact:** Aggregates shifts, distance, duration, and mileage to track current progress vs. goal targets.
+- **State:** Completed Phase 8. Built the Goals UI with target/unit selectors, visual progress bars, CRUD support, and onboarding synchronization.
 
+### Phase 9 Completed: Reports Screen & Export - 2026-06-23T11:00:00-04:00
+- **Files Created/Modified:**
+  - Created: `utils/reportGenerator.ts`, `app/reports/index.tsx`
+  - Modified: `src/components/shifts/CSVImportWizard.tsx`
+- **Database Impact:** Reads shifts and expenses logs to serialize CSV or build HTML print sheets.
+- **State:** Completed Phase 9. Implemented CSV generators via PapaParse, HTML template rendering, PDF print files generation via `expo-print`, and share triggers. Updated filesystem imports to use `expo-file-system/legacy` to prevent runtime exceptions.
 
+### Phase 10 Completed: Schedule Calendar & Presets - 2026-06-23T11:10:00-04:00
+- **Files Created/Modified:**
+  - Created: `app/schedule/index.tsx`
+  - Modified: `src/database/queries/shifts.ts`
+- **Database Impact:** Reads shifts for the month. Saves recurring template lists to settings KV.
+- **State:** Completed Phase 10. Built a custom monthly grid calendar showing daily shifts via platform colored dots, selected day summaries, recurring shift templates planning, and scheduled reminders via `expo-notifications`.
 
+### Phase 11 Completed: About Screen - 2026-06-23T11:20:00-04:00
+- **Files Created/Modified:**
+  - Created: `app/about/index.tsx`
+  - Copied: `assets/system_log.txt` from `docs/system_log.md`
+- **Database Impact:** None.
+- **State:** Completed Phase 11. Implemented About Screen with app version metadata, privacy disclaimer, support links, open source licenses list, and diagnostic log exporter.
 
-
-
-
+### Phase 12 Completed: Native Background Features - 2026-06-23T11:35:00-04:00
+- **Files Created/Modified:**
+  - Created: `hooks/useGPSTracking.ts`, `hooks/useWakeLock.ts`, `hooks/useGoogleDriveSync.ts`, `src/services/googleDrive.ts`, `src/registry/gpsConfig.ts`
+  - Modified: `store/useActiveShift.ts`, `app/(tabs)/index.tsx`
+- **Database Impact:** Inserts and deletes files on backup/restore from Google Drive.
+- **State:** Completed Phase 12. Implemented (1) Background GPS active/dead tracking via `expo-location` and `expo-task-manager` with Speed-based classification and jitter filtering, (2) Wake Lock prevention via `expo-keep-awake` and timer persistence, (3) Google Drive encrypted backup/restore using AES-GCM 256-bit `react-native-quick-crypto`.
 
 
 

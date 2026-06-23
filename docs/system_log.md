@@ -314,6 +314,13 @@ Stop execution immediately upon closing the append stream. Await PM verification
 - **Database Impact:** Inserts manually entered shift details (payout, tips, active/dead mileage, duration, platform, vehicle, timestamps) to the `shifts` table.
 - **State:** Completed Task 3.2. Scaffolded `/shift/add` modal screen. Features include platform selector grid using `PlatformBadge`, dynamic vehicle dropdown from the database using radio cards, date/time pickers styled cross-platform for web and native mobile, numeric inputs for revenue/tips/mileage, and a notes textbox. Saving validation triggers database insert and cache invalidation.
 
+### Task 3.3 Completed: Shifts tab: list view - 2026-06-23T05:34:00-04:00
+- **Files Created/Modified:**
+  - Modified: `app/(tabs)/shifts.tsx`
+- **Database Impact:** Reads paginated shifts from `getShiftsPaginated()` and deletes shifts from the `shifts` table via `deleteShift(id)`.
+- **State:** Completed Task 3.3. Replaced the shifts screen placeholder with a high-fidelity list view. It features grouping by Month-Year headers, SectionHeader with action links to the Add Shift modal, EmptyState integration when no shifts are logged, and list rows displaying platform badge, duration, active mileage, gross payout, tips indicators, and inline deletion triggers with cross-platform confirm prompts.
+
+
 
 
 

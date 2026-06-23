@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ScrollView, View, ActivityIndicator, Pressable, StyleSheet, Alert, Platform, TextInput, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { router } from "expo-router";
 import { Button } from "../../src/components/ui/button";
 import {
   Card,
@@ -13,6 +14,7 @@ import {
 import { Text } from "../../src/components/ui/text";
 import { useActiveShift, type GigPlatform } from "../../store/useActiveShift";
 import { useSettingsStore } from "../../store/useSettingsStore";
+import { getVehicles } from "../../src/database/queries/vehicles";
 import OnboardingWizard from "../../components/OnboardingWizard";
 import { cn } from "../../src/lib/utils";
 import { CurrencyText } from "../../src/components/ui/CurrencyText";
@@ -340,14 +342,29 @@ export default function HomeScreen() {
     elapsedSeconds,
     activeMileage,
     deadMileage,
+    targetTime,
+    startTime,
+    isPaused,
+    pausedSeconds,
+    isFirstOrderReceived,
     startShift,
     endShift,
     incrementTimer,
     updateMileage,
+    pauseShift,
+    resumeShift,
+    markFirstOrderReceived,
     reset,
   } = useActiveShift();
 
   const trackedMileage = activeMileage + deadMileage;
+
+  const getEtaString = () => {
+    const d = new Date();
+    d.setHours(d.getHours() + customHours);
+    d.setMinutes(d.getMinutes() + customMinutes);
+    return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  };
 
   const {
     isOnboardingCompleted,
@@ -355,10 +372,31 @@ export default function HomeScreen() {
     isLoading,
     isDemoMode,
     activePlatformFilter,
+    setActivePlatformFilter,
     loadSettings,
     clearSampleData,
     resetSettings,
   } = useSettingsStore();
+
+  // Start Shift Wizard states
+  const [showStartShiftWizard, setShowStartShiftWizard] = useState(false);
+  const [wizardStep, setWizardStep] = useState<"vehicle" | "platform" | "target">("vehicle");
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [selectedPlatformId, setSelectedPlatformId] = useState<GigPlatform>("doordash");
+  const [targetMode, setTargetMode] = useState(false);
+  const [customHours, setCustomHours] = useState(2);
+  const [customMinutes, setCustomMinutes] = useState(0);
+  const [enableNotifications, setEnableNotifications] = useState(true);
+
+  // Screen/Overlay visibility states
+  const [showBigClockOverlay, setShowBigClockOverlay] = useState(false);
+
+  // Vehicles query
+  const { data: vehiclesList = [] } = useQuery({
+    queryKey: ["vehicles"],
+    queryFn: () => getVehicles(),
+    enabled: isOnboardingCompleted,
+  });
 
   const [selectedPlatform, setSelectedPlatform] = useState<GigPlatform>("doordash");
   const [avgRateTab, setAvgRateTab] = useState<"active" | "online">("active");
@@ -372,8 +410,6 @@ export default function HomeScreen() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [filterExpanded, setFilterExpanded] = useState(false);
-  const [showPlatformPicker, setShowPlatformPicker] = useState(false);
-  const [showActiveShiftModal, setShowActiveShiftModal] = useState(false);
 
   // Load Settings on Mount
   useEffect(() => {
@@ -512,17 +548,61 @@ export default function HomeScreen() {
   const deductions = (todayStats.activeMileage + todayStats.deadMileage) * 0.67;
   const netIncome = grossPayout - deductions;
 
-  const handleStartShift = () => {
-    const vId = activeVehicle?.id || "default_vehicle_1";
-    startShift(selectedPlatform, vId);
+  const handleStartShiftWizardStart = () => {
+    setTargetMode(false);
+    setCustomHours(2);
+    setCustomMinutes(0);
+    setEnableNotifications(true);
+
+    if (vehiclesList.length > 1) {
+      setWizardStep("vehicle");
+      setSelectedVehicleId(vehiclesList.find((v: any) => v.isActive)?.id || vehiclesList[0]?.id || "default_vehicle_1");
+    } else {
+      setSelectedVehicleId(vehiclesList[0]?.id || "default_vehicle_1");
+      setWizardStep("platform");
+    }
+    setShowStartShiftWizard(true);
+  };
+
+  const handleStartShiftWizardSubmit = () => {
+    let finalTargetTimeEpoch: number | null = null;
+    if (targetMode) {
+      const d = new Date();
+      d.setHours(d.getHours() + customHours);
+      d.setMinutes(d.getMinutes() + customMinutes);
+      finalTargetTimeEpoch = d.getTime();
+    }
+    const vId = selectedVehicleId || "default_vehicle_1";
+    startShift(selectedPlatformId, vId, finalTargetTimeEpoch);
+    setShowStartShiftWizard(false);
+    setShowBigClockOverlay(true);
   };
 
   const handleEndShift = async () => {
     const payload = await endShift();
-    console.log("Completed Shift Payload:", payload);
     reset();
     queryClient.invalidateQueries({ queryKey: ["analytics"] });
     queryClient.invalidateQueries({ queryKey: ["shifts"] });
+    setShowBigClockOverlay(false);
+
+    if (payload?.shiftId) {
+      Alert.alert(
+        "Shift Ended",
+        "Your shift has been recorded. Let's enter your earnings details now!",
+        [
+          {
+            text: "Enter Earnings",
+            onPress: () => {
+              router.push({
+                pathname: "/shift/add",
+                params: { shiftId: payload.shiftId }
+              });
+            }
+          },
+          { text: "Dismiss", style: "cancel" }
+        ]
+      );
+    }
   };
 
   if (isLoading) {
@@ -583,16 +663,23 @@ export default function HomeScreen() {
 
         {/* PWA-Parity Homepage Header */}
         <View style={styles.homepageHeader}>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>Financial Overview</Text>
-            <Text style={styles.headerSubtitle}>
-              Track your delivery performance and earnings.
-            </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+            <View style={styles.headerAvatar}>
+              <Text style={styles.headerAvatarText}>
+                {profile?.displayName?.charAt(0).toUpperCase() || "C"}
+              </Text>
+            </View>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.headerTitle}>Financial Overview</Text>
+              <Text style={styles.headerSubtitle}>
+                Track your delivery performance.
+              </Text>
+            </View>
           </View>
           <View style={styles.headerActions}>
             {!isActive ? (
               <Pressable
-                onPress={() => setShowPlatformPicker(true)}
+                onPress={handleStartShiftWizardStart}
                 style={styles.compactStartBtn}
               >
                 <PlayIcon size={12} color="white" />
@@ -600,7 +687,7 @@ export default function HomeScreen() {
               </Pressable>
             ) : (
               <Pressable
-                onPress={() => setShowActiveShiftModal(true)}
+                onPress={() => setShowBigClockOverlay(true)}
                 style={styles.compactActiveBtn}
               >
                 <View style={styles.pulseDotActive} />
@@ -608,6 +695,76 @@ export default function HomeScreen() {
               </Pressable>
             )}
           </View>
+        </View>
+
+        {/* PWA-Parity Platform Switcher (Filter) */}
+        <View style={styles.platformSwitcherOuter}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.platformSwitcherScroll}
+          >
+            <Pressable
+              onPress={() => setActivePlatformFilter("all")}
+              style={[
+                styles.platformTab,
+                activePlatformFilter === "all" && styles.platformTabActive,
+              ]}
+            >
+              <View style={styles.platformTabInner}>
+                <View style={[styles.platformTabLogo, { backgroundColor: "#27272a" }]}>
+                  <Text style={styles.platformTabLogoText}>A</Text>
+                </View>
+                <Text style={[
+                  styles.platformTabLabel,
+                  activePlatformFilter === "all" && styles.platformTabLabelActive,
+                ]}>
+                  All
+                </Text>
+              </View>
+            </Pressable>
+
+            {(profile?.selectedPlatforms || ["doordash", "ubereats", "skip"]).map((pId) => {
+              const isSelected = activePlatformFilter === pId;
+              const label = platformLabels[pId as GigPlatform] || pId;
+              
+              const colors: Record<string, string> = {
+                doordash: "#ef4444",
+                ubereats: "#10b981",
+                skip: "#f97316",
+                other: "#818cf8",
+              };
+              const pColor = colors[pId] || "#818cf8";
+              const initial = label.charAt(0).toUpperCase();
+
+              return (
+                <Pressable
+                  key={pId}
+                  onPress={() => setActivePlatformFilter(pId)}
+                  style={[
+                    styles.platformTab,
+                    isSelected && styles.platformTabActive,
+                    isSelected && { borderColor: pColor },
+                  ]}
+                >
+                  <View style={styles.platformTabInner}>
+                    <View style={[
+                      styles.platformTabLogo, 
+                      { backgroundColor: isSelected ? pColor : "#1c1c1a" }
+                    ]}>
+                      <Text style={styles.platformTabLogoText}>{initial}</Text>
+                    </View>
+                    <Text style={[
+                      styles.platformTabLabel,
+                      isSelected && styles.platformTabLabelActive,
+                    ]}>
+                      {label}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </View>
 
         {/* Date Range Collapsible Filter Bar */}
@@ -688,120 +845,568 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Platform Selector Modal */}
+        {/* Start Shift Wizard Modal */}
         <Modal
-          visible={showPlatformPicker}
+          visible={showStartShiftWizard}
           transparent
           animationType="slide"
-          onRequestClose={() => setShowPlatformPicker(false)}
+          onRequestClose={() => setShowStartShiftWizard(false)}
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Start New Shift</Text>
-                <Pressable onPress={() => setShowPlatformPicker(false)} style={styles.closeBtn}>
+                <Text style={styles.modalTitle}>
+                  {wizardStep === "vehicle" && "Select Active Vehicle"}
+                  {wizardStep === "platform" && "Select Active Platform"}
+                  {wizardStep === "target" && `Shift Target: ${platformLabels[selectedPlatformId]}`}
+                </Text>
+                <Pressable onPress={() => setShowStartShiftWizard(false)} style={styles.closeBtn}>
                   <Text style={styles.closeBtnText}>×</Text>
                 </Pressable>
               </View>
 
               <View style={styles.modalBody}>
-                <Text style={styles.modalSectionLabel}>Select Active Platform:</Text>
-                <View style={styles.platformBadgeRow}>
-                  {(profile?.selectedPlatforms || ["doordash", "ubereats", "skip"]).map((pId) => (
-                    <Pressable
-                      key={pId}
-                      onPress={() => setSelectedPlatform(pId as any)}
-                      style={[
-                        styles.platformBadgeBtn,
-                        selectedPlatform === pId && styles.platformBadgeBtnActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.platformBadgeBtnText,
-                          selectedPlatform === pId && styles.platformBadgeBtnTextActive,
-                        ]}
+                {wizardStep === "vehicle" && (
+                  <View style={{ gap: 12 }}>
+                    <Text style={styles.modalSectionLabel}>Which vehicle are you driving?</Text>
+                    {vehiclesList.length > 0 ? (
+                      vehiclesList.map((v: any) => {
+                        const iconEmoji = v.type === "ev" ? "⚡" : (v.type === "bicycle" || v.type === "ebike" ? "🚲" : "🚗");
+                        return (
+                          <Pressable
+                            key={v.id}
+                            onPress={() => {
+                              setSelectedVehicleId(v.id);
+                              setWizardStep("platform");
+                            }}
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              backgroundColor: "#1c1c1a",
+                              borderColor: selectedVehicleId === v.id ? "#10b981" : "#262624",
+                              borderWidth: selectedVehicleId === v.id ? 1.5 : 1,
+                              borderRadius: 12,
+                              padding: 14,
+                              gap: 12,
+                            }}
+                          >
+                            <Text style={{ fontSize: 20 }}>{iconEmoji}</Text>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontWeight: "700", color: "#ffffff", fontSize: 13 }}>
+                                {v.nickname || "Unnamed Vehicle"}
+                              </Text>
+                              <Text style={{ fontSize: 10, color: "#71717a", textTransform: "uppercase", fontWeight: "700", marginTop: 2 }}>
+                                {v.make} {v.model} ({v.type})
+                              </Text>
+                            </View>
+                            <Text style={{ color: "#71717a", fontSize: 16 }}>→</Text>
+                          </Pressable>
+                        );
+                      })
+                    ) : (
+                      <Pressable
+                        onPress={() => {
+                          setSelectedVehicleId("default_vehicle_1");
+                          setWizardStep("platform");
+                        }}
+                        style={styles.modalSubmitBtn}
                       >
-                        {platformLabels[pId as GigPlatform] || pId}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
+                        <Text style={styles.modalSubmitBtnText}>Use Default Vehicle</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                )}
 
-                <Pressable
-                  onPress={() => {
-                    setShowPlatformPicker(false);
-                    handleStartShift();
-                  }}
-                  style={styles.modalSubmitBtn}
-                >
-                  <PlayIcon size={12} color="white" />
-                  <Text style={styles.modalSubmitBtnText}>START LOGGING</Text>
-                </Pressable>
+                {wizardStep === "platform" && (
+                  <View style={{ gap: 12 }}>
+                    <Text style={styles.modalSectionLabel}>Choose a platform to track:</Text>
+                    <View style={styles.platformBadgeRow}>
+                      {(profile?.selectedPlatforms || ["doordash", "ubereats", "skip"]).map((pId) => {
+                        const pColors: Record<string, string> = {
+                          doordash: "#ef4444",
+                          ubereats: "#10b981",
+                          skip: "#f97316",
+                          other: "#818cf8",
+                        };
+                        const pColor = pColors[pId] || "#10b981";
+                        return (
+                          <Pressable
+                            key={pId}
+                            onPress={() => {
+                              setSelectedPlatformId(pId as any);
+                              setWizardStep("target");
+                            }}
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              width: "100%",
+                              backgroundColor: "#1c1c1a",
+                              borderColor: "#262624",
+                              borderWidth: 1,
+                              borderRadius: 12,
+                              padding: 14,
+                              gap: 12,
+                            }}
+                          >
+                            <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: pColor }} />
+                            <Text style={{ fontWeight: "600", color: "#ffffff", flex: 1, fontSize: 13 }}>
+                              {platformLabels[pId as GigPlatform] || pId}
+                            </Text>
+                            <Text style={{ color: "#71717a", fontSize: 16 }}>→</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    {vehiclesList.length > 1 && (
+                      <Pressable onPress={() => setWizardStep("vehicle")} style={{ alignSelf: "center", marginTop: 8 }}>
+                        <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600" }}>Back to Vehicle</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                )}
+
+                {wizardStep === "target" && (
+                  <View style={{ gap: 16 }}>
+                    <Text style={styles.modalSectionLabel}>Do you want to work until a fixed time?</Text>
+                    
+                    <View style={{ flexDirection: "row", gap: 10, justifyContent: "center" }}>
+                      <Pressable
+                        onPress={() => setTargetMode(false)}
+                        style={{
+                          flex: 1,
+                          backgroundColor: !targetMode ? "#10b981" : "#1c1c1a",
+                          paddingVertical: 12,
+                          borderRadius: 8,
+                          alignItems: "center",
+                          borderWidth: 1,
+                          borderColor: !targetMode ? "#10b981" : "#262624",
+                        }}
+                      >
+                        <Text style={{ color: "white", fontWeight: "700", fontSize: 12 }}>No, just track</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setTargetMode(true)}
+                        style={{
+                          flex: 1,
+                          backgroundColor: targetMode ? "#10b981" : "#1c1c1a",
+                          paddingVertical: 12,
+                          borderRadius: 8,
+                          alignItems: "center",
+                          borderWidth: 1,
+                          borderColor: targetMode ? "#10b981" : "#262624",
+                        }}
+                      >
+                        <Text style={{ color: "white", fontWeight: "700", fontSize: 12 }}>Yes, set time</Text>
+                      </Pressable>
+                    </View>
+
+                    {targetMode && (
+                      <View style={{ gap: 12, backgroundColor: "#0d0d0c", padding: 12, borderRadius: 10, borderWidth: 1, borderColor: "#262624" }}>
+                        <Text style={{ fontSize: 10, color: "#71717a", fontWeight: "700", textTransform: "uppercase" }}>
+                          Select Preset Duration:
+                        </Text>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          {[1, 2, 4, 8].map((h) => (
+                            <Pressable
+                              key={h}
+                              onPress={() => {
+                                setCustomHours(h);
+                                setCustomMinutes(0);
+                              }}
+                              style={{
+                                flex: 1,
+                                backgroundColor: customHours === h && customMinutes === 0 ? "#10b981" : "#161615",
+                                paddingVertical: 6,
+                                borderRadius: 6,
+                                alignItems: "center",
+                                borderWidth: 1,
+                                borderColor: "#262624",
+                              }}
+                            >
+                              <Text style={{ color: "white", fontWeight: "700", fontSize: 11 }}>{h}h</Text>
+                            </Pressable>
+                          ))}
+                        </View>
+
+                        <Text style={{ fontSize: 10, color: "#71717a", fontWeight: "700", textTransform: "uppercase", marginTop: 4 }}>
+                          Adjust Working Time:
+                        </Text>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
+                          <View style={{ flex: 1, alignItems: "center", gap: 4 }}>
+                            <Text style={{ fontSize: 9, color: "#a1a1aa", fontWeight: "600" }}>Hours</Text>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                              <Pressable
+                                onPress={() => setCustomHours(Math.max(0, customHours - 1))}
+                                style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: "#1c1c1a", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#262624" }}
+                              >
+                                <Text style={{ color: "white", fontWeight: "700", fontSize: 14 }}>-</Text>
+                              </Pressable>
+                              <Text style={{ color: "white", fontWeight: "800", fontSize: 14, width: 20, textAlign: "center" }}>{customHours}</Text>
+                              <Pressable
+                                onPress={() => setCustomHours(customHours + 1)}
+                                style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: "#1c1c1a", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#262624" }}
+                              >
+                                <Text style={{ color: "white", fontWeight: "700", fontSize: 14 }}>+</Text>
+                              </Pressable>
+                            </View>
+                          </View>
+
+                          <View style={{ flex: 1, alignItems: "center", gap: 4 }}>
+                            <Text style={{ fontSize: 9, color: "#a1a1aa", fontWeight: "600" }}>Minutes</Text>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                              <Pressable
+                                onPress={() => setCustomMinutes(Math.max(0, customMinutes - 15))}
+                                style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: "#1c1c1a", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#262624" }}
+                              >
+                                <Text style={{ color: "white", fontWeight: "700", fontSize: 14 }}>-</Text>
+                              </Pressable>
+                              <Text style={{ color: "white", fontWeight: "800", fontSize: 14, width: 24, textAlign: "center" }}>{customMinutes}</Text>
+                              <Pressable
+                                onPress={() => setCustomMinutes(Math.min(45, customMinutes + 15))}
+                                style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: "#1c1c1a", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#262624" }}
+                              >
+                                <Text style={{ color: "white", fontWeight: "700", fontSize: 14 }}>+</Text>
+                              </Pressable>
+                            </View>
+                          </View>
+                        </View>
+
+                        <Text style={{ color: "#10b981", fontSize: 11, fontWeight: "700", textAlign: "center", marginTop: 8 }}>
+                          Target End Time: {getEtaString()}
+                        </Text>
+                      </View>
+                    )}
+
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 1, borderTopColor: "#262624", paddingTop: 12, marginTop: 4 }}>
+                      <Pressable onPress={() => setWizardStep("platform")} style={{ paddingVertical: 8 }}>
+                        <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600" }}>Back</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={handleStartShiftWizardSubmit}
+                        style={{
+                          backgroundColor: "#10b981",
+                          borderRadius: 8,
+                          paddingVertical: 10,
+                          paddingHorizontal: 20,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <PlayIcon size={10} color="white" />
+                        <Text style={{ color: "white", fontWeight: "700", fontSize: 12 }}>START SHIFT</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
               </View>
             </View>
           </View>
         </Modal>
 
-        {/* Active Shift Control Modal */}
+        {/* Fullscreen Big Clock Timer Overlay Modal */}
         <Modal
-          visible={showActiveShiftModal}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowActiveShiftModal(false)}
+          visible={showBigClockOverlay}
+          transparent={false}
+          animationType="fade"
+          onRequestClose={() => setShowBigClockOverlay(false)}
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <View style={styles.pulseDotActive} />
-                  <Text style={styles.modalTitle}>
-                    On Duty: {platformLabels[activePlatform || "other"]}
-                  </Text>
-                </View>
-                <Pressable onPress={() => setShowActiveShiftModal(false)} style={styles.closeBtn}>
-                  <Text style={styles.closeBtnText}>×</Text>
-                </Pressable>
+          <SafeAreaView style={{ flex: 1, backgroundColor: "#0d0d0c", justifyContent: "space-between", padding: 20 }}>
+            {/* Header Status Bar */}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+              <Pressable
+                onPress={() => {
+                  setShowBigClockOverlay(false);
+                  Alert.alert("Shift Minimized", "Shift timer is running active in the background.", [{ text: "Got it" }]);
+                }}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: "#161615",
+                  borderWidth: 1,
+                  borderColor: "#262624",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <ChevronDownIcon size={16} color="#ffffff" />
+              </Pressable>
+              
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  backgroundColor: "#161615",
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: "#262624",
+                }}
+              >
+                <View
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: isPaused
+                      ? "#f59e0b"
+                      : (activePlatform === "doordash" ? "#ef4444" : activePlatform === "ubereats" ? "#10b981" : activePlatform === "skip" ? "#f97316" : "#818cf8"),
+                  }}
+                />
+                <Text style={{ color: "#ffffff", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>
+                  {platformLabels[activePlatform || "other"]} Active Shift
+                </Text>
               </View>
 
-              <View style={styles.modalBody}>
-                <View style={styles.modalTimerContainer}>
-                  <Text style={styles.modalTimerDigits}>{formatTime(elapsedSeconds)}</Text>
-                  <Text style={styles.modalTimerLabel}>ELAPSED DURATION</Text>
+              <View style={{ width: 36 }} />
+            </View>
+
+            {/* Central Dial Container */}
+            <View style={{ alignItems: "center", justifyContent: "center", marginVertical: 20 }}>
+              <View style={{ width: 280, height: 280, alignItems: "center", justifyContent: "center" }}>
+                {/* SVG Progress Ring */}
+                <View style={{ position: "absolute" }}>
+                  <Svg width={280} height={280} viewBox="0 0 280 280">
+                    <Circle
+                      cx={140}
+                      cy={140}
+                      r={124}
+                      stroke="#262624"
+                      strokeWidth={6}
+                      fill="transparent"
+                    />
+                    <Circle
+                      cx={140}
+                      cy={140}
+                      r={124}
+                      stroke={
+                        isPaused
+                          ? "#f59e0b"
+                          : !isFirstOrderReceived
+                          ? "#f59e0b"
+                          : (activePlatform === "doordash" ? "#ef4444" : activePlatform === "ubereats" ? "#10b981" : activePlatform === "skip" ? "#f97316" : "#818cf8")
+                      }
+                      strokeWidth={6}
+                      fill="transparent"
+                      strokeLinecap="round"
+                      strokeDasharray={779}
+                      strokeDashoffset={
+                        targetTime && startTime
+                          ? 779 - (779 * Math.min(100, Math.floor(((elapsedSeconds * 1000) / (targetTime - startTime)) * 100))) / 100
+                          : 195 // Steady 3/4 fill rotation base
+                      }
+                      transform="rotate(-90 140 140)"
+                    />
+                  </Svg>
                 </View>
 
-                <View style={styles.modalMileageRow}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                    <View style={styles.mileageIconBg}>
-                      <View style={{ width: 14, height: 14, borderRadius: 7, borderWidth: 1.5, borderColor: "#818cf8" }} />
-                    </View>
-                    <View>
-                      <Text style={styles.mileageLabel}>Tracked Distance</Text>
-                      <Text style={styles.mileageValue}>
-                        {trackedMileage.toFixed(2)} {profile?.distanceUnit}
+                {/* Inner Text & Timer details */}
+                <View style={{ alignItems: "center", gap: 2 }}>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: "800",
+                      textTransform: "uppercase",
+                      color: isPaused
+                        ? "#f59e0b"
+                        : !isFirstOrderReceived
+                        ? "#f59e0b"
+                        : (activePlatform === "doordash" ? "#ef4444" : activePlatform === "ubereats" ? "#10b981" : activePlatform === "skip" ? "#f97316" : "#818cf8"),
+                      letterSpacing: 1,
+                    }}
+                  >
+                    {isPaused ? "Shift Paused" : !isFirstOrderReceived ? "Waiting for Order" : "Shift Active"}
+                  </Text>
+                  
+                  <Text
+                    style={{
+                      fontSize: 42,
+                      fontWeight: "900",
+                      color: isPaused ? "#71717a" : "#ffffff",
+                      fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace",
+                      letterSpacing: 1.5,
+                      marginVertical: 4,
+                      textShadowColor: isPaused ? "transparent" : "rgba(255, 255, 255, 0.15)",
+                      textShadowOffset: { width: 0, height: 0 },
+                      textShadowRadius: 10,
+                    }}
+                  >
+                    {formatTime(elapsedSeconds)}
+                  </Text>
+
+                  {/* Distance Tracker Panel */}
+                  <View style={{ alignItems: "center", marginTop: 4 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "800", color: "#ffffff" }}>
+                      {trackedMileage.toFixed(2)} {profile?.distanceUnit} total
+                    </Text>
+                    {isFirstOrderReceived ? (
+                      <Text style={{ fontSize: 10, color: "#a1a1aa", fontWeight: "600", marginTop: 1 }}>
+                        Active: {activeMileage.toFixed(2)} • Dead: {deadMileage.toFixed(2)} {profile?.distanceUnit}
                       </Text>
-                    </View>
+                    ) : (
+                      <View
+                        style={{
+                          backgroundColor: "rgba(245, 158, 11, 0.15)",
+                          borderColor: "rgba(245, 158, 11, 0.25)",
+                          borderWidth: 1,
+                          paddingHorizontal: 8,
+                          paddingVertical: 2,
+                          borderRadius: 4,
+                          marginTop: 3,
+                        }}
+                      >
+                        <Text style={{ fontSize: 8, fontWeight: "900", color: "#f59e0b", textTransform: "uppercase" }}>
+                          Dead Miles 💀
+                        </Text>
+                      </View>
+                    )}
                   </View>
 
-                  <Pressable onPress={() => updateMileage(0.5, 0)} style={styles.addMileBtn}>
-                    <PlusIcon size={12} color="#ffffff" />
-                    <Text style={styles.addMileBtnText}>+0.5 {profile?.distanceUnit}</Text>
-                  </Pressable>
+                  {/* Target ETA details */}
+                  {targetTime && startTime ? (
+                    <Text style={{ fontSize: 10, color: "#71717a", fontWeight: "600", marginTop: 6, width: 180, textAlign: "center" }}>
+                      Goal: working until {new Date(targetTime).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                    </Text>
+                  ) : null}
                 </View>
-
-                <Pressable
-                  onPress={() => {
-                    setShowActiveShiftModal(false);
-                    handleEndShift();
-                  }}
-                  style={styles.modalEndShiftBtn}
-                >
-                  <SquareIcon size={12} color="white" />
-                  <Text style={styles.modalEndShiftBtnText}>END ACTIVE SHIFT</Text>
-                </Pressable>
               </View>
             </View>
-          </View>
+
+            {/* Target Goal Progress Slider Bar */}
+            {targetTime && startTime ? (
+              <View style={{ width: "100%", paddingHorizontal: 10, marginBottom: 12 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
+                  <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600" }}>Shift Goal Progress</Text>
+                  <Text style={{ color: "#ffffff", fontSize: 11, fontWeight: "700" }}>
+                    {Math.min(100, Math.floor(((elapsedSeconds * 1000) / (targetTime - startTime)) * 100))}%
+                  </Text>
+                </View>
+                <View style={{ height: 6, backgroundColor: "#161615", borderRadius: 3, overflow: "hidden", borderWidth: 1, borderColor: "#262624" }}>
+                  <View
+                    style={{
+                      height: "100%",
+                      width: `${Math.min(100, Math.floor(((elapsedSeconds * 1000) / (targetTime - startTime)) * 100))}%`,
+                      backgroundColor: activePlatform === "doordash" ? "#ef4444" : activePlatform === "ubereats" ? "#10b981" : activePlatform === "skip" ? "#f97316" : "#818cf8",
+                    }}
+                  />
+                </View>
+              </View>
+            ) : null}
+
+            {/* Controls Actions Stack */}
+            <View style={{ gap: 12, width: "100%" }}>
+              {/* Got First Order Button */}
+              {!isFirstOrderReceived && !isPaused && (
+                <Pressable
+                  onPress={() => {
+                    markFirstOrderReceived();
+                    Alert.alert("🎉 First Order Received!", "Active mileage tracking has started.");
+                  }}
+                  style={{
+                    backgroundColor: "#f59e0b",
+                    borderRadius: 8,
+                    paddingVertical: 12,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexDirection: "row",
+                    gap: 6,
+                  }}
+                >
+                  <Text style={{ fontSize: 14 }}>🚩</Text>
+                  <Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 13, letterSpacing: 0.5 }}>
+                    GOT FIRST ORDER
+                  </Text>
+                </Pressable>
+              )}
+
+              {/* Pause/Resume + Mileage row */}
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                {/* Pause/Resume */}
+                <Pressable
+                  onPress={() => {
+                    if (isPaused) {
+                      resumeShift();
+                    } else {
+                      pauseShift();
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    backgroundColor: "#161615",
+                    borderColor: "#262624",
+                    borderWidth: 1,
+                    borderRadius: 8,
+                    paddingVertical: 12,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexDirection: "row",
+                    gap: 6,
+                  }}
+                >
+                  {isPaused ? (
+                    <>
+                      <PlayIcon size={10} color="#10b981" />
+                      <Text style={{ color: "#10b981", fontWeight: "700", fontSize: 12 }}>Resume</Text>
+                    </>
+                  ) : (
+                    <>
+                      <View style={{ width: 8, height: 8, backgroundColor: "#f59e0b", borderRadius: 1 }} />
+                      <Text style={{ color: "#f59e0b", fontWeight: "700", fontSize: 12 }}>Pause</Text>
+                    </>
+                  )}
+                </Pressable>
+
+                {/* Add Mileage */}
+                <Pressable
+                  onPress={() => {
+                    if (isFirstOrderReceived) {
+                      updateMileage(0.5, 0);
+                    } else {
+                      updateMileage(0, 0.5);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    backgroundColor: "#161615",
+                    borderColor: "#262624",
+                    borderWidth: 1,
+                    borderRadius: 8,
+                    paddingVertical: 12,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexDirection: "row",
+                    gap: 6,
+                  }}
+                >
+                  <Text style={{ color: "#ffffff", fontWeight: "700", fontSize: 12 }}>
+                    +0.5 {profile?.distanceUnit}
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* End Shift */}
+              <Pressable
+                onPress={handleEndShift}
+                style={{
+                  backgroundColor: "#ef4444",
+                  borderRadius: 8,
+                  paddingVertical: 14,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
+                  gap: 8,
+                }}
+              >
+                <SquareIcon size={12} color="white" />
+                <Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 13, letterSpacing: 0.5 }}>
+                  STOP & SAVE SHIFT
+                </Text>
+              </Pressable>
+            </View>
+          </SafeAreaView>
         </Modal>
 
         {/* KPI Hero Grid - High Fidelity PWA Port */}
@@ -1944,6 +2549,65 @@ const styles = StyleSheet.create({
   modalEndShiftBtnText: {
     color: "#ffffff",
     fontSize: 13,
+    fontWeight: "700",
+  },
+  headerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#10b981",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(16, 185, 129, 0.2)",
+  },
+  headerAvatarText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  platformSwitcherOuter: {
+    marginBottom: 12,
+  },
+  platformSwitcherScroll: {
+    paddingHorizontal: 2,
+    gap: 8,
+  },
+  platformTab: {
+    backgroundColor: "#161615",
+    borderWidth: 1,
+    borderColor: "#262624",
+    borderRadius: 20,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+  },
+  platformTabActive: {
+    backgroundColor: "rgba(22, 22, 21, 0.9)",
+  },
+  platformTabInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  platformTabLogo: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  platformTabLogoText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  platformTabLabel: {
+    color: "#71717a",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  platformTabLabelActive: {
+    color: "#ffffff",
     fontWeight: "700",
   },
 });

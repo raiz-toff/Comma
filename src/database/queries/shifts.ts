@@ -51,12 +51,23 @@ export async function getShiftsPaginated(
     const existing = localStorage.getItem("comma_shifts");
     if (!existing) return [];
     let list = JSON.parse(existing);
+
+    // Apply filters
+    if (filters?.startDate) {
+      list = list.filter((s: any) => new Date(s.startTime) >= filters.startDate!);
+    }
+    if (filters?.endDate) {
+      list = list.filter((s: any) => new Date(s.startTime) <= filters.endDate!);
+    }
+    if (filters?.platforms && filters.platforms.length > 0) {
+      list = list.filter((s: any) => filters.platforms!.includes(s.platform));
+    }
     
     // Sort descending by default
     list.sort((a: any, b: any) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
     
     // Simple pagination
-    const limit = 20;
+    const limit = 50; // Use larger limit for calendar/reports queries
     const offset = (page - 1) * limit;
     return list.slice(offset, offset + limit);
   }

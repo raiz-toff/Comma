@@ -8,7 +8,11 @@
     "userInterfaceStyle": "light",
     "scheme": "comma",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Comma uses your location during active shifts to track delivery mileage.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Comma tracks GPS in the background during active delivery shifts to calculate active delivery miles vs dead miles (commuting and waiting). All location data stays 100% on your device and is never uploaded."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +22,14 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.comma"
+      "package": "com.anonymous.comma",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "RECEIVE_BOOT_COMPLETED"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -26,7 +37,21 @@
     },
     "plugins": [
       "expo-sqlite",
-      "expo-router"
+      "expo-router",
+      "expo-image",
+      "expo-secure-store",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-location",
+        {
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true,
+          "locationWhenInUsePermission": "Comma uses your location during active shifts to track delivery mileage.",
+          "locationAlwaysAndWhenInUsePermission": "Comma tracks GPS in the background during active delivery shifts to calculate active delivery miles vs dead miles (commuting and waiting). All location data stays 100% on your device and is never uploaded."
+        }
+      ],
+      "expo-notifications"
     ],
     "extra": {
       "router": {},

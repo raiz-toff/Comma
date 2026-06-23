@@ -1,7 +1,9 @@
 import React from "react";
 import { Tabs } from "expo-router";
 import { View, Platform, ColorValue } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSettingsStore } from "../../store/useSettingsStore";
+import GlobalTopHeader from "../../src/components/GlobalTopHeader";
 
 // Custom pure View icon implementations to avoid react-native-svg native dependency crashes
 const HomeIcon = ({ color, size = 20 }: { color: ColorValue; size?: number }) => (
@@ -135,9 +137,12 @@ const DotsIcon = ({ color, size = 20 }: { color: ColorValue; size?: number }) =>
 
 export default function TabLayout() {
   const { isOnboardingCompleted } = useSettingsStore();
+  const insets = useSafeAreaInsets();
 
   return (
-    <Tabs
+    <View style={{ flex: 1, backgroundColor: "#070a13" }}>
+      {isOnboardingCompleted && <GlobalTopHeader />}
+      <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: "#10b981",
@@ -150,9 +155,9 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: "#12110f",
           borderTopColor: "#262522",
-          height: Platform.OS === "ios" ? 88 : 68,
-          paddingBottom: Platform.OS === "ios" ? 28 : 10,
-          paddingTop: 10,
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
+          paddingTop: 8,
           display: isOnboardingCompleted ? "flex" : "none",
         },
       }}
@@ -188,8 +193,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="tax"
         options={{
-          title: "Tax",
-          tabBarIcon: ({ color }) => <CalculatorIcon color={color} />,
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="shifts/[id]"
+        options={{
+          href: null,
         }}
       />
       <Tabs.Screen
@@ -200,5 +210,6 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    </View>
   );
 }

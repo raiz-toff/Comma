@@ -1,27 +1,56 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   ScrollView,
   View,
   TouchableOpacity,
   ActivityIndicator,
+  Platform,
+  Alert,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, X } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
-import { CurrencyText } from "@/src/components/ui/CurrencyText";
-import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
 import {
   getPeriodStats,
   getEarningsByPlatform,
   getEarningsByDay,
   getBestDayOfWeek,
+  getBestHourOfDay,
   getMileageSplit,
   getNetIncome,
   getHourlyRate,
 } from "@/src/database/queries/analytics";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { cn } from "@/src/lib/utils";
-import { type PlatformKey } from "@/src/registry/platforms";
+import { db } from "@/src/database/client";
+import { settings } from "@/src/database/schema";
+import { eq } from "drizzle-orm";
+
+// Import modular widgets
+import RollingTrendWidget from "@/src/components/widgets/RollingTrendWidget";
+import BestDayWidget from "@/src/components/widgets/BestDayWidget";
+import BestHourWidget from "@/src/components/widgets/BestHourWidget";
+import DeadMilesWidget from "@/src/components/widgets/DeadMilesWidget";
+import StreakWidget from "@/src/components/widgets/StreakWidget";
+import PlatformActivityWidget from "@/src/components/widgets/PlatformActivityWidget";
+import IncomeBreakdownWidget from "@/src/components/widgets/IncomeBreakdownWidget";
+import WeeklyProjectionWidget from "@/src/components/widgets/WeeklyProjectionWidget";
+import TaxJarWidget from "@/src/components/widgets/TaxJarWidget";
+
+const isWeb = Platform.OS === "web";
+
+async function upsertSetting(key: string, value: string) {
+  if (isWeb) {
+    localStorage.setItem(`comma_setting_${key}`, value);
+    return;
+  }
+  await db
+    .insert(settings)
+    .values({ key, value })
+    .onConflictDoUpdate({ target: settings.key, set: { value } });
+}
 
 type Period = "week" | "month" | "3m" | "year" | "all";
 
@@ -44,54 +73,51 @@ function getPeriodDates(period: Period): { start: Date; end: Date } {
   else if (period === "3m") start.setDate(start.getDate() - 90);
   else if (period === "year") start.setDate(start.getDate() - 365);
   else {
-    start.setFullYear(start.getFullYear() - 10); // "All time" = 10yr lookback
+    start.setFullYear(start.getFullYear() - 10);
   }
 
   return { start, end };
 }
 
-// ─── Pure-View Bar Chart ─────────────────────────────────────────────────────
-function MiniBar({
-  value,
-  maxValue,
-  color = "#10b981",
-  height = 60,
-}: {
-  value: number;
-  maxValue: number;
-  color?: string;
-  height?: number;
-}) {
-  const pct = maxValue > 0 ? Math.max(2, (value / maxValue) * 100) : 2;
-  return (
-    <View
-      style={{
-        flex: 1,
-        height,
-        justifyContent: "flex-end",
-        alignItems: "center",
-        paddingHorizontal: 1,
-      }}
-    >
-      <View
-        style={{
-          width: "80%",
-          height: `${pct}%`,
-          backgroundColor: color,
-          borderRadius: 3,
-          opacity: value > 0 ? 1 : 0.15,
-        }}
-      />
-    </View>
-  );
-}
+const DEFAULT_DASHBOARD_WIDGETS = [
+  { id: "rollingTrend", size: "2x1" },
+  { id: "platformActivity", size: "1x1" },
+  { id: "deadMiles", size: "1x1" },
+  { id: "taxJar", size: "1x1" },
+];
 
 export default function AnalyticsScreen() {
+  const queryClient = useQueryClient();
   const { profile, isOnboardingCompleted } = useSettingsStore();
   const [period, setPeriod] = useState<Period>("month");
+  const [activeCategory, setActiveCategory] = useState<"perf" | "insights" | "stats">("perf");
+  const [dashboardWidgets, setDashboardWidgets] = useState<{ id: string; size: string }[]>([]);
+  const [sizeSelectorWidget, setSizeSelectorWidget] = useState<string | null>(null);
 
   const { start, end } = useMemo(() => getPeriodDates(period), [period]);
   const weeks = PERIOD_OPTIONS.find((p) => p.key === period)?.weeks ?? 4;
+
+  // Load Custom Dashboard Widgets Configuration
+  useEffect(() => {
+    async function loadWidgets() {
+      if (isWeb) {
+        try {
+          const val = localStorage.getItem("comma_setting_dashboard_widgets");
+          setDashboardWidgets(val ? JSON.parse(val) : DEFAULT_DASHBOARD_WIDGETS);
+        } catch {
+          setDashboardWidgets(DEFAULT_DASHBOARD_WIDGETS);
+        }
+      } else {
+        try {
+          const row = await db.select().from(settings).where(eq(settings.key, "dashboard_widgets")).limit(1);
+          setDashboardWidgets(row[0]?.value ? JSON.parse(row[0].value) : DEFAULT_DASHBOARD_WIDGETS);
+        } catch {
+          setDashboardWidgets(DEFAULT_DASHBOARD_WIDGETS);
+        }
+      }
+    }
+    loadWidgets();
+  }, []);
 
   // ── Queries ──────────────────────────────────────────────────────────────
   const { data: periodStats, isLoading: loadingStats } = useQuery({
@@ -118,6 +144,12 @@ export default function AnalyticsScreen() {
     enabled: isOnboardingCompleted,
   });
 
+  const { data: bestHourData = [] } = useQuery({
+    queryKey: ["analytics", "best-hour", period],
+    queryFn: () => getBestHourOfDay(start, end),
+    enabled: isOnboardingCompleted,
+  });
+
   const { data: mileage } = useQuery({
     queryKey: ["analytics", "mileage", period],
     queryFn: () => getMileageSplit(start, end),
@@ -136,69 +168,191 @@ export default function AnalyticsScreen() {
     enabled: isOnboardingCompleted,
   });
 
-  // ── Derived ───────────────────────────────────────────────────────────────
+  // ── Derived values ───────────────────────────────────────────────────────
   const totalRevenue = (periodStats?.gross || 0) + (periodStats?.tips || 0);
   const durationHrs = (periodStats?.durationSeconds || 0) / 3600;
+  const maxDailyEarning = Math.max(1, ...dailyData.map((d) => d.total));
+  const maxDayAvg = Math.max(1, ...bestDayData.map((d) => d.avgEarnings));
+  const maxHourAvg = Math.max(1, ...bestHourData.map((h) => h.avgEarnings));
 
-  const maxDailyEarning = useMemo(
-    () => Math.max(1, ...dailyData.map((d) => d.total)),
-    [dailyData]
-  );
-  const maxDayAvg = useMemo(
-    () => Math.max(1, ...bestDayData.map((d) => d.avgEarnings)),
-    [bestDayData]
-  );
+  // Compute Streak days from dailyData
+  const streak = useMemo(() => {
+    let best = 0;
+    let cur = 0;
+    dailyData.forEach((d) => {
+      if (d.total > 0) {
+        cur++;
+        best = Math.max(best, cur);
+      } else {
+        cur = 0;
+      }
+    });
+    return { current: cur, best };
+  }, [dailyData]);
 
-  // Insights: auto-generated from data
-  const insights = useMemo(() => {
-    const msgs: string[] = [];
-    if (bestDayData.length > 0) {
-      const best = bestDayData.reduce((a, b) => (a.avgEarnings > b.avgEarnings ? a : b));
-      if (best.avgEarnings > 0) msgs.push(`Your best day this period is ${best.label} — avg $${best.avgEarnings.toFixed(2)}.`);
+  // Widget Actions
+  const handleAddWidget = async (id: string, size: string) => {
+    const updated = [...dashboardWidgets.filter((w) => w.id !== id), { id, size }];
+    setDashboardWidgets(updated);
+    setSizeSelectorWidget(null);
+    await upsertSetting("dashboard_widgets", JSON.stringify(updated));
+    queryClient.invalidateQueries({ queryKey: ["analytics"] });
+  };
+
+  const handleRemoveWidget = async (id: string) => {
+    const updated = dashboardWidgets.filter((w) => w.id !== id);
+    setDashboardWidgets(updated);
+    await upsertSetting("dashboard_widgets", JSON.stringify(updated));
+    queryClient.invalidateQueries({ queryKey: ["analytics"] });
+  };
+
+  // Categories definition
+  const perfWidgetIds = ["rollingTrend", "bestDay", "bestHour", "deadMiles", "streak"];
+  const insightWidgetIds = ["platformActivity", "incomeBreakdown", "weeklyProjection", "taxJar"];
+  const statWidgetIds = ["earnings", "netIncome", "totalHours", "avgRate", "tipsTotal", "expenses", "deliveries"];
+
+  const activeWidgetIds = useMemo(() => {
+    if (activeCategory === "perf") return perfWidgetIds;
+    if (activeCategory === "insights") return insightWidgetIds;
+    return statWidgetIds;
+  }, [activeCategory]);
+
+  const onDashboardInCategory = useMemo(() => {
+    return dashboardWidgets.filter((w) => activeWidgetIds.includes(w.id));
+  }, [dashboardWidgets, activeWidgetIds]);
+
+  const availableInCategory = useMemo(() => {
+    return activeWidgetIds.filter((id) => !dashboardWidgets.some((w) => w.id === id));
+  }, [dashboardWidgets, activeWidgetIds]);
+
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: profile.country === "CA" ? "CAD" : "USD",
+      minimumFractionDigits: 2,
+    }).format(val);
+  };
+
+  // Render Widget Live View
+  const renderWidgetContent = (id: string) => {
+    switch (id) {
+      case "rollingTrend":
+        return <RollingTrendWidget dailyData={dailyData} />;
+      case "bestDay":
+        return <BestDayWidget bestDayData={bestDayData} maxDayAvg={maxDayAvg} />;
+      case "bestHour":
+        return <BestHourWidget bestHourData={bestHourData} maxHourAvg={maxHourAvg} />;
+      case "deadMiles":
+        return <DeadMilesWidget mileage={mileage} />;
+      case "streak":
+        return <StreakWidget streak={streak} />;
+      case "platformActivity":
+        return <PlatformActivityWidget platformData={platformData} />;
+      case "incomeBreakdown":
+        return (
+          <IncomeBreakdownWidget
+            totalRevenue={totalRevenue}
+            netIncome={netIncome}
+            taxWithholdingPct={profile.taxWithholdingPct}
+            country={profile.country}
+          />
+        );
+      case "weeklyProjection":
+        return <WeeklyProjectionWidget dailyData={dailyData} country={profile.country} />;
+      case "taxJar":
+        return <TaxJarWidget taxWithholdingPct={profile.taxWithholdingPct} />;
+
+      // Stat cards
+      case "earnings":
+        return <StatValue value={totalRevenue} type="currency" label="Gross Revenue" color="#10b981" />;
+      case "netIncome":
+        return <StatValue value={netIncome} type="currency" label="Net Income" color="#6366f1" />;
+      case "totalHours":
+        return <StatValue value={durationHrs} type="decimal" label="Hours Driven" color="#8b5cf6" suffix=" hrs" />;
+      case "avgRate":
+        return <StatValue value={hourlyRate} type="currency" label="Hourly Rate" color="#f59e0b" suffix="/hr" />;
+      case "tipsTotal":
+        return <StatValue value={periodStats?.tips || 0} type="currency" label="Tips Total" color="#ec4899" />;
+      case "expenses":
+        return <StatValue value={periodStats?.gross && netIncome ? Math.max(0, periodStats.gross - netIncome) : 0} type="currency" label="Expenses Claims" color="#f43f5e" />;
+      case "deliveries":
+        return <StatValue value={periodStats?.count || 0} type="number" label="Shifts Logged" color="#0ea5e9" />;
+      default:
+        return null;
     }
-    if (mileage && mileage.ratio > 0) {
-      msgs.push(`${mileage.ratio.toFixed(0)}% of your total mileage is dead (unearned) distance.`);
-    }
-    if (hourlyRate > 0) {
-      msgs.push(`You're earning $${hourlyRate.toFixed(2)}/hr on average.`);
-    }
-    if (platformData.length > 1) {
-      const top = platformData[0];
-      msgs.push(`${top?.platform} is your top platform with ${top?.share.toFixed(0)}% of revenue.`);
-    }
-    return msgs;
-  }, [bestDayData, mileage, hourlyRate, platformData]);
+  };
+
+  const getWidgetLabel = (id: string) => {
+    const labels: Record<string, string> = {
+      rollingTrend: "Rolling Trend (30d)",
+      bestDay: "Best Day of Week",
+      bestHour: "Best Hour of Day",
+      deadMiles: "Dead Mileage Split",
+      streak: "Active Streak",
+      platformActivity: "Platform Breakdown",
+      incomeBreakdown: "Income Breakdown",
+      weeklyProjection: "Weekly Projection",
+      taxJar: "Tax Jar Withholding",
+      earnings: "Gross Revenue",
+      netIncome: "Net Income",
+      totalHours: "Hours Driven",
+      avgRate: "Hourly Rate",
+      tipsTotal: "Tips Total",
+      expenses: "Expenses Claims",
+      deliveries: "Shifts Logged",
+    };
+    return labels[id] || id;
+  };
 
   return (
     <SafeAreaView className="dark flex-1 bg-[#0b0f19]">
       {/* Header */}
-      <View className="px-4 pt-3 pb-2 border-b border-slate-800/80 bg-slate-900/40">
-        <Text className="text-lg font-extrabold text-slate-100 tracking-tight">Analytics</Text>
+      <View className="px-4 pt-3 pb-2 border-b border-slate-800/80 bg-slate-900/40 flex-row justify-between items-center">
+        <View>
+          <Text className="text-lg font-extrabold text-slate-100 tracking-tight">Analytics Builder</Text>
+          <Text className="text-[10px] text-slate-400">Assemble widgets on your home screen</Text>
+        </View>
       </View>
 
-      {/* Period Selector */}
-      <View className="flex-row px-4 py-2.5 gap-2 border-b border-slate-900 bg-slate-950/20">
-        {PERIOD_OPTIONS.map((opt) => (
-          <TouchableOpacity
-            key={opt.key}
-            onPress={() => setPeriod(opt.key)}
-            className={cn(
-              "flex-1 py-2 rounded-xl items-center border",
-              period === opt.key
-                ? "border-emerald-500 bg-emerald-500/10"
-                : "border-slate-800 bg-slate-900/30"
-            )}
-          >
-            <Text
-              className={cn(
-                "text-xs font-extrabold uppercase tracking-widest",
-                period === opt.key ? "text-emerald-400" : "text-slate-500"
-              )}
-            >
-              {opt.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      {/* Categories Tabs & Period Selector */}
+      <View className="border-b border-slate-900 bg-slate-950/20 px-3 py-2 flex flex-col gap-2">
+        {/* Categories */}
+        <View className="flex-row gap-1 bg-slate-950 p-1 rounded-xl border border-slate-850">
+          {(["perf", "insights", "stats"] as const).map((cat) => {
+            const active = activeCategory === cat;
+            return (
+              <TouchableOpacity
+                key={cat}
+                onPress={() => setActiveCategory(cat)}
+                className={cn("flex-1 py-2 rounded-lg items-center", active ? "bg-slate-900 border border-slate-800" : "bg-transparent")}
+              >
+                <Text className={cn("text-xs font-bold capitalize", active ? "text-emerald-400 font-extrabold" : "text-slate-450")}>
+                  {cat === "perf" ? "Performance" : cat === "insights" ? "Insights" : "Stat Cards"}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Periods list */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View className="flex-row gap-2 py-1">
+            {PERIOD_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.key}
+                onPress={() => setPeriod(opt.key)}
+                className={cn(
+                  "px-3.5 py-1.5 rounded-full border",
+                  period === opt.key ? "border-emerald-500 bg-emerald-500/10" : "border-slate-800 bg-slate-900/40"
+                )}
+              >
+                <Text className={cn("text-[10px] font-extrabold uppercase tracking-wider", period === opt.key ? "text-emerald-400" : "text-slate-400")}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
       </View>
 
       {loadingStats ? (
@@ -207,205 +361,162 @@ export default function AnalyticsScreen() {
         </View>
       ) : (
         <ScrollView contentContainerClassName="p-4 pb-20 flex flex-col gap-5">
-
-          {/* ── 1. Earnings Overview ───────────────────────────────────────── */}
-          <View className="flex flex-col gap-3">
-            <Text className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">
-              Earnings Overview
-            </Text>
-            <View className="flex-row gap-2.5">
-              <StatCard label="Gross Revenue" value={totalRevenue} type="currency" accent="#10b981" />
-              <StatCard label="Net Income" value={netIncome} type="currency" accent="#6366f1" />
-            </View>
-            <View className="flex-row gap-2.5">
-              <StatCard label="Hourly Rate" value={hourlyRate} type="currency" accent="#f59e0b" suffix="/hr" />
-              <StatCard label="Total Shifts" value={periodStats?.count || 0} type="number" accent="#0ea5e9" />
-            </View>
-            <View className="flex-row gap-2.5">
-              <StatCard label="Hours Driven" value={durationHrs} type="decimal" accent="#8b5cf6" suffix=" hrs" />
-              <StatCard label="Active Distance" value={periodStats?.activeMileage || 0} type="decimal" accent="#ec4899" suffix={` ${profile.distanceUnit}`} />
-            </View>
+          {/* Active on Dashboard ribbon */}
+          <View className="flex flex-col gap-2.5">
+            <Text className="text-2xs font-extrabold text-slate-400 uppercase tracking-widest">Active on Dashboard</Text>
+            {onDashboardInCategory.length === 0 ? (
+              <View className="py-3 px-4 bg-slate-900/30 border border-slate-850 rounded-xl">
+                <Text className="text-2xs text-slate-500 font-bold text-center">No widgets from this category are currently pinned.</Text>
+              </View>
+            ) : (
+              <View className="flex-row flex-wrap gap-2">
+                {onDashboardInCategory.map((w) => (
+                  <View key={w.id} className="flex-row items-center gap-1.5 bg-slate-900/60 border border-slate-850 rounded-full px-3 py-1.5">
+                    <View className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <Text className="text-2xs font-bold text-slate-200">{getWidgetLabel(w.id)}</Text>
+                    <Text className="text-[8px] font-black text-slate-500 bg-slate-950 px-1.5 py-0.5 rounded uppercase">{w.size}</Text>
+                    <TouchableOpacity onPress={() => handleRemoveWidget(w.id)} className="p-0.5 rounded-full bg-slate-950 ml-1">
+                      <X size={10} color="#f43f5e" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
 
-          {/* ── 2. Platform Breakdown ─────────────────────────────────────── */}
-          {platformData.length > 0 && (
-            <View className="flex flex-col gap-3">
-              <Text className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">
-                Platform Breakdown
-              </Text>
-              <View className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-4 flex flex-col gap-3">
-                {platformData.map((p) => (
-                  <View key={p.platform} className="flex-row items-center gap-3">
-                    <PlatformBadge platform={p.platform as PlatformKey} size="sm" />
-                    <View className="flex-1 flex flex-col gap-1">
-                      <View className="flex-row justify-between items-center">
-                        <Text className="text-xs font-bold text-slate-200 capitalize">{p.platform}</Text>
-                        <View className="flex-row items-center gap-2">
-                          <Text className="text-[10px] text-slate-500 font-bold">{p.count} shifts</Text>
-                          <CurrencyText amount={p.total} size="sm" className="font-extrabold text-slate-100" />
-                        </View>
+          {/* Available widgets section */}
+          <View className="flex flex-col gap-2.5">
+            <Text className="text-2xs font-extrabold text-slate-400 uppercase tracking-widest">Available Insights</Text>
+            {availableInCategory.length === 0 ? (
+              <View className="py-8 items-center justify-center gap-2">
+                <Text className="text-xl">🎉</Text>
+                <Text className="text-2xs text-slate-450 font-bold text-center">All modules in this category are pinned to the dashboard!</Text>
+              </View>
+            ) : (
+              <View className="flex flex-col gap-4">
+                {availableInCategory.map((id) => (
+                  <View key={id} style={styles.bentoCardOuter}>
+                    <View style={styles.bentoHeader} className="flex-row justify-between items-center">
+                      <View>
+                        <Text style={styles.bentoTitle}>{getWidgetLabel(id)}</Text>
                       </View>
-                      {/* Share bar */}
-                      <View className="h-1.5 bg-slate-950 rounded-full overflow-hidden">
-                        <View
-                          style={{ width: `${p.share}%`, backgroundColor: "#10b981", borderRadius: 4, height: "100%" }}
-                        />
-                      </View>
-                      <Text className="text-[9px] text-slate-500 font-bold">{p.share.toFixed(0)}% of total</Text>
+                      <TouchableOpacity
+                        onPress={() => setSizeSelectorWidget(id)}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-500 flex-row items-center gap-1 active:bg-emerald-600"
+                      >
+                        <Plus size={12} color="#ffffff" strokeWidth={3} />
+                        <Text className="text-[10px] font-black text-white uppercase">Pin</Text>
+                      </TouchableOpacity>
                     </View>
+                    <View className="pt-2">{renderWidgetContent(id)}</View>
                   </View>
                 ))}
               </View>
-            </View>
-          )}
-
-          {/* ── 3. Daily Earnings Trend ───────────────────────────────────── */}
-          {dailyData.length > 0 && (
-            <View className="flex flex-col gap-3">
-              <Text className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">
-                Daily Earnings Trend
-              </Text>
-              <View className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-4">
-                <View className="flex-row items-end" style={{ height: 80 }}>
-                  {dailyData.slice(-28).map((d, i) => (
-                    <MiniBar key={i} value={d.total} maxValue={maxDailyEarning} height={70} />
-                  ))}
-                </View>
-                <View className="flex-row justify-between mt-1.5">
-                  <Text className="text-[9px] text-slate-600 font-bold">
-                    {dailyData.slice(-28)[0]?.date?.substring(5) || ""}
-                  </Text>
-                  <Text className="text-[9px] text-slate-600 font-bold">
-                    {dailyData.slice(-1)[0]?.date?.substring(5) || "Today"}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* ── 4. Best Days of Week ─────────────────────────────────────── */}
-          {bestDayData.some((d) => d.avgEarnings > 0) && (
-            <View className="flex flex-col gap-3">
-              <Text className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">
-                Best Days of Week
-              </Text>
-              <View className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-4 flex flex-col gap-2">
-                <View className="flex-row items-end" style={{ height: 70 }}>
-                  {bestDayData.map((d, i) => (
-                    <MiniBar key={i} value={d.avgEarnings} maxValue={maxDayAvg} color="#6366f1" height={60} />
-                  ))}
-                </View>
-                <View className="flex-row justify-between mt-1">
-                  {bestDayData.map((d) => (
-                    <Text key={d.day} className="text-[8px] text-slate-500 font-bold flex-1 text-center">
-                      {d.label}
-                    </Text>
-                  ))}
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* ── 5. Mileage Split ─────────────────────────────────────────── */}
-          {mileage && (mileage.active + mileage.dead) > 0 && (
-            <View className="flex flex-col gap-3">
-              <Text className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">
-                Mileage Split
-              </Text>
-              <View className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-4 flex flex-col gap-3">
-                <View className="flex-row justify-between">
-                  <View className="items-center flex-1">
-                    <Text className="text-base font-extrabold text-emerald-400">
-                      {mileage.active.toFixed(1)} {profile.distanceUnit}
-                    </Text>
-                    <Text className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Active</Text>
-                  </View>
-                  <View className="items-center flex-1">
-                    <Text className="text-base font-extrabold text-rose-400">
-                      {mileage.dead.toFixed(1)} {profile.distanceUnit}
-                    </Text>
-                    <Text className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Dead</Text>
-                  </View>
-                  <View className="items-center flex-1">
-                    <Text className="text-base font-extrabold text-amber-400">
-                      {mileage.ratio.toFixed(0)}%
-                    </Text>
-                    <Text className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Dead Ratio</Text>
-                  </View>
-                </View>
-
-                {/* Split bar */}
-                <View className="w-full h-3 bg-slate-950 rounded-full overflow-hidden flex-row mt-1">
-                  <View style={{ flex: Math.max(0.01, mileage.active), backgroundColor: "#10b981" }} />
-                  <View style={{ flex: Math.max(0.01, mileage.dead), backgroundColor: "#f43f5e" }} />
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* ── 6. Auto-generated Insights ───────────────────────────────── */}
-          {insights.length > 0 && (
-            <View className="flex flex-col gap-3">
-              <Text className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">
-                Insights
-              </Text>
-              <View className="flex flex-col gap-2.5">
-                {insights.map((msg, i) => (
-                  <View
-                    key={i}
-                    className="bg-slate-900/50 border border-slate-800/60 rounded-xl px-4 py-3 flex-row gap-2.5 items-start"
-                  >
-                    <Text className="text-base leading-none mt-0.5">💡</Text>
-                    <Text className="text-xs text-slate-300 font-medium leading-relaxed flex-1">{msg}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-
-          {/* Empty state */}
-          {totalRevenue === 0 && (periodStats?.count || 0) === 0 && (
-            <View className="py-16 items-center justify-center gap-3">
-              <Text className="text-3xl">📊</Text>
-              <Text className="text-slate-400 text-sm font-medium text-center px-4 leading-relaxed">
-                No shift data for this period.{"\n"}Start logging shifts to see your analytics.
-              </Text>
-            </View>
-          )}
+            )}
+          </View>
         </ScrollView>
       )}
+
+      {/* Inline Layout Size Choice Modal */}
+      <Modal visible={sizeSelectorWidget !== null} transparent animationType="fade">
+        <View className="flex-1 bg-black/60 items-center justify-center p-4">
+          <View className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-5 gap-4">
+            <View className="flex-row justify-between items-center border-b border-slate-800 pb-3">
+              <View>
+                <Text className="text-sm font-black text-slate-100">Choose Layout Size</Text>
+                <Text className="text-2xs text-slate-400 mt-0.5">Select a grid layout for your dashboard</Text>
+              </View>
+              <TouchableOpacity onPress={() => setSizeSelectorWidget(null)} className="p-1 rounded-full bg-slate-800">
+                <X size={14} color="#a1a1aa" />
+              </TouchableOpacity>
+            </View>
+
+            <View className="flex flex-col gap-2">
+              {[
+                { key: "1x1", label: "1 × 1 Square", desc: "Compact snapshot widget" },
+                { key: "2x1", label: "2 × 1 Wide", desc: "Wide standard widget" },
+                { key: "2x2", label: "2 × 2 Big Square", desc: "Detailed square widget" },
+                { key: "1x2", label: "1 × 2 Tall", desc: "Tall column widget" },
+              ].map((sz) => (
+                <TouchableOpacity
+                  key={sz.key}
+                  onPress={() => sizeSelectorWidget && handleAddWidget(sizeSelectorWidget, sz.key)}
+                  className="p-3 bg-slate-950 border border-slate-850 rounded-xl flex-row items-center justify-between active:bg-slate-900"
+                >
+                  <View>
+                    <Text className="text-xs font-bold text-slate-200">{sz.label}</Text>
+                    <Text className="text-[10px] text-slate-500 mt-0.5">{sz.desc}</Text>
+                  </View>
+                  <Text className="text-2xs font-extrabold text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                    {sz.key}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-// ─── StatCard Component ───────────────────────────────────────────────────────
-function StatCard({
-  label,
+// ─── StatValue Component ─────────────────────────────────────────────────────
+function StatValue({
   value,
   type,
-  accent,
+  label,
+  color,
   suffix,
 }: {
-  label: string;
   value: number;
   type: "currency" | "number" | "decimal";
-  accent: string;
+  label: string;
+  color: string;
   suffix?: string;
 }) {
+  const formatVal = () => {
+    if (type === "currency") {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+      }).format(value);
+    }
+    if (type === "decimal") return value.toFixed(1);
+    return Math.round(value).toString();
+  };
+
   return (
-    <View
-      className="flex-1 bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col gap-1.5"
-      style={{ borderLeftWidth: 3, borderLeftColor: accent }}
-    >
-      <Text className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{label}</Text>
-      {type === "currency" ? (
-        <CurrencyText amount={value} size="md" className="font-extrabold text-slate-100" />
-      ) : (
-        <Text className="text-base font-extrabold text-slate-100">
-          {type === "decimal" ? value.toFixed(1) : Math.round(value)}
-          {suffix || ""}
-        </Text>
-      )}
+    <View className="flex flex-row justify-between items-center py-1">
+      <View className="flex-row items-center gap-2">
+        <View className="w-1.5 h-6 rounded-full" style={{ backgroundColor: color }} />
+        <Text className="text-2xs font-bold text-slate-400 uppercase tracking-wider">{label}</Text>
+      </View>
+      <Text className="text-sm font-black text-slate-200">
+        {formatVal()}
+        {suffix || ""}
+      </Text>
     </View>
   );
 }
+
+const styles = {
+  bentoCardOuter: {
+    backgroundColor: "#161615",
+    borderColor: "#262624",
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+  },
+  bentoHeader: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#262624",
+    paddingBottom: 10,
+    marginBottom: 10,
+  },
+  bentoTitle: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "700" as const,
+  },
+};

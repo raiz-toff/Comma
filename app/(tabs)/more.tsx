@@ -2,7 +2,7 @@ import React from "react";
 import { View, ScrollView, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { Target, BarChart3, Calendar, Car, Settings, Info } from "lucide-react-native";
+import { Target, BarChart3, Calendar, Car, Settings, Info, Calculator } from "lucide-react-native";
 import { Text } from "../../src/components/ui/text";
 
 // Pure View Icon components for visual polish without react-native-svg
@@ -50,6 +50,12 @@ export default function MoreScreen() {
             subtitle="Manage earnings, mileage, and hour goals"
             icon={Target}
             onPress={() => router.push("/goals")}
+          />
+          <MenuItem
+            title="Tax"
+            subtitle="Track quarterly and annual tax withholdings"
+            icon={Calculator}
+            onPress={() => router.push("/tax")}
           />
           <MenuItem
             title="Reports"

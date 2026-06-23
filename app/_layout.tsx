@@ -8,6 +8,14 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { PortalHost } from "@rn-primitives/portal";
 import { DATABASE_NAME, useDatabaseMigrations, useStudio } from "../src/database/client";
 import { QueryProvider } from "../providers/QueryProvider";
+import { useGPSTracking } from "../hooks/useGPSTracking";
+import { useWakeLock } from "../hooks/useWakeLock";
+
+function ShiftBackgroundServices() {
+  useGPSTracking();
+  useWakeLock();
+  return null;
+}
 
 export default function RootLayout() {
   const { success, error } = useDatabaseMigrations();
@@ -34,6 +42,7 @@ export default function RootLayout() {
 
   const stackContent = (
     <SafeAreaProvider>
+      <ShiftBackgroundServices />
       <Stack screenOptions={{ headerShown: false }} />
     </SafeAreaProvider>
   );

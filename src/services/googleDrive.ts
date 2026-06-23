@@ -1,62 +1,11 @@
-import crypto from "react-native-quick-crypto";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { db } from "../database/client";
 import { vehicles, shifts, expenses, goals, settings } from "../database/schema";
+import { getOrCreateEncryptionKey, encrypt, decrypt } from "./cryptoHelper";
 
 const isWeb = Platform.OS === "web";
 const ENCRYPTION_KEY_STORE_KEY = "COMMA_BACKUP_ENCRYPTION_KEY";
-
-// ─── Cryptography Helpers ───────────────────────────────────────────────────
-
-async function getOrCreateEncryptionKey(pin: string = "1234"): Promise<string> {
-  if (isWeb) {
-    let key = localStorage.getItem(ENCRYPTION_KEY_STORE_KEY);
-    if (!key) {
-      key = crypto.randomBytes(32).toString("hex");
-      localStorage.setItem(ENCRYPTION_KEY_STORE_KEY, key);
-    }
-    return key;
-  }
-
-  let key = await SecureStore.getItemAsync(ENCRYPTION_KEY_STORE_KEY);
-  if (!key) {
-    // Generate a random 32-byte key
-    key = crypto.randomBytes(32).toString("hex");
-    await SecureStore.setItemAsync(ENCRYPTION_KEY_STORE_KEY, key);
-  }
-
-  // Salt key with user pin for extra layer
-  const salted = crypto.pbkdf2Sync(key, pin, 1000, 32, "sha256");
-  return salted.toString("hex");
-}
-
-export function encrypt(data: string, keyHex: string): string {
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv("aes-256-gcm", Buffer.from(keyHex, "hex") as any, iv as any);
-  let encrypted = cipher.update(data, "utf8", "hex");
-  encrypted += cipher.final("hex");
-  const tag = cipher.getAuthTag().toString("hex");
-
-  return JSON.stringify({
-    iv: iv.toString("hex"),
-    content: encrypted,
-    tag,
-  });
-}
-
-export function decrypt(encryptedJson: string, keyHex: string): string {
-  const { iv, content, tag } = JSON.parse(encryptedJson);
-  const decipher = crypto.createDecipheriv(
-    "aes-256-gcm",
-    Buffer.from(keyHex, "hex") as any,
-    Buffer.from(iv, "hex") as any
-  );
-  decipher.setAuthTag(Buffer.from(tag, "hex") as any);
-  let decrypted = decipher.update(content, "hex", "utf8");
-  decrypted += decipher.final("utf8");
-  return decrypted;
-}
 
 // ─── OAuth / Access Token Management ─────────────────────────────────────────
 
@@ -159,7 +108,7 @@ export async function backupToDrive(pin: string = "1234"): Promise<void> {
 
   const serialized = JSON.stringify(exportPayload);
   const key = await getOrCreateEncryptionKey(pin);
-  const encrypted = encrypt(serialized, key);
+  const encrypted = await encrypt(serialized, key);
 
   // Upload to GDrive appDataFolder
   const accessToken = await getValidAccessToken();
@@ -246,7 +195,7 @@ export async function restoreFromDrive(fileId: string, pin: string = "1234"): Pr
 
   const encryptedText = await response.text();
   const key = await getOrCreateEncryptionKey(pin);
-  const decryptedText = decrypt(encryptedText, key);
+  const decryptedText = await decrypt(encryptedText, key);
   const payload = JSON.parse(decryptedText);
 
   // Validate Schema

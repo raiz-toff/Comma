@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Text } from "@/src/components/ui/text";
 import { CurrencyText } from "@/src/components/ui/CurrencyText";
 import { getPeriodStats } from "@/src/database/queries/analytics";
@@ -73,6 +74,8 @@ export default function ReportsScreen() {
     return d;
   });
   const [customEnd, setCustomEnd] = useState(() => new Date());
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
 
   const { start, end } = useMemo(() => {
     return getPresetDates(preset, customStart, customEnd);
@@ -210,29 +213,75 @@ export default function ReportsScreen() {
 
         {/* Custom Date Pickers */}
         {preset === "custom" && (
-          <View className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-row gap-3">
-            <View className="flex-1 flex-col gap-1">
-              <Text className="text-[10px] text-slate-500 font-bold uppercase">Start Date</Text>
-              <input
-                type="date"
-                value={customStart.toISOString().substring(0, 10)}
-                onChange={(e) => {
-                  if (e.target.value) setCustomStart(new Date(e.target.value + "T12:00:00"));
-                }}
-                className="bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs w-full outline-none focus:border-emerald-500"
-              />
+          <View className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3">
+            <View className="flex flex-row gap-3">
+              <View className="flex-1 flex-col gap-1">
+                <Text className="text-[10px] text-slate-500 font-bold uppercase">Start Date</Text>
+                {isWeb ? (
+                  <input
+                    type="date"
+                    value={customStart.toISOString().substring(0, 10)}
+                    onChange={(e) => {
+                      if (e.target.value) setCustomStart(new Date(e.target.value + "T12:00:00"));
+                    }}
+                    className="bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs w-full outline-none focus:border-emerald-500"
+                  />
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => setShowStartPicker(true)}
+                    className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex-row justify-between items-center"
+                  >
+                    <Text className="text-slate-200 text-xs font-semibold">{customStart.toLocaleDateString(undefined, { dateStyle: "medium" })}</Text>
+                    <Text className="text-emerald-500 text-[10px] uppercase font-bold tracking-wider">Select</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <View className="flex-1 flex-col gap-1">
+                <Text className="text-[10px] text-slate-500 font-bold uppercase">End Date</Text>
+                {isWeb ? (
+                  <input
+                    type="date"
+                    value={customEnd.toISOString().substring(0, 10)}
+                    onChange={(e) => {
+                      if (e.target.value) setCustomEnd(new Date(e.target.value + "T12:00:00"));
+                    }}
+                    className="bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs w-full outline-none focus:border-emerald-500"
+                  />
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => setShowEndPicker(true)}
+                    className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex-row justify-between items-center"
+                  >
+                    <Text className="text-slate-200 text-xs font-semibold">{customEnd.toLocaleDateString(undefined, { dateStyle: "medium" })}</Text>
+                    <Text className="text-emerald-500 text-[10px] uppercase font-bold tracking-wider">Select</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
-            <View className="flex-1 flex-col gap-1">
-              <Text className="text-[10px] text-slate-500 font-bold uppercase">End Date</Text>
-              <input
-                type="date"
-                value={customEnd.toISOString().substring(0, 10)}
-                onChange={(e) => {
-                  if (e.target.value) setCustomEnd(new Date(e.target.value + "T12:00:00"));
+
+            {/* Native DateTimePickers */}
+            {!isWeb && showStartPicker && (
+              <DateTimePicker
+                value={customStart}
+                mode="date"
+                display="default"
+                onChange={(event, selectedDate) => {
+                  setShowStartPicker(false);
+                  if (selectedDate) setCustomStart(selectedDate);
                 }}
-                className="bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs w-full outline-none focus:border-emerald-500"
               />
-            </View>
+            )}
+            {!isWeb && showEndPicker && (
+              <DateTimePicker
+                value={customEnd}
+                mode="date"
+                display="default"
+                onChange={(event, selectedDate) => {
+                  setShowEndPicker(false);
+                  if (selectedDate) setCustomEnd(selectedDate);
+                }}
+              />
+            )}
           </View>
         )}
 

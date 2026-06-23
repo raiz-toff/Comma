@@ -7,10 +7,13 @@ import {
   Alert,
   Platform,
   Switch,
+  ActivityIndicator,
+  Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
+import * as FileSystem from "expo-file-system/legacy";
 import { Text } from "@/src/components/ui/text";
 import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
@@ -18,6 +21,8 @@ import { useSettingsStore, type DriverProfile } from "@/store/useSettingsStore";
 import { cn } from "@/src/lib/utils";
 import { db } from "@/src/database/client";
 import { settings } from "@/src/database/schema";
+import { useGoogleDriveSync } from "@/hooks/useGoogleDriveSync";
+import { generateShiftsCSV, generateExpensesCSV } from "@/utils/reportGenerator";
 
 const isWeb = Platform.OS === "web";
 
@@ -62,6 +67,20 @@ export default function SettingsScreen() {
   const [taxWithholdingPct, setTaxWithholdingPct] = useState(String(profile.taxWithholdingPct));
   const [isSaving, setIsSaving] = useState(false);
   const [savedFeedback, setSavedFeedback] = useState(false);
+
+  const {
+    isAuthenticated,
+    isBackingUp,
+    isRestoring,
+    backups,
+    lastBackup,
+    login,
+    logout,
+    triggerBackup,
+    triggerRestore,
+  } = useGoogleDriveSync();
+
+  const [backupPin, setBackupPin] = useState("1234");
 
   useEffect(() => {
     setDisplayName(profile.displayName);
@@ -130,6 +149,53 @@ export default function SettingsScreen() {
     await clearSampleData();
     queryClient.invalidateQueries();
     router.replace("/");
+  };
+
+  const handleExportCSV = async () => {
+    const exportData = async (type: "shifts" | "expenses") => {
+      try {
+        const start = new Date(0);
+        const end = new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000);
+        const csv = type === "shifts" ? await generateShiftsCSV(start, end) : await generateExpensesCSV(start, end);
+        const filename = `comma_${type}_${new Date().toISOString().split("T")[0]}.csv`;
+
+        if (isWeb) {
+          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.setAttribute("href", url);
+          link.setAttribute("download", filename);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } else {
+          const fileUri = FileSystem.cacheDirectory + filename;
+          await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
+          await Share.share({ url: fileUri, title: `Export ${type} CSV`, message: `Comma ${type} Export` });
+        }
+      } catch (err: any) {
+        Alert.alert("Export Failed", err.message || "An error occurred exporting CSV.");
+      }
+    };
+
+    if (isWeb) {
+      const choice = window.confirm("Export Shifts? (Click Cancel to export Expenses instead)");
+      if (choice) {
+        exportData("shifts");
+      } else {
+        exportData("expenses");
+      }
+    } else {
+      Alert.alert(
+        "Export CSV",
+        "Choose which logs to export:",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Expenses", onPress: () => exportData("expenses") },
+          { text: "Shifts", onPress: () => exportData("shifts") },
+        ]
+      );
+    }
   };
 
   return (
@@ -312,10 +378,11 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* ── 4. DATA & BACKUP (Stubs for Phase 9/12) ── */}
+        {/* ── 4. DATA & BACKUP ── */}
         <View className="flex flex-col gap-3">
           <Text className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">Data & Backup</Text>
           <View className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col gap-3">
+            {/* Import CSV */}
             <TouchableOpacity
               onPress={() => router.push("/settings/import")}
               className="flex-row items-center justify-between py-3 border-b border-slate-800/40"
@@ -329,31 +396,126 @@ export default function SettingsScreen() {
               </View>
             </TouchableOpacity>
 
+            {/* Export CSV */}
             <TouchableOpacity
-              onPress={() => Alert.alert("Coming Soon", "Google Drive backup will be available in a future update.")}
+              onPress={handleExportCSV}
               className="flex-row items-center justify-between py-3 border-b border-slate-800/40"
             >
               <View>
-                <Text className="text-sm font-semibold text-slate-200">Backup to Google Drive</Text>
-                <Text className="text-[10px] text-slate-500 mt-0.5">Phase 12 feature</Text>
+                <Text className="text-sm font-semibold text-slate-200">Export CSV</Text>
+                <Text className="text-[10px] text-slate-500 mt-0.5">Download all shift or expense data as CSV</Text>
               </View>
-              <View className="px-2.5 py-1 bg-slate-800/60 rounded-lg border border-slate-700/40">
-                <Text className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Soon</Text>
+              <View className="px-2.5 py-1 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                <Text className="text-[9px] text-emerald-400 uppercase font-bold tracking-wider">Export</Text>
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => Alert.alert("Coming Soon", "CSV export will be available in a future update.")}
-              className="flex-row items-center justify-between py-3"
-            >
-              <View>
-                <Text className="text-sm font-semibold text-slate-200">Export CSV</Text>
-                <Text className="text-[10px] text-slate-500 mt-0.5">Download all shift data as CSV</Text>
+            {/* Google Drive Connection */}
+            <View className="py-3 flex-col gap-3">
+              <View className="flex-row items-center justify-between">
+                <View>
+                  <Text className="text-sm font-semibold text-slate-200">Google Drive Sync</Text>
+                  <Text className="text-[10px] text-slate-500 mt-0.5">
+                    {isAuthenticated ? "Connected to Google Drive" : "Connect your Google account"}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={isAuthenticated ? logout : login}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg border",
+                    isAuthenticated
+                      ? "border-rose-500/30 bg-rose-500/10"
+                      : "border-emerald-500/30 bg-emerald-500/10"
+                  )}
+                >
+                  <Text className={cn("text-[10px] uppercase font-bold tracking-wider", isAuthenticated ? "text-rose-400" : "text-emerald-400")}>
+                    {isAuthenticated ? "Disconnect" : "Connect"}
+                  </Text>
+                </TouchableOpacity>
               </View>
-              <View className="px-2.5 py-1 bg-slate-800/60 rounded-lg border border-slate-700/40">
-                <Text className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Soon</Text>
-              </View>
-            </TouchableOpacity>
+
+              {/* Backups controls (only if connected) */}
+              {isAuthenticated && (
+                <View className="flex-col gap-3 mt-1 bg-slate-950/40 p-3 rounded-xl border border-slate-850">
+                  {/* PIN Input */}
+                  <View className="flex flex-col gap-1.5">
+                    <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Backup PIN (4 digits)</Text>
+                    <TextInput
+                      value={backupPin}
+                      onChangeText={(val) => setBackupPin(val.replace(/[^0-9]/g, "").slice(0, 4))}
+                      keyboardType="number-pad"
+                      secureTextEntry
+                      placeholder="1234"
+                      placeholderTextColor="#475569"
+                      className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 text-sm font-semibold font-mono"
+                    />
+                  </View>
+
+                  {/* Backup Button */}
+                  <TouchableOpacity
+                    onPress={() => triggerBackup(backupPin).catch(e => Alert.alert("Backup Failed", e.message))}
+                    disabled={isBackingUp || isRestoring}
+                    className="w-full py-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 items-center justify-center flex-row gap-2"
+                  >
+                    {isBackingUp ? (
+                      <ActivityIndicator size="small" color="#10b981" />
+                    ) : (
+                      <Text className="text-emerald-400 font-bold text-xs uppercase">Backup Data to Drive</Text>
+                    )}
+                  </TouchableOpacity>
+
+                  {/* Backups List */}
+                  {backups.length > 0 ? (
+                    <View className="flex-col gap-2 mt-2 pt-2 border-t border-slate-900">
+                      <Text className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Available Backups</Text>
+                      {backups.map((b) => (
+                        <View key={b.id} className="flex-row justify-between items-center py-2 border-b border-slate-900 last:border-b-0">
+                          <View className="flex-col max-w-[70%]">
+                            <Text className="text-xs font-semibold text-slate-300" numberOfLines={1}>
+                              {b.name}
+                            </Text>
+                            <Text className="text-[9px] text-slate-500 mt-0.5">
+                              {new Date(b.createdTime).toLocaleString()}
+                            </Text>
+                          </View>
+                          <TouchableOpacity
+                            onPress={() => {
+                              const performRestore = async () => {
+                                try {
+                                  await triggerRestore(b.id, backupPin);
+                                  Alert.alert("Success", "Backup restored successfully!");
+                                } catch (err: any) {
+                                  Alert.alert("Restore Failed", err.message || "Failed to restore backup.");
+                                }
+                              };
+
+                              if (isWeb) {
+                                if (window.confirm("Restore this backup? Local data will be overwritten.")) performRestore();
+                              } else {
+                                Alert.alert(
+                                  "Restore Backup",
+                                  "Restore this backup? Current local data will be overwritten and replaced.",
+                                  [
+                                    { text: "Cancel", style: "cancel" },
+                                    { text: "Restore", style: "destructive", onPress: performRestore },
+                                  ]
+                                );
+                              }
+                            }}
+                            disabled={isBackingUp || isRestoring}
+                            className="px-2.5 py-1 bg-blue-500/10 border border-blue-500/20 rounded-lg"
+                          >
+                            <Text className="text-[9px] text-blue-400 font-bold uppercase">Restore</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text className="text-[10px] text-slate-500 text-center italic mt-1">No backups found on Drive</Text>
+                  )}
+                </View>
+              )}
+            </View>
           </View>
         </View>
 

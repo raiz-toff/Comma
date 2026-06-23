@@ -37,6 +37,7 @@ interface SettingsState {
   activeVehicle: VehicleDraft | null;
   isLoading: boolean;
   isDemoMode: boolean;
+  activePlatformFilter: string;
 
   // Actions
   loadSettings: () => Promise<void>;
@@ -48,6 +49,7 @@ interface SettingsState {
   resetSettings: () => Promise<void>;
   loadSampleData: () => Promise<void>;
   clearSampleData: () => Promise<void>;
+  setActivePlatformFilter: (filter: string) => void;
 }
 
 const DEFAULT_PROFILE: DriverProfile = {
@@ -73,6 +75,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   activeVehicle: null,
   isLoading: true,
   isDemoMode: false,
+  activePlatformFilter: "all",
+
+  setActivePlatformFilter: (filter: string) => set({ activePlatformFilter: filter }),
 
   loadSettings: async () => {
     set({ isLoading: true });
@@ -355,7 +360,122 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ isLoading: true });
     if (isWeb) {
       localStorage.setItem("comma_demo_mode", "true");
-      set({ isDemoMode: true, isLoading: false });
+      const vehicleId = "demo_vehicle_1";
+      const demoVehicle = {
+        id: vehicleId,
+        name: "Toyota Prius (Demo)",
+        type: "hybrid",
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      };
+      localStorage.setItem("comma_vehicle", JSON.stringify(demoVehicle));
+      localStorage.setItem("comma_onboarding_completed", "true");
+      const finalProfile = {
+        displayName: "Jane Doe (Demo)",
+        country: "CA" as const,
+        taxRegion: "ON",
+        avatarType: "emoji" as const,
+        avatarData: "🚗",
+        selectedPlatforms: ["doordash", "ubereats", "skip"],
+        workSchedulePreset: "flexible" as const,
+        weeklyGoal: 500,
+        monthlyGoal: 2165,
+        annualGoal: 26000,
+        taxWithholdingPct: 25,
+        hstRegistered: false,
+        distanceUnit: "km" as const,
+        theme: "dark" as const,
+      };
+      localStorage.setItem("comma_profile", JSON.stringify(finalProfile));
+
+      const now = new Date();
+      const demoShifts = [];
+      const demoExpenses = [];
+      const platforms = ["doordash", "ubereats", "skip"];
+
+      for (let i = 1; i <= 20; i++) {
+        const shiftDate = new Date();
+        shiftDate.setDate(now.getDate() - i);
+
+        const startTime = new Date(shiftDate);
+        startTime.setHours(11, 0, 0, 0);
+        const endTime = new Date(shiftDate);
+        endTime.setHours(15, 0, 0, 0);
+
+        const platform = platforms[i % platforms.length];
+        const shiftId = `demo_shift_${i}`;
+        const gross = 80 + (i * 7) % 40;
+        const tips = 15 + (i * 3) % 15;
+        const activeMil = 20 + (i * 4) % 20;
+        const deadMil = 5 + (i * 2) % 10;
+        const duration = 4 * 3600; // 4 hours
+
+        demoShifts.push({
+          id: shiftId,
+          vehicleId: vehicleId,
+          platform: platform,
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          grossRevenue: gross,
+          tipsRevenue: tips,
+          trackedMileage: activeMil,
+          activeMileage: activeMil,
+          deadMileage: deadMil,
+          durationSeconds: duration,
+          pausedSeconds: 0,
+          notes: "[COMMA Sample Data]",
+        });
+
+        if (i % 5 === 0) {
+          demoExpenses.push({
+            id: `demo_expense_${i}`,
+            shiftId: shiftId,
+            category: "fuel",
+            amount: 45.5 + (i * 1.5),
+            date: shiftDate.toISOString(),
+            isDeductible: true,
+          });
+        }
+      }
+
+      localStorage.setItem("comma_shifts", JSON.stringify(demoShifts));
+      localStorage.setItem("comma_expenses", JSON.stringify(demoExpenses));
+
+      const demoGoals = [
+        {
+          id: "goal_weekly_" + Date.now(),
+          label: "Weekly Revenue Goal",
+          targetValue: 500,
+          unit: "currency",
+          period: "weekly",
+          isActive: true,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: "goal_monthly_" + (Date.now() + 1),
+          label: "Monthly Revenue Goal",
+          targetValue: 2165,
+          unit: "currency",
+          period: "monthly",
+          isActive: true,
+          createdAt: new Date().toISOString(),
+        }
+      ];
+      localStorage.setItem("comma_goals", JSON.stringify(demoGoals));
+
+      set({
+        isOnboardingCompleted: true,
+        profile: finalProfile,
+        activeVehicle: {
+          nickname: "Toyota Prius (Demo)",
+          type: "hybrid",
+          make: "Toyota",
+          model: "Prius",
+          year: "2020",
+        },
+        isDemoMode: true,
+        isLoading: false,
+      });
       return;
     }
 
@@ -368,7 +488,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           set: { value: "true" },
         });
 
-      // Add a default demo vehicle if not present
       const existingVehicles = await db.select().from(vehicles).limit(1);
       let vehicleId = existingVehicles[0]?.id;
       if (!vehicleId) {
@@ -379,10 +498,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           type: "hybrid",
           isActive: true,
           createdAt: new Date(),
+          make: "Toyota",
+          model: "Prius",
+          year: 2020,
         });
       }
 
-      // Generate 20 sample shifts and expenses over the last 30 days
       const now = new Date();
       const demoShifts = [];
       const demoExpenses = [];
@@ -392,7 +513,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         const shiftDate = new Date();
         shiftDate.setDate(now.getDate() - i);
 
-        // Shift times
         const startTime = new Date(shiftDate);
         startTime.setHours(11, 0, 0, 0);
         const endTime = new Date(shiftDate);
@@ -402,7 +522,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         const shiftId = `demo_shift_${i}`;
         const gross = 80 + (i * 7) % 40;
         const tips = 15 + (i * 3) % 15;
-        const mileage = 25 + (i * 5) % 30;
+        const activeMil = 20 + (i * 4) % 20;
+        const deadMil = 5 + (i * 2) % 10;
+        const duration = 4 * 3600;
 
         demoShifts.push({
           id: shiftId,
@@ -412,11 +534,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           endTime: endTime,
           grossRevenue: gross,
           tipsRevenue: tips,
-          trackedMileage: mileage,
+          trackedMileage: activeMil,
+          activeMileage: activeMil,
+          deadMileage: deadMil,
+          durationSeconds: duration,
+          pausedSeconds: 0,
           notes: "[COMMA Sample Data]",
         });
 
-        // Weekly gas expenses
         if (i % 5 === 0) {
           demoExpenses.push({
             id: `demo_expense_${i}`,
@@ -429,13 +554,31 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         }
       }
 
-      // Add shifts and expenses bulk
       for (const s of demoShifts) {
         await db.insert(shifts).values(s);
       }
       for (const e of demoExpenses) {
         await db.insert(expenses).values(e);
       }
+
+      await db.insert(goals).values({
+        id: "goal_weekly_" + Date.now(),
+        label: "Weekly Revenue Goal",
+        targetValue: 500,
+        unit: "currency",
+        period: "weekly",
+        isActive: true,
+        createdAt: new Date(),
+      });
+      await db.insert(goals).values({
+        id: "goal_monthly_" + (Date.now() + 1),
+        label: "Monthly Revenue Goal",
+        targetValue: 2165,
+        unit: "currency",
+        period: "monthly",
+        isActive: true,
+        createdAt: new Date(),
+      });
 
       set({ isDemoMode: true, isLoading: false });
     } catch (error) {
@@ -459,7 +602,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
 
     try {
-      // Full hard reset on exiting demo
       await db.delete(settings);
       await db.delete(vehicles);
       await db.delete(shifts);

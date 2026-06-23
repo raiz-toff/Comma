@@ -278,5 +278,12 @@ Stop execution immediately upon closing the append stream. Await PM verification
 - **Database Impact:** None.
 - **State:** Completed Task 2.3 by implementing the CurrencyText component which automatically formats currency amounts according to standard locale codes (CAD or USD) derived from user settings. Applies dynamic colors (green for positive, red for negative, slate-muted for zero) based on the value.
 
+### Task 2.4 Completed: StatCard - 2026-06-23T05:23:00-04:00
+- **Files Created/Modified:**
+  - Created: `src/components/ui/StatCard.tsx`
+- **Database Impact:** None.
+- **State:** Completed Task 2.4 by implementing the StatCard component which displays a structured card containing a mapped icon, large metric value, label, and an optional percentage delta badge showing positive/negative performance indicators.
+
+
 
 

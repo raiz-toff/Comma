@@ -346,6 +346,14 @@ Stop execution immediately upon closing the append stream. Await PM verification
 - **Database Impact:** Fetches shift details from `getShiftById(id)` and linked expenses via `getExpensesByShift(id)`. Allows inserting (`insertExpense`) and deleting (`deleteExpense`) expenses. Shift deletion cascades.
 - **State:** Completed Task 4.2. Implemented the Shift Detail screen at `app/(tabs)/shifts/[id].tsx`. Features include total payout header, quick stats grid (duration, hourly rate, total distance), shift notes card, mileage split breakdown card with a custom dual-colored progress bar, a linked expenses list with inline category-specific item logging (fuel, wash, maintenance, etc.) and item deletion triggers, and a red destructive shift delete action that prompts before cascade delete.
 
+### Task 4.3 Completed: CSV import wizard - 2026-06-23T05:51:00-04:00
+- **Files Created/Modified:**
+  - Created: `src/components/shifts/CSVImportWizard.tsx`, `app/settings/import.tsx`
+  - Modified: `app/settings/index.tsx`, `package.json`
+- **Database Impact:** Inserts bulk parsed shifts via `insertManyShifts(rows)` query function using a single database operation/transaction.
+- **State:** Completed Task 4.3. Installed `papaparse` package for fast, client-side CSV parsing. Implemented the CSV Import Wizard screen featuring a 4-step wizard: (1) Document picker for selecting CSV files (expo-document-picker), (2) Mapping interface that matches headers dynamically and lets drivers configure them, (3) Preview of the first 5 parsed records with summary of valid and skipped rows, (4) DB transaction ingestion showing final statistics. Added launch triggers inside the Settings screen under the Data section.
+
+
 
 
 

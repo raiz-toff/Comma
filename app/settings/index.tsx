@@ -317,6 +317,19 @@ export default function SettingsScreen() {
           <Text className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">Data & Backup</Text>
           <View className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col gap-3">
             <TouchableOpacity
+              onPress={() => router.push("/settings/import")}
+              className="flex-row items-center justify-between py-3 border-b border-slate-800/40"
+            >
+              <View>
+                <Text className="text-sm font-semibold text-slate-200">Import CSV</Text>
+                <Text className="text-[10px] text-slate-500 mt-0.5">Load shift history from CSV wizard</Text>
+              </View>
+              <View className="px-2.5 py-1 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                <Text className="text-[9px] text-emerald-400 uppercase font-bold tracking-wider">Launch</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
               onPress={() => Alert.alert("Coming Soon", "Google Drive backup will be available in a future update.")}
               className="flex-row items-center justify-between py-3 border-b border-slate-800/40"
             >

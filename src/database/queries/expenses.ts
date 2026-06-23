@@ -1,6 +1,6 @@
 import { db } from "../client";
 import { expenses } from "../schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { Platform } from "react-native";
 
 const isWeb = Platform.OS === "web";
@@ -15,15 +15,66 @@ export async function getExpensesByShift(shiftId: string): Promise<any[]> {
   return await db.select().from(expenses).where(eq(expenses.shiftId, shiftId));
 }
 
-export async function getExpensesByMonth(year: number): Promise<any[]> {
+export async function getExpenseById(id: string): Promise<any | null> {
+  if (isWeb) {
+    const existing = localStorage.getItem("comma_expenses");
+    if (!existing) return null;
+    const list = JSON.parse(existing);
+    return list.find((e: any) => e.id === id) || null;
+  }
+  const result = await db.select().from(expenses).where(eq(expenses.id, id)).limit(1);
+  return result[0] || null;
+}
+
+export async function getExpensesByMonth(
+  year: number
+): Promise<{ monthKey: string; label: string; items: any[] }[]> {
   if (isWeb) {
     const existing = localStorage.getItem("comma_expenses");
     if (!existing) return [];
-    const list = JSON.parse(existing);
-    return list.filter((e: any) => new Date(e.date).getFullYear() === year);
+    const list = JSON.parse(existing).filter(
+      (e: any) => new Date(e.date).getFullYear() === year
+    );
+    const map: Record<string, any[]> = {};
+    list.forEach((e: any) => {
+      const dateObj = new Date(e.date);
+      const key = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, "0")}`;
+      if (!map[key]) map[key] = [];
+      map[key].push(e);
+    });
+    return Object.keys(map)
+      .sort((a, b) => b.localeCompare(a))
+      .map((key) => ({
+        monthKey: key,
+        label: new Date(key + "-01").toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+        items: map[key].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+      }));
   }
-  // Simplified for all expenses for now
-  return await db.select().from(expenses).orderBy(desc(expenses.date));
+
+  const startOfYear = new Date(year, 0, 1);
+  const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
+
+  const rows = await db
+    .select()
+    .from(expenses)
+    .where(and(gte(expenses.date, startOfYear), lte(expenses.date, endOfYear)))
+    .orderBy(desc(expenses.date));
+
+  const map: Record<string, any[]> = {};
+  rows.forEach((e: any) => {
+    const dateObj = new Date(e.date);
+    const key = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, "0")}`;
+    if (!map[key]) map[key] = [];
+    map[key].push(e);
+  });
+
+  return Object.keys(map)
+    .sort((a, b) => b.localeCompare(a))
+    .map((key) => ({
+      monthKey: key,
+      label: new Date(key + "-01").toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+      items: map[key],
+    }));
 }
 
 export async function getExpenseYTDSummary(): Promise<{ deductible: number; nonDeductible: number }> {

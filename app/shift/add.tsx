@@ -10,14 +10,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Button } from "../../src/components/ui/button";
 import { Text } from "../../src/components/ui/text";
 import { PlatformBadge } from "../../src/components/ui/PlatformBadge";
 import { PLATFORMS } from "../../src/registry/platforms";
 import { getVehicles } from "../../src/database/queries/vehicles";
-import { insertShift } from "../../src/database/queries/shifts";
+import { insertShift, updateShift, getShiftById } from "../../src/database/queries/shifts";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { cn } from "../../src/lib/utils";
 
@@ -26,6 +26,7 @@ type GigPlatform = "doordash" | "ubereats" | "skip" | "other";
 export default function AddShiftModal() {
   const queryClient = useQueryClient();
   const { profile } = useSettingsStore();
+  const { shiftId } = useLocalSearchParams<{ shiftId: string }>();
 
   // Form State
   const [selectedPlatform, setSelectedPlatform] = useState<GigPlatform>("doordash");
@@ -52,13 +53,41 @@ export default function AddShiftModal() {
     queryFn: async () => {
       const list = await getVehicles();
       // Set default selected vehicle to active vehicle or first vehicle in list
-      if (list.length > 0) {
+      if (list.length > 0 && !shiftId) {
         const active = list.find((v: any) => v.isActive);
         setSelectedVehicleId(active ? active.id : list[0].id);
       }
       return list;
     },
   });
+
+  // Query Existing Shift
+  const { data: existingShift } = useQuery({
+    queryKey: ["shift", shiftId],
+    queryFn: () => getShiftById(shiftId!),
+    enabled: !!shiftId,
+  });
+
+  // Pre-populate if editing
+  React.useEffect(() => {
+    if (existingShift) {
+      setSelectedPlatform(existingShift.platform);
+      setSelectedVehicleId(existingShift.vehicleId || "");
+      
+      const start = new Date(existingShift.startTime);
+      const end = new Date(existingShift.endTime);
+      
+      setDate(start);
+      setStartTime(start);
+      setEndTime(end);
+      
+      setGrossRevenue(String(existingShift.grossRevenue || ""));
+      setTips(String(existingShift.tipsRevenue || ""));
+      setActiveMileage(String(existingShift.activeMileage || ""));
+      setDeadMileage(String(existingShift.deadMileage || ""));
+      setNotes(existingShift.notes || "");
+    }
+  }, [existingShift]);
 
   const handleSave = async () => {
     setErrorMessage("");
@@ -98,30 +127,49 @@ export default function AddShiftModal() {
     }
 
     setIsSaving(true);
-    const shiftId = `shift_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-
-    const payload = {
-      id: shiftId,
-      vehicleId: selectedVehicleId,
-      platform: selectedPlatform,
-      startTime: finalStartDate,
-      endTime: finalEndDate,
-      grossRevenue: parseFloat(grossRevenue) || 0.0,
-      tipsRevenue: parseFloat(tips) || 0.0,
-      trackedMileage: parseFloat(activeMileage) || 0.0,
-      activeMileage: parseFloat(activeMileage) || 0.0,
-      deadMileage: parseFloat(deadMileage) || 0.0,
-      durationSeconds,
-      pausedSeconds: 0,
-      notes: notes.trim() || null,
-    };
 
     try {
-      await insertShift(payload);
+      if (shiftId) {
+        // Edit mode
+        await updateShift(shiftId, {
+          vehicleId: selectedVehicleId || null,
+          platform: selectedPlatform,
+          startTime: finalStartDate,
+          endTime: finalEndDate,
+          grossRevenue: parseFloat(grossRevenue) || 0.0,
+          tipsRevenue: parseFloat(tips) || 0.0,
+          trackedMileage: parseFloat(activeMileage) || 0.0,
+          activeMileage: parseFloat(activeMileage) || 0.0,
+          deadMileage: parseFloat(deadMileage) || 0.0,
+          durationSeconds,
+          notes: notes.trim() || null,
+        });
+      } else {
+        // Create mode
+        const newShiftId = `shift_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        await insertShift({
+          id: newShiftId,
+          vehicleId: selectedVehicleId || null,
+          platform: selectedPlatform,
+          startTime: finalStartDate,
+          endTime: finalEndDate,
+          grossRevenue: parseFloat(grossRevenue) || 0.0,
+          tipsRevenue: parseFloat(tips) || 0.0,
+          trackedMileage: parseFloat(activeMileage) || 0.0,
+          activeMileage: parseFloat(activeMileage) || 0.0,
+          deadMileage: parseFloat(deadMileage) || 0.0,
+          durationSeconds,
+          pausedSeconds: 0,
+          notes: notes.trim() || null,
+        });
+      }
       
       // Invalidate queries to reload dashboard/list pages
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
       queryClient.invalidateQueries({ queryKey: ["shifts"] });
+      if (shiftId) {
+        queryClient.invalidateQueries({ queryKey: ["shift", shiftId] });
+      }
       
       router.back();
     } catch (err: any) {
@@ -142,7 +190,9 @@ export default function AddShiftModal() {
           <TouchableOpacity onPress={() => router.back()} className="py-2 px-3 bg-slate-800/40 rounded-lg border border-slate-700/30">
             <Text className="text-slate-300 text-xs font-semibold">Cancel</Text>
           </TouchableOpacity>
-          <Text className="text-slate-100 text-base font-extrabold tracking-tight">Add Shift</Text>
+          <Text className="text-slate-100 text-base font-extrabold tracking-tight">
+            {shiftId ? "Edit Shift" : "Add Shift"}
+          </Text>
           <TouchableOpacity 
             onPress={handleSave} 
             disabled={isSaving}

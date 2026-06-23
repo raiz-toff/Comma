@@ -32,6 +32,17 @@ export async function updateShift(id: string, payload: Partial<typeof shifts.$in
   await db.update(shifts).set(payload).where(eq(shifts.id, id));
 }
 
+export async function getShiftById(id: string): Promise<any | null> {
+  if (isWeb) {
+    const existing = localStorage.getItem("comma_shifts");
+    if (!existing) return null;
+    const list = JSON.parse(existing);
+    return list.find((s: any) => s.id === id) || null;
+  }
+  const result = await db.select().from(shifts).where(eq(shifts.id, id)).limit(1);
+  return result[0] || null;
+}
+
 export async function getShiftsPaginated(
   page: number, 
   filters?: { startDate?: Date; endDate?: Date; platforms?: string[] }

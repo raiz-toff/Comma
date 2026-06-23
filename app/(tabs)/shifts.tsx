@@ -132,8 +132,9 @@ export default function ShiftsScreen() {
                   });
 
                   return (
-                    <View
+                    <TouchableOpacity
                       key={shift.id}
+                      onPress={() => router.push({ pathname: "/shift/add", params: { shiftId: shift.id } })}
                       className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-4 flex-row justify-between items-center transition-all duration-200 active:border-slate-700"
                     >
                       {/* Left: Platform & Metadata */}
@@ -169,13 +170,16 @@ export default function ShiftsScreen() {
                         </View>
 
                         <TouchableOpacity
-                          onPress={() => handleDelete(shift.id)}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleDelete(shift.id);
+                          }}
                           className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 active:bg-rose-500/20"
                         >
                           <TrashIcon color="#f43f5e" />
                         </TouchableOpacity>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>

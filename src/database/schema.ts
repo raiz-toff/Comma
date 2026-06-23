@@ -6,6 +6,11 @@ export const vehicles = sqliteTable('vehicles', {
   type: text('type').notNull(), 
   isActive: integer('is_active', { mode: 'boolean' }).default(true).notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  make: text('make'),
+  model: text('model'),
+  year: integer('year'),
+  fuelType: text('fuel_type'),   // 'gas' | 'electric' | 'hybrid' | 'other'
+  licensePlate: text('license_plate'),
 });
 
 export const shifts = sqliteTable('shifts', {

@@ -190,3 +190,10 @@ Stop execution immediately upon closing the append stream. Await PM verification
 - **Database Impact:** Extended the `shifts` table with `dead_mileage` (real), `active_mileage` (real), `duration_seconds` (integer), and `paused_seconds` (integer) columns. Deprecated `tracked_mileage` column.
 - **State:** Database schema has been successfully modified and a migration created to be executed on the client database during initialization. TypeScript type check compiles successfully with zero errors.
 
+### Task Completed: Extend vehicles table - 2026-06-23T03:59:00-04:00
+- **Files Created/Modified:**
+  - Modified: `src/database/schema.ts`
+  - Created: `drizzle/0003_bizarre_firedrake.sql`
+  - Modified: `drizzle/migrations.js`, `drizzle/meta/_journal.json`, `drizzle/meta/0003_snapshot.json`
+- **Database Impact:** Extended the `vehicles` table with `make` (text), `model` (text), `year` (integer), `fuel_type` (text), and `license_plate` (text) columns.
+- **State:** Database schema has been successfully modified and a migration created to be executed on the client database during initialization. TypeScript type check compiles successfully with zero errors.

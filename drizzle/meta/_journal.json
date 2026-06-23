@@ -22,6 +22,13 @@
       "when": 1782201058176,
       "tag": "0002_ancient_typhoid_mary",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1782201475734,
+      "tag": "0003_bizarre_firedrake",
+      "breakpoints": true
     }
   ]
 }

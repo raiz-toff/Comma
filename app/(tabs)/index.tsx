@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ScrollView, View, ActivityIndicator, TouchableOpacity, Alert, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "../../src/components/ui/button";
 import {
   Card,
@@ -14,6 +15,9 @@ import { useActiveShift, type GigPlatform } from "../../store/useActiveShift";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import OnboardingWizard from "../../components/OnboardingWizard";
 import { cn } from "../../src/lib/utils";
+import { BentoCard } from "../../src/components/ui/BentoCard";
+import { CurrencyText } from "../../src/components/ui/CurrencyText";
+import { getTodayStats, getWeekStats, getGoalProgress, getActiveVehicle } from "../../src/database/queries/analytics";
 
 // Custom vector icons implemented as pure Views to avoid react-native-svg native dependency
 const PlayIcon = ({ size = 16, color = "white" }: { size?: number; color?: string }) => (
@@ -111,6 +115,8 @@ const MilestoneIcon = ({ size = 18, color = "#818cf8" }: { size?: number; color?
 );
 
 export default function HomeScreen() {
+  const queryClient = useQueryClient();
+  
   const {
     isActive,
     platform: activePlatform,
@@ -155,6 +161,31 @@ export default function HomeScreen() {
     };
   }, [isActive, incrementTimer]);
 
+  // React Query Fetchers for Dashboard stats
+  const { data: todayStats = { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0 } } = useQuery({
+    queryKey: ["analytics", "today"],
+    queryFn: () => getTodayStats(),
+    enabled: isOnboardingCompleted,
+  });
+
+  const { data: weekStats = { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0 } } = useQuery({
+    queryKey: ["analytics", "week"],
+    queryFn: () => getWeekStats(),
+    enabled: isOnboardingCompleted,
+  });
+
+  const { data: weeklyGoals = [] } = useQuery({
+    queryKey: ["analytics", "goals", "weekly"],
+    queryFn: () => getGoalProgress("weekly"),
+    enabled: isOnboardingCompleted,
+  });
+
+  const { data: activeVehicle } = useQuery({
+    queryKey: ["analytics", "activeVehicle"],
+    queryFn: () => getActiveVehicle(),
+    enabled: isOnboardingCompleted,
+  });
+
   // Format stopwatch: HH:MM:SS
   const formatTime = (totalSeconds: number) => {
     const hrs = Math.floor(totalSeconds / 3600);
@@ -167,13 +198,6 @@ export default function HomeScreen() {
     ].join(":");
   };
 
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    const isNegative = amount < 0;
-    const absAmount = Math.abs(amount);
-    return `${isNegative ? "-" : ""}$${absAmount.toFixed(2)}`;
-  };
-
   // Platform label dictionary
   const platformLabels: Record<GigPlatform, string> = {
     doordash: "DoorDash",
@@ -182,19 +206,22 @@ export default function HomeScreen() {
     other: "Other",
   };
 
-  // Today's projection math
-  const grossPayout = 0.0;
-  const deductions = trackedMileage * 0.67;
+  // Today's projection math wired to Drizzle todayStats
+  const grossPayout = todayStats.gross + todayStats.tips;
+  const deductions = (todayStats.activeMileage + todayStats.deadMileage) * 0.67;
   const netIncome = grossPayout - deductions;
 
   const handleStartShift = () => {
-    startShift(selectedPlatform, "default_vehicle_1");
+    const vId = activeVehicle?.id || "default_vehicle_1";
+    startShift(selectedPlatform, vId);
   };
 
-  const handleEndShift = () => {
-    const payload = endShift();
+  const handleEndShift = async () => {
+    const payload = await endShift();
     console.log("Completed Shift Payload:", payload);
     reset();
+    queryClient.invalidateQueries({ queryKey: ["analytics"] });
+    queryClient.invalidateQueries({ queryKey: ["shifts"] });
   };
 
   // Loading Screen
@@ -225,6 +252,8 @@ export default function HomeScreen() {
               onPress={async () => {
                 await clearSampleData();
                 await loadSettings();
+                queryClient.invalidateQueries({ queryKey: ["analytics"] });
+                queryClient.invalidateQueries({ queryKey: ["shifts"] });
               }}
               className="py-1.5 px-3 bg-amber-500/20 border border-amber-500/30 rounded-lg"
             >
@@ -250,6 +279,8 @@ export default function HomeScreen() {
                 if (window.confirm("Are you sure you want to reset the app? This deletes all shifts, vehicles, and settings.")) {
                   await resetSettings();
                   await loadSettings();
+                  queryClient.invalidateQueries({ queryKey: ["analytics"] });
+                  queryClient.invalidateQueries({ queryKey: ["shifts"] });
                 }
               } else {
                 Alert.alert(
@@ -263,6 +294,8 @@ export default function HomeScreen() {
                       onPress: async () => {
                         await resetSettings();
                         await loadSettings();
+                        queryClient.invalidateQueries({ queryKey: ["analytics"] });
+                        queryClient.invalidateQueries({ queryKey: ["shifts"] });
                       },
                     },
                   ]
@@ -438,6 +471,84 @@ export default function HomeScreen() {
           </CardContent>
         </Card>
 
+        {/* Bento Grid */}
+        <View className="flex-row flex-wrap justify-between gap-y-4">
+          <BentoCard size="1x1" title="Today" className="w-[48.5%]">
+            <View className="flex-col justify-between h-full pt-1">
+              <CurrencyText amount={todayStats.gross + todayStats.tips} size="lg" className="text-xl font-extrabold" />
+              <Text className="text-xs text-slate-400 font-medium mt-1">
+                {todayStats.count} {todayStats.count === 1 ? "shift" : "shifts"}
+              </Text>
+            </View>
+          </BentoCard>
+
+          <BentoCard size="1x1" title="This Week" className="w-[48.5%]">
+            <View className="flex-col justify-between h-full pt-1">
+              <CurrencyText amount={weekStats.gross + weekStats.tips} size="lg" className="text-xl font-extrabold" />
+              <Text className="text-xs text-slate-400 font-medium mt-1">
+                {(weekStats.durationSeconds / 3600).toFixed(1)} hrs active
+              </Text>
+            </View>
+          </BentoCard>
+
+          <BentoCard size="2x1" title="Miles Tracked" className="w-full">
+            <View className="flex-col gap-3.5 pt-2">
+              <View className="flex-col gap-1">
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-xs text-slate-300 font-semibold">Active (On Delivery)</Text>
+                  <Text className="text-xs font-bold text-emerald-400">
+                    {todayStats.activeMileage.toFixed(1)} {profile.distanceUnit}
+                  </Text>
+                </View>
+                <View className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
+                  <View style={{ width: `${Math.min(100, (todayStats.activeMileage / Math.max(1, todayStats.activeMileage + todayStats.deadMileage)) * 100)}%` }} className="bg-emerald-500 h-full rounded-full" />
+                </View>
+              </View>
+
+              <View className="flex-col gap-1">
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-xs text-slate-300 font-semibold">Dead (Commute/Waiting)</Text>
+                  <Text className="text-xs font-bold text-amber-500">
+                    {todayStats.deadMileage.toFixed(1)} {profile.distanceUnit}
+                  </Text>
+                </View>
+                <View className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
+                  <View style={{ width: `${Math.min(100, (todayStats.deadMileage / Math.max(1, todayStats.activeMileage + todayStats.deadMileage)) * 100)}%` }} className="bg-amber-500 h-full rounded-full" />
+                </View>
+              </View>
+            </View>
+          </BentoCard>
+
+          <BentoCard size="2x1" title="Weekly Goal" className="w-full">
+            {(() => {
+              const goalProgress = weeklyGoals[0] || {
+                targetValue: profile.weeklyGoal,
+                currentValue: weekStats.gross + weekStats.tips,
+                progressPct: profile.weeklyGoal > 0 ? ((weekStats.gross + weekStats.tips) / profile.weeklyGoal) * 100 : 0
+              };
+              const pct = Math.min(goalProgress.progressPct, 100);
+              return (
+                <View className="flex-col gap-3 pt-2">
+                  <View className="flex-row justify-between items-end">
+                    <View className="flex-row items-baseline gap-1">
+                      <CurrencyText amount={goalProgress.currentValue} size="lg" className="text-xl font-extrabold text-emerald-400" />
+                      <Text className="text-slate-400 text-xs font-semibold">of</Text>
+                      <CurrencyText amount={goalProgress.targetValue} size="md" className="text-slate-200 font-semibold" />
+                    </View>
+                    <Text className="text-emerald-400 text-sm font-extrabold">{goalProgress.progressPct.toFixed(0)}%</Text>
+                  </View>
+                  <View className="w-full h-3 bg-slate-950 rounded-full overflow-hidden">
+                    <View style={{ width: `${pct}%` }} className="bg-emerald-500 h-full rounded-full" />
+                  </View>
+                  <Text className="text-[10px] text-slate-400 font-medium">
+                    Keep it up! You need <CurrencyText amount={Math.max(0, goalProgress.targetValue - goalProgress.currentValue)} size="sm" className="font-bold text-slate-300" /> more to hit your weekly goal.
+                  </Text>
+                </View>
+              );
+            })()}
+          </BentoCard>
+        </View>
+
         {/* 5.2.3: COMPONENT B — THE "TODAY'S PROJECTION" BENTO CARD */}
         <Card className="bg-slate-900/90 border border-slate-800">
           <CardHeader className="pb-3 border-b border-slate-800/60">
@@ -464,12 +575,10 @@ export default function HomeScreen() {
                   Gross Payout
                 </Text>
                 <Text className="text-[10px] text-slate-500 font-medium">
-                  Static float (Drizzle wiring pending)
+                  Sum of gross + tips today
                 </Text>
               </View>
-              <Text className="text-slate-200 text-lg font-bold">
-                {formatCurrency(grossPayout)}
-              </Text>
+              <CurrencyText amount={grossPayout} size="lg" className="font-bold text-slate-200" />
             </View>
 
             {/* Est. Deductions */}
@@ -479,12 +588,10 @@ export default function HomeScreen() {
                   Est. Deductions
                 </Text>
                 <Text className="text-[10px] text-slate-500 font-medium">
-                  Standard Vehicle Write-off
+                  Standard Vehicle Write-off (67¢/unit)
                 </Text>
               </View>
-              <Text className="text-amber-500 text-lg font-bold">
-                {formatCurrency(deductions)}
-              </Text>
+              <CurrencyText amount={deductions} size="lg" className="font-bold text-amber-500" />
             </View>
 
             {/* Est. Net Income */}
@@ -497,9 +604,7 @@ export default function HomeScreen() {
                   Gross - Deductions
                 </Text>
               </View>
-              <Text className={cn("text-lg font-bold", netIncome >= 0 ? "text-emerald-500" : "text-rose-500")}>
-                {formatCurrency(netIncome)}
-              </Text>
+              <CurrencyText amount={netIncome} size="lg" className="font-bold" />
             </View>
           </CardContent>
         </Card>

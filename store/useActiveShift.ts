@@ -1,6 +1,7 @@
-import { create } from 'zustand';
+import { create } from "zustand";
+import { insertShift } from "../src/database/queries/shifts";
 
-export type GigPlatform = 'doordash' | 'ubereats' | 'skip' | 'other';
+export type GigPlatform = "doordash" | "ubereats" | "skip" | "other";
 
 export interface CompletedShiftPayload {
   platform: GigPlatform;
@@ -20,7 +21,7 @@ interface ActiveShiftState {
   
   // Actions
   startShift: (platform: GigPlatform, vehicleId: string) => void;
-  endShift: () => CompletedShiftPayload | null;
+  endShift: () => Promise<CompletedShiftPayload | null>;
   incrementTimer: () => void;
   updateMileage: (addedMiles: number) => void;
   reset: () => void;
@@ -43,18 +44,43 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     trackedMileage: 0
   }),
 
-  endShift: () => {
+  endShift: async () => {
     const state = get();
     if (!state.isActive || !state.startTime || !state.platform || !state.vehicleId) return null;
     
-    const payload: CompletedShiftPayload = {
+    const endTime = Date.now();
+    const durationSeconds = state.elapsedSeconds; // Use elapsedSeconds from state as it represents actual tracked active time
+    const shiftId = `shift_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+    const payload = {
+      id: shiftId,
+      vehicleId: state.vehicleId,
+      platform: state.platform,
+      startTime: new Date(state.startTime),
+      endTime: new Date(endTime),
+      grossRevenue: 0.0,
+      tipsRevenue: 0.0,
+      trackedMileage: state.trackedMileage,
+      activeMileage: state.trackedMileage,
+      deadMileage: 0.0,
+      durationSeconds: durationSeconds,
+      pausedSeconds: 0,
+    };
+
+    try {
+      await insertShift(payload);
+    } catch (e) {
+      console.error("Failed to insert shift in database:", e);
+    }
+    
+    const completedPayload: CompletedShiftPayload = {
       platform: state.platform,
       vehicleId: state.vehicleId,
       startTime: state.startTime,
-      endTime: Date.now(),
+      endTime,
       trackedMileage: state.trackedMileage,
     };
-    return payload;
+    return completedPayload;
   },
 
   incrementTimer: () => set((state) => ({ 

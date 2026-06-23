@@ -299,8 +299,14 @@ Stop execution immediately upon closing the append stream. Await PM verification
 ### Task 2.7 Completed: Expense category registry - 2026-06-23T05:26:00-04:00
 - **Files Created/Modified:**
   - Created: `src/registry/expenseCategories.ts`
-- **Database Impact:** None.
 - **State:** Completed Task 2.7 by creating the EXPENSE_CATEGORIES registry map and exporting its keys/types.
+
+### Task 3.1 Completed: Dashboard: wire Drizzle stats - 2026-06-23T05:30:00-04:00
+- **Files Created/Modified:**
+  - Modified: `app/(tabs)/index.tsx`, `src/database/queries/analytics.ts`, `src/database/queries/shifts.ts`, `store/useActiveShift.ts`
+- **Database Impact:** Reads and aggregates shifts data using SQL `COALESCE`, `SUM`, and `COUNT`. Inserts new shifts on duty completion.
+- **State:** Completed Task 3.1. Implemented query helpers `getTodayStats`, `getWeekStats`, `getActiveVehicle`, and `getGoalProgress` with Drizzle SQL aggregates. Wired the active shift hero card to write on endShift, and rendered Today, This Week, Miles Tracked, and Weekly Goal BentoCards on the dashboard using React Query.
+
 
 
 

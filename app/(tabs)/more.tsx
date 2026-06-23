@@ -1,8 +1,8 @@
 import React from "react";
-import { View, ScrollView, TouchableOpacity, Platform, Alert } from "react-native";
+import { View, ScrollView, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
 import { Text } from "../../src/components/ui/text";
-import { Card } from "../../src/components/ui/card";
 
 // Pure View Icon components for visual polish without react-native-svg
 const ChevronRightIcon = ({ color = "#64748b" }) => (
@@ -35,10 +35,6 @@ const MenuItem = ({ title, subtitle, iconChar, onPress }: MenuItemProps) => (
 );
 
 export default function MoreScreen() {
-  const handleNavigation = (dest: string) => {
-    Alert.alert("Navigation", `${dest} screen is pending implementation.`);
-  };
-
   return (
     <SafeAreaView className="dark flex-1 bg-[#0b0f19]">
       <ScrollView contentContainerClassName="p-4 flex flex-col pb-12">
@@ -52,37 +48,37 @@ export default function MoreScreen() {
             title="Goals"
             subtitle="Manage earnings, mileage, and hour goals"
             iconChar="🎯"
-            onPress={() => handleNavigation("Goals")}
+            onPress={() => router.push("/goals")}
           />
           <MenuItem
             title="Reports"
             subtitle="Export spreadsheets and summaries"
             iconChar="📊"
-            onPress={() => handleNavigation("Reports")}
+            onPress={() => router.push("/reports")}
           />
           <MenuItem
             title="Schedule"
             subtitle="Adjust weekly shifts presets"
             iconChar="📅"
-            onPress={() => handleNavigation("Schedule")}
+            onPress={() => router.push("/schedule")}
           />
           <MenuItem
             title="Vehicles"
             subtitle="Add, edit, or delete active vehicles"
             iconChar="🚗"
-            onPress={() => handleNavigation("Vehicles")}
+            onPress={() => router.push("/vehicles")}
           />
           <MenuItem
             title="Settings"
             subtitle="Configure profile and backup preferences"
             iconChar="⚙️"
-            onPress={() => handleNavigation("Settings")}
+            onPress={() => router.push("/settings")}
           />
           <MenuItem
             title="About"
             subtitle="System status, license, and version info"
             iconChar="ℹ️"
-            onPress={() => handleNavigation("About")}
+            onPress={() => router.push("/about")}
           />
         </View>
       </ScrollView>

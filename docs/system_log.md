@@ -234,3 +234,10 @@ Stop execution immediately upon closing the append stream. Await PM verification
   - Created: `app/(tabs)/_layout.tsx`, `app/(tabs)/index.tsx`, `app/(tabs)/shifts.tsx`, `app/(tabs)/analytics.tsx`, `app/(tabs)/expenses.tsx`, `app/(tabs)/tax.tsx`, `app/(tabs)/more.tsx`
 - **Database Impact:** None.
 - **State:** Implemented the main tab navigation layout with a premium dark styling (`#12110f`), active tint (`#10b981`), safe area adjustments, custom dependency-free pure View icons, and navigation routes. Moved the dashboard home screen inside the tab group and created placeholder/shell files for all secondary screens. TypeScript compiler check passes with zero errors.
+
+### Task Completed: Implement sub-routes scaffolding (stacked screens) - 2026-06-23T04:12:00-04:00
+- **Files Created/Modified:**
+  - Created: `app/goals.tsx`, `app/reports.tsx`, `app/schedule.tsx`, `app/vehicles.tsx`, `app/settings.tsx`, `app/about.tsx`
+  - Modified: `app/(tabs)/more.tsx`
+- **Database Impact:** None.
+- **State:** Scaffolded the six main sub-routes outside of the `(tabs)` group so they load as stacked screens in the navigation history. Configured custom dark-themed headers dynamically for each route (`headerShown: true`) and wired them to the "More" screen list using `router.push()`. All TypeScript compile checks pass with zero errors.

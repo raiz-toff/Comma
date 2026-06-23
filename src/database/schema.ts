@@ -13,6 +13,16 @@ export const vehicles = sqliteTable('vehicles', {
   licensePlate: text('license_plate'),
 });
 
+export const maintenanceLogs = sqliteTable('maintenance_logs', {
+  id:         text('id').primaryKey(),
+  vehicleId:  text('vehicle_id').notNull().references(() => vehicles.id),
+  type:       text('type').notNull(), // 'oil_change'|'tire'|'brake'|'fuel'|'wash'|'other'
+  cost:       real('cost').notNull(),
+  odometer:   real('odometer'),       // reading at time of service
+  date:       integer('date', { mode: 'timestamp' }).notNull(),
+  notes:      text('notes'),
+});
+
 export const shifts = sqliteTable('shifts', {
   id: text('id').primaryKey(),
   vehicleId: text('vehicle_id').references(() => vehicles.id), 

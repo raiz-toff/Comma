@@ -197,3 +197,11 @@ Stop execution immediately upon closing the append stream. Await PM verification
   - Modified: `drizzle/migrations.js`, `drizzle/meta/_journal.json`, `drizzle/meta/0003_snapshot.json`
 - **Database Impact:** Extended the `vehicles` table with `make` (text), `model` (text), `year` (integer), `fuel_type` (text), and `license_plate` (text) columns.
 - **State:** Database schema has been successfully modified and a migration created to be executed on the client database during initialization. TypeScript type check compiles successfully with zero errors.
+
+### Task Completed: Add maintenanceLogs table - 2026-06-23T04:02:00-04:00
+- **Files Created/Modified:**
+  - Modified: `src/database/schema.ts`
+  - Created: `drizzle/0004_clear_peter_quill.sql`
+  - Modified: `drizzle/migrations.js`, `drizzle/meta/_journal.json`, `drizzle/meta/0004_snapshot.json`
+- **Database Impact:** Added the `maintenance_logs` table with columns: `id` (primary key), `vehicle_id` (references vehicles.id), `type` (text), `cost` (real), `odometer` (real), `date` (timestamp), and `notes` (text).
+- **State:** Database schema has been successfully modified and a migration created to be executed on the client database during initialization. TypeScript type check compiles successfully with zero errors.

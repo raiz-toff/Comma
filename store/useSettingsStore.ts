@@ -172,6 +172,44 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       if (vehicle2) {
         localStorage.setItem("comma_vehicle2", JSON.stringify(vehicle2));
       }
+
+      // Initialize goals on Web
+      const initialGoals = [];
+      if (finalProfile.weeklyGoal > 0) {
+        initialGoals.push({
+          id: "goal_weekly_" + Date.now(),
+          label: "Weekly Revenue Goal",
+          targetValue: finalProfile.weeklyGoal,
+          unit: "currency",
+          period: "weekly",
+          isActive: true,
+          createdAt: new Date().toISOString(),
+        });
+      }
+      if (finalProfile.monthlyGoal > 0) {
+        initialGoals.push({
+          id: "goal_monthly_" + (Date.now() + 1),
+          label: "Monthly Revenue Goal",
+          targetValue: finalProfile.monthlyGoal,
+          unit: "currency",
+          period: "monthly",
+          isActive: true,
+          createdAt: new Date().toISOString(),
+        });
+      }
+      if (finalProfile.annualGoal > 0) {
+        initialGoals.push({
+          id: "goal_yearly_" + (Date.now() + 2),
+          label: "Yearly Revenue Goal",
+          targetValue: finalProfile.annualGoal,
+          unit: "currency",
+          period: "yearly",
+          isActive: true,
+          createdAt: new Date().toISOString(),
+        });
+      }
+      localStorage.setItem("comma_goals", JSON.stringify(initialGoals));
+
       set({
         isOnboardingCompleted: true,
         profile: finalProfile,

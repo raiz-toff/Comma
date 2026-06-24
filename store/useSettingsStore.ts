@@ -8,54 +8,84 @@ const isWeb = Platform.OS === "web";
 
 const generateMockRoutePath = (shiftCounter: number): string => {
   // Base coordinates around San Francisco downtown (near Market St)
-  const baseLat = 37.7749 + (shiftCounter % 5) * 0.005;
-  const baseLng = -122.4194 - (shiftCounter % 3) * 0.008;
+  const baseLat = 37.7749 + (shiftCounter % 5) * 0.003;
+  const baseLng = -122.4194 - (shiftCounter % 3) * 0.004;
   const points = [];
-  const numPoints = 15 + (shiftCounter % 10);
   
   let currentLat = baseLat;
   let currentLng = baseLng;
-  points.push({
-    latitude: currentLat,
-    longitude: currentLng,
-    timestamp: Date.now() - numPoints * 60000,
-  });
-
+  let currentTime = Date.now() - 3600000; // Start 1 hour ago
+  
   // Start with a semi-random direction (0=North, 1=East, 2=South, 3=West)
   let dir = (shiftCounter * 3) % 4;
 
-  // Block sizes in degrees (approx 100-200 meters in SF)
-  const latBlock = 0.0011; // North-South block
-  const lngBlock = 0.0018; // East-West block
+  // Block sizes in degrees (approx 120m North-South, 180m East-West in SF)
+  const latBlock = 0.0011;
+  const lngBlock = 0.0018;
 
-  for (let i = 1; i < numPoints; i++) {
-    // 35% chance to make a turn at an intersection
-    if (Math.random() < 0.35) {
-      // Turn left or right (change direction axis)
-      dir = (dir + (Math.random() < 0.5 ? 1 : 3)) % 4;
+  // Generate a route with 4 to 6 connected blocks
+  const numBlocks = 4 + (shiftCounter % 3);
+
+  points.push({
+    latitude: currentLat,
+    longitude: currentLng,
+    timestamp: currentTime,
+  });
+
+  for (let b = 0; b < numBlocks; b++) {
+    // Determine the next intersection target
+    let targetLat = currentLat;
+    let targetLng = currentLng;
+    
+    if (dir === 0) targetLat += latBlock;
+    else if (dir === 1) targetLng += lngBlock;
+    else if (dir === 2) targetLat -= latBlock;
+    else targetLng -= lngBlock;
+
+    // Generate 8 to 12 detailed points along this block
+    const steps = 8 + Math.floor(Math.random() * 5);
+    for (let s = 1; s <= steps; s++) {
+      const ratio = s / steps;
+      const interpLat = currentLat + (targetLat - currentLat) * ratio;
+      const interpLng = currentLng + (targetLng - currentLng) * ratio;
+
+      // Simulate driving in the right-hand lane (approx 3-4 meters offset)
+      let offsetLat = 0;
+      let offsetLng = 0;
+      const laneOffset = 0.000035;
+
+      if (dir === 0) {
+        offsetLng = laneOffset;  // North: shift East
+      } else if (dir === 2) {
+        offsetLng = -laneOffset; // South: shift West
+      } else if (dir === 1) {
+        offsetLat = -laneOffset; // East: shift South
+      } else if (dir === 3) {
+        offsetLat = laneOffset;  // West: shift North
+      }
+
+      // Small GPS signal jitter (approx 1 meter)
+      const jitterLat = (Math.random() - 0.5) * 0.000015;
+      const jitterLng = (Math.random() - 0.5) * 0.000015;
+
+      currentTime += 10000 + Math.random() * 4000; // ~10-14 seconds per point
+
+      points.push({
+        latitude: interpLat + offsetLat + jitterLat,
+        longitude: interpLng + offsetLng + jitterLng,
+        timestamp: currentTime,
+      });
     }
 
-    // Move along the current direction
-    if (dir === 0) {
-      currentLat += latBlock;
-    } else if (dir === 1) {
-      currentLng += lngBlock;
-    } else if (dir === 2) {
-      currentLat -= latBlock;
-    } else {
-      currentLng -= lngBlock;
-    }
+    // Set new current position to the intersection we reached
+    currentLat = targetLat;
+    currentLng = targetLng;
 
-    // Add tiny GPS jitter to make the line look like a real path drawn on a street
-    const jitterLat = (Math.random() - 0.5) * 0.00008;
-    const jitterLng = (Math.random() - 0.5) * 0.00008;
-
-    points.push({
-      latitude: currentLat + jitterLat,
-      longitude: currentLng + jitterLng,
-      timestamp: Date.now() - (numPoints - i) * 60000,
-    });
+    // Turn 90 degrees at the intersection (avoid going directly backwards)
+    const turnLeft = Math.random() < 0.5;
+    dir = (dir + (turnLeft ? 1 : 3)) % 4;
   }
+
   return JSON.stringify(points);
 };
 

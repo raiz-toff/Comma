@@ -169,11 +169,13 @@ export default function SettingsScreen() {
         let savedWidgetsVal = "";
         let savedPlatformRatesVal = "";
         let savedNotifsVal = "";
+        let savedWeekStartDayVal = "0";
 
         if (isWeb) {
           savedWidgetsVal = localStorage.getItem("comma_setting_dashboard_widgets") || "";
           savedPlatformRatesVal = localStorage.getItem("comma_setting_platform_configurations") || "";
           savedNotifsVal = localStorage.getItem("comma_setting_notification_prefs") || "";
+          savedWeekStartDayVal = localStorage.getItem("comma_setting_week_start_day") || "0";
         } else {
           const widgetsRow = await db.select().from(settings).where(eq(settings.key, "dashboard_widgets")).limit(1);
           savedWidgetsVal = widgetsRow[0]?.value || "";
@@ -183,7 +185,12 @@ export default function SettingsScreen() {
 
           const notifsRow = await db.select().from(settings).where(eq(settings.key, "notification_prefs")).limit(1);
           savedNotifsVal = notifsRow[0]?.value || "";
+
+          const weekStartRow = await db.select().from(settings).where(eq(settings.key, "week_start_day")).limit(1);
+          savedWeekStartDayVal = weekStartRow[0]?.value || "0";
         }
+
+        setWeekStartDay(savedWeekStartDayVal);
 
         if (savedWidgetsVal) {
           setDashboardWidgets(JSON.parse(savedWidgetsVal));
@@ -245,6 +252,7 @@ export default function SettingsScreen() {
       await upsertSetting("dashboard_widgets", JSON.stringify(dashboardWidgets));
       await upsertSetting("platform_configurations", JSON.stringify(platformConfigs));
       await upsertSetting("notification_prefs", JSON.stringify(notifications));
+      await upsertSetting("week_start_day", weekStartDay);
 
       await loadSettings();
       queryClient.invalidateQueries();

@@ -238,7 +238,7 @@ export default function ExpensesScreen() {
           />
         </View>
       ) : (
-        <ScrollView contentContainerClassName="pb-16">
+        <ScrollView contentContainerClassName="pb-16" showsVerticalScrollIndicator={false}>
           {/* Year Switcher */}
           <View className="flex-row justify-center items-center gap-4 py-3">
             <TouchableOpacity onPress={() => setYear((y) => y - 1)} className="px-3 py-1.5 bg-slate-900/50 rounded-lg border border-slate-800">

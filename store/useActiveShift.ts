@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { insertShift } from "../src/database/queries/shifts";
 import { type PlatformKey } from "../src/registry/platforms";
+import { cleanRoute } from "../utils/mapMatching";
 
 export type GigPlatform = PlatformKey;
 
@@ -26,12 +27,14 @@ interface ActiveShiftState {
   isPaused: boolean;
   pausedSeconds: number;
   isFirstOrderReceived: boolean;
+  routePath: Array<{ latitude: number; longitude: number; timestamp: number }>;
   
   // Actions
   startShift: (platform: GigPlatform, vehicleId: string, targetTime: number | null) => void;
   endShift: () => Promise<CompletedShiftPayload | null>;
   incrementTimer: () => void;
   updateMileage: (activeMiles: number, deadMiles: number) => void;
+  addCoordinate: (latitude: number, longitude: number) => void;
   pauseShift: () => void;
   resumeShift: () => void;
   markFirstOrderReceived: () => void;
@@ -50,6 +53,7 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
   isPaused: false,
   pausedSeconds: 0,
   isFirstOrderReceived: false,
+  routePath: [],
 
   startShift: (platform, vehicleId, targetTime) => set({
     isActive: true,
@@ -63,6 +67,7 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     isPaused: false,
     pausedSeconds: 0,
     isFirstOrderReceived: false,
+    routePath: [],
   }),
 
   endShift: async () => {
@@ -72,6 +77,14 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     const endTime = Date.now();
     const durationSeconds = state.elapsedSeconds;
     const shiftId = `shift_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+    // Clean & road-snap the route before saving (simplify + OSRM match, graceful fallback)
+    let routePathJson: string | null = null;
+    if (state.routePath.length >= 2) {
+      const raw = state.routePath.map(({ latitude, longitude }) => ({ latitude, longitude }));
+      const cleaned = await cleanRoute(raw);
+      routePathJson = JSON.stringify(cleaned);
+    }
 
     const payload = {
       id: shiftId,
@@ -86,6 +99,7 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
       deadMileage: state.deadMileage,
       durationSeconds: durationSeconds,
       pausedSeconds: state.pausedSeconds,
+      routePath: routePathJson,
     };
 
     try {
@@ -120,6 +134,13 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     deadMileage: Number((state.deadMileage + deadMiles).toFixed(2))
   })),
 
+  addCoordinate: (latitude, longitude) => set((state) => {
+    if (!state.isActive || state.isPaused) return {};
+    return {
+      routePath: [...state.routePath, { latitude, longitude, timestamp: Date.now() }]
+    };
+  }),
+
   pauseShift: () => set({ isPaused: true }),
   
   resumeShift: () => set({ isPaused: false }),
@@ -138,5 +159,6 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     isPaused: false,
     pausedSeconds: 0,
     isFirstOrderReceived: false,
+    routePath: [],
   })
 }));

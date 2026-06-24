@@ -50,6 +50,13 @@
       "when": 1782201948363,
       "tag": "0006_organic_toad_men",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1782325409488,
+      "tag": "0007_outgoing_masque",
+      "breakpoints": true
     }
   ]
 }

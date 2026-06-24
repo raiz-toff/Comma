@@ -361,7 +361,7 @@ export default function AnalyticsScreen() {
           <ActivityIndicator size="large" color="#10b981" />
         </View>
       ) : (
-        <ScrollView contentContainerClassName="p-4 pb-20 flex flex-col gap-5">
+        <ScrollView contentContainerClassName="p-4 pb-20 flex flex-col gap-5" showsVerticalScrollIndicator={false}>
           {/* Active on Dashboard ribbon */}
           <View className="flex flex-col gap-2.5">
             <Text className="text-2xs font-extrabold text-slate-400 uppercase tracking-widest">Active on Dashboard</Text>

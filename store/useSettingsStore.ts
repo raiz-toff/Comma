@@ -6,6 +6,23 @@ import { eq } from "drizzle-orm";
 
 const isWeb = Platform.OS === "web";
 
+const generateMockRoutePath = (shiftCounter: number): string => {
+  const baseLat = 37.7749 + (shiftCounter % 7) * 0.02;
+  const baseLng = -122.4194 - (shiftCounter % 5) * 0.025;
+  const points = [];
+  const numPoints = 12 + (shiftCounter % 8);
+  for (let i = 0; i < numPoints; i++) {
+    const angle = (i / numPoints) * Math.PI * 2 + (shiftCounter % 3);
+    const radius = 0.005 + (i / numPoints) * 0.015;
+    points.push({
+      latitude: baseLat + Math.cos(angle) * radius,
+      longitude: baseLng + Math.sin(angle) * radius,
+      timestamp: Date.now() - (numPoints - i) * 60000,
+    });
+  }
+  return JSON.stringify(points);
+};
+
 export interface DriverProfile {
   displayName: string;
   country: "US" | "CA";
@@ -429,48 +446,64 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       const demoExpenses = [];
       const platforms = ["doordash", "ubereats", "skip"];
 
-      for (let i = 1; i <= 20; i++) {
+      let shiftCounter = 0;
+      for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
         const shiftDate = new Date();
-        shiftDate.setDate(now.getDate() - i);
+        shiftDate.setDate(now.getDate() - dayOffset);
+        
+        const dayOfWeek = shiftDate.getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6;
+        const dayShiftsToCreate = isWeekend ? ["lunch", "dinner"] : (dayOffset % 3 === 0 ? ["lunch"] : ["lunch", "dinner"]);
 
-        const startTime = new Date(shiftDate);
-        startTime.setHours(11, 0, 0, 0);
-        const endTime = new Date(shiftDate);
-        endTime.setHours(15, 0, 0, 0);
+        for (const type of dayShiftsToCreate) {
+          shiftCounter++;
+          const shiftId = `demo_shift_${shiftCounter}`;
+          const platform = platforms[(dayOffset + (type === "lunch" ? 0 : 1)) % platforms.length];
+          
+          let startHour = type === "lunch" ? 11 : 17;
+          let durationHours = type === "lunch" ? 3.5 : 4.5;
+          
+          const startTime = new Date(shiftDate);
+          startTime.setHours(startHour, 0, 0, 0);
+          
+          const endTime = new Date(shiftDate);
+          endTime.setHours(startHour + Math.floor(durationHours), (durationHours % 1) * 60, 0, 0);
+          
+          const baseGross = type === "lunch" ? 65 : 110;
+          const randomFactor = (shiftCounter * 17) % 35;
+          const gross = baseGross + randomFactor;
+          const tips = Math.round(gross * (0.15 + (shiftCounter % 10) / 100));
+          const activeMil = Math.round(durationHours * 6.5 + (shiftCounter % 8));
+          const deadMil = Math.round(activeMil * 0.25);
+          const duration = durationHours * 3600;
 
-        const platform = platforms[i % platforms.length];
-        const shiftId = `demo_shift_${i}`;
-        const gross = 80 + (i * 7) % 40;
-        const tips = 15 + (i * 3) % 15;
-        const activeMil = 20 + (i * 4) % 20;
-        const deadMil = 5 + (i * 2) % 10;
-        const duration = 4 * 3600; // 4 hours
-
-        demoShifts.push({
-          id: shiftId,
-          vehicleId: vehicleId,
-          platform: platform,
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
-          grossRevenue: gross,
-          tipsRevenue: tips,
-          trackedMileage: activeMil,
-          activeMileage: activeMil,
-          deadMileage: deadMil,
-          durationSeconds: duration,
-          pausedSeconds: 0,
-          notes: "[COMMA Sample Data]",
-        });
-
-        if (i % 5 === 0) {
-          demoExpenses.push({
-            id: `demo_expense_${i}`,
-            shiftId: shiftId,
-            category: "fuel",
-            amount: 45.5 + (i * 1.5),
-            date: shiftDate.toISOString(),
-            isDeductible: true,
+          demoShifts.push({
+            id: shiftId,
+            vehicleId: vehicleId,
+            platform: platform,
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString(),
+            grossRevenue: gross,
+            tipsRevenue: tips,
+            trackedMileage: activeMil,
+            activeMileage: activeMil,
+            deadMileage: deadMil,
+            durationSeconds: duration,
+            pausedSeconds: 0,
+            notes: "[COMMA Sample Data]",
+            routePath: generateMockRoutePath(shiftCounter),
           });
+
+          if (shiftCounter % 4 === 0) {
+            demoExpenses.push({
+              id: `demo_expense_${shiftCounter}`,
+              shiftId: shiftId,
+              category: "fuel",
+              amount: 45.0 + (shiftCounter % 15),
+              date: shiftDate.toISOString(),
+              isDeductible: true,
+            });
+          }
         }
       }
 
@@ -545,48 +578,64 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       const demoExpenses = [];
       const platforms = ["doordash", "ubereats", "skip"];
 
-      for (let i = 1; i <= 20; i++) {
+      let shiftCounter = 0;
+      for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
         const shiftDate = new Date();
-        shiftDate.setDate(now.getDate() - i);
+        shiftDate.setDate(now.getDate() - dayOffset);
+        
+        const dayOfWeek = shiftDate.getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6;
+        const dayShiftsToCreate = isWeekend ? ["lunch", "dinner"] : (dayOffset % 3 === 0 ? ["lunch"] : ["lunch", "dinner"]);
 
-        const startTime = new Date(shiftDate);
-        startTime.setHours(11, 0, 0, 0);
-        const endTime = new Date(shiftDate);
-        endTime.setHours(15, 0, 0, 0);
+        for (const type of dayShiftsToCreate) {
+          shiftCounter++;
+          const shiftId = `demo_shift_${shiftCounter}`;
+          const platform = platforms[(dayOffset + (type === "lunch" ? 0 : 1)) % platforms.length];
+          
+          let startHour = type === "lunch" ? 11 : 17;
+          let durationHours = type === "lunch" ? 3.5 : 4.5;
+          
+          const startTime = new Date(shiftDate);
+          startTime.setHours(startHour, 0, 0, 0);
+          
+          const endTime = new Date(shiftDate);
+          endTime.setHours(startHour + Math.floor(durationHours), (durationHours % 1) * 60, 0, 0);
+          
+          const baseGross = type === "lunch" ? 65 : 110;
+          const randomFactor = (shiftCounter * 17) % 35;
+          const gross = baseGross + randomFactor;
+          const tips = Math.round(gross * (0.15 + (shiftCounter % 10) / 100));
+          const activeMil = Math.round(durationHours * 6.5 + (shiftCounter % 8));
+          const deadMil = Math.round(activeMil * 0.25);
+          const duration = durationHours * 3600;
 
-        const platform = platforms[i % platforms.length];
-        const shiftId = `demo_shift_${i}`;
-        const gross = 80 + (i * 7) % 40;
-        const tips = 15 + (i * 3) % 15;
-        const activeMil = 20 + (i * 4) % 20;
-        const deadMil = 5 + (i * 2) % 10;
-        const duration = 4 * 3600;
-
-        demoShifts.push({
-          id: shiftId,
-          vehicleId: vehicleId,
-          platform: platform,
-          startTime: startTime,
-          endTime: endTime,
-          grossRevenue: gross,
-          tipsRevenue: tips,
-          trackedMileage: activeMil,
-          activeMileage: activeMil,
-          deadMileage: deadMil,
-          durationSeconds: duration,
-          pausedSeconds: 0,
-          notes: "[COMMA Sample Data]",
-        });
-
-        if (i % 5 === 0) {
-          demoExpenses.push({
-            id: `demo_expense_${i}`,
-            shiftId: shiftId,
-            category: "fuel",
-            amount: 45.5 + (i * 1.5),
-            date: shiftDate,
-            isDeductible: true,
+          demoShifts.push({
+            id: shiftId,
+            vehicleId: vehicleId,
+            platform: platform,
+            startTime: startTime,
+            endTime: endTime,
+            grossRevenue: gross,
+            tipsRevenue: tips,
+            trackedMileage: activeMil,
+            activeMileage: activeMil,
+            deadMileage: deadMil,
+            durationSeconds: duration,
+            pausedSeconds: 0,
+            notes: "[COMMA Sample Data]",
+            routePath: generateMockRoutePath(shiftCounter),
           });
+
+          if (shiftCounter % 4 === 0) {
+            demoExpenses.push({
+              id: `demo_expense_${shiftCounter}`,
+              shiftId: shiftId,
+              category: "fuel",
+              amount: 45.0 + (shiftCounter % 15),
+              date: shiftDate,
+              isDeductible: true,
+            });
+          }
         }
       }
 

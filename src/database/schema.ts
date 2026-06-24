@@ -43,6 +43,7 @@ export const shifts = sqliteTable('shifts', {
   pausedSeconds: integer('paused_seconds').default(0).notNull(),
   // Total paused time — net active time = durationSeconds - pausedSeconds
   notes: text('notes'),
+  routePath: text('route_path'),
 });
 
 export const expenses = sqliteTable('expenses', {

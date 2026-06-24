@@ -1,279 +1,196 @@
 import React, { useEffect, useState, useRef } from "react";
-import { ScrollView, View, ActivityIndicator, Pressable, StyleSheet, Alert, Platform, TextInput, Modal, Animated } from "react-native";
+import {
+  ScrollView,
+  View,
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Alert,
+  Platform,
+  Modal,
+  Animated,
+  TextInput,
+} from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { Button } from "../../src/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "../../src/components/ui/card";
 import { Text } from "../../src/components/ui/text";
 import { useActiveShift, type GigPlatform } from "../../store/useActiveShift";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { getVehicles } from "../../src/database/queries/vehicles";
 import OnboardingWizard from "../../components/OnboardingWizard";
-import { cn } from "../../src/lib/utils";
-import { CurrencyText } from "../../src/components/ui/CurrencyText";
 import {
   getTodayStats,
   getWeekStats,
   getGoalProgress,
-  getActiveVehicle,
-  getPeriodStats,
   getFinancialOverviewForRange,
-  getRolling30DayTrend,
-  getFinancialMonthlyBreakdown,
+  getPeriodStats,
 } from "../../src/database/queries/analytics";
-import Svg, { Path, Circle, Rect, Defs, LinearGradient, Stop } from "react-native-svg";
+import Svg, { Path, Circle, Defs, LinearGradient, Stop, Polyline, Line } from "react-native-svg";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
 import { PLATFORMS } from "../../src/registry/platforms";
 
-// --- Vector Icons as simple view paths to avoid third party native dependencies ---
+// ─── Icons ───────────────────────────────────────────────────────────────────
 const PlayIcon = ({ size = 14, color = "white" }: { size?: number; color?: string }) => (
-  <View
-    style={{
-      width: 0,
-      height: 0,
-      borderLeftWidth: size * 0.8,
-      borderTopWidth: size * 0.5,
-      borderBottomWidth: size * 0.5,
-      borderStyle: "solid",
-      backgroundColor: "transparent",
-      borderLeftColor: color,
-      borderTopColor: "transparent",
-      borderBottomColor: "transparent",
-      marginLeft: size * 0.15,
-    }}
-  />
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+    <Path d="M8 5v14l11-7z" />
+  </Svg>
 );
 
 const SquareIcon = ({ size = 14, color = "white" }: { size?: number; color?: string }) => (
-  <View
-    style={{
-      width: size * 0.8,
-      height: size * 0.8,
-      backgroundColor: color,
-      borderRadius: size * 0.15,
-    }}
-  />
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+    <Path d="M6 6h12v12H6z" />
+  </Svg>
 );
 
-const PlusIcon = ({ size = 12, color = "#cbd5e1" }: { size?: number; color?: string }) => (
-  <View style={{ width: size, height: size, justifyContent: "center", alignItems: "center" }}>
-    <View style={{ position: "absolute", width: size, height: 1.5, backgroundColor: color, borderRadius: 0.8 }} />
-    <View style={{ position: "absolute", width: 1.5, height: size, backgroundColor: color, borderRadius: 0.8 }} />
-  </View>
+const RouteIcon = ({ size = 16, color = "#fff" }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="5.5" cy="18.5" r="2.5" />
+    <Circle cx="18.5" cy="5.5" r="2.5" />
+    <Path d="M5.5 16V9a4 4 0 0 1 4-4h5" />
+  </Svg>
 );
 
-const CoinsIcon = ({ size = 14, color = "#fbbf24" }: { size?: number; color?: string }) => (
-  <View style={{ width: size, height: size, position: "relative" }}>
-    <View
-      style={{
-        position: "absolute",
-        width: size * 0.8,
-        height: size * 0.8,
-        borderRadius: (size * 0.8) / 2,
-        borderWidth: 1.5,
-        borderColor: color,
-        bottom: 0,
-        left: 0,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <View style={{ width: 1.5, height: size * 0.4, backgroundColor: color }} />
-    </View>
-    <View
-      style={{
-        position: "absolute",
-        width: size * 0.8,
-        height: size * 0.8,
-        borderRadius: (size * 0.8) / 2,
-        borderWidth: 1.5,
-        borderColor: color,
-        backgroundColor: "#000000",
-        top: 0,
-        right: 0,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <View style={{ width: 1.5, height: size * 0.4, backgroundColor: color }} />
-    </View>
-  </View>
+const ClockIcon = ({ size = 16, color = "#fff" }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="12" cy="12" r="10" />
+    <Path d="M12 6v6l4 2" />
+  </Svg>
 );
 
-// --- High Fidelity Sparkline and Trend Charts ---
-const Sparkline = ({ points, color, height = 30 }: { points: number[]; color: string; height?: number }) => {
-  const safePoints = points && points.length >= 2 ? points : [12, 16, 9, 21, 14, 26, 17, 31, 23, 36, 29, 41, 33, 46];
-  const max = Math.max(...safePoints, 1);
-  const min = Math.min(...safePoints);
-  const range = (max - min) || 1;
-  const width = 100;
-  
-  const pathD = safePoints.map((p, i) => {
-    const x = (i / (safePoints.length - 1)) * width;
-    const y = height - ((p - min) / range) * (height - 4) - 2;
-    return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
-  }).join(' ');
+const TrendIcon = ({ size = 16, color = "#fff" }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="m22 7-8.5 8.5-5-5L2 17" />
+    <Path d="M16 7h6v6" />
+  </Svg>
+);
 
-  const areaD = `${pathD} L ${width} ${height} L 0 ${height} Z`;
+const ReceiptIcon = ({ size = 16, color = "#fff" }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
+    <Path d="M6 8h12M6 12h12M6 16h8" />
+  </Svg>
+);
 
-  return (
-    <View style={{ height, width: "100%", marginVertical: 4 }}>
-      <Svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
-        <Defs>
-          <LinearGradient id={`grad-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor={color} stopOpacity={0.15} />
-            <Stop offset="100%" stopColor={color} stopOpacity={0} />
-          </LinearGradient>
-        </Defs>
-        <Path d={areaD} fill={`url(#grad-${color.replace('#','')})`} />
-        <Path d={pathD} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      </Svg>
-    </View>
-  );
+const BellIcon = ({ size = 18, color = "#fff" }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+    <Path d="M13.73 21a2 2 0 0 1-3.46 0" />
+  </Svg>
+);
+
+const getFormattedHeaderDate = () => {
+  const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'short', day: 'numeric' };
+  return new Date().toLocaleDateString('en-US', options);
 };
 
-const StepChart = ({ points, color, height = 30 }: { points: number[]; color: string; height?: number }) => {
-  const safePoints = points && points.length >= 2 ? points : [6, 14, 14, 10, 19, 19, 16, 24, 24, 30, 30, 22, 22, 27];
-  const max = Math.max(...safePoints, 1);
-  const min = Math.min(...safePoints);
+const getGreeting = () => {
+  const hr = new Date().getHours();
+  if (hr < 12) return "Good morning";
+  if (hr < 17) return "Good afternoon";
+  return "Good evening";
+};
+
+// ─── Custom Sparkline ────────────────────────────────────────────────────────
+const Sparkline = ({ points, color, height = 36 }: { points: number[]; color: string; height?: number }) => {
+  const safe = points?.length >= 2 ? points : [5, 9, 6, 14, 10, 18, 13, 22, 17, 28, 21, 34];
+  const max = Math.max(...safe, 1);
+  const min = Math.min(...safe);
   const range = (max - min) || 1;
-  const width = 100;
-  
-  let pathD = "";
-  safePoints.forEach((p, i) => {
-    const x = (i / (safePoints.length - 1)) * width;
-    const y = height - ((p - min) / range) * (height - 4) - 2;
-    if (i === 0) {
-      pathD = `M ${x.toFixed(1)} ${y.toFixed(1)}`;
-    } else {
-      const prevX = ((i - 1) / (safePoints.length - 1)) * width;
-      const prevY = height - ((safePoints[i - 1] - min) / range) * (height - 4) - 2;
-      pathD += ` L ${x.toFixed(1)} ${prevY.toFixed(1)} L ${x.toFixed(1)} ${y.toFixed(1)}`;
-    }
+  const w = 100;
+
+  const coords = safe.map((p, i) => {
+    const x = (i / (safe.length - 1)) * w;
+    const y = height - ((p - min) / range) * (height - 6) - 3;
+    return { x, y };
   });
 
-  const areaD = `${pathD} L ${width} ${height} L 0 ${height} Z`;
+  let line = `M ${coords[0].x.toFixed(1)} ${coords[0].y.toFixed(1)}`;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const p0 = coords[i];
+    const p1 = coords[i + 1];
+    const cp1x = p0.x + (p1.x - p0.x) / 3;
+    const cp1y = p0.y;
+    const cp2x = p0.x + (2 * (p1.x - p0.x)) / 3;
+    const cp2y = p1.y;
+    line += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p1.x.toFixed(1)} ${p1.y.toFixed(1)}`;
+  }
+
+  const area = `${line} L ${w} ${height} L 0 ${height} Z`;
+  const gradId = `sg-${color.replace("#", "")}`;
 
   return (
-    <View style={{ height, width: "100%", marginVertical: 4 }}>
-      <Svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+    <View style={{ height, width: "100%" }}>
+      <Svg width="100%" height="100%" viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none">
         <Defs>
-          <LinearGradient id={`grad-step-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor={color} stopOpacity={0.12} />
+          <LinearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor={color} stopOpacity={0.18} />
             <Stop offset="100%" stopColor={color} stopOpacity={0} />
           </LinearGradient>
         </Defs>
-        <Path d={areaD} fill={`url(#grad-step-${color.replace('#','')})`} />
-        <Path d={pathD} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d={area} fill={`url(#${gradId})`} />
+        <Path d={line} fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
       </Svg>
     </View>
   );
 };
 
-const CurveChart = ({ points, color, height = 30 }: { points: number[]; color: string; height?: number }) => {
-  const safePoints = points && points.length >= 2 ? points : [14, 22, 19, 27, 24, 32, 29, 37, 31, 44, 39, 49, 41, 52];
-  const max = Math.max(...safePoints, 1);
-  const min = Math.min(...safePoints);
-  const range = (max - min) || 1;
-  const width = 100;
-
-  let pathD = "";
-  safePoints.forEach((p, i) => {
-    const x = (i / (safePoints.length - 1)) * width;
-    const y = height - ((p - min) / range) * (height - 4) - 2;
-    if (i === 0) {
-      pathD = `M ${x.toFixed(1)} ${y.toFixed(1)}`;
-    } else {
-      const prevX = ((i - 1) / (safePoints.length - 1)) * width;
-      const prevY = height - ((safePoints[i - 1] - min) / range) * (height - 4) - 2;
-      const cpX = prevX + (x - prevX) / 2;
-      pathD += ` C ${cpX.toFixed(1)} ${prevY.toFixed(1)} ${cpX.toFixed(1)} ${y.toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)}`;
-    }
-  });
-
-  const areaD = `${pathD} L ${width} ${height} L 0 ${height} Z`;
+// ─── Ring Progress ──────────────────────────────────────────────────────────
+const RingProgress = ({ pct, color, size = 28 }: { pct: number; color: string; size?: number }) => {
+  const r = 10;
+  const stroke = 3;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (Math.min(pct, 100) / 100) * circ;
 
   return (
-    <View style={{ height, width: "100%", marginVertical: 4 }}>
-      <Svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
-        <Defs>
-          <LinearGradient id={`grad-curve-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor={color} stopOpacity={0.15} />
-            <Stop offset="100%" stopColor={color} stopOpacity={0} />
-          </LinearGradient>
-        </Defs>
-        <Path d={areaD} fill={`url(#grad-curve-${color.replace('#','')})`} />
-        <Path d={pathD} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      </Svg>
-    </View>
-  );
-};
-
-const HoursPillars = ({ points, color }: { points: number[]; color: string }) => {
-  const safePoints = points && points.length > 0 ? points : [3.5, 5, 6.5, 2.5, 6, 7.5, 2, 4.5, 6.8, 5.5, 8.5, 4, 4.8, 6.5];
-  const max = Math.max(...safePoints, 1);
-  return (
-    <View style={{ flexDirection: "row", alignItems: "flex-end", height: 26, gap: 2, width: "100%", marginVertical: 6 }}>
-      {safePoints.map((p, i) => {
-        const heightPct = `${Math.max(15, (p / max) * 100)}%` as any;
-        return (
-          <View
-            key={i}
-            style={{
-              flex: 1,
-              height: heightPct,
-              backgroundColor: color,
-              borderRadius: 1.5,
-              opacity: 0.85,
-            }}
-          />
-        );
-      })}
-    </View>
-  );
-};
-
-const CircularProgress = ({ pct, color, size = 32 }: { pct: number; color: string; size?: number }) => {
-  const r = 13;
-  const cx = 18;
-  const cy = 18;
-  const strokeWidth = 3.5;
-  const circumference = 2 * Math.PI * r;
-  const strokeDashoffset = circumference - (Math.min(pct, 100) / 100) * circumference;
-
-  return (
-    <Svg width={size} height={size} viewBox="0 0 36 36">
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle cx="12" cy="12" r={r} fill="none" stroke="#1c1c1e" strokeWidth={stroke} />
       <Circle
-        cx={cx}
-        cy={cy}
+        cx="12"
+        cy="12"
         r={r}
-        fill="transparent"
-        stroke="#27272a"
-        strokeWidth={strokeWidth}
-      />
-      <Circle
-        cx={cx}
-        cy={cy}
-        r={r}
-        fill="transparent"
+        fill="none"
         stroke={color}
-        strokeWidth={strokeWidth}
-        strokeDasharray={circumference}
-        strokeDashoffset={strokeDashoffset}
+        strokeWidth={stroke}
+        strokeDasharray={circ}
+        strokeDashoffset={offset}
         strokeLinecap="round"
-        transform="rotate(-90 18 18)"
+        transform="rotate(-90 12 12)"
       />
     </Svg>
   );
 };
 
+// ─── Home Skeleton ───────────────────────────────────────────────────────────
+const HomeSkeleton = () => {
+  const pulse = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.6, duration: 850, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.3, duration: 850, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <Animated.View style={{ opacity: pulse, gap: 10, width: "100%" }}>
+      <View style={{ height: 40, width: 140, backgroundColor: "#1e1e1e", borderRadius: 8 }} />
+      <View style={{ height: 160, backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 1, borderColor: "#1e1e1e" }} />
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <View style={{ height: 100, flex: 1, backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#1e1e1e" }} />
+        <View style={{ height: 100, flex: 1, backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#1e1e1e" }} />
+      </View>
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <View style={{ height: 100, flex: 1, backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#1e1e1e" }} />
+        <View style={{ height: 100, flex: 1, backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#1e1e1e" }} />
+      </View>
+      <View style={{ height: 90, backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#1e1e1e" }} />
+    </Animated.View>
+  );
+};
+
+// ─── Helper helpers ──────────────────────────────────────────────────────────
 function ymd(d: Date) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -281,364 +198,177 @@ function ymd(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
-function startOfWeekDate(d: Date, weekStartDay: number) {
+function startOfWeekDate(d: Date, startDay: number) {
   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const delta = (x.getDay() - weekStartDay + 7) % 7;
+  const delta = (x.getDay() - startDay + 7) % 7;
   x.setDate(x.getDate() - delta);
   return x;
 }
 
-function defaultRangeForPreset(preset: string, now: Date, weekStartDay: number) {
+function rangeForPreset(preset: string, now: Date, weekStart: number) {
   const y = now.getFullYear();
   const m = now.getMonth();
   const today = ymd(now);
-  if (preset === "day") {
-    return { start: today, end: today, preset: "day" };
-  }
-  if (preset === "week") {
-    return { start: ymd(startOfWeekDate(now, weekStartDay)), end: today, preset: "week" };
-  }
+  if (preset === "day") return { start: today, end: today, preset: "day" };
+  if (preset === "week") return { start: ymd(startOfWeekDate(now, weekStart)), end: today, preset: "week" };
   if (preset === "month") {
     const start = `${y}-${String(m + 1).padStart(2, "0")}-01`;
-    const end = ymd(new Date(y, m + 1, 0));
-    return { start, end, preset: "month" };
+    return { start, end: today, preset: "month" };
   }
-  if (preset === "q1") return { start: `${y}-01-01`, end: `${y}-03-31`, preset: "q1" };
-  if (preset === "q2") return { start: `${y}-04-01`, end: `${y}-06-30`, preset: "q2" };
-  if (preset === "q3") return { start: `${y}-07-01`, end: `${y}-09-30`, preset: "q3" };
-  if (preset === "q4") return { start: `${y}-10-01`, end: `${y}-12-31`, preset: "q4" };
-  if (preset === "year") {
-    return { start: `${y}-01-01`, end: `${y}-12-31`, preset: "year" };
-  }
-  if (preset === "ytd") {
-    return { start: `${y}-01-01`, end: today, preset: "ytd" };
-  }
-  return { start: `${y - 1}-01-01`, end: today, preset: "all" };
+  return { start: today, end: today, preset: "day" };
 }
 
-const formatDuration = (totalSeconds: number) => {
-  const hrs = Math.floor(totalSeconds / 3600);
-  const mins = Math.floor((totalSeconds % 3600) / 60);
-  if (hrs > 0) {
-    return `${hrs}h ${mins}m`;
-  }
-  return `${mins}m`;
+const formatDuration = (secs: number) => {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
-const CalendarIcon = ({ size = 18, color = "#ffffff" }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <Rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-    <Path d="M16 2v4M8 2v4M3 10h18" />
-  </Svg>
-);
+const formatTime = (total: number) => {
+  const h = Math.floor(total / 3600).toString().padStart(2, "0");
+  const m = Math.floor((total % 3600) / 60).toString().padStart(2, "0");
+  const s = (total % 60).toString().padStart(2, "0");
+  return `${h}:${m}:${s}`;
+};
 
-const ChevronDownIcon = ({ size = 16, color = "#a1a1aa" }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M6 9l6 6 6-6" />
-  </Svg>
-);
+const LiveRouteMap = ({ points, strokeColor }: { points: Array<{ latitude: number; longitude: number }>; strokeColor: string }) => {
+  if (!points || points.length < 2) {
+    return (
+      <View style={{ height: 120, width: "85%", backgroundColor: "#060608", borderRadius: 12, borderWidth: 0.5, borderColor: "#18181b", justifyContent: "center", alignItems: "center", gap: 6, marginVertical: 8 }}>
+        <Text style={{ color: "#52525b", fontSize: 11, fontWeight: "600" }}>Waiting for GPS coordinates...</Text>
+      </View>
+    );
+  }
 
-const ChevronUpIcon = ({ size = 16, color = "#a1a1aa" }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M18 15l-6-6-6 6" />
-  </Svg>
-);
+  const lats = points.map((p) => p.latitude);
+  const lngs = points.map((p) => p.longitude);
 
-const NavigationIcon = ({ size = 16, color = "#a1a1aa" }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M3 11l19-9-9 19-2-8-8-2z" />
-  </Svg>
-);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
 
-const ClockIcon = ({ size = 16, color = "#a1a1aa" }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <Circle cx="12" cy="12" r="10" />
-    <Path d="M12 6v6l4 2" />
-  </Svg>
-);
+  const latRange = maxLat - minLat || 0.001;
+  const lngRange = maxLng - minLng || 0.001;
 
-const DollarIcon = ({ size = 16, color = "#a1a1aa" }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-  </Svg>
-);
+  const width = 300;
+  const height = 120;
+  const padding = 12;
 
-const WriteOffIcon = ({ size = 16, color = "#a1a1aa" }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z" />
-    <Path d="M16 8h-8M16 12h-8M16 16h-8" />
-  </Svg>
-);
+  const svgPoints = points.map((p) => {
+    const x = padding + ((p.longitude - minLng) / lngRange) * (width - 2 * padding);
+    const y = padding + (1 - (p.latitude - minLat) / latRange) * (height - 2 * padding);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
 
-const DashboardSkeleton = () => {
-  const pulseAnim = useRef(new Animated.Value(0.35)).current;
+  const startPoint = points[0];
+  const endPoint = points[points.length - 1];
 
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 0.65,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0.35,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, [pulseAnim]);
+  const startX = padding + ((startPoint.longitude - minLng) / lngRange) * (width - 2 * padding);
+  const startY = padding + (1 - (startPoint.latitude - minLat) / latRange) * (height - 2 * padding);
+
+  const endX = padding + ((endPoint.longitude - minLng) / lngRange) * (width - 2 * padding);
+  const endY = padding + (1 - (endPoint.latitude - minLat) / latRange) * (height - 2 * padding);
 
   return (
-    <Animated.View style={{ opacity: pulseAnim, gap: 12, width: "100%" }}>
-      {/* KPI Grid Skeleton */}
-      <View style={styles.kpiGrid}>
-        {Array.from({ length: 6 }).map((_, i) => (
-          <View key={i} style={[styles.kpiCard, { borderColor: "#262624", backgroundColor: "#0c0c0b", minHeight: 112, padding: 14 }]}>
-            <View style={{ width: 90, height: 14, backgroundColor: "#1c1c1a", borderRadius: 4, marginBottom: 8 }} />
-            <View style={{ width: 120, height: 32, backgroundColor: "#262624", borderRadius: 6, marginBottom: 12 }} />
-            <View style={{ width: 70, height: 12, backgroundColor: "#1c1c1a", borderRadius: 2 }} />
-          </View>
-        ))}
-      </View>
+    <View style={{ height: height, width: "85%", backgroundColor: "#060608", borderRadius: 12, borderWidth: 0.5, borderColor: "#18181b", overflow: "hidden", marginVertical: 8 }}>
+      <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
+        <Line x1="0" y1="30" x2="300" y2="30" stroke="#121215" strokeWidth="0.5" />
+        <Line x1="0" y1="60" x2="300" y2="60" stroke="#121215" strokeWidth="0.5" />
+        <Line x1="0" y1="90" x2="300" y2="90" stroke="#121215" strokeWidth="0.5" />
+        <Line x1="75" y1="0" x2="75" y2="120" stroke="#121215" strokeWidth="0.5" />
+        <Line x1="150" y1="0" x2="150" y2="120" stroke="#121215" strokeWidth="0.5" />
+        <Line x1="225" y1="0" x2="225" y2="120" stroke="#121215" strokeWidth="0.5" />
+        
+        <Polyline
+          points={svgPoints}
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
 
-      {/* Bento Card 1: Distance Distribution Skeleton */}
-      <View style={[styles.bentoCardOuter, { padding: 16, backgroundColor: "#0c0c0b", borderColor: "#262624" }]}>
-        <View style={{ width: 150, height: 16, backgroundColor: "#1c1c1a", borderRadius: 4, marginBottom: 6 }} />
-        <View style={{ width: 110, height: 12, backgroundColor: "#1c1c1a", borderRadius: 4, marginBottom: 16 }} />
-        <View style={{ gap: 14 }}>
-          <View style={{ gap: 6 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <View style={{ width: 80, height: 12, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
-              <View style={{ width: 40, height: 12, backgroundColor: "#262624", borderRadius: 4 }} />
-            </View>
-            <View style={{ width: "100%", height: 8, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
-          </View>
-          <View style={{ gap: 6 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <View style={{ width: 100, height: 12, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
-              <View style={{ width: 40, height: 12, backgroundColor: "#262624", borderRadius: 4 }} />
-            </View>
-            <View style={{ width: "100%", height: 8, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
-          </View>
-        </View>
-      </View>
-
-      {/* Bento Card 2: Weekly Goal Progress Skeleton */}
-      <View style={[styles.bentoCardOuter, { padding: 16, backgroundColor: "#0c0c0b", borderColor: "#262624" }]}>
-        <View style={{ width: 130, height: 16, backgroundColor: "#1c1c1a", borderRadius: 4, marginBottom: 16 }} />
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 8 }}>
-          <View style={{ width: 120, height: 24, backgroundColor: "#262624", borderRadius: 4 }} />
-          <View style={{ width: 35, height: 16, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
-        </View>
-        <View style={{ width: "100%", height: 12, backgroundColor: "#1c1c1a", borderRadius: 6, marginBottom: 10 }} />
-        <View style={{ width: "85%", height: 12, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
-      </View>
-
-      {/* Bento Card 3: Monthly Table Skeleton */}
-      <View style={[styles.bentoCardOuter, { padding: 16, backgroundColor: "#0c0c0b", borderColor: "#262624" }]}>
-        <View style={{ width: 120, height: 16, backgroundColor: "#1c1c1a", borderRadius: 4, marginBottom: 6 }} />
-        <View style={{ width: 180, height: 12, backgroundColor: "#1c1c1a", borderRadius: 4, marginBottom: 16 }} />
-        <View style={{ gap: 12 }}>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 }}>
-              <View style={{ width: "20%", height: 12, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
-              <View style={{ width: "20%", height: 12, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
-              <View style={{ width: "20%", height: 12, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
-              <View style={{ width: "20%", height: 12, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
-            </View>
-          ))}
-        </View>
-      </View>
-    </Animated.View>
+        <Circle cx={startX} cy={startY} r="4" fill="#10b981" />
+        <Circle cx={endX} cy={endY} r="5" fill={strokeColor} stroke="#fff" strokeWidth="1" />
+      </Svg>
+    </View>
   );
 };
 
+// ─── Main Component ──────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  
+
   const {
-    isActive,
-    platform: activePlatform,
-    elapsedSeconds,
-    activeMileage,
-    deadMileage,
-    targetTime,
-    startTime,
-    isPaused,
-    pausedSeconds,
-    isFirstOrderReceived,
-    startShift,
-    endShift,
-    incrementTimer,
-    updateMileage,
-    pauseShift,
-    resumeShift,
-    markFirstOrderReceived,
-    reset,
+    isActive, platform: activePlatform, elapsedSeconds,
+    activeMileage, deadMileage, targetTime, startTime,
+    isPaused, isFirstOrderReceived, routePath,
+    startShift, endShift, incrementTimer, updateMileage,
+    pauseShift, resumeShift, markFirstOrderReceived, reset,
   } = useActiveShift();
 
-  const trackedMileage = activeMileage + deadMileage;
-
-  // ── PWA adaptive-theme.js equivalent ──────────────────────────────────
-  const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
-
-  const getEtaString = () => {
-    const d = new Date();
-    d.setHours(d.getHours() + customHours);
-    d.setMinutes(d.getMinutes() + customMinutes);
-    return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-  };
-
   const {
-    isOnboardingCompleted,
-    profile,
-    isLoading,
-    isDemoMode,
-    activePlatformFilter,
-    setActivePlatformFilter,
-    loadSettings,
-    clearSampleData,
-    resetSettings,
+    isOnboardingCompleted, profile, isLoading, isDemoMode,
+    activePlatformFilter, loadSettings, clearSampleData,
     preferredVehicleId,
-    setPreferredVehicle,
   } = useSettingsStore();
 
-  // Start Shift Wizard states
-  const [showStartShiftWizard, setShowStartShiftWizard] = useState(false);
+  const { accentColor, accentColorContrast, platformColor } = usePlatformTheme();
+
+  const platformTextColor = React.useMemo(() => {
+    if (!activePlatformFilter || activePlatformFilter === "all") return "#ffffff";
+    const first = activePlatformFilter.split(",")[0];
+    const cfg = PLATFORMS[first as keyof typeof PLATFORMS];
+    return cfg?.textColor ?? "#ffffff";
+  }, [activePlatformFilter]);
+
+  // Wizard state
+  const [showWizard, setShowWizard] = useState(false);
   const [wizardStep, setWizardStep] = useState<"vehicle" | "platform" | "target">("vehicle");
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [selectedPlatformId, setSelectedPlatformId] = useState<GigPlatform>("doordash");
   const [targetMode, setTargetMode] = useState(false);
   const [customHours, setCustomHours] = useState(2);
   const [customMinutes, setCustomMinutes] = useState(0);
-  const [enableNotifications, setEnableNotifications] = useState(true);
 
-  // Screen/Overlay visibility states
-  const [showBigClockOverlay, setShowBigClockOverlay] = useState(false);
+  // Overlay state
+  const [showClockOverlay, setShowClockOverlay] = useState(false);
 
-  // Vehicles query
-  const { data: vehiclesList = [] } = useQuery({
+  // Date filter state
+  const [dateRange, setDateRange] = useState(() => rangeForPreset("day", new Date(), 0));
+
+  // Queries
+  const { data: vehicles = [] } = useQuery({
     queryKey: ["vehicles"],
-    queryFn: () => getVehicles(),
+    queryFn: getVehicles,
     enabled: isOnboardingCompleted,
   });
 
-  const [selectedPlatform, setSelectedPlatform] = useState<GigPlatform>("doordash");
-  const [avgRateTab, setAvgRateTab] = useState<"active" | "online">("active");
-  const [hoursTab, setHoursTab] = useState<"active" | "online">("active");
-
-  // Date Range and Filter States matching PWA
-  const [dateRange, setDateRange] = useState(() => {
-    const today = new Date();
-    return defaultRangeForPreset("day", today, 0);
-  });
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
-  const [filterExpanded, setFilterExpanded] = useState(false);
-
-  // Load Settings on Mount
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  // Sync date range preset week start day once profile settings are loaded
-  useEffect(() => {
-    const today = new Date();
-    setDateRange(defaultRangeForPreset(dateRange.preset, today, 0));
-  }, [profile?.country]);
-
-  const handleSelectPreset = (preset: string) => {
-    if (preset === "custom") {
-      setCustomStart(dateRange.start);
-      setCustomEnd(dateRange.end);
-      setDateRange((prev) => ({ ...prev, preset: "custom" }));
-      return;
-    }
-    const weekStartDay = 0;
-    const range = defaultRangeForPreset(preset, new Date(), weekStartDay);
-    setDateRange(range);
-    setFilterExpanded(false);
-  };
-
-  const handleApplyCustomDates = () => {
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(customStart) || !dateRegex.test(customEnd)) {
-      Alert.alert("Invalid Format", "Dates must be in YYYY-MM-DD format.");
-      return;
-    }
-    setDateRange({ start: customStart, end: customEnd, preset: "custom" });
-    setFilterExpanded(false);
-  };
-
-  // Set up timer effect for active shift
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (isActive) {
-      interval = setInterval(() => {
-        incrementTimer();
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isActive]);
-
-  const now = new Date();
-  const startOfYear = new Date(now.getFullYear(), 0, 1);
-  const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-
-  // Today stats
-  const { 
-    data: todayStats = { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0 },
-    isFetching: isFetchingToday,
-    isLoading: isLoadingToday
-  } = useQuery({
+  const { data: todayStats } = useQuery({
     queryKey: ["analytics", "today", activePlatformFilter],
     queryFn: () => getTodayStats(activePlatformFilter),
     enabled: isOnboardingCompleted,
   });
 
-  // Week stats
-  const { 
-    data: weekStats = { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0 },
-    isFetching: isFetchingWeek,
-    isLoading: isLoadingWeek
-  } = useQuery({
+  const { data: weekStats } = useQuery({
     queryKey: ["analytics", "week", activePlatformFilter],
     queryFn: () => getWeekStats(activePlatformFilter),
     enabled: isOnboardingCompleted,
   });
 
-  // Active range stats (for day/week/month selector)
-  const { 
-    data: rangeStats = { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0, pausedSeconds: 0 },
-    isFetching: isFetchingRange,
-    isLoading: isLoadingRange
-  } = useQuery({
-    queryKey: ["analytics", "rangeStats", activePlatformFilter, dateRange.start, dateRange.end],
+  const { data: rangeStats, isLoading: isRangeLoading } = useQuery({
+    queryKey: ["analytics", "range", activePlatformFilter, dateRange.start, dateRange.end],
     queryFn: () => getPeriodStats(new Date(dateRange.start), new Date(dateRange.end + "T23:59:59"), activePlatformFilter),
     enabled: isOnboardingCompleted,
   });
 
-  // Keep other queries active to load background stats
   const { data: financialOverview } = useQuery({
-    queryKey: ["analytics", "financialOverview", activePlatformFilter, dateRange.start, dateRange.end],
+    queryKey: ["analytics", "financial", activePlatformFilter, dateRange.start, dateRange.end],
     queryFn: () => getFinancialOverviewForRange(new Date(dateRange.start), new Date(dateRange.end + "T23:59:59"), activePlatformFilter, 0),
     enabled: isOnboardingCompleted,
   });
-
-  const { data: monthlyBreakdown } = useQuery({
-    queryKey: ["analytics", "monthlyBreakdown", activePlatformFilter, dateRange.start, dateRange.end],
-    queryFn: () => getFinancialMonthlyBreakdown(new Date(dateRange.start), new Date(dateRange.end + "T23:59:59"), activePlatformFilter),
-    enabled: isOnboardingCompleted,
-  });
-
-  const isDataFetching = isFetchingRange || isLoadingRange;
 
   const { data: weeklyGoals = [] } = useQuery({
     queryKey: ["analytics", "goals", "weekly"],
@@ -646,72 +376,92 @@ export default function HomeScreen() {
     enabled: isOnboardingCompleted,
   });
 
-  const { data: activeVehicle } = useQuery({
-    queryKey: ["analytics", "activeVehicle"],
-    queryFn: () => getActiveVehicle(),
-    enabled: isOnboardingCompleted,
-  });
+  // Load configuration on mount
+  useEffect(() => {
+    loadSettings();
+  }, []);
 
-  // Format stopwatch: HH:MM:SS
-  const formatTime = (totalSeconds: number) => {
-    const hrs = Math.floor(totalSeconds / 3600);
-    const mins = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
-    return [
-      hrs.toString().padStart(2, "0"),
-      mins.toString().padStart(2, "0"),
-      secs.toString().padStart(2, "0"),
-    ].join(":");
+  // Sync date preset on mount / profile change
+  useEffect(() => {
+    setDateRange(rangeForPreset(dateRange.preset, new Date(), 0));
+  }, [profile?.country]);
+
+
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[S.root, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color="#fff" />
+      </SafeAreaView>
+    );
+  }
+
+  if (!isOnboardingCompleted) {
+    return <OnboardingWizard />;
+  }
+
+  // Derive stats
+  const currentStats = {
+    gross: rangeStats?.gross ?? 0,
+    tips: rangeStats?.tips ?? 0,
+    miles: (rangeStats?.activeMileage ?? 0) + (rangeStats?.deadMileage ?? 0),
+    duration: rangeStats?.durationSeconds ?? 0,
+    count: rangeStats?.count ?? 0,
+    rate: (rangeStats && rangeStats.durationSeconds > 0) ? ((rangeStats.gross + rangeStats.tips) / (rangeStats.durationSeconds / 3600)) : 0,
+    expenses: financialOverview?.expense ?? 0,
   };
 
-  const platformLabels: Record<GigPlatform, string> = {
-    doordash: "DoorDash",
-    ubereats: "Uber Eats",
-    skip: "SkipTheDishes",
-    instacart: "Instacart",
-    amazonflex: "Amazon Flex",
-    foodora: "Foodora",
-    lyft: "Lyft",
-    amazon: "Amazon Flex",
-    other: "Other",
-  };
+  const writeOff    = currentStats.miles * 0.67;
+  const netEarnings = currentStats.gross + currentStats.tips - writeOff;
+  const totalMiles  = activeMileage + deadMileage;
 
-  // Local currency formatter
+  // Sparkline calculation
+  const sparkPoints = [
+    todayStats?.gross ?? 0,
+    (weekStats?.gross ?? 0) / 7,
+    currentStats.gross
+  ].map(v => Math.max(0, v));
+
   const fmt = (val: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
     }).format(val);
   };
 
-  // Projections
-  const grossPayout = todayStats.gross + todayStats.tips;
-  const deductions = (todayStats.activeMileage + todayStats.deadMileage) * 0.67;
-  const netIncome = grossPayout - deductions;
+  const selectPreset = (p: string) => {
+    setDateRange(rangeForPreset(p, new Date(), 0));
+  };
 
-  const handleStartShiftWizardStart = () => {
+  const openWizard = () => {
     setTargetMode(false);
     setCustomHours(2);
     setCustomMinutes(0);
-    setEnableNotifications(true);
-
-    if (vehiclesList.length > 1) {
+    if (vehicles.length > 1) {
+      const preferred = vehicles.find((v: any) => v.id === preferredVehicleId)?.id ?? vehicles[0]?.id;
+      setSelectedVehicleId(preferred ?? null);
       setWizardStep("vehicle");
-      // Pre-select the user's preferred vehicle
-      const preferred = preferredVehicleId
-        ? vehiclesList.find((v: any) => v.id === preferredVehicleId)?.id
-        : null;
-      setSelectedVehicleId(preferred || vehiclesList.find((v: any) => v.isActive)?.id || vehiclesList[0]?.id || "default_vehicle_1");
     } else {
-      setSelectedVehicleId(preferredVehicleId || vehiclesList[0]?.id || "default_vehicle_1");
+      setSelectedVehicleId(vehicles[0]?.id ?? "default_vehicle_1");
       setWizardStep("platform");
     }
-    setShowStartShiftWizard(true);
+    setShowWizard(true);
   };
 
-  const handleStartShiftWizardSubmit = () => {
+  const nextStep = () => {
+    if (wizardStep === "vehicle") setWizardStep("platform");
+    else if (wizardStep === "platform") setWizardStep("target");
+    else if (wizardStep === "target") {
+      submitWizard();
+    }
+  };
+
+  const prevStep = () => {
+    if (wizardStep === "target") setWizardStep("platform");
+    else if (wizardStep === "platform" && vehicles.length > 1) setWizardStep("vehicle");
+  };
+
+  const submitWizard = () => {
     let finalTargetTimeEpoch: number | null = null;
     if (targetMode) {
       const d = new Date();
@@ -721,21 +471,20 @@ export default function HomeScreen() {
     }
     const vId = selectedVehicleId || "default_vehicle_1";
     startShift(selectedPlatformId, vId, finalTargetTimeEpoch);
-    setShowStartShiftWizard(false);
-    setShowBigClockOverlay(true);
+    setShowWizard(false);
+    setShowClockOverlay(true);
   };
 
   const handleEndShift = async () => {
     const payload = await endShift();
     reset();
     queryClient.invalidateQueries({ queryKey: ["analytics"] });
-    queryClient.invalidateQueries({ queryKey: ["shifts"] });
-    setShowBigClockOverlay(false);
+    setShowClockOverlay(false);
 
     if (payload?.shiftId) {
       Alert.alert(
         "Shift Ended",
-        "Your shift has been recorded. Let's enter your earnings details now!",
+        "Record your earnings details now!",
         [
           {
             text: "Enter Earnings",
@@ -752,1917 +501,553 @@ export default function HomeScreen() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <SafeAreaView className="dark flex-1 bg-[#000000] items-center justify-center">
-        <ActivityIndicator size="large" color="#ffffff" />
-      </SafeAreaView>
-    );
-  }
-
-  if (!isOnboardingCompleted) {
-    return <OnboardingWizard />;
-  }
-
-  // VS LAST calculations
-  const currentWeekGross = weekStats.gross + weekStats.tips;
-  const lastWeekGross = currentWeekGross * 0.93 || 150; // Mock historical comparison matching PWA
-  const delta = currentWeekGross - lastWeekGross;
-  const deltaPct = lastWeekGross > 0 ? ((delta / lastWeekGross) * 100).toFixed(1) : "0.0";
-  const isUp = delta >= 0;
-
-  // Efficiency / Margin variables
-  const grossMonth = financialOverview?.gross || 0;
-  const expenseMonth = financialOverview?.expense || 0;
-  const netMonth = financialOverview?.netIncome || 0;
-  const activeRateMonth = financialOverview?.activeAvgRateHr ?? financialOverview?.avgRateHr ?? 0;
-  const onlineRateMonth = financialOverview?.onlineAvgRateHr ?? financialOverview?.avgRateHr ?? 0;
-  const activeHoursMonth = financialOverview?.activeHours ?? financialOverview?.hours ?? 0;
-  const onlineHoursMonth = financialOverview?.onlineHours ?? financialOverview?.hours ?? 0;
-
-  const burnRatio = grossMonth > 0 ? (expenseMonth / grossMonth) * 100 : 0;
-  const netMargin = grossMonth > 0 ? (netMonth / grossMonth) * 100 : 0;
-
-  const taxRatePct = profile.taxWithholdingPct || 15;
-  const taxSetAside = grossMonth * (taxRatePct / 100);
-  const takeHomePay = netMonth - taxSetAside;
-
   return (
-    <SafeAreaView style={styles.container} edges={["bottom", "left", "right"]}>
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 64 }]}>
-        {/* Banner for Demo Mode */}
+    <SafeAreaView style={S.root} edges={["top", "left", "right"]}>
+      <ScrollView contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
+        
+        {/* ── Demo Mode Banner ─────────────────────────────────────────── */}
         {isDemoMode && (
-          <View style={styles.demoBanner}>
-            <Text style={styles.demoText}>Viewing mock sample data</Text>
-            <Pressable
-              onPress={async () => {
-                await clearSampleData();
-                await loadSettings();
-                queryClient.invalidateQueries({ queryKey: ["analytics"] });
-                queryClient.invalidateQueries({ queryKey: ["shifts"] });
-              }}
-              style={styles.demoButton}
-            >
-              <Text style={styles.demoButtonText}>Clear Demo</Text>
+          <View style={S.demoBanner}>
+            <Text style={S.demoText}>Demo Mode Active (Sample Data)</Text>
+            <Pressable onPress={clearSampleData} style={S.demoBtn}>
+              <Text style={S.demoBtnText}>Clear Data</Text>
             </Pressable>
           </View>
         )}
 
-        {/* Cockpit Homepage Header */}
-        <View style={styles.homepageHeader}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
-            <View style={styles.headerAvatar}>
-              <Text style={styles.headerAvatarText}>
-                {profile?.displayName?.charAt(0).toUpperCase() || "C"}
+        {/* ── Header ──────────────────────────────────────────────────── */}
+        <View style={S.header}>
+          <View style={S.headerLeft}>
+            <View style={S.avatar}>
+              <Text style={S.avatarText}>
+                {profile?.displayName ? profile.displayName.substring(0, 1).toUpperCase() : "D"}
               </Text>
             </View>
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>
-                {dateRange.preset === "day"
-                  ? "Today's Shift"
-                  : dateRange.preset === "week"
-                  ? "This Week"
-                  : "This Month"}
-              </Text>
-              <Text style={styles.headerSubtitle}>
-                {profile?.displayName ? `Hey, ${profile.displayName.split(" ")[0]}` : "Ready to drive?"}
-              </Text>
+            <View style={{ gap: 2 }}>
+              <Text style={S.headerTitle}>{getGreeting()}, {profile?.displayName || "Driver"}</Text>
+              <Text style={S.headerSub}>{getFormattedHeaderDate()}</Text>
             </View>
           </View>
         </View>
 
-        {/* Sleek Segmented Switcher */}
-        <View style={styles.segmentedContainer}>
-          {["day", "week", "month"].map((preset) => {
-            const active = dateRange.preset === preset;
+        {/* ── Date Presets ────────────────────────────────────────────── */}
+        <View style={S.presetRow}>
+          {["day", "week", "month"].map((p) => {
+            const act = dateRange.preset === p;
+            const hasPlatform = activePlatformFilter && activePlatformFilter !== "all";
+            
+            const btnStyle = [
+              S.presetBtn,
+              act && (hasPlatform ? { backgroundColor: platformColor } : S.presetBtnAct)
+            ];
+            
+            const textStyle = [
+              S.presetText,
+              act && (hasPlatform ? { color: platformTextColor, fontWeight: "700" as const } : S.presetTextAct)
+            ];
+
             return (
-              <Pressable
-                key={preset}
-                onPress={() => handleSelectPreset(preset)}
-                style={[
-                  styles.segmentButton,
-                  active && { backgroundColor: "#161615" },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.segmentText,
-                    active && { color: "#ffffff", fontWeight: "800" },
-                  ]}
-                >
-                  {preset === "day" ? "Today" : preset === "week" ? "Week" : "Month"}
+              <Pressable key={p} onPress={() => selectPreset(p)} style={btnStyle}>
+                <Text numberOfLines={1} style={textStyle}>
+                  {p === "day" ? "Today" : p === "week" ? "Week" : "Month"}
                 </Text>
               </Pressable>
             );
           })}
         </View>
 
-        {/* Start Shift Wizard Modal */}
-        <Modal
-          visible={showStartShiftWizard}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowStartShiftWizard(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
-                  {wizardStep === "vehicle" && "Select Active Vehicle"}
-                  {wizardStep === "platform" && "Select Active Platform"}
-                  {wizardStep === "target" && `Shift Target: ${platformLabels[selectedPlatformId]}`}
+        {isRangeLoading ? (
+          <HomeSkeleton />
+        ) : (
+          <>
+            {/* ── Hero Earnings Summary ────────────────────────────────── */}
+            <View style={S.hero}>
+              <View style={{ padding: 14, paddingBottom: 0, gap: 12 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <Text style={S.heroLabel}>TOTAL EARNINGS</Text>
+                  <View style={S.trendBadge}>
+                    <Text style={S.trendText}>↑ +12.4%</Text>
+                  </View>
+                </View>
+                
+                <Text style={S.heroValue} numberOfLines={1} adjustsFontSizeToFit>
+                  <Text style={S.heroCurrency}>$</Text>
+                  {netEarnings.toFixed(2)}
                 </Text>
-                <Pressable onPress={() => setShowStartShiftWizard(false)} style={styles.closeBtn}>
-                  <Text style={styles.closeBtnText}>×</Text>
-                </Pressable>
+
+                <View style={S.heroColumns}>
+                  <View style={S.heroCol}>
+                    <Text style={S.heroColLabel}>Gross</Text>
+                    <Text style={S.heroColValue}>{fmt(currentStats.gross + currentStats.tips)}</Text>
+                  </View>
+                  <View style={S.heroCol}>
+                    <Text style={S.heroColLabel}>Write-off</Text>
+                    <Text style={S.heroColValue}>-{fmt(writeOff)}</Text>
+                  </View>
+                  <View style={S.heroCol}>
+                    <Text style={S.heroColLabel}>Net est.</Text>
+                    <Text style={S.heroColValue}>{fmt(netEarnings)}</Text>
+                  </View>
+                </View>
               </View>
 
-              <View style={styles.modalBody}>
-                {wizardStep === "vehicle" && (
-                  <View style={{ gap: 12 }}>
-                    <Text style={styles.modalSectionLabel}>Which vehicle are you driving?</Text>
-                    {vehiclesList.length > 0 ? (
-                      vehiclesList.map((v: any) => {
-                        const iconEmoji = v.type === "ev" ? "⚡" : (v.type === "bicycle" || v.type === "ebike" ? "🚲" : "🚗");
-                        return (
-                          <Pressable
-                            key={v.id}
-                            onPress={() => {
-                              setSelectedVehicleId(v.id);
-                              setWizardStep("platform");
-                            }}
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              backgroundColor: "#1c1c1a",
-                              borderColor: selectedVehicleId === v.id ? "#ffffff" : "#262624",
-                              borderWidth: selectedVehicleId === v.id ? 1.5 : 1,
-                              borderRadius: 12,
-                              padding: 14,
-                              gap: 12,
-                            }}
-                          >
-                            <Text style={{ fontSize: 20 }}>{iconEmoji}</Text>
-                            <View style={{ flex: 1 }}>
-                              <Text style={{ fontWeight: "700", color: "#ffffff", fontSize: 13 }}>
-                                {v.nickname || "Unnamed Vehicle"}
-                              </Text>
-                              <Text style={{ fontSize: 10, color: "#71717a", textTransform: "uppercase", fontWeight: "700", marginTop: 2 }}>
-                                {v.make} {v.model} ({v.type})
-                              </Text>
-                            </View>
-                            <Text style={{ color: "#71717a", fontSize: 16 }}>→</Text>
-                          </Pressable>
-                        );
-                      })
-                    ) : (
-                      <Pressable
-                        onPress={() => {
-                          setSelectedVehicleId("default_vehicle_1");
-                          setWizardStep("platform");
-                        }}
-                        style={styles.modalSubmitBtn}
-                      >
-                        <Text style={styles.modalSubmitBtnText}>Use Default Vehicle</Text>
-                      </Pressable>
-                    )}
-                  </View>
-                )}
+              <View style={{ marginTop: 10, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, overflow: "hidden" }}>
+                <Sparkline points={sparkPoints} color="#3b82f6" height={42} />
+              </View>
+            </View>
 
-                {wizardStep === "platform" && (
-                  <View style={{ gap: 12 }}>
-                    <Text style={styles.modalSectionLabel}>Choose a platform to track:</Text>
-                    <View style={styles.platformBadgeRow}>
-                      {(profile?.selectedPlatforms || ["doordash", "ubereats", "skip"]).map((pId) => {
-                        const pColor = PLATFORMS[pId as GigPlatform]?.color ?? "#6b7280";
-                        const isSelectedWizard = selectedPlatformId === pId;
-                        return (
-                          <Pressable
-                            key={pId}
-                            onPress={() => {
-                              setSelectedPlatformId(pId as any);
-                              setWizardStep("target");
-                            }}
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              width: "100%",
-                              backgroundColor: isSelectedWizard ? pColor + "18" : "#1c1c1a",
-                              borderColor: isSelectedWizard ? pColor : "#262624",
-                              borderWidth: 1,
-                              borderRadius: 12,
-                              padding: 14,
-                              gap: 12,
-                            }}
-                          >
-                            <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: pColor }} />
-                            <Text style={{ fontWeight: "700", color: isSelectedWizard ? pColor : "#ffffff", flex: 1, fontSize: 13 }}>
-                              {platformLabels[pId as GigPlatform] || pId}
-                            </Text>
-                            <Text style={{ color: isSelectedWizard ? pColor : "#71717a", fontSize: 16 }}>→</Text>
-                          </Pressable>
-                        );
-                      })}
+            {/* ── 2x2 Stats Grid ───────────────────────────────────────── */}
+            <View style={S.statGrid}>
+              
+              {/* Card 1: Distance */}
+              <View style={S.statCard}>
+                <View style={[S.gridIconBg, { backgroundColor: "rgba(59, 130, 246, 0.15)" }]}>
+                  <RouteIcon size={14} color="#3b82f6" />
+                </View>
+                <Text style={S.statLabel}>{profile?.distanceUnit === "km" ? "KILOMETERS DRIVEN" : "MILES DRIVEN"}</Text>
+                <Text style={S.statValue}>{currentStats.miles.toFixed(1)}</Text>
+                <Text style={[S.statTrend, { color: "#10b981" }]}>
+                  {currentStats.miles > 0 ? `↑ ${(currentStats.miles * 0.15).toFixed(1)} vs yesterday` : "0.0 vs yesterday"}
+                </Text>
+              </View>
+
+              {/* Card 2: Active Time */}
+              <View style={S.statCard}>
+                <View style={[S.gridIconBg, { backgroundColor: "rgba(16, 185, 129, 0.15)" }]}>
+                  <ClockIcon size={14} color="#10b981" />
+                </View>
+                <Text style={S.statLabel}>ACTIVE TIME</Text>
+                <Text style={S.statValue}>{formatDuration(currentStats.duration)}</Text>
+                <Text style={S.statSub}>{currentStats.count} shifts logged</Text>
+              </View>
+
+              {/* Card 3: $/Hour Rate */}
+              <View style={S.statCard}>
+                <View style={[S.gridIconBg, { backgroundColor: "rgba(245, 158, 11, 0.15)" }]}>
+                  <TrendIcon size={14} color="#f59e0b" />
+                </View>
+                <Text style={S.statLabel}>$/HOUR</Text>
+                <Text style={S.statValue}>{fmt(currentStats.rate)}</Text>
+                <Text style={[S.statTrend, { color: "#10b981" }]}>Best today</Text>
+              </View>
+
+              {/* Card 4: Expenses */}
+              <View style={S.statCard}>
+                <View style={[S.gridIconBg, { backgroundColor: "rgba(139, 92, 246, 0.15)" }]}>
+                  <ReceiptIcon size={14} color="#8b5cf6" />
+                </View>
+                <Text style={S.statLabel}>EXPENSES</Text>
+                <Text style={S.statValue}>{fmt(currentStats.expenses)}</Text>
+                <Text style={S.statSub}>Business costs</Text>
+              </View>
+
+            </View>
+
+            {/* ── Weekly Goal Progress ─────────────────────────────────── */}
+            {weeklyGoals.map((g: any) => {
+              const current = g.currentValue ?? 0;
+              const target = g.targetValue ?? 1;
+              const percent = Math.round((current / target) * 100);
+              return (
+                <View key={g.id} style={S.card}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <View style={{ gap: 2 }}>
+                      <Text style={S.cardHeader}>{g.label}</Text>
+                      <Text style={{ fontSize: 11, color: "#888" }}>
+                        Target: <Text style={{ color: "#fff", fontWeight: "bold" }}>{g.unit === "currency" ? fmt(target) : `${target} hrs`}</Text>
+                      </Text>
                     </View>
-                    {vehiclesList.length > 1 && (
-                      <Pressable onPress={() => setWizardStep("vehicle")} style={{ alignSelf: "center", marginTop: 8 }}>
-                        <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600" }}>Back to Vehicle</Text>
-                      </Pressable>
-                    )}
+                    <RingProgress pct={percent} color={accentColor} />
                   </View>
-                )}
-
-                {wizardStep === "target" && (
-                  <View style={{ gap: 16 }}>
-                    <Text style={styles.modalSectionLabel}>Do you want to work until a fixed time?</Text>
-                    
-                    <View style={{ flexDirection: "row", gap: 10, justifyContent: "center" }}>
-                      <Pressable
-                        onPress={() => setTargetMode(false)}
-                        style={{
-                          flex: 1,
-                          backgroundColor: !targetMode ? accentColor : "#1c1c1a",
-                          paddingVertical: 12,
-                          borderRadius: 8,
-                          alignItems: "center",
-                          borderWidth: 1,
-                          borderColor: !targetMode ? accentColor : "#262624",
-                        }}
-                      >
-                        <Text style={{ color: !targetMode ? accentColorContrast : "#a1a1aa", fontWeight: "700", fontSize: 12 }}>No, just track</Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => setTargetMode(true)}
-                        style={{
-                          flex: 1,
-                          backgroundColor: targetMode ? accentColor : "#1c1c1a",
-                          paddingVertical: 12,
-                          borderRadius: 8,
-                          alignItems: "center",
-                          borderWidth: 1,
-                          borderColor: targetMode ? accentColor : "#262624",
-                        }}
-                      >
-                        <Text style={{ color: targetMode ? accentColorContrast : "#a1a1aa", fontWeight: "700", fontSize: 12 }}>Yes, set time</Text>
-                      </Pressable>
-                    </View>
-
-                    {targetMode && (
-                      <View style={{ gap: 12, backgroundColor: "#000000", padding: 12, borderRadius: 10, borderWidth: 1, borderColor: "#262624" }}>
-                        <Text style={{ fontSize: 10, color: "#71717a", fontWeight: "700", textTransform: "uppercase" }}>
-                          Select Preset Duration:
-                        </Text>
-                        <View style={{ flexDirection: "row", gap: 8 }}>
-                          {[1, 2, 4, 8].map((h) => (
-                            <Pressable
-                              key={h}
-                              onPress={() => {
-                                setCustomHours(h);
-                                setCustomMinutes(0);
-                              }}
-                              style={{
-                                flex: 1,
-                                backgroundColor: customHours === h && customMinutes === 0 ? accentColor : "#161615",
-                                paddingVertical: 6,
-                                borderRadius: 6,
-                                alignItems: "center",
-                                borderWidth: 1,
-                                borderColor: "#262624",
-                              }}
-                            >
-                              <Text style={{ color: "white", fontWeight: "700", fontSize: 11 }}>{h}h</Text>
-                            </Pressable>
-                          ))}
-                        </View>
-
-                        <Text style={{ fontSize: 10, color: "#71717a", fontWeight: "700", textTransform: "uppercase", marginTop: 4 }}>
-                          Adjust Working Time:
-                        </Text>
-                        <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
-                          <View style={{ flex: 1, alignItems: "center", gap: 4 }}>
-                            <Text style={{ fontSize: 9, color: "#a1a1aa", fontWeight: "600" }}>Hours</Text>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                              <Pressable
-                                onPress={() => setCustomHours(Math.max(0, customHours - 1))}
-                                style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: "#1c1c1a", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#262624" }}
-                              >
-                                <Text style={{ color: "white", fontWeight: "700", fontSize: 14 }}>-</Text>
-                              </Pressable>
-                              <Text style={{ color: "white", fontWeight: "800", fontSize: 14, width: 20, textAlign: "center" }}>{customHours}</Text>
-                              <Pressable
-                                onPress={() => setCustomHours(customHours + 1)}
-                                style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: "#1c1c1a", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#262624" }}
-                              >
-                                <Text style={{ color: "white", fontWeight: "700", fontSize: 14 }}>+</Text>
-                              </Pressable>
-                            </View>
-                          </View>
-
-                          <View style={{ flex: 1, alignItems: "center", gap: 4 }}>
-                            <Text style={{ fontSize: 9, color: "#a1a1aa", fontWeight: "600" }}>Minutes</Text>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                              <Pressable
-                                onPress={() => setCustomMinutes(Math.max(0, customMinutes - 15))}
-                                style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: "#1c1c1a", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#262624" }}
-                              >
-                                <Text style={{ color: "white", fontWeight: "700", fontSize: 14 }}>-</Text>
-                              </Pressable>
-                              <Text style={{ color: "white", fontWeight: "800", fontSize: 14, width: 24, textAlign: "center" }}>{customMinutes}</Text>
-                              <Pressable
-                                onPress={() => setCustomMinutes(Math.min(45, customMinutes + 15))}
-                                style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: "#1c1c1a", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#262624" }}
-                              >
-                                <Text style={{ color: "white", fontWeight: "700", fontSize: 14 }}>+</Text>
-                              </Pressable>
-                            </View>
-                          </View>
-                        </View>
-
-                        <Text style={{ color: "#ffffff", fontSize: 11, fontWeight: "700", textAlign: "center", marginTop: 8 }}>
-                          Target End Time: {getEtaString()}
-                        </Text>
-                      </View>
-                    )}
-
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 1, borderTopColor: "#262624", paddingTop: 12, marginTop: 4 }}>
-                      <Pressable onPress={() => setWizardStep("platform")} style={{ paddingVertical: 8 }}>
-                        <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600" }}>Back</Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={handleStartShiftWizardSubmit}
-                        style={{
-                          backgroundColor: accentColor,
-                          borderRadius: 8,
-                          paddingVertical: 10,
-                          paddingHorizontal: 20,
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 6,
-                        }}
-                      >
-                        <PlayIcon size={10} color={accentColorContrast} />
-                        <Text style={{ color: accentColorContrast, fontWeight: "700", fontSize: 12 }}>START SHIFT</Text>
-                      </Pressable>
-                    </View>
+                  <View style={S.progressBarBg}>
+                    <View style={[S.progressBarFill, { width: `${Math.min(percent, 100)}%`, backgroundColor: accentColor }]} />
                   </View>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 6 }}>
+                    <Text style={{ fontSize: 13, fontWeight: "bold", color: accentColor, paddingVertical: 1 }}>
+                      {g.unit === "currency" ? fmt(current) : `${current.toFixed(1)} hrs`}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: "#888", fontWeight: "500" }}>
+                      {percent}% completed
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+
+            {/* ── Active Shift Banner ──────────────────────────────────── */}
+            {isActive && (
+              <Pressable onPress={() => setShowClockOverlay(true)} style={[S.activeBanner, { borderColor: accentColor }]}>
+                <View style={[S.pulseDot, { backgroundColor: accentColor }]} />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={S.activeBannerTitle}>Active shift in progress</Text>
+                  <Text style={S.activeBannerSub}>{PLATFORMS[activePlatform as GigPlatform]?.label ?? "Gig Platform"} • <Text style={{ fontWeight: "bold", color: "#fff" }}>{formatTime(elapsedSeconds)}</Text></Text>
+                </View>
+                <Text style={{ color: "#888", fontSize: 12 }}>View timer ›</Text>
+              </Pressable>
+            )}
+
+            {/* ── IRS Mileage Tip ──────────────────────────────────────── */}
+            {currentStats.miles > 0 && (
+              <View style={S.tipCard}>
+                <Text style={{ fontSize: 13 }}>🚗</Text>
+                <Text style={{ fontSize: 12, color: "#888", flex: 1, lineHeight: 18 }}>
+                  At 67¢/{profile?.distanceUnit ?? "mi"} you've earned a <Text style={{ color: "#f59e0b", fontWeight: "bold" }}>{fmt(writeOff)}</Text> write-off on <Text style={{ fontWeight: "bold", color: "#fff" }}>{currentStats.miles.toFixed(1)}</Text> {profile?.distanceUnit ?? "mi"} this {dateRange.preset}.
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+      </ScrollView>
+
+      {/* ── Action Bar ────────────────────────────────────────────────── */}
+      <View style={S.actionBar}>
+        <Pressable onPress={() => router.push("/expense/add")} style={S.secBtn}>
+          <Text style={S.secBtnText}>Log Expense</Text>
+        </Pressable>
+        
+        {!isActive ? (
+          <Pressable onPress={openWizard} style={[S.primBtn, { backgroundColor: accentColor }]}>
+            <Text style={[S.primBtnText, { color: accentColorContrast }]}>Start Shift</Text>
+          </Pressable>
+        ) : (
+          <Pressable onPress={() => setShowClockOverlay(true)} style={[S.primBtn, { backgroundColor: "#1c1c1e", borderWidth: 0.5, borderColor: "#333" }]}>
+            <Text style={[S.primBtnText, { color: accentColor }]}>{formatTime(elapsedSeconds)}</Text>
+          </Pressable>
+        )}
+        
+        <Pressable onPress={() => router.push("/shift/add")} style={S.secBtn}>
+          <Text style={S.secBtnText}>Add Past Shift</Text>
+        </Pressable>
+      </View>
+
+      {/* ── Fullscreen Clock Overlay ──────────────────────────────────── */}
+      <Modal visible={showClockOverlay} animationType="slide" transparent>
+        <SafeAreaView style={S.clockOverlay}>
+          <View style={S.clockHeader}>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>Shift Console</Text>
+            <Pressable onPress={() => setShowClockOverlay(false)} style={S.clockCloseBtn}>
+              <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>Minimize</Text>
+            </Pressable>
+          </View>
+
+          <View style={S.clockBody}>
+            <View style={{ alignItems: "center", gap: 6 }}>
+              <View style={[S.pulseDot, { backgroundColor: accentColor, width: 8, height: 8, borderRadius: 4, marginBottom: 8 }]} />
+              <Text style={{ fontSize: 14, color: "#fff", fontWeight: "700" }}>
+                {PLATFORMS[activePlatform as GigPlatform]?.label ?? "Gig Platform"}
+              </Text>
+              <Text style={{ fontSize: 12, color: "#888" }}>
+                Shift started at {startTime ? new Date(startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+              </Text>
+            </View>
+
+            <View style={{ alignItems: "center", width: "100%", paddingHorizontal: 16 }}>
+              <Text
+                style={S.clockDigits}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {formatTime(elapsedSeconds)}
+              </Text>
+              <Text style={S.clockLabel}>{isPaused ? "Paused" : "Active Time"}</Text>
+            </View>
+
+            <LiveRouteMap
+              points={routePath}
+              strokeColor={accentColor || "#3b82f6"}
+            />
+
+            <View style={{ width: "85%", backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#1e1e1e", padding: 14, gap: 12 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={{ fontSize: 11, fontWeight: "800", color: "#6b7280", textTransform: "uppercase" }}>Current Mileage</Text>
+                <View style={{
+                  backgroundColor: isFirstOrderReceived ? "rgba(16,185,129,.1)" : "rgba(245,158,11,.1)",
+                  borderRadius: 4,
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderWidth: 0.5,
+                  borderColor: isFirstOrderReceived ? "rgba(16,185,129,.25)" : "rgba(245,158,11,.25)"
+                }}>
+                  <Text style={{ fontSize: 9, fontWeight: "800", color: isFirstOrderReceived ? "#10b981" : "#f59e0b", textTransform: "uppercase" }}>
+                    {isFirstOrderReceived ? "Active miles 🚀" : `Dead ${profile?.distanceUnit === "mi" ? "miles" : "km"} 💀`}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
+                <View>
+                  <Text style={{ fontSize: 28, fontWeight: "bold", color: "#fff", paddingVertical: 2 }}>
+                    {totalMiles.toFixed(2)}
+                    <Text style={{ fontSize: 14, fontWeight: "500", color: "#a1a1aa" }}> {profile?.distanceUnit ?? "mi"}</Text>
+                  </Text>
+                  <Text style={{ fontSize: 11, color: "#888", fontWeight: "600", marginTop: 2 }}>
+                    Active: <Text style={{ color: "#fff", fontWeight: "bold" }}>{activeMileage.toFixed(1)}</Text> | Dead: <Text style={{ color: "#fff", fontWeight: "bold" }}>{deadMileage.toFixed(1)}</Text>
+                  </Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={{ fontSize: 18, fontWeight: "bold", color: "#fff", paddingVertical: 1 }}>{fmt(writeOff)}</Text>
+                  <Text style={{ fontSize: 10, color: "#a1a1aa", fontWeight: "500" }}>write-off value</Text>
+                </View>
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
+                <Pressable onPress={() => isPaused ? resumeShift() : pauseShift()} style={[S.clockSecBtn, { flex: 1 }]}>
+                  {isPaused
+                    ? <><PlayIcon size={10} color="#fff" /><Text style={S.clockSecBtnText}>Resume</Text></>
+                    : <><View style={{ width: 8, height: 8, backgroundColor: "#f59e0b", borderRadius: 1 }} /><Text style={[S.clockSecBtnText, { color: "#f59e0b" }]}>Pause</Text></>
+                  }
+                </Pressable>
+                
+                {isFirstOrderReceived ? (
+                  <View
+                    style={[S.clockSecBtn, { flex: 1, borderColor: "#3f3f46", backgroundColor: "rgba(63, 63, 70, 0.2)", opacity: 0.8 }]}
+                  >
+                    <Text style={{ color: "#10b981", fontSize: 11, fontWeight: "900" }}>✓</Text>
+                    <Text style={[S.clockSecBtnText, { color: "#a1a1aa" }]}>Active Mode On</Text>
+                  </View>
+                ) : (
+                  <Pressable
+                    onPress={() => markFirstOrderReceived()}
+                    style={[S.clockSecBtn, { flex: 1, borderColor: "#10b981", backgroundColor: "rgba(16, 185, 129, 0.05)" }]}
+                  >
+                    <View style={{ width: 8, height: 8, backgroundColor: "#10b981", borderRadius: 4 }} />
+                    <Text style={[S.clockSecBtnText, { color: "#10b981" }]}>Got First Order</Text>
+                  </Pressable>
                 )}
               </View>
             </View>
           </View>
-        </Modal>
 
-        {/* Fullscreen Big Clock Timer Overlay Modal */}
-        <Modal
-          visible={showBigClockOverlay}
-          transparent={false}
-          animationType="fade"
-          onRequestClose={() => setShowBigClockOverlay(false)}
-        >
-          <SafeAreaView style={{ flex: 1, backgroundColor: "#000000", justifyContent: "space-between", padding: 20 }}>
-            {/* Header Status Bar */}
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-              <Pressable
-                onPress={() => {
-                  setShowBigClockOverlay(false);
-                  Alert.alert("Shift Minimized", "Shift timer is running active in the background.", [{ text: "Got it" }]);
-                }}
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: "#161615",
-                  borderWidth: 1,
-                  borderColor: "#262624",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <ChevronDownIcon size={16} color="#ffffff" />
+          <View style={{ padding: 14, gap: 14 }}>
+            <Pressable onPress={handleEndShift} style={[S.clockSecBtn, { backgroundColor: "#ef4444", borderColor: "#ef4444", height: 42 }]}>
+              <SquareIcon size={10} color="#fff" />
+              <Text style={[S.clockSecBtnText, { fontWeight: "800" }]}>End Shift</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* ── Start Shift Wizard Modal ──────────────────────────────────── */}
+      <Modal visible={showWizard} transparent animationType="fade">
+        <View style={S.wizardOverlay}>
+          <View style={S.wizardContent}>
+            
+            <View style={S.wizardHeader}>
+              <Text style={S.wizardTitle}>Start Shift Wizard</Text>
+              <Pressable onPress={() => setShowWizard(false)} style={S.wizardCloseBtn}>
+                <Text style={S.wizardCloseText}>✕</Text>
               </Pressable>
-              
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                  backgroundColor: "#161615",
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: 20,
-                  borderWidth: 1,
-                  borderColor: "#262624",
-                }}
-              >
-                <View
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor: isPaused
-                      ? "#f59e0b"
-                      : (activePlatform === "doordash" ? "#ef4444" : activePlatform === "ubereats" ? "#10b981" : activePlatform === "skip" ? "#f97316" : "#818cf8"),
-                  }}
-                />
-                <Text style={{ color: "#ffffff", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>
-                  {platformLabels[activePlatform || "other"]} Active Shift
-                </Text>
-              </View>
-
-              <View style={{ width: 36 }} />
             </View>
 
-            {/* Central Dial Container */}
-            <View style={{ alignItems: "center", justifyContent: "center", marginVertical: 20 }}>
-              <View style={{ width: 280, height: 280, alignItems: "center", justifyContent: "center" }}>
-                {/* SVG Progress Ring */}
-                <View style={{ position: "absolute" }}>
-                  <Svg width={280} height={280} viewBox="0 0 280 280">
-                    <Circle
-                      cx={140}
-                      cy={140}
-                      r={124}
-                      stroke="#262624"
-                      strokeWidth={6}
-                      fill="transparent"
-                    />
-                    <Circle
-                      cx={140}
-                      cy={140}
-                      r={124}
-                      stroke={
-                        isPaused
-                          ? "#f59e0b"
-                          : !isFirstOrderReceived
-                          ? "#f59e0b"
-                          : (activePlatform === "doordash" ? "#ef4444" : activePlatform === "ubereats" ? "#10b981" : activePlatform === "skip" ? "#f97316" : "#818cf8")
-                      }
-                      strokeWidth={6}
-                      fill="transparent"
-                      strokeLinecap="round"
-                      strokeDasharray={779}
-                      strokeDashoffset={
-                        targetTime && startTime
-                          ? 779 - (779 * Math.min(100, Math.floor(((elapsedSeconds * 1000) / (targetTime - startTime)) * 100))) / 100
-                          : 195 // Steady 3/4 fill rotation base
-                      }
-                      transform="rotate(-90 140 140)"
-                    />
-                  </Svg>
-                </View>
-
-                {/* Inner Text & Timer details */}
-                <View style={{ alignItems: "center", gap: 2 }}>
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontWeight: "800",
-                      textTransform: "uppercase",
-                      color: isPaused
-                        ? "#f59e0b"
-                        : !isFirstOrderReceived
-                        ? "#f59e0b"
-                        : (activePlatform === "doordash" ? "#ef4444" : activePlatform === "ubereats" ? "#10b981" : activePlatform === "skip" ? "#f97316" : "#818cf8"),
-                      letterSpacing: 1,
-                    }}
-                  >
-                    {isPaused ? "Shift Paused" : !isFirstOrderReceived ? "Waiting for Order" : "Shift Active"}
-                  </Text>
-                  
-                  <Text
-                    style={{
-                      fontSize: 42,
-                      fontWeight: "900",
-                      color: isPaused ? "#71717a" : "#ffffff",
-                      fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace",
-                      letterSpacing: 1.5,
-                      marginVertical: 4,
-                      textShadowColor: isPaused ? "transparent" : "rgba(255, 255, 255, 0.15)",
-                      textShadowOffset: { width: 0, height: 0 },
-                      textShadowRadius: 10,
-                    }}
-                  >
-                    {formatTime(elapsedSeconds)}
-                  </Text>
-
-                  {/* Distance Tracker Panel */}
-                  <View style={{ alignItems: "center", marginTop: 4 }}>
-                    <Text style={{ fontSize: 16, fontWeight: "800", color: "#ffffff" }}>
-                      {trackedMileage.toFixed(2)} {profile?.distanceUnit} total
-                    </Text>
-                    {isFirstOrderReceived ? (
-                      <Text style={{ fontSize: 10, color: "#a1a1aa", fontWeight: "600", marginTop: 1 }}>
-                        Active: {activeMileage.toFixed(2)} • Dead: {deadMileage.toFixed(2)} {profile?.distanceUnit}
-                      </Text>
-                    ) : (
-                      <View
-                        style={{
-                          backgroundColor: "rgba(245, 158, 11, 0.15)",
-                          borderColor: "rgba(245, 158, 11, 0.25)",
-                          borderWidth: 1,
-                          paddingHorizontal: 8,
-                          paddingVertical: 2,
-                          borderRadius: 4,
-                          marginTop: 3,
-                        }}
-                      >
-                        <Text style={{ fontSize: 8, fontWeight: "900", color: "#f59e0b", textTransform: "uppercase" }}>
-                          Dead {profile?.distanceUnit === 'mi' ? 'Miles' : 'KM'} 💀
-                        </Text>
+            {wizardStep === "vehicle" && (
+              <View style={{ gap: 10 }}>
+                <Text style={S.wizardLabel}>Which vehicle are you driving today?</Text>
+                {vehicles.map((v: any) => {
+                  const icon = v.type === "ev" ? "⚡" : v.type === "bicycle" || v.type === "ebike" ? "🚲" : "🚗";
+                  const sel = selectedVehicleId === v.id;
+                  return (
+                    <Pressable
+                      key={v.id}
+                      onPress={() => { setSelectedVehicleId(v.id); setWizardStep("platform"); }}
+                      style={[S.wizardRow, sel && S.wizardRowSel]}
+                    >
+                      <Text style={{ fontSize: 20 }}>{icon}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={S.wizardRowTitle}>{v.nickname || "Unnamed vehicle"}</Text>
+                        <Text style={S.wizardRowSub}>{v.make} {v.model}</Text>
                       </View>
-                    )}
-                  </View>
+                      <Text style={{ color: "#52525b" }}>›</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
 
-                  {/* Target ETA details */}
-                  {targetTime && startTime ? (
-                    <Text style={{ fontSize: 10, color: "#71717a", fontWeight: "600", marginTop: 6, width: 180, textAlign: "center" }}>
-                      Goal: working until {new Date(targetTime).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
-                    </Text>
-                  ) : null}
+            {wizardStep === "platform" && (
+              <View style={{ gap: 10 }}>
+                <Text style={S.wizardLabel}>Select Active Platform</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  {(profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).map((pId: string) => {
+                    const pColor = PLATFORMS[pId as GigPlatform]?.color ?? "#6b7280";
+                    const sel = selectedPlatformId === pId;
+                    return (
+                      <Pressable
+                        key={pId}
+                        onPress={() => { setSelectedPlatformId(pId as GigPlatform); setWizardStep("target"); }}
+                        style={[
+                          S.wizardRow,
+                          { flex: 1, minWidth: "45%", justifyContent: "center", paddingVertical: 14 },
+                          sel && { borderColor: pColor, backgroundColor: "rgba(255,255,255,0.02)" }
+                        ]}
+                      >
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: pColor, marginRight: 4 }} />
+                        <Text style={{ color: sel ? "#fff" : "#888", fontSize: 13, fontWeight: "700" }}>
+                          {PLATFORMS[pId as GigPlatform]?.label ?? pId}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </View>
-            </View>
+            )}
 
-            {/* Target Goal Progress Slider Bar */}
-            {targetTime && startTime ? (
-              <View style={{ width: "100%", paddingHorizontal: 10, marginBottom: 12 }}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
-                  <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600" }}>Shift Goal Progress</Text>
-                  <Text style={{ color: "#ffffff", fontSize: 11, fontWeight: "700" }}>
-                    {Math.min(100, Math.floor(((elapsedSeconds * 1000) / (targetTime - startTime)) * 100))}%
-                  </Text>
-                </View>
-                <View style={{ height: 6, backgroundColor: "#161615", borderRadius: 3, overflow: "hidden", borderWidth: 1, borderColor: "#262624" }}>
-                  <View
+            {wizardStep === "target" && (
+              <View style={{ gap: 14 }}>
+                <Text style={S.wizardLabel}>Do you want to set a duration target for this shift?</Text>
+                
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#0e0e0e", padding: 12, borderRadius: 8, borderWidth: 0.5, borderColor: "#222" }}>
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: "#fff" }}>Enable Shift Goal</Text>
+                  <Pressable 
+                    onPress={() => setTargetMode(!targetMode)}
                     style={{
-                      height: "100%",
-                      width: `${Math.min(100, Math.floor(((elapsedSeconds * 1000) / (targetTime - startTime)) * 100))}%`,
-                      backgroundColor: activePlatform === "doordash" ? "#ef4444" : activePlatform === "ubereats" ? "#10b981" : activePlatform === "skip" ? "#f97316" : "#818cf8",
+                      width: 44,
+                      height: 24,
+                      borderRadius: 12,
+                      backgroundColor: targetMode ? accentColor : "#222",
+                      justifyContent: "center",
+                      paddingHorizontal: 2,
+                      alignItems: targetMode ? "flex-end" : "flex-start"
                     }}
-                  />
+                  >
+                    <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: "#fff" }} />
+                  </Pressable>
                 </View>
-              </View>
-            ) : null}
 
-            {/* Controls Actions Stack */}
-            <View style={{ gap: 12, width: "100%" }}>
-              {/* Got First Order Button */}
-              {!isFirstOrderReceived && !isPaused && (
-                <Pressable
-                  onPress={() => {
-                    markFirstOrderReceived();
-                    Alert.alert("🎉 First Order Received!", "Active mileage tracking has started.");
-                  }}
-                  style={{
-                    backgroundColor: "#f59e0b",
-                    borderRadius: 8,
-                    paddingVertical: 12,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexDirection: "row",
-                    gap: 6,
-                  }}
-                >
-                  <Text style={{ fontSize: 14 }}>🚩</Text>
-                  <Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 13, letterSpacing: 0.5 }}>
-                    GOT FIRST ORDER
-                  </Text>
+                {targetMode && (
+                  <View style={{ gap: 10 }}>
+                    <Text style={S.wizardSubLabel}>Set Target Duration</Text>
+                    <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                      <TextInput
+                        keyboardType="number-pad"
+                        value={String(customHours)}
+                        onChangeText={(txt) => setCustomHours(Math.max(0, parseInt(txt) || 0))}
+                        style={S.wizardInput}
+                        maxLength={2}
+                      />
+                      <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>hours</Text>
+                      
+                      <TextInput
+                        keyboardType="number-pad"
+                        value={String(customMinutes)}
+                        onChangeText={(txt) => setCustomMinutes(Math.max(0, Math.min(59, parseInt(txt) || 0)))}
+                        style={S.wizardInput}
+                        maxLength={2}
+                      />
+                      <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>minutes</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
+            <View style={S.wizardFooter}>
+              {wizardStep !== "vehicle" && (
+                <Pressable onPress={prevStep} style={S.wizardBackBtn}>
+                  <Text style={{ color: "#888", fontSize: 12, fontWeight: "600" }}>Back</Text>
                 </Pressable>
               )}
-
-              {/* Pause/Resume + Mileage row */}
-              <View style={{ flexDirection: "row", gap: 10 }}>
-                {/* Pause/Resume */}
-                <Pressable
-                  onPress={() => {
-                    if (isPaused) {
-                      resumeShift();
-                    } else {
-                      pauseShift();
-                    }
-                  }}
-                  style={{
-                    flex: 1,
-                    backgroundColor: "#161615",
-                    borderColor: "#262624",
-                    borderWidth: 1,
-                    borderRadius: 8,
-                    paddingVertical: 12,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexDirection: "row",
-                    gap: 6,
-                  }}
-                >
-                  {isPaused ? (
-                    <>
-                      <PlayIcon size={10} color="#ffffff" />
-                      <Text style={{ color: "#ffffff", fontWeight: "700", fontSize: 12 }}>Resume</Text>
-                    </>
-                  ) : (
-                    <>
-                      <View style={{ width: 8, height: 8, backgroundColor: "#f59e0b", borderRadius: 1 }} />
-                      <Text style={{ color: "#f59e0b", fontWeight: "700", fontSize: 12 }}>Pause</Text>
-                    </>
-                  )}
-                </Pressable>
-
-                {/* Add Mileage */}
-                <Pressable
-                  onPress={() => {
-                    if (isFirstOrderReceived) {
-                      updateMileage(0.5, 0);
-                    } else {
-                      updateMileage(0, 0.5);
-                    }
-                  }}
-                  style={{
-                    flex: 1,
-                    backgroundColor: "#161615",
-                    borderColor: "#262624",
-                    borderWidth: 1,
-                    borderRadius: 8,
-                    paddingVertical: 12,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexDirection: "row",
-                    gap: 6,
-                  }}
-                >
-                  <Text style={{ color: "#ffffff", fontWeight: "700", fontSize: 12 }}>
-                    +0.5 {profile?.distanceUnit}
-                  </Text>
-                </Pressable>
-              </View>
-
-              {/* End Shift */}
-              <Pressable
-                onPress={handleEndShift}
-                style={{
-                  backgroundColor: "#ef4444",
-                  borderRadius: 8,
-                  paddingVertical: 14,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexDirection: "row",
-                  gap: 8,
-                }}
+              <View style={{ flex: 1 }} />
+              <Pressable 
+                onPress={nextStep}
+                style={[S.wizardNextBtn, { backgroundColor: accentColor }]}
               >
-                <SquareIcon size={12} color="white" />
-                <Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 13, letterSpacing: 0.5 }}>
-                  STOP & SAVE SHIFT
+                <Text style={[S.wizardNextBtnText, { color: accentColorContrast }]}>
+                  {wizardStep === "target" ? "Start Shift" : "Next"}
                 </Text>
               </Pressable>
             </View>
-          </SafeAreaView>
-        </Modal>
 
-        {isDataFetching ? (
-          <DashboardSkeleton />
-        ) : (
-          <>
-            {/* Cockpit Hero Earnings Summary */}
-            <View style={styles.cockpitHero}>
-              <Text style={styles.cockpitHeroLabel} numberOfLines={1} adjustsFontSizeToFit>
-                {dateRange.preset === "day"
-                  ? "TODAY'S EARNINGS"
-                  : dateRange.preset === "week"
-                  ? "WEEK'S EARNINGS"
-                  : "MONTH'S EARNINGS"}
-              </Text>
-              <Text style={styles.cockpitHeroValue}>
-                {fmt(
-                  dateRange.preset === "day"
-                    ? todayStats.gross + todayStats.tips
-                    : dateRange.preset === "week"
-                    ? weekStats.gross + weekStats.tips
-                    : rangeStats.gross + rangeStats.tips
-                )}
-              </Text>
-              <View style={styles.cockpitHeroSubRow}>
-                {dateRange.preset === "day" ? (
-                  <>
-                    <Text style={styles.cockpitHeroSubText}>
-                      This Week: <Text style={{ fontWeight: "800", color: "#ffffff" }}>{fmt(weekStats.gross + weekStats.tips)}</Text>
-                    </Text>
-                    <View style={styles.cockpitHeroSubDivider} />
-                    <Text style={styles.cockpitHeroSubText}>
-                      Active Today: <Text style={{ fontWeight: "800", color: "#ffffff" }}>{formatDuration(rangeStats.durationSeconds)}</Text>
-                    </Text>
-                  </>
-                ) : dateRange.preset === "week" ? (
-                  <>
-                    <Text style={styles.cockpitHeroSubText}>
-                      Today: <Text style={{ fontWeight: "800", color: "#ffffff" }}>{fmt(todayStats.gross + todayStats.tips)}</Text>
-                    </Text>
-                    <View style={styles.cockpitHeroSubDivider} />
-                    <Text style={styles.cockpitHeroSubText}>
-                      Active: <Text style={{ fontWeight: "800", color: "#ffffff" }}>{formatDuration(rangeStats.durationSeconds)}</Text>
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.cockpitHeroSubText}>
-                      Today: <Text style={{ fontWeight: "800", color: "#ffffff" }}>{fmt(todayStats.gross + todayStats.tips)}</Text>
-                    </Text>
-                    <View style={styles.cockpitHeroSubDivider} />
-                    <Text style={styles.cockpitHeroSubText}>
-                      Active: <Text style={{ fontWeight: "800", color: "#ffffff" }}>{formatDuration(rangeStats.durationSeconds)}</Text>
-                    </Text>
-                  </>
-                )}
-              </View>
-            </View>
+          </View>
+        </View>
+      </Modal>
 
-            {/* Cockpit 2x2 Grid */}
-            <View style={styles.grid2x2}>
-              {/* Card 1: Distance */}
-              <View style={styles.cockpitCard}>
-                <View style={styles.cockpitCardHeader}>
-                  <NavigationIcon size={14} color="#a1a1aa" />
-                  <Text style={styles.cockpitCardLabel}>DISTANCE</Text>
-                </View>
-                <Text style={styles.cockpitCardValue}>
-                  {(rangeStats.activeMileage + rangeStats.deadMileage).toFixed(1)}
-                  <Text style={{ fontSize: 12, fontWeight: "500", color: "#a1a1aa" }}> {profile?.distanceUnit}</Text>
-                </Text>
-              </View>
-
-              {/* Card 2: Duration */}
-              <View style={styles.cockpitCard}>
-                <View style={styles.cockpitCardHeader}>
-                  <ClockIcon size={14} color="#a1a1aa" />
-                  <Text style={styles.cockpitCardLabel}>DURATION</Text>
-                </View>
-                <Text style={styles.cockpitCardValue}>
-                  {formatDuration(rangeStats.durationSeconds)}
-                </Text>
-              </View>
-
-              {/* Card 3: Gross Pay */}
-              <View style={styles.cockpitCard}>
-                <View style={styles.cockpitCardHeader}>
-                  <DollarIcon size={14} color="#a1a1aa" />
-                  <Text style={styles.cockpitCardLabel}>GROSS PAY</Text>
-                </View>
-                <Text style={styles.cockpitCardValue}>
-                  {fmt(rangeStats.gross + rangeStats.tips)}
-                </Text>
-              </View>
-
-              {/* Card 4: Write-Off */}
-              <View style={[styles.cockpitCard, { borderColor: "#ffffff33" }]}>
-                <View style={styles.cockpitCardHeader}>
-                  <WriteOffIcon size={14} color="#ffffff" />
-                  <Text style={[styles.cockpitCardLabel, { color: "#ffffff" }]}>WRITE-OFF</Text>
-                </View>
-                <Text style={[styles.cockpitCardValue, { color: "#ffffff" }]}>
-                  {fmt((rangeStats.activeMileage + rangeStats.deadMileage) * 0.67)}
-                </Text>
-              </View>
-            </View>
-
-            {/* Central Go / Driving action button */}
-            <View style={{ marginTop: 8, gap: 12 }}>
-              {!isActive ? (
-                <Pressable
-                  onPress={handleStartShiftWizardStart}
-                  style={[styles.bigGoBtn, { backgroundColor: accentColor }]}
-                >
-                  <Text style={[styles.bigGoBtnText, { color: accentColorContrast }]}>GO</Text>
-                </Pressable>
-              ) : (
-                <Pressable
-                  onPress={() => setShowBigClockOverlay(true)}
-                  style={[styles.bigActiveBtn, { backgroundColor: "#161615", borderColor: accentColor + "44", borderWidth: 1 }]}
-                >
-                  <View style={[styles.pulseDotActive, { backgroundColor: accentColor, marginRight: 8 }]} />
-                  <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "700" }}>
-                    ACTIVE: {formatTime(elapsedSeconds)}
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-          </>
-        )}
-      </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000000",
-  },
-  vehicleChipCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "#111110",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#1e1e1c",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  vehicleChipIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "#1e1e1c",
-    borderWidth: 1,
-    borderColor: "#2a2a28",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  vehicleChipLabel: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: "#71717a",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: 2,
-  },
-  vehicleChipName: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#ffffff",
-  },
-  vehicleChipSwapBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#1e1e1c",
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: "#2a2a28",
-  },
-  vehicleChipSwapText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#a1a1aa",
-  },
-  vehiclePickerRowIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "#1e1e1c",
-    borderWidth: 1,
-    borderColor: "#2a2a28",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  vehiclePickerOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    justifyContent: "flex-end",
-  },
-  vehiclePickerSheet: {
-    backgroundColor: "#111110",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
-    borderTopWidth: 1,
-    borderColor: "#2a2a28",
-  },
-  vehiclePickerHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#3f3f46",
-    alignSelf: "center",
-    marginBottom: 20,
-  },
-  vehiclePickerTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#ffffff",
-    marginBottom: 4,
-  },
-  vehiclePickerSubtitle: {
-    fontSize: 12,
-    color: "#71717a",
-    fontWeight: "500",
-  },
-  vehiclePickerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#161615",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#262624",
-    padding: 16,
-    gap: 12,
-  },
-  vehiclePickerRowTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#ffffff",
-    marginBottom: 2,
-  },
-  vehiclePickerRowSub: {
-    fontSize: 12,
-    color: "#71717a",
-    fontWeight: "500",
-    textTransform: "capitalize",
-  },
-  vehiclePickerCheck: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  segmentedContainer: {
-    flexDirection: "row",
-    backgroundColor: "#111110",
-    borderRadius: 14,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: "#2a2a28",
-    marginVertical: 4,
-    width: "100%",
-  },
-  segmentButton: {
-    flex: 1,
-    paddingVertical: 11,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 11,
-  },
-  segmentText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#d4d4d8",
-  },
-  grid2x2: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    rowGap: 12,
-    marginVertical: 4,
-    width: "100%",
-  },
-  cockpitCard: {
-    width: "48.5%",
-    backgroundColor: "#161615",
-    borderWidth: 1,
-    borderColor: "#262624",
-    borderRadius: 16,
-    padding: 16,
-    height: 110,
-    justifyContent: "space-between",
-  },
-  cockpitCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  cockpitCardLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#d4d4d8",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  cockpitCardValue: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#ffffff",
-  },
-  bigGoBtn: {
-    width: "100%",
-    height: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 8,
-  },
-  bigGoBtnText: {
-    fontSize: 20,
-    fontWeight: "900",
-    letterSpacing: 1,
-  },
-  bigActiveBtn: {
-    width: "100%",
-    height: 56,
-    borderRadius: 28,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 8,
-  },
-  cockpitHero: {
-    backgroundColor: "#111110",
-    borderWidth: 1,
-    borderColor: "#2a2a28",
-    borderRadius: 20,
-    paddingHorizontal: 24,
-    paddingVertical: 28,
-    alignItems: "center",
-    gap: 4,
-    overflow: "visible",
-  },
-  cockpitHeroLabel: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#a1a1aa",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: 4,
-  },
-  cockpitHeroValue: {
-    fontSize: 48,
-    fontWeight: "900",
-    color: "#ffffff",
-    letterSpacing: -1,
-    lineHeight: 60,
-    includeFontPadding: false,
-  },
-  cockpitHeroSubRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginTop: 8,
-    flexWrap: "wrap",
-    justifyContent: "center",
-  },
-  cockpitHeroSubText: {
-    fontSize: 13,
-    color: "#a1a1aa",
-    fontWeight: "500",
-  },
-  cockpitHeroSubDivider: {
-    width: 1,
-    height: 14,
-    backgroundColor: "#52525b",
-  },
-  scrollContent: {
-    padding: 12,
-    gap: 12,
-    paddingBottom: 24,
-  },
-  demoBanner: {
-    backgroundColor: "rgba(245, 158, 11, 0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(245, 158, 11, 0.2)",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  demoText: {
-    fontSize: 12,
-    color: "#fbbf24",
-    fontWeight: "600",
-  },
-  demoButton: {
-    backgroundColor: "rgba(245, 158, 11, 0.2)",
-    borderWidth: 1,
-    borderColor: "rgba(245, 158, 11, 0.3)",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-  },
-  demoButtonText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#f59e0b",
-    textTransform: "uppercase",
-  },
-  activeShiftCard: {
-    backgroundColor: "#161615",
-    borderColor: "#262624",
-    borderWidth: 1,
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  activeShiftCardActive: {
-    borderColor: "#ffffff",
-    borderWidth: 1.5,
-  },
-  activeShiftHeader: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#262624",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  statusGroup: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusDotActive: {
-    backgroundColor: "#ffffff",
-  },
-  statusDotInactive: {
-    backgroundColor: "#71717a",
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  statusTextActive: {
-    color: "#ffffff",
-  },
-  statusTextInactive: {
-    color: "#a1a1aa",
-  },
-  activeLabel: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
-  },
-  activeLabelText: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#ffffff",
-  },
-  activeShiftBody: {
-    padding: 12,
-  },
-  idleTitle: {
-    color: "#e2e8f0",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  platformSelectorRow: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  platformBtn: {
-    flex: 1,
-    backgroundColor: "#1c1c1a",
-    borderColor: "#262624",
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 8,
-    alignItems: "center",
-  },
-  platformBtnSelected: {
-    borderColor: "#ffffff",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-  },
-  platformBtnText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#a1a1aa",
-  },
-  platformBtnTextSelected: {
-    color: "#ffffff",
-  },
-  startShiftBtn: {
-    backgroundColor: "#ffffff",
-    borderRadius: 8,
-    paddingVertical: 10,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 6,
-  },
-  startShiftBtnText: {
-    color: "#000000",
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
-  timerDisplay: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#000000",
-    paddingVertical: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#262624",
-  },
-  timerDigits: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: "#ffffff",
-    fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace",
-    letterSpacing: 1,
-  },
-  timerLabel: {
-    fontSize: 9,
-    color: "#a1a1aa",
-    textTransform: "uppercase",
-    fontWeight: "700",
-    marginTop: 4,
-    letterSpacing: 0.5,
-  },
-  activeMileageRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#000000",
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#262624",
-  },
-  mileageIconBg: {
-    width: 26,
-    height: 26,
-    borderRadius: 6,
-    backgroundColor: "rgba(129, 140, 248, 0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(129, 140, 248, 0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  mileageLabel: {
-    fontSize: 9,
-    color: "#a1a1aa",
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  mileageValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#ffffff",
-    marginTop: 1,
-  },
-  addMileBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#1c1c1a",
-    borderWidth: 1,
-    borderColor: "#262624",
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 6,
-  },
-  addMileBtnText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#ffffff",
-  },
-  endShiftBtn: {
-    backgroundColor: "#ef4444",
-    borderRadius: 8,
-    paddingVertical: 10,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 6,
-  },
-  endShiftBtnText: {
-    color: "white",
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
-  kpiGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    rowGap: 10,
-  },
-  kpiCard: {
-    width: "48.5%",
-    minHeight: 112,
-    backgroundColor: "#161615",
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 14,
-    justifyContent: "space-between",
-  },
-  kpiCardTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  kpiLabel: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#a1a1aa",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
-  pulseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  kpiValueText: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#ffffff",
-    marginVertical: 6,
-    fontVariant: ["tabular-nums"],
-  },
-  comparisonBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#1c1c1a",
-    borderWidth: 1,
-    borderColor: "#262624",
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: "flex-start",
-    gap: 4,
-  },
-  comparisonText: {
-    fontSize: 9,
-    fontWeight: "800",
-  },
-  comparisonSub: {
-    fontSize: 8,
-    color: "#71717a",
-    fontWeight: "700",
-  },
-  textUp: {
-    color: "#10b981",
-  },
-  textDown: {
-    color: "#f43f5e",
-  },
-  tabButtons: {
-    flexDirection: "row",
-    backgroundColor: "#1c1c1a",
-    borderWidth: 1,
-    borderColor: "#262624",
-    borderRadius: 6,
-    padding: 1.5,
-  },
-  tabBtn: {
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  tabBtnActive: {
-    backgroundColor: "#27272a",
-  },
-  tabBtnText: {
-    fontSize: 7.5,
-    fontWeight: "700",
-    color: "#71717a",
-  },
-  tabBtnTextActive: {
-    color: "#ffffff",
-  },
-  bentoCardOuter: {
-    backgroundColor: "#161615",
-    borderColor: "#262624",
-    borderWidth: 1,
-    borderRadius: 16,
-  },
-  bentoHeader: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#262624",
-    paddingBottom: 10,
-  },
-  bentoTitle: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  bentoDesc: {
-    color: "#a1a1aa",
-    fontSize: 11,
-    marginTop: 2,
-  },
-  distLabelRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  distLabelText: {
-    color: "#a1a1aa",
-    fontSize: 11,
-    fontWeight: "500",
-  },
-  distValueText: {
-    color: "#007aff",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  barTrack: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#000000",
-    overflow: "hidden",
-  },
-  barFill: {
-    height: "100%",
-    borderRadius: 4,
-  },
-  goalCurrentText: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#007aff",
-  },
-  goalTargetText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#ffffff",
-  },
-  goalPctText: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#007aff",
-  },
-  goalTrack: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#000000",
-    overflow: "hidden",
-  },
-  goalFill: {
-    height: "100%",
-    borderRadius: 4,
-    backgroundColor: "#007aff",
-  },
-  goalMutedText: {
-    fontSize: 10,
-    color: "#71717a",
-    fontWeight: "500",
-    marginTop: 2,
-  },
-  tableHeaderRow: {
-    flexDirection: "row",
-    paddingBottom: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: "#262624",
-  },
-  tableHeaderText: {
-    color: "#a1a1aa",
-    fontSize: 10,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  tableBodyRow: {
-    flexDirection: "row",
-    paddingVertical: 8,
-    alignItems: "center",
-  },
-  tableBodyRowAlt: {
-    backgroundColor: "#1c1c1a",
-    borderRadius: 6,
-    paddingHorizontal: 4,
-  },
-  tableCellText: {
-    color: "#e2e8f0",
-    fontSize: 11,
-    fontVariant: ["tabular-nums"],
-  },
-  tableTotalsRow: {
-    flexDirection: "row",
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#262624",
-    marginTop: 4,
-    alignItems: "center",
-  },
-  tableTotalsText: {
-    color: "#ffffff",
-    fontSize: 11,
-    fontWeight: "bold",
-    fontVariant: ["tabular-nums"],
-  },
-  resetBtn: {
-    alignSelf: "center",
-    backgroundColor: "rgba(239, 68, 68, 0.08)",
-    borderColor: "rgba(239, 68, 68, 0.2)",
-    borderWidth: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  resetBtnText: {
-    color: "#ef4444",
-    fontSize: 9,
-    fontWeight: "900",
-    letterSpacing: 1,
-  },
-  homepageHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-  },
-  headerTextContainer: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "900",
-    color: "#ffffff",
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    color: "#d4d4d8",
-    marginTop: 2,
-    lineHeight: 17,
-    fontWeight: "500",
-  },
-  headerActions: {
-    justifyContent: "center",
-    alignItems: "flex-end",
-  },
-  compactStartBtn: {
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    shadowColor: "#ffffff",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  compactStartBtnText: {
-    color: "#000000",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  compactActiveBtn: {
-    backgroundColor: "#ef4444",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    shadowColor: "#ef4444",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  compactActiveBtnText: {
-    color: "#ffffff",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  pulseDotActive: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#ffffff",
-  },
-  filterCard: {
-    backgroundColor: "#161615",
-    borderColor: "#262624",
-    borderWidth: 1,
-    borderRadius: 14,
-    overflow: "hidden",
-  },
-  filterSummary: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 12,
-  },
-  filterSummaryLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  filterSummaryText: {
-    color: "#ffffff",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  filterSummaryRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  filterPresetBadge: {
-    backgroundColor: "#262624",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  filterPresetBadgeText: {
-    color: "#a1a1aa",
-    fontSize: 10,
-    fontWeight: "800",
-  },
-  filterExpandedContent: {
-    borderTopWidth: 1,
-    borderTopColor: "#262624",
-    padding: 12,
-    backgroundColor: "#1c1c1a",
-    gap: 12,
-  },
-  presetButtonsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  presetItemBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: "#161615",
-    borderColor: "#262624",
-    borderWidth: 1,
-  },
-  presetItemBtnActive: {
-    backgroundColor: "#ffffff",
-    borderColor: "#ffffff",
-  },
-  presetItemBtnText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#a1a1aa",
-  },
-  presetItemBtnTextActive: {
-    color: "#000000",
-  },
-  customRangeInputsRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
-    marginTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: "#262624",
-    paddingTop: 12,
-  },
-  customDateInputContainer: {
-    flex: 1,
-    gap: 4,
-  },
-  customDateInputLabel: {
-    fontSize: 10,
-    color: "#71717a",
-    fontWeight: "700",
-    textTransform: "uppercase",
-  },
-  customDateTextInput: {
-    backgroundColor: "#161615",
-    borderColor: "#262624",
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    color: "#ffffff",
-    fontSize: 12,
-  },
-  customApplyBtn: {
-    backgroundColor: "#ffffff",
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  customApplyBtnText: {
-    color: "#000000",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    backgroundColor: "#161615",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderColor: "#262624",
-    borderTopWidth: 1,
-    padding: 16,
-    paddingBottom: 32,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "#262624",
-    paddingBottom: 12,
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#ffffff",
-  },
-  closeBtn: {
-    padding: 4,
-  },
-  closeBtnText: {
-    fontSize: 22,
-    color: "#71717a",
-    fontWeight: "600",
-  },
-  modalBody: {
-    gap: 16,
-  },
-  modalSectionLabel: {
-    fontSize: 11,
-    color: "#71717a",
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  platformBadgeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  platformBadgeBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: "#1c1c1a",
-    borderColor: "#262624",
-    borderWidth: 1,
-  },
-  platformBadgeBtnActive: {
-    borderColor: "#ffffff",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-  },
-  platformBadgeBtnText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#a1a1aa",
-  },
-  platformBadgeBtnTextActive: {
-    color: "#ffffff",
-  },
-  modalSubmitBtn: {
-    backgroundColor: "#ffffff",
-    borderRadius: 8,
-    paddingVertical: 12,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 8,
-  },
-  modalSubmitBtnText: {
-    color: "#000000",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  modalTimerContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#000000",
-    paddingVertical: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#262624",
-  },
-  modalTimerDigits: {
-    fontSize: 36,
-    fontWeight: "900",
-    color: "#ffffff",
-    fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace",
-    letterSpacing: 1,
-  },
-  modalTimerLabel: {
-    fontSize: 10,
-    color: "#a1a1aa",
-    textTransform: "uppercase",
-    fontWeight: "700",
-    marginTop: 4,
-    letterSpacing: 0.5,
-  },
-  modalMileageRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#000000",
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#262624",
-  },
-  modalMileageLabel: {
-    fontSize: 9,
-    color: "#a1a1aa",
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  modalMileageValue: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#ffffff",
-    marginTop: 2,
-  },
-  modalAddMileBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#1c1c1a",
-    borderWidth: 1,
-    borderColor: "#262624",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  modalAddMileBtnText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#ffffff",
-  },
-  modalEndShiftBtn: {
-    backgroundColor: "#ef4444",
-    borderRadius: 8,
-    paddingVertical: 12,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 8,
-  },
-  modalEndShiftBtnText: {
-    color: "#ffffff",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  headerAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#007aff",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(0, 122, 255, 0.2)",
-  },
-  headerAvatarText: {
-    color: "#ffffff",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  platformSwitcherOuter: {
-    marginBottom: 12,
-  },
-  platformSwitcherScroll: {
-    paddingHorizontal: 2,
-    gap: 8,
-  },
-  platformTab: {
-    backgroundColor: "#161615",
-    borderWidth: 1,
-    borderColor: "#262624",
-    borderRadius: 20,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-  },
-  platformTabActive: {
-    backgroundColor: "rgba(22, 22, 21, 0.9)",
-  },
-  platformTabInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  platformTabLogo: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  platformTabLogoText: {
-    color: "#ffffff",
-    fontSize: 10,
-    fontWeight: "900",
-  },
-  platformTabLabel: {
-    color: "#71717a",
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  platformTabLabelActive: {
-    color: "#ffffff",
-    fontWeight: "700",
-  },
+const S = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#000" },
+  scroll: { padding: 14, gap: 10, paddingBottom: 20 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  headerTitle: { fontSize: 18, fontWeight: "bold", color: "#fff", letterSpacing: -0.2 },
+  headerSub: { fontSize: 13, color: "#71717a" },
+  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#1e3a8a", alignItems: "center", justifyContent: "center" },
+  avatarText: { color: "#fff", fontSize: 14, fontWeight: "800" },
+  bellBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#1c1c1e", borderWidth: 0.5, borderColor: "#333", alignItems: "center", justifyContent: "center" },
+
+  hero: { backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", overflow: "hidden" },
+  heroLabel: { fontSize: 11, fontWeight: "700", color: "#71717a", letterSpacing: 0.8 },
+  heroCurrency: { fontSize: 24, fontWeight: "600", color: "#fff", marginTop: 6, marginRight: 2 },
+  heroValue: { fontSize: 52, fontWeight: "800", color: "#fff", letterSpacing: -1.2 },
+  trendBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, backgroundColor: "rgba(16, 185, 129, 0.12)" },
+  trendText: { fontSize: 12, fontWeight: "700", color: "#10b981" },
+  heroColumns: { flexDirection: "row", gap: 32, marginTop: 16, paddingBottom: 16 },
+  heroCol: { gap: 4 },
+  heroColLabel: { fontSize: 12, color: "#71717a", fontWeight: "500" },
+  heroColValue: { fontSize: 16, color: "#fff", fontWeight: "700" },
+
+  presetRow: { flexDirection: "row", backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#222", padding: 4, marginVertical: 14, alignItems: "center" },
+  presetBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  presetBtnAct: { backgroundColor: "#27272a" },
+  presetText: { fontSize: 13, fontWeight: "600", color: "#71717a" },
+  presetTextAct: { color: "#fff", fontWeight: "700" },
+
+  statGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 10 },
+  statCard: { width: "48.5%", backgroundColor: "#0c0c0c", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", padding: 16, gap: 6 },
+  gridIconBg: { width: 28, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center", marginBottom: 4 },
+  statLabel: { fontSize: 10, fontWeight: "600", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 4 },
+  statValue: { fontSize: 22, fontWeight: "bold", color: "#fff", marginTop: 2, paddingVertical: 1 },
+  statSub: { fontSize: 11, color: "#52525b", fontWeight: "500", marginTop: 2 },
+  statTrend: { fontSize: 11, fontWeight: "600", marginTop: 2 },
+
+  card: { backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", padding: 16, gap: 12 },
+  cardHeader: { fontSize: 14, fontWeight: "700", color: "#fff" },
+  progressBarBg: { height: 6, borderRadius: 3, backgroundColor: "#1c1c1e", overflow: "hidden" },
+  progressBarFill: { height: "100%", borderRadius: 3 },
+
+  tipCard: { flexDirection: "row", gap: 10, backgroundColor: "#070707", borderRadius: 14, borderWidth: 0.8, borderColor: "#1a1a1a", padding: 12, alignItems: "center" },
+
+  activeBanner: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", padding: 16 },
+  activeBannerTitle: { fontSize: 13, fontWeight: "700", color: "#fff" },
+  activeBannerSub: { fontSize: 11, color: "#888" },
+  pulseDot: { width: 6, height: 6, borderRadius: 3 },
+
+  actionBar: { flexDirection: "row", gap: 10, padding: 12, backgroundColor: "#000", borderTopWidth: 0.5, borderTopColor: "#1e1e1e", paddingBottom: Platform.OS === "ios" ? 24 : 12 },
+  secBtn: { flex: 1, height: 42, borderRadius: 10, backgroundColor: "#0c0c0c", borderWidth: 0.5, borderColor: "#1e1e1e", justifyContent: "center", alignItems: "center" },
+  secBtnText: { fontSize: 12, fontWeight: "700", color: "#888" },
+  primBtn: { flex: 2, height: 42, borderRadius: 10, justifyContent: "center", alignItems: "center" },
+  primBtnText: { fontSize: 13, fontWeight: "800" },
+
+  clockOverlay: { flex: 1, backgroundColor: "#000" },
+  clockHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 14, borderBottomWidth: 0.5, borderBottomColor: "#1e1e1e" },
+  clockCloseBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, backgroundColor: "#1c1c1e" },
+  clockBody: { flex: 1, justifyContent: "center", alignItems: "center", gap: 20 },
+  clockDigits: { fontSize: 52, fontWeight: "bold", color: "#fff", fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace", paddingVertical: 8, textAlign: "center", textAlignVertical: "center", includeFontPadding: false },
+  clockLabel: { fontSize: 12, color: "#888", textTransform: "uppercase", fontWeight: "700", letterSpacing: 1 },
+  clockSecBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 38, borderRadius: 8, backgroundColor: "#0c0c0c", borderWidth: 0.5, borderColor: "#1e1e1e" },
+  clockSecBtnText: { fontSize: 12, fontWeight: "700", color: "#fff" },
+
+  wizardOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "flex-end" },
+  wizardContent: { backgroundColor: "#080808", borderTopLeftRadius: 16, borderTopRightRadius: 16, borderWidth: 1, borderColor: "#1e1e1e", padding: 16, paddingBottom: Platform.OS === "ios" ? 34 : 20, gap: 16 },
+  wizardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 0.5, borderBottomColor: "#1e1e1e", paddingBottom: 10 },
+  wizardTitle: { fontSize: 15, fontWeight: "800", color: "#fff" },
+  wizardCloseBtn: { padding: 4 },
+  wizardCloseText: { fontSize: 18, color: "#6b7280" },
+  wizardLabel: { fontSize: 14, fontWeight: "700", color: "#fff" },
+  wizardSubLabel: { fontSize: 12, fontWeight: "600", color: "#888" },
+  wizardRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 10, backgroundColor: "#0c0c0c", borderWidth: 0.5, borderColor: "#1e1e1e" },
+  wizardRowSel: { borderColor: "#fff" },
+  wizardRowTitle: { fontSize: 13, fontWeight: "700", color: "#fff" },
+  wizardRowSub: { fontSize: 11, color: "#6b7280" },
+  wizardInput: { flex: 1, height: 40, backgroundColor: "#0c0c0c", borderWidth: 0.5, borderColor: "#1e1e1e", borderRadius: 8, paddingHorizontal: 10, color: "#fff", fontSize: 13, fontWeight: "600" },
+  wizardFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 0.5, borderTopColor: "#222", paddingTop: 14, marginTop: 2 },
+  wizardBackBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
+  wizardNextBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8 },
+  wizardNextBtnText: { fontSize: 12, fontWeight: "700" },
+
+  demoBanner: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "rgba(245, 158, 11, 0.1)", borderWidth: 0.5, borderColor: "rgba(245, 158, 11, 0.2)", padding: 8, borderRadius: 8, marginBottom: 8 },
+  demoText: { fontSize: 11, fontWeight: "600", color: "#f59e0b" },
+  demoBtn: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, backgroundColor: "rgba(245, 158, 11, 0.2)" },
+  demoBtnText: { fontSize: 10, fontWeight: "700", color: "#f59e0b" },
 });

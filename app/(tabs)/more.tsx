@@ -39,7 +39,7 @@ export default function MoreScreen() {
   const insets = useSafeAreaInsets();
   return (
     <SafeAreaView className="dark flex-1 bg-[#000000]" edges={["bottom", "left", "right"]}>
-      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 64 }} contentContainerClassName="p-4 flex flex-col pb-12">
+      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 64 }} contentContainerClassName="p-4 flex flex-col pb-12" showsVerticalScrollIndicator={false}>
         <View className="my-4">
           <Text className="text-2xl font-extrabold text-slate-100 tracking-tight">More options</Text>
           <Text className="text-xs text-slate-400 mt-1">Configure your workspace and preferences</Text>

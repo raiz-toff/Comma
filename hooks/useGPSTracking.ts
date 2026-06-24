@@ -32,6 +32,7 @@ if (!isWeb) {
           lng: loc.coords.longitude,
           timestamp: loc.timestamp,
         };
+        useActiveShift.getState().addCoordinate(loc.coords.latitude, loc.coords.longitude);
 
         if (lastLocation) {
           const distanceM = haversineDistance(lastLocation, currentCoord);
@@ -39,11 +40,10 @@ if (!isWeb) {
 
           // Jitter filter
           if (!isGPSJitter(distanceM, elapsedMs)) {
-            const speedKmh = loc.coords.speed ? loc.coords.speed * 3.6 : (distanceM / (elapsedMs / 1000)) * 3.6;
-            const category = classifyMiles(speedKmh);
             const distanceConverted = distanceM / conversionFactor;
+            const isFirstReceived = useActiveShift.getState().isFirstOrderReceived;
 
-            if (category === "active") {
+            if (isFirstReceived) {
               useActiveShift.getState().updateMileage(distanceConverted, 0);
             } else {
               useActiveShift.getState().updateMileage(0, distanceConverted);
@@ -75,21 +75,22 @@ export function useGPSTracking() {
         return;
       }
 
-      const isRegistered = await TaskManager.isTaskRegisteredAsync(LOCATION_TASK_NAME);
-      if (!isRegistered) {
-        lastLocation = null;
-        await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-          accuracy: GPS_CONFIG.accuracy,
-          timeInterval: GPS_CONFIG.timeInterval,
-          distanceInterval: GPS_CONFIG.distanceInterval,
-          foregroundService: {
-            notificationTitle: "Comma GPS Tracking",
-            notificationBody: "Tracking delivery miles in background.",
-            notificationColor: "#10b981",
-          },
-          pausesUpdatesAutomatically: false,
-        });
-      }
+      lastLocation = null;
+      await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+        accuracy: Location.Accuracy.High,
+        timeInterval: 5000,
+        distanceInterval: 10,
+        deferredUpdatesInterval: 10000,
+        deferredUpdatesDistance: 50,
+        showsBackgroundLocationIndicator: true,
+        activityType: Location.ActivityType.AutomotiveNavigation,
+        foregroundService: {
+          notificationTitle: "Comma GPS Tracking",
+          notificationBody: "Tracking delivery miles in background.",
+          notificationColor: "#10b981",
+        },
+        pausesUpdatesAutomatically: false,
+      });
     } catch (err) {
       console.error("Failed to start location updates:", err);
     }

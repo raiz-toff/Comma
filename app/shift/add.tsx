@@ -7,6 +7,7 @@ import {
   Platform,
   ActivityIndicator,
   KeyboardAvoidingView,
+  StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,8 +21,172 @@ import { getVehicles } from "../../src/database/queries/vehicles";
 import { insertShift, updateShift, getShiftById } from "../../src/database/queries/shifts";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { cn } from "../../src/lib/utils";
+import Svg, { Polyline, Circle, Line } from "react-native-svg";
+
+// react-native-maps is a native module — import conditionally for web safety
+let MapView: any = null;
+let Marker: any = null;
+let MapPolyline: any = null;
+if (Platform.OS !== "web") {
+  try {
+    const Maps = require("react-native-maps");
+    MapView = Maps.default;
+    Marker = Maps.Marker;
+    MapPolyline = Maps.Polyline;
+  } catch {}
+}
 
 type GigPlatform = "doordash" | "ubereats" | "skip" | "other";
+
+// ─── Route Map Component ─────────────────────────────────────────────────────
+// Native: Full interactive MapView with road-snapped polyline
+// Web / fallback: SVG schematic trace
+
+const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string; strokeColor: string }) => {
+  const points = React.useMemo(() => {
+    try {
+      const parsed = JSON.parse(routePathJson);
+      if (!Array.isArray(parsed) || parsed.length < 2) return null;
+      return parsed as Array<{ latitude: number; longitude: number }>;
+    } catch {
+      return null;
+    }
+  }, [routePathJson]);
+
+  if (!points) return null;
+
+  // ── Native interactive MapView ──────────────────────────────────────────────
+  if (Platform.OS !== "web" && MapView) {
+    const lats = points.map((p) => p.latitude);
+    const lngs = points.map((p) => p.longitude);
+
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+
+    const latPad = (maxLat - minLat) * 0.25 || 0.005;
+    const lngPad = (maxLng - minLng) * 0.25 || 0.005;
+
+    const region = {
+      latitude:  (minLat + maxLat) / 2,
+      longitude: (minLng + maxLng) / 2,
+      latitudeDelta:  maxLat - minLat + latPad,
+      longitudeDelta: maxLng - minLng + lngPad,
+    };
+
+    const startPoint = points[0];
+    const endPoint   = points[points.length - 1];
+
+    return (
+      <View style={{ borderRadius: 16, overflow: "hidden", marginVertical: 8 }}>
+        <MapView
+          style={{ width: "100%", height: 220 }}
+          region={region}
+          scrollEnabled
+          zoomEnabled
+          pitchEnabled={false}
+          rotateEnabled={false}
+          mapType="standard"
+          userInterfaceStyle="dark"
+        >
+          <MapPolyline
+            coordinates={points}
+            strokeColor={strokeColor}
+            strokeWidth={5}
+            lineCap="round"
+            lineJoin="round"
+          />
+          <Marker coordinate={startPoint} anchor={{ x: 0.5, y: 0.5 }}>
+            <View style={{
+              width: 14, height: 14, borderRadius: 7,
+              backgroundColor: "#10b981",
+              borderWidth: 2, borderColor: "#fff"
+            }} />
+          </Marker>
+          <Marker coordinate={endPoint} anchor={{ x: 0.5, y: 0.5 }}>
+            <View style={{
+              width: 14, height: 14, borderRadius: 7,
+              backgroundColor: strokeColor,
+              borderWidth: 2, borderColor: "#fff"
+            }} />
+          </Marker>
+        </MapView>
+
+        {/* Legend */}
+        <View style={{
+          flexDirection: "row", justifyContent: "space-between",
+          paddingHorizontal: 12, paddingVertical: 8,
+          backgroundColor: "#0d0d0d",
+          borderBottomLeftRadius: 16, borderBottomRightRadius: 16,
+          borderWidth: 0.5, borderTopWidth: 0, borderColor: "#1f1f1f",
+        }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#10b981" }} />
+            <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600" }}>Start</Text>
+          </View>
+          <Text style={{ color: "#52525b", fontSize: 11, fontWeight: "600" }}>
+            {points.length} GPS points
+          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600" }}>End</Text>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: strokeColor }} />
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // ── Web / Fallback: SVG schematic trace ─────────────────────────────────────
+  const lats = points.map((p) => p.latitude);
+  const lngs = points.map((p) => p.longitude);
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+  const latRange = maxLat - minLat || 0.001;
+  const lngRange = maxLng - minLng || 0.001;
+  const W = 340, H = 200, PAD = 16;
+
+  const svgPoints = points.map((p) => {
+    const x = PAD + ((p.longitude - minLng) / lngRange) * (W - 2 * PAD);
+    const y = PAD + (1 - (p.latitude - minLat) / latRange) * (H - 2 * PAD);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+
+  const startX = PAD + ((points[0].longitude - minLng) / lngRange) * (W - 2 * PAD);
+  const startY = PAD + (1 - (points[0].latitude - minLat) / latRange) * (H - 2 * PAD);
+  const endX   = PAD + ((points[points.length-1].longitude - minLng) / lngRange) * (W - 2 * PAD);
+  const endY   = PAD + (1 - (points[points.length-1].latitude - minLat) / latRange) * (H - 2 * PAD);
+
+  return (
+    <View style={{ marginVertical: 8, backgroundColor: "#0d0d0d", borderRadius: 16, borderWidth: 0.5, borderColor: "#1f1f1f", overflow: "hidden" }}>
+      <View style={{ height: H, backgroundColor: "#060608", justifyContent: "center", alignItems: "center" }}>
+        <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
+          <Line x1="0" y1="50"  x2="340" y2="50"  stroke="#121216" strokeWidth="0.8" />
+          <Line x1="0" y1="100" x2="340" y2="100" stroke="#121216" strokeWidth="0.8" />
+          <Line x1="0" y1="150" x2="340" y2="150" stroke="#121216" strokeWidth="0.8" />
+          <Line x1="85"  y1="0" x2="85"  y2="200" stroke="#121216" strokeWidth="0.8" />
+          <Line x1="170" y1="0" x2="170" y2="200" stroke="#121216" strokeWidth="0.8" />
+          <Line x1="255" y1="0" x2="255" y2="200" stroke="#121216" strokeWidth="0.8" />
+          <Polyline points={svgPoints} fill="none" stroke={strokeColor} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+          <Circle cx={startX} cy={startY} r="5" fill="#10b981" />
+          <Circle cx={endX}   cy={endY}   r="6" fill="#ef4444" stroke="#000" strokeWidth="1" />
+        </Svg>
+      </View>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 8 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#10b981" }} />
+          <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600" }}>Start</Text>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600" }}>End</Text>
+          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#ef4444" }} />
+        </View>
+      </View>
+    </View>
+  );
+};
+
+
 
 export default function AddShiftModal() {
   const queryClient = useQueryClient();
@@ -465,6 +630,14 @@ export default function AddShiftModal() {
               </View>
             </View>
           </View>
+
+          {/* Route Map (if routePath exists) */}
+          {existingShift?.routePath && (
+            <RouteLargeMap
+              routePathJson={existingShift.routePath}
+              strokeColor={PLATFORMS[selectedPlatform]?.color || "#3b82f6"}
+            />
+          )}
 
           {/* Notes Field */}
           <View className="flex flex-col gap-2">

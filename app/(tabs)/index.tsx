@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { ScrollView, View, ActivityIndicator, Pressable, StyleSheet, Alert, Platform, TextInput, Modal } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import React, { useEffect, useState, useRef } from "react";
+import { ScrollView, View, ActivityIndicator, Pressable, StyleSheet, Alert, Platform, TextInput, Modal, Animated } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Button } from "../../src/components/ui/button";
@@ -95,7 +95,7 @@ const CoinsIcon = ({ size = 14, color = "#fbbf24" }: { size?: number; color?: st
         borderRadius: (size * 0.8) / 2,
         borderWidth: 1.5,
         borderColor: color,
-        backgroundColor: "#0b0f19",
+        backgroundColor: "#000000",
         top: 0,
         right: 0,
         justifyContent: "center",
@@ -316,7 +316,16 @@ function defaultRangeForPreset(preset: string, now: Date, weekStartDay: number) 
   return { start: `${y - 1}-01-01`, end: today, preset: "all" };
 }
 
-const CalendarIcon = ({ size = 18, color = "#10b981" }: { size?: number; color?: string }) => (
+const formatDuration = (totalSeconds: number) => {
+  const hrs = Math.floor(totalSeconds / 3600);
+  const mins = Math.floor((totalSeconds % 3600) / 60);
+  if (hrs > 0) {
+    return `${hrs}h ${mins}m`;
+  }
+  return `${mins}m`;
+};
+
+const CalendarIcon = ({ size = 18, color = "#ffffff" }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
     <Rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
     <Path d="M16 2v4M8 2v4M3 10h18" />
@@ -335,8 +344,120 @@ const ChevronUpIcon = ({ size = 16, color = "#a1a1aa" }: { size?: number; color?
   </Svg>
 );
 
+const NavigationIcon = ({ size = 16, color = "#a1a1aa" }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M3 11l19-9-9 19-2-8-8-2z" />
+  </Svg>
+);
+
+const ClockIcon = ({ size = 16, color = "#a1a1aa" }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="12" cy="12" r="10" />
+    <Path d="M12 6v6l4 2" />
+  </Svg>
+);
+
+const DollarIcon = ({ size = 16, color = "#a1a1aa" }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+  </Svg>
+);
+
+const WriteOffIcon = ({ size = 16, color = "#a1a1aa" }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z" />
+    <Path d="M16 8h-8M16 12h-8M16 16h-8" />
+  </Svg>
+);
+
+const DashboardSkeleton = () => {
+  const pulseAnim = useRef(new Animated.Value(0.35)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.65,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.35,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [pulseAnim]);
+
+  return (
+    <Animated.View style={{ opacity: pulseAnim, gap: 12, width: "100%" }}>
+      {/* KPI Grid Skeleton */}
+      <View style={styles.kpiGrid}>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <View key={i} style={[styles.kpiCard, { borderColor: "#262624", backgroundColor: "#0c0c0b", minHeight: 112, padding: 14 }]}>
+            <View style={{ width: 90, height: 14, backgroundColor: "#1c1c1a", borderRadius: 4, marginBottom: 8 }} />
+            <View style={{ width: 120, height: 32, backgroundColor: "#262624", borderRadius: 6, marginBottom: 12 }} />
+            <View style={{ width: 70, height: 12, backgroundColor: "#1c1c1a", borderRadius: 2 }} />
+          </View>
+        ))}
+      </View>
+
+      {/* Bento Card 1: Distance Distribution Skeleton */}
+      <View style={[styles.bentoCardOuter, { padding: 16, backgroundColor: "#0c0c0b", borderColor: "#262624" }]}>
+        <View style={{ width: 150, height: 16, backgroundColor: "#1c1c1a", borderRadius: 4, marginBottom: 6 }} />
+        <View style={{ width: 110, height: 12, backgroundColor: "#1c1c1a", borderRadius: 4, marginBottom: 16 }} />
+        <View style={{ gap: 14 }}>
+          <View style={{ gap: 6 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <View style={{ width: 80, height: 12, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
+              <View style={{ width: 40, height: 12, backgroundColor: "#262624", borderRadius: 4 }} />
+            </View>
+            <View style={{ width: "100%", height: 8, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
+          </View>
+          <View style={{ gap: 6 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <View style={{ width: 100, height: 12, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
+              <View style={{ width: 40, height: 12, backgroundColor: "#262624", borderRadius: 4 }} />
+            </View>
+            <View style={{ width: "100%", height: 8, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
+          </View>
+        </View>
+      </View>
+
+      {/* Bento Card 2: Weekly Goal Progress Skeleton */}
+      <View style={[styles.bentoCardOuter, { padding: 16, backgroundColor: "#0c0c0b", borderColor: "#262624" }]}>
+        <View style={{ width: 130, height: 16, backgroundColor: "#1c1c1a", borderRadius: 4, marginBottom: 16 }} />
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 8 }}>
+          <View style={{ width: 120, height: 24, backgroundColor: "#262624", borderRadius: 4 }} />
+          <View style={{ width: 35, height: 16, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
+        </View>
+        <View style={{ width: "100%", height: 12, backgroundColor: "#1c1c1a", borderRadius: 6, marginBottom: 10 }} />
+        <View style={{ width: "85%", height: 12, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
+      </View>
+
+      {/* Bento Card 3: Monthly Table Skeleton */}
+      <View style={[styles.bentoCardOuter, { padding: 16, backgroundColor: "#0c0c0b", borderColor: "#262624" }]}>
+        <View style={{ width: 120, height: 16, backgroundColor: "#1c1c1a", borderRadius: 4, marginBottom: 6 }} />
+        <View style={{ width: 180, height: 12, backgroundColor: "#1c1c1a", borderRadius: 4, marginBottom: 16 }} />
+        <View style={{ gap: 12 }}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 }}>
+              <View style={{ width: "20%", height: 12, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
+              <View style={{ width: "20%", height: 12, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
+              <View style={{ width: "20%", height: 12, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
+              <View style={{ width: "20%", height: 12, backgroundColor: "#1c1c1a", borderRadius: 4 }} />
+            </View>
+          ))}
+        </View>
+      </View>
+    </Animated.View>
+  );
+};
+
 export default function HomeScreen() {
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
   
   const {
     isActive,
@@ -381,6 +502,8 @@ export default function HomeScreen() {
     loadSettings,
     clearSampleData,
     resetSettings,
+    preferredVehicleId,
+    setPreferredVehicle,
   } = useSettingsStore();
 
   // Start Shift Wizard states
@@ -410,7 +533,7 @@ export default function HomeScreen() {
   // Date Range and Filter States matching PWA
   const [dateRange, setDateRange] = useState(() => {
     const today = new Date();
-    return defaultRangeForPreset("month", today, 0);
+    return defaultRangeForPreset("day", today, 0);
   });
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -470,39 +593,52 @@ export default function HomeScreen() {
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
   // Today stats
-  const { data: todayStats = { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0 } } = useQuery({
+  const { 
+    data: todayStats = { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0 },
+    isFetching: isFetchingToday,
+    isLoading: isLoadingToday
+  } = useQuery({
     queryKey: ["analytics", "today", activePlatformFilter],
     queryFn: () => getTodayStats(activePlatformFilter),
     enabled: isOnboardingCompleted,
   });
 
   // Week stats
-  const { data: weekStats = { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0 } } = useQuery({
+  const { 
+    data: weekStats = { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0 },
+    isFetching: isFetchingWeek,
+    isLoading: isLoadingWeek
+  } = useQuery({
     queryKey: ["analytics", "week", activePlatformFilter],
     queryFn: () => getWeekStats(activePlatformFilter),
     enabled: isOnboardingCompleted,
   });
 
-  // Period stats for the selected overview range
+  // Active range stats (for day/week/month selector)
+  const { 
+    data: rangeStats = { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0, pausedSeconds: 0 },
+    isFetching: isFetchingRange,
+    isLoading: isLoadingRange
+  } = useQuery({
+    queryKey: ["analytics", "rangeStats", activePlatformFilter, dateRange.start, dateRange.end],
+    queryFn: () => getPeriodStats(new Date(dateRange.start), new Date(dateRange.end + "T23:59:59"), activePlatformFilter),
+    enabled: isOnboardingCompleted,
+  });
+
+  // Keep other queries active to load background stats
   const { data: financialOverview } = useQuery({
     queryKey: ["analytics", "financialOverview", activePlatformFilter, dateRange.start, dateRange.end],
     queryFn: () => getFinancialOverviewForRange(new Date(dateRange.start), new Date(dateRange.end + "T23:59:59"), activePlatformFilter, 0),
     enabled: isOnboardingCompleted,
   });
 
-  // Monthly table breakdown
   const { data: monthlyBreakdown } = useQuery({
     queryKey: ["analytics", "monthlyBreakdown", activePlatformFilter, dateRange.start, dateRange.end],
     queryFn: () => getFinancialMonthlyBreakdown(new Date(dateRange.start), new Date(dateRange.end + "T23:59:59"), activePlatformFilter),
     enabled: isOnboardingCompleted,
   });
 
-  // Rolling 30 day trend
-  const { data: rollingTrend } = useQuery({
-    queryKey: ["analytics", "rollingTrend", activePlatformFilter],
-    queryFn: () => getRolling30DayTrend(activePlatformFilter),
-    enabled: isOnboardingCompleted,
-  });
+  const isDataFetching = isFetchingRange || isLoadingRange;
 
   const { data: weeklyGoals = [] } = useQuery({
     queryKey: ["analytics", "goals", "weekly"],
@@ -563,9 +699,13 @@ export default function HomeScreen() {
 
     if (vehiclesList.length > 1) {
       setWizardStep("vehicle");
-      setSelectedVehicleId(vehiclesList.find((v: any) => v.isActive)?.id || vehiclesList[0]?.id || "default_vehicle_1");
+      // Pre-select the user's preferred vehicle
+      const preferred = preferredVehicleId
+        ? vehiclesList.find((v: any) => v.id === preferredVehicleId)?.id
+        : null;
+      setSelectedVehicleId(preferred || vehiclesList.find((v: any) => v.isActive)?.id || vehiclesList[0]?.id || "default_vehicle_1");
     } else {
-      setSelectedVehicleId(vehiclesList[0]?.id || "default_vehicle_1");
+      setSelectedVehicleId(preferredVehicleId || vehiclesList[0]?.id || "default_vehicle_1");
       setWizardStep("platform");
     }
     setShowStartShiftWizard(true);
@@ -614,8 +754,8 @@ export default function HomeScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView className="dark flex-1 bg-[#0d0d0c] items-center justify-center">
-        <ActivityIndicator size="large" color="#10b981" />
+      <SafeAreaView className="dark flex-1 bg-[#000000] items-center justify-center">
+        <ActivityIndicator size="large" color="#ffffff" />
       </SafeAreaView>
     );
   }
@@ -648,8 +788,8 @@ export default function HomeScreen() {
   const takeHomePay = netMonth - taxSetAside;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <SafeAreaView style={styles.container} edges={["bottom", "left", "right"]}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 64 }]}>
         {/* Banner for Demo Mode */}
         {isDemoMode && (
           <View style={styles.demoBanner}>
@@ -668,7 +808,7 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* PWA-Parity Homepage Header */}
+        {/* Cockpit Homepage Header */}
         <View style={styles.homepageHeader}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
             <View style={styles.headerAvatar}>
@@ -677,114 +817,44 @@ export default function HomeScreen() {
               </Text>
             </View>
             <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Financial Overview</Text>
+              <Text style={styles.headerTitle}>
+                {dateRange.preset === "day"
+                  ? "Today's Shift"
+                  : dateRange.preset === "week"
+                  ? "This Week"
+                  : "This Month"}
+              </Text>
               <Text style={styles.headerSubtitle}>
-                Track your delivery performance.
+                {profile?.displayName ? `Hey, ${profile.displayName.split(" ")[0]}` : "Ready to drive?"}
               </Text>
             </View>
-          </View>
-          <View style={styles.headerActions}>
-            {!isActive ? (
-              <Pressable
-                onPress={handleStartShiftWizardStart}
-                style={[styles.compactStartBtn, { backgroundColor: accentColor }]}
-              >
-                <PlayIcon size={12} color={accentColorContrast} />
-                <Text style={[styles.compactStartBtnText, { color: accentColorContrast }]}>Start Shift</Text>
-              </Pressable>
-            ) : (
-              <Pressable
-                onPress={() => setShowBigClockOverlay(true)}
-                style={[styles.compactActiveBtn, { backgroundColor: accentColorDim, borderColor: accentColor + "55" }]}
-              >
-                <View style={[styles.pulseDotActive, { backgroundColor: accentColor }]} />
-                <Text style={[styles.compactActiveBtnText, { color: accentColor }]}>Active Shift</Text>
-              </Pressable>
-            )}
           </View>
         </View>
-        {/* Date Range Collapsible Filter Bar */}
-        <View style={styles.filterCard}>
-          <Pressable
-            onPress={() => setFilterExpanded(!filterExpanded)}
-            style={styles.filterSummary}
-          >
-            <View style={styles.filterSummaryLeft}>
-              <CalendarIcon size={16} color={accentColor} />
-              <Text style={styles.filterSummaryText}>
-                {dateRange.start} – {dateRange.end}
-              </Text>
-            </View>
-            <View style={styles.filterSummaryRight}>
-              <View style={styles.filterPresetBadge}>
-                <Text style={styles.filterPresetBadgeText}>
-                  {dateRange.preset === "custom"
-                    ? "Custom"
-                    : dateRange.preset.charAt(0).toUpperCase() + dateRange.preset.slice(1)}
+
+        {/* Sleek Segmented Switcher */}
+        <View style={styles.segmentedContainer}>
+          {["day", "week", "month"].map((preset) => {
+            const active = dateRange.preset === preset;
+            return (
+              <Pressable
+                key={preset}
+                onPress={() => handleSelectPreset(preset)}
+                style={[
+                  styles.segmentButton,
+                  active && { backgroundColor: "#161615" },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.segmentText,
+                    active && { color: "#ffffff", fontWeight: "800" },
+                  ]}
+                >
+                  {preset === "day" ? "Today" : preset === "week" ? "Week" : "Month"}
                 </Text>
-              </View>
-              {filterExpanded ? (
-                <ChevronUpIcon size={14} color="#71717a" />
-              ) : (
-                <ChevronDownIcon size={14} color="#71717a" />
-              )}
-            </View>
-          </Pressable>
-
-          {filterExpanded && (
-            <View style={styles.filterExpandedContent}>
-              <View style={styles.presetButtonsRow}>
-                {["day", "week", "month", "year", "ytd", "custom"].map((p) => {
-                  const active = dateRange.preset === p;
-                  return (
-                    <Pressable
-                      key={p}
-                      onPress={() => handleSelectPreset(p)}
-                      style={[
-                        styles.presetItemBtn,
-                        active && { backgroundColor: accentColor, borderColor: accentColor },
-                      ]}
-                    >
-                      <Text style={[
-                        styles.presetItemBtnText,
-                        active && { color: accentColorContrast, fontWeight: "700" },
-                      ]}>
-                        {p === "ytd" ? "YTD" : p.charAt(0).toUpperCase() + p.slice(1)}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              {dateRange.preset === "custom" && (
-                <View style={styles.customRangeInputsRow}>
-                  <View style={styles.customDateInputContainer}>
-                    <Text style={styles.customDateInputLabel}>Start Date</Text>
-                    <TextInput
-                      value={customStart}
-                      onChangeText={setCustomStart}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor="#52525b"
-                      style={styles.customDateTextInput}
-                    />
-                  </View>
-                  <View style={styles.customDateInputContainer}>
-                    <Text style={styles.customDateInputLabel}>End Date</Text>
-                    <TextInput
-                      value={customEnd}
-                      onChangeText={setCustomEnd}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor="#52525b"
-                      style={styles.customDateTextInput}
-                    />
-                  </View>
-                  <Pressable onPress={handleApplyCustomDates} style={[styles.customApplyBtn, { backgroundColor: accentColor }]}>
-                    <Text style={[styles.customApplyBtnText, { color: accentColorContrast }]}>Apply</Text>
-                  </Pressable>
-                </View>
-              )}
-            </View>
-          )}
+              </Pressable>
+            );
+          })}
         </View>
 
         {/* Start Shift Wizard Modal */}
@@ -825,7 +895,7 @@ export default function HomeScreen() {
                               flexDirection: "row",
                               alignItems: "center",
                               backgroundColor: "#1c1c1a",
-                              borderColor: selectedVehicleId === v.id ? "#10b981" : "#262624",
+                              borderColor: selectedVehicleId === v.id ? "#ffffff" : "#262624",
                               borderWidth: selectedVehicleId === v.id ? 1.5 : 1,
                               borderRadius: 12,
                               padding: 14,
@@ -938,7 +1008,7 @@ export default function HomeScreen() {
                     </View>
 
                     {targetMode && (
-                      <View style={{ gap: 12, backgroundColor: "#0d0d0c", padding: 12, borderRadius: 10, borderWidth: 1, borderColor: "#262624" }}>
+                      <View style={{ gap: 12, backgroundColor: "#000000", padding: 12, borderRadius: 10, borderWidth: 1, borderColor: "#262624" }}>
                         <Text style={{ fontSize: 10, color: "#71717a", fontWeight: "700", textTransform: "uppercase" }}>
                           Select Preset Duration:
                         </Text>
@@ -1008,7 +1078,7 @@ export default function HomeScreen() {
                           </View>
                         </View>
 
-                        <Text style={{ color: "#10b981", fontSize: 11, fontWeight: "700", textAlign: "center", marginTop: 8 }}>
+                        <Text style={{ color: "#ffffff", fontSize: 11, fontWeight: "700", textAlign: "center", marginTop: 8 }}>
                           Target End Time: {getEtaString()}
                         </Text>
                       </View>
@@ -1048,7 +1118,7 @@ export default function HomeScreen() {
           animationType="fade"
           onRequestClose={() => setShowBigClockOverlay(false)}
         >
-          <SafeAreaView style={{ flex: 1, backgroundColor: "#0d0d0c", justifyContent: "space-between", padding: 20 }}>
+          <SafeAreaView style={{ flex: 1, backgroundColor: "#000000", justifyContent: "space-between", padding: 20 }}>
             {/* Header Status Bar */}
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
               <Pressable
@@ -1285,8 +1355,8 @@ export default function HomeScreen() {
                 >
                   {isPaused ? (
                     <>
-                      <PlayIcon size={10} color="#10b981" />
-                      <Text style={{ color: "#10b981", fontWeight: "700", fontSize: 12 }}>Resume</Text>
+                      <PlayIcon size={10} color="#ffffff" />
+                      <Text style={{ color: "#ffffff", fontWeight: "700", fontSize: 12 }}>Resume</Text>
                     </>
                   ) : (
                     <>
@@ -1346,333 +1416,133 @@ export default function HomeScreen() {
           </SafeAreaView>
         </Modal>
 
-        {/* KPI Hero Grid - High Fidelity PWA Port */}
-        <View style={styles.kpiGrid}>
-          {/* Card 1: Gross Earnings */}
-          <View style={[styles.kpiCard, { borderColor: "#262624" }]}>
-            <View style={styles.kpiCardTop}>
-              <Text style={styles.kpiLabel}>Gross Earnings</Text>
-              <View style={[styles.pulseDot, { backgroundColor: "#14b8a6" }]} />
-            </View>
-            <Text style={styles.kpiValueText}>{fmt(grossMonth)}</Text>
-            
-            <Sparkline points={rollingTrend?.points?.map((p: any) => p.y) || []} color="#14b8a6" />
-
-            <View style={styles.comparisonBadge}>
-              <Text style={[styles.comparisonText, isUp ? styles.textUp : styles.textDown]}>
-                {isUp ? "↑" : "↓"} {deltaPct}%
+        {isDataFetching ? (
+          <DashboardSkeleton />
+        ) : (
+          <>
+            {/* Cockpit Hero Earnings Summary */}
+            <View style={styles.cockpitHero}>
+              <Text style={styles.cockpitHeroLabel} numberOfLines={1} adjustsFontSizeToFit>
+                {dateRange.preset === "day"
+                  ? "TODAY'S EARNINGS"
+                  : dateRange.preset === "week"
+                  ? "WEEK'S EARNINGS"
+                  : "MONTH'S EARNINGS"}
               </Text>
-              <Text style={styles.comparisonSub}>VS LAST</Text>
-            </View>
-          </View>
-
-          {/* Card 2: Average Rate */}
-          <View style={[styles.kpiCard, { borderColor: "#262624" }]}>
-            <View style={styles.kpiCardTop}>
-              <Text style={styles.kpiLabel}>Avg $/hr</Text>
-              <View style={styles.tabButtons}>
-                <Pressable
-                  onPress={() => setAvgRateTab("active")}
-                  style={[styles.tabBtn, avgRateTab === "active" && styles.tabBtnActive]}
-                >
-                  <Text style={[styles.tabBtnText, avgRateTab === "active" && styles.tabBtnTextActive]}>Act</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => setAvgRateTab("online")}
-                  style={[styles.tabBtn, avgRateTab === "online" && styles.tabBtnActive]}
-                >
-                  <Text style={[styles.tabBtnText, avgRateTab === "online" && styles.tabBtnTextActive]}>Onl</Text>
-                </Pressable>
+              <Text style={styles.cockpitHeroValue}>
+                {fmt(
+                  dateRange.preset === "day"
+                    ? todayStats.gross + todayStats.tips
+                    : dateRange.preset === "week"
+                    ? weekStats.gross + weekStats.tips
+                    : rangeStats.gross + rangeStats.tips
+                )}
+              </Text>
+              <View style={styles.cockpitHeroSubRow}>
+                {dateRange.preset === "day" ? (
+                  <>
+                    <Text style={styles.cockpitHeroSubText}>
+                      This Week: <Text style={{ fontWeight: "800", color: "#ffffff" }}>{fmt(weekStats.gross + weekStats.tips)}</Text>
+                    </Text>
+                    <View style={styles.cockpitHeroSubDivider} />
+                    <Text style={styles.cockpitHeroSubText}>
+                      Active Today: <Text style={{ fontWeight: "800", color: "#ffffff" }}>{formatDuration(rangeStats.durationSeconds)}</Text>
+                    </Text>
+                  </>
+                ) : dateRange.preset === "week" ? (
+                  <>
+                    <Text style={styles.cockpitHeroSubText}>
+                      Today: <Text style={{ fontWeight: "800", color: "#ffffff" }}>{fmt(todayStats.gross + todayStats.tips)}</Text>
+                    </Text>
+                    <View style={styles.cockpitHeroSubDivider} />
+                    <Text style={styles.cockpitHeroSubText}>
+                      Active: <Text style={{ fontWeight: "800", color: "#ffffff" }}>{formatDuration(rangeStats.durationSeconds)}</Text>
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.cockpitHeroSubText}>
+                      Today: <Text style={{ fontWeight: "800", color: "#ffffff" }}>{fmt(todayStats.gross + todayStats.tips)}</Text>
+                    </Text>
+                    <View style={styles.cockpitHeroSubDivider} />
+                    <Text style={styles.cockpitHeroSubText}>
+                      Active: <Text style={{ fontWeight: "800", color: "#ffffff" }}>{formatDuration(rangeStats.durationSeconds)}</Text>
+                    </Text>
+                  </>
+                )}
               </View>
             </View>
-            <Text style={styles.kpiValueText}>
-              {fmt(avgRateTab === "active" ? activeRateMonth : onlineRateMonth)}
-              <Text style={{ fontSize: 11, fontWeight: "500", color: "#a1a1aa" }}>/hr</Text>
-            </Text>
 
-            <Sparkline
-              points={
-                avgRateTab === "active"
-                  ? rollingTrend?.activeRatePoints?.map((p: any) => p.y) || []
-                  : rollingTrend?.onlineRatePoints?.map((p: any) => p.y) || []
-              }
-              color="#f59e0b"
-            />
-
-            <View style={styles.comparisonBadge}>
-              <Text style={{ fontSize: 9, fontWeight: "800", color: "#f59e0b" }}>
-                {avgRateTab === "active" ? "ACTIVE EFFICIENCY" : "TOTAL EFFICIENCY"}
-              </Text>
-            </View>
-          </View>
-
-          {/* Card 3: Expenses */}
-          <View style={[styles.kpiCard, { borderColor: "#262624" }]}>
-            <View style={styles.kpiCardTop}>
-              <Text style={styles.kpiLabel}>Expenses</Text>
-            </View>
-            <Text style={styles.kpiValueText}>{fmt(expenseMonth)}</Text>
-
-            <StepChart points={rollingTrend?.points?.map((p: any) => p.y * 0.16) || []} color="#06b6d4" />
-
-            <View style={styles.comparisonBadge}>
-              <Text style={{ fontSize: 9, fontWeight: "800", color: "#06b6d4" }}>
-                {burnRatio.toFixed(1)}%
-              </Text>
-              <Text style={styles.comparisonSub}>OF GROSS</Text>
-            </View>
-          </View>
-
-          {/* Card 4: Net Take-Home */}
-          <View style={[styles.kpiCard, { borderColor: "#262624" }]}>
-            <View style={styles.kpiCardTop}>
-              <Text style={styles.kpiLabel}>Net Take-Home</Text>
-            </View>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={[styles.kpiValueText, { fontSize: 17 }]}>{fmt(takeHomePay)}</Text>
-              <CircularProgress pct={netMargin} color="#10b981" />
-            </View>
-
-            <CurveChart points={rollingTrend?.points?.map((p: any) => p.y * 0.8) || []} color="#10b981" />
-
-            <View style={styles.comparisonBadge}>
-              <Text style={{ fontSize: 9, fontWeight: "800", color: "#10b981" }}>
-                {netMargin.toFixed(1)}%
-              </Text>
-              <Text style={styles.comparisonSub}>MARGIN</Text>
-            </View>
-          </View>
-
-          {/* Card 5: Hours */}
-          <View style={[styles.kpiCard, { borderColor: "#262624" }]}>
-            <View style={styles.kpiCardTop}>
-              <Text style={styles.kpiLabel}>Hours</Text>
-              <View style={styles.tabButtons}>
-                <Pressable
-                  onPress={() => setHoursTab("active")}
-                  style={[styles.tabBtn, hoursTab === "active" && styles.tabBtnActive]}
-                >
-                  <Text style={[styles.tabBtnText, hoursTab === "active" && styles.tabBtnTextActive]}>Act</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => setHoursTab("online")}
-                  style={[styles.tabBtn, hoursTab === "online" && styles.tabBtnActive]}
-                >
-                  <Text style={[styles.tabBtnText, hoursTab === "online" && styles.tabBtnTextActive]}>Onl</Text>
-                </Pressable>
-              </View>
-            </View>
-            <Text style={styles.kpiValueText}>
-              {(hoursTab === "active" ? activeHoursMonth : onlineHoursMonth).toFixed(1)}
-              <Text style={{ fontSize: 11, fontWeight: "500", color: "#a1a1aa" }}> hrs</Text>
-            </Text>
-
-            <HoursPillars
-              points={
-                hoursTab === "active"
-                  ? rollingTrend?.activeHoursPoints?.map((p: any) => p.y) || []
-                  : rollingTrend?.onlineHoursPoints?.map((p: any) => p.y) || []
-              }
-              color="#6366f1"
-            />
-
-            <View style={styles.comparisonBadge}>
-              <Text style={{ fontSize: 9, fontWeight: "800", color: "#6366f1" }}>
-                {hoursTab === "active" ? "ACTIVE HOURS" : "ONLINE HOURS"}
-              </Text>
-            </View>
-          </View>
-
-          {/* Card 6: Tax Set-Aside */}
-          <View style={[styles.kpiCard, { borderColor: "#262624" }]}>
-            <View style={styles.kpiCardTop}>
-              <Text style={styles.kpiLabel}>Tax Set-Aside</Text>
-            </View>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={[styles.kpiValueText, { fontSize: 17 }]}>{fmt(taxSetAside)}</Text>
-              <CircularProgress pct={taxRatePct} color="#f43f5e" />
-            </View>
-
-            <View style={{ flexDirection: "row", gap: 3, height: 18, alignItems: "flex-end", marginVertical: 8 }}>
-              {Array.from({ length: 12 }).map((_, i) => (
-                <View
-                  key={i}
-                  style={{
-                    flex: 1,
-                    height: 4,
-                    borderRadius: 1,
-                    backgroundColor: "#f43f5e",
-                    opacity: 0.3 + (i / 12) * 0.7,
-                  }}
-                />
-              ))}
-            </View>
-
-            <View style={styles.comparisonBadge}>
-              <Text style={{ fontSize: 9, fontWeight: "800", color: "#f43f5e" }}>
-                {taxRatePct}% TAX RATE
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Miles Tracked Bento Card */}
-        <View style={[styles.bentoCardOuter, { padding: 16 }]}>
-          <View style={styles.bentoHeader}>
-            <Text style={styles.bentoTitle}>Distance Distribution</Text>
-            <Text style={styles.bentoDesc}>Active vs Dead Mileage</Text>
-          </View>
-          <View style={{ gap: 14, paddingTop: 12 }}>
-            <View style={{ gap: 5 }}>
-              <View style={styles.distLabelRow}>
-                <Text style={styles.distLabelText}>Active (On Delivery)</Text>
-                <Text style={styles.distValueText}>
-                  {todayStats.activeMileage.toFixed(1)} {profile.distanceUnit}
+            {/* Cockpit 2x2 Grid */}
+            <View style={styles.grid2x2}>
+              {/* Card 1: Miles */}
+              <View style={styles.cockpitCard}>
+                <View style={styles.cockpitCardHeader}>
+                  <NavigationIcon size={14} color="#a1a1aa" />
+                  <Text style={styles.cockpitCardLabel}>MILES</Text>
+                </View>
+                <Text style={styles.cockpitCardValue}>
+                  {(rangeStats.activeMileage + rangeStats.deadMileage).toFixed(1)}
                 </Text>
               </View>
-              <View style={styles.barTrack}>
-                <View
-                  style={[
-                    styles.barFill,
-                    {
-                      width: `${Math.min(100, (todayStats.activeMileage / Math.max(1, todayStats.activeMileage + todayStats.deadMileage)) * 100)}%`,
-                      backgroundColor: "#10b981"
-                    }
-                  ]}
-                />
-              </View>
-            </View>
 
-            <View style={{ gap: 5 }}>
-              <View style={styles.distLabelRow}>
-                <Text style={styles.distLabelText}>Dead (Commute/Waiting)</Text>
-                <Text style={[styles.distValueText, { color: "#fbbf24" }]}>
-                  {todayStats.deadMileage.toFixed(1)} {profile.distanceUnit}
+              {/* Card 2: Duration */}
+              <View style={styles.cockpitCard}>
+                <View style={styles.cockpitCardHeader}>
+                  <ClockIcon size={14} color="#a1a1aa" />
+                  <Text style={styles.cockpitCardLabel}>DURATION</Text>
+                </View>
+                <Text style={styles.cockpitCardValue}>
+                  {formatDuration(rangeStats.durationSeconds)}
                 </Text>
               </View>
-              <View style={styles.barTrack}>
-                <View
-                  style={[
-                    styles.barFill,
-                    {
-                      width: `${Math.min(100, (todayStats.deadMileage / Math.max(1, todayStats.activeMileage + todayStats.deadMileage)) * 100)}%`,
-                      backgroundColor: "#fbbf24"
-                    }
-                  ]}
-                />
+
+              {/* Card 3: Gross Pay */}
+              <View style={styles.cockpitCard}>
+                <View style={styles.cockpitCardHeader}>
+                  <DollarIcon size={14} color="#a1a1aa" />
+                  <Text style={styles.cockpitCardLabel}>GROSS PAY</Text>
+                </View>
+                <Text style={styles.cockpitCardValue}>
+                  {fmt(rangeStats.gross + rangeStats.tips)}
+                </Text>
+              </View>
+
+              {/* Card 4: Write-Off */}
+              <View style={[styles.cockpitCard, { borderColor: "#ffffff33" }]}>
+                <View style={styles.cockpitCardHeader}>
+                  <WriteOffIcon size={14} color="#ffffff" />
+                  <Text style={[styles.cockpitCardLabel, { color: "#ffffff" }]}>WRITE-OFF</Text>
+                </View>
+                <Text style={[styles.cockpitCardValue, { color: "#ffffff" }]}>
+                  {fmt((rangeStats.activeMileage + rangeStats.deadMileage) * 0.67)}
+                </Text>
               </View>
             </View>
-          </View>
-        </View>
 
-        {/* Weekly Goal Bento Card */}
-        <View style={[styles.bentoCardOuter, { padding: 16 }]}>
-          <View style={styles.bentoHeader}>
-            <Text style={styles.bentoTitle}>Weekly Goal Progress</Text>
-          </View>
-          <View style={{ gap: 10, paddingTop: 12 }}>
-            {(() => {
-              const goalProgress = weeklyGoals[0] || {
-                targetValue: profile.weeklyGoal || 500,
-                currentValue: weekStats.gross + weekStats.tips,
-                progressPct: (profile.weeklyGoal || 500) > 0 ? ((weekStats.gross + weekStats.tips) / (profile.weeklyGoal || 500)) * 100 : 0
-              };
-              const pct = Math.min(goalProgress.progressPct, 100);
-              return (
-                <View style={{ gap: 10 }}>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
-                    <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}>
-                      <Text style={styles.goalCurrentText}>{fmt(goalProgress.currentValue)}</Text>
-                      <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "500" }}>of</Text>
-                      <Text style={styles.goalTargetText}>{fmt(goalProgress.targetValue)}</Text>
-                    </View>
-                    <Text style={styles.goalPctText}>{goalProgress.progressPct.toFixed(0)}%</Text>
-                  </View>
-                  <View style={styles.goalTrack}>
-                    <View style={[styles.goalFill, { width: `${pct}%` }]} />
-                  </View>
-                  <Text style={styles.goalMutedText}>
-                    Keep it up! You need {fmt(Math.max(0, goalProgress.targetValue - goalProgress.currentValue))} more to hit your weekly goal.
+            {/* Central Go / Driving action button */}
+            <View style={{ marginTop: 8, gap: 12 }}>
+              {!isActive ? (
+                <Pressable
+                  onPress={handleStartShiftWizardStart}
+                  style={[styles.bigGoBtn, { backgroundColor: accentColor }]}
+                >
+                  <Text style={[styles.bigGoBtnText, { color: accentColorContrast }]}>GO</Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  onPress={() => setShowBigClockOverlay(true)}
+                  style={[styles.bigActiveBtn, { backgroundColor: "#161615", borderColor: accentColor + "44", borderWidth: 1 }]}
+                >
+                  <View style={[styles.pulseDotActive, { backgroundColor: accentColor, marginRight: 8 }]} />
+                  <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "700" }}>
+                    ACTIVE: {formatTime(elapsedSeconds)}
                   </Text>
-                </View>
-              );
-            })()}
-          </View>
-        </View>
-
-        {/* Monthly Breakdown Table */}
-        <View style={[styles.bentoCardOuter, { padding: 16 }]}>
-          <View style={styles.bentoHeader}>
-            <Text style={styles.bentoTitle}>Monthly Breakdown</Text>
-            <Text style={styles.bentoDesc}>YTD Financial Summary & Efficiency</Text>
-          </View>
-          <View style={{ paddingTop: 12 }}>
-            {/* Header */}
-            <View style={styles.tableHeaderRow}>
-              <Text style={[styles.tableHeaderText, { width: "20%" }]}>Period</Text>
-              <Text style={[styles.tableHeaderText, { width: "22%", textAlign: "right" }]}>Earned</Text>
-              <Text style={[styles.tableHeaderText, { width: "20%", textAlign: "right" }]}>Expenses</Text>
-              <Text style={[styles.tableHeaderText, { width: "20%", textAlign: "right" }]}>Net</Text>
-              <Text style={[styles.tableHeaderText, { width: "18%", textAlign: "right" }]}>$/hr</Text>
+                </Pressable>
+              )}
             </View>
-
-            {/* Rows */}
-            {monthlyBreakdown?.rows && monthlyBreakdown.rows.length > 0 ? (
-              monthlyBreakdown.rows.map((row, idx) => (
-                <View key={idx} style={[styles.tableBodyRow, idx % 2 === 1 && styles.tableBodyRowAlt]}>
-                  <Text style={[styles.tableCellText, { width: "20%", fontWeight: "bold" }]}>{row.period}</Text>
-                  <Text style={[styles.tableCellText, { width: "22%", textAlign: "right", color: "#10b981", fontWeight: "600" }]}>{fmt(row.earnings)}</Text>
-                  <Text style={[styles.tableCellText, { width: "20%", textAlign: "right", color: "#f43f5e" }]}>{fmt(row.expenses)}</Text>
-                  <Text style={[styles.tableCellText, { width: "20%", textAlign: "right", fontWeight: "700" }]}>{fmt(row.net)}</Text>
-                  <Text style={[styles.tableCellText, { width: "18%", textAlign: "right", fontWeight: "600" }]}>{row.efficiency.toFixed(1)}</Text>
-                </View>
-              ))
-            ) : (
-              <View style={{ paddingVertical: 20, alignItems: "center", justifyContent: "center" }}>
-                <Text style={{ color: "#71717a", fontSize: 12, textAlign: "center", marginVertical: 14 }}>
-                  No historical data available.
-                </Text>
-              </View>
-            )}
-
-            {/* Totals */}
-            {monthlyBreakdown?.totals && (
-              <View style={styles.tableTotalsRow}>
-                <Text style={[styles.tableTotalsText, { width: "20%" }]}>Total</Text>
-                <Text style={[styles.tableTotalsText, { width: "22%", textAlign: "right", color: "#10b981" }]}>{fmt(monthlyBreakdown.totals.earnings)}</Text>
-                <Text style={[styles.tableTotalsText, { width: "20%", textAlign: "right", color: "#f43f5e" }]}>{fmt(monthlyBreakdown.totals.expenses)}</Text>
-                <Text style={[styles.tableTotalsText, { width: "20%", textAlign: "right" }]}>{fmt(monthlyBreakdown.totals.net)}</Text>
-                <Text style={[styles.tableTotalsText, { width: "18%", textAlign: "right" }]}>{monthlyBreakdown.totals.avgPerHr.toFixed(1)}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Reset App footer */}
-        <Pressable
-          onPress={() => {
-            Alert.alert(
-              "Reset App",
-              "Are you sure you want to reset the app? This deletes all shifts, vehicles, and settings.",
-              [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Reset",
-                  style: "destructive",
-                  onPress: async () => {
-                    await resetSettings();
-                    await loadSettings();
-                    queryClient.invalidateQueries({ queryKey: ["analytics"] });
-                    queryClient.invalidateQueries({ queryKey: ["shifts"] });
-                  },
-                },
-              ]
-            );
-          }}
-          style={styles.resetBtn}
-        >
-          <Text style={styles.resetBtnText}>RESET APP DATA</Text>
-        </Pressable>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -1681,7 +1551,253 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0d0d0c",
+    backgroundColor: "#000000",
+  },
+  vehicleChipCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#111110",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#1e1e1c",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  vehicleChipIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#1e1e1c",
+    borderWidth: 1,
+    borderColor: "#2a2a28",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  vehicleChipLabel: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#71717a",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  vehicleChipName: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#ffffff",
+  },
+  vehicleChipSwapBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#1e1e1c",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "#2a2a28",
+  },
+  vehicleChipSwapText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#a1a1aa",
+  },
+  vehiclePickerRowIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#1e1e1c",
+    borderWidth: 1,
+    borderColor: "#2a2a28",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  vehiclePickerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "flex-end",
+  },
+  vehiclePickerSheet: {
+    backgroundColor: "#111110",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+    borderTopWidth: 1,
+    borderColor: "#2a2a28",
+  },
+  vehiclePickerHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#3f3f46",
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+  vehiclePickerTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#ffffff",
+    marginBottom: 4,
+  },
+  vehiclePickerSubtitle: {
+    fontSize: 12,
+    color: "#71717a",
+    fontWeight: "500",
+  },
+  vehiclePickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#161615",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#262624",
+    padding: 16,
+    gap: 12,
+  },
+  vehiclePickerRowTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#ffffff",
+    marginBottom: 2,
+  },
+  vehiclePickerRowSub: {
+    fontSize: 12,
+    color: "#71717a",
+    fontWeight: "500",
+    textTransform: "capitalize",
+  },
+  vehiclePickerCheck: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  segmentedContainer: {
+    flexDirection: "row",
+    backgroundColor: "#111110",
+    borderRadius: 14,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: "#2a2a28",
+    marginVertical: 4,
+    width: "100%",
+  },
+  segmentButton: {
+    flex: 1,
+    paddingVertical: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 11,
+  },
+  segmentText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#d4d4d8",
+  },
+  grid2x2: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    rowGap: 12,
+    marginVertical: 4,
+    width: "100%",
+  },
+  cockpitCard: {
+    width: "48.5%",
+    backgroundColor: "#161615",
+    borderWidth: 1,
+    borderColor: "#262624",
+    borderRadius: 16,
+    padding: 16,
+    height: 110,
+    justifyContent: "space-between",
+  },
+  cockpitCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  cockpitCardLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#d4d4d8",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  cockpitCardValue: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#ffffff",
+  },
+  bigGoBtn: {
+    width: "100%",
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: 8,
+  },
+  bigGoBtnText: {
+    fontSize: 20,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  bigActiveBtn: {
+    width: "100%",
+    height: 56,
+    borderRadius: 28,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: 8,
+  },
+  cockpitHero: {
+    backgroundColor: "#111110",
+    borderWidth: 1,
+    borderColor: "#2a2a28",
+    borderRadius: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    alignItems: "center",
+    gap: 4,
+    overflow: "visible",
+  },
+  cockpitHeroLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#a1a1aa",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  cockpitHeroValue: {
+    fontSize: 48,
+    fontWeight: "900",
+    color: "#ffffff",
+    letterSpacing: -1,
+    lineHeight: 60,
+    includeFontPadding: false,
+  },
+  cockpitHeroSubRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 8,
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+  cockpitHeroSubText: {
+    fontSize: 13,
+    color: "#a1a1aa",
+    fontWeight: "500",
+  },
+  cockpitHeroSubDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: "#52525b",
   },
   scrollContent: {
     padding: 12,
@@ -1726,7 +1842,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   activeShiftCardActive: {
-    borderColor: "#10b981",
+    borderColor: "#ffffff",
     borderWidth: 1.5,
   },
   activeShiftHeader: {
@@ -1748,7 +1864,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusDotActive: {
-    backgroundColor: "#10b981",
+    backgroundColor: "#ffffff",
   },
   statusDotInactive: {
     backgroundColor: "#71717a",
@@ -1760,23 +1876,23 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   statusTextActive: {
-    color: "#10b981",
+    color: "#ffffff",
   },
   statusTextInactive: {
     color: "#a1a1aa",
   },
   activeLabel: {
-    backgroundColor: "rgba(16, 185, 129, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.2)",
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
   activeLabelText: {
     fontSize: 9,
     fontWeight: "800",
-    color: "#10b981",
+    color: "#ffffff",
   },
   activeShiftBody: {
     padding: 12,
@@ -1800,8 +1916,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   platformBtnSelected: {
-    borderColor: "#10b981",
-    backgroundColor: "rgba(16, 185, 129, 0.08)",
+    borderColor: "#ffffff",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   platformBtnText: {
     fontSize: 11,
@@ -1809,10 +1925,10 @@ const styles = StyleSheet.create({
     color: "#a1a1aa",
   },
   platformBtnTextSelected: {
-    color: "#10b981",
+    color: "#ffffff",
   },
   startShiftBtn: {
-    backgroundColor: "#10b981",
+    backgroundColor: "#ffffff",
     borderRadius: 8,
     paddingVertical: 10,
     flexDirection: "row",
@@ -1821,7 +1937,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   startShiftBtnText: {
-    color: "white",
+    color: "#000000",
     fontSize: 12,
     fontWeight: "700",
     letterSpacing: 0.5,
@@ -1829,7 +1945,7 @@ const styles = StyleSheet.create({
   timerDisplay: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#0d0d0c",
+    backgroundColor: "#000000",
     paddingVertical: 16,
     borderRadius: 12,
     borderWidth: 1,
@@ -1854,7 +1970,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#0d0d0c",
+    backgroundColor: "#000000",
     padding: 10,
     borderRadius: 12,
     borderWidth: 1,
@@ -1922,11 +2038,11 @@ const styles = StyleSheet.create({
   },
   kpiCard: {
     width: "48.5%",
-    minHeight: 144,
+    minHeight: 112,
     backgroundColor: "#161615",
     borderWidth: 1,
     borderRadius: 14,
-    padding: 10,
+    padding: 14,
     justifyContent: "space-between",
   },
   kpiCardTop: {
@@ -1935,11 +2051,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   kpiLabel: {
-    fontSize: 9,
+    fontSize: 12,
     fontWeight: "800",
     color: "#a1a1aa",
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   pulseDot: {
     width: 6,
@@ -1947,10 +2063,10 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   kpiValueText: {
-    fontSize: 20,
+    fontSize: 28,
     fontWeight: "800",
     color: "#ffffff",
-    marginVertical: 4,
+    marginVertical: 6,
     fontVariant: ["tabular-nums"],
   },
   comparisonBadge: {
@@ -2036,14 +2152,14 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   distValueText: {
-    color: "#10b981",
+    color: "#007aff",
     fontSize: 12,
     fontWeight: "700",
   },
   barTrack: {
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#0d0d0c",
+    backgroundColor: "#000000",
     overflow: "hidden",
   },
   barFill: {
@@ -2053,7 +2169,7 @@ const styles = StyleSheet.create({
   goalCurrentText: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#10b981",
+    color: "#007aff",
   },
   goalTargetText: {
     fontSize: 13,
@@ -2063,18 +2179,18 @@ const styles = StyleSheet.create({
   goalPctText: {
     fontSize: 13,
     fontWeight: "800",
-    color: "#10b981",
+    color: "#007aff",
   },
   goalTrack: {
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#0d0d0c",
+    backgroundColor: "#000000",
     overflow: "hidden",
   },
   goalFill: {
     height: "100%",
     borderRadius: 4,
-    backgroundColor: "#10b981",
+    backgroundColor: "#007aff",
   },
   goalMutedText: {
     fontSize: 10,
@@ -2159,30 +2275,31 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12,
-    color: "#a1a1aa",
-    marginTop: 4,
-    lineHeight: 16,
+    color: "#d4d4d8",
+    marginTop: 2,
+    lineHeight: 17,
+    fontWeight: "500",
   },
   headerActions: {
     justifyContent: "center",
     alignItems: "flex-end",
   },
   compactStartBtn: {
-    backgroundColor: "#10b981",
+    backgroundColor: "#ffffff",
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    shadowColor: "#10b981",
+    shadowColor: "#ffffff",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 3,
   },
   compactStartBtnText: {
-    color: "#ffffff",
+    color: "#000000",
     fontSize: 12,
     fontWeight: "700",
   },
@@ -2271,8 +2388,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   presetItemBtnActive: {
-    backgroundColor: "#10b981",
-    borderColor: "#10b981",
+    backgroundColor: "#ffffff",
+    borderColor: "#ffffff",
   },
   presetItemBtnText: {
     fontSize: 11,
@@ -2280,7 +2397,7 @@ const styles = StyleSheet.create({
     color: "#a1a1aa",
   },
   presetItemBtnTextActive: {
-    color: "#ffffff",
+    color: "#000000",
   },
   customRangeInputsRow: {
     flexDirection: "row",
@@ -2312,7 +2429,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   customApplyBtn: {
-    backgroundColor: "#10b981",
+    backgroundColor: "#ffffff",
     borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -2320,7 +2437,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   customApplyBtnText: {
-    color: "#ffffff",
+    color: "#000000",
     fontSize: 12,
     fontWeight: "700",
   },
@@ -2384,8 +2501,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   platformBadgeBtnActive: {
-    borderColor: "#10b981",
-    backgroundColor: "rgba(16, 185, 129, 0.08)",
+    borderColor: "#ffffff",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   platformBadgeBtnText: {
     fontSize: 12,
@@ -2393,10 +2510,10 @@ const styles = StyleSheet.create({
     color: "#a1a1aa",
   },
   platformBadgeBtnTextActive: {
-    color: "#10b981",
+    color: "#ffffff",
   },
   modalSubmitBtn: {
-    backgroundColor: "#10b981",
+    backgroundColor: "#ffffff",
     borderRadius: 8,
     paddingVertical: 12,
     flexDirection: "row",
@@ -2406,14 +2523,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   modalSubmitBtnText: {
-    color: "#ffffff",
+    color: "#000000",
     fontSize: 13,
     fontWeight: "700",
   },
   modalTimerContainer: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#0d0d0c",
+    backgroundColor: "#000000",
     paddingVertical: 20,
     borderRadius: 12,
     borderWidth: 1,
@@ -2438,7 +2555,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#0d0d0c",
+    backgroundColor: "#000000",
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
@@ -2492,11 +2609,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#10b981",
+    backgroundColor: "#007aff",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.2)",
+    borderColor: "rgba(0, 122, 255, 0.2)",
   },
   headerAvatarText: {
     color: "#ffffff",

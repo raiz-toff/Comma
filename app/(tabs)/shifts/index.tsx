@@ -7,7 +7,7 @@ import {
   Platform,
   TextInput,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Text } from "@/src/components/ui/text";
@@ -24,6 +24,7 @@ const isWeb = Platform.OS === "web";
 
 export default function ShiftsListScreen() {
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
   const { profile, isOnboardingCompleted } = useSettingsStore();
 
   // Filters State
@@ -100,7 +101,7 @@ export default function ShiftsListScreen() {
   const hasActiveFilters = selectedPlatforms.length > 0 || startDateStr || endDateStr;
 
   return (
-    <SafeAreaView className="dark flex-1 bg-[#0b0f19]">
+    <SafeAreaView className="dark flex-1 bg-[#000000]" edges={["bottom", "left", "right"]} style={{ paddingTop: insets.top + 64 }}>
       {/* Top Header Bar */}
       <View className="px-4 pt-3 pb-2 bg-slate-900/40 border-b border-slate-800/80">
         <SectionHeader

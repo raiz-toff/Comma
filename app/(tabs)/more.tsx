@@ -1,6 +1,6 @@
 import React from "react";
 import { View, ScrollView, TouchableOpacity } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Target, BarChart3, Calendar, Car, Settings, Info, Calculator } from "lucide-react-native";
 import { Text } from "../../src/components/ui/text";
@@ -36,9 +36,10 @@ const MenuItem = ({ title, subtitle, icon: Icon, onPress }: MenuItemProps) => (
 );
 
 export default function MoreScreen() {
+  const insets = useSafeAreaInsets();
   return (
-    <SafeAreaView className="dark flex-1 bg-[#0b0f19]">
-      <ScrollView contentContainerClassName="p-4 flex flex-col pb-12">
+    <SafeAreaView className="dark flex-1 bg-[#000000]" edges={["bottom", "left", "right"]}>
+      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 64 }} contentContainerClassName="p-4 flex flex-col pb-12">
         <View className="my-4">
           <Text className="text-2xl font-extrabold text-slate-100 tracking-tight">More options</Text>
           <Text className="text-xs text-slate-400 mt-1">Configure your workspace and preferences</Text>

@@ -49,7 +49,7 @@
 
   .dark {
     /* ── Core Palette (Dark Mode — DEFAULT) ────────────────────── */
-    --background: 30 10% 6%;           /* #12110f */
+    --background: 0 0% 0%;           /* #000000 */
     --foreground: 38 17% 94%;          /* #f4f2ed */
 
     --card: 36 8% 10%;                 /* #1c1b18 */

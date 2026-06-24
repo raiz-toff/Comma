@@ -199,7 +199,7 @@ export default function ScheduleScreen() {
   };
 
   return (
-    <SafeAreaView className="dark flex-1 bg-[#0b0f19]">
+    <SafeAreaView className="dark flex-1 bg-[#000000]">
       {/* Header */}
       <View className="px-4 pt-3 pb-2 border-b border-slate-800/80 bg-slate-900/40 flex-row justify-between items-center">
         <TouchableOpacity

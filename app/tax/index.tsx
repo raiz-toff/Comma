@@ -345,14 +345,14 @@ export default function TaxDashboardScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView className="dark flex-1 bg-[#0b0f19] items-center justify-center">
+      <SafeAreaView className="dark flex-1 bg-[#000000] items-center justify-center">
         <ActivityIndicator size="large" color="#10b981" />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="dark flex-1 bg-[#0b0f19]">
+    <SafeAreaView className="dark flex-1 bg-[#000000]">
       {/* Header */}
       <View className="px-4 pt-3 pb-3 border-b border-slate-800/80 bg-slate-900/40 flex-row items-center justify-between">
         <View className="flex-row items-center gap-3">

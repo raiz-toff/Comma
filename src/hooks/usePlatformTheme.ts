@@ -2,24 +2,28 @@
  * usePlatformTheme — React Native port of the PWA's adaptive-theme.js
  *
  * Subscribes to `activePlatformFilter` in the settings store and returns
- * derived brand-color values that exactly mirror what the PWA does:
- *  - `accentColor`        → the platform hex (falls back to #10b981 for "all")
- *  - `accentColorDim`     → 18% opacity version  (replaces color-mix(...18%))
- *  - `accentColorMid`     → 30% opacity version  (replaces color-mix(...30%))
- *  - `accentColorContrast`→ white or near-black based on luminance
+ * derived color values.
  *
- * Usage:
- *   const { accentColor, accentColorDim, accentColorContrast } = usePlatformTheme();
+ * DESIGN DECISION: The app uses a single fixed accent color (#10b981) for
+ * all UI chrome (buttons, active states, selections). Platform brand colors
+ * are available via `platformColor` for use ONLY in the platform selector
+ * pills — they do NOT bleed into the rest of the interface.
+ *
+ *  - `accentColor`        → fixed app accent (#10b981) — use everywhere
+ *  - `accentColorDim`     → 18% opacity version of accent
+ *  - `accentColorMid`     → 30% opacity version of accent
+ *  - `accentColorContrast`→ contrast text on accentColor background
+ *  - `platformColor`      → the platform's brand color (platform pills only)
  */
 
 import { useMemo } from "react";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 
-/** Default brand color — used when "all" is selected (matches PWA default #10b981) */
-const DEFAULT_ACCENT = "#10b981";
+/** Single fixed app accent — used everywhere except platform selector pills */
+const APP_ACCENT = "#ffffff";
 
-/** Luminance-based contrast: white on dark, near-black on light. Mirrors adaptive-theme.js */
+/** Luminance-based contrast: white on dark, near-black on light. */
 function getContrastColor(hex: string): string {
   const clean = hex.replace("#", "");
   const r = parseInt(clean.substring(0, 2), 16);
@@ -38,14 +42,16 @@ function hexWithAlpha(hex: string, opacity: number): string {
 }
 
 export interface PlatformTheme {
-  /** Full platform color, e.g. #FF3008 */
+  /** Fixed app accent color — use for buttons, selections, active states */
   accentColor: string;
-  /** 18% opacity tint — use as subtle background */
+  /** 18% opacity tint of accent */
   accentColorDim: string;
-  /** 30% opacity tint — use for borders / rings */
+  /** 30% opacity tint of accent */
   accentColorMid: string;
   /** Contrast text on accentColor background */
   accentColorContrast: string;
+  /** Platform brand color — use ONLY for platform selector pills */
+  platformColor: string;
   /** true when a specific platform is active (not "all") */
   isPlatformFiltered: boolean;
   /** The active platform key, or null when "all" */
@@ -54,23 +60,81 @@ export interface PlatformTheme {
   activePlatformLabel: string;
 }
 
+export function blendColors(c1: string, c2: string): string {
+  const norm = (c: string) => {
+    let hex = c.replace("#", "");
+    if (hex.length === 3) {
+      hex = hex.split("").map((x) => x + x).join("");
+    }
+    return hex;
+  };
+  
+  const h1 = norm(c1);
+  const h2 = norm(c2);
+
+  const r1 = parseInt(h1.slice(0, 2), 16);
+  const g1 = parseInt(h1.slice(2, 4), 16);
+  const b1 = parseInt(h1.slice(4, 6), 16);
+
+  const r2 = parseInt(h2.slice(0, 2), 16);
+  const g2 = parseInt(h2.slice(2, 4), 16);
+  const b2 = parseInt(h2.slice(4, 6), 16);
+
+  const r = Math.round((r1 + r2) / 2).toString(16).padStart(2, "0");
+  const g = Math.round((g1 + g2) / 2).toString(16).padStart(2, "0");
+  const b = Math.round((b1 + b2) / 2).toString(16).padStart(2, "0");
+
+  return `#${r}${g}${b}`;
+}
+
 export function usePlatformTheme(): PlatformTheme {
   const activePlatformFilter = useSettingsStore((s) => s.activePlatformFilter);
 
   return useMemo<PlatformTheme>(() => {
     const isFiltered = activePlatformFilter !== "all";
-    const cfg = isFiltered ? PLATFORMS[activePlatformFilter as PlatformKey] : null;
-    const accent = cfg?.color ?? DEFAULT_ACCENT;
-    const label = cfg?.label ?? "All Platforms";
+    const platformParts = activePlatformFilter.split(",");
+    const firstPlatformId = platformParts[0];
+    const cfg = isFiltered ? PLATFORMS[firstPlatformId as PlatformKey] : null;
+
+    // Resolve the platform brand color (for pills only)
+    let platformColor = APP_ACCENT;
+    if (isFiltered) {
+      if (platformParts.length === 2) {
+        const c1 = PLATFORMS[platformParts[0] as PlatformKey]?.color ?? APP_ACCENT;
+        const c2 = PLATFORMS[platformParts[1] as PlatformKey]?.color ?? APP_ACCENT;
+        try {
+          platformColor = blendColors(c1, c2);
+        } catch {
+          platformColor = c1;
+        }
+      } else {
+        platformColor = cfg?.color ?? APP_ACCENT;
+      }
+    }
+
+    let label = "All Platforms";
+    if (isFiltered) {
+      if (platformParts.length > 1) {
+        label = platformParts
+          .map((p) => PLATFORMS[p as PlatformKey]?.label || p)
+          .join(" + ");
+      } else {
+        label = cfg?.label ?? activePlatformFilter;
+      }
+    }
 
     return {
-      accentColor: accent,
-      accentColorDim: hexWithAlpha(accent, 0.18),
-      accentColorMid: hexWithAlpha(accent, 0.30),
-      accentColorContrast: getContrastColor(accent),
+      // App chrome always uses the fixed accent
+      accentColor: APP_ACCENT,
+      accentColorDim: hexWithAlpha(APP_ACCENT, 0.18),
+      accentColorMid: hexWithAlpha(APP_ACCENT, 0.30),
+      accentColorContrast: getContrastColor(APP_ACCENT),
+      // Platform brand color — only for platform selector pills
+      platformColor,
       isPlatformFiltered: isFiltered,
       activePlatformId: isFiltered ? activePlatformFilter : null,
       activePlatformLabel: label,
     };
   }, [activePlatformFilter]);
 }
+

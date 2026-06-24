@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   TextInput,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { Text } from "@/src/components/ui/text";
@@ -33,6 +33,7 @@ const EXPENSE_CATEGORIES = [
 export default function ShiftDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
   const { profile } = useSettingsStore();
 
   // Add Expense inline modal state
@@ -139,7 +140,7 @@ export default function ShiftDetailScreen() {
 
   if (isLoadingShift) {
     return (
-      <SafeAreaView className="dark flex-1 bg-[#0b0f19] items-center justify-center">
+      <SafeAreaView className="dark flex-1 bg-[#000000] items-center justify-center" edges={["bottom", "left", "right"]} style={{ paddingTop: insets.top + 64 }}>
         <ActivityIndicator size="large" color="#10b981" />
       </SafeAreaView>
     );
@@ -147,7 +148,7 @@ export default function ShiftDetailScreen() {
 
   if (!shift) {
     return (
-      <SafeAreaView className="dark flex-1 bg-[#0b0f19] items-center justify-center p-6">
+      <SafeAreaView className="dark flex-1 bg-[#000000] items-center justify-center p-6" edges={["bottom", "left", "right"]} style={{ paddingTop: insets.top + 64 }}>
         <Text className="text-slate-400 text-sm text-center">Shift not found.</Text>
         <TouchableOpacity onPress={() => router.back()} className="mt-4">
           <Text className="text-emerald-500 text-sm font-bold">← Go Back</Text>
@@ -181,7 +182,7 @@ export default function ShiftDetailScreen() {
   })}`;
 
   return (
-    <SafeAreaView className="dark flex-1 bg-[#0b0f19]">
+    <SafeAreaView className="dark flex-1 bg-[#000000]" edges={["bottom", "left", "right"]} style={{ paddingTop: insets.top + 64 }}>
       {/* Top Header */}
       <View className="px-4 pt-3 pb-3 border-b border-slate-800/80 bg-slate-900/40 flex-row items-center justify-between">
         <TouchableOpacity onPress={() => router.back()} className="px-3 py-2 bg-slate-800/40 rounded-lg border border-slate-700/30">

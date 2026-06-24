@@ -2,19 +2,22 @@ import * as React from "react";
 import {
   View,
   Text,
-  ScrollView,
   Pressable,
   StyleSheet,
-  LayoutAnimation,
   Platform,
   UIManager,
+  Animated,
+  PanResponder,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
+import { getVehicles } from "@/src/database/queries/vehicles";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
-import { Bell, Settings, ChevronDown, ChevronUp } from "lucide-react-native";
-import Svg, { Path, Circle, Rect, G } from "react-native-svg";
+import { blendColors } from "../hooks/usePlatformTheme";
+import { Bell, Menu, ChevronDown, ChevronUp } from "lucide-react-native";
+import Svg, { Path, Circle, Rect } from "react-native-svg";
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -92,22 +95,154 @@ const PlatformLogo = ({ id, size = 14 }: { id: string; size?: number }) => {
 };
 
 // ── Component ──────────────────────────────────────────────────────────────
-export default function GlobalTopHeader() {
+interface GlobalTopHeaderProps {
+  onMenuPress?: () => void;
+  onNotificationsPress?: () => void;
+}
+
+export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: GlobalTopHeaderProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { profile, activePlatformFilter, setActivePlatformFilter } = useSettingsStore();
+  const {
+    profile,
+    activePlatformFilter,
+    setActivePlatformFilter,
+    preferredVehicleId,
+    setPreferredVehicle,
+    isOnboardingCompleted,
+  } = useSettingsStore();
+
+  const { data: vehiclesList = [] } = useQuery({
+    queryKey: ["vehicles"],
+    queryFn: getVehicles,
+    enabled: isOnboardingCompleted,
+  });
 
   const [isExpanded, setIsExpanded] = React.useState(false);
+  const [showDropdown, setShowDropdown] = React.useState(false);
+  const dropdownAnim = React.useRef(new Animated.Value(0)).current;
+  const heightAnim = React.useRef(new Animated.Value(0)).current;
+
+
+
+  // ── Swipe-to-Open Gesture Responder ──
+  const pillPanResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Intercept only when dragging downward vertically
+        return gestureState.dy > 10;
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 20) {
+          setIsExpanded(true);
+        }
+      },
+    })
+  ).current;
+
+  // ── Swipe-to-Close Gesture Responder ──
+  const panelPanResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Intercept only when dragging upward vertically
+        return gestureState.dy < -10;
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy < -25) {
+          // Swipe up: Close switcher
+          setIsExpanded(false);
+        }
+      },
+    })
+  ).current;
+
+  React.useEffect(() => {
+    if (isExpanded) {
+      setShowDropdown(true);
+      Animated.parallel([
+        Animated.spring(dropdownAnim, {
+          toValue: 1,
+          tension: 80,
+          friction: 12,
+          useNativeDriver: false,
+        }),
+        Animated.spring(heightAnim, {
+          toValue: 1,
+          tension: 80,
+          friction: 12,
+          useNativeDriver: false,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(dropdownAnim, {
+          toValue: 0,
+          duration: 180,
+          useNativeDriver: false,
+        }),
+        Animated.timing(heightAnim, {
+          toValue: 0,
+          duration: 180,
+          useNativeDriver: false,
+        }),
+      ]).start(() => {
+        setShowDropdown(false);
+      });
+    }
+  }, [isExpanded]);
 
   // ── Derived: active platform config ────────────────────────────────────
   const activePlatformConfig = React.useMemo<{ label: string; color: string } | null>(() => {
     if (activePlatformFilter === "all") return null;
-    const cfg = PLATFORMS[activePlatformFilter as PlatformKey];
+    const firstPlatformId = activePlatformFilter.split(",")[0];
+    const cfg = PLATFORMS[firstPlatformId as PlatformKey];
     return cfg ?? null;
   }, [activePlatformFilter]);
 
-  const accentColor = activePlatformConfig?.color ?? "#10b981"; // green when "all"
-  const activeLabel = activePlatformConfig?.label ?? "All Platforms";
+  const doublePlatforms = React.useMemo(() => {
+    if (activePlatformFilter === "all") return [];
+    const parts = activePlatformFilter.split(",");
+    return parts.length === 2 ? parts : [];
+  }, [activePlatformFilter]);
+
+  const isDoubleSelected = doublePlatforms.length === 2;
+
+  const accentColor = React.useMemo(() => {
+    if (isDoubleSelected) {
+      const c1 = PLATFORMS[doublePlatforms[0] as PlatformKey]?.color ?? "#ffffff";
+      const c2 = PLATFORMS[doublePlatforms[1] as PlatformKey]?.color ?? "#ffffff";
+      try {
+        return blendColors(c1, c2);
+      } catch (e) {
+        return c1;
+      }
+    }
+    return activePlatformConfig?.color ?? "#ffffff"; // white when "all"
+  }, [isDoubleSelected, doublePlatforms, activePlatformConfig]);
+
+  const borderPillColor = React.useMemo(() => {
+    if (isDoubleSelected) {
+      const c1 = PLATFORMS[doublePlatforms[0] as PlatformKey]?.color ?? "#ffffff";
+      const c2 = PLATFORMS[doublePlatforms[1] as PlatformKey]?.color ?? "#ffffff";
+      try {
+        return blendColors(c1, c2) + "66"; // blended border with opacity
+      } catch (e) {
+        return c1 + "66";
+      }
+    }
+    return accentColor + "44";
+  }, [isDoubleSelected, doublePlatforms, accentColor]);
+
+  const activeLabel = React.useMemo(() => {
+    if (activePlatformFilter === "all") return "All Platforms";
+    const parts = activePlatformFilter.split(",");
+    if (parts.length > 1) {
+      return parts.map(p => PLATFORMS[p as PlatformKey]?.label || p).join(" + ");
+    }
+    return activePlatformConfig?.label ?? activePlatformFilter;
+  }, [activePlatformFilter, activePlatformConfig]);
 
   // ── Initials from display name ──────────────────────────────────────────
   const initials = React.useMemo(() => {
@@ -119,147 +254,350 @@ export default function GlobalTopHeader() {
   }, [profile?.displayName]);
 
   const selectedPlatformsList: string[] = profile?.selectedPlatforms ?? [];
-  const allPlatformIds = ["all", ...selectedPlatformsList];
+  const allPlatformIds = selectedPlatformsList.length <= 1
+    ? selectedPlatformsList
+    : ["all", ...selectedPlatformsList];
+
+  const maxAllowed = React.useMemo(() => {
+    return Math.max(1, selectedPlatformsList.length - 1);
+  }, [selectedPlatformsList]);
+
+
 
   // ── Toggle ──────────────────────────────────────────────────────────────
   const handleToggleExpand = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setIsExpanded((v) => !v);
   };
 
   const handleSelectFilter = (id: string) => {
-    setActivePlatformFilter(id);
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setIsExpanded(false);
+    if (id === "all") {
+      setActivePlatformFilter("all");
+      setIsExpanded(false);
+      return;
+    }
+
+    const currentFilter = activePlatformFilter;
+    if (currentFilter === "all") {
+      setActivePlatformFilter(id);
+      if (maxAllowed === 1) {
+        setTimeout(() => {
+          setIsExpanded(false);
+        }, 500);
+      }
+    } else {
+      const parts = currentFilter.split(",");
+      if (parts.includes(id)) {
+        // Deselect
+        const updated = parts.filter((p) => p !== id);
+        if (updated.length === 0) {
+          setActivePlatformFilter("all");
+          setIsExpanded(false);
+        } else {
+          setActivePlatformFilter(updated.join(","));
+        }
+      } else {
+        // Select
+        const updated = [...parts, id];
+        if (updated.length > maxAllowed) {
+          // Cap at maxAllowed, remove the oldest selection
+          updated.shift();
+        }
+        setActivePlatformFilter(updated.join(","));
+        // If maxAllowed are selected, close switcher smoothly after a short delay
+        if (updated.length === maxAllowed) {
+          setTimeout(() => {
+            setIsExpanded(false);
+          }, 500);
+        }
+      }
+    }
   };
+
+  const maxHeightVal = heightAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 390],
+  });
+
+  const marginTopVal = heightAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 8],
+  });
+
+  const paddingVal = heightAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 12],
+  });
+
+  const borderVal = heightAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 8) }]}>
-      {/* ── Platform accent strip ── */}
-      <View style={[styles.accentStrip, { backgroundColor: accentColor }]} />
+      {/* ── Backdrop for closing switcher when clicked outside ── */}
+      {showDropdown && (
+        <Animated.View
+          style={[
+            styles.backdropOverlay,
+            {
+              opacity: dropdownAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 1],
+              }),
+            },
+          ]}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setIsExpanded(false)}
+          />
+        </Animated.View>
+      )}
 
       {/* ── Main header row ── */}
       <View style={styles.headerRow}>
-        {/* Avatar → Settings */}
+        {/* Hamburger Menu Button (Pill 1) */}
         <Pressable
-          style={[styles.avatar, { borderColor: accentColor + "40" }]}
-          onPress={() => router.push("/settings")}
+          style={styles.hamburgerBtn}
+          onPress={onMenuPress}
         >
-          <Text style={styles.avatarText}>{initials}</Text>
+          <Menu size={22} color="#94a3b8" strokeWidth={2} />
         </Pressable>
 
-        {/* Centre: collapsed pill / trigger ── */}
-        <Pressable style={[styles.filterPill, { borderColor: accentColor + "55" }]} onPress={handleToggleExpand}>
-          {/* Color swatch dot */}
-          <View style={[styles.swatchDot, { backgroundColor: accentColor }]} />
+        {/* Centre: collapsed platform switcher trigger (Pill 2) */}
+        <Pressable
+          style={[styles.filterPill, { borderColor: borderPillColor }]}
+          onPress={handleToggleExpand}
+          {...pillPanResponder.panHandlers}
+        >
+          {isDoubleSelected ? (
+            <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
+              {/* Left Logo */}
+              <View style={{ marginRight: 6 }}>
+                <PlatformLogo id={doublePlatforms[0]} size={16} />
+              </View>
 
-          {/* Active label */}
-          <Text style={styles.filterPillLabel} numberOfLines={1}>
-            {activeLabel}
-          </Text>
+              {/* Name 1 */}
+              <Text style={{ color: "#e2e8f0", fontSize: 14, fontWeight: "600" }} numberOfLines={1}>
+                {PLATFORMS[doublePlatforms[0] as PlatformKey]?.label || doublePlatforms[0]}
+              </Text>
 
-          {/* Platform logo (only when not "all") */}
-          {activePlatformConfig && (
-            <View style={styles.pillLogoWrap}>
-              <PlatformLogo id={activePlatformFilter} size={13} />
+              {/* Centered Plus */}
+              <Text style={{ color: "#64748b", fontSize: 14, fontWeight: "600", marginHorizontal: 6 }}>
+                +
+              </Text>
+
+              {/* Name 2 */}
+              <Text style={{ color: "#e2e8f0", fontSize: 14, fontWeight: "600" }} numberOfLines={1}>
+                {PLATFORMS[doublePlatforms[1] as PlatformKey]?.label || doublePlatforms[1]}
+              </Text>
+
+              {/* Right Logo */}
+              <View style={{ marginLeft: 6, marginRight: 2 }}>
+                <PlatformLogo id={doublePlatforms[1]} size={16} />
+              </View>
             </View>
+          ) : (
+            <>
+              {/* Color swatch dot */}
+              <View style={[styles.swatchDot, { backgroundColor: accentColor }]} />
+
+              {/* Active label */}
+              <Text style={styles.filterPillLabel} numberOfLines={1}>
+                {activeLabel}
+              </Text>
+
+              {/* Platform logo (only when not "all") */}
+              {activePlatformFilter !== "all" && (
+                <View style={styles.pillLogoWrap}>
+                  <PlatformLogo id={activePlatformFilter.split(",")[0]} size={16} />
+                </View>
+              )}
+            </>
           )}
 
           {/* Chevron */}
           {isExpanded
-            ? <ChevronUp size={14} color="#94a3b8" strokeWidth={2.5} style={{ marginLeft: 2 }} />
-            : <ChevronDown size={14} color="#94a3b8" strokeWidth={2.5} style={{ marginLeft: 2 }} />
+            ? <ChevronUp size={16} color="#94a3b8" strokeWidth={2.5} style={{ marginLeft: 2 }} />
+            : <ChevronDown size={16} color="#94a3b8" strokeWidth={2.5} style={{ marginLeft: 2 }} />
           }
         </Pressable>
 
-        {/* Right icons */}
+        {/* Right notification button (Pill 3) */}
         <View style={styles.rightIcons}>
-          <Pressable style={styles.iconBtn} onPress={() => router.push("/settings")}>
-            <Bell size={19} color="#10b981" strokeWidth={2} />
-          </Pressable>
-          <Pressable style={styles.iconBtn} onPress={() => router.push("/settings")}>
-            <Settings size={19} color="#94a3b8" strokeWidth={2} />
+          <Pressable style={styles.iconBtn} onPress={onNotificationsPress || (() => router.push("/notifications"))}>
+            <Bell size={20} color="#ffffff" strokeWidth={2} />
           </Pressable>
         </View>
       </View>
 
-      {/* ── Expanded platform picker ── */}
-      {isExpanded && (
-        <View style={styles.dropdownPanel}>
-          {/* Header label */}
-          <Text style={styles.dropdownHeading}>Filter by Platform</Text>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.pillScroll}
-          >
+      {/* ── Expanded platform + vehicle picker ── */}
+      {showDropdown && (
+        <Animated.View
+          {...panelPanResponder.panHandlers}
+          style={[
+            styles.dropdownPanel,
+            {
+              opacity: dropdownAnim,
+              maxHeight: maxHeightVal,
+              marginTop: marginTopVal,
+              paddingTop: paddingVal,
+              paddingBottom: paddingVal,
+              borderWidth: borderVal,
+              overflow: "hidden",
+              transform: [
+                {
+                  translateY: dropdownAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-10, 0],
+                  }),
+                },
+                {
+                  scale: dropdownAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.97, 1],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          {/* Section: Platforms */}
+          <Text style={styles.panelSectionLabel}>PLATFORM</Text>
+          <View style={styles.platformGrid}>
             {allPlatformIds.map((pId) => {
               const isAll = pId === "all";
-              const isSelected = activePlatformFilter === pId;
+              const isSelected = isAll
+                ? activePlatformFilter === "all"
+                : (activePlatformFilter.split(",").includes(pId) ||
+                   (selectedPlatformsList.length === 1 && activePlatformFilter === "all"));
               const cfg = !isAll ? PLATFORMS[pId as PlatformKey] : null;
-              const pColor = cfg?.color ?? "#10b981";
+              const pColor = cfg?.color ?? "#ffffff";
 
               return (
                 <Pressable
                   key={pId}
                   onPress={() => handleSelectFilter(pId)}
                   style={[
-                    styles.dropdownPill,
+                    styles.platformGridPill,
                     isSelected
                       ? { borderColor: pColor, backgroundColor: pColor + "18" }
                       : styles.dropdownPillInactive,
                   ]}
                 >
-                  {/* Logo area */}
                   <View style={[
                     styles.dropdownPillLogo,
                     {
                       backgroundColor: isAll
-                        ? (isSelected ? "#10b98133" : "#2a2a28")
-                        : isSelected
-                          ? pColor + "33"
-                          : "#1e1e1c",
+                        ? (isSelected ? "#ffffff33" : "#2a2a28")
+                        : isSelected ? pColor + "33" : "#1e1e1c",
                       borderColor: isSelected ? pColor + "44" : "transparent",
                       borderWidth: 1,
                     },
                   ]}>
                     {isAll
-                      ? <Text style={[styles.dropdownPillLogoText, { color: isSelected ? "#10b981" : "#94a3b8" }]}>∞</Text>
-                      : <PlatformLogo id={pId} size={14} />
+                      ? <Text style={[styles.dropdownPillLogoText, { color: isSelected ? "#ffffff" : "#94a3b8" }]}>∞</Text>
+                      : <PlatformLogo id={pId} size={18} />
                     }
                   </View>
-
-                  {/* Label */}
                   <Text style={[
                     styles.dropdownPillLabel,
-                    { color: isSelected ? "#ffffff" : "#71717a" },
-                  ]}>
+                    { color: isSelected ? "#ffffff" : "#a1a1aa", flex: 1 },
+                  ]} numberOfLines={1}>
                     {isAll ? "All" : cfg?.label || pId}
                   </Text>
-
-                  {/* Active checkmark dot */}
                   {isSelected && (
                     <View style={[styles.checkDot, { backgroundColor: pColor }]} />
                   )}
                 </Pressable>
               );
             })}
-          </ScrollView>
+          </View>
 
-          {/* Active filter info bar (only when not "all") */}
-          {activePlatformConfig && (
-            <View style={[styles.filterInfoBar, { borderColor: accentColor + "30", backgroundColor: accentColor + "0D" }]}>
-              <View style={[styles.filterInfoDot, { backgroundColor: accentColor }]} />
-              <Text style={[styles.filterInfoText, { color: accentColor }]}>
-                Dashboard filtered · {activePlatformConfig.label} only
-              </Text>
-              <Pressable onPress={() => handleSelectFilter("all")} style={styles.clearFilterBtn}>
-                <Text style={styles.clearFilterText}>Clear</Text>
-              </Pressable>
+          {/* Divider */}
+          <View style={styles.panelDivider} />
+
+          {/* Section: Vehicle */}
+          <Text style={styles.panelSectionLabel}>VEHICLE</Text>
+          <View style={styles.platformGrid}>
+            {vehiclesList.length === 0 ? (
+              <Text style={{ color: "#52525b", fontSize: 12, paddingHorizontal: 4 }}>No vehicles set up</Text>
+            ) : (
+              vehiclesList.map((v: any) => {
+                const isSelected = (preferredVehicleId || vehiclesList[0]?.id) === v.id;
+                const label = `${v.make || ""} ${v.model || ""}`.trim() || v.name;
+                const year = v.year ? `'${String(v.year).slice(-2)} ` : "";
+                return (
+                  <Pressable
+                    key={v.id}
+                    onPress={async () => {
+                      await setPreferredVehicle(v.id);
+                      setIsExpanded(false);
+                    }}
+                    style={[
+                      styles.platformGridPill,
+                      isSelected
+                        ? { borderColor: "#ffffff", backgroundColor: "#ffffff18" }
+                        : styles.dropdownPillInactive,
+                    ]}
+                  >
+                    <View style={[
+                      styles.dropdownPillLogo,
+                      {
+                        backgroundColor: isSelected ? "#ffffff33" : "#1e1e1c",
+                        borderColor: isSelected ? "#ffffff44" : "transparent",
+                        borderWidth: 1,
+                      },
+                    ]}>
+                      <Svg width={16} height={16} viewBox="0 0 24 24" fill="none"
+                        stroke={isSelected ? "#ffffff" : "#a1a1aa"}
+                        strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <Path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2" />
+                        <Rect x="7" y="14" width="10" height="6" rx="1" />
+                        <Circle cx="7.5" cy="17.5" r="1.5" />
+                        <Circle cx="16.5" cy="17.5" r="1.5" />
+                        <Path d="M5 9V5a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v4" />
+                      </Svg>
+                    </View>
+                    <Text style={[
+                      styles.dropdownPillLabel,
+                      { color: isSelected ? "#ffffff" : "#a1a1aa", flex: 1 },
+                    ]} numberOfLines={1}>
+                      {year}{label}
+                    </Text>
+                    {isSelected && (
+                      <View style={[styles.checkDot, { backgroundColor: "#ffffff" }]} />
+                    )}
+                  </Pressable>
+                );
+              })
+            )}
+          </View>
+
+          {/* Divider */}
+          <View style={styles.panelDivider} />
+
+          {/* Account Settings Row */}
+          <Pressable
+            onPress={() => {
+              setIsExpanded(false);
+              router.push("/settings");
+            }}
+            style={styles.accountSettingsCard}
+          >
+            <View style={styles.accountAvatar}>
+              <Text style={styles.accountAvatarText}>{initials}</Text>
             </View>
-          )}
-        </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.accountName}>{profile?.displayName || "Driver"}</Text>
+              <Text style={styles.accountSubtitle}>Account Settings</Text>
+            </View>
+            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#71717a" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <Path d="M9 18l6-6-6-6" />
+            </Svg>
+          </Pressable>
+        </Animated.View>
       )}
     </View>
   );
@@ -268,32 +606,62 @@ export default function GlobalTopHeader() {
 // ── Styles ─────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#0d0d0c",
-    borderBottomWidth: 1,
-    borderBottomColor: "#1a1a19",
-    zIndex: 50,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "transparent",
+    borderBottomWidth: 0,
+    zIndex: 1000,
+  },
+  backdropOverlay: {
+    position: "absolute",
+    top: 0,
+    left: -100,
+    right: -100,
+    height: 3000,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    zIndex: 90,
   },
 
   // 2-px accent strip at very top
   accentStrip: {
-    height: 2,
-    width: "100%",
+    height: 0,
+    width: 0,
   },
 
   // Header row
   headerRow: {
-    height: 52,
+    height: 56,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     gap: 10,
+    marginTop: 8,
+    zIndex: 110,
   },
 
+  // Hamburger button
+  hamburgerBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#161615",
+    borderWidth: 1,
+    borderColor: "#262522",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 4,
+  },
   // Avatar
   avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 9,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
     backgroundColor: "#064e3b",
     justifyContent: "center",
     alignItems: "center",
@@ -301,7 +669,7 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: "#ffffff",
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: "bold",
     letterSpacing: 0.5,
   },
@@ -314,9 +682,14 @@ const styles = StyleSheet.create({
     gap: 7,
     backgroundColor: "#161615",
     borderWidth: 1,
-    borderRadius: 9999,
-    paddingHorizontal: 13,
-    height: 36,
+    borderRadius: 22,
+    paddingHorizontal: 14,
+    height: 44,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 4,
   },
   swatchDot: {
     width: 8,
@@ -326,7 +699,7 @@ const styles = StyleSheet.create({
   filterPillLabel: {
     flex: 1,
     color: "#e2e8f0",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
   },
   pillLogoWrap: {
@@ -338,59 +711,78 @@ const styles = StyleSheet.create({
   rightIcons: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
   },
   iconBtn: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#161615",
+    borderWidth: 1,
+    borderColor: "#262522",
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 4,
   },
 
-  // Expanded dropdown
   dropdownPanel: {
-    backgroundColor: "#0d0d0c",
-    borderTopWidth: 1,
-    borderTopColor: "#1a1a19",
-    paddingBottom: 10,
-    paddingTop: 10,
+    backgroundColor: "#111110",
+    borderRadius: 16,
+    borderColor: "#2a2a28",
+    borderWidth: 1,
+    marginHorizontal: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 100,
   },
-  dropdownHeading: {
-    color: "#52525b",
+  panelSectionLabel: {
     fontSize: 10,
     fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    paddingHorizontal: 16,
+    color: "#71717a",
+    letterSpacing: 1,
+    marginTop: 14,
     marginBottom: 8,
+    marginHorizontal: 16,
+    textTransform: "uppercase",
   },
-  pillScroll: {
-    paddingHorizontal: 12,
+  platformGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
-    alignItems: "center",
+    paddingHorizontal: 16,
+    marginBottom: 6,
   },
-  dropdownPill: {
+  platformGridPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    borderWidth: 1.5,
-    borderRadius: 9999,
+    borderWidth: 1,
+    borderRadius: 14,
     paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingVertical: 10,
+    width: "48%", // 2 columns layout
+    backgroundColor: "#161615",
+    borderColor: "#262624",
   },
   dropdownPillInactive: {
     borderColor: "#262624",
-    backgroundColor: "transparent",
+    backgroundColor: "#161615",
   },
   dropdownPillLogo: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
   },
   dropdownPillLogoText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "900",
   },
   dropdownPillLabel: {
@@ -403,8 +795,50 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     marginLeft: 2,
   },
-
-  // Active filter info bar shown inside dropdown
+  panelDivider: {
+    height: 1,
+    backgroundColor: "#2a2a28",
+    marginHorizontal: 16,
+    marginTop: 14,
+  },
+  accountSettingsCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "#2a2a28",
+    borderRadius: 16,
+    marginHorizontal: 16,
+    marginTop: 14,
+    marginBottom: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: "#161615",
+  },
+  accountAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#1e1e1c",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  accountAvatarText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  accountName: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  accountSubtitle: {
+    color: "#a1a1aa",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 1,
+  },
   filterInfoBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -423,7 +857,7 @@ const styles = StyleSheet.create({
   },
   filterInfoText: {
     flex: 1,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: "700",
   },
   clearFilterBtn: {
@@ -434,7 +868,8 @@ const styles = StyleSheet.create({
   },
   clearFilterText: {
     color: "#94a3b8",
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: "700",
   },
+
 });

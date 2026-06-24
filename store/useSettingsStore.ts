@@ -38,6 +38,7 @@ interface SettingsState {
   isLoading: boolean;
   isDemoMode: boolean;
   activePlatformFilter: string;
+  preferredVehicleId: string | null;
 
   // Actions
   loadSettings: () => Promise<void>;
@@ -50,6 +51,7 @@ interface SettingsState {
   loadSampleData: () => Promise<void>;
   clearSampleData: () => Promise<void>;
   setActivePlatformFilter: (filter: string) => void;
+  setPreferredVehicle: (vehicleId: string) => Promise<void>;
 }
 
 const DEFAULT_PROFILE: DriverProfile = {
@@ -76,8 +78,25 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   isLoading: true,
   isDemoMode: false,
   activePlatformFilter: "all",
+  preferredVehicleId: null,
 
   setActivePlatformFilter: (filter: string) => set({ activePlatformFilter: filter }),
+
+  setPreferredVehicle: async (vehicleId: string) => {
+    set({ preferredVehicleId: vehicleId });
+    if (isWeb) {
+      localStorage.setItem("comma_preferred_vehicle_id", vehicleId);
+      return;
+    }
+    try {
+      await db
+        .insert(settings)
+        .values({ key: "preferred_vehicle_id", value: vehicleId })
+        .onConflictDoUpdate({ target: settings.key, set: { value: vehicleId } });
+    } catch (e) {
+      console.error("Failed to persist preferredVehicleId:", e);
+    }
+  },
 
   loadSettings: async () => {
     set({ isLoading: true });
@@ -94,6 +113,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           profile: rawProfile ? JSON.parse(rawProfile) : DEFAULT_PROFILE,
           activeVehicle: rawVehicle ? JSON.parse(rawVehicle) : null,
           isDemoMode: rawDemoMode === "true",
+          preferredVehicleId: localStorage.getItem("comma_preferred_vehicle_id") || null,
           isLoading: false,
         });
       } catch {
@@ -129,6 +149,13 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         .where(eq(vehicles.isActive, true))
         .limit(1);
 
+      // Fetch preferred vehicle id
+      const preferredVehicleRow = await db
+        .select()
+        .from(settings)
+        .where(eq(settings.key, "preferred_vehicle_id"))
+        .limit(1);
+
       const onboardingCompleted = onboardingCompletedRow[0]?.value === "true";
       const profile = profileRow[0]?.value
         ? (JSON.parse(profileRow[0].value) as DriverProfile)
@@ -144,11 +171,20 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           }
         : null;
 
+      // Resolve preferredVehicleId: use stored preference if that vehicle exists,
+      // otherwise fall back to the first active vehicle
+      const storedPrefId = preferredVehicleRow[0]?.value || null;
+      const vehicleIdExists = vehicleRows.some((v: { id: string }) => v.id === storedPrefId);
+      const preferredVehicleId = vehicleIdExists
+        ? storedPrefId
+        : vehicleRows[0]?.id || null;
+
       set({
         isOnboardingCompleted: onboardingCompleted,
         profile,
         activeVehicle,
         isDemoMode,
+        preferredVehicleId,
         isLoading: false,
       });
     } catch (error) {

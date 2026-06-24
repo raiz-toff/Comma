@@ -180,7 +180,7 @@ export default function AddShiftModal() {
   };
 
   return (
-    <SafeAreaView className="dark flex-1 bg-[#0b0f19]">
+    <SafeAreaView className="dark flex-1 bg-[#000000]">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"

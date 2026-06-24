@@ -1,9 +1,29 @@
 import React from "react";
-import { Tabs } from "expo-router";
-import { View, Platform, ColorValue } from "react-native";
+import { Tabs, usePathname, useRouter } from "expo-router";
+import { View, Platform, ColorValue, Animated, Pressable, ScrollView, StyleSheet, BackHandler, useWindowDimensions, TouchableOpacity, PanResponder } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import GlobalTopHeader from "../../src/components/GlobalTopHeader";
+import {
+  Home,
+  Clock,
+  BarChart3,
+  Receipt,
+  Target,
+  Calculator,
+  FileText,
+  Calendar,
+  Car,
+  Settings as SettingsIcon,
+  Info,
+  Trophy,
+  AlertCircle,
+  BellOff,
+  Check,
+  Bell,
+} from "lucide-react-native";
+import { Text } from "../../src/components/ui/text";
+import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 
 // Custom pure View icon implementations to avoid react-native-svg native dependency crashes
 const HomeIcon = ({ color, size = 20 }: { color: ColorValue; size?: number }) => (
@@ -135,81 +155,758 @@ const DotsIcon = ({ color, size = 20 }: { color: ColorValue; size?: number }) =>
   </View>
 );
 
+interface NotificationItem {
+  id: string;
+  title: string;
+  description: string;
+  time: string;
+  type: "info" | "success" | "warning";
+  read: boolean;
+}
+
+const INITIAL_NOTIFICATIONS: NotificationItem[] = [
+  {
+    id: "1",
+    title: "Weekly Earnings Goal Achieved!",
+    description: "Congratulations! You reached 100% of your weekly earnings target across all active platforms.",
+    time: "2 hours ago",
+    type: "success",
+    read: false,
+  },
+  {
+    id: "2",
+    title: "Tax season reminder",
+    description: "Your estimated quarterly tax withholding report is ready. View it in the Tax page.",
+    time: "1 day ago",
+    type: "warning",
+    read: false,
+  },
+  {
+    id: "3",
+    title: "Shift Logged Successfully",
+    description: "Your 6h 15m Uber Eats shift has been added to your dashboard history.",
+    time: "2 days ago",
+    type: "info",
+    read: true,
+  },
+  {
+    id: "4",
+    title: "Welcome to COMMA!",
+    description: "Your local database has been initialized. You are ready to start tracking your gig mileage and earnings with absolute privacy.",
+    time: "3 days ago",
+    type: "info",
+    read: true,
+  },
+];
+
 export default function TabLayout() {
-  const { isOnboardingCompleted } = useSettingsStore();
+  const { isOnboardingCompleted, profile, activePlatformFilter } = useSettingsStore();
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
+  const router = useRouter();
+  const { width: screenWidth } = useWindowDimensions();
+
+  const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false);
+
+  const slideAnim = React.useRef(new Animated.Value(0)).current;
+  const notificationsAnim = React.useRef(new Animated.Value(0)).current;
+
+  const isDrawerOpenRef = React.useRef(isDrawerOpen);
+  const isNotificationsOpenRef = React.useRef(isNotificationsOpen);
+
+  React.useEffect(() => {
+    isDrawerOpenRef.current = isDrawerOpen;
+  }, [isDrawerOpen]);
+
+  React.useEffect(() => {
+    isNotificationsOpenRef.current = isNotificationsOpen;
+  }, [isNotificationsOpen]);
+
+  const panResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        // Only capture horizontal swipes
+        const isHorizontal = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5;
+        if (!isHorizontal) return false;
+
+        // If drawer is closed: capture left-to-right swipe starting near the left edge
+        if (!isDrawerOpenRef.current) {
+          if (isNotificationsOpenRef.current) return false;
+          // Capture if start X is within the left 50 pixels of the screen
+          return gestureState.x0 < 50 && gestureState.dx > 10;
+        }
+
+        // If drawer is open: capture right-to-left swipe from anywhere
+        return gestureState.dx < -10;
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        if (!isDrawerOpenRef.current) {
+          if (gestureState.dx > 50) {
+            setIsDrawerOpen(true);
+          }
+        } else {
+          if (gestureState.dx < -50) {
+            setIsDrawerOpen(false);
+          }
+        }
+      },
+    })
+  ).current;
+
+  const [notifications, setNotifications] = React.useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+
+  const markAllAsRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  const clearAll = () => {
+    setNotifications([]);
+  };
+
+  const getNotificationIcon = (type: string, read: boolean) => {
+    const color = read ? "#64748b" : "#10b981";
+    switch (type) {
+      case "success":
+        return <Trophy size={18} color={read ? "#64748b" : "#eab308"} />;
+      case "warning":
+        return <AlertCircle size={18} color={read ? "#64748b" : "#f59e0b"} />;
+      default:
+        return <Info size={18} color={color} />;
+    }
+  };
+
+  React.useEffect(() => {
+    Animated.spring(slideAnim, {
+      toValue: isDrawerOpen ? 1 : 0,
+      tension: 60,
+      friction: 10,
+      useNativeDriver: true,
+    }).start();
+  }, [isDrawerOpen]);
+
+  React.useEffect(() => {
+    Animated.spring(notificationsAnim, {
+      toValue: isNotificationsOpen ? 1 : 0,
+      tension: 60,
+      friction: 10,
+      useNativeDriver: true,
+    }).start();
+  }, [isNotificationsOpen]);
+
+  React.useEffect(() => {
+    const backAction = () => {
+      if (isNotificationsOpen) {
+        setIsNotificationsOpen(false);
+        return true;
+      }
+      if (isDrawerOpen) {
+        setIsDrawerOpen(false);
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [isDrawerOpen, isNotificationsOpen]);
+
+  const drawerWidth = Math.min(screenWidth * 0.8, 320);
+  const notificationsWidth = Math.min(screenWidth, 400);
+
+  const mainContentTranslateX = Animated.add(
+    slideAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, drawerWidth],
+    }),
+    notificationsAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, -notificationsWidth],
+    })
+  );
+
+  const drawerTranslateX = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-drawerWidth * 0.3, 0],
+  });
+
+  const notificationsTranslateX = notificationsAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [screenWidth, screenWidth - notificationsWidth],
+  });
+
+  const handleNavigate = (path: string) => {
+    setIsDrawerOpen(false);
+    // Let drawer slide back before navigating
+    setTimeout(() => {
+      if (path === "/" || path === "/shifts" || path === "/analytics" || path === "/expenses" || path === "/more") {
+        router.replace(path as any);
+      } else {
+        router.push(path as any);
+      }
+    }, 200);
+  };
+
+  const isRouteActive = (itemPath: string) => {
+    if (itemPath === "/") {
+      return pathname === "/" || pathname === "/(tabs)";
+    }
+    return pathname.startsWith(itemPath);
+  };
+
+  const initials = React.useMemo(() => {
+    const name = profile?.displayName?.trim() || "";
+    if (!name) return "DR";
+    const parts = name.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  }, [profile?.displayName]);
+
+  const activePlatformLabel = React.useMemo(() => {
+    if (activePlatformFilter === "all") return "All Platforms";
+    const cfg = PLATFORMS[activePlatformFilter as PlatformKey];
+    return cfg?.label ?? "Platform Filtered";
+  }, [activePlatformFilter]);
+
+  const activePlatformColor = React.useMemo(() => {
+    if (activePlatformFilter === "all") return "#ffffff";
+    const cfg = PLATFORMS[activePlatformFilter as PlatformKey];
+    return cfg?.color ?? "#ffffff";
+  }, [activePlatformFilter]);
+
+  const DRAWER_ITEMS = [
+    { label: "Dashboard", path: "/", icon: Home },
+    { label: "Shifts", path: "/shifts", icon: Clock },
+    { label: "Analytics", path: "/analytics", icon: BarChart3 },
+    { label: "Expenses", path: "/expenses", icon: Receipt },
+    { label: "Goals", path: "/goals", icon: Target },
+    { label: "Tax", path: "/tax", icon: Calculator },
+    { label: "Reports", path: "/reports", icon: FileText },
+    { label: "Schedule", path: "/schedule", icon: Calendar },
+    { label: "Vehicles", path: "/vehicles", icon: Car },
+    { label: "Settings", path: "/settings", icon: SettingsIcon },
+    { label: "About", path: "/about", icon: Info },
+  ];
+
+  const toggleDrawer = () => {
+    setIsDrawerOpen((prev) => !prev);
+  };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#070a13" }}>
-      {isOnboardingCompleted && <GlobalTopHeader />}
-      <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: "#10b981",
-        tabBarInactiveTintColor: "#64748b",
-        tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: "bold",
-          marginTop: 2,
-        },
-        tabBarStyle: {
-          backgroundColor: "#12110f",
-          borderTopColor: "#262522",
-          height: 60 + insets.bottom,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
-          paddingTop: 8,
-          display: isOnboardingCompleted ? "flex" : "none",
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Dashboard",
-          tabBarIcon: ({ color }) => <HomeIcon color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="shifts"
-        options={{
-          title: "Shifts",
-          tabBarIcon: ({ color }) => <ClockPlayIcon color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="analytics"
-        options={{
-          title: "Analytics",
-          tabBarIcon: ({ color }) => <ChartBarIcon color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="expenses"
-        options={{
-          title: "Expenses",
-          tabBarIcon: ({ color }) => <ReceiptIcon color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="tax"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="shifts/[id]"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="more"
-        options={{
-          title: "More",
-          tabBarIcon: ({ color }) => <DotsIcon color={color} />,
-        }}
-      />
-    </Tabs>
+    <View style={{ flex: 1, backgroundColor: "#000000" }}>
+      {/* Drawer Panel - Hidden behind/side-by-side with lower z-index */}
+      <Animated.View
+        style={[
+          styles.drawer,
+          {
+            width: drawerWidth,
+            paddingTop: Math.max(insets.top, 16),
+            paddingBottom: Math.max(insets.bottom, 16),
+            transform: [{ translateX: drawerTranslateX }],
+          },
+        ]}
+      >
+        {/* Header */}
+        <View style={styles.drawerHeader}>
+          <Text style={styles.drawerBrand}>COMMA</Text>
+        </View>
+
+
+
+        {/* Navigation Items */}
+        <ScrollView
+          style={styles.drawerScroll}
+          contentContainerStyle={styles.drawerContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {DRAWER_ITEMS.map((item) => {
+            const active = isRouteActive(item.path);
+            const Icon = item.icon;
+            return (
+              <Pressable
+                key={item.path}
+                onPress={() => handleNavigate(item.path)}
+                style={[
+                  styles.menuItem,
+                  active ? styles.menuItemActive : styles.menuItemInactive,
+                ]}
+              >
+                {active && <View style={styles.activeBar} />}
+                <Icon
+                  size={22}
+                  color={active ? "#ffffff" : "#64748b"}
+                  strokeWidth={2}
+                />
+                <Text
+                  style={[
+                    styles.menuText,
+                    active ? styles.menuTextActive : styles.menuTextInactive,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {/* Footer */}
+        <View style={styles.drawerFooter}>
+          <Text style={styles.footerText}>COMMA APP · LOCAL & PRIVATE</Text>
+        </View>
+      </Animated.View>
+
+      {/* Notifications Panel - Hidden on the right with z-index 1 */}
+      <Animated.View
+        style={[
+          styles.notificationsDrawer,
+          {
+            width: notificationsWidth,
+            paddingTop: Math.max(insets.top, 16),
+            paddingBottom: Math.max(insets.bottom, 16),
+            transform: [{ translateX: notificationsTranslateX }],
+          },
+        ]}
+      >
+        {/* Notifications Header */}
+        <View style={styles.drawerHeader}>
+          <TouchableOpacity
+            onPress={() => setIsNotificationsOpen(false)}
+            style={styles.backBtn}
+          >
+            <Text style={styles.backBtnText}>Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.notificationsTitle}>Notifications</Text>
+          <View style={{ width: 48 }} />
+        </View>
+
+        {/* Notifications List */}
+        <ScrollView
+          style={styles.drawerScroll}
+          contentContainerStyle={styles.notificationsContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {notifications.length > 0 ? (
+            <>
+              <View style={styles.notifActionsRow}>
+                <Text style={styles.notifCountText}>
+                  Recent Alerts ({notifications.filter((n) => !n.read).length} unread)
+                </Text>
+                <View style={{ flexDirection: "row", gap: 16 }}>
+                  <TouchableOpacity onPress={markAllAsRead}>
+                    <Text style={styles.actionTextGreen}>Mark all read</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={clearAll}>
+                    <Text style={styles.actionTextGray}>Clear all</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={{ flexDirection: "column", gap: 12 }}>
+                {notifications.map((item) => (
+                  <View
+                    key={item.id}
+                    style={[
+                      styles.notifCard,
+                      item.read ? styles.notifCardRead : styles.notifCardUnread,
+                    ]}
+                  >
+                    <View style={{ marginTop: 2 }}>
+                      {getNotificationIcon(item.type, item.read)}
+                    </View>
+                    <View style={{ flex: 1, flexDirection: "column" }}>
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <Text style={[styles.notifCardTitle, item.read ? styles.notifTextRead : styles.notifTextUnread]}>
+                          {item.title}
+                        </Text>
+                        {!item.read && (
+                          <View style={styles.unreadDot} />
+                        )}
+                      </View>
+                      <Text style={styles.notifCardDesc}>
+                        {item.description}
+                      </Text>
+                      <Text style={styles.notifCardTime}>
+                        {item.time}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIconCircle}>
+                <BellOff size={28} color="#64748b" />
+              </View>
+              <Text style={styles.emptyTitle}>All caught up!</Text>
+              <Text style={styles.emptySub}>
+                You have no new notifications. We'll alert you here when goals are reached or reports are compiled.
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      </Animated.View>
+
+      {/* Main Content Wrapper - Animates to the right */}
+      <Animated.View
+        {...panResponder.panHandlers}
+        style={[
+          styles.mainContentContainer,
+          {
+            transform: [{ translateX: mainContentTranslateX }],
+          },
+        ]}
+      >
+        {isOnboardingCompleted && (
+          <GlobalTopHeader
+            onMenuPress={toggleDrawer}
+            onNotificationsPress={() => setIsNotificationsOpen(true)}
+          />
+        )}
+        
+        <Tabs
+          screenOptions={{
+            headerShown: false,
+            tabBarStyle: {
+              display: "none",
+            },
+          }}
+        >
+          <Tabs.Screen
+            name="index"
+            options={{
+              title: "Dashboard",
+            }}
+          />
+          <Tabs.Screen
+            name="shifts"
+            options={{
+              title: "Shifts",
+            }}
+          />
+          <Tabs.Screen
+            name="analytics"
+            options={{
+              title: "Analytics",
+            }}
+          />
+          <Tabs.Screen
+            name="expenses"
+            options={{
+              title: "Expenses",
+            }}
+          />
+          <Tabs.Screen
+            name="tax"
+            options={{
+              href: null,
+            }}
+          />
+          <Tabs.Screen
+            name="shifts/[id]"
+            options={{
+              href: null,
+            }}
+          />
+          <Tabs.Screen
+            name="more"
+            options={{
+              title: "More",
+            }}
+          />
+        </Tabs>
+
+        {/* Transparent click catcher over the remaining page area when drawer or notifications are open */}
+        {(isDrawerOpen || isNotificationsOpen) && (
+          <Pressable
+            style={styles.mainContentOverlay}
+            onPress={() => {
+              setIsDrawerOpen(false);
+              setIsNotificationsOpen(false);
+            }}
+          />
+        )}
+      </Animated.View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  backdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    zIndex: 999,
+  },
+  drawer: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: "#000000",
+    borderRightWidth: 1,
+    borderRightColor: "#1a1a19",
+    zIndex: 1,
+    flexDirection: "column",
+  },
+  notificationsDrawer: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: "#000000",
+    borderLeftWidth: 1,
+    borderLeftColor: "#1e293b",
+    zIndex: 1,
+    flexDirection: "column",
+  },
+  mainContentContainer: {
+    flex: 1,
+    backgroundColor: "#000000",
+    zIndex: 2,
+    shadowColor: "#000000",
+    shadowOffset: { width: -4, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 20,
+  },
+  mainContentOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(0, 0, 0, 0.35)",
+    zIndex: 9999,
+  },
+  drawerHeader: {
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1a1a19",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  drawerBrand: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: "#ffffff",
+    letterSpacing: 1,
+  },
+
+  profileSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1a1a19",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 1.5,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarText: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#ffffff",
+  },
+  profileSub: {
+    fontSize: 11,
+    color: "#64748b",
+  },
+  drawerScroll: {
+    flex: 1,
+  },
+  drawerContent: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    marginBottom: 6,
+    gap: 14,
+    position: "relative",
+  },
+  menuItemActive: {
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+  menuItemInactive: {
+    backgroundColor: "transparent",
+  },
+  activeBar: {
+    position: "absolute",
+    left: 0,
+    top: 14,
+    bottom: 14,
+    width: 3.5,
+    backgroundColor: "#ffffff",
+    borderRadius: 2,
+  },
+  menuText: {
+    fontSize: 16,
+    fontWeight: "700",
+    flex: 1,
+  },
+  menuTextActive: {
+    color: "#ffffff",
+  },
+  menuTextInactive: {
+    color: "#94a3b8",
+  },
+  drawerFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#1a1a19",
+    alignItems: "center",
+  },
+  footerText: {
+    fontSize: 10,
+    color: "#52525b",
+    fontWeight: "700",
+  },
+  backBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(30, 41, 59, 0.4)",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(51, 65, 85, 0.3)",
+  },
+  backBtnText: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  notificationsTitle: {
+    color: "#f8fafc",
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: -0.3,
+  },
+  notificationsContent: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  notifActionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  notifCountText: {
+    fontSize: 11,
+    color: "#94a3b8",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  actionTextGreen: {
+    fontSize: 12,
+    color: "#ffffff",
+    fontWeight: "700",
+  },
+  actionTextGray: {
+    fontSize: 12,
+    color: "#64748b",
+    fontWeight: "700",
+  },
+  notifCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: "row",
+    gap: 12,
+  },
+  notifCardUnread: {
+    backgroundColor: "rgba(15, 23, 42, 0.8)",
+    borderColor: "rgba(30, 41, 59, 0.8)",
+  },
+  notifCardRead: {
+    backgroundColor: "rgba(15, 23, 42, 0.3)",
+    borderColor: "rgba(15, 23, 42, 0.6)",
+    opacity: 0.6,
+  },
+  notifCardTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    flex: 1,
+    paddingRight: 8,
+  },
+  notifTextUnread: {
+    color: "#f8fafc",
+  },
+  notifTextRead: {
+    color: "#94a3b8",
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#ffffff",
+    marginTop: 4,
+  },
+  notifCardDesc: {
+    fontSize: 12,
+    color: "#94a3b8",
+    lineHeight: 18,
+    fontWeight: "500",
+    marginTop: 4,
+  },
+  notifCardTime: {
+    fontSize: 10,
+    color: "#64748b",
+    fontWeight: "700",
+    marginTop: 8,
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 80,
+    flexDirection: "column",
+    gap: 16,
+  },
+  emptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#0f172a",
+    borderWidth: 1,
+    borderColor: "#1e293b",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#cbd5e1",
+  },
+  emptySub: {
+    fontSize: 12,
+    color: "#64748b",
+    textAlign: "center",
+    marginTop: 4,
+    maxWidth: 240,
+    lineHeight: 18,
+  },
+});

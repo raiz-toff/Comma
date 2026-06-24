@@ -1,6 +1,6 @@
 import { db } from "../client";
 import { shifts, vehicles, settings, goals, expenses } from "../schema";
-import { and, gte, lte, eq, sql } from "drizzle-orm";
+import { and, gte, lte, eq, sql, inArray } from "drizzle-orm";
 import { Platform } from "react-native";
 
 const isWeb = Platform.OS === "web";
@@ -53,7 +53,8 @@ export async function getTodayStats(platform?: string): Promise<{ gross: number;
       });
 
       if (platform && platform !== "all") {
-        list = list.filter((s: any) => s.platform === platform);
+        const parts = platform.split(",");
+        list = list.filter((s: any) => parts.includes(s.platform));
       }
 
       let gross = 0, tips = 0, activeMileage = 0, deadMileage = 0;
@@ -72,7 +73,12 @@ export async function getTodayStats(platform?: string): Promise<{ gross: number;
   const { start, end } = getPeriodDates("daily");
   const conditions = [gte(shifts.startTime, start), lte(shifts.startTime, end)];
   if (platform && platform !== "all") {
-    conditions.push(eq(shifts.platform, platform));
+    const parts = platform.split(",");
+    if (parts.length > 1) {
+      conditions.push(inArray(shifts.platform, parts));
+    } else {
+      conditions.push(eq(shifts.platform, platform));
+    }
   }
 
   const result = await db
@@ -103,7 +109,8 @@ export async function getWeekStats(platform?: string): Promise<{ gross: number; 
       });
 
       if (platform && platform !== "all") {
-        list = list.filter((s: any) => s.platform === platform);
+        const parts = platform.split(",");
+        list = list.filter((s: any) => parts.includes(s.platform));
       }
 
       let gross = 0, tips = 0, activeMileage = 0, deadMileage = 0, durationSeconds = 0;
@@ -123,7 +130,12 @@ export async function getWeekStats(platform?: string): Promise<{ gross: number; 
   const { start, end } = getPeriodDates("weekly");
   const conditions = [gte(shifts.startTime, start), lte(shifts.startTime, end)];
   if (platform && platform !== "all") {
-    conditions.push(eq(shifts.platform, platform));
+    const parts = platform.split(",");
+    if (parts.length > 1) {
+      conditions.push(inArray(shifts.platform, parts));
+    } else {
+      conditions.push(eq(shifts.platform, platform));
+    }
   }
 
   const result = await db
@@ -471,7 +483,8 @@ export async function getPeriodStats(
         return d >= startDate && d <= endDate;
       });
       if (platform && platform !== "all") {
-        list = list.filter((s: any) => s.platform === platform);
+        const parts = platform.split(",");
+        list = list.filter((s: any) => parts.includes(s.platform));
       }
       let gross = 0, tips = 0, activeMileage = 0, deadMileage = 0, durationSeconds = 0, pausedSeconds = 0;
       list.forEach((s: any) => {
@@ -490,7 +503,12 @@ export async function getPeriodStats(
 
   const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
-    conditions.push(eq(shifts.platform, platform));
+    const parts = platform.split(",");
+    if (parts.length > 1) {
+      conditions.push(inArray(shifts.platform, parts));
+    } else {
+      conditions.push(eq(shifts.platform, platform));
+    }
   }
 
   const result = await db
@@ -549,14 +567,20 @@ export async function getFinancialOverviewForRange(
           return d >= startDate && d <= endDate;
         });
         if (platform && platform !== "all") {
-          shiftList = shiftList.filter((s: any) => s.platform === platform);
+          const parts = platform.split(",");
+          shiftList = shiftList.filter((s: any) => parts.includes(s.platform));
         }
       }
     } catch {}
   } else {
     const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
     if (platform && platform !== "all") {
-      conditions.push(eq(shifts.platform, platform));
+      const parts = platform.split(",");
+      if (parts.length > 1) {
+        conditions.push(inArray(shifts.platform, parts));
+      } else {
+        conditions.push(eq(shifts.platform, platform));
+      }
     }
     shiftList = await db.select().from(shifts).where(and(...conditions));
   }
@@ -599,6 +623,8 @@ export async function getFinancialOverviewForRange(
   } else {
     let expList: any[] = [];
     if (platform && platform !== "all") {
+      const parts = platform.split(",");
+      const platformCond = parts.length > 1 ? inArray(shifts.platform, parts) : eq(shifts.platform, platform);
       expList = await db
         .select({ amount: expenses.amount })
         .from(expenses)
@@ -608,7 +634,7 @@ export async function getFinancialOverviewForRange(
             eq(expenses.isDeductible, true),
             gte(expenses.date, startDate),
             lte(expenses.date, endDate),
-            eq(shifts.platform, platform)
+            platformCond
           )
         );
     } else {
@@ -681,21 +707,23 @@ export async function getFinancialOverviewForRange(
         }
       } catch {}
     } else {
-      let expList: any[] = [];
-      if (platform && platform !== "all") {
-        expList = await db
-          .select({ amount: expenses.amount })
-          .from(expenses)
-          .innerJoin(shifts, eq(expenses.shiftId, shifts.id))
-          .where(
-            and(
-              eq(expenses.isDeductible, true),
-              gte(expenses.date, wStart),
-              lte(expenses.date, wEnd),
-              eq(shifts.platform, platform)
-            )
-          );
-      } else {
+    let expList: any[] = [];
+    if (platform && platform !== "all") {
+      const parts = platform.split(",");
+      const platformCond = parts.length > 1 ? inArray(shifts.platform, parts) : eq(shifts.platform, platform);
+      expList = await db
+        .select({ amount: expenses.amount })
+        .from(expenses)
+        .innerJoin(shifts, eq(expenses.shiftId, shifts.id))
+        .where(
+          and(
+            eq(expenses.isDeductible, true),
+            gte(expenses.date, wStart),
+            lte(expenses.date, wEnd),
+            platformCond
+          )
+        );
+    } else {
         expList = await db
           .select({ amount: expenses.amount })
           .from(expenses)
@@ -802,6 +830,8 @@ export async function getFinancialMonthlyBreakdown(
     } catch {}
   } else {
     if (platform && platform !== "all") {
+      const parts = platform.split(",");
+      const platformCond = parts.length > 1 ? inArray(shifts.platform, parts) : eq(shifts.platform, platform);
       expenseList = await db
         .select({ amount: expenses.amount, date: expenses.date, isDeductible: expenses.isDeductible })
         .from(expenses)
@@ -810,7 +840,7 @@ export async function getFinancialMonthlyBreakdown(
           and(
             gte(expenses.date, startDate),
             lte(expenses.date, endDate),
-            eq(shifts.platform, platform)
+            platformCond
           )
         );
     } else {
@@ -929,14 +959,20 @@ export async function getRolling30DayTrend(platform?: string): Promise<any> {
           return d >= start && d <= today;
         });
         if (platform && platform !== "all") {
-          shiftList = shiftList.filter((s: any) => s.platform === platform);
+          const parts = platform.split(",");
+          shiftList = shiftList.filter((s: any) => parts.includes(s.platform));
         }
       }
     } catch {}
   } else {
     const conditions = [gte(shifts.startTime, start), lte(shifts.startTime, today)];
     if (platform && platform !== "all") {
-      conditions.push(eq(shifts.platform, platform));
+      const parts = platform.split(",");
+      if (parts.length > 1) {
+        conditions.push(inArray(shifts.platform, parts));
+      } else {
+        conditions.push(eq(shifts.platform, platform));
+      }
     }
     shiftList = await db.select().from(shifts).where(and(...conditions));
   }

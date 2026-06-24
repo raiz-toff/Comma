@@ -37,8 +37,8 @@ const CarIcon = ({ color = "#64748b" }: { color?: string }) => (
     {/* Roof */}
     <View style={{ position: "absolute", bottom: 8, left: 5, right: 5, height: 9, borderRadius: 3, backgroundColor: color }} />
     {/* Wheels */}
-    <View style={{ position: "absolute", bottom: -3, left: 4, width: 7, height: 7, borderRadius: 4, backgroundColor: "#0b0f19", borderWidth: 1.5, borderColor: color }} />
-    <View style={{ position: "absolute", bottom: -3, right: 4, width: 7, height: 7, borderRadius: 4, backgroundColor: "#0b0f19", borderWidth: 1.5, borderColor: color }} />
+    <View style={{ position: "absolute", bottom: -3, left: 4, width: 7, height: 7, borderRadius: 4, backgroundColor: "#000000", borderWidth: 1.5, borderColor: color }} />
+    <View style={{ position: "absolute", bottom: -3, right: 4, width: 7, height: 7, borderRadius: 4, backgroundColor: "#000000", borderWidth: 1.5, borderColor: color }} />
   </View>
 );
 
@@ -109,7 +109,7 @@ export default function VehiclesScreen() {
   };
 
   return (
-    <SafeAreaView className="dark flex-1 bg-[#0b0f19]">
+    <SafeAreaView className="dark flex-1 bg-[#000000]">
       {/* Header */}
       <View className="px-4 pt-3 pb-2 border-b border-slate-800/80 bg-slate-900/40">
         <SectionHeader

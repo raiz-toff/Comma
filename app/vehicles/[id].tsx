@@ -198,7 +198,7 @@ export default function VehicleDetailScreen() {
 
   if (isLoadingVehicle) {
     return (
-      <SafeAreaView className="dark flex-1 bg-[#0b0f19] items-center justify-center">
+      <SafeAreaView className="dark flex-1 bg-[#000000] items-center justify-center">
         <ActivityIndicator size="large" color="#10b981" />
       </SafeAreaView>
     );
@@ -206,7 +206,7 @@ export default function VehicleDetailScreen() {
 
   if (!vehicle) {
     return (
-      <SafeAreaView className="dark flex-1 bg-[#0b0f19] items-center justify-center p-6">
+      <SafeAreaView className="dark flex-1 bg-[#000000] items-center justify-center p-6">
         <Text className="text-slate-400 text-sm text-center">Vehicle not found.</Text>
         <TouchableOpacity onPress={() => router.back()} className="mt-4">
           <Text className="text-emerald-500 text-sm font-bold">← Go Back</Text>
@@ -216,7 +216,7 @@ export default function VehicleDetailScreen() {
   }
 
   return (
-    <SafeAreaView className="dark flex-1 bg-[#0b0f19]">
+    <SafeAreaView className="dark flex-1 bg-[#000000]">
       {/* Top Header */}
       <View className="px-4 pt-3 pb-2 border-b border-slate-800/80 bg-slate-900/40 flex-row items-center justify-between">
         <TouchableOpacity onPress={() => router.back()} className="px-3 py-2 bg-slate-800/40 rounded-lg border border-slate-700/30">

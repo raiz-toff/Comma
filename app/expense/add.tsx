@@ -167,7 +167,7 @@ export default function AddExpenseModal() {
   };
 
   return (
-    <SafeAreaView className="dark flex-1 bg-[#0b0f19]">
+    <SafeAreaView className="dark flex-1 bg-[#000000]">
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <View className="flex-row justify-between items-center px-4 py-3 border-b border-slate-800/80 bg-slate-900/40">
         <TouchableOpacity

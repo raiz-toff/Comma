@@ -22,11 +22,25 @@ import { insertShift, updateShift, getShiftById } from "../../src/database/queri
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { cn } from "../../src/lib/utils";
 import Svg, { Polyline, Circle, Line } from "react-native-svg";
-import { WebView } from "react-native-webview";
 
 type GigPlatform = "doordash" | "ubereats" | "skip" | "other";
 
 const isWeb = Platform.OS === "web";
+
+// Dynamically load WebView with a fallback to avoid crash if native binary is outdated
+let WebView: any = null;
+let hasWebViewNativeModule = false;
+if (!isWeb) {
+  try {
+    const WebViewModule = require("react-native-webview");
+    WebView = WebViewModule.WebView || WebViewModule.default || WebViewModule;
+    if (WebView) {
+      hasWebViewNativeModule = true;
+    }
+  } catch (e: any) {
+    console.warn("react-native-webview fallback triggered. Error:", e?.message || e);
+  }
+}
 
 const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string | null | undefined; strokeColor: string }) => {
   const points = React.useMemo(() => {
@@ -42,7 +56,7 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
 
   if (!points) return null;
 
-  if (isWeb) {
+  if (isWeb || !hasWebViewNativeModule || !WebView) {
     const lats = points.map((p) => p.latitude);
     const lngs = points.map((p) => p.longitude);
     const minLat = Math.min(...lats);

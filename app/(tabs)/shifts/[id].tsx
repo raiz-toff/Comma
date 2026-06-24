@@ -24,9 +24,23 @@ import { cn } from "@/src/lib/utils";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 import { ArrowLeft, Clock3, Gauge, MapPinned, PencilLine, Plus, Route, Trash2, ReceiptText } from "lucide-react-native";
 import Svg, { Polyline, Circle, Line } from "react-native-svg";
-import { WebView } from "react-native-webview";
 
 const isWeb = Platform.OS === "web";
+
+// Dynamically load WebView with a fallback to avoid crash if native binary is outdated
+let WebView: any = null;
+let hasWebViewNativeModule = false;
+if (!isWeb) {
+  try {
+    const WebViewModule = require("react-native-webview");
+    WebView = WebViewModule.WebView || WebViewModule.default || WebViewModule;
+    if (WebView) {
+      hasWebViewNativeModule = true;
+    }
+  } catch (e: any) {
+    console.warn("react-native-webview fallback triggered. Error:", e?.message || e);
+  }
+}
 
 const RouteDetailMap = ({ routePathJson, strokeColor }: { routePathJson: string | null | undefined; strokeColor: string }) => {
   const points = React.useMemo(() => {
@@ -48,7 +62,7 @@ const RouteDetailMap = ({ routePathJson, strokeColor }: { routePathJson: string 
     );
   }
 
-  if (isWeb) {
+  if (isWeb || !hasWebViewNativeModule || !WebView) {
     const lats = points.map((p) => p.latitude);
     const lngs = points.map((p) => p.longitude);
     const minLat = Math.min(...lats);

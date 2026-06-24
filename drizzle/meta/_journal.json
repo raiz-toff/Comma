@@ -57,6 +57,13 @@
       "when": 1782325409488,
       "tag": "0007_outgoing_masque",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1782339281168,
+      "tag": "0008_kind_fenris",
+      "breakpoints": true
     }
   ]
 }

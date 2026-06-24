@@ -46,6 +46,20 @@ export const shifts = sqliteTable('shifts', {
   routePath: text('route_path'),
 });
 
+export const locationPoints = sqliteTable('location_points', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id').notNull(),
+  shiftId: text('shift_id').references(() => shifts.id),
+  latitude: real('latitude').notNull(),
+  longitude: real('longitude').notNull(),
+  altitude: real('altitude'),
+  accuracy: real('accuracy'),
+  speed: real('speed'),
+  timestamp: integer('timestamp', { mode: 'timestamp' }).notNull(),
+  source: text('source').default('gps').notNull(),
+  isFiltered: integer('is_filtered', { mode: 'boolean' }).default(false).notNull(),
+});
+
 export const expenses = sqliteTable('expenses', {
   id: text('id').primaryKey(),
   shiftId: text('shift_id').references(() => shifts.id), 
@@ -72,4 +86,3 @@ export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 });
-

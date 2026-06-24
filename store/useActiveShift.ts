@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { insertShift } from "../src/database/queries/shifts";
+import { attachLocationPointsToShift, insertShift } from "../src/database/queries/shifts";
 import { type PlatformKey } from "../src/registry/platforms";
 import { cleanRoute } from "../utils/mapMatching";
 
@@ -25,8 +25,10 @@ interface ActiveShiftState {
   deadMileage: number;
   targetTime: number | null; // Unix epoch in milliseconds
   isPaused: boolean;
+  isAutoPaused: boolean;
   pausedSeconds: number;
   isFirstOrderReceived: boolean;
+  sessionId: string | null;
   routePath: Array<{ latitude: number; longitude: number; timestamp: number }>;
   
   // Actions
@@ -37,6 +39,7 @@ interface ActiveShiftState {
   addCoordinate: (latitude: number, longitude: number) => void;
   pauseShift: () => void;
   resumeShift: () => void;
+  setAutoPaused: (paused: boolean) => void;
   markFirstOrderReceived: () => void;
   reset: () => void;
 }
@@ -51,8 +54,10 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
   deadMileage: 0,
   targetTime: null,
   isPaused: false,
+  isAutoPaused: false,
   pausedSeconds: 0,
   isFirstOrderReceived: false,
+  sessionId: null,
   routePath: [],
 
   startShift: (platform, vehicleId, targetTime) => set({
@@ -65,8 +70,10 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     deadMileage: 0,
     targetTime,
     isPaused: false,
+    isAutoPaused: false,
     pausedSeconds: 0,
     isFirstOrderReceived: false,
+    sessionId: `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
     routePath: [],
   }),
 
@@ -77,6 +84,14 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     const endTime = Date.now();
     const durationSeconds = state.elapsedSeconds;
     const shiftId = `shift_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+    if (state.sessionId) {
+      try {
+        await attachLocationPointsToShift(state.sessionId, shiftId);
+      } catch (e) {
+        console.error("Failed to attach local location points to shift:", e);
+      }
+    }
 
     // Clean & road-snap the route before saving (simplify + OSRM match, graceful fallback)
     let routePathJson: string | null = null;
@@ -141,9 +156,11 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     };
   }),
 
-  pauseShift: () => set({ isPaused: true }),
+  pauseShift: () => set({ isPaused: true, isAutoPaused: false }),
   
-  resumeShift: () => set({ isPaused: false }),
+  resumeShift: () => set({ isPaused: false, isAutoPaused: false }),
+
+  setAutoPaused: (paused) => set({ isPaused: paused, isAutoPaused: paused }),
 
   markFirstOrderReceived: () => set({ isFirstOrderReceived: true }),
 
@@ -157,8 +174,10 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     deadMileage: 0,
     targetTime: null,
     isPaused: false,
+    isAutoPaused: false,
     pausedSeconds: 0,
     isFirstOrderReceived: false,
+    sessionId: null,
     routePath: [],
   })
 }));

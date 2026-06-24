@@ -372,6 +372,18 @@ export default function ShiftsScreen() {
     }).format(val);
   };
 
+  const formatCurrencyParts = (val: number) => {
+    const parts = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: profile?.country === "CA" ? "CAD" : "USD",
+    }).formatToParts(val);
+
+    return {
+      symbol: parts.find((p) => p.type === "currency")?.value || "$",
+      value: parts.filter((p) => p.type !== "currency").map((p) => p.value).join(""),
+    };
+  };
+
   const weekdayHeaderLetters = startDay === 0
     ? "S   M   T   W   T   F   S"
     : "M   T   W   T   F   S   S";
@@ -414,9 +426,14 @@ export default function ShiftsScreen() {
               <ChevronLeft color="#fff" />
             </Pressable>
 
-            <Text style={styles.amountText}>
-              {formatCurrency(displayedTotal)}
-            </Text>
+            <View style={styles.amountRow}>
+              <Text style={styles.amountSymbol}>
+                {formatCurrencyParts(displayedTotal).symbol}
+              </Text>
+              <Text style={styles.amountText} numberOfLines={1} adjustsFontSizeToFit>
+                {formatCurrencyParts(displayedTotal).value}
+              </Text>
+            </View>
 
             <Pressable
               onPress={handleNextWeek}
@@ -529,7 +546,7 @@ export default function ShiftsScreen() {
                 return (
                   <Pressable
                     key={shift.id}
-                    onPress={() => router.push({ pathname: "/shift/add", params: { shiftId: shift.id } })}
+                    onPress={() => router.push(`/shifts/${shift.id}` as any)}
                     style={styles.shiftCard}
                   >
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -741,12 +758,29 @@ const styles = StyleSheet.create({
     opacity: 0.35,
     borderColor: "#161615",
   },
+  amountRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  amountSymbol: {
+    fontSize: 24,
+    fontWeight: "600",
+    color: "#fff",
+    lineHeight: 30,
+    marginTop: 10,
+    marginRight: 4,
+  },
   amountText: {
-    fontSize: 44,
+    flexShrink: 1,
+    fontSize: 40,
     fontWeight: "800",
     color: "#fff",
-    letterSpacing: -1.2,
-    paddingVertical: 4,
+    letterSpacing: -0.5,
+    lineHeight: 48,
+    paddingVertical: 2,
+    includeFontPadding: false,
   },
   chartContainer: {
     backgroundColor: "#0d0d0d",

@@ -12,15 +12,192 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { Text } from "@/src/components/ui/text";
+import { Button } from "@/src/components/ui/button";
 import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
 import { CurrencyText } from "@/src/components/ui/CurrencyText";
-import { getShiftById, deleteShift } from "@/src/database/queries/shifts";
+import { SectionHeader } from "@/src/components/ui/SectionHeader";
+import { StatCard } from "@/src/components/ui/StatCard";
+import { getShiftById, deleteShift, getLocationPointsByShiftId } from "@/src/database/queries/shifts";
 import { getExpensesByShift, insertExpense, deleteExpense } from "@/src/database/queries/expenses";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { cn } from "@/src/lib/utils";
-import { type PlatformKey } from "@/src/registry/platforms";
+import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
+import { ArrowLeft, Clock3, Gauge, MapPinned, PencilLine, Plus, Route, Trash2, ReceiptText } from "lucide-react-native";
+import Svg, { Polyline, Circle, Line } from "react-native-svg";
+import { WebView } from "react-native-webview";
 
 const isWeb = Platform.OS === "web";
+
+const RouteDetailMap = ({ routePathJson, strokeColor }: { routePathJson: string | null | undefined; strokeColor: string }) => {
+  const points = React.useMemo(() => {
+    if (!routePathJson || typeof routePathJson !== "string") return null;
+    try {
+      const parsed = JSON.parse(routePathJson);
+      if (!Array.isArray(parsed) || parsed.length < 2) return null;
+      return parsed as Array<{ latitude: number; longitude: number }>;
+    } catch {
+      return null;
+    }
+  }, [routePathJson]);
+
+  if (!points) {
+    return (
+      <View className="py-8 border border-dashed border-slate-800/60 rounded-2xl items-center justify-center">
+        <Text className="text-slate-500 text-xs font-medium">No route path was recorded for this shift.</Text>
+      </View>
+    );
+  }
+
+  if (isWeb) {
+    const lats = points.map((p) => p.latitude);
+    const lngs = points.map((p) => p.longitude);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const latRange = maxLat - minLat || 0.001;
+    const lngRange = maxLng - minLng || 0.001;
+    const startPoint = points[0];
+    const endPoint = points[points.length - 1];
+    const sampledPoints = points.length <= 25 ? points : points.filter((_, index) => index % Math.max(1, Math.floor(points.length / 24)) === 0);
+
+    const width = 320;
+    const height = 220;
+    const padding = 16;
+    const svgPoints = sampledPoints.map((p) => {
+      const x = padding + ((p.longitude - minLng) / lngRange) * (width - 2 * padding);
+      const y = padding + (1 - (p.latitude - minLat) / latRange) * (height - 2 * padding);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(" ");
+    const startX = padding + ((startPoint.longitude - minLng) / lngRange) * (width - 2 * padding);
+    const startY = padding + (1 - (startPoint.latitude - minLat) / latRange) * (height - 2 * padding);
+    const endX = padding + ((endPoint.longitude - minLng) / lngRange) * (width - 2 * padding);
+    const endY = padding + (1 - (endPoint.latitude - minLat) / latRange) * (height - 2 * padding);
+
+    return (
+      <View className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950" style={{ height: 260 }}>
+        <Svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`}>
+          <Line x1="0" y1="55" x2={width} y2="55" stroke="#111827" strokeWidth="1" />
+          <Line x1="0" y1="110" x2={width} y2="110" stroke="#111827" strokeWidth="1" />
+          <Line x1="0" y1="165" x2={width} y2="165" stroke="#111827" strokeWidth="1" />
+          <Line x1="80" y1="0" x2="80" y2={height} stroke="#111827" strokeWidth="1" />
+          <Line x1="160" y1="0" x2="160" y2={height} stroke="#111827" strokeWidth="1" />
+          <Line x1="240" y1="0" x2="240" y2={height} stroke="#111827" strokeWidth="1" />
+          <Polyline points={svgPoints} fill="none" stroke={strokeColor} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+          <Circle cx={startX} cy={startY} r="6" fill="#10b981" stroke="#ffffff" strokeWidth="2" />
+          <Circle cx={endX} cy={endY} r="6" fill="#ef4444" stroke="#ffffff" strokeWidth="2" />
+        </Svg>
+      </View>
+    );
+  }
+
+  const pointsJson = JSON.stringify(points);
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+      <style>
+        html, body, #map {
+          height: 100%;
+          width: 100%;
+          margin: 0;
+          padding: 0;
+          background-color: #0b0f19;
+        }
+        .leaflet-control-attribution {
+          font-size: 8px !important;
+          background: rgba(11, 15, 25, 0.85) !important;
+          color: #4b5563 !important;
+        }
+        .leaflet-control-zoom {
+          border: 1px solid #1f2937 !important;
+          margin-top: 12px !important;
+          margin-left: 12px !important;
+        }
+        .leaflet-bar a {
+          background-color: #111827 !important;
+          color: #9ca3af !important;
+          border-bottom: 1px solid #1f2937 !important;
+        }
+        .leaflet-bar a:hover {
+          background-color: #1f2937 !important;
+          color: #f3f4f6 !important;
+        }
+      </style>
+    </head>
+    <body>
+      <div id="map"></div>
+      <script>
+        var points = ${pointsJson};
+        var map = L.map('map', {
+          zoomControl: true,
+          attributionControl: true
+        });
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          subdomains: 'abcd',
+          maxZoom: 20
+        }).addTo(map);
+
+        if (points && points.length > 0) {
+          var latLngs = points.map(function(p) {
+            return [p.latitude, p.longitude];
+          });
+
+          var polyline = L.polyline(latLngs, {
+            color: '${strokeColor}',
+            weight: 5,
+            opacity: 0.9,
+            lineCap: 'round',
+            lineJoin: 'round'
+          }).addTo(map);
+
+          var startLatLng = latLngs[0];
+          var endLatLng = latLngs[latLngs.length - 1];
+
+          L.circleMarker(startLatLng, {
+            radius: 7,
+            fillColor: '#10b981',
+            fillOpacity: 1,
+            color: '#ffffff',
+            weight: 2
+          }).addTo(map);
+
+          L.circleMarker(endLatLng, {
+            radius: 7,
+            fillColor: '#ef4444',
+            fillOpacity: 1,
+            color: '#ffffff',
+            weight: 2
+          }).addTo(map);
+
+          map.fitBounds(polyline.getBounds(), { padding: [30, 30] });
+        } else {
+          map.setView([0, 0], 2);
+        }
+      </script>
+    </body>
+    </html>
+  `;
+
+  return (
+    <View className="overflow-hidden rounded-2xl border border-slate-800 bg-[#0b0f19]" style={{ height: 260 }}>
+      <WebView
+        originWhitelist={["*"]}
+        source={{ html: htmlContent }}
+        style={{ flex: 1, backgroundColor: "#0b0f19" }}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        scalesPageToFit={true}
+      />
+    </View>
+  );
+};
 
 const EXPENSE_CATEGORIES = [
   { id: "fuel", label: "Fuel", icon: "⛽" },
@@ -54,6 +231,12 @@ export default function ShiftDetailScreen() {
   const { data: expensesList = [], isLoading: isLoadingExpenses } = useQuery({
     queryKey: ["shift-expenses", id],
     queryFn: () => getExpensesByShift(id!),
+    enabled: !!id,
+  });
+
+  const { data: localPoints = [] } = useQuery({
+    queryKey: ["shift-location-points", id],
+    queryFn: () => getLocationPointsByShiftId(id!),
     enabled: !!id,
   });
 
@@ -165,6 +348,20 @@ export default function ShiftDetailScreen() {
   const durationHrs = (shift.durationSeconds / 3600).toFixed(1);
   const totalRevenue = shift.grossRevenue + shift.tipsRevenue;
   const hourlyRate = shift.durationSeconds > 0 ? (totalRevenue / (shift.durationSeconds / 3600)) : 0;
+  let routePoints: Array<{ latitude: number; longitude: number }> = [];
+  if (shift.routePath && typeof shift.routePath === "string") {
+    try {
+      const parsed = JSON.parse(shift.routePath);
+      routePoints = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      routePoints = [];
+    }
+  }
+  const expenseTotal = expensesList.reduce((sum, exp: any) => sum + (Number(exp.amount) || 0), 0);
+  const routeStrokeColor = PLATFORMS[shift.platform as PlatformKey]?.color || "#10b981";
+  const gpsPointCount = localPoints.length;
+  const firstGpsPoint = localPoints[0];
+  const lastGpsPoint = localPoints[gpsPointCount - 1];
 
   const dateStr = new Date(shift.startTime).toLocaleDateString(undefined, {
     weekday: "long",
@@ -238,6 +435,46 @@ export default function ShiftDetailScreen() {
             <View className="bg-slate-950/20 px-3.5 py-3 rounded-xl border border-slate-800/40">
               <Text className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Shift Notes</Text>
               <Text className="text-slate-300 text-xs mt-1.5 leading-relaxed font-medium">"{shift.notes}"</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Route map card */}
+        <View className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-4 flex flex-col gap-3">
+          <View className="flex-row justify-between items-center">
+            <Text className="text-sm font-extrabold text-slate-100 tracking-tight">Route Map</Text>
+            <Text className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+              {gpsPointCount > 0 ? `${gpsPointCount} local points` : routePoints.length > 0 ? `${routePoints.length} route points` : "No GPS"}
+            </Text>
+          </View>
+
+          <RouteDetailMap routePathJson={shift.routePath} strokeColor={routeStrokeColor} />
+
+          {routePoints.length > 0 ? (
+            <View className="flex-row justify-between items-center bg-slate-950/20 px-3.5 py-2.5 rounded-xl border border-slate-800/40">
+              <View className="flex-row items-center gap-2">
+                <View className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <Text className="text-xs text-slate-400 font-bold">Start</Text>
+              </View>
+              <View className="flex-row items-center gap-2">
+                <Text className="text-xs text-slate-400 font-bold">End</Text>
+                <View className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+              </View>
+            </View>
+          ) : null}
+
+          {gpsPointCount > 0 ? (
+            <View className="bg-slate-950/20 px-3.5 py-3 rounded-xl border border-slate-800/40 gap-2">
+              <View className="flex-row justify-between items-center">
+                <Text className="text-xs text-slate-400 font-bold uppercase tracking-wider">Local GPS Log</Text>
+                <Text className="text-[10px] text-slate-500 font-bold">{gpsPointCount} points</Text>
+              </View>
+              <Text className="text-xs text-slate-300 font-medium">
+                {firstGpsPoint?.timestamp ? `Started ${new Date(firstGpsPoint.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Started with the first captured point"}
+              </Text>
+              <Text className="text-xs text-slate-300 font-medium">
+                {lastGpsPoint?.timestamp ? `Ended ${new Date(lastGpsPoint.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Last captured point unavailable"}
+              </Text>
             </View>
           ) : null}
         </View>

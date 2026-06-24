@@ -52,12 +52,6 @@
         }
       ],
       [
-        "react-native-maps",
-        {
-          "googleMapsApiKey": "AIzaSyC1mTxz_yuYVBlB-nxheF5ull6vQ13MKLI"
-        }
-      ],
-      [
         "expo-build-properties",
         {
           "android": {

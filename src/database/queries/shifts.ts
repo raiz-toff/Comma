@@ -1,5 +1,5 @@
 import { db } from "../client";
-import { shifts } from "../schema";
+import { shifts, locationPoints } from "../schema";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { Platform } from "react-native";
 
@@ -14,6 +14,64 @@ export async function insertShift(payload: typeof shifts.$inferInsert): Promise<
     return;
   }
   await db.insert(shifts).values(payload);
+}
+
+export async function insertLocationPoint(payload: typeof locationPoints.$inferInsert): Promise<void> {
+  if (isWeb) {
+    const existing = localStorage.getItem("comma_location_points");
+    const list = existing ? JSON.parse(existing) : [];
+    list.push(payload);
+    localStorage.setItem("comma_location_points", JSON.stringify(list));
+    return;
+  }
+  await db.insert(locationPoints).values(payload);
+}
+
+export async function attachLocationPointsToShift(sessionId: string, shiftId: string): Promise<void> {
+  if (isWeb) {
+    const existing = localStorage.getItem("comma_location_points");
+    if (!existing) return;
+    const list = JSON.parse(existing);
+    for (const point of list) {
+      if (point.sessionId === sessionId && !point.shiftId) {
+        point.shiftId = shiftId;
+      }
+    }
+    localStorage.setItem("comma_location_points", JSON.stringify(list));
+    return;
+  }
+  await db
+    .update(locationPoints)
+    .set({ shiftId })
+    .where(eq(locationPoints.sessionId, sessionId));
+}
+
+export async function getLocationPointsByShiftId(shiftId: string): Promise<any[]> {
+  if (isWeb) {
+    const existing = localStorage.getItem("comma_location_points");
+    if (!existing) return [];
+    const list = JSON.parse(existing);
+    return list.filter((point: any) => point.shiftId === shiftId).sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }
+
+  return db
+    .select()
+    .from(locationPoints)
+    .where(eq(locationPoints.shiftId, shiftId));
+}
+
+export async function getLocationPointsBySessionId(sessionId: string): Promise<any[]> {
+  if (isWeb) {
+    const existing = localStorage.getItem("comma_location_points");
+    if (!existing) return [];
+    const list = JSON.parse(existing);
+    return list.filter((point: any) => point.sessionId === sessionId).sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }
+
+  return db
+    .select()
+    .from(locationPoints)
+    .where(eq(locationPoints.sessionId, sessionId));
 }
 
 export async function updateShift(id: string, payload: Partial<typeof shifts.$inferInsert>): Promise<void> {

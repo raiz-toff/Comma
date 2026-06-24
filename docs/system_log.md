@@ -407,6 +407,8 @@ Stop execution immediately upon closing the append stream. Await PM verification
   - Modified: `app/reports/index.tsx`, `app/settings/index.tsx`, `app/_layout.tsx`, `app/(tabs)/index.tsx`
 - **Database Impact:** Complete database restore, reset, and CSV backup exports.
 - **State:** Finalized native features integration. Mounted background services (GPS, Wake Lock) globally in `_layout.tsx`, resolved dual timer speed issues on the dashboard, implemented a fully functional data settings section featuring multi-table encrypted backups/restores, secure 4-digit PIN authentication, cross-platform export selection, and cross-platform native date pickers. Checked all TypeScript definitions with zero build errors. Ready for app store submission.
-
-
-
+### Map Migration: Leaflet Integration - 2026-06-24T18:38:00-04:00
+- **Files Created/Modified:**
+  - Modified: `app/(tabs)/shifts/[id].tsx`, `app/shift/add.tsx`, `app.json`, `package.json`, `package-lock.json`
+- **Database Impact:** None.
+- **State:** Replaced SVG-based static route traces with an interactive Leaflet.js-based WebView map utilizing CartoDB Dark Matter tile layer for an optimized, completely free mobile route visualization. Cleaned up react-native-maps dependencies and Google Maps API keys from config.

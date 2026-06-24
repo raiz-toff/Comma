@@ -4,7 +4,7 @@ import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 import { useActiveShift } from "../store/useActiveShift";
 import { useSettingsStore } from "../store/useSettingsStore";
-import { GPS_CONFIG } from "../src/registry/gpsConfig";
+import { insertLocationPoint } from "../src/database/queries/shifts";
 import { haversineDistance, classifyMiles, isGPSJitter } from "../utils/geoCalculations";
 
 const LOCATION_TASK_NAME = "COMMA_BACKGROUND_LOCATION_TASK";
@@ -12,6 +12,7 @@ const isWeb = Platform.OS === "web";
 
 // Module level state to track last coordinate across task executions
 let lastLocation: { lat: number; lng: number; timestamp: number } | null = null;
+let slowPointStreak = 0;
 
 if (!isWeb) {
   TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
@@ -32,21 +33,53 @@ if (!isWeb) {
           lng: loc.coords.longitude,
           timestamp: loc.timestamp,
         };
-        useActiveShift.getState().addCoordinate(loc.coords.latitude, loc.coords.longitude);
+        const activeShift = useActiveShift.getState();
+
+        if (activeShift.sessionId) {
+          try {
+            await insertLocationPoint({
+              id: `point_${loc.timestamp}_${Math.random().toString(36).slice(2, 8)}`,
+              sessionId: activeShift.sessionId,
+              shiftId: null,
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+              altitude: loc.coords.altitude ?? null,
+              accuracy: loc.coords.accuracy ?? null,
+              speed: loc.coords.speed ?? null,
+              timestamp: new Date(loc.timestamp),
+              source: "gps",
+              isFiltered: false,
+            });
+          } catch (err) {
+            console.warn("Failed to persist local GPS point:", err);
+          }
+        }
+
+        activeShift.addCoordinate(loc.coords.latitude, loc.coords.longitude);
 
         if (lastLocation) {
           const distanceM = haversineDistance(lastLocation, currentCoord);
           const elapsedMs = currentCoord.timestamp - lastLocation.timestamp;
+          const speedKmh = elapsedMs > 0 ? (distanceM / (elapsedMs / 1000)) * 3.6 : 0;
 
           // Jitter filter
           if (!isGPSJitter(distanceM, elapsedMs)) {
             const distanceConverted = distanceM / conversionFactor;
-            const isFirstReceived = useActiveShift.getState().isFirstOrderReceived;
+            const isFirstReceived = activeShift.isFirstOrderReceived;
 
-            if (isFirstReceived) {
-              useActiveShift.getState().updateMileage(distanceConverted, 0);
+            activeShift.updateMileage(isFirstReceived ? distanceConverted : 0, isFirstReceived ? 0 : distanceConverted);
+
+            const movementType = classifyMiles(speedKmh);
+            if (movementType === "dead") {
+              slowPointStreak += 1;
+              if (slowPointStreak >= 3 && !activeShift.isPaused) {
+                activeShift.setAutoPaused(true);
+              }
             } else {
-              useActiveShift.getState().updateMileage(0, distanceConverted);
+              slowPointStreak = 0;
+              if (activeShift.isAutoPaused) {
+                activeShift.resumeShift();
+              }
             }
           }
         }
@@ -107,6 +140,7 @@ export function useGPSTracking() {
           await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
         }
         lastLocation = null;
+        slowPointStreak = 0;
       }
     } catch (err) {
       // Silence no-op task exceptions

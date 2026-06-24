@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ScrollView,
   View,
@@ -22,29 +22,13 @@ import { insertShift, updateShift, getShiftById } from "../../src/database/queri
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { cn } from "../../src/lib/utils";
 import Svg, { Polyline, Circle, Line } from "react-native-svg";
-
-// react-native-maps is a native module — lazy-loaded inside component to avoid
-// top-level module initialization crashes on Android.
-const loadMaps = () => {
-  if (Platform.OS === "web") return { MapView: null, Marker: null, MapPolyline: null };
-  try {
-    const Maps = require("react-native-maps");
-    return { MapView: Maps.default || null, Marker: Maps.Marker || null, MapPolyline: Maps.Polyline || null };
-  } catch {
-    return { MapView: null, Marker: null, MapPolyline: null };
-  }
-};
+import { WebView } from "react-native-webview";
 
 type GigPlatform = "doordash" | "ubereats" | "skip" | "other";
 
-// ─── Route Map Component ─────────────────────────────────────────────────────
-// Native: Full interactive MapView with road-snapped polyline
-// Web / fallback: SVG schematic trace
+const isWeb = Platform.OS === "web";
 
 const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string | null | undefined; strokeColor: string }) => {
-  // Lazy-load maps inside the component to avoid top-level native module crashes
-  const { MapView, Marker, MapPolyline } = React.useMemo(() => loadMaps(), []);
-
   const points = React.useMemo(() => {
     if (!routePathJson || typeof routePathJson !== "string") return null;
     try {
@@ -58,138 +42,169 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
 
   if (!points) return null;
 
-  // ── Native interactive MapView ──────────────────────────────────────────────
-  if (Platform.OS !== "web" && MapView) {
+  if (isWeb) {
     const lats = points.map((p) => p.latitude);
     const lngs = points.map((p) => p.longitude);
-
     const minLat = Math.min(...lats);
     const maxLat = Math.max(...lats);
     const minLng = Math.min(...lngs);
     const maxLng = Math.max(...lngs);
+    const latRange = maxLat - minLat || 0.001;
+    const lngRange = maxLng - minLng || 0.001;
+    const W = 340;
+    const H = 200;
+    const PAD = 16;
 
-    const latPad = (maxLat - minLat) * 0.25 || 0.005;
-    const lngPad = (maxLng - minLng) * 0.25 || 0.005;
+    const svgPoints = points
+      .map((p) => {
+        const x = PAD + ((p.longitude - minLng) / lngRange) * (W - 2 * PAD);
+        const y = PAD + (1 - (p.latitude - minLat) / latRange) * (H - 2 * PAD);
+        return x.toFixed(1) + "," + y.toFixed(1);
+      })
+      .join(" ");
 
-    const region = {
-      latitude:  (minLat + maxLat) / 2,
-      longitude: (minLng + maxLng) / 2,
-      latitudeDelta:  maxLat - minLat + latPad,
-      longitudeDelta: maxLng - minLng + lngPad,
-    };
-
-    const startPoint = points[0];
-    const endPoint   = points[points.length - 1];
+    const startX = PAD + ((points[0].longitude - minLng) / lngRange) * (W - 2 * PAD);
+    const startY = PAD + (1 - (points[0].latitude - minLat) / latRange) * (H - 2 * PAD);
+    const endX = PAD + ((points[points.length - 1].longitude - minLng) / lngRange) * (W - 2 * PAD);
+    const endY = PAD + (1 - (points[points.length - 1].latitude - minLat) / latRange) * (H - 2 * PAD);
 
     return (
-      <View style={{ borderRadius: 16, overflow: "hidden", marginVertical: 8 }}>
-        <MapView
-          style={{ width: "100%", height: 220 }}
-          region={region}
-          scrollEnabled
-          zoomEnabled
-          pitchEnabled={false}
-          rotateEnabled={false}
-          mapType="standard"
-          userInterfaceStyle="dark"
-        >
-          <MapPolyline
-            coordinates={points}
-            strokeColor={strokeColor}
-            strokeWidth={5}
-            lineCap="round"
-            lineJoin="round"
-          />
-          <Marker coordinate={startPoint} anchor={{ x: 0.5, y: 0.5 }}>
-            <View style={{
-              width: 14, height: 14, borderRadius: 7,
-              backgroundColor: "#10b981",
-              borderWidth: 2, borderColor: "#fff"
-            }} />
-          </Marker>
-          <Marker coordinate={endPoint} anchor={{ x: 0.5, y: 0.5 }}>
-            <View style={{
-              width: 14, height: 14, borderRadius: 7,
-              backgroundColor: strokeColor,
-              borderWidth: 2, borderColor: "#fff"
-            }} />
-          </Marker>
-        </MapView>
-
-        {/* Legend */}
-        <View style={{
-          flexDirection: "row", justifyContent: "space-between",
-          paddingHorizontal: 12, paddingVertical: 8,
-          backgroundColor: "#0d0d0d",
-          borderBottomLeftRadius: 16, borderBottomRightRadius: 16,
-          borderWidth: 0.5, borderTopWidth: 0, borderColor: "#1f1f1f",
-        }}>
+      <View style={{ marginVertical: 8, backgroundColor: "#0d0d0d", borderRadius: 16, borderWidth: 0.5, borderColor: "#1f1f1f", overflow: "hidden" }}>
+        <View style={{ height: H, backgroundColor: "#060608", justifyContent: "center", alignItems: "center" }}>
+          <Svg width="100%" height={H} viewBox={"0 0 " + W + " " + H}>
+            <Line x1="0" y1="50" x2="340" y2="50" stroke="#121216" strokeWidth="0.8" />
+            <Line x1="0" y1="100" x2="340" y2="100" stroke="#121216" strokeWidth="0.8" />
+            <Line x1="0" y1="150" x2="340" y2="150" stroke="#121216" strokeWidth="0.8" />
+            <Line x1="85" y1="0" x2="85" y2="200" stroke="#121216" strokeWidth="0.8" />
+            <Line x1="170" y1="0" x2="170" y2="200" stroke="#121216" strokeWidth="0.8" />
+            <Line x1="255" y1="0" x2="255" y2="200" stroke="#121216" strokeWidth="0.8" />
+            <Polyline points={svgPoints} fill="none" stroke={strokeColor} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+            <Circle cx={startX} cy={startY} r="5" fill="#10b981" />
+            <Circle cx={endX} cy={endY} r="6" fill="#ef4444" stroke="#000" strokeWidth="1" />
+          </Svg>
+        </View>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 8 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#10b981" }} />
             <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600" }}>Start</Text>
           </View>
-          <Text style={{ color: "#52525b", fontSize: 11, fontWeight: "600" }}>
-            {points.length} GPS points
-          </Text>
+          <Text style={{ color: "#52525b", fontSize: 11, fontWeight: "600" }}>{points.length} GPS points</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600" }}>End</Text>
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: strokeColor }} />
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#ef4444" }} />
           </View>
         </View>
       </View>
     );
   }
 
-  // ── Web / Fallback: SVG schematic trace ─────────────────────────────────────
-  const lats = points.map((p) => p.latitude);
-  const lngs = points.map((p) => p.longitude);
-  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-  const latRange = maxLat - minLat || 0.001;
-  const lngRange = maxLng - minLng || 0.001;
-  const W = 340, H = 200, PAD = 16;
+  const pointsJson = JSON.stringify(points);
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+      <style>
+        html, body, #map {
+          height: 100%;
+          width: 100%;
+          margin: 0;
+          padding: 0;
+          background-color: #0b0f19;
+        }
+        .leaflet-control-attribution {
+          font-size: 8px !important;
+          background: rgba(11, 15, 25, 0.85) !important;
+          color: #4b5563 !important;
+        }
+        .leaflet-control-zoom {
+          border: 1px solid #1f2937 !important;
+          margin-top: 8px !important;
+          margin-left: 8px !important;
+        }
+        .leaflet-bar a {
+          background-color: #111827 !important;
+          color: #9ca3af !important;
+          border-bottom: 1px solid #1f2937 !important;
+        }
+        .leaflet-bar a:hover {
+          background-color: #1f2937 !important;
+          color: #f3f4f6 !important;
+        }
+      </style>
+    </head>
+    <body>
+      <div id="map"></div>
+      <script>
+        var points = ${pointsJson};
+        var map = L.map('map', {
+          zoomControl: true,
+          attributionControl: true
+        });
 
-  const svgPoints = points.map((p) => {
-    const x = PAD + ((p.longitude - minLng) / lngRange) * (W - 2 * PAD);
-    const y = PAD + (1 - (p.latitude - minLat) / latRange) * (H - 2 * PAD);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(" ");
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          subdomains: 'abcd',
+          maxZoom: 20
+        }).addTo(map);
 
-  const startX = PAD + ((points[0].longitude - minLng) / lngRange) * (W - 2 * PAD);
-  const startY = PAD + (1 - (points[0].latitude - minLat) / latRange) * (H - 2 * PAD);
-  const endX   = PAD + ((points[points.length-1].longitude - minLng) / lngRange) * (W - 2 * PAD);
-  const endY   = PAD + (1 - (points[points.length-1].latitude - minLat) / latRange) * (H - 2 * PAD);
+        if (points && points.length > 0) {
+          var latLngs = points.map(function(p) {
+            return [p.latitude, p.longitude];
+          });
+
+          var polyline = L.polyline(latLngs, {
+            color: '${strokeColor}',
+            weight: 5,
+            opacity: 0.9,
+            lineCap: 'round',
+            lineJoin: 'round'
+          }).addTo(map);
+
+          var startLatLng = latLngs[0];
+          var endLatLng = latLngs[latLngs.length - 1];
+
+          L.circleMarker(startLatLng, {
+            radius: 7,
+            fillColor: '#10b981',
+            fillOpacity: 1,
+            color: '#ffffff',
+            weight: 2
+          }).addTo(map);
+
+          L.circleMarker(endLatLng, {
+            radius: 7,
+            fillColor: '#ef4444',
+            fillOpacity: 1,
+            color: '#ffffff',
+            weight: 2
+          }).addTo(map);
+
+          map.fitBounds(polyline.getBounds(), { padding: [30, 30] });
+        } else {
+          map.setView([0, 0], 2);
+        }
+      </script>
+    </body>
+    </html>
+  `;
 
   return (
-    <View style={{ marginVertical: 8, backgroundColor: "#0d0d0d", borderRadius: 16, borderWidth: 0.5, borderColor: "#1f1f1f", overflow: "hidden" }}>
-      <View style={{ height: H, backgroundColor: "#060608", justifyContent: "center", alignItems: "center" }}>
-        <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
-          <Line x1="0" y1="50"  x2="340" y2="50"  stroke="#121216" strokeWidth="0.8" />
-          <Line x1="0" y1="100" x2="340" y2="100" stroke="#121216" strokeWidth="0.8" />
-          <Line x1="0" y1="150" x2="340" y2="150" stroke="#121216" strokeWidth="0.8" />
-          <Line x1="85"  y1="0" x2="85"  y2="200" stroke="#121216" strokeWidth="0.8" />
-          <Line x1="170" y1="0" x2="170" y2="200" stroke="#121216" strokeWidth="0.8" />
-          <Line x1="255" y1="0" x2="255" y2="200" stroke="#121216" strokeWidth="0.8" />
-          <Polyline points={svgPoints} fill="none" stroke={strokeColor} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-          <Circle cx={startX} cy={startY} r="5" fill="#10b981" />
-          <Circle cx={endX}   cy={endY}   r="6" fill="#ef4444" stroke="#000" strokeWidth="1" />
-        </Svg>
-      </View>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 8 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#10b981" }} />
-          <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600" }}>Start</Text>
-        </View>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600" }}>End</Text>
-          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#ef4444" }} />
-        </View>
-      </View>
+    <View style={{ marginVertical: 8, backgroundColor: "#0b0f19", borderRadius: 16, borderWidth: 0.5, borderColor: "#1f1f1f", overflow: "hidden", height: 240 }}>
+      <WebView
+        originWhitelist={["*"]}
+        source={{ html: htmlContent }}
+        style={{ flex: 1, backgroundColor: "#0b0f19" }}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        scalesPageToFit={true}
+      />
     </View>
   );
 };
-
-
 
 export default function AddShiftModal() {
   const queryClient = useQueryClient();

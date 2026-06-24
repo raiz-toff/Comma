@@ -585,7 +585,7 @@ export default function HomeScreen() {
           <>
             {/* ── Hero Earnings Summary ────────────────────────────────── */}
             <View style={S.hero}>
-              <View style={{ padding: 14, paddingBottom: 0, gap: 12 }}>
+              <View style={{ padding: 14, paddingBottom: 10, gap: 12 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                   <Text style={S.heroLabel}>TOTAL EARNINGS</Text>
                   <View style={S.trendBadge}>
@@ -593,10 +593,12 @@ export default function HomeScreen() {
                   </View>
                 </View>
                 
-                <Text style={S.heroValue} numberOfLines={1} adjustsFontSizeToFit>
+                <View style={S.heroValueRow}>
                   <Text style={S.heroCurrency}>$</Text>
-                  {netEarnings.toFixed(2)}
-                </Text>
+                  <Text style={S.heroValue} numberOfLines={1} adjustsFontSizeToFit>
+                    {netEarnings.toFixed(2)}
+                  </Text>
+                </View>
 
                 <View style={S.heroColumns}>
                   <View style={S.heroCol}>
@@ -614,7 +616,7 @@ export default function HomeScreen() {
                 </View>
               </View>
 
-              <View style={{ marginTop: 10, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, overflow: "hidden" }}>
+              <View style={{ marginTop: 2, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, overflow: "hidden" }}>
                 <Sparkline points={sparkPoints} color="#3b82f6" height={42} />
               </View>
             </View>
@@ -1007,13 +1009,14 @@ const S = StyleSheet.create({
   avatarText: { color: "#fff", fontSize: 14, fontWeight: "800" },
   bellBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#1c1c1e", borderWidth: 0.5, borderColor: "#333", alignItems: "center", justifyContent: "center" },
 
-  hero: { backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", overflow: "hidden" },
+  hero: { backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f" },
   heroLabel: { fontSize: 11, fontWeight: "700", color: "#71717a", letterSpacing: 0.8 },
-  heroCurrency: { fontSize: 24, fontWeight: "600", color: "#fff", marginTop: 6, marginRight: 2 },
-  heroValue: { fontSize: 52, fontWeight: "800", color: "#fff", letterSpacing: -1.2 },
+  heroValueRow: { flexDirection: "row", alignItems: "flex-start", flexWrap: "nowrap" },
+  heroCurrency: { fontSize: 24, fontWeight: "600", color: "#fff", lineHeight: 30, marginTop: 8, marginRight: 4 },
+  heroValue: { flexShrink: 1, fontSize: 48, fontWeight: "800", color: "#fff", letterSpacing: -0.5, lineHeight: 54, includeFontPadding: false },
   trendBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, backgroundColor: "rgba(16, 185, 129, 0.12)" },
   trendText: { fontSize: 12, fontWeight: "700", color: "#10b981" },
-  heroColumns: { flexDirection: "row", gap: 32, marginTop: 16, paddingBottom: 16 },
+  heroColumns: { flexDirection: "row", flexWrap: "wrap", gap: 18, marginTop: 16, paddingBottom: 16 },
   heroCol: { gap: 4 },
   heroColLabel: { fontSize: 12, color: "#71717a", fontWeight: "500" },
   heroColValue: { fontSize: 16, color: "#fff", fontWeight: "700" },

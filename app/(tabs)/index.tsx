@@ -448,6 +448,29 @@ export default function HomeScreen() {
     setShowWizard(true);
   };
 
+  const handleSimulateGPSMove = () => {
+    let nextLat = 40.7128;
+    let nextLng = -74.0060;
+    
+    if (routePath && routePath.length > 0) {
+      const last = routePath[routePath.length - 1];
+      nextLat = last.latitude + 0.0009;
+      nextLng = last.longitude + 0.0009;
+    }
+    
+    useActiveShift.getState().addCoordinate(nextLat, nextLng);
+    
+    const unit = profile?.distanceUnit ?? "mi";
+    const conversionFactor = unit === "mi" ? 1609.344 : 1000.0;
+    const distanceConverted = 100.0 / conversionFactor;
+    
+    if (isFirstOrderReceived) {
+      updateMileage(distanceConverted, 0);
+    } else {
+      updateMileage(0, distanceConverted);
+    }
+  };
+
   const nextStep = () => {
     if (wizardStep === "vehicle") setWizardStep("platform");
     else if (wizardStep === "platform") setWizardStep("target");
@@ -818,7 +841,15 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <View style={{ padding: 14, gap: 14 }}>
+          <View style={{ padding: 14, gap: 10 }}>
+            {isDemoMode && (
+              <Pressable
+                onPress={handleSimulateGPSMove}
+                style={[S.clockSecBtn, { borderColor: "#3b82f6", backgroundColor: "rgba(59, 130, 246, 0.05)", height: 38, marginBottom: 4 }]}
+              >
+                <Text style={[S.clockSecBtnText, { color: "#3b82f6", fontWeight: "700" }]}>Simulate GPS Step 🚗</Text>
+              </Pressable>
+            )}
             <Pressable onPress={handleEndShift} style={[S.clockSecBtn, { backgroundColor: "#ef4444", borderColor: "#ef4444", height: 42 }]}>
               <SquareIcon size={10} color="#fff" />
               <Text style={[S.clockSecBtnText, { fontWeight: "800" }]}>End Shift</Text>

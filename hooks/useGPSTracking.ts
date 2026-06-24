@@ -102,11 +102,14 @@ export function useGPSTracking() {
     try {
       const isRegistered = await TaskManager.isTaskRegisteredAsync(LOCATION_TASK_NAME);
       if (isRegistered) {
-        await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
+        const hasStarted = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
+        if (hasStarted) {
+          await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
+        }
         lastLocation = null;
       }
     } catch (err) {
-      console.error("Failed to stop location updates:", err);
+      // Silence no-op task exceptions
     }
   };
 

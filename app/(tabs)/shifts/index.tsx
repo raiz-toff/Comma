@@ -574,6 +574,9 @@ export default function ShiftsScreen() {
       </ScrollView>
 
       {/* ─── Week Selector Dropdown Modal ────────────────────────────────────── */}
+      {/* Conditionally mount (not just hide) the Modal so its native root does not
+          persist and conflict with Expo Router's navigation on Android Fabric. */}
+      {isWeekSelectorOpen && (
       <Modal
         visible={isWeekSelectorOpen}
         animationType="slide"
@@ -675,6 +678,7 @@ export default function ShiftsScreen() {
           </View>
         </SafeAreaView>
       </Modal>
+      )}
     </SafeAreaView>
   );
 }

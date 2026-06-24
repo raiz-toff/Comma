@@ -23,18 +23,17 @@ import { useSettingsStore } from "../../store/useSettingsStore";
 import { cn } from "../../src/lib/utils";
 import Svg, { Polyline, Circle, Line } from "react-native-svg";
 
-// react-native-maps is a native module — import conditionally for web safety
-let MapView: any = null;
-let Marker: any = null;
-let MapPolyline: any = null;
-if (Platform.OS !== "web") {
+// react-native-maps is a native module — lazy-loaded inside component to avoid
+// top-level module initialization crashes on Android.
+const loadMaps = () => {
+  if (Platform.OS === "web") return { MapView: null, Marker: null, MapPolyline: null };
   try {
     const Maps = require("react-native-maps");
-    MapView = Maps.default;
-    Marker = Maps.Marker;
-    MapPolyline = Maps.Polyline;
-  } catch {}
-}
+    return { MapView: Maps.default || null, Marker: Maps.Marker || null, MapPolyline: Maps.Polyline || null };
+  } catch {
+    return { MapView: null, Marker: null, MapPolyline: null };
+  }
+};
 
 type GigPlatform = "doordash" | "ubereats" | "skip" | "other";
 
@@ -42,8 +41,12 @@ type GigPlatform = "doordash" | "ubereats" | "skip" | "other";
 // Native: Full interactive MapView with road-snapped polyline
 // Web / fallback: SVG schematic trace
 
-const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string; strokeColor: string }) => {
+const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string | null | undefined; strokeColor: string }) => {
+  // Lazy-load maps inside the component to avoid top-level native module crashes
+  const { MapView, Marker, MapPolyline } = React.useMemo(() => loadMaps(), []);
+
   const points = React.useMemo(() => {
+    if (!routePathJson || typeof routePathJson !== "string") return null;
     try {
       const parsed = JSON.parse(routePathJson);
       if (!Array.isArray(parsed) || parsed.length < 2) return null;
@@ -216,15 +219,18 @@ export default function AddShiftModal() {
   const { data: vehiclesList = [], isLoading: isLoadingVehicles } = useQuery({
     queryKey: ["vehicles"],
     queryFn: async () => {
-      const list = await getVehicles();
-      // Set default selected vehicle to active vehicle or first vehicle in list
-      if (list.length > 0 && !shiftId) {
-        const active = list.find((v: any) => v.isActive);
-        setSelectedVehicleId(active ? active.id : list[0].id);
-      }
-      return list;
+      return getVehicles();
     },
   });
+
+  // Set default vehicle only when NOT editing an existing shift.
+  // Must be in useEffect (not queryFn) to avoid setState outside React's render cycle on Android Fabric.
+  React.useEffect(() => {
+    if (vehiclesList.length > 0 && !shiftId && !selectedVehicleId) {
+      const active = vehiclesList.find((v: any) => v.isActive);
+      setSelectedVehicleId(active ? active.id : vehiclesList[0].id);
+    }
+  }, [vehiclesList, shiftId]);
 
   // Query Existing Shift
   const { data: existingShift } = useQuery({
@@ -631,8 +637,8 @@ export default function AddShiftModal() {
             </View>
           </View>
 
-          {/* Route Map (if routePath exists) */}
-          {existingShift?.routePath && (
+          {/* Route Map (if routePath exists and is a non-empty string) */}
+          {existingShift?.routePath && typeof existingShift.routePath === "string" && existingShift.routePath.trim().length > 0 && (
             <RouteLargeMap
               routePathJson={existingShift.routePath}
               strokeColor={PLATFORMS[selectedPlatform]?.color || "#3b82f6"}

@@ -57,6 +57,14 @@
           "googleMapsApiKey": ""
         }
       ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24
+          }
+        }
+      ],
       "expo-notifications",
       "expo-asset",
       "expo-web-browser"

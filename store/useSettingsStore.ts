@@ -7,16 +7,52 @@ import { eq } from "drizzle-orm";
 const isWeb = Platform.OS === "web";
 
 const generateMockRoutePath = (shiftCounter: number): string => {
-  const baseLat = 37.7749 + (shiftCounter % 7) * 0.02;
-  const baseLng = -122.4194 - (shiftCounter % 5) * 0.025;
+  // Base coordinates around San Francisco downtown (near Market St)
+  const baseLat = 37.7749 + (shiftCounter % 5) * 0.005;
+  const baseLng = -122.4194 - (shiftCounter % 3) * 0.008;
   const points = [];
-  const numPoints = 12 + (shiftCounter % 8);
-  for (let i = 0; i < numPoints; i++) {
-    const angle = (i / numPoints) * Math.PI * 2 + (shiftCounter % 3);
-    const radius = 0.005 + (i / numPoints) * 0.015;
+  const numPoints = 15 + (shiftCounter % 10);
+  
+  let currentLat = baseLat;
+  let currentLng = baseLng;
+  points.push({
+    latitude: currentLat,
+    longitude: currentLng,
+    timestamp: Date.now() - numPoints * 60000,
+  });
+
+  // Start with a semi-random direction (0=North, 1=East, 2=South, 3=West)
+  let dir = (shiftCounter * 3) % 4;
+
+  // Block sizes in degrees (approx 100-200 meters in SF)
+  const latBlock = 0.0011; // North-South block
+  const lngBlock = 0.0018; // East-West block
+
+  for (let i = 1; i < numPoints; i++) {
+    // 35% chance to make a turn at an intersection
+    if (Math.random() < 0.35) {
+      // Turn left or right (change direction axis)
+      dir = (dir + (Math.random() < 0.5 ? 1 : 3)) % 4;
+    }
+
+    // Move along the current direction
+    if (dir === 0) {
+      currentLat += latBlock;
+    } else if (dir === 1) {
+      currentLng += lngBlock;
+    } else if (dir === 2) {
+      currentLat -= latBlock;
+    } else {
+      currentLng -= lngBlock;
+    }
+
+    // Add tiny GPS jitter to make the line look like a real path drawn on a street
+    const jitterLat = (Math.random() - 0.5) * 0.00008;
+    const jitterLng = (Math.random() - 0.5) * 0.00008;
+
     points.push({
-      latitude: baseLat + Math.cos(angle) * radius,
-      longitude: baseLng + Math.sin(angle) * radius,
+      latitude: currentLat + jitterLat,
+      longitude: currentLng + jitterLng,
       timestamp: Date.now() - (numPoints - i) * 60000,
     });
   }

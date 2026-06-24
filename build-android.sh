@@ -4,11 +4,12 @@ set -e
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 ANDROID_DIR="$PROJECT_ROOT/android"
 SDK_DIR="/home/coder/android-sdk"
-APK_DIR="$ANDROID_DIR/app/build/outputs/apk/release"
+# CHANGED: Updated path to the debug output folder
+APK_DIR="$ANDROID_DIR/app/build/outputs/apk/debug"
 PORT=8765
 
-echo "📦 CommaApp Android Build"
-echo "=========================="
+echo "📦 CommaApp Android Build (DEVELOPMENT)"
+echo "======================================="
 
 # 1. Ensure local.properties exists
 LOCAL_PROPS="$ANDROID_DIR/local.properties"
@@ -17,7 +18,7 @@ if [ ! -f "$LOCAL_PROPS" ] || ! grep -q "sdk.dir" "$LOCAL_PROPS"; then
   echo "sdk.dir=$SDK_DIR" > "$LOCAL_PROPS"
 fi
 
-# 2. Clear stale native module caches (prevents armeabi ghost errors)
+# 2. Clear stale native module caches
 echo "🧹 Clearing stale C++ caches..."
 for mod in react-native-worklets react-native-screens react-native-nitro-modules react-native-reanimated react-native-gesture-handler; do
   dir="$PROJECT_ROOT/node_modules/$mod/android"
@@ -29,13 +30,15 @@ done
 
 # 3. Run the build
 echo ""
-echo "🔨 Building release APK..."
+echo "🔨 Building development APK..."
 cd "$ANDROID_DIR"
-./gradlew assembleRelease
+# CHANGED: Switched from assembleRelease to assembleDebug
+./gradlew assembleDebug
 
 echo ""
 echo "✅ Build complete!"
-echo "   APK: $APK_DIR/app-release.apk"
+# CHANGED: Updated filename to app-debug.apk
+echo "   APK: $APK_DIR/app-debug.apk"
 
 # 4. Prompt to serve over HTTP
 echo ""
@@ -45,18 +48,18 @@ if [[ ! "$answer" =~ ^[Yy]$ ]]; then
   exit 0
 fi
 
-# Get host URL
-DOWNLOAD_URL="http://coder.lan:$PORT/app-release.apk"
+# CHANGED: Updated URL to point to the debug filename
+DOWNLOAD_URL="http://coder.lan:$PORT/app-debug.apk"
 
 echo ""
 echo "════════════════════════════════════════"
-echo "  📡 Serving APK on port $PORT"
+echo "   📡 Serving APK on port $PORT"
 echo ""
-echo "  On your phone, open:"
-echo "  👉  $DOWNLOAD_URL"
+echo "   On your phone, open:"
+echo "   👉  $DOWNLOAD_URL"
 echo ""
 
-# Print QR code if qrcode is available, otherwise offer to install it
+# Print QR code
 python3 -c "
 try:
     import qrcode
@@ -65,12 +68,12 @@ try:
     qr.make(fit=True)
     qr.print_ascii(invert=True)
 except ImportError:
-    print('  Tip: pip3 install qrcode  →  get a scannable QR code here next time')
+    print('   Tip: pip3 install qrcode  →  get a scannable QR code here next time')
 " 2>/dev/null || true
 
 echo ""
-echo "  ⚠️  Enable 'Install unknown apps' on your phone if prompted."
-echo "  Press Ctrl+C when done."
+echo "   ⚠️  Enable 'Install unknown apps' on your phone if prompted."
+echo "   Press Ctrl+C when done."
 echo "════════════════════════════════════════"
 echo ""
 

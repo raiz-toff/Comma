@@ -1266,7 +1266,7 @@ export default function HomeScreen() {
                         }}
                       >
                         <Text style={{ fontSize: 8, fontWeight: "900", color: "#f59e0b", textTransform: "uppercase" }}>
-                          Dead Miles 💀
+                          Dead {profile?.distanceUnit === 'mi' ? 'Miles' : 'KM'} 💀
                         </Text>
                       </View>
                     )}
@@ -1475,14 +1475,15 @@ export default function HomeScreen() {
 
             {/* Cockpit 2x2 Grid */}
             <View style={styles.grid2x2}>
-              {/* Card 1: Miles */}
+              {/* Card 1: Distance */}
               <View style={styles.cockpitCard}>
                 <View style={styles.cockpitCardHeader}>
                   <NavigationIcon size={14} color="#a1a1aa" />
-                  <Text style={styles.cockpitCardLabel}>MILES</Text>
+                  <Text style={styles.cockpitCardLabel}>DISTANCE</Text>
                 </View>
                 <Text style={styles.cockpitCardValue}>
                   {(rangeStats.activeMileage + rangeStats.deadMileage).toFixed(1)}
+                  <Text style={{ fontSize: 12, fontWeight: "500", color: "#a1a1aa" }}> {profile?.distanceUnit}</Text>
                 </Text>
               </View>
 

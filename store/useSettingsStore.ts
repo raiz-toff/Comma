@@ -161,8 +161,38 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         const rawVehicle = localStorage.getItem("comma_vehicle");
         const rawDemoMode = localStorage.getItem("comma_demo_mode");
         
+        if (rawCompleted !== "true") {
+          // Auto-onboard and load sample data by default on first launch
+          const demoProfile: DriverProfile = {
+            displayName: "Jane Doe (Demo)",
+            country: "CA",
+            taxRegion: "ON",
+            avatarType: "emoji",
+            avatarData: "🚗",
+            selectedPlatforms: ["doordash", "ubereats", "skip"],
+            workSchedulePreset: "flexible",
+            weeklyGoal: 500,
+            monthlyGoal: 2165,
+            annualGoal: 26000,
+            taxWithholdingPct: 25,
+            hstRegistered: false,
+            distanceUnit: "km",
+            theme: "dark",
+          };
+          const demoVehicle = {
+            nickname: "Prius Prime",
+            type: "hybrid",
+            make: "Toyota",
+            model: "Prius Prime",
+            year: "2020",
+          };
+          await get().completeOnboarding(demoProfile, demoVehicle, null);
+          await get().loadSampleData();
+          return;
+        }
+        
         set({
-          isOnboardingCompleted: rawCompleted === "true",
+          isOnboardingCompleted: true,
           profile: rawProfile ? JSON.parse(rawProfile) : DEFAULT_PROFILE,
           activeVehicle: rawVehicle ? JSON.parse(rawVehicle) : null,
           isDemoMode: rawDemoMode === "true",
@@ -182,6 +212,38 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         .from(settings)
         .where(eq(settings.key, "onboarding_completed"))
         .limit(1);
+
+      const onboardingCompleted = onboardingCompletedRow[0]?.value === "true";
+
+      if (!onboardingCompleted) {
+        // Auto-onboard and load sample data by default on first launch
+        const demoProfile: DriverProfile = {
+          displayName: "Jane Doe (Demo)",
+          country: "CA",
+          taxRegion: "ON",
+          avatarType: "emoji",
+          avatarData: "🚗",
+          selectedPlatforms: ["doordash", "ubereats", "skip"],
+          workSchedulePreset: "flexible",
+          weeklyGoal: 500,
+          monthlyGoal: 2165,
+          annualGoal: 26000,
+          taxWithholdingPct: 25,
+          hstRegistered: false,
+          distanceUnit: "km",
+          theme: "dark",
+        };
+        const demoVehicle = {
+          nickname: "Prius Prime",
+          type: "hybrid",
+          make: "Toyota",
+          model: "Prius Prime",
+          year: "2020",
+        };
+        await get().completeOnboarding(demoProfile, demoVehicle, null);
+        await get().loadSampleData();
+        return;
+      }
 
       const profileRow = await db
         .select()
@@ -209,7 +271,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         .where(eq(settings.key, "preferred_vehicle_id"))
         .limit(1);
 
-      const onboardingCompleted = onboardingCompletedRow[0]?.value === "true";
       const profile = profileRow[0]?.value
         ? (JSON.parse(profileRow[0].value) as DriverProfile)
         : DEFAULT_PROFILE;
@@ -233,7 +294,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         : vehicleRows[0]?.id || null;
 
       set({
-        isOnboardingCompleted: onboardingCompleted,
+        isOnboardingCompleted: true,
         profile,
         activeVehicle,
         isDemoMode,

@@ -62,8 +62,14 @@
       "expo-notifications",
       "expo-asset",
       "expo-web-browser",
-      "react-native-android-widget",
-      "expo-sharing"
+      [
+        "react-native-android-widget",
+        {
+          "widgets": []
+        }
+      ],
+      "expo-sharing",
+      "@react-native-google-signin/google-signin"
     ],
     "extra": {
       "router": {},

@@ -26,9 +26,12 @@ import {
   getFinancialOverviewForRange,
   getPeriodStats,
 } from "../../src/database/queries/analytics";
+import { getShiftsPaginated } from "../../src/database/queries/shifts";
+import { PlatformBadge } from "../../src/components/ui/PlatformBadge";
 import Svg, { Path, Circle, Defs, LinearGradient, Stop, Polyline, Line } from "react-native-svg";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
 import { PLATFORMS } from "../../src/registry/platforms";
+import { PlatformLogo } from "../../src/components/GlobalTopHeader";
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 const PlayIcon = ({ size = 14, color = "white" }: { size?: number; color?: string }) => (
@@ -376,6 +379,15 @@ export default function HomeScreen() {
     enabled: isOnboardingCompleted,
   });
 
+  const { data: recentShifts = [] } = useQuery({
+    queryKey: ["shifts", "recent"],
+    queryFn: async () => {
+      const data = await getShiftsPaginated(1);
+      return data.slice(0, 3);
+    },
+    enabled: isOnboardingCompleted,
+  });
+
   // Load configuration on mount
   useEffect(() => {
     loadSettings();
@@ -669,7 +681,7 @@ export default function HomeScreen() {
             </View>
 
             {/* ── Weekly Goal Progress ─────────────────────────────────── */}
-            {weeklyGoals.map((g: any) => {
+            {weeklyGoals.slice(0, 1).map((g: any) => {
               const current = g.currentValue ?? 0;
               const target = g.targetValue ?? 1;
               const percent = Math.round((current / target) * 100);
@@ -698,6 +710,60 @@ export default function HomeScreen() {
                 </View>
               );
             })}
+
+            {/* ── Recent Shifts ────────────────────────────────────────── */}
+            {recentShifts.length > 0 && (
+              <View style={{ gap: 10, marginTop: 4 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 4 }}>
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: "#888", textTransform: "uppercase", letterSpacing: 0.5 }}>Recent Shifts</Text>
+                  <Pressable onPress={() => router.push("/shifts")}>
+                    <Text style={{ fontSize: 13, color: accentColor, fontWeight: "600" }}>View All</Text>
+                  </Pressable>
+                </View>
+                {recentShifts.map((shift: any) => {
+                  const durationHours = (shift.durationSeconds / 3600).toFixed(1);
+                  const totalRevenue = shift.grossRevenue + shift.tipsRevenue;
+                  const totalMiles = ((shift.activeMileage || 0) + (shift.deadMileage || 0)).toFixed(0);
+                  
+                  return (
+                    <Pressable
+                      key={shift.id}
+                      onPress={() => router.push({ pathname: "/shifts/[id]", params: { id: shift.id } })}
+                      style={{
+                        backgroundColor: "#0c0c0c",
+                        borderRadius: 12,
+                        borderWidth: 0.5,
+                        borderColor: "#1e1e1e",
+                        padding: 14,
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "center"
+                      }}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                        <PlatformBadge platform={shift.platform} size="md" />
+                        <View style={{ gap: 2 }}>
+                          <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>
+                            {new Date(shift.startTime).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                          </Text>
+                          <Text style={{ fontSize: 12, color: "#888", fontWeight: "500" }}>
+                            {durationHours}h • {totalMiles} {profile?.distanceUnit ?? "mi"}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={{ alignItems: "flex-end", gap: 2 }}>
+                        <Text style={{ fontSize: 15, fontWeight: "800", color: "#10b981" }}>
+                          {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(totalRevenue)}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: "#52525b", fontWeight: "600" }}>
+                          {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(totalRevenue / (shift.durationSeconds / 3600 || 1))}/hr
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
 
             {/* ── Active Shift Banner ──────────────────────────────────── */}
             {isActive && (

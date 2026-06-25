@@ -609,12 +609,6 @@ export default function TabLayout() {
             }}
           />
           <Tabs.Screen
-            name="shifts/[id]"
-            options={{
-              href: null,
-            }}
-          />
-          <Tabs.Screen
             name="more"
             options={{
               title: "More",

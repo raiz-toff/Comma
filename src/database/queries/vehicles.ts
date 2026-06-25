@@ -13,6 +13,17 @@ export async function getVehicles(): Promise<any[]> {
   return await db.select().from(vehicles);
 }
 
+export async function getVehicleById(id: string): Promise<any | null> {
+  if (isWeb) {
+    const existing = localStorage.getItem("comma_vehicles");
+    if (!existing) return null;
+    const list = JSON.parse(existing);
+    return list.find((v: any) => v.id === id) || null;
+  }
+  const result = await db.select().from(vehicles).where(eq(vehicles.id, id)).limit(1);
+  return result[0] || null;
+}
+
 export async function getVehicleStats(vehicleId: string): Promise<{ totalShifts: number; totalActiveMileage: number }> {
   if (isWeb) {
     return { totalShifts: 0, totalActiveMileage: 0 };

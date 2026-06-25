@@ -323,6 +323,12 @@ export default function SettingsScreen() {
     await clearSampleData();
     queryClient.invalidateQueries();
     router.replace("/");
+    if (Platform.OS === "web") {
+      window.location.reload();
+    } else {
+      const { DevSettings } = require("react-native");
+      DevSettings.reload();
+    }
   };
 
   const handleExportCSV = async () => {

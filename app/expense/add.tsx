@@ -9,10 +9,12 @@ import {
   Platform,
   Switch,
   Image,
+  Modal,
+  KeyboardAvoidingView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, Stack } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Text } from "@/src/components/ui/text";
@@ -23,7 +25,9 @@ import {
 } from "@/src/database/queries/expenses";
 import { getVehicles } from "@/src/database/queries/vehicles";
 import { getShiftsPaginated } from "@/src/database/queries/shifts";
-import { EXPENSE_CATEGORIES, type ExpenseCategoryId } from "@/app/(tabs)/expenses/index";
+import { getExpenseCategories, type ExpenseCategory } from "@/src/registry/expenseCategories";
+import { useSettingsStore } from "@/store/useSettingsStore";
+import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { cn } from "@/src/lib/utils";
 import { type PlatformKey } from "@/src/registry/platforms";
 import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
@@ -39,8 +43,16 @@ export default function AddExpenseModal() {
 
   const isEditing = !!expenseId;
 
+  // ── Theme State ──────────────────────────────────────────────────────────
+  const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
+
   // ── Form State ───────────────────────────────────────────────────────────
-  const [category, setCategory] = useState<ExpenseCategoryId>("fuel");
+  const { profile, loadSettings } = useSettingsStore();
+  const country = profile?.country || "CA";
+  const customCategories = profile?.customCategories || [];
+  const expenseCategories = getExpenseCategories(country, customCategories);
+
+  const [category, setCategory] = useState<string>("fuel");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(new Date());
   const [isDeductible, setIsDeductible] = useState(true);
@@ -53,6 +65,99 @@ export default function AddExpenseModal() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [step, setStep] = useState(1);
+  const [isNotesFocused, setIsNotesFocused] = useState(false);
+
+  // ── Custom Category State ────────────────────────────────────────────────
+  const [showCustomModal, setShowCustomModal] = useState(false);
+  const [customName, setCustomName] = useState("");
+  const [customEmoji, setCustomEmoji] = useState("🏷️");
+
+  const handleSaveCustomCategory = async () => {
+    if (!customName.trim()) {
+      Alert.alert("Validation", "Please enter a category name.");
+      return;
+    }
+    if (customCategories.length >= 3) {
+      Alert.alert("Limit Reached", "You can add up to 3 custom categories.");
+      return;
+    }
+    
+    const newId = `custom_${Date.now()}`;
+    const newCat = {
+      id: newId,
+      label: customName.trim(),
+      icon: customEmoji.trim() || "🏷️",
+    };
+
+    const updatedProfile = {
+      ...profile,
+      customCategories: [...customCategories, newCat],
+    };
+
+    try {
+      if (isWeb) {
+        localStorage.setItem("comma_setting_profile", JSON.stringify(updatedProfile));
+      } else {
+        const { db } = require("@/src/database/client");
+        const { settings } = require("@/src/database/schema");
+        await db
+          .insert(settings)
+          .values({ key: "profile", value: JSON.stringify(updatedProfile) })
+          .onConflictDoUpdate({ target: settings.key, set: { value: JSON.stringify(updatedProfile) } });
+      }
+
+      await loadSettings();
+      setCategory(newId);
+      setCustomName("");
+      setCustomEmoji("🏷️");
+      setShowCustomModal(false);
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Failed to save custom category.");
+    }
+  };
+
+  const handleLongPressCategory = (cat: ExpenseCategory) => {
+    const isCustom = customCategories.some((c) => c.id === cat.id);
+    if (!isCustom) return;
+
+    Alert.alert(
+      "Delete Custom Category",
+      `Are you sure you want to delete the custom category "${cat.label}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const updatedCustom = customCategories.filter((c) => c.id !== cat.id);
+            const updatedProfile = {
+              ...profile,
+              customCategories: updatedCustom,
+            };
+            
+            try {
+              if (isWeb) {
+                localStorage.setItem("comma_setting_profile", JSON.stringify(updatedProfile));
+              } else {
+                const { db } = require("@/src/database/client");
+                const { settings } = require("@/src/database/schema");
+                await db
+                  .insert(settings)
+                  .values({ key: "profile", value: JSON.stringify(updatedProfile) })
+                  .onConflictDoUpdate({ target: settings.key, set: { value: JSON.stringify(updatedProfile) } });
+              }
+              
+              await loadSettings();
+              setCategory("fuel");
+            } catch (e: any) {
+              Alert.alert("Error", e?.message || "Failed to delete custom category.");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   // ── Queries ──────────────────────────────────────────────────────────────
   const { data: existingExpense } = useQuery({
@@ -66,15 +171,47 @@ export default function AddExpenseModal() {
     queryFn: () => getVehicles(),
   });
 
-  const { data: recentShifts = [] } = useQuery({
-    queryKey: ["shifts", 1],
+  // Query 1: Shifts near the selected expense date (+/- 7 days)
+  const { data: nearShifts = [] } = useQuery({
+    queryKey: ["shifts", "near-date", date.toISOString().split("T")[0]],
+    queryFn: () => {
+      const startDate = new Date(date);
+      startDate.setDate(startDate.getDate() - 7);
+      startDate.setHours(0, 0, 0, 0);
+
+      const endDate = new Date(date);
+      endDate.setDate(endDate.getDate() + 7);
+      endDate.setHours(23, 59, 59, 999);
+
+      return getShiftsPaginated(1, { startDate, endDate });
+    },
+  });
+
+  // Query 2: Fallback to overall recent shifts in case no shifts are in the window
+  const { data: fallbackShifts = [] } = useQuery({
+    queryKey: ["shifts", "all-recent"],
     queryFn: () => getShiftsPaginated(1),
   });
+
+  // Use near shifts if available, otherwise fall back to all recent
+  const shiftsToShow = nearShifts.length > 0 ? nearShifts : fallbackShifts;
+
+  // Sort them dynamically by absolute distance in time from the selected expense date
+  const sortedShifts = React.useMemo(() => {
+    if (!shiftsToShow || shiftsToShow.length === 0) return [];
+    
+    const targetTime = date.getTime();
+    return [...shiftsToShow].sort((a, b) => {
+      const diffA = Math.abs(new Date(a.startTime).getTime() - targetTime);
+      const diffB = Math.abs(new Date(b.startTime).getTime() - targetTime);
+      return diffA - diffB;
+    });
+  }, [shiftsToShow, date]);
 
   // ── Pre-populate when editing ─────────────────────────────────────────────
   useEffect(() => {
     if (existingExpense) {
-      setCategory((existingExpense.category as ExpenseCategoryId) || "fuel");
+      setCategory(existingExpense.category || "fuel");
       setAmount(String(existingExpense.amount || ""));
       setDate(new Date(existingExpense.date));
       setIsDeductible(!!existingExpense.isDeductible);
@@ -118,6 +255,22 @@ export default function AddExpenseModal() {
     } catch {
       Alert.alert("Error", "Could not open camera.");
     }
+  };
+
+  const handleAddPhoto = () => {
+    if (isWeb) {
+      pickReceiptPhoto();
+      return;
+    }
+    Alert.alert(
+      "Receipt Photo",
+      "Choose photo source",
+      [
+        { text: "Camera", onPress: takeReceiptPhoto },
+        { text: "Photo Library", onPress: pickReceiptPhoto },
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
   };
 
   // ── Save Handler ──────────────────────────────────────────────────────────
@@ -167,32 +320,55 @@ export default function AddExpenseModal() {
   };
 
   return (
-    <SafeAreaView className="dark flex-1 bg-[#000000]">
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <View className="flex-row justify-between items-center px-4 py-3 border-b border-slate-800/80 bg-slate-900/40">
+    <SafeAreaView className="flex-1 bg-[#000000]">
+      <Stack.Screen options={{ presentation: "fullScreenModal", headerShown: false }} />
+      <View className="flex flex-row items-center px-5 py-4 border-b border-[#1f1f1f] bg-[#0d0d0d]">
         <TouchableOpacity
-          onPress={() => router.back()}
-          className="py-2 px-3 bg-slate-800/40 rounded-lg border border-slate-700/30"
+          onPress={() => {
+            if (step > 1) {
+              setStep(step - 1);
+            } else {
+              router.back();
+            }
+          }}
+          className="p-1 flex-row items-center min-w-[70px]"
         >
-          <Text className="text-slate-300 text-xs font-semibold">Cancel</Text>
+          <Text className="text-zinc-400 text-sm font-medium tracking-wide">
+            {step > 1 ? "← Back" : "Cancel"}
+          </Text>
         </TouchableOpacity>
-        <Text className="text-slate-100 text-base font-extrabold tracking-tight">
+        <Text className="flex-1 text-white text-base font-bold tracking-tight text-center">
           {isEditing ? "Edit Expense" : "Add Expense"}
         </Text>
-        <TouchableOpacity
-          onPress={handleSave}
-          disabled={isSaving}
-          className="py-2 px-4 bg-emerald-500 rounded-lg"
-        >
-          {isSaving ? (
-            <ActivityIndicator size="small" color="white" />
-          ) : (
-            <Text className="text-white text-xs font-bold uppercase tracking-wider">Save</Text>
-          )}
-        </TouchableOpacity>
+        <View className="min-w-[70px]" />
       </View>
 
-      <ScrollView contentContainerClassName="p-4 pb-16 flex flex-col gap-6">
+      {/* ── Step Indicator ────────────────────────────────────────────── */}
+      <View className="px-4 py-3 bg-[#0d0d0d] border-b border-[#1f1f1f] flex-row items-center justify-between">
+        <View className="flex-row gap-1.5 items-center">
+          {[1, 2, 3, 4].map((s) => (
+            <View
+              key={s}
+              style={{
+                width: 28,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: step >= s ? accentColor : "#262522",
+              }}
+            />
+          ))}
+        </View>
+        <Text className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider font-mono">
+          Step {step} of 4: {
+            step === 1 ? "Amount & Date" :
+            step === 2 ? "Category" :
+            step === 3 ? "Link Context" :
+            "Documentation"
+          }
+        </Text>
+      </View>
+
+      <ScrollView contentContainerClassName="p-4 pb-16 flex flex-col gap-5">
         {/* Error */}
         {errorMessage ? (
           <View className="bg-rose-500/10 border border-rose-500/20 p-3.5 rounded-xl">
@@ -200,249 +376,450 @@ export default function AddExpenseModal() {
           </View>
         ) : null}
 
-        {/* ── 1. Category Selector ─────────────────────────────────────── */}
-        <View className="flex flex-col gap-2">
-          <Text className="text-slate-400 text-xs font-bold uppercase tracking-wide">Category *</Text>
-          <View className="flex-row flex-wrap gap-2">
-            {EXPENSE_CATEGORIES.map((cat) => {
-              const isSelected = category === cat.id;
-              return (
-                <TouchableOpacity
-                  key={cat.id}
-                  onPress={() => setCategory(cat.id as ExpenseCategoryId)}
-                  className={cn(
-                    "flex-row items-center gap-1.5 px-3 py-2 rounded-xl border",
-                    isSelected
-                      ? "border-emerald-500 bg-emerald-500/10"
-                      : "border-slate-800 bg-slate-900/40"
-                  )}
-                >
-                  <Text className="text-lg leading-none">{cat.icon}</Text>
-                  <Text
-                    className={cn(
-                      "text-xs font-bold",
-                      isSelected ? "text-emerald-400" : "text-slate-400"
-                    )}
-                  >
-                    {cat.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* ── 2. Amount ────────────────────────────────────────────────── */}
-        <View className="flex flex-col gap-2">
-          <Text className="text-slate-400 text-xs font-bold uppercase tracking-wide">Amount ($) *</Text>
-          <View className="flex-row items-center bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-            <Text className="text-slate-400 text-lg px-4">$</Text>
-            <TextInput
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="decimal-pad"
-              placeholder="0.00"
-              placeholderTextColor="#475569"
-              className="flex-1 py-3.5 text-slate-100 text-lg font-extrabold"
-            />
-          </View>
-        </View>
-
-        {/* ── 3. Date ──────────────────────────────────────────────────── */}
-        <View className="flex flex-col gap-2">
-          <Text className="text-slate-400 text-xs font-bold uppercase tracking-wide">Date</Text>
-          {isWeb ? (
-            <input
-              type="date"
-              value={date.toISOString().substring(0, 10)}
-              onChange={(e) => {
-                if (e.target.value) setDate(new Date(e.target.value + "T12:00:00"));
-              }}
-              className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-slate-100 text-sm w-full outline-none focus:border-emerald-500"
-            />
-          ) : (
-            <TouchableOpacity
-              onPress={() => setShowDatePicker(true)}
-              className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex-row justify-between items-center"
-            >
-              <Text className="text-slate-100 text-sm font-semibold">
-                {date.toLocaleDateString(undefined, { dateStyle: "medium" })}
-              </Text>
-              <Text className="text-emerald-500 text-[10px] uppercase font-bold tracking-wider">Select</Text>
-            </TouchableOpacity>
-          )}
-          {showDatePicker && (
-            <DateTimePicker
-              value={date}
-              mode="date"
-              display="default"
-              onChange={(_, selectedDate) => {
-                setShowDatePicker(false);
-                if (selectedDate) setDate(selectedDate);
-              }}
-            />
-          )}
-        </View>
-
-        {/* ── 4. Deductible Toggle ─────────────────────────────────────── */}
-        <View className="bg-slate-900/60 border border-slate-800/80 rounded-2xl px-4 py-3.5 flex-row justify-between items-center">
-          <View className="flex-col gap-0.5">
-            <Text className="text-sm font-bold text-slate-100">Tax Deductible</Text>
-            <Text className="text-[10px] text-slate-500 font-medium">
-              Mark if this is a deductible business expense
-            </Text>
-          </View>
-          <Switch
-            value={isDeductible}
-            onValueChange={setIsDeductible}
-            trackColor={{ false: "#1e293b", true: "#10b981" }}
-            thumbColor="#fff"
-          />
-        </View>
-
-        {/* ── 5. Link to Vehicle ───────────────────────────────────────── */}
-        {vehiclesList.length > 0 && (
-          <View className="flex flex-col gap-2">
-            <Text className="text-slate-400 text-xs font-bold uppercase tracking-wide">Link to Vehicle</Text>
-            <View className="flex flex-col gap-2">
-              {/* "None" option */}
-              <TouchableOpacity
-                onPress={() => setLinkedVehicleId("")}
-                className={cn(
-                  "px-3.5 py-2.5 rounded-xl border",
-                  !linkedVehicleId ? "border-emerald-500 bg-emerald-500/5" : "border-slate-800 bg-slate-900/40"
-                )}
-              >
-                <Text className={cn("text-xs font-bold", !linkedVehicleId ? "text-emerald-400" : "text-slate-400")}>
-                  None
-                </Text>
-              </TouchableOpacity>
-              {vehiclesList.map((v: any) => (
-                <TouchableOpacity
-                  key={v.id}
-                  onPress={() => setLinkedVehicleId(v.id)}
-                  className={cn(
-                    "px-3.5 py-2.5 rounded-xl border flex-row justify-between items-center",
-                    linkedVehicleId === v.id ? "border-emerald-500 bg-emerald-500/5" : "border-slate-800 bg-slate-900/40"
-                  )}
-                >
-                  <Text className={cn("text-xs font-bold", linkedVehicleId === v.id ? "text-emerald-400" : "text-slate-200")}>
-                    {v.name}
-                  </Text>
-                  <Text className="text-[10px] text-slate-500">{v.year} {v.make} {v.model}</Text>
-                </TouchableOpacity>
-              ))}
+        {/* ── STEP 1: AMOUNT & DATE ───────────────────────────────────── */}
+        {step === 1 && (
+          <View className="flex flex-col gap-5">
+            {/* Amount Input */}
+            <View className="bg-[#161615] border border-[#262522] rounded-2xl py-10 flex flex-col items-center justify-center">
+              <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest mb-2">Expense Amount</Text>
+              <View className="flex flex-row items-center justify-center">
+                <Text className="text-4xl font-extrabold mr-1.5" style={{ color: accentColor }}>$</Text>
+                <TextInput
+                  value={amount}
+                  onChangeText={(text) => {
+                    const sanitized = text.replace(/[^0-9.]/g, "");
+                    const parts = sanitized.split(".");
+                    setAmount(parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized);
+                  }}
+                  keyboardType="decimal-pad"
+                  placeholder="0.00"
+                  placeholderTextColor="#52525b"
+                  style={{ fontSize: 44, fontWeight: "900", color: "#ffffff", textAlign: "center", minWidth: 160 }}
+                />
+              </View>
             </View>
+
+            {/* Date Selection */}
+            <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-1.5">
+              <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Expense Date</Text>
+              {isWeb ? (
+                <input
+                  type="date"
+                  value={date.toISOString().substring(0, 10)}
+                  onChange={(e) => {
+                    if (e.target.value) setDate(new Date(e.target.value + "T12:00:00"));
+                  }}
+                  className="bg-[#0d0d0d] border border-[#262522] rounded-xl p-3.5 text-white text-sm font-semibold outline-none w-full"
+                  style={{ focusOutlineColor: accentColor }}
+                />
+              ) : (
+                <TouchableOpacity
+                  onPress={() => setShowDatePicker(true)}
+                  className="bg-[#0d0d0d] border border-[#262522] rounded-xl px-4 py-3.5 flex-row justify-between items-center"
+                >
+                  <Text className="text-white text-sm font-semibold">
+                    {date.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                  </Text>
+                  <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: accentColor }}>Change</Text>
+                </TouchableOpacity>
+              )}
+              {showDatePicker && !isWeb && (
+                <DateTimePicker
+                  value={date}
+                  mode="date"
+                  display="default"
+                  onChange={(_, selectedDate) => {
+                    setShowDatePicker(false);
+                    if (selectedDate) setDate(selectedDate);
+                  }}
+                />
+              )}
+            </View>
+
+            {/* Next Button */}
+            <TouchableOpacity
+              onPress={() => {
+                const val = parseFloat(amount);
+                if (!amount || isNaN(val) || val <= 0) {
+                  setErrorMessage("Please enter a valid amount greater than 0.");
+                  return;
+                }
+                setErrorMessage("");
+                setStep(2);
+              }}
+              style={{ backgroundColor: accentColor }}
+              className="py-4 rounded-xl items-center mt-2 shadow-lg"
+            >
+              <Text className="font-bold text-sm" style={{ color: accentColorContrast }}>Next: Choose Category →</Text>
+            </TouchableOpacity>
           </View>
         )}
 
-        {/* ── 6. Link to Shift (recent shifts) ─────────────────────────── */}
-        {recentShifts.length > 0 && (
-          <View className="flex flex-col gap-2">
-            <Text className="text-slate-400 text-xs font-bold uppercase tracking-wide">
-              Link to Shift <Text className="text-slate-600 normal-case font-normal">(Optional)</Text>
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View className="flex-row gap-2">
-                {/* None option */}
-                <TouchableOpacity
-                  onPress={() => setLinkedShiftId("")}
-                  className={cn(
-                    "px-3 py-2 rounded-xl border min-w-[60px] items-center",
-                    !linkedShiftId ? "border-emerald-500 bg-emerald-500/10" : "border-slate-800 bg-slate-900/40"
-                  )}
-                >
-                  <Text className={cn("text-xs font-bold", !linkedShiftId ? "text-emerald-400" : "text-slate-400")}>
-                    None
-                  </Text>
-                </TouchableOpacity>
-                {recentShifts.slice(0, 8).map((shift: any) => {
-                  const isSelected = linkedShiftId === shift.id;
-                  const dateStr = new Date(shift.startTime).toLocaleDateString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                  });
+        {/* ── STEP 2: CATEGORY ────────────────────────────────────────── */}
+        {step === 2 && (
+          <View className="flex flex-col gap-5">
+            {/* Category Grid */}
+            <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-2">
+              <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide mb-2">Category Selection</Text>
+              <View className="flex flex-row flex-wrap gap-2 justify-start">
+                {expenseCategories.map((cat) => {
+                  const isSelected = category === cat.id;
+                  const isCustom = customCategories.some((c) => c.id === cat.id);
                   return (
                     <TouchableOpacity
-                      key={shift.id}
-                      onPress={() => setLinkedShiftId(isSelected ? "" : shift.id)}
-                      className={cn(
-                        "px-3 py-2 rounded-xl border flex-col items-center gap-1",
-                        isSelected ? "border-emerald-500 bg-emerald-500/10" : "border-slate-800 bg-slate-900/40"
-                      )}
+                      key={cat.id}
+                      onPress={() => setCategory(cat.id)}
+                      onLongPress={() => isCustom && handleLongPressCategory(cat)}
+                      style={{
+                        width: "31.5%",
+                        borderColor: isSelected ? accentColor : "#262522",
+                        backgroundColor: isSelected ? accentColorDim : "#0d0d0d",
+                      }}
+                      className="flex-row items-center gap-1.5 px-2.5 py-2.5 rounded-xl border mb-1"
                     >
-                      <PlatformBadge platform={shift.platform as PlatformKey} size="sm" />
-                      <Text className={cn("text-[9px] font-bold", isSelected ? "text-emerald-400" : "text-slate-500")}>
-                        {dateStr}
+                      <Text className="text-base leading-none">{cat.icon}</Text>
+                      <Text
+                        numberOfLines={1}
+                        className="text-[11px] font-bold flex-1"
+                        style={{
+                          color: isSelected ? accentColor : "#a1a1aa",
+                        }}
+                      >
+                        {cat.label}
                       </Text>
                     </TouchableOpacity>
                   );
                 })}
+
+                {customCategories.length < 3 && (
+                  <TouchableOpacity
+                    onPress={() => setShowCustomModal(true)}
+                    style={{
+                      width: "31.5%",
+                      borderColor: "#262522",
+                      backgroundColor: "#0d0d0d",
+                    }}
+                    className="flex-row items-center justify-center gap-1.5 px-2.5 py-2.5 rounded-xl border border-dashed mb-1"
+                  >
+                    <Text className="text-sm leading-none">➕</Text>
+                    <Text numberOfLines={1} className="text-[11px] font-bold text-zinc-500">
+                      + Custom
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
-            </ScrollView>
+              <Text className="text-[10px] text-zinc-500 mt-1 italic font-semibold">
+                * Long-press a custom category to delete it.
+              </Text>
+            </View>
+
+            {/* Deductible toggle */}
+            <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-3">
+              <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Tax Deductible</Text>
+              <View className="flex-row bg-[#0d0d0d] p-1 rounded-xl border border-[#262522]">
+                <TouchableOpacity
+                  onPress={() => setIsDeductible(true)}
+                  style={{
+                    backgroundColor: isDeductible ? accentColorDim : "transparent",
+                    borderColor: isDeductible ? accentColorMid : "transparent",
+                    borderWidth: 1,
+                  }}
+                  className="flex-1 py-3 rounded-lg items-center justify-center"
+                >
+                  <Text
+                    style={{ color: isDeductible ? accentColor : "#a1a1aa" }}
+                    className="text-xs font-bold"
+                  >
+                    Yes (Business)
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setIsDeductible(false)}
+                  className={cn(
+                    "flex-1 py-3 rounded-lg items-center justify-center",
+                    !isDeductible ? "bg-rose-500/10 border border-rose-500/20" : "border-transparent"
+                  )}
+                >
+                  <Text className={cn("text-xs font-bold", !isDeductible ? "text-rose-400" : "text-zinc-500")}>
+                    No (Personal)
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Bottom Actions */}
+            <View className="flex-row gap-3 mt-2">
+              <TouchableOpacity
+                onPress={() => setStep(1)}
+                className="flex-1 py-4 bg-[#1f1f1f] border border-[#262522] rounded-xl items-center"
+              >
+                <Text className="text-zinc-400 font-bold text-sm">← Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setStep(3)}
+                style={{ backgroundColor: accentColor }}
+                className="flex-1 py-4 rounded-xl items-center"
+              >
+                <Text className="font-bold text-sm" style={{ color: accentColorContrast }}>Next: Link Context →</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
-        {/* ── 7. Notes ─────────────────────────────────────────────────── */}
-        <View className="flex flex-col gap-2">
-          <Text className="text-slate-400 text-xs font-bold uppercase tracking-wide">Notes</Text>
-          <TextInput
-            value={notes}
-            onChangeText={setNotes}
-            multiline
-            numberOfLines={3}
-            placeholder="Receipt number, details, or description..."
-            placeholderTextColor="#475569"
-            className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-slate-100 text-sm h-24 font-medium"
-          />
-        </View>
+        {/* ── STEP 3: LINK CONTEXT ────────────────────────────────────── */}
+        {step === 3 && (
+          <View className="flex flex-col gap-5">
+            {/* Vehicle Linkage */}
+            {vehiclesList.length > 0 && (
+              <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-3">
+                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Vehicle Link</Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {/* None option */}
+                  <TouchableOpacity
+                    onPress={() => setLinkedVehicleId("")}
+                    className="px-3.5 py-2.5 rounded-xl border min-w-[65px] items-center justify-center"
+                    style={{
+                      borderColor: !linkedVehicleId ? accentColor : "#262522",
+                      backgroundColor: !linkedVehicleId ? accentColorDim : "#0d0d0d",
+                    }}
+                  >
+                    <Text
+                      style={{ color: !linkedVehicleId ? accentColor : "#a1a1aa" }}
+                      className="text-xs font-bold"
+                    >
+                      None
+                    </Text>
+                  </TouchableOpacity>
+                  {vehiclesList.map((v: any) => {
+                    const isSelected = linkedVehicleId === v.id;
+                    return (
+                      <TouchableOpacity
+                        key={v.id}
+                        onPress={() => setLinkedVehicleId(isSelected ? "" : v.id)}
+                        className="px-3.5 py-2.5 rounded-xl border flex-row items-center gap-2 justify-center"
+                        style={{
+                          borderColor: isSelected ? accentColor : "#262522",
+                          backgroundColor: isSelected ? accentColorDim : "#0d0d0d",
+                        }}
+                      >
+                        <Text className="text-xs font-bold" style={{ color: isSelected ? accentColor : "#e4e4e7" }}>
+                          {v.name}
+                        </Text>
+                        <Text className="text-[9px] text-zinc-500 font-semibold">{v.year} {v.make}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
 
-        {/* ── 8. Receipt Photo ─────────────────────────────────────────── */}
-        <View className="flex flex-col gap-2">
-          <Text className="text-slate-400 text-xs font-bold uppercase tracking-wide">Receipt Photo</Text>
-          {receiptUri ? (
-            <View className="flex flex-col gap-2">
-              {isWeb ? (
-                <View className="bg-slate-900 border border-slate-800 rounded-2xl p-3 items-center">
-                  <Text className="text-emerald-400 text-xs font-bold">📎 Photo attached</Text>
-                  <Text className="text-slate-500 text-[10px] mt-0.5" numberOfLines={1}>{receiptUri}</Text>
+            {/* Shift Linkage */}
+            <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-3">
+              <View className="flex-row justify-between items-center mb-0.5">
+                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Link to Shift (Recommended)</Text>
+                {linkedShiftId ? (
+                  <TouchableOpacity onPress={() => setLinkedShiftId("")}>
+                    <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider">Clear Selection</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              {sortedShifts.length === 0 ? (
+                <View className="py-6 border border-dashed border-[#262522] rounded-xl items-center justify-center">
+                  <Text className="text-zinc-500 text-xs font-medium text-center px-4">
+                    No shifts found near this date (+/- 7 days).
+                  </Text>
                 </View>
               ) : (
-                <Image
-                  source={{ uri: receiptUri }}
-                  className="w-full h-40 rounded-2xl border border-slate-800"
-                  resizeMode="cover"
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="flex-row gap-2 py-1">
+                  {sortedShifts.slice(0, 8).map((s) => {
+                    const isSelected = linkedShiftId === s.id;
+                    const durationHours = (s.durationSeconds / 3600).toFixed(1);
+                    const totalRevenue = s.grossRevenue + s.tipsRevenue;
+                    const totalMiles = ((s.activeMileage || 0) + (s.deadMileage || 0)).toFixed(0);
+
+                    return (
+                      <TouchableOpacity
+                        key={s.id}
+                        onPress={() => setLinkedShiftId(isSelected ? "" : s.id)}
+                        style={{
+                          width: 210,
+                          height: 96,
+                          borderColor: isSelected ? accentColor : "#262522",
+                          backgroundColor: isSelected ? accentColorDim : "#0d0d0d",
+                        }}
+                        className="p-3.5 rounded-xl border flex flex-col justify-between"
+                      >
+                        <View className="flex-row items-center justify-between">
+                          <PlatformBadge platform={s.platform as PlatformKey} size="sm" />
+                          <Text className="text-[10px] text-zinc-500 font-semibold">
+                            {new Date(s.startTime).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                          </Text>
+                        </View>
+                        <View className="flex-row items-center justify-between">
+                          <Text className="text-sm font-extrabold text-white">${totalRevenue.toFixed(2)}</Text>
+                          <Text className="text-[10px] text-zinc-400 font-bold">
+                            {durationHours}h • {totalMiles} {profile.distanceUnit}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </View>
+
+            {/* Bottom Actions */}
+            <View className="flex-row gap-3 mt-2">
+              <TouchableOpacity
+                onPress={() => setStep(2)}
+                className="flex-1 py-4 bg-[#1f1f1f] border border-[#262522] rounded-xl items-center"
+              >
+                <Text className="text-zinc-400 font-bold text-sm">← Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setStep(4)}
+                style={{ backgroundColor: accentColor }}
+                className="flex-1 py-4 rounded-xl items-center"
+              >
+                <Text className="font-bold text-sm" style={{ color: accentColorContrast }}>Next: Documentation →</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* ── STEP 4: DOCUMENTATION ───────────────────────────────────── */}
+        {step === 4 && (
+          <View className="flex flex-col gap-5">
+            {/* Notes & Receipt Upload */}
+            <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-5">
+              <View className="flex flex-col gap-1.5">
+                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Notes</Text>
+                <TextInput
+                  value={notes}
+                  onChangeText={setNotes}
+                  multiline
+                  numberOfLines={3}
+                  placeholder="Details or notes..."
+                  placeholderTextColor="#52525b"
+                  onFocus={() => setIsNotesFocused(true)}
+                  onBlur={() => setIsNotesFocused(false)}
+                  className="bg-[#0d0d0d] border rounded-xl px-3.5 py-2.5 text-white text-sm h-[96px] font-semibold text-left align-top leading-relaxed"
+                  style={{
+                    borderColor: isNotesFocused ? accentColor : "#262522",
+                  }}
                 />
-              )}
+              </View>
+
+              <View className="flex flex-col gap-2">
+                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Receipt Picture</Text>
+                {receiptUri ? (
+                  <View className="w-[120px] h-[120px] relative rounded-xl border border-[#262522] overflow-hidden bg-[#0d0d0d]">
+                    <Image source={{ uri: receiptUri }} className="w-full h-full" resizeMode="cover" />
+                    <TouchableOpacity
+                      onPress={() => setReceiptUri(null)}
+                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/70 items-center justify-center border border-white/10"
+                    >
+                      <Text className="text-white text-xs font-bold leading-none">×</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handleAddPhoto}
+                    className="w-full py-5 border border-dashed border-[#262522] rounded-xl items-center justify-center bg-[#0d0d0d] flex-row gap-2"
+                  >
+                    <Text className="text-xl">📷</Text>
+                    <Text className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Attach Receipt Photo</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Bottom Actions */}
+            <View className="flex-row gap-3 mt-2">
               <TouchableOpacity
-                onPress={() => setReceiptUri(null)}
-                className="self-start px-3 py-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10"
+                onPress={() => setStep(3)}
+                className="flex-1 py-4 bg-[#1f1f1f] border border-[#262522] rounded-xl items-center"
               >
-                <Text className="text-rose-400 text-xs font-bold">Remove Photo</Text>
+                <Text className="text-zinc-400 font-bold text-sm">← Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSave}
+                disabled={isSaving}
+                style={{ backgroundColor: accentColor }}
+                className="flex-1 py-4 rounded-xl items-center justify-center"
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color={accentColorContrast} />
+                ) : (
+                  <Text className="font-bold text-sm" style={{ color: accentColorContrast }}>Save Expense</Text>
+                )}
               </TouchableOpacity>
             </View>
-          ) : (
-            <View className="flex-row gap-2">
-              <TouchableOpacity
-                onPress={pickReceiptPhoto}
-                className="flex-1 py-3.5 border border-dashed border-slate-700 rounded-2xl items-center justify-center gap-1.5 flex-col bg-slate-900/30"
-              >
-                <Text className="text-2xl leading-none">🖼️</Text>
-                <Text className="text-xs font-bold text-slate-400">Photo Library</Text>
-              </TouchableOpacity>
-              {!isWeb && (
-                <TouchableOpacity
-                  onPress={takeReceiptPhoto}
-                  className="flex-1 py-3.5 border border-dashed border-slate-700 rounded-2xl items-center justify-center gap-1.5 flex-col bg-slate-900/30"
-                >
-                  <Text className="text-2xl leading-none">📷</Text>
-                  <Text className="text-xs font-bold text-slate-400">Take Photo</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-        </View>
+          </View>
+        )}
       </ScrollView>
+
+      {/* ── Custom Category Add Modal ────────────────────────────────── */}
+      <Modal
+        visible={showCustomModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCustomModal(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "flex-end", alignItems: "center" }}
+        >
+          <View className="w-full max-w-md bg-[#161615] border-t border-x border-[#262522] rounded-t-3xl p-6 pb-12 flex flex-col gap-5 shadow-2xl">
+            <View>
+              <Text className="text-white font-extrabold text-lg tracking-tight">Create Custom Category</Text>
+              <Text className="text-zinc-500 text-xs mt-1">Add a personalized category (up to 3 total).</Text>
+            </View>
+
+            <View className="flex flex-col gap-4">
+              <View className="flex flex-col gap-1.5">
+                <Text className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Emoji Icon</Text>
+                <TextInput
+                  value={customEmoji}
+                  onChangeText={setCustomEmoji}
+                  placeholder="🏷️"
+                  placeholderTextColor="#52525b"
+                  maxLength={5}
+                  className="bg-[#0d0d0d] border border-[#262522] rounded-xl px-4 py-3 text-white text-base font-semibold w-20 text-center"
+                />
+              </View>
+
+              <View className="flex flex-col gap-1.5">
+                <Text className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Category Name</Text>
+                <TextInput
+                  value={customName}
+                  onChangeText={setCustomName}
+                  placeholder="e.g. Car Wash, Detailing"
+                  placeholderTextColor="#52525b"
+                  className="bg-[#0d0d0d] border border-[#262522] rounded-xl px-4 py-3 text-white text-sm font-semibold"
+                />
+              </View>
+            </View>
+
+            <View className="flex-row gap-3 mt-2">
+              <TouchableOpacity
+                onPress={() => setShowCustomModal(false)}
+                className="flex-1 py-3 bg-[#0d0d0d] border border-[#262522] rounded-xl items-center"
+              >
+                <Text className="text-zinc-400 font-bold text-xs">Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSaveCustomCategory}
+                style={{ backgroundColor: accentColor }}
+                className="flex-1 py-3 rounded-xl items-center"
+              >
+                <Text className="font-bold text-xs" style={{ color: accentColorContrast }}>Create</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }

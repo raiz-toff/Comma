@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, Stack } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Button } from "../../src/components/ui/button";
 import { Text } from "../../src/components/ui/text";
@@ -20,6 +20,7 @@ import { PLATFORMS } from "../../src/registry/platforms";
 import { getVehicles } from "../../src/database/queries/vehicles";
 import { insertShift, updateShift, getShiftById } from "../../src/database/queries/shifts";
 import { useSettingsStore } from "../../store/useSettingsStore";
+import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
 import { cn } from "../../src/lib/utils";
 import Svg, { Polyline, Circle, Line } from "react-native-svg";
 
@@ -127,25 +128,20 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
           width: 100%;
           margin: 0;
           padding: 0;
-          background-color: #0b0f19;
-        }
-        .leaflet-control-attribution {
-          font-size: 8px !important;
-          background: rgba(11, 15, 25, 0.85) !important;
-          color: #4b5563 !important;
+          background-color: #0d0d0d;
         }
         .leaflet-control-zoom {
-          border: 1px solid #1f2937 !important;
+          border: 1px solid #1f1f1f !important;
           margin-top: 8px !important;
           margin-left: 8px !important;
         }
         .leaflet-bar a {
-          background-color: #111827 !important;
+          background-color: #161615 !important;
           color: #9ca3af !important;
-          border-bottom: 1px solid #1f2937 !important;
+          border-bottom: 1px solid #262522 !important;
         }
         .leaflet-bar a:hover {
-          background-color: #1f2937 !important;
+          background-color: #262522 !important;
           color: #f3f4f6 !important;
         }
       </style>
@@ -155,12 +151,17 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
       <script>
         var points = ${pointsJson};
         var map = L.map('map', {
-          zoomControl: true,
-          attributionControl: true
+          zoomControl: false,
+          dragging: false,
+          touchZoom: false,
+          doubleClickZoom: false,
+          scrollWheelZoom: false,
+          boxZoom: false,
+          keyboard: false,
+          attributionControl: false
         });
 
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
           subdomains: 'abcd',
           maxZoom: 20
         }).addTo(map);
@@ -197,7 +198,7 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
             weight: 2
           }).addTo(map);
 
-          map.fitBounds(polyline.getBounds(), { padding: [30, 30] });
+          map.fitBounds(polyline.getBounds(), { padding: [30, 30], maxZoom: 16 });
         } else {
           map.setView([0, 0], 2);
         }
@@ -207,14 +208,15 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
   `;
 
   return (
-    <View style={{ marginVertical: 8, backgroundColor: "#0b0f19", borderRadius: 16, borderWidth: 0.5, borderColor: "#1f1f1f", overflow: "hidden", height: 240 }}>
+    <View style={{ marginVertical: 8, backgroundColor: "#0d0d0d", borderRadius: 16, borderWidth: 0.5, borderColor: "#1f1f1f", overflow: "hidden", height: 240 }}>
       <WebView
         originWhitelist={["*"]}
         source={{ html: htmlContent }}
-        style={{ flex: 1, backgroundColor: "#0b0f19" }}
+        style={{ flex: 1, backgroundColor: "#0d0d0d" }}
         javaScriptEnabled={true}
         domStorageEnabled={true}
         scalesPageToFit={true}
+        scrollEnabled={false}
       />
     </View>
   );
@@ -225,8 +227,14 @@ export default function AddShiftModal() {
   const { profile } = useSettingsStore();
   const { shiftId } = useLocalSearchParams<{ shiftId: string }>();
 
+  const { accentColor, accentColorDim, accentColorContrast } = usePlatformTheme();
+
   // Form State
-  const [selectedPlatform, setSelectedPlatform] = useState<GigPlatform>("doordash");
+  const [selectedPlatform, setSelectedPlatform] = useState<GigPlatform>(
+    profile?.selectedPlatforms && profile.selectedPlatforms.length > 0
+      ? (profile.selectedPlatforms[0] as GigPlatform)
+      : "doordash"
+  );
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>("");
   const [date, setDate] = useState<Date>(new Date());
   const [startTime, setStartTime] = useState<Date>(new Date());
@@ -288,6 +296,20 @@ export default function AddShiftModal() {
       setNotes(existingShift.notes || "");
     }
   }, [existingShift]);
+
+  const displayPlatforms = React.useMemo(() => {
+    const list = [...(profile?.selectedPlatforms || [])];
+    if (existingShift?.platform && !list.includes(existingShift.platform)) {
+      list.push(existingShift.platform);
+    }
+    return list as GigPlatform[];
+  }, [profile?.selectedPlatforms, existingShift?.platform]);
+
+  React.useEffect(() => {
+    if (displayPlatforms.length > 0 && !displayPlatforms.includes(selectedPlatform)) {
+      setSelectedPlatform(displayPlatforms[0]);
+    }
+  }, [displayPlatforms, selectedPlatform]);
 
   const handleSave = async () => {
     setErrorMessage("");
@@ -380,30 +402,39 @@ export default function AddShiftModal() {
   };
 
   return (
-    <SafeAreaView className="dark flex-1 bg-[#000000]">
+    <SafeAreaView className="flex-1 bg-[#000000]">
+      <Stack.Screen options={{ presentation: "fullScreenModal", headerShown: false }} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
       >
         {/* Header Bar */}
-        <View className="flex flex-row justify-between items-center px-4 py-3 border-b border-slate-800/80 bg-slate-900/40">
-          <TouchableOpacity onPress={() => router.back()} className="py-2 px-3 bg-slate-800/40 rounded-lg border border-slate-700/30">
-            <Text className="text-slate-300 text-xs font-semibold">Cancel</Text>
+        <View className="flex flex-row items-center px-5 py-4 border-b border-[#1f1f1f] bg-[#0d0d0d]">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="p-1 flex-row items-center min-w-[70px]"
+          >
+            <Text className="text-zinc-400 text-sm font-medium tracking-wide">
+              Cancel
+            </Text>
           </TouchableOpacity>
-          <Text className="text-slate-100 text-base font-extrabold tracking-tight">
+          <Text className="flex-1 text-white text-base font-bold tracking-tight text-center">
             {shiftId ? "Edit Shift" : "Add Shift"}
           </Text>
-          <TouchableOpacity 
-            onPress={handleSave} 
-            disabled={isSaving}
-            className="py-2 px-4 bg-emerald-500 rounded-lg shadow-md shadow-emerald-500/10"
-          >
-            {isSaving ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Text className="text-white text-xs font-bold uppercase tracking-wider">Save</Text>
-            )}
-          </TouchableOpacity>
+          <View className="min-w-[70px] items-end">
+            <TouchableOpacity 
+              onPress={handleSave} 
+              disabled={isSaving}
+              style={{ backgroundColor: accentColor }}
+              className="py-2 px-3.5 rounded-xl flex-row items-center justify-center"
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color={accentColorContrast} />
+              ) : (
+                <Text style={{ color: accentColorContrast }} className="text-xs font-bold tracking-wider">Save</Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView contentContainerClassName="p-4 flex flex-col gap-6 pb-12">
@@ -415,34 +446,50 @@ export default function AddShiftModal() {
 
           {/* Platform Field */}
           <View className="flex flex-col gap-2">
-            <Text className="text-slate-400 text-xs font-bold uppercase tracking-wide">Platform</Text>
+            <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Platform</Text>
             <View className="flex-row flex-wrap gap-2.5">
-              {(Object.keys(PLATFORMS) as GigPlatform[]).map((pKey) => {
-                const isSelected = selectedPlatform === pKey;
-                return (
+              {displayPlatforms.length > 0 ? (
+                displayPlatforms.map((pKey) => {
+                  const isSelected = selectedPlatform === pKey;
+                  return (
+                    <TouchableOpacity
+                      key={pKey}
+                      onPress={() => setSelectedPlatform(pKey)}
+                      className="p-1 rounded-full border-2"
+                      style={{
+                        borderColor: isSelected ? accentColor : "transparent",
+                        backgroundColor: isSelected ? accentColorDim : "transparent",
+                        opacity: isSelected ? 1 : 0.65,
+                        transform: [{ scale: isSelected ? 1.05 : 1 }],
+                      }}
+                    >
+                      <PlatformBadge platform={pKey} size="md" />
+                    </TouchableOpacity>
+                  );
+                })
+              ) : (
+                <View className="flex-1 p-4 bg-[#161615] border border-[#262522] rounded-xl flex-row justify-between items-center">
+                  <Text className="text-zinc-400 text-xs font-semibold">No active platforms. Enable them in settings.</Text>
                   <TouchableOpacity
-                    key={pKey}
-                    onPress={() => setSelectedPlatform(pKey)}
-                    className={cn(
-                      "p-1 rounded-full border-2 transition-all duration-200",
-                      isSelected ? "border-emerald-500 bg-emerald-500/10 scale-105" : "border-transparent opacity-65"
-                    )}
+                    onPress={() => router.push("/settings?tab=platforms")}
+                    style={{ backgroundColor: accentColor }}
+                    className="py-1.5 px-3 rounded-lg"
                   >
-                    <PlatformBadge platform={pKey} size="md" />
+                    <Text style={{ color: accentColorContrast }} className="text-xs font-bold">Go to Settings</Text>
                   </TouchableOpacity>
-                );
-              })}
+                </View>
+              )}
             </View>
           </View>
 
           {/* Vehicle Selector */}
           <View className="flex flex-col gap-2">
-            <Text className="text-slate-400 text-xs font-bold uppercase tracking-wide">Vehicle</Text>
+            <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Vehicle</Text>
             {isLoadingVehicles ? (
-              <ActivityIndicator size="small" color="#10b981" className="self-start mt-2" />
+              <ActivityIndicator size="small" color={accentColor} className="self-start mt-2" />
             ) : vehiclesList.length === 0 ? (
-              <View className="p-3 border border-dashed border-slate-800 rounded-xl bg-slate-900/20">
-                <Text className="text-slate-400 text-xs">No vehicles registered. Please add a vehicle in settings.</Text>
+              <View className="p-3 border border-dashed border-[#262522] rounded-xl bg-[#0d0d0d]">
+                <Text className="text-zinc-400 text-xs">No vehicles registered. Please add a vehicle in settings.</Text>
               </View>
             ) : (
               <View className="flex flex-col gap-2">
@@ -452,22 +499,23 @@ export default function AddShiftModal() {
                     <TouchableOpacity
                       key={vehicle.id}
                       onPress={() => setSelectedVehicleId(vehicle.id)}
-                      className={cn(
-                        "p-3 rounded-xl border flex-row justify-between items-center bg-slate-900/60 transition-all duration-200",
-                        isSelected ? "border-emerald-500 bg-emerald-500/5" : "border-slate-800/80"
-                      )}
+                      className="p-3 rounded-xl border flex-row justify-between items-center bg-[#0d0d0d]"
+                      style={{
+                        borderColor: isSelected ? accentColor : "#1f1f1f",
+                        backgroundColor: isSelected ? accentColorDim : "#0d0d0d",
+                      }}
                     >
                       <View className="flex-col">
-                        <Text className="text-sm font-bold text-slate-100">{vehicle.name}</Text>
-                        <Text className="text-xs text-slate-400 mt-0.5">
+                        <Text className="text-sm font-bold text-white">{vehicle.name}</Text>
+                        <Text className="text-xs text-zinc-400 mt-0.5">
                           {vehicle.year} {vehicle.make} {vehicle.model} ({vehicle.type})
                         </Text>
                       </View>
-                      <View className={cn(
-                        "w-4 h-4 rounded-full border items-center justify-center",
-                        isSelected ? "border-emerald-500 bg-emerald-500" : "border-slate-600"
-                      )}>
-                        {isSelected && <View className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      <View
+                        className={cn("w-4 h-4 rounded-full border items-center justify-center", !isSelected && "border-[#262522]")}
+                        style={isSelected ? { borderColor: accentColor, backgroundColor: accentColor } : {}}
+                      >
+                        {isSelected && <View className="w-1.5 h-1.5 rounded-full bg-black" />}
                       </View>
                     </TouchableOpacity>
                   );
@@ -478,11 +526,11 @@ export default function AddShiftModal() {
 
           {/* Date & Time Picker */}
           <View className="flex flex-col gap-3">
-            <Text className="text-slate-400 text-xs font-bold uppercase tracking-wide">Date & Duration</Text>
+            <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Date & Duration</Text>
             
             {/* Cross-platform Date Input */}
             <View className="flex flex-col gap-1.5">
-              <Text className="text-slate-500 text-[10px] font-bold uppercase tracking-wider pl-1">Shift Date</Text>
+              <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Shift Date</Text>
               {Platform.OS === "web" ? (
                 <input
                   type="date"
@@ -492,15 +540,15 @@ export default function AddShiftModal() {
                       setDate(new Date(e.target.value + "T00:00:00"));
                     }
                   }}
-                  className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-slate-100 text-sm w-full outline-none focus:border-emerald-500"
+                  className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 text-white text-sm w-full outline-none focus:border-white"
                 />
               ) : (
                 <TouchableOpacity
                   onPress={() => setShowDatePicker(true)}
-                  className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex-row justify-between items-center"
+                  className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 flex-row justify-between items-center"
                 >
-                  <Text className="text-slate-100 text-sm font-semibold">{date.toLocaleDateString(undefined, { dateStyle: "medium" })}</Text>
-                  <Text className="text-emerald-500 text-[10px] uppercase font-bold tracking-wider">Select</Text>
+                  <Text className="text-white text-sm font-semibold">{date.toLocaleDateString(undefined, { dateStyle: "medium" })}</Text>
+                  <Text style={{ color: accentColor }} className="text-[10px] uppercase font-bold tracking-wider">Select</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -508,7 +556,7 @@ export default function AddShiftModal() {
             {/* Cross-platform Times Row */}
             <View className="flex flex-row gap-3">
               <View className="flex-1 flex flex-col gap-1.5">
-                <Text className="text-slate-505 text-[10px] font-bold uppercase tracking-wider pl-1">Start Time</Text>
+                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Start Time</Text>
                 {Platform.OS === "web" ? (
                   <input
                     type="time"
@@ -522,23 +570,23 @@ export default function AddShiftModal() {
                         setStartTime(newTime);
                       }
                     }}
-                    className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-slate-100 text-sm w-full outline-none focus:border-emerald-500"
+                    className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 text-white text-sm w-full outline-none focus:border-white"
                   />
                 ) : (
                   <TouchableOpacity
                     onPress={() => setShowStartTimePicker(true)}
-                    className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex-row justify-between items-center"
+                    className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 flex-row justify-between items-center"
                   >
-                    <Text className="text-slate-100 text-sm font-semibold">
+                    <Text className="text-white text-sm font-semibold">
                       {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </Text>
-                    <Text className="text-emerald-500 text-[10px] uppercase font-bold tracking-wider">Select</Text>
+                    <Text style={{ color: accentColor }} className="text-[10px] uppercase font-bold tracking-wider">Select</Text>
                   </TouchableOpacity>
                 )}
               </View>
 
               <View className="flex-1 flex flex-col gap-1.5">
-                <Text className="text-slate-500 text-[10px] font-bold uppercase tracking-wider pl-1">End Time</Text>
+                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">End Time</Text>
                 {Platform.OS === "web" ? (
                   <input
                     type="time"
@@ -552,17 +600,17 @@ export default function AddShiftModal() {
                         setEndTime(newTime);
                       }
                     }}
-                    className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-slate-100 text-sm w-full outline-none focus:border-emerald-500"
+                    className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 text-white text-sm w-full outline-none focus:border-white"
                   />
                 ) : (
                   <TouchableOpacity
                     onPress={() => setShowEndTimePicker(true)}
-                    className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex-row justify-between items-center"
+                    className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 flex-row justify-between items-center"
                   >
-                    <Text className="text-slate-100 text-sm font-semibold">
+                    <Text className="text-white text-sm font-semibold">
                       {endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </Text>
-                    <Text className="text-emerald-500 text-[10px] uppercase font-bold tracking-wider">Select</Text>
+                    <Text style={{ color: accentColor }} className="text-[10px] uppercase font-bold tracking-wider">Select</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -606,30 +654,38 @@ export default function AddShiftModal() {
 
           {/* Revenue Inputs */}
           <View className="flex flex-col gap-4">
-            <Text className="text-slate-400 text-xs font-bold uppercase tracking-wide">Earnings</Text>
+            <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Earnings</Text>
             
             <View className="flex flex-row gap-3">
               <View className="flex-1 flex flex-col gap-1.5">
-                <Text className="text-slate-500 text-[10px] font-bold uppercase tracking-wider pl-1">Gross Revenue ($)</Text>
+                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Gross Revenue ($)</Text>
                 <TextInput
                   value={grossRevenue}
-                  onChangeText={setGrossRevenue}
+                  onChangeText={(text) => {
+                    const sanitized = text.replace(/[^0-9.]/g, "");
+                    const parts = sanitized.split(".");
+                    setGrossRevenue(parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized);
+                  }}
                   keyboardType="numeric"
                   placeholder="0.00"
-                  placeholderTextColor="#475569"
-                  className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-slate-100 text-sm focus:border-emerald-500 font-semibold"
+                  placeholderTextColor="#4b5563"
+                  className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
                 />
               </View>
 
               <View className="flex-1 flex flex-col gap-1.5">
-                <Text className="text-slate-500 text-[10px] font-bold uppercase tracking-wider pl-1">Tips ($)</Text>
+                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Tips ($)</Text>
                 <TextInput
                   value={tips}
-                  onChangeText={setTips}
+                  onChangeText={(text) => {
+                    const sanitized = text.replace(/[^0-9.]/g, "");
+                    const parts = sanitized.split(".");
+                    setTips(parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized);
+                  }}
                   keyboardType="numeric"
                   placeholder="0.00"
-                  placeholderTextColor="#475569"
-                  className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-slate-100 text-sm focus:border-emerald-500 font-semibold"
+                  placeholderTextColor="#4b5563"
+                  className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
                 />
               </View>
             </View>
@@ -637,30 +693,38 @@ export default function AddShiftModal() {
 
           {/* Mileage Inputs */}
           <View className="flex flex-col gap-4">
-            <Text className="text-slate-400 text-xs font-bold uppercase tracking-wide">Mileage ({profile.distanceUnit})</Text>
+            <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Mileage ({profile.distanceUnit})</Text>
             
             <View className="flex flex-row gap-3">
               <View className="flex-1 flex flex-col gap-1.5">
-                <Text className="text-slate-500 text-[10px] font-bold uppercase tracking-wider pl-1">Active Distance</Text>
+                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Active Distance</Text>
                 <TextInput
                   value={activeMileage}
-                  onChangeText={setActiveMileage}
+                  onChangeText={(text) => {
+                    const sanitized = text.replace(/[^0-9.]/g, "");
+                    const parts = sanitized.split(".");
+                    setActiveMileage(parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized);
+                  }}
                   keyboardType="numeric"
                   placeholder="0.0"
-                  placeholderTextColor="#475569"
-                  className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-slate-100 text-sm focus:border-emerald-500 font-semibold"
+                  placeholderTextColor="#4b5563"
+                  className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
                 />
               </View>
 
               <View className="flex-1 flex flex-col gap-1.5">
-                <Text className="text-slate-500 text-[10px] font-bold uppercase tracking-wider pl-1">Dead Distance</Text>
+                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Dead Distance</Text>
                 <TextInput
                   value={deadMileage}
-                  onChangeText={setDeadMileage}
+                  onChangeText={(text) => {
+                    const sanitized = text.replace(/[^0-9.]/g, "");
+                    const parts = sanitized.split(".");
+                    setDeadMileage(parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized);
+                  }}
                   keyboardType="numeric"
                   placeholder="0.0"
-                  placeholderTextColor="#475569"
-                  className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-slate-100 text-sm focus:border-emerald-500 font-semibold"
+                  placeholderTextColor="#4b5563"
+                  className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
                 />
               </View>
             </View>
@@ -676,15 +740,15 @@ export default function AddShiftModal() {
 
           {/* Notes Field */}
           <View className="flex flex-col gap-2">
-            <Text className="text-slate-400 text-xs font-bold uppercase tracking-wide">Notes</Text>
+            <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Notes</Text>
             <TextInput
               value={notes}
               onChangeText={setNotes}
               multiline
               numberOfLines={3}
               placeholder="Add details about your shift (traffic, weather, peak pay details)..."
-              placeholderTextColor="#475569"
-              className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-slate-100 text-sm h-24 focus:border-emerald-500 text-left align-top leading-relaxed font-medium"
+              placeholderTextColor="#4b5563"
+              className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm h-24 focus:border-white text-left align-top leading-relaxed font-semibold"
             />
           </View>
         </ScrollView>

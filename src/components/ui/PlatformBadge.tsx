@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { Text } from "./text";
 import { cn } from "@/src/lib/utils";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
+import { PlatformLogo } from "@/src/components/GlobalTopHeader";
 
 export interface PlatformBadgeProps {
   platform: PlatformKey;
@@ -10,9 +11,22 @@ export interface PlatformBadgeProps {
   className?: string;
 }
 
+const HAS_LOGO = ["doordash", "ubereats", "instacart", "skip", "amazonflex", "amazon", "foodora", "lyft"];
+
 export function PlatformBadge({ platform, size = "md", className }: PlatformBadgeProps) {
   const config = PLATFORMS[platform] || PLATFORMS.other;
+  const hasLogo = HAS_LOGO.includes(platform);
 
+  if (hasLogo) {
+    const logoSize = size === "sm" ? 16 : 22;
+    return (
+      <View className={cn("justify-center items-center", className)}>
+        <PlatformLogo id={platform} size={logoSize} />
+      </View>
+    );
+  }
+
+  // Fallback to name/badge text if there is no logo
   const sizeClasses = {
     sm: "px-2 py-0.5 rounded-full",
     md: "px-3 py-1 rounded-full",

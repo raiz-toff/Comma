@@ -25,7 +25,7 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 // ── Platform SVG logos (exact PWA brand assets) ────────────────────────────
-const PlatformLogo = ({ id, size = 14 }: { id: string; size?: number }) => {
+export const PlatformLogo = ({ id, size = 14 }: { id: string; size?: number }) => {
   switch (id) {
     case "doordash":
       return (

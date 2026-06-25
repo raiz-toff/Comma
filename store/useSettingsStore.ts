@@ -3,89 +3,24 @@ import { Platform } from "react-native";
 import { db } from "../src/database/client";
 import { settings, vehicles, shifts, expenses, goals } from "../src/database/schema";
 import { eq } from "drizzle-orm";
+import { DEMO_ROUTES } from './demoRoutes';
+
+import { type ExpenseCategory } from "../src/registry/expenseCategories";
 
 const isWeb = Platform.OS === "web";
 
-const generateMockRoutePath = (shiftCounter: number): string => {
-  // Base coordinates around San Francisco downtown (near Market St)
-  const baseLat = 37.7749 + (shiftCounter % 5) * 0.003;
-  const baseLng = -122.4194 - (shiftCounter % 3) * 0.004;
-  const points = [];
-  
-  let currentLat = baseLat;
-  let currentLng = baseLng;
-  let currentTime = Date.now() - 3600000; // Start 1 hour ago
-  
-  // Start with a semi-random direction (0=North, 1=East, 2=South, 3=West)
-  let dir = (shiftCounter * 3) % 4;
+type VehicleType = 'car' | 'scooter' | 'ebike';
+const VEHICLE_TYPES: VehicleType[] = ['car', 'scooter', 'ebike'];
 
-  // Block sizes in degrees (approx 120m North-South, 180m East-West in SF)
-  const latBlock = 0.0011;
-  const lngBlock = 0.0018;
-
-  // Generate a route with 4 to 6 connected blocks
-  const numBlocks = 4 + (shiftCounter % 3);
-
-  points.push({
-    latitude: currentLat,
-    longitude: currentLng,
-    timestamp: currentTime,
+/** Real OSRM road-snapped routes. vehicle type sets scale: car=city, scooter=neighbourhood, ebike=local. */
+const generateMockRoutePath = (shiftCounter: number, vehicleType: VehicleType = 'car'): string => {
+  const pool = DEMO_ROUTES[vehicleType] ?? DEMO_ROUTES.car;
+  const route = pool[shiftCounter % pool.length];
+  let currentTime = Date.now() - 3600000;
+  const points = route.map(([lng, lat]: [number, number]) => {
+    currentTime += 6000 + (shiftCounter * 7 + Math.abs(lng * 10) | 0) % 8000;
+    return { latitude: lat, longitude: lng, timestamp: currentTime };
   });
-
-  for (let b = 0; b < numBlocks; b++) {
-    // Determine the next intersection target
-    let targetLat = currentLat;
-    let targetLng = currentLng;
-    
-    if (dir === 0) targetLat += latBlock;
-    else if (dir === 1) targetLng += lngBlock;
-    else if (dir === 2) targetLat -= latBlock;
-    else targetLng -= lngBlock;
-
-    // Generate 8 to 12 detailed points along this block
-    const steps = 8 + Math.floor(Math.random() * 5);
-    for (let s = 1; s <= steps; s++) {
-      const ratio = s / steps;
-      const interpLat = currentLat + (targetLat - currentLat) * ratio;
-      const interpLng = currentLng + (targetLng - currentLng) * ratio;
-
-      // Simulate driving in the right-hand lane (approx 3-4 meters offset)
-      let offsetLat = 0;
-      let offsetLng = 0;
-      const laneOffset = 0.000035;
-
-      if (dir === 0) {
-        offsetLng = laneOffset;  // North: shift East
-      } else if (dir === 2) {
-        offsetLng = -laneOffset; // South: shift West
-      } else if (dir === 1) {
-        offsetLat = -laneOffset; // East: shift South
-      } else if (dir === 3) {
-        offsetLat = laneOffset;  // West: shift North
-      }
-
-      // Small GPS signal jitter (approx 1 meter)
-      const jitterLat = (Math.random() - 0.5) * 0.000015;
-      const jitterLng = (Math.random() - 0.5) * 0.000015;
-
-      currentTime += 10000 + Math.random() * 4000; // ~10-14 seconds per point
-
-      points.push({
-        latitude: interpLat + offsetLat + jitterLat,
-        longitude: interpLng + offsetLng + jitterLng,
-        timestamp: currentTime,
-      });
-    }
-
-    // Set new current position to the intersection we reached
-    currentLat = targetLat;
-    currentLng = targetLng;
-
-    // Turn 90 degrees at the intersection (avoid going directly backwards)
-    const turnLeft = Math.random() < 0.5;
-    dir = (dir + (turnLeft ? 1 : 3)) % 4;
-  }
-
   return JSON.stringify(points);
 };
 
@@ -104,6 +39,7 @@ export interface DriverProfile {
   hstRegistered: boolean;
   distanceUnit: "km" | "mi";
   theme: "light" | "dark" | "auto";
+  customCategories?: ExpenseCategory[];
 }
 
 export interface VehicleDraft {
@@ -152,6 +88,7 @@ const DEFAULT_PROFILE: DriverProfile = {
   hstRegistered: false,
   distanceUnit: "km",
   theme: "dark",
+  customCategories: [],
 };
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
@@ -540,15 +477,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ isLoading: true });
     if (isWeb) {
       localStorage.setItem("comma_demo_mode", "true");
-      const vehicleId = "demo_vehicle_1";
-      const demoVehicle = {
-        id: vehicleId,
-        name: "Toyota Prius (Demo)",
-        type: "hybrid",
-        isActive: true,
-        createdAt: new Date().toISOString(),
-      };
-      localStorage.setItem("comma_vehicle", JSON.stringify(demoVehicle));
+      const demoVehicles = [
+        { id: 'demo_vehicle_car', name: 'Toyota Prius', type: 'hybrid', isActive: true, createdAt: new Date().toISOString(), make: 'Toyota', model: 'Prius', year: '2020' },
+        { id: 'demo_vehicle_scooter', name: 'Honda Ruckus', type: 'scooter', isActive: false, createdAt: new Date().toISOString(), make: 'Honda', model: 'Ruckus', year: '2022' },
+        { id: 'demo_vehicle_ebike', name: 'Rad Power RadCity', type: 'ebike', isActive: false, createdAt: new Date().toISOString(), make: 'Rad Power', model: 'RadCity', year: '2023' },
+      ];
+      localStorage.setItem("comma_vehicles", JSON.stringify(demoVehicles));
+      localStorage.setItem("comma_vehicle", JSON.stringify(demoVehicles[0]));
+      const demoVehicleIds = ['demo_vehicle_car', 'demo_vehicle_scooter', 'demo_vehicle_ebike'];
       localStorage.setItem("comma_onboarding_completed", "true");
       const finalProfile = {
         displayName: "Jane Doe (Demo)",
@@ -606,7 +542,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
           demoShifts.push({
             id: shiftId,
-            vehicleId: vehicleId,
+            vehicleId: demoVehicleIds[shiftCounter % 3],
             platform: platform,
             startTime: startTime.toISOString(),
             endTime: endTime.toISOString(),
@@ -618,7 +554,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
             durationSeconds: duration,
             pausedSeconds: 0,
             notes: "[COMMA Sample Data]",
-            routePath: generateMockRoutePath(shiftCounter),
+            routePath: generateMockRoutePath(shiftCounter, VEHICLE_TYPES[shiftCounter % 3]),
           });
 
           if (shiftCounter % 4 === 0) {
@@ -684,21 +620,20 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           set: { value: "true" },
         });
 
-      const existingVehicles = await db.select().from(vehicles).limit(1);
-      let vehicleId = existingVehicles[0]?.id;
-      if (!vehicleId) {
-        vehicleId = "demo_vehicle_1";
-        await db.insert(vehicles).values({
-          id: vehicleId,
-          name: "Toyota Prius (Demo)",
-          type: "hybrid",
-          isActive: true,
-          createdAt: new Date(),
-          make: "Toyota",
-          model: "Prius",
-          year: 2020,
+      await db.delete(vehicles);
+      await db.insert(vehicles).values([
+        { id: 'demo_vehicle_car', name: 'Toyota Prius', type: 'hybrid', isActive: true, createdAt: new Date(), make: 'Toyota', model: 'Prius', year: 2020 },
+        { id: 'demo_vehicle_scooter', name: 'Honda Ruckus', type: 'scooter', isActive: false, createdAt: new Date(), make: 'Honda', model: 'Ruckus', year: 2022 },
+        { id: 'demo_vehicle_ebike', name: 'Rad Power RadCity', type: 'ebike', isActive: false, createdAt: new Date(), make: 'Rad Power', model: 'RadCity', year: 2023 },
+      ]);
+      await db
+        .insert(settings)
+        .values({ key: "preferred_vehicle_id", value: "demo_vehicle_car" })
+        .onConflictDoUpdate({
+          target: settings.key,
+          set: { value: "demo_vehicle_car" },
         });
-      }
+      const demoVehicleIds = ['demo_vehicle_car', 'demo_vehicle_scooter', 'demo_vehicle_ebike'];
 
       const now = new Date();
       const demoShifts = [];
@@ -738,7 +673,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
           demoShifts.push({
             id: shiftId,
-            vehicleId: vehicleId,
+            vehicleId: demoVehicleIds[shiftCounter % 3],
             platform: platform,
             startTime: startTime,
             endTime: endTime,
@@ -750,7 +685,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
             durationSeconds: duration,
             pausedSeconds: 0,
             notes: "[COMMA Sample Data]",
-            routePath: generateMockRoutePath(shiftCounter),
+            routePath: generateMockRoutePath(shiftCounter, VEHICLE_TYPES[shiftCounter % 3]),
           });
 
           if (shiftCounter % 4 === 0) {
@@ -792,6 +727,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         createdAt: new Date(),
       });
 
+      await get().loadSettings();
       set({ isDemoMode: true, isLoading: false });
     } catch (error) {
       console.error("Failed to load sample data:", error);

@@ -61,7 +61,9 @@
       ],
       "expo-notifications",
       "expo-asset",
-      "expo-web-browser"
+      "expo-web-browser",
+      "react-native-android-widget",
+      "expo-sharing"
     ],
     "extra": {
       "router": {},

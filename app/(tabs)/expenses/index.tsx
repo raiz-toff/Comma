@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import {
   ScrollView,
   View,
@@ -195,8 +195,25 @@ function ExpenseRow({
 export default function ExpensesScreen() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const { isOnboardingCompleted, profile } = useSettingsStore();
+  const { isOnboardingCompleted, profile, setHeaderVisible } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
+
+  const lastScrollY = useRef(0);
+  const handleScroll = (event: any) => {
+    const currentY = event.nativeEvent.contentOffset.y;
+    if (currentY <= 0) {
+      setHeaderVisible(true);
+    } else if (currentY > lastScrollY.current && currentY > 50) {
+      setHeaderVisible(false);
+    } else if (currentY < lastScrollY.current) {
+      setHeaderVisible(true);
+    }
+    lastScrollY.current = currentY;
+  };
+
+  useEffect(() => {
+    setHeaderVisible(true);
+  }, []);
 
   const country = profile?.country ?? "CA";
   const customCategories = profile?.customCategories ?? [];
@@ -367,7 +384,12 @@ export default function ExpensesScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#000" }} edges={["bottom", "left", "right"]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100, paddingTop: insets.top + 64 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100, paddingTop: insets.top + 64 }}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
         
         {/* ── Screen header ── */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 }}>

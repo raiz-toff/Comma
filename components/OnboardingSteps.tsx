@@ -10,6 +10,10 @@ import {
 import { Button } from "../src/components/ui/button";
 import { Text } from "../src/components/ui/text";
 import { cn } from "../src/lib/utils";
+import { getCountryDef } from "../src/registry/countries/index";
+import { getRegionsByCountry } from "../src/registry/provinces/index";
+import { PLATFORMS, type PlatformKey } from "../src/registry/platforms";
+import { getWithholdingPresetPct } from "../src/registry/tax/withholdingPresets";
 
 // Custom vector icons implemented as pure Views to avoid react-native-svg native dependency
 const CheckIcon = ({ color = "#10b981" }) => (
@@ -46,32 +50,6 @@ function WhyWeAsk({ summary, body }: { summary: string; body: string }) {
   );
 }
 
-const US_STATES = [
-  { id: "NY", label: "New York" },
-  { id: "CA", label: "California" },
-  { id: "TX", label: "Texas" },
-  { id: "FL", label: "Florida" },
-  { id: "IL", label: "Illinois" },
-  { id: "PA", label: "Pennsylvania" },
-  { id: "OH", label: "Ohio" },
-  { id: "GA", label: "Georgia" },
-  { id: "NC", label: "North Carolina" },
-  { id: "MI", label: "Michigan" },
-];
-
-const CA_PROVINCES = [
-  { id: "ON", label: "Ontario" },
-  { id: "QC", label: "Quebec" },
-  { id: "BC", label: "British Columbia" },
-  { id: "AB", label: "Alberta" },
-  { id: "MB", label: "Manitoba" },
-  { id: "SK", label: "Saskatchewan" },
-  { id: "NS", label: "Nova Scotia" },
-  { id: "NB", label: "New Brunswick" },
-  { id: "NL", label: "Newfoundland" },
-  { id: "PE", label: "Prince Edward Island" },
-];
-
 const EMOJI_AVATARS = ["🚗", "🛵", "🚲", "📦", "⭐", "🔥", "💼", "🤑"];
 
 const VEHICLE_TYPES = [
@@ -92,17 +70,9 @@ const SCHEDULE_PRESETS = [
   { id: "weekends", label: "Weekends" },
 ];
 
-const WITHHOLDING_PRESETS_CA: Record<string, number> = {
-  AB: 26, BC: 28, MB: 30, NB: 30, NL: 31, NS: 32, ON: 29, PE: 31, QC: 33, SK: 29, YT: 28,
-};
-
-const WITHHOLDING_PRESETS_US: Record<string, number> = {
-  NY: 31, CA: 30, TX: 23, FL: 23, IL: 25, PA: 24, OH: 25, GA: 25, NC: 24, MI: 25,
-};
-
 interface CountrySelectProps {
-  country: "US" | "CA";
-  setCountry: (c: "US" | "CA") => void;
+  country: "US" | "CA" | "UK";
+  setCountry: (c: "US" | "CA" | "UK") => void;
   setTaxRegion: (r: string) => void;
 }
 
@@ -119,47 +89,63 @@ export function CountrySelectStep({ country, setCountry, setTaxRegion }: Country
         body="Currency and mileage rules follow your country so numbers stay trustworthy." 
       />
 
-      <View className="flex flex-row gap-3">
-        {(["CA", "US"] as const).map((cCode) => (
-          <TouchableOpacity
-            key={cCode}
-            onPress={() => {
-              setCountry(cCode);
-              setTaxRegion(cCode === "CA" ? "ON" : "NY");
-            }}
-            className={cn(
-              "flex-1 p-5 rounded-xl bg-[#1c1b18] border border-[#3d3a35] items-center justify-center gap-2",
-              country === cCode && "border-primary bg-primary/5"
-            )}
-          >
-            <Text className="text-2xl">{cCode === "CA" ? "🇨🇦" : "🇺🇸"}</Text>
-            <Text className="font-bold text-[#f4f2ed]">
-              {cCode === "CA" ? "Canada" : "United States"}
-            </Text>
-            <Text className="text-[10px] text-[#7a7670] font-mono">
-              {cCode === "CA" ? "CAD ($) • Metric (km)" : "USD ($) • Imperial (mi)"}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View className="flex flex-row gap-2">
+        {(["CA", "US", "UK"] as const).map((cCode) => {
+          let flag = "🇨🇦";
+          let label = "Canada";
+          let sub = "CAD ($) • Metric (km)";
+          if (cCode === "US") {
+            flag = "🇺🇸";
+            label = "United States";
+            sub = "USD ($) • Imperial (mi)";
+          } else if (cCode === "UK") {
+            flag = "🇬🇧";
+            label = "United Kingdom";
+            sub = "GBP (£) • Imperial (mi)";
+          }
+          return (
+            <TouchableOpacity
+              key={cCode}
+              onPress={() => {
+                setCountry(cCode);
+                setTaxRegion(cCode === "CA" ? "ON" : cCode === "US" ? "NY" : "ENG");
+              }}
+              className={cn(
+                "flex-1 p-3.5 rounded-xl bg-[#1c1b18] border border-[#3d3a35] items-center justify-center gap-2",
+                country === cCode && "border-primary bg-primary/5"
+              )}
+            >
+              <Text className="text-2xl">{flag}</Text>
+              <Text className="font-bold text-[#f4f2ed] text-xs">
+                {label}
+              </Text>
+              <Text className="text-[8px] text-[#7a7670] font-mono text-center">
+                {sub}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
 }
 
 interface RegionSelectProps {
-  country: "US" | "CA";
+  country: "US" | "CA" | "UK";
   taxRegion: string;
   setTaxRegion: (r: string) => void;
 }
 
 export function RegionSelectStep({ country, taxRegion, setTaxRegion }: RegionSelectProps) {
-  const regions = country === "CA" ? CA_PROVINCES : US_STATES;
-  const label = country === "CA" ? "Province or territory" : "State";
+  const regions = getRegionsByCountry(country);
+  const countryDef = getCountryDef(country);
+  const regionLabel = countryDef.tax.regionLabel;
+  const label = regionLabel === "province" ? "Province or territory" : regionLabel === "state" ? "State" : "Region";
 
   return (
     <View className="flex flex-col gap-5">
       <View className="gap-1.5">
-        <Text className="text-2xl font-bold text-[#f4f2ed]">Province, state, or region</Text>
+        <Text className="text-2xl font-bold text-[#f4f2ed]">{label}</Text>
         <Text className="text-xs text-[#7a7670]">Tax presets and catalog data use this where your country is supported.</Text>
       </View>
 
@@ -190,30 +176,22 @@ export function RegionSelectStep({ country, taxRegion, setTaxRegion }: RegionSel
 }
 
 interface PlatformsProps {
-  country: "US" | "CA";
+  country: "US" | "CA" | "UK";
   selectedPlatforms: string[];
   togglePlatform: (id: string) => void;
 }
 
 export function PlatformsStep({ country, selectedPlatforms, togglePlatform }: PlatformsProps) {
-  // Platforms dynamically scoped by country matching CA/US catalog settings
-  const platformOptions = country === "CA" 
-    ? [
-        { id: "doordash", label: "DoorDash", color: "#FF3008" },
-        { id: "ubereats", label: "UberEats", color: "#10b981" },
-        { id: "skip", label: "SkipTheDishes", color: "#f96302" },
-        { id: "foodora", label: "Foodora", color: "#ff2b85" },
-        { id: "instacart", label: "Instacart", color: "#43b02a" },
-        { id: "amazonflex", label: "AmazonFlex", color: "#ff9900" },
-        { id: "other", label: "Other / Independent", color: "#7a7670" },
-      ]
-    : [
-        { id: "doordash", label: "DoorDash", color: "#FF3008" },
-        { id: "ubereats", label: "UberEats", color: "#10b981" },
-        { id: "instacart", label: "Instacart", color: "#43b02a" },
-        { id: "amazonflex", label: "AmazonFlex", color: "#ff9900" },
-        { id: "other", label: "Other / Independent", color: "#7a7670" },
-      ];
+  const countryDef = getCountryDef(country);
+  const platformIds = countryDef.defaultAvailablePlatforms;
+  const platformOptions = platformIds.map((id) => {
+    const config = PLATFORMS[id as PlatformKey] || PLATFORMS.other;
+    return {
+      id,
+      label: config.label,
+      color: config.color,
+    };
+  });
 
   return (
     <View className="flex flex-col gap-5">
@@ -256,6 +234,8 @@ export function PlatformsStep({ country, selectedPlatforms, togglePlatform }: Pl
     </View>
   );
 }
+
+
 
 interface DriverProfileProps {
   displayName: string;
@@ -732,7 +712,7 @@ export function LongTermGoalsStep({ monthlyGoal, setMonthlyGoal, annualGoal, set
 }
 
 interface TaxWithholdingProps {
-  country: "US" | "CA";
+  country: "US" | "CA" | "UK";
   taxRegion: string;
   taxWithholdingPct: string;
   setTaxWithholdingPct: (val: string) => void;
@@ -740,14 +720,12 @@ interface TaxWithholdingProps {
 
 export function TaxWithholdingStep({ country, taxRegion, taxWithholdingPct, setTaxWithholdingPct }: TaxWithholdingProps) {
   const handleApplyPreset = () => {
-    if (country === "CA") {
-      const rate = WITHHOLDING_PRESETS_CA[taxRegion] || 28;
-      setTaxWithholdingPct(rate.toString());
-    } else {
-      const rate = WITHHOLDING_PRESETS_US[taxRegion] || 25;
-      setTaxWithholdingPct(rate.toString());
-    }
+    const countryDef = getCountryDef(country);
+    const rate = getWithholdingPresetPct(countryDef.tax.regionPresetType, taxRegion) ?? countryDef.tax.defaultWithholdingPct;
+    setTaxWithholdingPct(rate.toString());
   };
+
+  const countryName = country === "CA" ? "Canada" : country === "US" ? "USA" : "UK";
 
   return (
     <View className="flex flex-col gap-5">
@@ -765,7 +743,7 @@ export function TaxWithholdingStep({ country, taxRegion, taxWithholdingPct, setT
         <View className="flex flex-row justify-between items-center p-3 bg-[#1c1b18]/60 border border-[#3d3a35]/60 rounded-xl">
           <View>
             <Text className="text-[10px] text-[#7a7670] uppercase font-bold tracking-wide">Current Region</Text>
-            <Text className="text-sm font-bold text-[#f4f2ed] mt-0.5">{taxRegion} ({country === "CA" ? "Canada" : "USA"})</Text>
+            <Text className="text-sm font-bold text-[#f4f2ed] mt-0.5">{taxRegion} ({countryName})</Text>
           </View>
           <Button
             variant="outline"
@@ -807,14 +785,15 @@ export function TaxWithholdingStep({ country, taxRegion, taxWithholdingPct, setT
 }
 
 interface SalesTaxProps {
-  country: "US" | "CA";
+  country: "US" | "CA" | "UK";
   hstRegistered: boolean;
   setHstRegistered: (v: boolean) => void;
   setStep: (s: number | ((prev: number) => number)) => void;
 }
 
 export function SalesTaxStep({ country, hstRegistered, setHstRegistered, setStep }: SalesTaxProps) {
-  if (country !== "CA") {
+  const countryDef = getCountryDef(country);
+  if (!countryDef.tax.hstOnboarding) {
     setTimeout(() => setStep(10), 50);
     return <ActivityIndicator size="small" />;
   }

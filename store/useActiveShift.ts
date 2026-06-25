@@ -2,6 +2,10 @@ import { create } from "zustand";
 import { attachLocationPointsToShift, insertShift } from "../src/database/queries/shifts";
 import { type PlatformKey } from "../src/registry/platforms";
 import { cleanRoute } from "../utils/mapMatching";
+import { db } from "../src/database/client";
+import { settings } from "../src/database/schema";
+import { eq } from "drizzle-orm";
+import { Platform } from "react-native";
 
 export type GigPlatform = PlatformKey;
 
@@ -42,6 +46,7 @@ interface ActiveShiftState {
   setAutoPaused: (paused: boolean) => void;
   markFirstOrderReceived: () => void;
   reset: () => void;
+  hydrateShift: (state: Partial<ActiveShiftState>) => void;
 }
 
 export const useActiveShift = create<ActiveShiftState>((set, get) => ({
@@ -164,20 +169,34 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
 
   markFirstOrderReceived: () => set({ isFirstOrderReceived: true }),
 
-  reset: () => set({
-    isActive: false,
-    platform: null,
-    vehicleId: null,
-    startTime: null,
-    elapsedSeconds: 0,
-    activeMileage: 0,
-    deadMileage: 0,
-    targetTime: null,
-    isPaused: false,
-    isAutoPaused: false,
-    pausedSeconds: 0,
-    isFirstOrderReceived: false,
-    sessionId: null,
-    routePath: [],
-  })
+  reset: () => {
+    (async () => {
+      try {
+        if (Platform.OS === "web") {
+          localStorage.removeItem("comma_active_shift_state");
+        } else {
+          await db.delete(settings).where(eq(settings.key, "active_shift_state"));
+        }
+      } catch {}
+    })();
+    
+    set({
+      isActive: false,
+      platform: null,
+      vehicleId: null,
+      startTime: null,
+      elapsedSeconds: 0,
+      activeMileage: 0,
+      deadMileage: 0,
+      targetTime: null,
+      isPaused: false,
+      isAutoPaused: false,
+      pausedSeconds: 0,
+      isFirstOrderReceived: false,
+      sessionId: null,
+      routePath: [],
+    });
+  },
+
+  hydrateShift: (state) => set((s) => ({ ...s, ...state }))
 }));

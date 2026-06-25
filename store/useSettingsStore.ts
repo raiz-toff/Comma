@@ -6,8 +6,20 @@ import { eq } from "drizzle-orm";
 import { DEMO_ROUTES } from './demoRoutes';
 
 import { type ExpenseCategory } from "../src/registry/expenseCategories";
+import { getCountryDef, type CountryDef } from "../src/registry/countries/index";
+import { resolveProvinceDef, type ProvinceDef } from "../src/registry/provinces/index";
+import { getMarketContext, type MarketContext } from "../src/registry/market/resolve";
+import { getWithholdingPresetPct } from "../src/registry/tax/withholdingPresets";
+import {
+  GamificationService,
+  type Challenge,
+  type NotificationItem,
+  type PersonalRecords,
+  type GamificationState,
+} from "../src/services/gamification";
 
 const isWeb = Platform.OS === "web";
+
 
 type VehicleType = 'car' | 'scooter' | 'ebike';
 const VEHICLE_TYPES: VehicleType[] = ['car', 'scooter', 'ebike'];
@@ -26,7 +38,7 @@ const generateMockRoutePath = (shiftCounter: number, vehicleType: VehicleType = 
 
 export interface DriverProfile {
   displayName: string;
-  country: "US" | "CA";
+  country: "US" | "CA" | "UK";
   taxRegion: string;
   avatarType: "emoji" | "initials";
   avatarData: string;
@@ -40,6 +52,13 @@ export interface DriverProfile {
   distanceUnit: "km" | "mi";
   theme: "light" | "dark" | "auto";
   customCategories?: ExpenseCategory[];
+  bentoLayout?: string;
+  locale?: {
+    currency?: string;
+    dateFormat?: string;
+    weekStartDay?: number;
+    timeFormat?: "12h" | "24h";
+  };
 }
 
 export interface VehicleDraft {
@@ -58,6 +77,21 @@ interface SettingsState {
   isDemoMode: boolean;
   activePlatformFilter: string;
   preferredVehicleId: string | null;
+  isHeaderVisible: boolean;
+
+  // Derived from registry — synced on every profile load/update
+  countryDef: CountryDef | null;
+  provinceDef: ProvinceDef | null;
+  marketContext: MarketContext | null;
+
+  // Gamification & Notifications State
+  xpTotal: number;
+  xpLevel: number;
+  streakDays: number;
+  unlockedBadgeIds: string[];
+  challenges: Challenge[];
+  notifications: NotificationItem[];
+  personalRecords: PersonalRecords;
 
   // Actions
   loadSettings: () => Promise<void>;
@@ -71,12 +105,41 @@ interface SettingsState {
   clearSampleData: () => Promise<void>;
   setActivePlatformFilter: (filter: string) => void;
   setPreferredVehicle: (vehicleId: string) => Promise<void>;
+  setHeaderVisible: (visible: boolean) => void;
+  /** Update profile fields and re-persist. Also re-derives locale defs. */
+  updateProfile: (patch: Partial<DriverProfile>) => Promise<void>;
+  /** Apply the registry withholding preset for the current country+region. */
+  applyTaxPreset: (regionCode: string) => Promise<void>;
+
+  // Gamification Actions
+  evaluateGamification: () => Promise<void>;
+  dismissNotification: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
+  clearAllNotifications: () => Promise<void>;
 }
+
+/**
+ * Derive countryDef, provinceDef, marketContext from a profile.
+ * Call this any time profile.country or profile.taxRegion changes.
+ */
+function syncLocaleDefsFromProfile(profile: DriverProfile): {
+  countryDef: CountryDef;
+  provinceDef: ProvinceDef | null;
+  marketContext: MarketContext;
+} {
+  const country = profile.country || "CA";
+  const region = profile.taxRegion || (country === "CA" ? "ON" : "CA");
+  const countryDef = getCountryDef(country);
+  const provinceDef = resolveProvinceDef(country, region);
+  const marketContext = getMarketContext(country, region);
+  return { countryDef, provinceDef, marketContext };
+}
+
 
 const DEFAULT_PROFILE: DriverProfile = {
   displayName: "",
   country: "CA",
-  taxRegion: "",
+  taxRegion: "ON",
   avatarType: "emoji",
   avatarData: "🚗",
   selectedPlatforms: [],
@@ -84,12 +147,19 @@ const DEFAULT_PROFILE: DriverProfile = {
   weeklyGoal: 500,
   monthlyGoal: 2000,
   annualGoal: 24000,
-  taxWithholdingPct: 25,
+  taxWithholdingPct: 28, // CA default
   hstRegistered: false,
   distanceUnit: "km",
   theme: "dark",
   customCategories: [],
+  locale: {
+    currency: "CAD",
+    dateFormat: "YYYY-MM-DD",
+    weekStartDay: 0,
+    timeFormat: "12h",
+  },
 };
+
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   isOnboardingCompleted: false,
@@ -99,8 +169,35 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   isDemoMode: false,
   activePlatformFilter: "all",
   preferredVehicleId: null,
+  isHeaderVisible: true,
+  countryDef: null,
+  provinceDef: null,
+  marketContext: null,
 
-  setActivePlatformFilter: (filter: string) => set({ activePlatformFilter: filter }),
+  // Gamification default state
+  xpTotal: 0,
+  xpLevel: 1,
+  streakDays: 0,
+  unlockedBadgeIds: [],
+  challenges: [],
+  notifications: [],
+  personalRecords: {
+    bestShiftGross: 0,
+    bestNetHourly: 0,
+  },
+
+  setActivePlatformFilter: (filter: string) => {
+    const profile = get().profile;
+    if (profile?.selectedPlatforms && profile.selectedPlatforms.length === 1) {
+      set({ activePlatformFilter: profile.selectedPlatforms[0] });
+    } else {
+      set({ activePlatformFilter: filter });
+    }
+  },
+
+  setHeaderVisible: (visible: boolean) => {
+    set({ isHeaderVisible: visible });
+  },
 
   setPreferredVehicle: async (vehicleId: string) => {
     set({ preferredVehicleId: vehicleId });
@@ -158,14 +255,25 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           return;
         }
         
+        const loadedProfile: DriverProfile = rawProfile ? { ...DEFAULT_PROFILE, ...JSON.parse(rawProfile) } : DEFAULT_PROFILE;
+        const localeDefs = syncLocaleDefsFromProfile(loadedProfile);
+        const gamificationState = await GamificationService.loadState();
+        let finalFilter = localStorage.getItem("comma_active_platform_filter") || "all";
+        if (loadedProfile.selectedPlatforms && loadedProfile.selectedPlatforms.length === 1) {
+          finalFilter = loadedProfile.selectedPlatforms[0];
+        }
         set({
           isOnboardingCompleted: true,
-          profile: rawProfile ? JSON.parse(rawProfile) : DEFAULT_PROFILE,
+          profile: loadedProfile,
           activeVehicle: rawVehicle ? JSON.parse(rawVehicle) : null,
           isDemoMode: rawDemoMode === "true",
+          activePlatformFilter: finalFilter,
           preferredVehicleId: localStorage.getItem("comma_preferred_vehicle_id") || null,
           isLoading: false,
+          ...localeDefs,
+          ...gamificationState,
         });
+
       } catch {
         set({ isLoading: false });
       }
@@ -173,14 +281,20 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
 
     try {
-      // Fetch from SQLite via Drizzle
-      const onboardingCompletedRow = await db
-        .select()
-        .from(settings)
-        .where(eq(settings.key, "onboarding_completed"))
-        .limit(1);
+      // Delete all settings rows
+      const raw = await db.select().from(settings).execute();
+      const st: Record<string, string> = {};
+      raw.forEach((r: { key: string; value: string }) => {
+        st[r.key] = r.value;
+      });
 
-      const onboardingCompleted = onboardingCompletedRow[0]?.value === "true";
+
+      const profileStr = st["profile"];
+      const widgetsStr = st["dashboard_widgets"];
+      const isDemo = st["demo_mode"] === "true";
+      const filter = st["active_platform_filter"] || "all";
+      const pvid = st["preferred_vehicle_id"] || null;
+      const onboardingCompleted = st["onboarding_completed"] === "true";
 
       if (!onboardingCompleted) {
         // Auto-onboard and load sample data by default on first launch
@@ -212,17 +326,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         return;
       }
 
-      const profileRow = await db
-        .select()
-        .from(settings)
-        .where(eq(settings.key, "profile"))
-        .limit(1);
+      let nextProfile = { ...DEFAULT_PROFILE };
 
-      const demoModeRow = await db
-        .select()
-        .from(settings)
-        .where(eq(settings.key, "demo_mode"))
-        .limit(1);
+      if (profileStr) {
+        try {
+          const p = JSON.parse(profileStr);
+          nextProfile = { ...DEFAULT_PROFILE, ...p };
+        } catch (e) {
+          console.warn("Failed to parse profile JSON", e);
+        }
+      }
 
       // Fetch vehicle
       const vehicleRows = await db
@@ -231,18 +344,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         .where(eq(vehicles.isActive, true))
         .limit(1);
 
-      // Fetch preferred vehicle id
-      const preferredVehicleRow = await db
-        .select()
-        .from(settings)
-        .where(eq(settings.key, "preferred_vehicle_id"))
-        .limit(1);
-
-      const profile = profileRow[0]?.value
-        ? (JSON.parse(profileRow[0].value) as DriverProfile)
-        : DEFAULT_PROFILE;
-      const isDemoMode = demoModeRow[0]?.value === "true";
-      const activeVehicle = vehicleRows[0]
+      const actVeh = vehicleRows[0]
         ? {
             nickname: vehicleRows[0].name,
             type: vehicleRows[0].type,
@@ -254,20 +356,29 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
       // Resolve preferredVehicleId: use stored preference if that vehicle exists,
       // otherwise fall back to the first active vehicle
-      const storedPrefId = preferredVehicleRow[0]?.value || null;
-      const vehicleIdExists = vehicleRows.some((v: { id: string }) => v.id === storedPrefId);
+      const vehicleIdExists = vehicleRows.some((v: { id: string }) => v.id === pvid);
       const preferredVehicleId = vehicleIdExists
-        ? storedPrefId
+        ? pvid
         : vehicleRows[0]?.id || null;
 
+      const localeDefs = syncLocaleDefsFromProfile(nextProfile);
+      const gamificationState = await GamificationService.loadState();
+      let finalFilter = filter;
+      if (nextProfile.selectedPlatforms && nextProfile.selectedPlatforms.length === 1) {
+        finalFilter = nextProfile.selectedPlatforms[0];
+      }
       set({
         isOnboardingCompleted: true,
-        profile,
-        activeVehicle,
-        isDemoMode,
-        preferredVehicleId,
+        profile: nextProfile,
+        activeVehicle: actVeh,
+        isDemoMode: isDemo,
+        activePlatformFilter: finalFilter,
+        preferredVehicleId: preferredVehicleId,
         isLoading: false,
+        ...localeDefs,
+        ...gamificationState,
       });
+
     } catch (error) {
       console.error("Failed to load settings from DB:", error);
       set({ isLoading: false });
@@ -281,11 +392,24 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   ) => {
     set({ isLoading: true });
     
-    // Auto distance unit setting based on country
+    // Auto distance unit + locale currency from country registry
+    const countryDef = getCountryDef(profile.country || "CA");
+    const presetPct = getWithholdingPresetPct(
+      countryDef.tax.regionPresetType,
+      profile.taxRegion
+    );
     const finalProfile = {
       ...profile,
-      distanceUnit: profile.country === "US" ? ("mi" as const) : ("km" as const),
+      distanceUnit: countryDef.distanceUnit,
+      taxWithholdingPct: presetPct ?? profile.taxWithholdingPct ?? countryDef.tax.defaultWithholdingPct,
+      locale: {
+        currency: countryDef.currency,
+        dateFormat: profile.country === "US" ? "MM/DD/YYYY" : "YYYY-MM-DD",
+        weekStartDay: profile.locale?.weekStartDay ?? 0,
+        timeFormat: profile.locale?.timeFormat ?? "12h",
+      },
     };
+
 
     if (isWeb) {
       localStorage.setItem("comma_onboarding_completed", "true");
@@ -332,13 +456,17 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       }
       localStorage.setItem("comma_goals", JSON.stringify(initialGoals));
 
+      const localeDefs = syncLocaleDefsFromProfile(finalProfile);
       set({
         isOnboardingCompleted: true,
         profile: finalProfile,
         activeVehicle: vehicle,
+        activePlatformFilter: finalProfile.selectedPlatforms?.length === 1 ? finalProfile.selectedPlatforms[0] : "all",
         isLoading: false,
+        ...localeDefs,
       });
       return;
+
     }
 
     try {
@@ -425,19 +553,89 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         });
       }
 
+      const localeDefs = syncLocaleDefsFromProfile(finalProfile);
       set({
         isOnboardingCompleted: true,
         profile: finalProfile,
         activeVehicle: vehicle,
+        activePlatformFilter: finalProfile.selectedPlatforms?.length === 1 ? finalProfile.selectedPlatforms[0] : "all",
         isLoading: false,
+        ...localeDefs,
       });
+
     } catch (error) {
       console.error("Failed to complete onboarding in DB:", error);
       set({ isLoading: false });
     }
   },
 
+  updateProfile: async (patch: Partial<DriverProfile>) => {
+    const current = get().profile;
+    const updated: DriverProfile = { ...current, ...patch };
+
+    // If country changed, auto-update distanceUnit, currency, and locale
+    if (patch.country && patch.country !== current.country) {
+      const countryDef = getCountryDef(patch.country);
+      updated.distanceUnit = countryDef.distanceUnit;
+      updated.locale = {
+        ...updated.locale,
+        currency: countryDef.currency,
+        dateFormat: patch.country === "US" ? "MM/DD/YYYY" : "YYYY-MM-DD",
+      };
+      // Reset taxRegion to country default
+      updated.taxRegion = countryDef.tax.defaultRegionCode;
+      // Apply country-default withholding preset
+      const preset = getWithholdingPresetPct(
+        countryDef.tax.regionPresetType,
+        countryDef.tax.defaultRegionCode
+      );
+      updated.taxWithholdingPct = preset ?? countryDef.tax.defaultWithholdingPct;
+    }
+
+    // If taxRegion changed, apply region withholding preset
+    if (patch.taxRegion && patch.taxRegion !== current.taxRegion) {
+      const countryDef = getCountryDef(updated.country);
+      const preset = getWithholdingPresetPct(countryDef.tax.regionPresetType, patch.taxRegion);
+      if (preset !== null) {
+        updated.taxWithholdingPct = preset;
+      }
+    }
+
+    const localeDefs = syncLocaleDefsFromProfile(updated);
+    let nextFilter = get().activePlatformFilter;
+    if (updated.selectedPlatforms && updated.selectedPlatforms.length === 1) {
+      nextFilter = updated.selectedPlatforms[0];
+    } else if (updated.selectedPlatforms && updated.selectedPlatforms.length > 1 && !updated.selectedPlatforms.includes(nextFilter) && nextFilter !== "all") {
+      nextFilter = "all";
+    }
+    set({ profile: updated, activePlatformFilter: nextFilter, ...localeDefs });
+
+    // Persist
+    const profileJson = JSON.stringify(updated);
+    if (isWeb) {
+      localStorage.setItem("comma_profile", profileJson);
+    } else {
+      try {
+        await db
+          .insert(settings)
+          .values({ key: "profile", value: profileJson })
+          .onConflictDoUpdate({ target: settings.key, set: { value: profileJson } });
+      } catch (e) {
+        console.error("Failed to persist profile update:", e);
+      }
+    }
+  },
+
+  applyTaxPreset: async (regionCode: string) => {
+    const { profile } = get();
+    const countryDef = getCountryDef(profile.country);
+    const preset = getWithholdingPresetPct(countryDef.tax.regionPresetType, regionCode);
+    const withholdingPct = preset ?? countryDef.tax.defaultWithholdingPct;
+    await get().updateProfile({ taxRegion: regionCode, taxWithholdingPct: withholdingPct });
+  },
+
   resetSettings: async () => {
+
     set({ isLoading: true });
     if (isWeb) {
       localStorage.clear();
@@ -505,6 +703,38 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       localStorage.setItem("comma_profile", JSON.stringify(finalProfile));
 
       const now = new Date();
+
+      const templateConfigs = [
+        { dayOffset: 0, platform: "doordash", start: "08:00", end: "11:30" },
+        { dayOffset: 0, platform: "ubereats", start: "16:00", end: "20:00" },
+        { dayOffset: 1, platform: "skip",     start: "11:00", end: "15:00" },
+        { dayOffset: 2, platform: "doordash", start: "12:00", end: "16:00" },
+        { dayOffset: 3, platform: "ubereats", start: "09:00", end: "13:00" },
+        { dayOffset: 3, platform: "skip",     start: "17:00", end: "20:00" },
+        { dayOffset: 4, platform: "doordash", start: "16:00", end: "20:00" },
+        { dayOffset: 5, platform: "ubereats", start: "11:00", end: "15:00" },
+        { dayOffset: 6, platform: "skip",     start: "08:00", end: "12:00" },
+        { dayOffset: 6, platform: "doordash", start: "15:00", end: "19:30" },
+        { dayOffset: 7, platform: "ubereats", start: "12:00", end: "16:00" },
+        { dayOffset: 8, platform: "skip",     start: "16:00", end: "20:00" },
+        { dayOffset: 9, platform: "doordash", start: "09:00", end: "13:00" },
+        { dayOffset: 9, platform: "ubereats", start: "17:00", end: "20:00" },
+      ];
+      const demoTemplates = templateConfigs.map((cfg, idx) => {
+        const tDate = new Date(now);
+        tDate.setDate(now.getDate() + cfg.dayOffset);
+        return {
+          id: `demo_template_${idx}`,
+          platform: cfg.platform,
+          dayOfWeek: tDate.getDay(),
+          startTime: cfg.start,
+          endTime: cfg.end,
+          reminderMinutes: 30,
+          date: tDate.toISOString().split("T")[0],
+        };
+      });
+      localStorage.setItem("comma_shift_templates", JSON.stringify(demoTemplates));
+
       const demoShifts = [];
       const demoExpenses = [];
       const platforms = ["doordash", "ubereats", "skip"];
@@ -636,6 +866,45 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       const demoVehicleIds = ['demo_vehicle_car', 'demo_vehicle_scooter', 'demo_vehicle_ebike'];
 
       const now = new Date();
+
+      const templateConfigs = [
+        { dayOffset: 0, platform: "doordash", start: "08:00", end: "11:30" },
+        { dayOffset: 0, platform: "ubereats", start: "16:00", end: "20:00" },
+        { dayOffset: 1, platform: "skip",     start: "11:00", end: "15:00" },
+        { dayOffset: 2, platform: "doordash", start: "12:00", end: "16:00" },
+        { dayOffset: 3, platform: "ubereats", start: "09:00", end: "13:00" },
+        { dayOffset: 3, platform: "skip",     start: "17:00", end: "20:00" },
+        { dayOffset: 4, platform: "doordash", start: "16:00", end: "20:00" },
+        { dayOffset: 5, platform: "ubereats", start: "11:00", end: "15:00" },
+        { dayOffset: 6, platform: "skip",     start: "08:00", end: "12:00" },
+        { dayOffset: 6, platform: "doordash", start: "15:00", end: "19:30" },
+        { dayOffset: 7, platform: "ubereats", start: "12:00", end: "16:00" },
+        { dayOffset: 8, platform: "skip",     start: "16:00", end: "20:00" },
+        { dayOffset: 9, platform: "doordash", start: "09:00", end: "13:00" },
+        { dayOffset: 9, platform: "ubereats", start: "17:00", end: "20:00" },
+      ];
+      const demoTemplates = templateConfigs.map((cfg, idx) => {
+        const tDate = new Date(now);
+        tDate.setDate(now.getDate() + cfg.dayOffset);
+        return {
+          id: `demo_template_${idx}`,
+          platform: cfg.platform,
+          dayOfWeek: tDate.getDay(),
+          startTime: cfg.start,
+          endTime: cfg.end,
+          reminderMinutes: 30,
+          date: tDate.toISOString().split("T")[0],
+        };
+      });
+
+      await db
+        .insert(settings)
+        .values({ key: "shift_templates", value: JSON.stringify(demoTemplates) })
+        .onConflictDoUpdate({
+          target: settings.key,
+          set: { value: JSON.stringify(demoTemplates) },
+        });
+
       const demoShifts = [];
       const demoExpenses = [];
       const platforms = ["doordash", "ubereats", "skip"];
@@ -728,6 +997,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       });
 
       await get().loadSettings();
+      await get().evaluateGamification();
       set({ isDemoMode: true, isLoading: false });
     } catch (error) {
       console.error("Failed to load sample data:", error);
@@ -756,16 +1026,88 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       await db.delete(expenses);
       await db.delete(goals);
 
+      // Save empty gamification state on clear
+      const defaultState: GamificationState = {
+        xpTotal: 0,
+        xpLevel: 1,
+        streakDays: 0,
+        streakLastDay: null,
+        streakFrozenCount: 1,
+        personalRecords: { bestShiftGross: 0, bestNetHourly: 0 },
+        unlockedBadgeIds: [],
+        challenges: [
+          {
+            id: "challenge_earn_500_week",
+            name: "Earn 500 This Week",
+            description: "Reach $500 gross earnings this week.",
+            metric: "earnings",
+            target: 500,
+            current: 0,
+            completedAt: null,
+            startedAt: new Date().toISOString(),
+          },
+          {
+            id: "challenge_20_deliveries_week",
+            name: "20 Deliveries",
+            description: "Complete 20 deliveries this week.",
+            metric: "deliveries",
+            target: 20,
+            current: 0,
+            completedAt: null,
+            startedAt: new Date().toISOString(),
+          },
+          {
+            id: "challenge_5_shift_streak",
+            name: "5 Shift Streak",
+            description: "Log shifts on 5 consecutive days.",
+            metric: "streak",
+            target: 5,
+            current: 0,
+            completedAt: null,
+            startedAt: new Date().toISOString(),
+          },
+        ],
+        notifications: [],
+      };
+      await GamificationService.saveState(defaultState);
+
       set({
         isOnboardingCompleted: false,
         profile: DEFAULT_PROFILE,
         activeVehicle: null,
         isDemoMode: false,
         isLoading: false,
+        ...defaultState,
       });
     } catch (error) {
       console.error("Failed to clear sample data:", error);
       set({ isLoading: false });
     }
+  },
+
+  evaluateGamification: async () => {
+    const updated = await GamificationService.evaluateAll();
+    set({ ...updated });
+  },
+
+  dismissNotification: async (id: string) => {
+    const state = await GamificationService.loadState();
+    state.notifications = state.notifications.filter((n) => n.id !== id);
+    await GamificationService.saveState(state);
+    set({ notifications: state.notifications });
+  },
+
+  markAllNotificationsRead: async () => {
+    const state = await GamificationService.loadState();
+    state.notifications = state.notifications.map((n) => ({ ...n, read: true }));
+    await GamificationService.saveState(state);
+    set({ notifications: state.notifications });
+  },
+
+  clearAllNotifications: async () => {
+    const state = await GamificationService.loadState();
+    state.notifications = [];
+    await GamificationService.saveState(state);
+    set({ notifications: [] });
   },
 }));

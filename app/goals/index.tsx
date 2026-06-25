@@ -24,6 +24,7 @@ import { useSettingsStore } from "@/store/useSettingsStore";
 import { cn } from "@/src/lib/utils";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import Svg, { Circle } from "react-native-svg";
+import { BADGES } from "@/src/registry/index";
 
 const isWeb = Platform.OS === "web";
 
@@ -123,7 +124,15 @@ function CircularProgress({
 export default function GoalsScreen() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const { profile, isOnboardingCompleted } = useSettingsStore();
+  const {
+    profile,
+    isOnboardingCompleted,
+    xpTotal,
+    xpLevel,
+    streakDays,
+    unlockedBadgeIds,
+    challenges,
+  } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
 
   const [isAdding, setIsAdding] = useState(false);
@@ -154,7 +163,7 @@ export default function GoalsScreen() {
     queryFn: async () => {
       if (isWeb) return { grossRevenue: 250 }; // mock for web
       const res = await db.select().from(shifts).orderBy(desc(shifts.grossRevenue)).limit(1);
-      return res[0];
+      return res[0] ?? null;
     },
     enabled: isOnboardingCompleted,
   });
@@ -162,20 +171,8 @@ export default function GoalsScreen() {
   // Derived Gamification Stats
   const weeklyEarningsGoal = goalsList.find((g: any) => g.period === "weekly" && g.unit === "currency");
   
-  const streakDays = useMemo(() => {
-    let cur = 0;
-    dailyData.forEach((d) => {
-      if (d.total > 0) cur++;
-      else cur = 0;
-    });
-    return cur;
-  }, [dailyData]);
-
-  // Mocked stats to replicate PWA feel until full gamification engine is ported
-  const xpTotal = 12450;
-  const xpLevel = 12;
-  const badgesUnlocked = 4;
-  const badgesTotal = 12;
+  const badgesUnlocked = unlockedBadgeIds?.length ?? 0;
+  const badgesTotal = BADGES.length;
 
   // Handlers
   const handleOpenForm = (goal?: any) => {
@@ -259,7 +256,7 @@ export default function GoalsScreen() {
 
         <View style={{ paddingHorizontal: 16, gap: 20 }}>
         {isLoading ? (
-          <View style={{ py: 40, alignItems: "center" }}>
+          <View style={{ paddingVertical: 40, alignItems: "center" }}>
             <ActivityIndicator size="large" color={accentColor} />
           </View>
         ) : (
@@ -435,24 +432,37 @@ export default function GoalsScreen() {
               </View>
             </View>
 
-            {/* ── Mock Challenges Section ── */}
+            {/* ── Challenges Section ── */}
             <View style={{ backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, marginTop: 12, padding: 20 }}>
-              <Text style={{ fontSize: 16, fontWeight: "800", color: "#ffffff", marginBottom: 20 }}>Challenges</Text>
+              <Text style={{ fontSize: 16, fontWeight: "800", color: "#ffffff", marginBottom: 20 }}>Active Challenges</Text>
               <View style={{ gap: 16 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#0d0d0d", borderWidth: 1, borderColor: "#262522", alignItems: "center", justifyContent: "center" }}>
-                    <Target size={20} color="#ec4899" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
-                      <Text style={{ fontSize: 13, fontWeight: "800", color: "#ffffff" }}>Weekend Warrior</Text>
-                      <Text style={{ fontSize: 12, fontWeight: "900", color: "#ec4899" }}>60%</Text>
-                    </View>
-                    <View style={{ height: 4, backgroundColor: "#0d0d0d", borderRadius: 2 }}>
-                      <View style={{ height: "100%", width: "60%", backgroundColor: "#ec4899", borderRadius: 2 }} />
-                    </View>
-                  </View>
-                </View>
+                {challenges && challenges.length > 0 ? (
+                  challenges.map((c) => {
+                    const pct = Math.min(100, Math.round((c.current / c.target) * 100));
+                    const isCompleted = !!c.completedAt;
+                    return (
+                      <View key={c.id} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#0d0d0d", borderWidth: 1, borderColor: "#262522", alignItems: "center", justifyContent: "center" }}>
+                          <Target size={20} color={isCompleted ? "#10b981" : "#ec4899"} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
+                            <Text style={{ fontSize: 13, fontWeight: "800", color: "#ffffff" }}>{c.name}</Text>
+                            <Text style={{ fontSize: 12, fontWeight: "900", color: isCompleted ? "#10b981" : "#ec4899" }}>
+                              {isCompleted ? "Completed" : `${pct}%`}
+                            </Text>
+                          </View>
+                          <Text style={{ fontSize: 11, color: "#71717a", marginBottom: 6 }}>{c.description}</Text>
+                          <View style={{ height: 4, backgroundColor: "#1f1f1f", borderRadius: 2 }}>
+                            <View style={{ height: "100%", width: `${pct}%`, backgroundColor: isCompleted ? "#10b981" : "#ec4899", borderRadius: 2 }} />
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })
+                ) : (
+                  <Text style={{ fontSize: 13, color: "#71717a", fontStyle: "italic" }}>No active challenges.</Text>
+                )}
               </View>
             </View>
           </>

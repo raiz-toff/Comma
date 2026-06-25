@@ -37,67 +37,84 @@ export function useWakeLock() {
     };
   }, [isActive]);
 
-  // 3. Persist elapsed seconds to storage every 30 seconds
+  // 3. Persist FULL state to storage every 15 seconds
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (isActive) {
       interval = setInterval(async () => {
         try {
+          const shiftState = useActiveShift.getState();
+          const payload = JSON.stringify({
+            isActive: shiftState.isActive,
+            platform: shiftState.platform,
+            vehicleId: shiftState.vehicleId,
+            startTime: shiftState.startTime,
+            elapsedSeconds: shiftState.elapsedSeconds,
+            activeMileage: shiftState.activeMileage,
+            deadMileage: shiftState.deadMileage,
+            targetTime: shiftState.targetTime,
+            isPaused: shiftState.isPaused,
+            isAutoPaused: shiftState.isAutoPaused,
+            pausedSeconds: shiftState.pausedSeconds,
+            isFirstOrderReceived: shiftState.isFirstOrderReceived,
+            sessionId: shiftState.sessionId,
+            // purposely ignoring massive routePath arrays
+          });
+
           if (isWeb) {
-            localStorage.setItem("comma_active_shift_elapsed", String(elapsedSeconds));
+            localStorage.setItem("comma_active_shift_state", payload);
           } else {
             await db
               .insert(settings)
-              .values({ key: "active_shift_elapsed", value: String(elapsedSeconds) })
+              .values({ key: "active_shift_state", value: payload })
               .onConflictDoUpdate({
                 target: settings.key,
-                set: { value: String(elapsedSeconds) },
+                set: { value: payload },
               });
           }
         } catch {
           // Quiet catch
         }
-      }, 30000);
+      }, 15000);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
   }, [isActive, elapsedSeconds]);
 
-  // 4. Reconcile timer on foreground focus
+  // 4. Hydrate shift on cold boot
   useEffect(() => {
-    const handleAppStateChange = async (nextStatus: AppStateStatus) => {
-      if (nextStatus === "active" && isActive) {
-        try {
-          let persistedSeconds = 0;
-          if (isWeb) {
-            const val = localStorage.getItem("comma_active_shift_elapsed");
-            if (val) persistedSeconds = parseInt(val, 10);
-          } else {
-            const row = await db
-              .select()
-              .from(settings)
-              .where(eq(settings.key, "active_shift_elapsed"))
-              .limit(1);
-            if (row[0]?.value) {
-              persistedSeconds = parseInt(row[0].value, 10);
-            }
-          }
-
-          // If background database timer elapsed state is further ahead than in-memory Zustand
-          if (persistedSeconds > elapsedSeconds) {
-            // Set the maximum to reconcile and avoid clock losing time
-            useActiveShift.setState({ elapsedSeconds: persistedSeconds });
-          }
-        } catch {
-          // Quiet catch
+    const hydrateShift = async () => {
+      if (useActiveShift.getState().isActive) return;
+      try {
+        let payload = null;
+        if (isWeb) {
+          payload = localStorage.getItem("comma_active_shift_state");
+        } else {
+          const row = await db
+            .select()
+            .from(settings)
+            .where(eq(settings.key, "active_shift_state"))
+            .limit(1);
+          payload = row[0]?.value;
         }
-      }
-    };
 
-    const sub = AppState.addEventListener("change", handleAppStateChange);
-    return () => {
-      sub.remove();
+        if (payload) {
+          const state = JSON.parse(payload);
+          if (state.isActive) {
+            // Restore missing time elapsed since app was killed
+            const now = Date.now();
+            if (state.startTime && !state.isPaused) {
+              const expectedElapsed = Math.floor((now - state.startTime) / 1000) - state.pausedSeconds;
+              if (expectedElapsed > state.elapsedSeconds) {
+                 state.elapsedSeconds = expectedElapsed;
+              }
+            }
+            useActiveShift.getState().hydrateShift(state);
+          }
+        }
+      } catch {}
     };
-  }, [isActive, elapsedSeconds]);
+    hydrateShift();
+  }, []);
 }

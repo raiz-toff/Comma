@@ -8,13 +8,14 @@ import {
   Alert,
   Platform,
   Modal,
-  Animated,
   TextInput,
+  Animated as RNAnimated,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Text } from "../../src/components/ui/text";
+import { BlurView } from "expo-blur";
 import { useActiveShift, type GigPlatform } from "../../store/useActiveShift";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { getVehicles } from "../../src/database/queries/vehicles";
@@ -32,6 +33,14 @@ import Svg, { Path, Circle, Defs, LinearGradient, Stop, Polyline, Line } from "r
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
 import { PLATFORMS } from "../../src/registry/platforms";
 import { PlatformLogo } from "../../src/components/GlobalTopHeader";
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
+} from 'react-native-reanimated';
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 const PlayIcon = ({ size = 14, color = "white" }: { size?: number; color?: string }) => (
@@ -166,18 +175,18 @@ const RingProgress = ({ pct, color, size = 28 }: { pct: number; color: string; s
 
 // ─── Home Skeleton ───────────────────────────────────────────────────────────
 const HomeSkeleton = () => {
-  const pulse = useRef(new Animated.Value(0.3)).current;
+  const pulse = useRef(new RNAnimated.Value(0.3)).current;
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 0.6, duration: 850, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0.3, duration: 850, useNativeDriver: true }),
+    RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(pulse, { toValue: 0.6, duration: 850, useNativeDriver: true }),
+        RNAnimated.timing(pulse, { toValue: 0.3, duration: 850, useNativeDriver: true }),
       ])
     ).start();
   }, []);
 
   return (
-    <Animated.View style={{ opacity: pulse, gap: 10, width: "100%" }}>
+    <RNAnimated.View style={{ opacity: pulse, gap: 10, width: "100%" }}>
       <View style={{ height: 40, width: 140, backgroundColor: "#1e1e1e", borderRadius: 8 }} />
       <View style={{ height: 160, backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 1, borderColor: "#1e1e1e" }} />
       <View style={{ flexDirection: "row", gap: 8 }}>
@@ -189,7 +198,7 @@ const HomeSkeleton = () => {
         <View style={{ height: 100, flex: 1, backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#1e1e1e" }} />
       </View>
       <View style={{ height: 90, backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#1e1e1e" }} />
-    </Animated.View>
+    </RNAnimated.View>
   );
 };
 
@@ -299,6 +308,225 @@ const LiveRouteMap = ({ points, strokeColor }: { points: Array<{ latitude: numbe
   );
 };
 
+const RouteMinimap = ({ routePathJson, strokeColor }: { routePathJson: string; strokeColor: string }) => {
+  const points = React.useMemo(() => {
+    try {
+      const parsed = JSON.parse(routePathJson);
+      if (!Array.isArray(parsed) || parsed.length < 2) return null;
+      return parsed as Array<{ latitude: number; longitude: number }>;
+    } catch {
+      return null;
+    }
+  }, [routePathJson]);
+
+  if (!points) return null;
+
+  const lats = points.map((p) => p.latitude);
+  const lngs = points.map((p) => p.longitude);
+
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+
+  const latRange = maxLat - minLat || 0.001;
+  const lngRange = maxLng - minLng || 0.001;
+
+  const width = 100;
+  const height = 60;
+  const padding = 6;
+
+  const svgPoints = points.map((p) => {
+    const x = padding + ((p.longitude - minLng) / lngRange) * (width - 2 * padding);
+    const y = padding + (1 - (p.latitude - minLat) / latRange) * (height - 2 * padding);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+
+  const startPoint = points[0];
+  const endPoint = points[points.length - 1];
+
+  const startX = padding + ((startPoint.longitude - minLng) / lngRange) * (width - 2 * padding);
+  const startY = padding + (1 - (startPoint.latitude - minLat) / latRange) * (height - 2 * padding);
+
+  const endX = padding + ((endPoint.longitude - minLng) / lngRange) * (width - 2 * padding);
+  const endY = padding + (1 - (endPoint.latitude - minLat) / latRange) * (height - 2 * padding);
+
+  return (
+    <View style={{ width: 100, height: 60, backgroundColor: "#090909", borderRadius: 8, borderWidth: 0.5, borderColor: "#1e1e1e", overflow: "hidden", marginLeft: 12 }}>
+      <Svg width={width} height={height}>
+        <Line x1="0" y1="20" x2="100" y2="20" stroke="#121212" strokeWidth="0.5" />
+        <Line x1="0" y1="40" x2="100" y2="40" stroke="#121212" strokeWidth="0.5" />
+        <Line x1="33" y1="0" x2="33" y2="60" stroke="#121212" strokeWidth="0.5" />
+        <Line x1="66" y1="0" x2="66" y2="60" stroke="#121212" strokeWidth="0.5" />
+        
+        <Polyline
+          points={svgPoints}
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        <Circle cx={startX} cy={startY} r="3" fill="#10b981" />
+        <Circle cx={endX} cy={endY} r="3.5" fill="#ef4444" stroke="#000" strokeWidth="0.8" />
+      </Svg>
+    </View>
+  );
+};
+
+const CircularProgress = ({
+  progressPct,
+  size = 80,
+  strokeWidth = 8,
+  color = "#ffffff",
+}: {
+  progressPct: number;
+  size?: number;
+  strokeWidth?: number;
+  color?: string;
+}) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const strokeDashoffset = circumference - (Math.min(progressPct, 100) / 100) * circumference;
+
+  return (
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+      <Svg width={size} height={size}>
+        <Circle
+          stroke="#1c1c1e"
+          fill="none"
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          strokeWidth={strokeWidth}
+        />
+        <Circle
+          stroke={color}
+          fill="none"
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          originX={size / 2}
+          originY={size / 2}
+          rotation="-90"
+        />
+      </Svg>
+      <View style={{ position: "absolute", alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ fontSize: 16, fontWeight: "900", color: "#ffffff" }}>
+          {Math.round(progressPct)}%
+        </Text>
+      </View>
+    </View>
+  );
+};
+
+const SLIDE_WIDTH = 300;
+const KNOB_WIDTH = 56;
+const THRESHOLD = SLIDE_WIDTH - KNOB_WIDTH - 4;
+
+const SwipeToEnd = ({ onEnd }: { onEnd: () => void }) => {
+  const translateX = useSharedValue(0);
+
+  const panGesture = Gesture.Pan()
+    .onUpdate((event) => {
+      // Clamp values between 0 and the threshold on the UI thread
+      translateX.value = Math.max(0, Math.min(event.translationX, THRESHOLD));
+    })
+    .onEnd(() => {
+      if (translateX.value >= THRESHOLD * 0.8) {
+        translateX.value = withTiming(THRESHOLD, { duration: 120 }, () => {
+          if (onEnd) runOnJS(onEnd)();
+        });
+      } else {
+        translateX.value = withSpring(0, {
+          damping: 15,
+          stiffness: 150,
+        });
+      }
+    });
+
+  const knobStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  const progressStyle = useAnimatedStyle(() => ({
+    width: translateX.value + KNOB_WIDTH,
+  }));
+
+  return (
+    <View style={sliderStyles.container}>
+      <Text style={sliderStyles.backgroundText}>SWIPE TO END</Text>
+      
+      <Animated.View style={[sliderStyles.progressFill, progressStyle]} />
+      
+      <GestureDetector gesture={panGesture}>
+        <Animated.View style={[sliderStyles.knob, knobStyle]}>
+          <Text style={sliderStyles.knobText}>›</Text>
+        </Animated.View>
+      </GestureDetector>
+    </View>
+  );
+};
+
+const sliderStyles = StyleSheet.create({
+  container: {
+    width: SLIDE_WIDTH,
+    height: 64,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.25)",
+    justifyContent: "center",
+    alignSelf: "center",
+    overflow: "hidden",
+    marginVertical: 12,
+  },
+  backgroundText: {
+    position: "absolute",
+    width: "100%",
+    textAlign: "center",
+    color: "#ef4444",
+    fontWeight: "900",
+    fontSize: 14,
+    letterSpacing: 1.5,
+    zIndex: 1,
+  },
+  progressFill: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: "rgba(239, 68, 68, 0.2)",
+    zIndex: 2,
+    borderRadius: 32,
+  },
+  knob: {
+    width: KNOB_WIDTH,
+    height: KNOB_WIDTH,
+    borderRadius: KNOB_WIDTH / 2,
+    backgroundColor: "#ef4444",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 4,
+    zIndex: 3,
+    shadowColor: "#ef4444",
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  knobText: {
+    color: "#fff",
+    fontSize: 28,
+    fontWeight: "900",
+    marginTop: -2,
+  },
+});
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const queryClient = useQueryClient();
@@ -313,9 +541,17 @@ export default function HomeScreen() {
   } = useActiveShift();
 
   const {
-    isOnboardingCompleted, profile, isLoading, isDemoMode,
-    activePlatformFilter, loadSettings, clearSampleData,
+    profile,
+    isDemoMode,
+    isLoading,
+    loadSettings,
+    clearSampleData,
+    activePlatformFilter,
     preferredVehicleId,
+    isOnboardingCompleted,
+    streakDays,
+    isHeaderVisible,
+    setHeaderVisible,
   } = useSettingsStore();
 
   const { accentColor, accentColorContrast, platformColor } = usePlatformTheme();
@@ -336,8 +572,38 @@ export default function HomeScreen() {
   const [customHours, setCustomHours] = useState(2);
   const [customMinutes, setCustomMinutes] = useState(0);
 
+  const lastScrollY = React.useRef(0);
+  const handleScroll = (event: any) => {
+    const currentY = event.nativeEvent.contentOffset.y;
+    if (currentY <= 0) {
+      setHeaderVisible(true);
+    } else if (currentY > lastScrollY.current && currentY > 50) {
+      setHeaderVisible(false);
+    } else if (currentY < lastScrollY.current) {
+      setHeaderVisible(true);
+    }
+    lastScrollY.current = currentY;
+  };
+
+  const actionBarVisibleAnim = React.useRef(new RNAnimated.Value(1)).current;
+
+  React.useEffect(() => {
+    RNAnimated.spring(actionBarVisibleAnim, {
+      toValue: isHeaderVisible ? 1 : 0,
+      tension: 60,
+      friction: 12,
+      useNativeDriver: true,
+    }).start();
+  }, [isHeaderVisible]);
+
+  const actionBarTranslateY = actionBarVisibleAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [120, 0],
+  });
+
   // Overlay state
   const [showClockOverlay, setShowClockOverlay] = useState(false);
+  const [endedShiftId, setEndedShiftId] = useState<string | null>(null);
 
   // Date filter state
   const [dateRange, setDateRange] = useState(() => rangeForPreset("day", new Date(), 0));
@@ -388,15 +654,17 @@ export default function HomeScreen() {
     enabled: isOnboardingCompleted,
   });
 
+
   // Load configuration on mount
   useEffect(() => {
     loadSettings();
+    setHeaderVisible(true);
   }, []);
 
   // Sync date preset on mount / profile change
   useEffect(() => {
-    setDateRange(rangeForPreset(dateRange.preset, new Date(), 0));
-  }, [profile?.country]);
+    setDateRange(rangeForPreset(dateRange.preset, new Date(), profile?.locale?.weekStartDay ?? 0));
+  }, [profile?.country, profile?.locale?.weekStartDay]);
 
 
 
@@ -437,12 +705,12 @@ export default function HomeScreen() {
   const fmt = (val: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: profile?.locale?.currency || "USD",
     }).format(val);
   };
 
   const selectPreset = (p: string) => {
-    setDateRange(rangeForPreset(p, new Date(), 0));
+    setDateRange(rangeForPreset(p, new Date(), profile?.locale?.weekStartDay ?? 0));
   };
 
   const openWizard = () => {
@@ -505,6 +773,7 @@ export default function HomeScreen() {
       finalTargetTimeEpoch = d.getTime();
     }
     const vId = selectedVehicleId || "default_vehicle_1";
+    reset(); // FORCE FRESH START
     startShift(selectedPlatformId, vId, finalTargetTimeEpoch);
     setShowWizard(false);
     setShowClockOverlay(true);
@@ -517,28 +786,18 @@ export default function HomeScreen() {
     setShowClockOverlay(false);
 
     if (payload?.shiftId) {
-      Alert.alert(
-        "Shift Ended",
-        "Record your earnings details now!",
-        [
-          {
-            text: "Enter Earnings",
-            onPress: () => {
-              router.push({
-                pathname: "/shift/add",
-                params: { shiftId: payload.shiftId }
-              });
-            }
-          },
-          { text: "Dismiss", style: "cancel" }
-        ]
-      );
+      setEndedShiftId(payload.shiftId);
     }
   };
 
   return (
     <SafeAreaView style={S.root} edges={["top", "left", "right"]}>
-      <ScrollView contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={S.scroll}
+        showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
         
         {/* ── Header ──────────────────────────────────────────────────── */}
         <View style={S.header}>
@@ -587,7 +846,7 @@ export default function HomeScreen() {
           <>
             {/* ── Hero Earnings Summary ────────────────────────────────── */}
             <View style={S.hero}>
-              <View style={{ padding: 14, paddingBottom: 10, gap: 12 }}>
+              <View style={{ padding: 12, paddingBottom: 8, gap: 8 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                   <Text style={S.heroLabel}>TOTAL EARNINGS</Text>
                   <View style={S.trendBadge}>
@@ -619,7 +878,7 @@ export default function HomeScreen() {
               </View>
 
               <View style={{ marginTop: 2, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, overflow: "hidden" }}>
-                <Sparkline points={sparkPoints} color="#3b82f6" height={42} />
+                <Sparkline points={sparkPoints} color="#3b82f6" height={28} />
               </View>
             </View>
 
@@ -676,28 +935,35 @@ export default function HomeScreen() {
               const target = g.targetValue ?? 1;
               const percent = Math.round((current / target) * 100);
               return (
-                <View key={g.id} style={S.card}>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <View style={{ gap: 2 }}>
-                      <Text style={S.cardHeader}>{g.label}</Text>
-                      <Text style={{ fontSize: 11, color: "#888" }}>
-                        Target: <Text style={{ color: "#fff", fontWeight: "bold" }}>{g.unit === "currency" ? fmt(target) : `${target} hrs`}</Text>
+                <Pressable
+                  key={g.id}
+                  onPress={() => router.push("/goals")}
+                  style={S.card}
+                >
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text style={{ fontSize: 10, fontWeight: "900", color: accentColor, textTransform: "uppercase", letterSpacing: 1.5 }}>
+                        Weekly Thermometer
                       </Text>
+                      <Text style={{ fontSize: 20, fontWeight: "900", color: "#ffffff", letterSpacing: -0.5 }}>
+                        {g.label}
+                      </Text>
+                      <Text style={{ fontSize: 13, color: "#888", fontWeight: "600", marginTop: 2 }}>
+                        {g.unit === "currency" ? fmt(current) : `${current.toFixed(1)} hrs`} of {g.unit === "currency" ? fmt(target) : `${target} hrs`}
+                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(249, 115, 22, 0.15)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 0.5, borderColor: "rgba(249, 115, 22, 0.3)" }}>
+                          <Text style={{ fontSize: 12, marginRight: 2 }}>🔥</Text>
+                          <Text style={{ fontSize: 11, fontWeight: "800", color: "#f97316" }}>{streakDays} DAY STREAK</Text>
+                        </View>
+                        <View style={{ backgroundColor: percent >= 100 ? "rgba(16, 185, 129, 0.15)" : "rgba(255, 255, 255, 0.08)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 0.5, borderColor: percent >= 100 ? "rgba(16, 185, 129, 0.3)" : "rgba(255, 255, 255, 0.12)" }}>
+                          <Text style={{ fontSize: 11, fontWeight: "800", color: percent >= 100 ? "#10b981" : "#a1a1aa" }}>{percent}% DONE</Text>
+                        </View>
+                      </View>
                     </View>
-                    <RingProgress pct={percent} color={accentColor} />
+                    <CircularProgress progressPct={percent} color={accentColor} size={90} strokeWidth={8} />
                   </View>
-                  <View style={S.progressBarBg}>
-                    <View style={[S.progressBarFill, { width: `${Math.min(percent, 100)}%`, backgroundColor: accentColor }]} />
-                  </View>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 6 }}>
-                    <Text style={{ fontSize: 13, fontWeight: "bold", color: accentColor, paddingVertical: 1 }}>
-                      {g.unit === "currency" ? fmt(current) : `${current.toFixed(1)} hrs`}
-                    </Text>
-                    <Text style={{ fontSize: 11, color: "#888", fontWeight: "500" }}>
-                      {percent}% completed
-                    </Text>
-                  </View>
-                </View>
+                </Pressable>
               );
             })}
 
@@ -730,24 +996,32 @@ export default function HomeScreen() {
                         alignItems: "center"
                       }}
                     >
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1, marginRight: 8 }}>
                         <PlatformBadge platform={shift.platform} size="md" />
-                        <View style={{ gap: 2 }}>
-                          <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>
+                        <View style={{ gap: 2, flex: 1 }}>
+                          <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }} numberOfLines={1}>
                             {new Date(shift.startTime).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
                           </Text>
-                          <Text style={{ fontSize: 12, color: "#888", fontWeight: "500" }}>
+                          <Text style={{ fontSize: 12, color: "#888", fontWeight: "500" }} numberOfLines={1}>
                             {durationHours}h • {totalMiles} {profile?.distanceUnit ?? "mi"}
                           </Text>
                         </View>
                       </View>
-                      <View style={{ alignItems: "flex-end", gap: 2 }}>
-                        <Text style={{ fontSize: 15, fontWeight: "800", color: "#10b981" }}>
-                          {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(totalRevenue)}
-                        </Text>
-                        <Text style={{ fontSize: 11, color: "#52525b", fontWeight: "600" }}>
-                          {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(totalRevenue / (shift.durationSeconds / 3600 || 1))}/hr
-                        </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                        <View style={{ alignItems: "flex-end", gap: 2 }}>
+                          <Text style={{ fontSize: 15, fontWeight: "800", color: "#10b981" }}>
+                            {new Intl.NumberFormat("en-US", { style: "currency", currency: profile?.locale?.currency || "USD" }).format(totalRevenue)}
+                          </Text>
+                          <Text style={{ fontSize: 11, color: "#52525b", fontWeight: "600" }}>
+                            {new Intl.NumberFormat("en-US", { style: "currency", currency: profile?.locale?.currency || "USD" }).format(totalRevenue / (shift.durationSeconds / 3600 || 1))}/hr
+                          </Text>
+                        </View>
+                        {shift.routePath && (
+                          <RouteMinimap
+                            routePathJson={shift.routePath}
+                            strokeColor={PLATFORMS[shift.platform as GigPlatform]?.color || "#3b82f6"}
+                          />
+                        )}
                       </View>
                     </Pressable>
                   );
@@ -791,7 +1065,8 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* ── Action Bar ────────────────────────────────────────────────── */}
-      <View style={S.actionBar}>
+      <RNAnimated.View style={[S.actionBar, { transform: [{ translateY: actionBarTranslateY }] }]}>
+        <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFill} />
         <Pressable onPress={() => router.push("/expense/add")} style={S.secBtn}>
           <Text style={S.secBtnText}>Log Expense</Text>
         </Pressable>
@@ -809,121 +1084,145 @@ export default function HomeScreen() {
         <Pressable onPress={() => router.push("/shift/add")} style={S.secBtn}>
           <Text style={S.secBtnText}>Add Past Shift</Text>
         </Pressable>
-      </View>
+      </RNAnimated.View>
 
       {/* ── Fullscreen Clock Overlay ──────────────────────────────────── */}
       <Modal visible={showClockOverlay} animationType="slide" transparent>
-        <SafeAreaView style={S.clockOverlay}>
-          <View style={S.clockHeader}>
-            <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>Shift Console</Text>
-            <Pressable onPress={() => setShowClockOverlay(false)} style={S.clockCloseBtn}>
-              <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>Minimize</Text>
-            </Pressable>
-          </View>
-
-          <View style={S.clockBody}>
-            <View style={{ alignItems: "center", gap: 6 }}>
-              <View style={[S.pulseDot, { backgroundColor: accentColor, width: 8, height: 8, borderRadius: 4, marginBottom: 8 }]} />
-              <Text style={{ fontSize: 14, color: "#fff", fontWeight: "700" }}>
-                {PLATFORMS[activePlatform as GigPlatform]?.label ?? "Gig Platform"}
-              </Text>
-              <Text style={{ fontSize: 12, color: "#888" }}>
-                Shift started at {startTime ? new Date(startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
-              </Text>
-            </View>
-
-            <View style={{ alignItems: "center", width: "100%", paddingHorizontal: 16 }}>
-              <Text
-                style={S.clockDigits}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {formatTime(elapsedSeconds)}
-              </Text>
-              <Text style={S.clockLabel}>{isPaused ? "Paused" : "Active Time"}</Text>
-            </View>
-
-            <LiveRouteMap
-              points={routePath}
-              strokeColor={accentColor || "#3b82f6"}
-            />
-
-            <View style={{ width: "85%", backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#1e1e1e", padding: 14, gap: 12 }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={{ fontSize: 11, fontWeight: "800", color: "#6b7280", textTransform: "uppercase" }}>Current Mileage</Text>
-                <View style={{
-                  backgroundColor: isFirstOrderReceived ? "rgba(16,185,129,.1)" : "rgba(245,158,11,.1)",
-                  borderRadius: 4,
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderWidth: 0.5,
-                  borderColor: isFirstOrderReceived ? "rgba(16,185,129,.25)" : "rgba(245,158,11,.25)"
-                }}>
-                  <Text style={{ fontSize: 9, fontWeight: "800", color: isFirstOrderReceived ? "#10b981" : "#f59e0b", textTransform: "uppercase" }}>
-                    {isFirstOrderReceived ? "Active miles 🚀" : `Dead ${profile?.distanceUnit === "mi" ? "miles" : "km"} 💀`}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
-                <View>
-                  <Text style={{ fontSize: 28, fontWeight: "bold", color: "#fff", paddingVertical: 2 }}>
-                    {totalMiles.toFixed(2)}
-                    <Text style={{ fontSize: 14, fontWeight: "500", color: "#a1a1aa" }}> {profile?.distanceUnit ?? "mi"}</Text>
-                  </Text>
-                  <Text style={{ fontSize: 11, color: "#888", fontWeight: "600", marginTop: 2 }}>
-                    Active: <Text style={{ color: "#fff", fontWeight: "bold" }}>{activeMileage.toFixed(1)}</Text> | Dead: <Text style={{ color: "#fff", fontWeight: "bold" }}>{deadMileage.toFixed(1)}</Text>
-                  </Text>
-                </View>
-                <View style={{ alignItems: "flex-end" }}>
-                  <Text style={{ fontSize: 18, fontWeight: "bold", color: "#fff", paddingVertical: 1 }}>{fmt(writeOff)}</Text>
-                  <Text style={{ fontSize: 10, color: "#a1a1aa", fontWeight: "500" }}>write-off value</Text>
-                </View>
-              </View>
-
-              <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
-                <Pressable onPress={() => isPaused ? resumeShift() : pauseShift()} style={[S.clockSecBtn, { flex: 1 }]}>
-                  {isPaused
-                    ? <><PlayIcon size={10} color="#fff" /><Text style={S.clockSecBtnText}>Resume</Text></>
-                    : <><View style={{ width: 8, height: 8, backgroundColor: "#f59e0b", borderRadius: 1 }} /><Text style={[S.clockSecBtnText, { color: "#f59e0b" }]}>Pause</Text></>
-                  }
-                </Pressable>
-                
-                {isFirstOrderReceived ? (
-                  <View
-                    style={[S.clockSecBtn, { flex: 1, borderColor: "#3f3f46", backgroundColor: "rgba(63, 63, 70, 0.2)", opacity: 0.8 }]}
-                  >
-                    <Text style={{ color: "#10b981", fontSize: 11, fontWeight: "900" }}>✓</Text>
-                    <Text style={[S.clockSecBtnText, { color: "#a1a1aa" }]}>Active Mode On</Text>
-                  </View>
-                ) : (
-                  <Pressable
-                    onPress={() => markFirstOrderReceived()}
-                    style={[S.clockSecBtn, { flex: 1, borderColor: "#10b981", backgroundColor: "rgba(16, 185, 129, 0.05)" }]}
-                  >
-                    <View style={{ width: 8, height: 8, backgroundColor: "#10b981", borderRadius: 4 }} />
-                    <Text style={[S.clockSecBtnText, { color: "#10b981" }]}>Got First Order</Text>
-                  </Pressable>
-                )}
-              </View>
-            </View>
-          </View>
-
-          <View style={{ padding: 14, gap: 10 }}>
-            {isDemoMode && (
-              <Pressable
-                onPress={handleSimulateGPSMove}
-                style={[S.clockSecBtn, { borderColor: "#3b82f6", backgroundColor: "rgba(59, 130, 246, 0.05)", height: 38, marginBottom: 4 }]}
-              >
-                <Text style={[S.clockSecBtnText, { color: "#3b82f6", fontWeight: "700" }]}>Simulate GPS Step 🚗</Text>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <SafeAreaView style={S.clockOverlay}>
+            <View style={S.clockHeader}>
+              <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>Shift Console</Text>
+              <Pressable onPress={() => setShowClockOverlay(false)} style={S.clockCloseBtn}>
+                <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>Minimize</Text>
               </Pressable>
-            )}
-            <Pressable onPress={handleEndShift} style={[S.clockSecBtn, { backgroundColor: "#ef4444", borderColor: "#ef4444", height: 42 }]}>
-              <SquareIcon size={10} color="#fff" />
-              <Text style={[S.clockSecBtnText, { fontWeight: "800" }]}>End Shift</Text>
-            </Pressable>
+            </View>
+
+            <View style={S.clockBody}>
+              <View style={{ width: 280, height: 280, borderRadius: 140, borderWidth: 6, borderColor: "rgba(16, 185, 129, 0.15)", borderTopColor: accentColor, alignItems: "center", justifyContent: "center", backgroundColor: "#0c0c0c", shadowColor: accentColor, shadowOpacity: 0.2, shadowRadius: 20, elevation: 10 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <View style={[S.pulseDot, { backgroundColor: accentColor, width: 6, height: 6, borderRadius: 3 }]} />
+                  {activePlatform && <PlatformLogo id={activePlatform as string} size={14} />}
+                  <Text style={{ fontSize: 12, color: "#888", fontWeight: "700", textTransform: "uppercase" }}>
+                    {PLATFORMS[activePlatform as GigPlatform]?.label ?? "Active Shift"}
+                  </Text>
+                </View>
+                <Text style={[S.clockDigits, { fontSize: 48 }]}>{formatTime(elapsedSeconds)}</Text>
+                <Text style={S.clockLabel}>{isPaused ? "Paused" : "Total Time"}</Text>
+                <Text style={{ fontSize: 11, color: "#666", marginTop: 12 }}>
+                  Started {startTime ? new Date(startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: profile?.locale?.timeFormat !== "24h" }) : ""}
+                </Text>
+              </View>
+
+
+
+              <View style={{ width: "85%", backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#1e1e1e", padding: 14, gap: 12 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <Text style={{ fontSize: 11, fontWeight: "800", color: "#6b7280", textTransform: "uppercase" }}>Current Mileage</Text>
+                  <View style={{
+                    backgroundColor: isFirstOrderReceived ? "rgba(16,185,129,.1)" : "rgba(245,158,11,.1)",
+                    borderRadius: 4,
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderWidth: 0.5,
+                    borderColor: isFirstOrderReceived ? "rgba(16,185,129,.25)" : "rgba(245,158,11,.25)"
+                  }}>
+                    <Text style={{ fontSize: 9, fontWeight: "800", color: isFirstOrderReceived ? "#10b981" : "#f59e0b", textTransform: "uppercase" }}>
+                      {isFirstOrderReceived ? "Active miles 🚀" : `Dead ${profile?.distanceUnit === "mi" ? "miles" : "km"} 💀`}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
+                  <View>
+                    <Text style={{ fontSize: 28, fontWeight: "bold", color: "#fff", paddingVertical: 2 }}>
+                      {totalMiles.toFixed(2)}
+                      <Text style={{ fontSize: 14, fontWeight: "500", color: "#a1a1aa" }}> {profile?.distanceUnit ?? "mi"}</Text>
+                    </Text>
+                    <Text style={{ fontSize: 11, color: "#888", fontWeight: "600", marginTop: 2 }}>
+                      Active: <Text style={{ color: "#fff", fontWeight: "bold" }}>{activeMileage.toFixed(1)}</Text> | Dead: <Text style={{ color: "#fff", fontWeight: "bold" }}>{deadMileage.toFixed(1)}</Text>
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={{ fontSize: 18, fontWeight: "bold", color: "#fff", paddingVertical: 1 }}>{fmt(writeOff)}</Text>
+                    <Text style={{ fontSize: 10, color: "#a1a1aa", fontWeight: "500" }}>write-off value</Text>
+                  </View>
+                </View>
+
+                <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
+                  <Pressable onPress={() => isPaused ? resumeShift() : pauseShift()} style={[S.clockSecBtn, { flex: 1 }]}>
+                    {isPaused
+                      ? <><PlayIcon size={10} color="#fff" /><Text style={S.clockSecBtnText}>Resume</Text></>
+                      : <><View style={{ width: 8, height: 8, backgroundColor: "#f59e0b", borderRadius: 1 }} /><Text style={[S.clockSecBtnText, { color: "#f59e0b" }]}>Pause</Text></>
+                    }
+                  </Pressable>
+                  
+                  {isFirstOrderReceived ? (
+                    <View
+                      style={[S.clockSecBtn, { flex: 1, borderColor: "#3f3f46", backgroundColor: "rgba(63, 63, 70, 0.2)", opacity: 0.8 }]}
+                    >
+                      <Text style={{ color: "#10b981", fontSize: 11, fontWeight: "900" }}>✓</Text>
+                      <Text style={[S.clockSecBtnText, { color: "#a1a1aa" }]}>Active Mode On</Text>
+                    </View>
+                  ) : (
+                    <Pressable
+                      onPress={() => markFirstOrderReceived()}
+                      style={[S.clockSecBtn, { flex: 1, borderColor: "#10b981", backgroundColor: "rgba(16, 185, 129, 0.05)" }]}
+                    >
+                      <View style={{ width: 8, height: 8, backgroundColor: "#10b981", borderRadius: 4 }} />
+                      <Text style={[S.clockSecBtnText, { color: "#10b981" }]}>Got First Order</Text>
+                    </Pressable>
+                  )}
+                </View>
+              </View>
+            </View>
+
+            <View style={{ padding: 14, gap: 10 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 8 }}>
+                <View style={[S.pulseDot, { backgroundColor: "#10b981", width: 6, height: 6, borderRadius: 3 }]} />
+                <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>GPS is collecting data</Text>
+              </View>
+              <SwipeToEnd onEnd={handleEndShift} />
+            </View>
+          </SafeAreaView>
+        </GestureHandlerRootView>
+      </Modal>
+
+      {/* ── Shift Completed Modal ─────────────────────────────────────── */}
+      <Modal visible={!!endedShiftId} transparent animationType="fade">
+        <View style={S.wizardOverlay}>
+          <View style={[S.wizardContent, { alignItems: "center", paddingVertical: 32, gap: 20 }]}>
+            <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: "rgba(16, 185, 129, 0.1)", justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "rgba(16, 185, 129, 0.2)" }}>
+              <SquareIcon size={24} color="#10b981" />
+            </View>
+            <View style={{ alignItems: "center", gap: 8 }}>
+              <Text style={{ fontSize: 22, fontWeight: "900", color: "#fff", letterSpacing: 0.5 }}>Shift Completed</Text>
+              <Text style={{ fontSize: 13, color: "#a1a1aa", textAlign: "center", paddingHorizontal: 20, lineHeight: 20 }}>
+                Your GPS tracking data, mileage, and duration have been securely saved to the local database.
+              </Text>
+            </View>
+            <View style={{ width: "100%", gap: 12, marginTop: 16 }}>
+              <Pressable
+                onPress={() => {
+                  const sId = endedShiftId;
+                  setEndedShiftId(null);
+                  router.push({
+                    pathname: "/shift/add",
+                    params: { shiftId: sId }
+                  });
+                }}
+                style={[S.primBtn, { width: "100%", marginHorizontal: 0, height: 54, borderRadius: 16, backgroundColor: accentColor }]}
+              >
+                <Text style={[S.primBtnText, { color: accentColorContrast, fontSize: 15, fontWeight: "800" }]}>Add Earnings & Details</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setEndedShiftId(null)}
+                style={[S.secBtn, { width: "100%", marginHorizontal: 0, height: 54, backgroundColor: "transparent", borderWidth: 0 }]}
+              >
+                <Text style={[S.secBtnText, { color: "#71717a", fontWeight: "700", fontSize: 15 }]}>Save As Is</Text>
+              </Pressable>
+            </View>
           </View>
-        </SafeAreaView>
+        </View>
       </Modal>
 
       {/* ── Start Shift Wizard Modal ──────────────────────────────────── */}
@@ -975,11 +1274,11 @@ export default function HomeScreen() {
                         onPress={() => { setSelectedPlatformId(pId as GigPlatform); setWizardStep("target"); }}
                         style={[
                           S.wizardRow,
-                          { flex: 1, minWidth: "45%", justifyContent: "center", paddingVertical: 14 },
+                          { flex: 1, minWidth: "45%", justifyContent: "center", paddingVertical: 14, gap: 8 },
                           sel && { borderColor: pColor, backgroundColor: "rgba(255,255,255,0.02)" }
                         ]}
                       >
-                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: pColor, marginRight: 4 }} />
+                        <PlatformLogo id={pId} size={16} />
                         <Text style={{ color: sel ? "#fff" : "#888", fontSize: 13, fontWeight: "700" }}>
                           {PLATFORMS[pId as GigPlatform]?.label ?? pId}
                         </Text>
@@ -1015,7 +1314,20 @@ export default function HomeScreen() {
                 {targetMode && (
                   <View style={{ gap: 10 }}>
                     <Text style={S.wizardSubLabel}>Set Target Duration</Text>
-                    <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                    
+                    <View style={{ flexDirection: "row", gap: 8 }}>
+                      {[4, 8, 10].map((h) => (
+                        <Pressable 
+                          key={h}
+                          onPress={() => { setCustomHours(h); setCustomMinutes(0); }}
+                          style={{ flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: customHours === h && customMinutes === 0 ? accentColor : "#333", backgroundColor: customHours === h && customMinutes === 0 ? "rgba(16,185,129,0.1)" : "#111", alignItems: "center" }}
+                        >
+                          <Text style={{ color: customHours === h && customMinutes === 0 ? accentColor : "#888", fontWeight: "700" }}>{h} hrs</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+
+                    <View style={{ flexDirection: "row", gap: 10, alignItems: "center", marginTop: 4 }}>
                       <TextInput
                         keyboardType="number-pad"
                         value={String(customHours)}
@@ -1023,7 +1335,7 @@ export default function HomeScreen() {
                         style={S.wizardInput}
                         maxLength={2}
                       />
-                      <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>hours</Text>
+                      <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>hr</Text>
                       
                       <TextInput
                         keyboardType="number-pad"
@@ -1032,7 +1344,7 @@ export default function HomeScreen() {
                         style={S.wizardInput}
                         maxLength={2}
                       />
-                      <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>minutes</Text>
+                      <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>min</Text>
                     </View>
                   </View>
                 )}
@@ -1066,7 +1378,7 @@ export default function HomeScreen() {
 
 const S = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#000" },
-  scroll: { padding: 14, paddingTop: 76, gap: 10, paddingBottom: 20 },
+  scroll: { padding: 14, paddingTop: 76, gap: 10, paddingBottom: 110 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
   headerTitle: { fontSize: 18, fontWeight: "bold", color: "#fff", letterSpacing: -0.2 },
@@ -1076,16 +1388,16 @@ const S = StyleSheet.create({
   bellBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#1c1c1e", borderWidth: 0.5, borderColor: "#333", alignItems: "center", justifyContent: "center" },
 
   hero: { backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f" },
-  heroLabel: { fontSize: 11, fontWeight: "700", color: "#71717a", letterSpacing: 0.8 },
+  heroLabel: { fontSize: 10, fontWeight: "700", color: "#71717a", letterSpacing: 0.5 },
   heroValueRow: { flexDirection: "row", alignItems: "flex-start", flexWrap: "nowrap" },
-  heroCurrency: { fontSize: 24, fontWeight: "600", color: "#fff", lineHeight: 30, marginTop: 8, marginRight: 4 },
-  heroValue: { flexShrink: 1, fontSize: 48, fontWeight: "800", color: "#fff", letterSpacing: -0.5, lineHeight: 54, includeFontPadding: false },
-  trendBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, backgroundColor: "rgba(16, 185, 129, 0.12)" },
-  trendText: { fontSize: 12, fontWeight: "700", color: "#10b981" },
-  heroColumns: { flexDirection: "row", flexWrap: "wrap", gap: 18, marginTop: 16, paddingBottom: 16 },
+  heroCurrency: { fontSize: 20, fontWeight: "600", color: "#fff", lineHeight: 24, marginTop: 6, marginRight: 4 },
+  heroValue: { flexShrink: 1, fontSize: 36, fontWeight: "800", color: "#fff", letterSpacing: -0.5, lineHeight: 40, includeFontPadding: false },
+  trendBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 14, backgroundColor: "rgba(16, 185, 129, 0.12)" },
+  trendText: { fontSize: 11, fontWeight: "700", color: "#10b981" },
+  heroColumns: { flexDirection: "row", flexWrap: "wrap", gap: 14, marginTop: 10, paddingBottom: 10 },
   heroCol: { gap: 4 },
-  heroColLabel: { fontSize: 12, color: "#71717a", fontWeight: "500" },
-  heroColValue: { fontSize: 16, color: "#fff", fontWeight: "700" },
+  heroColLabel: { fontSize: 11, color: "#71717a", fontWeight: "500" },
+  heroColValue: { fontSize: 14, color: "#fff", fontWeight: "700" },
 
   presetRow: { flexDirection: "row", backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#222", padding: 4, marginVertical: 14, alignItems: "center" },
   presetBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center", justifyContent: "center" },
@@ -1113,11 +1425,11 @@ const S = StyleSheet.create({
   activeBannerSub: { fontSize: 11, color: "#888" },
   pulseDot: { width: 6, height: 6, borderRadius: 3 },
 
-  actionBar: { flexDirection: "row", gap: 10, padding: 12, backgroundColor: "#000", borderTopWidth: 0.5, borderTopColor: "#1e1e1e", paddingBottom: Platform.OS === "ios" ? 24 : 12 },
-  secBtn: { flex: 1, height: 42, borderRadius: 10, backgroundColor: "#0c0c0c", borderWidth: 0.5, borderColor: "#1e1e1e", justifyContent: "center", alignItems: "center" },
+  actionBar: { position: "absolute", bottom: 0, left: 0, right: 0, flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "rgba(0, 0, 0, 0.4)", borderTopWidth: 0.5, borderTopColor: "#1e1e1e", paddingBottom: Platform.OS === "ios" ? 34 : 20, zIndex: 1000, overflow: "hidden" },
+  secBtn: { flex: 1, height: 44, borderRadius: 12, backgroundColor: "#0c0c0c", borderWidth: 0.8, borderColor: "#1e1e1e", justifyContent: "center", alignItems: "center" },
   secBtnText: { fontSize: 12, fontWeight: "700", color: "#888" },
-  primBtn: { flex: 2, height: 42, borderRadius: 10, justifyContent: "center", alignItems: "center" },
-  primBtnText: { fontSize: 13, fontWeight: "800" },
+  primBtn: { width: 72, height: 72, borderRadius: 36, justifyContent: "center", alignItems: "center", marginHorizontal: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
+  primBtnText: { fontSize: 13, fontWeight: "800", textAlign: "center" },
 
   clockOverlay: { flex: 1, backgroundColor: "#000" },
   clockHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 14, borderBottomWidth: 0.5, borderBottomColor: "#1e1e1e" },
@@ -1128,8 +1440,8 @@ const S = StyleSheet.create({
   clockSecBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 38, borderRadius: 8, backgroundColor: "#0c0c0c", borderWidth: 0.5, borderColor: "#1e1e1e" },
   clockSecBtnText: { fontSize: 12, fontWeight: "700", color: "#fff" },
 
-  wizardOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "flex-end" },
-  wizardContent: { backgroundColor: "#080808", borderTopLeftRadius: 16, borderTopRightRadius: 16, borderWidth: 1, borderColor: "#1e1e1e", padding: 16, paddingBottom: Platform.OS === "ios" ? 34 : 20, gap: 16 },
+  wizardOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "center", padding: 20 },
+  wizardContent: { backgroundColor: "#080808", borderRadius: 20, borderWidth: 1, borderColor: "#1e1e1e", padding: 16, gap: 16 },
   wizardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 0.5, borderBottomColor: "#1e1e1e", paddingBottom: 10 },
   wizardTitle: { fontSize: 15, fontWeight: "800", color: "#fff" },
   wizardCloseBtn: { padding: 4 },

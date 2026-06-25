@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Pressable,
@@ -208,7 +208,7 @@ const VEHICLE_LOOKUP: Record<string, { name: string; icon: string }> = {
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function ShiftsScreen() {
   const insets = useSafeAreaInsets();
-  const { activePlatformFilter, profile } = useSettingsStore();
+  const { activePlatformFilter, profile, setHeaderVisible } = useSettingsStore();
   const { platformColor } = usePlatformTheme();
 
   // Selected week tracker
@@ -227,6 +227,23 @@ export default function ShiftsScreen() {
       setSelectorPage(0);
     }
   }, [isWeekSelectorOpen, selectedDate]);
+
+  const lastScrollY = useRef(0);
+  const handleScroll = (event: any) => {
+    const currentY = event.nativeEvent.contentOffset.y;
+    if (currentY <= 0) {
+      setHeaderVisible(true);
+    } else if (currentY > lastScrollY.current && currentY > 50) {
+      setHeaderVisible(false);
+    } else if (currentY < lastScrollY.current) {
+      setHeaderVisible(true);
+    }
+    lastScrollY.current = currentY;
+  };
+
+  useEffect(() => {
+    setHeaderVisible(true);
+  }, []);
 
   // Fetch week start setting
   const { data: weekStartDaySetting = "0" } = useQuery({
@@ -478,6 +495,8 @@ export default function ShiftsScreen() {
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 64 }]}
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
         {/* ─── Week Selection & Header ────────────────────────────────────────── */}
         <View style={styles.header}>

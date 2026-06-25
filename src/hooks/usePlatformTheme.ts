@@ -20,8 +20,6 @@ import { useMemo } from "react";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 
-/** Single fixed app accent — used everywhere except platform selector pills */
-const APP_ACCENT = "#ffffff";
 
 /** Luminance-based contrast: white on dark, near-black on light. */
 function getContrastColor(hex: string): string {
@@ -89,6 +87,8 @@ export function blendColors(c1: string, c2: string): string {
 
 export function usePlatformTheme(): PlatformTheme {
   const activePlatformFilter = useSettingsStore((s) => s.activePlatformFilter);
+  const rawAccent = useSettingsStore((s) => s.profile?.avatarData);
+  const userAccentColor = (rawAccent && rawAccent.startsWith("#")) ? rawAccent : "#ffffff";
 
   return useMemo<PlatformTheme>(() => {
     const isFiltered = activePlatformFilter !== "all";
@@ -97,18 +97,18 @@ export function usePlatformTheme(): PlatformTheme {
     const cfg = isFiltered ? PLATFORMS[firstPlatformId as PlatformKey] : null;
 
     // Resolve the platform brand color (for pills only)
-    let platformColor = APP_ACCENT;
+    let platformColor = userAccentColor;
     if (isFiltered) {
       if (platformParts.length === 2) {
-        const c1 = PLATFORMS[platformParts[0] as PlatformKey]?.color ?? APP_ACCENT;
-        const c2 = PLATFORMS[platformParts[1] as PlatformKey]?.color ?? APP_ACCENT;
+        const c1 = PLATFORMS[platformParts[0] as PlatformKey]?.color ?? userAccentColor;
+        const c2 = PLATFORMS[platformParts[1] as PlatformKey]?.color ?? userAccentColor;
         try {
           platformColor = blendColors(c1, c2);
         } catch {
           platformColor = c1;
         }
       } else {
-        platformColor = cfg?.color ?? APP_ACCENT;
+        platformColor = cfg?.color ?? userAccentColor;
       }
     }
 
@@ -124,17 +124,17 @@ export function usePlatformTheme(): PlatformTheme {
     }
 
     return {
-      // App chrome always uses the fixed accent
-      accentColor: APP_ACCENT,
-      accentColorDim: hexWithAlpha(APP_ACCENT, 0.18),
-      accentColorMid: hexWithAlpha(APP_ACCENT, 0.30),
-      accentColorContrast: getContrastColor(APP_ACCENT),
+      // App chrome always uses the user's custom accent color!
+      accentColor: userAccentColor,
+      accentColorDim: hexWithAlpha(userAccentColor, 0.12),
+      accentColorMid: hexWithAlpha(userAccentColor, 0.25),
+      accentColorContrast: getContrastColor(userAccentColor),
       // Platform brand color — only for platform selector pills
       platformColor,
       isPlatformFiltered: isFiltered,
       activePlatformId: isFiltered ? activePlatformFilter : null,
       activePlatformLabel: label,
     };
-  }, [activePlatformFilter]);
+  }, [activePlatformFilter, userAccentColor]);
 }
 

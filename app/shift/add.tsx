@@ -386,6 +386,9 @@ export default function AddShiftModal() {
         });
       }
       
+      // Evaluate gamification and smart notifications
+      await useSettingsStore.getState().evaluateGamification();
+      
       // Invalidate queries to reload dashboard/list pages
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
       queryClient.invalidateQueries({ queryKey: ["shifts"] });
@@ -578,7 +581,7 @@ export default function AddShiftModal() {
                     className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 flex-row justify-between items-center"
                   >
                     <Text className="text-white text-sm font-semibold">
-                      {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: profile?.locale?.timeFormat !== "24h" })}
                     </Text>
                     <Text style={{ color: accentColor }} className="text-[10px] uppercase font-bold tracking-wider">Select</Text>
                   </TouchableOpacity>
@@ -608,7 +611,7 @@ export default function AddShiftModal() {
                     className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 flex-row justify-between items-center"
                   >
                     <Text className="text-white text-sm font-semibold">
-                      {endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: profile?.locale?.timeFormat !== "24h" })}
                     </Text>
                     <Text style={{ color: accentColor }} className="text-[10px] uppercase font-bold tracking-wider">Select</Text>
                   </TouchableOpacity>

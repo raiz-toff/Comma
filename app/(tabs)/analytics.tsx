@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   ScrollView,
   View,
@@ -63,7 +63,7 @@ const WIDGET_META: Record<string, { label: string; category: Category }> = {
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function getPeriodDates(type: PeriodType, offset: number) {
+function getPeriodDates(type: PeriodType, offset: number, weekStartDay: number = 0) {
   const start = new Date();
   start.setHours(0,0,0,0);
   const end = new Date();
@@ -71,7 +71,7 @@ function getPeriodDates(type: PeriodType, offset: number) {
 
   if (type === "week") {
     const day = start.getDay();
-    const diff = start.getDate() - day + (day === 0 ? -6 : 1);
+    const diff = start.getDate() - day + (day < weekStartDay ? -7 : 0) + weekStartDay;
     start.setDate(diff + offset * 7);
     end.setTime(start.getTime() + 6 * 24 * 60 * 60 * 1000);
     end.setHours(23,59,59,999);
@@ -170,7 +170,7 @@ function WidgetCard({ id, children }: { id: string; children: React.ReactNode })
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AnalyticsScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, isOnboardingCompleted, activePlatformFilter } = useSettingsStore();
+  const { profile, isOnboardingCompleted, activePlatformFilter, setHeaderVisible } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
 
   const [periodType, setPeriodType] = useState<PeriodType>("month");
@@ -178,7 +178,25 @@ export default function AnalyticsScreen() {
   const [activeCategory, setActiveCategory] = useState<Category>("perf");
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
 
-  const { start, end } = useMemo(() => getPeriodDates(periodType, periodOffset), [periodType, periodOffset]);
+  const lastScrollY = useRef(0);
+  const handleScroll = (event: any) => {
+    const currentY = event.nativeEvent.contentOffset.y;
+    if (currentY <= 0) {
+      setHeaderVisible(true);
+    } else if (currentY > lastScrollY.current && currentY > 50) {
+      setHeaderVisible(false);
+    } else if (currentY < lastScrollY.current) {
+      setHeaderVisible(true);
+    }
+    lastScrollY.current = currentY;
+  };
+
+  useEffect(() => {
+    setHeaderVisible(true);
+  }, []);
+
+  const weekStartDay = profile?.locale?.weekStartDay ?? 0;
+  const { start, end } = useMemo(() => getPeriodDates(periodType, periodOffset, weekStartDay), [periodType, periodOffset, weekStartDay]);
   
   // dailyData widget fetches rolling weeks relative to the viewed start date to generate the trend
   const diffTime = Math.abs(new Date().getTime() - start.getTime());
@@ -288,7 +306,12 @@ export default function AnalyticsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={["bottom", "left", "right"]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24, paddingTop: insets.top + 64 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 24, paddingTop: insets.top + 64 }}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
         
         {/* ── Header & Nav (Similar to Shifts/Expenses) ── */}
         <View style={{ alignItems: "center", marginVertical: 20, gap: 8 }}>

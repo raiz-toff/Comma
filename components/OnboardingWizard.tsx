@@ -20,6 +20,8 @@ import {
   CompletionStep,
 } from "./OnboardingSteps";
 
+import { getCountryDef } from "../src/registry/countries/index";
+
 const BackIcon = ({ color = "#b8b4ab" }) => (
   <View style={{ width: 10, height: 10, borderLeftWidth: 2, borderBottomWidth: 2, borderColor: color, transform: [{ rotate: "45deg" }], marginRight: 4 }} />
 );
@@ -36,7 +38,7 @@ export default function OnboardingWizard() {
 
   // Wizard State
   const [displayName, setDisplayName] = useState("");
-  const [country, setCountry] = useState<"US" | "CA">("CA");
+  const [country, setCountry] = useState<"US" | "CA" | "UK">("CA");
   const [taxRegion, setTaxRegion] = useState("ON");
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [avatarType, setAvatarType] = useState<"emoji" | "initials" | "custom">("emoji");
@@ -166,7 +168,7 @@ export default function OnboardingWizard() {
       annualGoal: Number(annualGoal),
       taxWithholdingPct: Number(taxWithholdingPct),
       hstRegistered: country === "CA" ? hstRegistered : false,
-      distanceUnit: country === "US" ? "mi" : "km",
+      distanceUnit: getCountryDef(country).distanceUnit,
       theme: "dark",
     };
 

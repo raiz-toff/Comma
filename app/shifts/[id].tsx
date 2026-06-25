@@ -267,6 +267,7 @@ export default function ShiftDetailScreen() {
     const performDelete = async () => {
       try {
         await deleteShift(id!);
+        await useSettingsStore.getState().evaluateGamification();
         queryClient.invalidateQueries({ queryKey: ["shifts"] });
         queryClient.invalidateQueries({ queryKey: ["analytics"] });
         router.replace("/(tabs)/shifts");
@@ -310,6 +311,7 @@ export default function ShiftDetailScreen() {
         notes: expenseNotes.trim() || null,
       });
 
+      await useSettingsStore.getState().evaluateGamification();
       queryClient.invalidateQueries({ queryKey: ["shift-expenses", id] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
       
@@ -327,6 +329,7 @@ export default function ShiftDetailScreen() {
     const performDelete = async () => {
       try {
         await deleteExpense(expId);
+        await useSettingsStore.getState().evaluateGamification();
         queryClient.invalidateQueries({ queryKey: ["shift-expenses", id] });
         queryClient.invalidateQueries({ queryKey: ["analytics"] });
       } catch (err) {
@@ -396,9 +399,11 @@ export default function ShiftDetailScreen() {
   const timeStr = `${new Date(shift.startTime).toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: profile?.locale?.timeFormat !== "24h",
   })} - ${new Date(shift.endTime).toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: profile?.locale?.timeFormat !== "24h",
   })}`;
 
   return (

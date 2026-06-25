@@ -1,11 +1,42 @@
 import React, { useState } from "react";
-import { ScrollView, View, TouchableOpacity, Share, Linking, Platform, ActivityIndicator } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ScrollView, View, TouchableOpacity, Share, Linking, Platform, ActivityIndicator, StyleSheet, Alert } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import Constants from "expo-constants";
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
 import { Text } from "@/src/components/ui/text";
+import { ChevronLeft, ShieldCheck, Mail, FileText, Heart, Terminal, Share2 } from "lucide-react-native";
+import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+
+// ─── Design tokens ──────────────────────────────────────────────────────────
+const DS = {
+  pageBg: "#000000",
+  cardBg: "#0c0c0c",
+  cardBorder: "#1e1e1e",
+  inputBg: "#161616",
+  inputBorder: "#2a2a2a",
+  sep: "#1a1a1a",
+
+  brand: "#ffffff",
+  brandSurface: "rgba(255, 255, 255, 0.08)",
+  brandBorder: "rgba(255, 255, 255, 0.18)",
+  brandText: "#ffffff",
+
+  textPrimary: "#e8e7e0",
+  textSecondary: "#6a6963",
+  textMuted: "#38372f",
+  textLabel: "#48473f",
+
+  rCard: 18,
+  rInput: 11,
+  rChip: 8,
+  rPill: 20,
+
+  pagePad: 16,
+  cardPad: 15,
+  rowPad: 13,
+} as const;
 
 const isWeb = Platform.OS === "web";
 
@@ -19,7 +50,25 @@ const ACKNOWLEDGMENTS = [
 ];
 
 export default function AboutScreen() {
+  const { accentColor } = usePlatformTheme();
   const [isExporting, setIsExporting] = useState(false);
+  const [debugTapCount, setDebugTapCount] = useState(0);
+  const [debugTapTs, setDebugTapTs] = useState(0);
+  const insets = useSafeAreaInsets();
+
+  const handleVersionTap = () => {
+    const now = Date.now();
+    const freshCount = now - debugTapTs > 5500 ? 1 : debugTapCount + 1;
+    setDebugTapTs(now);
+    setDebugTapCount(freshCount);
+    if (freshCount >= 5) {
+      setDebugTapCount(0);
+      Alert.alert("Debug mode", "Developer tools unlocked.", [
+        { text: "OK" },
+        { text: "Open dev tools", onPress: () => router.push("/debug") },
+      ]);
+    }
+  };
 
   const appVersion = Constants.expoConfig?.version || "1.0.0";
   const sdkVersion = Constants.expoConfig?.sdkVersion || "56.0.0";
@@ -28,10 +77,15 @@ export default function AboutScreen() {
     Linking.openURL("mailto:support@comma.app?subject=Comma%20Support%20Request");
   };
 
+  const handleShareApp = () => {
+    Share.share({
+      message: "Track gig work earnings with COMMA — local-first, no cloud required.",
+    });
+  };
+
   const handleExportDiagnostics = async () => {
     setIsExporting(true);
     try {
-      // Load diagnostic log asset
       const asset = Asset.fromModule(require("@/assets/system_log.txt"));
       await asset.downloadAsync();
 
@@ -53,10 +107,7 @@ export default function AboutScreen() {
       });
     } catch (err: any) {
       if (isWeb) {
-        // Fallback for browser blocking popups/shares
         console.log("Diagnostic log:", err);
-      } else {
-        // Native alert
       }
     } finally {
       setIsExporting(false);
@@ -64,96 +115,355 @@ export default function AboutScreen() {
   };
 
   return (
-    <SafeAreaView className="dark flex-1 bg-[#000000]">
+    <SafeAreaView style={s.safe} edges={["bottom", "left", "right"]}>
       {/* Header */}
-      <View className="px-4 pt-3 pb-2 border-b border-slate-800/80 bg-slate-900/40 flex-row justify-between items-center">
-        <TouchableOpacity
-          onPress={() => router.back()}
-          className="py-2 px-3 bg-slate-800/40 rounded-lg border border-slate-700/30"
-        >
-          <Text className="text-slate-300 text-xs font-semibold">Back</Text>
-        </TouchableOpacity>
-        <Text className="text-slate-100 text-base font-extrabold tracking-tight">About Comma</Text>
-        <View className="w-10" />
+      <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+        <View style={s.headerLeft}>
+          <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+            <ChevronLeft color={DS.textPrimary} size={20} />
+          </TouchableOpacity>
+          <View>
+            <Text style={s.headerTitle}>About Comma</Text>
+            <Text style={s.headerSub}>System stats & information</Text>
+          </View>
+        </View>
       </View>
 
-      <ScrollView contentContainerClassName="p-4 pb-20 flex flex-col gap-6">
+      <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Brand Hero */}
-        <View className="items-center py-6 flex-col gap-2">
-          <Text className="text-4xl font-extrabold text-emerald-500 tracking-tighter">COMMA</Text>
-          <Text className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
-            Gig Economy Tracker
-          </Text>
-          <Text className="text-[10px] text-slate-600 font-bold mt-1">
-            v{appVersion} (SDK {sdkVersion})
-          </Text>
+        <View style={s.hero}>
+          <Text style={s.heroTitle}>COMMA</Text>
+          <Text style={s.heroSub}>Gig Economy Tracker</Text>
+          <TouchableOpacity onPress={handleVersionTap} activeOpacity={0.8}>
+            <Text style={s.heroVersion}>
+              v{appVersion} (SDK {sdkVersion})
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Privacy statement */}
-        <View className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 flex flex-col gap-2">
-          <Text className="text-sm font-bold text-slate-100 flex-row items-center gap-1.5">
-            🔒 100% Local Privacy
-          </Text>
-          <Text className="text-xs text-slate-400 leading-relaxed font-medium">
-            Comma does not collect, sell, or upload any of your personal details, locations, or earnings. Your financial logs and shift histories are stored strictly inside your device's secure SQLite sandbox.
-          </Text>
+        <View style={s.card}>
+          <View style={s.privacyRow}>
+            <View style={s.privacyIconBox}>
+              <ShieldCheck color={accentColor} size={22} />
+            </View>
+            <View style={s.privacyContent}>
+              <Text style={s.privacyTitle}>100% Local Privacy</Text>
+              <Text style={s.privacyDesc}>
+                Comma does not collect, sell, or upload any of your personal details, locations, or earnings. Your financial logs and shift histories are stored strictly inside your device's secure SQLite sandbox.
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Data Portability */}
+        <View style={s.card}>
+          <View style={s.privacyRow}>
+            <View style={s.privacyIconBox}>
+              <FileText color={accentColor} size={22} />
+            </View>
+            <View style={s.privacyContent}>
+              <Text style={s.privacyTitle}>Data Portability Manifesto</Text>
+              <Text style={s.privacyDesc}>
+                Your financial records belong strictly to you. COMMA guarantees open imports and clean CSV exports at all times, with no proprietary vendor lock-in.
+              </Text>
+            </View>
+          </View>
         </View>
 
         {/* Support & Action */}
-        <View className="flex flex-col gap-3">
-          <Text className="text-slate-400 text-xs font-bold uppercase tracking-wide">Developer & Support</Text>
-          
-          <TouchableOpacity
-            onPress={handleContactSupport}
-            className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex-row justify-between items-center"
-          >
-            <View>
-              <Text className="text-sm font-bold text-slate-200">Contact Support</Text>
-              <Text className="text-[10px] text-slate-500">Email questions or bug reports directly to support</Text>
-            </View>
-            <Text className="text-slate-400 text-xs font-bold">→</Text>
-          </TouchableOpacity>
+        <View>
+          <Text style={s.groupLabel}>Developer & Support</Text>
+          <View style={s.menuCard}>
+            <TouchableOpacity onPress={handleContactSupport} style={s.menuRow}>
+              <View style={s.menuIconBox}>
+                <Mail color={DS.textSecondary} size={18} />
+              </View>
+              <View style={s.menuContent}>
+                <Text style={s.menuTitle}>Contact Support</Text>
+                <Text style={s.menuDesc}>Email questions or bug reports directly to support</Text>
+              </View>
+              <View style={s.chevron} />
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={handleExportDiagnostics}
-            disabled={isExporting}
-            className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex-row justify-between items-center"
-          >
-            <View className="flex-1 pr-4">
-              <Text className="text-sm font-bold text-slate-200">Export Diagnostic Log</Text>
-              <Text className="text-[10px] text-slate-500">Generate a text transcript of structural change logs</Text>
-            </View>
-            {isExporting ? (
-              <ActivityIndicator size="small" color="#10b981" />
-            ) : (
-              <Text className="text-slate-400 text-xs font-bold">📤</Text>
-            )}
-          </TouchableOpacity>
+            <View style={s.sep} />
+
+            <TouchableOpacity onPress={handleShareApp} style={s.menuRow}>
+              <View style={s.menuIconBox}>
+                <Share2 color={DS.textSecondary} size={18} />
+              </View>
+              <View style={s.menuContent}>
+                <Text style={s.menuTitle}>Share COMMA</Text>
+                <Text style={s.menuDesc}>Recommend Comma to other drivers</Text>
+              </View>
+              <View style={s.chevron} />
+            </TouchableOpacity>
+
+            <View style={s.sep} />
+
+            <TouchableOpacity onPress={handleExportDiagnostics} disabled={isExporting} style={s.menuRow}>
+              <View style={s.menuIconBox}>
+                <FileText color={DS.textSecondary} size={18} />
+              </View>
+              <View style={s.menuContent}>
+                <Text style={s.menuTitle}>Export Diagnostic Log</Text>
+                <Text style={s.menuDesc}>Generate a text transcript of structural change logs</Text>
+              </View>
+              {isExporting ? (
+                <ActivityIndicator size="small" color={accentColor} />
+              ) : (
+                <View style={s.chevron} />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Acknowledgments */}
-        <View className="flex flex-col gap-3">
-          <Text className="text-slate-400 text-xs font-bold uppercase tracking-wide">Open Source Acknowledgments</Text>
-          <View className="flex flex-col gap-2.5">
+        <View>
+          <Text style={s.groupLabel}>Open Source Acknowledgments</Text>
+          <View style={s.ackGrid}>
             {ACKNOWLEDGMENTS.map((ack, idx) => (
-              <View
-                key={idx}
-                className="bg-slate-900/40 border border-slate-800/60 rounded-xl px-4 py-3"
-              >
-                <Text className="text-xs text-slate-200 font-bold">{ack.name}</Text>
-                <Text className="text-[10px] text-slate-500 font-semibold mt-0.5">{ack.description}</Text>
+              <View key={idx} style={s.ackItem}>
+                <View style={s.ackIconBox}>
+                  <Terminal color={DS.textSecondary} size={15} />
+                </View>
+                <View style={s.ackContent}>
+                  <Text style={s.ackTitle}>{ack.name}</Text>
+                  <Text style={s.ackDesc}>{ack.description}</Text>
+                </View>
               </View>
             ))}
           </View>
         </View>
 
         {/* Footer info */}
-        <View className="items-center mt-4">
-          <Text className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">
-            Made with ❤️ for gig economy drivers
-          </Text>
+        <View style={s.footer}>
+          <Text style={s.footerText}>Made with</Text>
+          <Heart color={accentColor} size={11} fill={accentColor} />
+          <Text style={s.footerText}>for gig economy drivers</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const s = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: DS.pageBg,
+  },
+  header: {
+    paddingHorizontal: DS.pagePad,
+    paddingBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  headerTitle: {
+    color: DS.textPrimary,
+    fontSize: 17,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  headerSub: {
+    color: DS.textSecondary,
+    fontSize: 10,
+    marginTop: 1,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: DS.inputBg,
+    borderWidth: 0.5,
+    borderColor: DS.inputBorder,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: DS.pagePad,
+    paddingTop: 10,
+    paddingBottom: 40,
+    gap: 20,
+  },
+  hero: {
+    alignItems: "center",
+    paddingVertical: 24,
+    gap: 4,
+  },
+  heroTitle: {
+    fontSize: 44,
+    fontWeight: "900",
+    color: DS.brandText,
+    letterSpacing: -0.5,
+    lineHeight: 52,
+    paddingHorizontal: 12,
+  },
+  heroSub: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: DS.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  heroVersion: {
+    fontSize: 10,
+    color: DS.textSecondary,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  groupLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: DS.textLabel,
+    letterSpacing: 0.9,
+    marginBottom: 8,
+    textTransform: "uppercase",
+    paddingHorizontal: 2,
+  },
+  card: {
+    backgroundColor: DS.cardBg,
+    borderRadius: DS.rCard,
+    borderWidth: 0.5,
+    borderColor: DS.cardBorder,
+    padding: DS.cardPad,
+  },
+  privacyRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  privacyIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: DS.brandSurface,
+    borderWidth: 0.5,
+    borderColor: DS.brandBorder,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  privacyContent: {
+    flex: 1,
+  },
+  privacyTitle: {
+    color: DS.textPrimary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  privacyDesc: {
+    color: DS.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  menuCard: {
+    backgroundColor: DS.cardBg,
+    borderRadius: DS.rCard,
+    borderWidth: 0.5,
+    borderColor: DS.cardBorder,
+    overflow: "hidden",
+  },
+  menuRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: DS.cardPad,
+    paddingVertical: DS.rowPad,
+    gap: 12,
+  },
+  menuIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: DS.inputBg,
+    borderWidth: 0.5,
+    borderColor: DS.inputBorder,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuContent: {
+    flex: 1,
+  },
+  menuTitle: {
+    color: DS.textPrimary,
+    fontSize: 13.5,
+    fontWeight: "600",
+  },
+  menuDesc: {
+    color: DS.textSecondary,
+    fontSize: 10.5,
+    marginTop: 2,
+  },
+  chevron: {
+    width: 8,
+    height: 8,
+    borderTopWidth: 2,
+    borderRightWidth: 2,
+    borderColor: DS.textSecondary,
+    transform: [{ rotate: "45deg" }],
+  },
+  sep: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: DS.sep,
+    marginHorizontal: DS.cardPad,
+  },
+  ackGrid: {
+    gap: 8,
+  },
+  ackItem: {
+    backgroundColor: DS.cardBg,
+    borderRadius: DS.rCard - 4,
+    borderWidth: 0.5,
+    borderColor: DS.cardBorder,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  ackIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: DS.inputBg,
+    borderWidth: 0.5,
+    borderColor: DS.inputBorder,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ackContent: {
+    flex: 1,
+  },
+  ackTitle: {
+    color: DS.textPrimary,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  ackDesc: {
+    color: DS.textSecondary,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  footer: {
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 10,
+    paddingVertical: 10,
+  },
+  footerText: {
+    fontSize: 9.5,
+    color: DS.textSecondary,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+});

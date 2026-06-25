@@ -1,70 +1,26 @@
-import React, { useState } from "react";
-import { ScrollView, View, TouchableOpacity, Share, Platform } from "react-native";
+import React from "react";
+import { ScrollView, View, TouchableOpacity, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Text } from "@/src/components/ui/text";
-import { Bell, BellOff, Check, AlertCircle, Info, Trophy } from "lucide-react-native";
-
-interface NotificationItem {
-  id: string;
-  title: string;
-  description: string;
-  time: string;
-  type: "info" | "success" | "warning";
-  read: boolean;
-}
-
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: "1",
-    title: "Weekly Earnings Goal Achieved!",
-    description: "Congratulations! You reached 100% of your weekly earnings target across all active platforms.",
-    time: "2 hours ago",
-    type: "success",
-    read: false,
-  },
-  {
-    id: "2",
-    title: "Tax season reminder",
-    description: "Your estimated quarterly tax withholding report is ready. View it in the Tax page.",
-    time: "1 day ago",
-    type: "warning",
-    read: false,
-  },
-  {
-    id: "3",
-    title: "Shift Logged Successfully",
-    description: "Your 6h 15m Uber Eats shift has been added to your dashboard history.",
-    time: "2 days ago",
-    type: "info",
-    read: true,
-  },
-  {
-    id: "4",
-    title: "Welcome to COMMA!",
-    description: "Your local database has been initialized. You are ready to start tracking your gig mileage and earnings with absolute privacy.",
-    time: "3 days ago",
-    type: "info",
-    read: true,
-  },
-];
+import { BellOff, AlertCircle, Info, Trophy, X, Check } from "lucide-react-native";
+import { useSettingsStore } from "../store/useSettingsStore";
+import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 
 export default function NotificationsScreen() {
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
-
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
-
-  const clearAll = () => {
-    setNotifications([]);
-  };
+  const { accentColor } = usePlatformTheme();
+  const {
+    notifications,
+    markAllNotificationsRead,
+    clearAllNotifications,
+    dismissNotification,
+  } = useSettingsStore();
 
   const getIcon = (type: string, read: boolean) => {
-    const color = read ? "#64748b" : "#10b981";
+    const color = read ? "#64748b" : accentColor;
     switch (type) {
       case "success":
-        return <Trophy size={18} color={read ? "#64748b" : "#eab308"} />;
+        return <Trophy size={18} color={read ? "#64748b" : accentColor} />;
       case "warning":
         return <AlertCircle size={18} color={read ? "#64748b" : "#f59e0b"} />;
       default:
@@ -87,17 +43,17 @@ export default function NotificationsScreen() {
       </View>
 
       <ScrollView contentContainerClassName="p-4 pb-20 flex flex-col gap-4">
-        {notifications.length > 0 ? (
+        {notifications && notifications.length > 0 ? (
           <>
             <View className="flex-row justify-between items-center mb-2">
               <Text className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
                 Recent Alerts ({notifications.filter(n => !n.read).length} unread)
               </Text>
               <View className="flex-row gap-4">
-                <TouchableOpacity onPress={markAllAsRead}>
-                  <Text className="text-xs text-emerald-500 font-bold">Mark all read</Text>
+                <TouchableOpacity onPress={markAllNotificationsRead}>
+                  <Text className="text-xs font-bold" style={{ color: accentColor }}>Mark all read</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={clearAll}>
+                <TouchableOpacity onPress={clearAllNotifications}>
                   <Text className="text-xs text-slate-500 font-bold">Clear all</Text>
                 </TouchableOpacity>
               </View>
@@ -105,9 +61,15 @@ export default function NotificationsScreen() {
 
             <View className="flex flex-col gap-3">
               {notifications.map((item) => (
-                <View
+                <TouchableOpacity
                   key={item.id}
-                  className={`border rounded-2xl p-4 flex flex-row gap-3 ${
+                  activeOpacity={item.actionUrl ? 0.7 : 1}
+                  onPress={() => {
+                    if (item.actionUrl) {
+                      router.push(item.actionUrl as any);
+                    }
+                  }}
+                  className={`border rounded-2xl p-4 flex flex-row gap-3 relative ${
                     item.read 
                       ? "bg-slate-900/30 border-slate-900/60 opacity-60" 
                       : "bg-slate-900/80 border-slate-800/80"
@@ -116,23 +78,41 @@ export default function NotificationsScreen() {
                   <View className="mt-0.5">
                     {getIcon(item.type, item.read)}
                   </View>
-                  <View className="flex-1 flex-col">
+                  <View className="flex-1 flex-col pr-6">
                     <View className="flex-row justify-between items-start">
                       <Text className={`text-sm font-bold flex-1 pr-2 ${item.read ? "text-slate-400" : "text-slate-100"}`}>
                         {item.title}
                       </Text>
                       {!item.read && (
-                        <View className="w-2 h-2 rounded-full bg-emerald-500 mt-1.5" />
+                        <View className="w-2 h-2 rounded-full mt-1.5" style={{ backgroundColor: accentColor }} />
                       )}
                     </View>
                     <Text className="text-xs text-slate-400 leading-relaxed font-medium mt-1">
                       {item.description}
                     </Text>
-                    <Text className="text-[10px] text-slate-500 font-bold mt-2">
-                      {item.time}
-                    </Text>
+                    <View className="flex-row justify-between items-center mt-2">
+                      <Text className="text-[10px] text-slate-500 font-bold">
+                        {item.time}
+                      </Text>
+                      {item.actionUrl && (
+                        <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColor }}>
+                          View details →
+                        </Text>
+                      )}
+                    </View>
                   </View>
-                </View>
+
+                  {/* Dismiss Button */}
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      dismissNotification(item.id);
+                    }}
+                    className="absolute top-3 right-3 p-1 rounded-full bg-slate-800/35 border border-slate-700/20"
+                  >
+                    <X size={12} color="#94a3b8" />
+                  </TouchableOpacity>
+                </TouchableOpacity>
               ))}
             </View>
           </>
@@ -144,7 +124,7 @@ export default function NotificationsScreen() {
             <View className="items-center">
               <Text className="text-base font-bold text-slate-300">All caught up!</Text>
               <Text className="text-xs text-slate-500 text-center mt-1 max-w-[240px]">
-                You have no new notifications. We'll alert you here when goals are reached or reports are compiled.
+                You have no new notifications. We'll alert you here when goals are reached, streak risks occur, or reports are compiled.
               </Text>
             </View>
           </View>

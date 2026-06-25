@@ -34,7 +34,7 @@ export const US_IRS_CATEGORIES: ExpenseCategory[] = [
 export type ExpenseCategoryKey = string;
 
 export function getExpenseCategories(
-  country: "US" | "CA" = "CA",
+  country: string = "CA",
   customCategories: ExpenseCategory[] = []
 ): ExpenseCategory[] {
   const base = country === "US" ? US_IRS_CATEGORIES : CANADIAN_CRA_CATEGORIES;
@@ -43,7 +43,7 @@ export function getExpenseCategories(
 
 export function getCategoryMeta(
   id: string,
-  country: "US" | "CA" = "CA",
+  country: string = "CA",
   customCategories: ExpenseCategory[] = []
 ): ExpenseCategory {
   const list = getExpenseCategories(country, customCategories);

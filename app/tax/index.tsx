@@ -29,12 +29,17 @@ import { db } from "@/src/database/client";
 import { shifts, expenses, settings } from "@/src/database/schema";
 import { and, gte, lte, eq } from "drizzle-orm";
 import {
-  PROVINCIAL_HST_RATES,
   calculateCPP,
   calculateSelfEmploymentTax,
   calculateCRAMileageDeduction,
   calculateIRSMileageDeduction,
+  PROVINCIAL_HST_RATES,
 } from "@/utils/taxCalculations";
+import {
+  WITHHOLDING_PRESETS_CA,
+  WITHHOLDING_PRESETS_US,
+} from "@/src/registry/tax/withholdingPresets";
+import { getSalesTaxRate } from "@/src/registry/provinces/index";
 
 const isWeb = Platform.OS === "web";
 
@@ -57,11 +62,22 @@ interface TaxSummary {
   distanceKm: number;
   activeMileage: number;
   deadMileage: number;
+  /** HST/GST collected on gross (CA registered only) */
+  hstCollected: number;
+  /** Input Tax Credits claimable from deductible expenses */
+  itcTotal: number;
+  /** Net HST remittable = hstCollected - itcTotal */
+  hstRemittable: number;
 }
 
-async function fetchTaxSummary(year: number): Promise<TaxSummary> {
-  let rawShifts = [];
-  let rawExpenses = [];
+async function fetchTaxSummary(
+  year: number,
+  country: string,
+  taxRegion: string,
+  hstRegistered: boolean
+): Promise<TaxSummary> {
+  let rawShifts: any[] = [];
+  let rawExpenses: any[] = [];
 
   if (isWeb) {
     try {
@@ -69,35 +85,30 @@ async function fetchTaxSummary(year: number): Promise<TaxSummary> {
       const eData = localStorage.getItem("comma_expenses");
       rawShifts = sData ? JSON.parse(sData) : [];
       rawExpenses = eData ? JSON.parse(eData) : [];
+      const start = new Date(year, 0, 1).getTime();
+      const end = new Date(year, 11, 31, 23, 59, 59, 999).getTime();
+      rawShifts = rawShifts.filter((s: any) => {
+        const t = new Date(s.startTime).getTime();
+        return t >= start && t <= end;
+      });
+      rawExpenses = rawExpenses.filter((e: any) => {
+        const t = new Date(e.date).getTime();
+        return t >= start && t <= end;
+      });
     } catch (e) {
       console.error(e);
     }
   } else {
     const startOfYear = new Date(year, 0, 1);
     const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
-
     rawShifts = await db
       .select()
       .from(shifts)
       .where(and(gte(shifts.startTime, startOfYear), lte(shifts.startTime, endOfYear)));
-
     rawExpenses = await db
       .select()
       .from(expenses)
       .where(and(gte(expenses.date, startOfYear), lte(expenses.date, endOfYear)));
-  }
-
-  if (isWeb) {
-    const start = new Date(year, 0, 1).getTime();
-    const end = new Date(year, 11, 31, 23, 59, 59, 999).getTime();
-    rawShifts = rawShifts.filter((s: any) => {
-      const t = new Date(s.startTime).getTime();
-      return t >= start && t <= end;
-    });
-    rawExpenses = rawExpenses.filter((e: any) => {
-      const t = new Date(e.date).getTime();
-      return t >= start && t <= end;
-    });
   }
 
   let gross = 0;
@@ -109,19 +120,30 @@ async function fetchTaxSummary(year: number): Promise<TaxSummary> {
   rawShifts.forEach((s: any) => {
     gross += Number(s.grossRevenue || 0);
     tips += Number(s.tipsRevenue || 0);
-    distanceKm += Number(s.activeMileage || s.trackedMileage || 0) + Number(s.deadMileage || 0);
-    activeMileage += Number(s.activeMileage || s.trackedMileage || 0);
-    deadMileage += Number(s.deadMileage || 0);
+    const active = Number(s.activeMileage || s.trackedMileage || 0);
+    const dead = Number(s.deadMileage || 0);
+    distanceKm += active + dead;
+    activeMileage += active;
+    deadMileage += dead;
   });
 
   let totalExpenses = 0;
   rawExpenses.forEach((e: any) => {
-    if (e.isDeductible) {
-      totalExpenses += Number(e.amount || 0);
-    }
+    if (e.isDeductible) totalExpenses += Number(e.amount || 0);
   });
 
-  const netIncome = Math.max(0, (gross + tips) - totalExpenses);
+  const totalGross = gross + tips;
+  const netIncome = Math.max(0, totalGross - totalExpenses);
+
+  // HST / ITC calculation (CA registered drivers)
+  const hstRate = country === "CA" && hstRegistered
+    ? getSalesTaxRate(country, taxRegion)
+    : 0;
+  const hstCollected = hstRegistered ? totalGross * hstRate : 0;
+  // ITC: 5% GST portion of deductible expenses (simplified)
+  const gstRate = 0.05;
+  const itcTotal = hstRegistered ? totalExpenses * (gstRate / (1 + gstRate)) : 0;
+  const hstRemittable = Math.max(0, hstCollected - itcTotal);
 
   let virtualJar = 0;
   const jarKey = `tax_virtual_jar_${year}`;
@@ -138,13 +160,16 @@ async function fetchTaxSummary(year: number): Promise<TaxSummary> {
   }
 
   return {
-    gross: gross + tips,
+    gross: totalGross,
     businessExpenses: totalExpenses,
     netIncome,
     virtualJar,
     distanceKm,
     activeMileage,
     deadMileage,
+    hstCollected,
+    itcTotal,
+    hstRemittable,
   };
 }
 
@@ -154,7 +179,7 @@ interface Deadline {
   daysUntil: number;
 }
 
-function getDeadlines(country: "US" | "CA", year: number): Deadline[] {
+function getDeadlines(country: string, year: number): Deadline[] {
   const now = new Date();
   const currentYear = year;
   const list: { label: string; date: Date }[] = [];
@@ -186,49 +211,40 @@ function getDeadlines(country: "US" | "CA", year: number): Deadline[] {
   });
 }
 
-const REGION_PRESETS_CA = Object.entries(PROVINCIAL_HST_RATES).map(([code, rate]) => ({
-  code,
-  rate: Math.round(rate * 100),
-}));
+// Full presets from registry (13 CA provinces + 50 US states + DC)
+const REGION_PRESETS_CA = Object.entries(WITHHOLDING_PRESETS_CA)
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([code, rate]) => ({ code, rate }));
 
-const REGION_PRESETS_US = [
-  { code: "CA", rate: 30 },
-  { code: "NY", rate: 28 },
-  { code: "TX", rate: 25 },
-  { code: "FL", rate: 25 },
-  { code: "IL", rate: 27 },
-  { code: "PA", rate: 26 },
-  { code: "OH", rate: 25 },
-  { code: "GA", rate: 25 },
-  { code: "NC", rate: 25 },
-  { code: "MI", rate: 26 },
-];
+const REGION_PRESETS_US = Object.entries(WITHHOLDING_PRESETS_US)
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([code, rate]) => ({ code, rate }));
 
 export default function TaxDashboardScreen() {
   const queryClient = useQueryClient();
-  const { profile, loadSettings } = useSettingsStore();
+  const { profile, applyTaxPreset } = useSettingsStore();
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
 
   const { data: summary, isLoading, refetch } = useQuery({
-    queryKey: ["tax", "summary", selectedYear],
-    queryFn: () => fetchTaxSummary(selectedYear),
+    queryKey: ["tax", "summary", selectedYear, profile.country, profile.taxRegion, profile.hstRegistered],
+    queryFn: () => fetchTaxSummary(selectedYear, profile.country, profile.taxRegion, profile.hstRegistered),
   });
 
-  const currencySymbol = profile.country === "CA" ? "$" : "$";
-  const currencyCode = profile.country === "CA" ? "CAD" : "USD";
+  // Use locale currency from profile (set by registry on country change)
+  const currencyCode = profile.locale?.currency ?? (profile.country === "CA" ? "CAD" : "USD");
+  const distanceUnit = profile.distanceUnit ?? (profile.country === "CA" ? "km" : "mi");
+  const distanceLabel = distanceUnit === "mi" ? "mi" : "km";
 
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat(undefined, {
+  const formatCurrency = (val: number) =>
+    new Intl.NumberFormat(undefined, {
       style: "currency",
       currency: currencyCode,
       minimumFractionDigits: 2,
     }).format(val);
-  };
 
   const targetSetAside = summary ? summary.gross * (profile.taxWithholdingPct / 100) : 0;
   const jarCoveragePct = targetSetAside > 0 && summary ? Math.min(100, (summary.virtualJar / targetSetAside) * 100) : 0;
 
-  // Region Presets
   const regionPresets = profile.country === "CA" ? REGION_PRESETS_CA : REGION_PRESETS_US;
   const currentRegion = profile.taxRegion || (profile.country === "CA" ? "ON" : "CA");
 
@@ -243,17 +259,11 @@ export default function TaxDashboardScreen() {
     }));
   };
 
-  const handleApplyPreset = async (regionCode: string, ratePct: number) => {
+  const handleApplyPreset = async (regionCode: string) => {
     try {
-      const updatedProfile = {
-        ...profile,
-        taxRegion: regionCode,
-        taxWithholdingPct: ratePct,
-      };
-      await upsertSetting("profile", JSON.stringify(updatedProfile));
-      await loadSettings();
+      await applyTaxPreset(regionCode);
       refetch();
-      Alert.alert("Success", `Applied preset for ${regionCode} with ${ratePct}% withholding rate.`);
+      Alert.alert("Preset Applied", `Region set to ${regionCode}. Withholding % updated from registry.`);
     } catch (err: any) {
       Alert.alert("Error", err.message || "Failed to apply preset.");
     }
@@ -338,10 +348,12 @@ export default function TaxDashboardScreen() {
   const netIncome = summary?.netIncome || 0;
   const cppEstimate = profile.country === "CA" ? calculateCPP(netIncome).employeePortion : 0;
   const seTaxEstimate = profile.country === "US" ? calculateSelfEmploymentTax(netIncome) : 0;
+  // Mileage deduction: use correct unit per country
+  const totalDistance = summary?.distanceKm || 0;
   const mileageDeduction =
     profile.country === "CA"
-      ? calculateCRAMileageDeduction(summary?.distanceKm || 0)
-      : calculateIRSMileageDeduction((summary?.distanceKm || 0) * 0.621371);
+      ? calculateCRAMileageDeduction(totalDistance)
+      : calculateIRSMileageDeduction(distanceUnit === "mi" ? totalDistance : totalDistance * 0.621371);
 
   if (isLoading) {
     return (
@@ -485,7 +497,7 @@ export default function TaxDashboardScreen() {
                 return (
                   <TouchableOpacity
                     key={r.code}
-                    onPress={() => handleApplyPreset(r.code, r.rate)}
+                    onPress={() => handleApplyPreset(r.code)}
                     className={`px-3 py-2 rounded-lg border ${
                       isActive
                         ? "bg-emerald-500 border-emerald-500"
@@ -532,7 +544,7 @@ export default function TaxDashboardScreen() {
               <View>
                 <Text className="text-xs font-bold text-slate-200">Standard Mileage Deduction</Text>
                 <Text className="text-[10px] text-slate-500 mt-0.5">
-                  Write-off based on total {summary?.distanceKm.toFixed(0)} km
+                  Write-off based on {totalDistance.toFixed(0)} {distanceLabel}
                 </Text>
               </View>
               <Text className="text-sm font-extrabold text-emerald-400">{formatCurrency(mileageDeduction)}</Text>
@@ -540,7 +552,40 @@ export default function TaxDashboardScreen() {
           </View>
         </View>
 
-        {/* Deadlines Card */}
+        {/* HST / Sales Tax Card — CA registered only */}
+        {profile.country === "CA" && profile.hstRegistered && (
+          <View style={styles.bentoCardOuter}>
+            <View style={styles.bentoHeader}>
+              <Text style={styles.bentoTitle}>HST Collected Tracker</Text>
+              <Text style={styles.bentoDesc}>Harmonized Sales Tax remittance estimate</Text>
+            </View>
+            <View className="p-3 gap-3">
+              <View className="flex-row justify-between items-center">
+                <View>
+                  <Text className="text-xs font-bold text-slate-200">HST Collected</Text>
+                  <Text className="text-[10px] text-slate-500 mt-0.5">On gross revenue</Text>
+                </View>
+                <Text className="text-sm font-extrabold text-slate-100">{formatCurrency(summary?.hstCollected || 0)}</Text>
+              </View>
+              <View className="flex-row justify-between items-center border-t border-slate-850 pt-3">
+                <View>
+                  <Text className="text-xs font-bold text-slate-200">Input Tax Credits (ITC)</Text>
+                  <Text className="text-[10px] text-slate-500 mt-0.5">GST paid on deductible expenses</Text>
+                </View>
+                <Text className="text-sm font-extrabold text-rose-400">-{formatCurrency(summary?.itcTotal || 0)}</Text>
+              </View>
+              <View className="flex-row justify-between items-center border-t border-slate-850 pt-3">
+                <View>
+                  <Text className="text-xs font-bold text-slate-200">Net Remittable</Text>
+                  <Text className="text-[10px] text-slate-500 mt-0.5">Amount owed to CRA</Text>
+                </View>
+                <Text className="text-sm font-extrabold text-amber-400">{formatCurrency(summary?.hstRemittable || 0)}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+
         <View style={styles.bentoCardOuter}>
           <View style={styles.bentoHeader}>
             <Text style={styles.bentoTitle}>Installment Deadlines</Text>

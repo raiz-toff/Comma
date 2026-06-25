@@ -110,7 +110,24 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
     preferredVehicleId,
     setPreferredVehicle,
     isOnboardingCompleted,
+    isHeaderVisible,
   } = useSettingsStore();
+
+  const headerVisibleAnim = React.useRef(new Animated.Value(1)).current;
+
+  React.useEffect(() => {
+    Animated.spring(headerVisibleAnim, {
+      toValue: isHeaderVisible ? 1 : 0,
+      tension: 60,
+      friction: 12,
+      useNativeDriver: true,
+    }).start();
+  }, [isHeaderVisible]);
+
+  const headerTranslateY = headerVisibleAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-(56 + Math.max(insets.top, 8) + 16), 0],
+  });
 
   const { data: vehiclesList = [] } = useQuery({
     queryKey: ["vehicles"],
@@ -325,7 +342,7 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
   });
 
   return (
-    <View style={[styles.container, { paddingTop: Math.max(insets.top, 8) }]}>
+    <Animated.View style={[styles.container, { paddingTop: Math.max(insets.top, 8), transform: [{ translateY: headerTranslateY }] }]}>
       {/* ── Backdrop for closing switcher when clicked outside ── */}
       {showDropdown && (
         <Animated.View
@@ -568,7 +585,7 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
 
         </Animated.View>
       )}
-    </View>
+    </Animated.View>
   );
 }
 

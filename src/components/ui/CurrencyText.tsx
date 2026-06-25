@@ -21,10 +21,14 @@ export function CurrencyText({
 }: CurrencyTextProps & Omit<React.ComponentProps<typeof Text>, "children">) {
   const profile = useSettingsStore((state) => state.profile);
   
-  // Resolve currency. In the future, currency might be in the profile or setting KV.
-  // We check for any explicit override, falling back to country-based detection.
-  const currency = (profile as any)?.currency || (profile?.country === "US" ? "USD" : "CAD");
-  const locale = profile?.country === "US" ? "en-US" : "en-CA";
+  // Resolve currency from registry-derived locale (set when country changes).
+  const currency =
+    profile?.locale?.currency ||
+    (profile?.country === "US" ? "USD" : profile?.country === "UK" ? "GBP" : "CAD");
+  const locale =
+    profile?.locale?.currency ? undefined
+    : profile?.country === "US" ? "en-US" : "en-CA";
+
 
   const formatted = React.useMemo(() => {
     try {

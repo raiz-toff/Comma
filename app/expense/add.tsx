@@ -416,7 +416,7 @@ export default function AddExpenseModal() {
                     if (e.target.value) setDate(new Date(e.target.value + "T12:00:00"));
                   }}
                   className="bg-[#0d0d0d] border border-[#262522] rounded-xl p-3.5 text-white text-sm font-semibold outline-none w-full"
-                  style={{ focusOutlineColor: accentColor }}
+                  style={{ outlineColor: accentColor }}
                 />
               ) : (
                 <TouchableOpacity

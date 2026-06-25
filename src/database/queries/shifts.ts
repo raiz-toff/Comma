@@ -103,7 +103,8 @@ export async function getShiftById(id: string): Promise<any | null> {
 
 export async function getShiftsPaginated(
   page: number, 
-  filters?: { startDate?: Date; endDate?: Date; platforms?: string[] }
+  filters?: { startDate?: Date; endDate?: Date; platforms?: string[] },
+  limitParam?: number
 ): Promise<any[]> {
   if (isWeb) {
     const existing = localStorage.getItem("comma_shifts");
@@ -125,12 +126,12 @@ export async function getShiftsPaginated(
     list.sort((a: any, b: any) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
     
     // Simple pagination
-    const limit = 50; // Use larger limit for calendar/reports queries
+    const limit = limitParam ?? 50; // Use larger limit for calendar/reports queries
     const offset = (page - 1) * limit;
     return list.slice(offset, offset + limit);
   }
 
-  const limit = 20;
+  const limit = limitParam ?? 20;
   const offset = (page - 1) * limit;
 
   let queryConditions = [];

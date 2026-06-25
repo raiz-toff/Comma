@@ -4,10 +4,19 @@ import { Platform } from "react-native";
 import { db } from "../src/database/client";
 import { shifts, expenses } from "../src/database/schema";
 import { and, gte, lte } from "drizzle-orm";
+import { useSettingsStore } from "../store/useSettingsStore";
 
 const isWeb = Platform.OS === "web";
 
+function getCurrencySymbol(currency?: string): string {
+  if (currency === "GBP") return "£";
+  if (currency === "EUR") return "€";
+  return "$";
+}
+
 export async function generateShiftsCSV(startDate: Date, endDate: Date): Promise<string> {
+  const profile = useSettingsStore.getState().profile;
+  const distUnit = profile?.distanceUnit || "km";
   let list: any[] = [];
 
   if (isWeb) {
@@ -29,8 +38,8 @@ export async function generateShiftsCSV(startDate: Date, endDate: Date): Promise
     platform: s.platform,
     grossRevenue: s.grossRevenue,
     tips: s.tipsRevenue || 0,
-    activeMileage: s.activeMileage || 0,
-    deadMileage: s.deadMileage || 0,
+    [`activeDistance_${distUnit}`]: s.activeMileage || 0,
+    [`deadDistance_${distUnit}`]: s.deadMileage || 0,
     durationSeconds: s.durationSeconds || 0,
     notes: s.notes || "",
   }));
@@ -68,6 +77,10 @@ export async function generateExpensesCSV(startDate: Date, endDate: Date): Promi
 }
 
 export async function generatePDFSummary(startDate: Date, endDate: Date): Promise<string> {
+  const profile = useSettingsStore.getState().profile;
+  const currencySymbol = getCurrencySymbol(profile?.locale?.currency);
+  const distUnit = profile?.distanceUnit || "km";
+  
   let shiftList: any[] = [];
   let expenseList: any[] = [];
 
@@ -151,37 +164,37 @@ export async function generatePDFSummary(startDate: Date, endDate: Date): Promis
         <div class="grid">
           <div class="card">
             <div class="card-title">Gross Income</div>
-            <div class="card-value income">$${totalRevenue.toFixed(2)}</div>
+            <div class="card-value income">${currencySymbol}${totalRevenue.toFixed(2)}</div>
           </div>
           <div class="card">
             <div class="card-title">Expenses (Deductible)</div>
-            <div class="card-value expense">$${totalDeductibleExpenses.toFixed(2)}</div>
+            <div class="card-value expense">${currencySymbol}${totalDeductibleExpenses.toFixed(2)}</div>
           </div>
           <div class="card">
             <div class="card-title">Net Income</div>
-            <div class="card-value income" style="color: #3b82f6;">$${netEarnings.toFixed(2)}</div>
+            <div class="card-value income" style="color: #3b82f6;">${currencySymbol}${netEarnings.toFixed(2)}</div>
           </div>
         </div>
 
-        <h3>Mileage Breakdown</h3>
+        <h3>Distance Breakdown (${distUnit})</h3>
         <table>
           <thead>
             <tr>
               <th>Type</th>
-              <th class="number-col">Distance</th>
+              <th class="number-col">Distance (${distUnit})</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td>Active (Delivery/Gig) Mileage</td>
+              <td>Active (Delivery/Gig) Distance</td>
               <td class="number-col">${totalActiveMiles.toFixed(1)}</td>
             </tr>
             <tr>
-              <td>Dead (Commute/Waiting) Mileage</td>
+              <td>Dead (Commute/Waiting) Distance</td>
               <td class="number-col">${totalDeadMiles.toFixed(1)}</td>
             </tr>
             <tr style="font-weight: bold; background: #f8fafc;">
-              <td>Total Mileage</td>
+              <td>Total Distance</td>
               <td class="number-col">${totalMiles.toFixed(1)}</td>
             </tr>
           </tbody>
@@ -211,7 +224,7 @@ export async function generatePDFSummary(startDate: Date, endDate: Date): Promis
                 <td style="text-transform: capitalize;">${e.category}</td>
                 <td>${e.isDeductible ? "Yes" : "No"}</td>
                 <td>${e.notes || ""}</td>
-                <td class="number-col">$${(e.amount || 0).toFixed(2)}</td>
+                <td class="number-col">${currencySymbol}${(e.amount || 0).toFixed(2)}</td>
               </tr>
             `
               )

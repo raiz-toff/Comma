@@ -11,7 +11,7 @@ import {
   Share,
   Modal,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
@@ -25,7 +25,7 @@ import { settings, shifts, expenses } from "@/src/database/schema";
 import { eq } from "drizzle-orm";
 import { useGoogleDriveSync } from "@/hooks/useGoogleDriveSync";
 import { generateShiftsCSV, generateExpensesCSV } from "@/utils/reportGenerator";
-import { ArrowUp, ArrowDown, Trash2, ShieldAlert, Sparkles, Database, Check } from "lucide-react-native";
+import { ArrowUp, ArrowDown, Trash2, ShieldAlert, Sparkles, Database, Check, ChevronLeft } from "lucide-react-native";
 
 const isWeb = Platform.OS === "web";
 
@@ -70,6 +70,7 @@ interface PlatformConfig {
 
 export default function SettingsScreen() {
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
   const {
     profile,
     isOnboardingCompleted,
@@ -430,66 +431,66 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView className="dark flex-1 bg-[#000000]">
-      {/* Header */}
-      <View className="px-4 pt-3 pb-3 border-b border-slate-800/80 bg-slate-900/40 flex-row items-center justify-between">
-        <View className="flex-row items-center gap-3">
-          <TouchableOpacity
-            onPress={() => router.back()}
-            className="py-1.5 px-2.5 bg-slate-800/40 rounded-lg border border-slate-700/30"
-          >
-            <Text className="text-slate-300 text-xs font-semibold">Back</Text>
-          </TouchableOpacity>
-          <View>
-            <Text className="text-lg font-extrabold text-slate-100 tracking-tight">System Settings</Text>
-            <Text className="text-[10px] text-slate-400">Configure parameters & data portability</Text>
+    <SafeAreaView className="flex-1 bg-[#000000]" edges={["bottom", "left", "right"]}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 120, paddingTop: insets.top ? insets.top + 20 : 40 }} showsVerticalScrollIndicator={false}>
+        
+        {/* Header */}
+        <View className="px-4 pb-4 flex-row items-center justify-between">
+          <View className="flex-row items-center gap-3">
+            <TouchableOpacity onPress={() => router.back()} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#161615", borderWidth: 0.8, borderColor: "#262522", alignItems: "center", justifyContent: "center", marginLeft: -8 }}>
+              <ChevronLeft color="#ffffff" size={24} />
+            </TouchableOpacity>
+            <View>
+              <Text className="text-lg font-extrabold text-slate-100 tracking-tight">System Settings</Text>
+              <Text className="text-[10px] text-slate-400">Configure parameters & data portability</Text>
+            </View>
           </View>
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={isSaving}
+            style={{ paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: savedFeedback ? "rgba(16, 185, 129, 0.2)" : "#10b981", borderWidth: 0.8, borderColor: savedFeedback ? "rgba(16, 185, 129, 0.3)" : "transparent" }}
+          >
+            <Text style={{ fontSize: 12, fontWeight: "800", color: savedFeedback ? "#34d399" : "#fff", textTransform: "uppercase" }}>
+              {isSaving ? "Saving…" : savedFeedback ? "Saved ✓" : "Save"}
+            </Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          onPress={handleSave}
-          disabled={isSaving}
-          className={cn(
-            "px-4 py-2 rounded-lg",
-            savedFeedback ? "bg-emerald-500/20 border border-emerald-500/30" : "bg-emerald-500"
-          )}
-        >
-          <Text className={cn("text-xs font-bold", savedFeedback ? "text-emerald-400" : "text-white")}>
-            {isSaving ? "Saving…" : savedFeedback ? "Saved ✓" : "Save Settings"}
-          </Text>
-        </TouchableOpacity>
-      </View>
 
-      {/* Tabs Menu bar */}
-      <View className="border-b border-slate-900 bg-slate-950/20">
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="px-3 py-2 flex-row gap-2">
-          {([
-            { key: "you", label: "👤 You" },
-            { key: "appearance", label: "🎨 Appearance" },
-            { key: "platforms", label: "🚗 Platforms" },
-            { key: "alerts", label: "🔔 Alerts" },
-            { key: "data", label: "💾 Data" },
-            { key: "about", label: "ℹ️ About" },
-          ] as const).map((tab) => {
-            const active = activeTab === tab.key;
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                onPress={() => setActiveTab(tab.key)}
-                className={cn(
-                  "px-3.5 py-1.5 rounded-full border",
-                  active ? "border-emerald-500 bg-emerald-500/10" : "border-slate-850 bg-slate-900/30"
-                )}
-              >
-                <Text className={cn("text-[10px] font-bold uppercase tracking-wider", active ? "text-emerald-450" : "text-slate-450")}>
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
+        {/* Tabs Menu bar */}
+        <View className="mb-6">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="px-4 flex-row gap-2">
+            {([
+              { key: "you", label: "👤 You" },
+              { key: "appearance", label: "🎨 Appearance" },
+              { key: "platforms", label: "🚗 Platforms" },
+              { key: "alerts", label: "🔔 Alerts" },
+              { key: "data", label: "💾 Data" },
+              { key: "about", label: "ℹ️ About" },
+            ] as const).map((tab) => {
+              const active = activeTab === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  onPress={() => setActiveTab(tab.key)}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                    borderWidth: 0.8,
+                    borderColor: active ? "rgba(16, 185, 129, 0.5)" : "#262522",
+                    backgroundColor: active ? "rgba(16, 185, 129, 0.1)" : "#161615"
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5, color: active ? "#34d399" : "#a1a1aa" }}>
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
 
-      <ScrollView contentContainerClassName="p-4 pb-20 flex flex-col gap-6">
+        <View className="px-4 pb-20 flex flex-col gap-6">
         {/* ─── TAB: YOU ─── */}
         {activeTab === "you" && (
           <View className="flex flex-col gap-5">
@@ -504,7 +505,7 @@ export default function SettingsScreen() {
                     onChangeText={setDisplayName}
                     placeholder="Your name"
                     placeholderTextColor="#475569"
-                    className="bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 text-sm font-semibold"
+                    style={styles.input}
                   />
                 </View>
                 <View className="flex flex-col gap-1.5">
@@ -515,7 +516,7 @@ export default function SettingsScreen() {
                     placeholder="🙂"
                     placeholderTextColor="#475569"
                     maxLength={3}
-                    className="bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 text-sm font-semibold w-24 text-center"
+                    style={[styles.input, { width: 96, textAlign: "center" }]}
                   />
                 </View>
               </View>
@@ -624,7 +625,7 @@ export default function SettingsScreen() {
                     value={weeklyGoal}
                     onChangeText={setWeeklyGoal}
                     keyboardType="numeric"
-                    className="bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 text-sm font-semibold"
+                    style={styles.input}
                   />
                 </View>
                 <View className="flex flex-col gap-1.5">
@@ -633,7 +634,7 @@ export default function SettingsScreen() {
                     value={monthlyGoal}
                     onChangeText={setMonthlyGoal}
                     keyboardType="numeric"
-                    className="bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 text-sm font-semibold"
+                    style={styles.input}
                   />
                 </View>
                 <View className="flex flex-col gap-1.5">
@@ -642,7 +643,7 @@ export default function SettingsScreen() {
                     value={annualGoal}
                     onChangeText={setAnnualGoal}
                     keyboardType="numeric"
-                    className="bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 text-sm font-semibold"
+                    style={styles.input}
                   />
                 </View>
                 <View className="flex flex-col gap-1.5">
@@ -651,7 +652,7 @@ export default function SettingsScreen() {
                     value={taxWithholdingPct}
                     onChangeText={setTaxWithholdingPct}
                     keyboardType="numeric"
-                    className="bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 text-sm font-semibold"
+                    style={styles.input}
                   />
                 </View>
                 <View className="flex flex-col gap-2">
@@ -696,7 +697,7 @@ export default function SettingsScreen() {
               <View className="flex flex-col gap-4">
                 <View className="flex flex-col gap-2">
                   <Text style={styles.labelTitle}>Theme Mode</Text>
-                  <View className="flex-row bg-slate-950 p-1 rounded-xl border border-slate-850">
+                  <View style={styles.pillContainer}>
                     {["light", "dark", "auto"].map((m) => {
                       const active = theme === m;
                       return (
@@ -826,7 +827,7 @@ export default function SettingsScreen() {
               <View className="flex flex-col gap-4">
                 <View className="flex flex-col gap-1.5">
                   <Text style={styles.labelTitle}>Bento Layout Preset</Text>
-                  <View className="flex-row bg-slate-950 p-1 rounded-xl border border-slate-850">
+                  <View style={styles.pillContainer}>
                     {["balanced", "focus", "dense"].map((bl) => {
                       const active = bentoLayout === bl;
                       return (
@@ -923,7 +924,7 @@ export default function SettingsScreen() {
                                   [pKey]: { ...prev[pKey], hourlyRate: val },
                                 }));
                               }}
-                              className="bg-slate-900 border border-slate-850 rounded-lg px-2.5 py-1.5 text-slate-100 text-xs font-semibold"
+                              style={styles.platformInput}
                             />
                           </View>
 
@@ -938,7 +939,7 @@ export default function SettingsScreen() {
                                   [pKey]: { ...prev[pKey], mileageRate: val },
                                 }));
                               }}
-                              className="bg-slate-900 border border-slate-850 rounded-lg px-2.5 py-1.5 text-slate-100 text-xs font-semibold"
+                              style={styles.platformInput}
                             />
                           </View>
 
@@ -953,7 +954,7 @@ export default function SettingsScreen() {
                                   [pKey]: { ...prev[pKey], priority: val },
                                 }));
                               }}
-                              className="bg-slate-900 border border-slate-850 rounded-lg px-2.5 py-1.5 text-slate-100 text-xs font-semibold text-center"
+                              style={[styles.platformInput, { textAlign: "center" }]}
                             />
                           </View>
                         </View>
@@ -1053,7 +1054,7 @@ export default function SettingsScreen() {
                         secureTextEntry
                         placeholder="1234"
                         placeholderTextColor="#475569"
-                        className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 text-sm font-semibold font-mono"
+                        style={styles.input}
                       />
                     </View>
 
@@ -1177,7 +1178,7 @@ export default function SettingsScreen() {
                       value={archiveDays}
                       onChangeText={setArchiveDays}
                       keyboardType="numeric"
-                      className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 text-xs font-semibold w-16 text-center"
+                      style={styles.input}
                     />
                     <Text className="text-[10px] text-slate-500 font-bold flex-1">Days retention limit</Text>
                   </View>
@@ -1254,21 +1255,21 @@ export default function SettingsScreen() {
               <View className="flex flex-col gap-2.5">
                 <TouchableOpacity
                   onPress={() => Share.share({ message: "Optimize your gig driver finances with COMMA App!" })}
-                  className="w-full py-3 bg-slate-950/60 border border-slate-800 rounded-xl items-center justify-center active:bg-slate-900"
+                  style={styles.button}
                 >
                   <Text className="text-xs text-slate-350 font-bold uppercase tracking-wider">Share COMMA App</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={() => Alert.alert("Manifesto", "Data Portability: Your financial records belong strictly to you. COMMA guarantees open imports and clean CSV exports.")}
-                  className="w-full py-3 bg-slate-950/60 border border-slate-800 rounded-xl items-center justify-center active:bg-slate-900"
+                  style={styles.button}
                 >
                   <Text className="text-xs text-slate-350 font-bold uppercase tracking-wider">Data Portability Manifesto</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={() => Alert.alert("Support", "Feedback & Support: Contact dev team at support@comma-app.com")}
-                  className="w-full py-3 bg-slate-950/60 border border-slate-800 rounded-xl items-center justify-center active:bg-slate-900"
+                  style={styles.button}
                 >
                   <Text className="text-xs text-slate-350 font-bold uppercase tracking-wider">Support & Feedback</Text>
                 </TouchableOpacity>
@@ -1281,6 +1282,7 @@ export default function SettingsScreen() {
             </View>
           </View>
         )}
+        </View>
       </ScrollView>
 
       {/* Keyboard Shortcuts Modal */}
@@ -1325,26 +1327,66 @@ const X = ({ size, color }: { size: number; color: string }) => (
 
 const styles = {
   cardOuter: {
-    backgroundColor: "#161615",
-    borderColor: "#262624",
-    borderWidth: 1,
-    borderRadius: 16,
+    backgroundColor: "#0d0d0d",
+    borderColor: "#1f1f1f",
+    borderWidth: 0.8,
+    borderRadius: 20,
     padding: 16,
   },
   cardHeader: {
     color: "#ffffff",
     fontSize: 13,
     fontWeight: "700" as const,
-    borderBottomWidth: 1,
-    borderBottomColor: "#262624",
+    borderBottomWidth: 0.8,
+    borderBottomColor: "#1f1f1f",
     paddingBottom: 8,
     marginBottom: 12,
   },
   labelTitle: {
     color: "#a1a1aa",
     fontSize: 10,
-    fontWeight: "700" as const,
+    fontWeight: "800" as const,
     textTransform: "uppercase" as const,
     letterSpacing: 0.5,
   },
+  input: {
+    backgroundColor: "#161615",
+    borderWidth: 0.8,
+    borderColor: "#262522",
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "800" as const,
+  },
+  platformInput: {
+    backgroundColor: "#161615",
+    borderWidth: 0.8,
+    borderColor: "#262522",
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "800" as const,
+  },
+  pillContainer: {
+    backgroundColor: "#161615",
+    borderWidth: 0.8,
+    borderColor: "#262522",
+    borderRadius: 20,
+    padding: 4,
+    flexDirection: "row" as const,
+  },
+  button: {
+    backgroundColor: "#161615",
+    borderWidth: 0.8,
+    borderColor: "#262522",
+    borderRadius: 20,
+    paddingVertical: 14,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    width: "100%",
+  }
 };

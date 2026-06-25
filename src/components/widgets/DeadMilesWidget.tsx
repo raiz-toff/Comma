@@ -12,18 +12,34 @@ export default function DeadMilesWidget({ mileage }: DeadMilesWidgetProps) {
   const ratioVal = mileage?.ratio || 0;
 
   return (
-    <View className="gap-2">
-      <View className="flex-row justify-between">
-        <Text className="text-[10px] text-emerald-400 font-bold">Active: {activeVal.toFixed(0)}</Text>
-        <Text className="text-[10px] text-rose-400 font-bold">Dead: {deadVal.toFixed(0)}</Text>
-      </View>
-      <View className="w-full h-2 bg-slate-950 rounded-full overflow-hidden flex-row">
+    <View style={{ gap: 16, paddingTop: 4 }}>
+      <View style={{ height: 12, flexDirection: "row", borderRadius: 6, overflow: "hidden", backgroundColor: "#262522" }}>
         <View style={{ flex: Math.max(0.01, activeVal), backgroundColor: "#10b981" }} />
         <View style={{ flex: Math.max(0.01, deadVal), backgroundColor: "#f43f5e" }} />
       </View>
-      <Text className="text-[9px] text-slate-500 font-bold text-center">
-        Dead Ratio: {ratioVal.toFixed(0)}%
-      </Text>
+
+      <View style={{ gap: 12 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#10b981" }} />
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "#a1a1aa" }}>Active Miles</Text>
+          </View>
+          <Text style={{ fontSize: 14, fontWeight: "800", color: "#ffffff" }}>{activeVal.toFixed(1)} <Text style={{ fontSize: 10, color: "#71717a" }}>mi</Text></Text>
+        </View>
+
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#f43f5e" }} />
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "#a1a1aa" }}>Dead Miles</Text>
+          </View>
+          <Text style={{ fontSize: 14, fontWeight: "800", color: "#ffffff" }}>{deadVal.toFixed(1)} <Text style={{ fontSize: 10, color: "#71717a" }}>mi</Text></Text>
+        </View>
+
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#262522" }}>
+          <Text style={{ fontSize: 11, fontWeight: "700", color: "#52525b", textTransform: "uppercase", letterSpacing: 0.5 }}>Dead Ratio</Text>
+          <Text style={{ fontSize: 14, fontWeight: "900", color: ratioVal > 40 ? "#f43f5e" : "#10b981" }}>{ratioVal.toFixed(1)}%</Text>
+        </View>
+      </View>
     </View>
   );
 }

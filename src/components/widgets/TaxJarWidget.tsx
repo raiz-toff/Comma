@@ -1,5 +1,6 @@
 import React from "react";
 import { View } from "react-native";
+import Svg, { Circle } from "react-native-svg";
 import { Text } from "../ui/text";
 
 interface TaxJarWidgetProps {
@@ -7,12 +8,36 @@ interface TaxJarWidgetProps {
 }
 
 export default function TaxJarWidget({ taxWithholdingPct }: TaxJarWidgetProps) {
+  const size = 110;
+  const strokeWidth = 10;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (taxWithholdingPct / 100) * circumference;
+
   return (
-    <View className="items-center py-1 gap-1">
-      <View className="w-12 h-12 rounded-full border-2 border-emerald-500/20 items-center justify-center">
-        <Text className="text-xs font-black text-slate-200">{taxWithholdingPct}%</Text>
+    <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 12, gap: 16 }}>
+      <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+        <Svg width={size} height={size} style={{ position: "absolute" }}>
+          <Circle cx={size/2} cy={size/2} r={radius} stroke="#0ea5e920" strokeWidth={strokeWidth} fill="none" />
+          <Circle 
+            cx={size/2} 
+            cy={size/2} 
+            r={radius} 
+            stroke="#0ea5e9" 
+            strokeWidth={strokeWidth} 
+            fill="none" 
+            strokeDasharray={circumference} 
+            strokeDashoffset={strokeDashoffset} 
+            strokeLinecap="round" 
+            transform={`rotate(-90 ${size/2} ${size/2})`} 
+          />
+        </Svg>
+        <Text style={{ fontSize: 24, fontWeight: "900", color: "#ffffff" }}>{taxWithholdingPct}%</Text>
       </View>
-      <Text className="text-[9px] font-bold text-slate-500 uppercase mt-1">WITHHOLDING TARGET</Text>
+      
+      <Text style={{ fontSize: 11, fontWeight: "700", color: "#a1a1aa", textTransform: "uppercase", letterSpacing: 1, textAlign: "center" }}>
+        Current Target Rate
+      </Text>
     </View>
   );
 }

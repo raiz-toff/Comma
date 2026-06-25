@@ -12,7 +12,7 @@ interface RollingTrendWidgetProps {
   dailyData: DailyData[];
 }
 
-function Sparkline({ points, color, height = 50 }: { points: number[]; color: string; height?: number }) {
+function Sparkline({ points, color, height = 70 }: { points: number[]; color: string; height?: number }) {
   const safePoints = points && points.length >= 2 ? points : [0, 0];
   const max = Math.max(...safePoints, 1);
   const min = Math.min(...safePoints);
@@ -22,7 +22,7 @@ function Sparkline({ points, color, height = 50 }: { points: number[]; color: st
   const pathD = safePoints
     .map((p, i) => {
       const x = (i / (safePoints.length - 1)) * width;
-      const y = height - ((p - min) / range) * (height - 4) - 2;
+      const y = height - ((p - min) / range) * (height - 8) - 4;
       return `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
     })
     .join(" ");
@@ -30,33 +30,43 @@ function Sparkline({ points, color, height = 50 }: { points: number[]; color: st
   const areaD = `${pathD} L ${width} ${height} L 0 ${height} Z`;
 
   return (
-    <View style={{ height, width: "100%" }}>
+    <View style={{ height, width: "100%", marginTop: 8 }}>
       <Svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
         <Defs>
           <LinearGradient id={`spark-grad-${color.replace("#", "")}`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor={color} stopOpacity={0.2} />
+            <Stop offset="0%" stopColor={color} stopOpacity={0.3} />
             <Stop offset="100%" stopColor={color} stopOpacity={0} />
           </LinearGradient>
         </Defs>
         <Path d={areaD} fill={`url(#spark-grad-${color.replace("#", "")})`} />
-        <Path d={pathD} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d={pathD} fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
       </Svg>
     </View>
   );
 }
 
 export default function RollingTrendWidget({ dailyData }: RollingTrendWidgetProps) {
-  const sliced = dailyData.slice(-28);
-  const hasData = sliced.length > 0;
+  const hasData = dailyData && dailyData.length > 0;
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    return dateStr.substring(5); // Converts "2024-06-25" -> "06-25"
+  };
 
   return (
-    <View className="gap-2.5">
-      <Sparkline points={hasData ? sliced.map((d) => d.total) : [0, 0]} color="#10b981" />
-      <View className="flex-row justify-between">
-        <Text className="text-[9px] text-slate-500 font-bold">
-          {hasData ? sliced[0]?.date?.substring(5) : ""}
+    <View style={{ gap: 8 }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
+         <Text style={{ fontSize: 13, fontWeight: "600", color: "#a1a1aa" }}>Earnings Trajectory</Text>
+         <Text style={{ fontSize: 11, fontWeight: "700", color: "#10b981", textTransform: "uppercase", letterSpacing: 0.5 }}>Trend</Text>
+      </View>
+      <Sparkline points={hasData ? dailyData.map((d) => d.total) : [0, 0]} color="#10b981" />
+      <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
+        <Text style={{ fontSize: 10, fontWeight: "800", color: "#52525b", textTransform: "uppercase", letterSpacing: 0.5 }}>
+          {hasData ? formatDate(dailyData[0]?.date) : ""}
         </Text>
-        <Text className="text-[9px] text-slate-500 font-bold">Today</Text>
+        <Text style={{ fontSize: 10, fontWeight: "800", color: "#52525b", textTransform: "uppercase", letterSpacing: 0.5 }}>
+          {hasData ? formatDate(dailyData[dailyData.length - 1]?.date) : ""}
+        </Text>
       </View>
     </View>
   );

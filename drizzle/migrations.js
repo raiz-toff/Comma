@@ -10,6 +10,7 @@ import m0005 from './0005_dazzling_squadron_supreme.sql';
 import m0006 from './0006_organic_toad_men.sql';
 import m0007 from './0007_outgoing_masque.sql';
 import m0008 from './0008_kind_fenris.sql';
+import m0009 from './0009_lush_killmonger.sql';
 
   export default {
     journal,
@@ -22,7 +23,8 @@ m0004,
 m0005,
 m0006,
 m0007,
-m0008
+m0008,
+m0009
     }
   }
   

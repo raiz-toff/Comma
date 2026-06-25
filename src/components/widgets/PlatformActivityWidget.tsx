@@ -2,7 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import { Text } from "../ui/text";
 import { PlatformBadge } from "../ui/PlatformBadge";
-import { type PlatformKey } from "@/src/registry/platforms";
+import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 
 interface PlatformShare {
   platform: string;
@@ -19,16 +19,26 @@ export default function PlatformActivityWidget({ platformData }: PlatformActivit
   const topPlatforms = platformData.slice(0, 3);
 
   return (
-    <View className="gap-2">
+    <View style={{ gap: 16, paddingTop: 4 }}>
       {topPlatforms.length === 0 ? (
-        <Text className="text-[10px] text-slate-500 font-bold text-center py-2">No shift data found</Text>
+        <Text style={{ fontSize: 13, color: "#71717a", textAlign: "center", fontStyle: "italic", marginVertical: 10 }}>No shift data found</Text>
       ) : (
-        topPlatforms.map((p) => (
-          <View key={p.platform} className="flex-row items-center justify-between">
-            <PlatformBadge platform={p.platform as PlatformKey} size="sm" />
-            <Text className="text-[10px] font-bold text-slate-300">{p.share.toFixed(0)}%</Text>
-          </View>
-        ))
+        topPlatforms.map((p) => {
+          const platformDef = PLATFORMS[p.platform as PlatformKey];
+          const color = platformDef?.color || "#ffffff";
+          
+          return (
+            <View key={p.platform} style={{ gap: 8 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <PlatformBadge platform={p.platform as PlatformKey} size="sm" />
+                <Text style={{ fontSize: 15, fontWeight: "900", color: "#ffffff" }}>{p.share.toFixed(0)}%</Text>
+              </View>
+              <View style={{ height: 8, backgroundColor: "#262522", borderRadius: 4, overflow: "hidden" }}>
+                <View style={{ height: "100%", width: `${p.share}%`, backgroundColor: color, borderRadius: 4 }} />
+              </View>
+            </View>
+          );
+        })
       )}
     </View>
   );

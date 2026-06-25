@@ -1,5 +1,6 @@
 import React from "react";
 import { View } from "react-native";
+import { TrendingUp } from "lucide-react-native";
 import { Text } from "../ui/text";
 
 interface DailyData {
@@ -20,14 +21,26 @@ export default function WeeklyProjectionWidget({ dailyData, country }: WeeklyPro
     return new Intl.NumberFormat(undefined, {
       style: "currency",
       currency: country === "CA" ? "CAD" : "USD",
-      minimumFractionDigits: 2,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(val);
   };
 
   return (
-    <View className="items-center py-2 gap-1">
-      <Text className="text-xl font-black text-indigo-400">{formatCurrency(projection)}</Text>
-      <Text className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Weekly Projection</Text>
+    <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 16, gap: 12 }}>
+      <View style={{ backgroundColor: "#818cf820", padding: 12, borderRadius: 16 }}>
+        <TrendingUp size={32} color="#818cf8" strokeWidth={2.5} />
+      </View>
+      
+      <View style={{ alignItems: "center" }}>
+        <Text style={{ fontSize: 32, fontWeight: "900", color: "#ffffff", letterSpacing: -1 }}>{formatCurrency(projection)}</Text>
+        <Text style={{ fontSize: 11, fontWeight: "700", color: "#a1a1aa", textTransform: "uppercase", letterSpacing: 1, marginTop: 4 }}>Weekly Projection</Text>
+      </View>
+      
+      <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", alignItems: "center", marginTop: 8 }}>
+        <Text style={{ fontSize: 13, fontWeight: "500", color: "#71717a" }}>Based on your current daily average of </Text>
+        <Text style={{ fontSize: 13, color: "#ffffff", fontWeight: "700" }}>{formatCurrency(dayAvg)}</Text>
+      </View>
     </View>
   );
 }

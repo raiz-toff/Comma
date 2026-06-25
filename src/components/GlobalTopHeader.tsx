@@ -244,15 +244,6 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
     return activePlatformConfig?.label ?? activePlatformFilter;
   }, [activePlatformFilter, activePlatformConfig]);
 
-  // ── Initials from display name ──────────────────────────────────────────
-  const initials = React.useMemo(() => {
-    const name = profile?.displayName?.trim() || "";
-    if (!name) return "DR";
-    const parts = name.split(/\s+/).filter(Boolean);
-    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return name.slice(0, 2).toUpperCase();
-  }, [profile?.displayName]);
-
   const selectedPlatformsList: string[] = profile?.selectedPlatforms ?? [];
   const allPlatformIds = selectedPlatformsList.length <= 1
     ? selectedPlatformsList
@@ -575,28 +566,6 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
             )}
           </View>
 
-          {/* Divider */}
-          <View style={styles.panelDivider} />
-
-          {/* Account Settings Row */}
-          <Pressable
-            onPress={() => {
-              setIsExpanded(false);
-              router.push("/settings");
-            }}
-            style={styles.accountSettingsCard}
-          >
-            <View style={styles.accountAvatar}>
-              <Text style={styles.accountAvatarText}>{initials}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.accountName}>{profile?.displayName || "Driver"}</Text>
-              <Text style={styles.accountSubtitle}>Account Settings</Text>
-            </View>
-            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#71717a" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-              <Path d="M9 18l6-6-6-6" />
-            </Svg>
-          </Pressable>
         </Animated.View>
       )}
     </View>
@@ -801,44 +770,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 14,
   },
-  accountSettingsCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderWidth: 1,
-    borderColor: "#2a2a28",
-    borderRadius: 16,
-    marginHorizontal: 16,
-    marginTop: 14,
-    marginBottom: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: "#161615",
-  },
-  accountAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#1e1e1c",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  accountAvatarText: {
-    color: "#ffffff",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  accountName: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  accountSubtitle: {
-    color: "#a1a1aa",
-    fontSize: 12,
-    fontWeight: "600",
-    marginTop: 1,
-  },
+
   filterInfoBar: {
     flexDirection: "row",
     alignItems: "center",

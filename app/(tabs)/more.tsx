@@ -20,15 +20,15 @@ interface MenuItemProps {
 const MenuItem = ({ title, subtitle, icon: Icon, onPress }: MenuItemProps) => (
   <TouchableOpacity
     onPress={onPress}
-    className="flex flex-row items-center justify-between p-4 bg-slate-900/60 border border-slate-800/60 rounded-xl mb-3 active:bg-slate-800/60"
+    style={{ backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, marginBottom: 12, padding: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
   >
     <View className="flex flex-row items-center gap-3.5">
-      <View className="w-10 h-10 rounded-xl bg-[#1c1b18] border border-[#3d3a35] items-center justify-center">
+      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#161615", borderWidth: 0.8, borderColor: "#262522", alignItems: "center", justifyContent: "center" }}>
         <Icon size={20} color="#10b981" />
       </View>
       <View className="flex flex-col">
-        <Text className="text-sm font-bold text-slate-100">{title}</Text>
-        <Text className="text-xs text-slate-400 mt-0.5">{subtitle}</Text>
+        <Text style={{ fontSize: 14, fontWeight: "800", color: "#ffffff" }}>{title}</Text>
+        <Text style={{ fontSize: 12, color: "#a1a1aa", marginTop: 2 }}>{subtitle}</Text>
       </View>
     </View>
     <ChevronRightIcon />

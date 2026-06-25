@@ -540,16 +540,6 @@ export default function HomeScreen() {
     <SafeAreaView style={S.root} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
         
-        {/* ── Demo Mode Banner ─────────────────────────────────────────── */}
-        {isDemoMode && (
-          <View style={S.demoBanner}>
-            <Text style={S.demoText}>Demo Mode Active (Sample Data)</Text>
-            <Pressable onPress={clearSampleData} style={S.demoBtn}>
-              <Text style={S.demoBtnText}>Clear Data</Text>
-            </Pressable>
-          </View>
-        )}
-
         {/* ── Header ──────────────────────────────────────────────────── */}
         <View style={S.header}>
           <View style={S.headerLeft}>
@@ -784,6 +774,16 @@ export default function HomeScreen() {
                 <Text style={{ fontSize: 12, color: "#888", flex: 1, lineHeight: 18 }}>
                   At 67¢/{profile?.distanceUnit ?? "mi"} you've earned a <Text style={{ color: "#f59e0b", fontWeight: "bold" }}>{fmt(writeOff)}</Text> write-off on <Text style={{ fontWeight: "bold", color: "#fff" }}>{currentStats.miles.toFixed(1)}</Text> {profile?.distanceUnit ?? "mi"} this {dateRange.preset}.
                 </Text>
+              </View>
+            )}
+
+            {/* ── Demo Mode Banner (Moved to bottom) ────────────────────────── */}
+            {isDemoMode && (
+              <View style={S.demoBanner}>
+                <Text style={S.demoText}>Demo Mode Active (Sample Data)</Text>
+                <Pressable onPress={clearSampleData} style={S.demoBtn}>
+                  <Text style={S.demoBtnText}>Clear Data</Text>
+                </Pressable>
               </View>
             )}
           </>
@@ -1066,7 +1066,7 @@ export default function HomeScreen() {
 
 const S = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#000" },
-  scroll: { padding: 14, gap: 10, paddingBottom: 20 },
+  scroll: { padding: 14, paddingTop: 76, gap: 10, paddingBottom: 20 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
   headerTitle: { fontSize: 18, fontWeight: "bold", color: "#fff", letterSpacing: -0.2 },
@@ -1146,8 +1146,8 @@ const S = StyleSheet.create({
   wizardNextBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8 },
   wizardNextBtnText: { fontSize: 12, fontWeight: "700" },
 
-  demoBanner: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "rgba(245, 158, 11, 0.1)", borderWidth: 0.5, borderColor: "rgba(245, 158, 11, 0.2)", padding: 8, borderRadius: 8, marginBottom: 8 },
-  demoText: { fontSize: 11, fontWeight: "600", color: "#f59e0b" },
-  demoBtn: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, backgroundColor: "rgba(245, 158, 11, 0.2)" },
-  demoBtnText: { fontSize: 10, fontWeight: "700", color: "#f59e0b" },
+  demoBanner: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "rgba(245, 158, 11, 0.1)", borderWidth: 0.8, borderColor: "rgba(245, 158, 11, 0.2)", padding: 12, borderRadius: 20, marginBottom: 12, marginHorizontal: 16 },
+  demoText: { fontSize: 11, fontWeight: "800", color: "#f59e0b" },
+  demoBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: "rgba(245, 158, 11, 0.2)" },
+  demoBtnText: { fontSize: 11, fontWeight: "800", color: "#f59e0b" },
 });

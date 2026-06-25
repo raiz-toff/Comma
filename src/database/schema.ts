@@ -70,6 +70,8 @@ export const expenses = sqliteTable('expenses', {
   vehicleId:   text('vehicle_id').references(() => vehicles.id), // optional
   notes:       text('notes'),
   receiptUri:  text('receipt_uri'),  // local file URI for photo receipts
+  isRecurring: integer('is_recurring', { mode: 'boolean' }).default(false).notNull(),
+  recurringInterval: text('recurring_interval'), // 'weekly'|'monthly'|'yearly'
 });
 
 export const goals = sqliteTable('goals', {

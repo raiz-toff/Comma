@@ -60,6 +60,8 @@ export default function AddExpenseModal() {
   const [linkedVehicleId, setLinkedVehicleId] = useState("");
   const [notes, setNotes] = useState("");
   const [receiptUri, setReceiptUri] = useState<string | null>(null);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringInterval, setRecurringInterval] = useState<"weekly"|"monthly"|"yearly">("monthly");
 
   // ── UI State ─────────────────────────────────────────────────────────────
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -219,6 +221,8 @@ export default function AddExpenseModal() {
       setLinkedVehicleId(existingExpense.vehicleId || "");
       setNotes(existingExpense.notes || "");
       setReceiptUri(existingExpense.receiptUri || null);
+      setIsRecurring(!!existingExpense.isRecurring);
+      setRecurringInterval(existingExpense.recurringInterval || "monthly");
     }
   }, [existingExpense]);
 
@@ -293,6 +297,8 @@ export default function AddExpenseModal() {
         vehicleId: linkedVehicleId || null,
         notes: notes.trim() || null,
         receiptUri: receiptUri || null,
+        isRecurring,
+        recurringInterval: isRecurring ? recurringInterval : null,
       };
 
       if (isEditing) {
@@ -433,6 +439,50 @@ export default function AddExpenseModal() {
                     if (selectedDate) setDate(selectedDate);
                   }}
                 />
+              )}
+            </View>
+
+            {/* Recurring Expense Toggle */}
+            <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-3">
+              <View className="flex-row justify-between items-center">
+                <View>
+                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Recurring Expense</Text>
+                  <Text className="text-zinc-500 text-[10px] mt-0.5">Automatically log this expense</Text>
+                </View>
+                <Switch
+                  value={isRecurring}
+                  onValueChange={setIsRecurring}
+                  trackColor={{ false: "#262522", true: accentColor }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+              {isRecurring && (
+                <View className="flex-row gap-2 mt-2">
+                  {(["weekly", "monthly", "yearly"] as const).map((interval) => (
+                    <TouchableOpacity
+                      key={interval}
+                      onPress={() => setRecurringInterval(interval)}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 10,
+                        borderRadius: 10,
+                        backgroundColor: recurringInterval === interval ? accentColor + "20" : "#0d0d0d",
+                        borderWidth: 1,
+                        borderColor: recurringInterval === interval ? accentColor : "#262522",
+                        alignItems: "center"
+                      }}
+                    >
+                      <Text style={{
+                        color: recurringInterval === interval ? accentColor : "#a1a1aa",
+                        fontSize: 12,
+                        fontWeight: "800",
+                        textTransform: "uppercase"
+                      }}>
+                        {interval}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               )}
             </View>
 

@@ -17,7 +17,8 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Button } from "../../src/components/ui/button";
 import { Text } from "../../src/components/ui/text";
 import { PlatformBadge } from "../../src/components/ui/PlatformBadge";
-import { PLATFORMS } from "../../src/registry/platforms";
+import { PLATFORM_REGISTRY } from "../../src/registry/platforms";
+import { usePlatformContext } from "../../src/hooks/usePlatformContext";
 import { getVehicles } from "../../src/database/queries/vehicles";
 import { insertShift, updateShift, getShiftById } from "../../src/database/queries/shifts";
 import { useSettingsStore } from "../../store/useSettingsStore";
@@ -25,7 +26,7 @@ import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
 import { cn } from "../../src/lib/utils";
 import Svg, { Polyline, Circle, Line } from "react-native-svg";
 
-type GigPlatform = "doordash" | "ubereats" | "skip" | "other";
+type GigPlatform = string;
 
 const isWeb = Platform.OS === "web";
 
@@ -233,18 +234,21 @@ export default function AddShiftModal() {
   // Form State
   const [selectedPlatform, setSelectedPlatform] = useState<GigPlatform>(
     profile?.selectedPlatforms && profile.selectedPlatforms.length > 0
-      ? (profile.selectedPlatforms[0] as GigPlatform)
+      ? profile.selectedPlatforms[0]
       : "doordash"
   );
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>("");
   const [date, setDate] = useState<Date>(new Date());
   const [startTime, setStartTime] = useState<Date>(new Date());
   const [endTime, setEndTime] = useState<Date>(new Date(Date.now() + 4 * 60 * 60 * 1000)); // Default 4 hrs shift
-  const [grossRevenue, setGrossRevenue] = useState<string>("");
-  const [tips, setTips] = useState<string>("");
+  // Revenue fields — keyed by RevenueFieldDef.key
+  const [revenueValues, setRevenueValues] = useState<Record<string, string>>({});
   const [activeMileage, setActiveMileage] = useState<string>("");
   const [deadMileage, setDeadMileage] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
+
+  // Platform context — drives revenue fields, terminology, and feature flags
+  const platformCtx = usePlatformContext(selectedPlatform);
 
   // UI state for native date pickers
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
@@ -290,8 +294,14 @@ export default function AddShiftModal() {
       setStartTime(start);
       setEndTime(end);
       
-      setGrossRevenue(String(existingShift.grossRevenue || ""));
-      setTips(String(existingShift.tipsRevenue || ""));
+      // Populate revenue values from existing shift
+      setRevenueValues({
+        grossRevenue: String(existingShift.grossRevenue || ""),
+        tipsRevenue: String(existingShift.tipsRevenue || ""),
+        bonusRevenue: "",
+        surgeRevenue: "",
+        cashRevenue: "",
+      });
       setActiveMileage(String(existingShift.activeMileage || ""));
       setDeadMileage(String(existingShift.deadMileage || ""));
       setNotes(existingShift.notes || "");
@@ -364,6 +374,9 @@ export default function AddShiftModal() {
     setIsSaving(true);
 
     try {
+      const grossRev = parseFloat(revenueValues.grossRevenue || "0") || 0.0;
+      const tipsRev = parseFloat(revenueValues.tipsRevenue || "0") || 0.0;
+
       if (shiftId) {
         // Edit mode
         await updateShift(shiftId, {
@@ -371,8 +384,8 @@ export default function AddShiftModal() {
           platform: selectedPlatform,
           startTime: finalStartDate,
           endTime: finalEndDate,
-          grossRevenue: parseFloat(grossRevenue) || 0.0,
-          tipsRevenue: parseFloat(tips) || 0.0,
+          grossRevenue: grossRev,
+          tipsRevenue: tipsRev,
           trackedMileage: parseFloat(activeMileage) || 0.0,
           activeMileage: parseFloat(activeMileage) || 0.0,
           deadMileage: parseFloat(deadMileage) || 0.0,
@@ -388,8 +401,8 @@ export default function AddShiftModal() {
           platform: selectedPlatform,
           startTime: finalStartDate,
           endTime: finalEndDate,
-          grossRevenue: parseFloat(grossRevenue) || 0.0,
-          tipsRevenue: parseFloat(tips) || 0.0,
+          grossRevenue: grossRev,
+          tipsRevenue: tipsRev,
           trackedMileage: parseFloat(activeMileage) || 0.0,
           activeMileage: parseFloat(activeMileage) || 0.0,
           deadMileage: parseFloat(deadMileage) || 0.0,
@@ -668,89 +681,113 @@ export default function AddShiftModal() {
             )}
           </View>
 
-          {/* Revenue Inputs */}
-          <View className="flex flex-col gap-4">
-            <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Earnings</Text>
-            
-            <View className="flex flex-row gap-3">
-              <View className="flex-1 flex flex-col gap-1.5">
-                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Gross Revenue ($)</Text>
+          {/* Revenue Inputs — driven by operational model */}
+          <View className="flex flex-col gap-3">
+            <View className="flex-row justify-between items-center">
+              <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Earnings</Text>
+              {/* Show model label as a soft badge */}
+              <View style={{ backgroundColor: "#161615", borderRadius: 6, borderWidth: 0.5, borderColor: "#262522", paddingHorizontal: 7, paddingVertical: 3 }}>
+                <Text style={{ color: "#6b7280", fontSize: 9, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  {platformCtx.terminology.sessionTerm}
+                </Text>
+              </View>
+            </View>
+
+            {/* Cash economy notice */}
+            {platformCtx.flags.supportsCashPayments && (
+              <View style={{ backgroundColor: "rgba(245,158,11,0.06)", borderRadius: 10, borderWidth: 0.5, borderColor: "rgba(245,158,11,0.18)", padding: 10 }}>
+                <Text style={{ color: "#fbbf24", fontSize: 10.5, fontWeight: "700" }}>Cash Payments Active</Text>
+                <Text style={{ color: "#92400e", fontSize: 10, fontWeight: "600", marginTop: 2 }}>
+                  This platform commonly uses cash. Log total fares and cash portion separately.
+                </Text>
+              </View>
+            )}
+
+            {/* Dynamic revenue fields from operational model */}
+            {platformCtx.revenueFields.map((field) => (
+              <View key={field.key} className="flex flex-col gap-1.5">
+                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">
+                  {field.label} ({profile.locale?.currency || "$"})
+                  {field.required ? " *" : ""}
+                </Text>
                 <TextInput
-                  value={grossRevenue}
+                  value={revenueValues[field.key] || ""}
                   onChangeText={(text) => {
                     const sanitized = text.replace(/[^0-9.]/g, "");
                     const parts = sanitized.split(".");
-                    setGrossRevenue(parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized);
+                    const clean = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized;
+                    setRevenueValues((prev) => ({ ...prev, [field.key]: clean }));
                   }}
                   keyboardType="numeric"
                   placeholder="0.00"
                   placeholderTextColor="#4b5563"
                   className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
                 />
+                {field.hint ? (
+                  <Text className="text-zinc-600 text-[10px] pl-1">{field.hint}</Text>
+                ) : null}
               </View>
-
-              <View className="flex-1 flex flex-col gap-1.5">
-                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Tips ($)</Text>
-                <TextInput
-                  value={tips}
-                  onChangeText={(text) => {
-                    const sanitized = text.replace(/[^0-9.]/g, "");
-                    const parts = sanitized.split(".");
-                    setTips(parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized);
-                  }}
-                  keyboardType="numeric"
-                  placeholder="0.00"
-                  placeholderTextColor="#4b5563"
-                  className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
-                />
-              </View>
-            </View>
+            ))}
           </View>
 
-          {/* Mileage Inputs */}
-          <View className="flex flex-col gap-4">
-            <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Mileage ({profile.distanceUnit})</Text>
-            
-            <View className="flex flex-row gap-3">
-              <View className="flex-1 flex flex-col gap-1.5">
-                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Active Distance</Text>
-                <TextInput
-                  value={activeMileage}
-                  onChangeText={(text) => {
-                    const sanitized = text.replace(/[^0-9.]/g, "");
-                    const parts = sanitized.split(".");
-                    setActiveMileage(parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized);
-                  }}
-                  keyboardType="numeric"
-                  placeholder="0.0"
-                  placeholderTextColor="#4b5563"
-                  className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
-                />
-              </View>
+          {/* Mileage Inputs — only shown when the model tracks mileage */}
+          {platformCtx.flags.tracksMileage && (
+            <View className="flex flex-col gap-3">
+              <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">
+                Distance ({profile.distanceUnit})
+              </Text>
 
-              <View className="flex-1 flex flex-col gap-1.5">
-                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Dead Distance</Text>
-                <TextInput
-                  value={deadMileage}
-                  onChangeText={(text) => {
-                    const sanitized = text.replace(/[^0-9.]/g, "");
-                    const parts = sanitized.split(".");
-                    setDeadMileage(parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized);
-                  }}
-                  keyboardType="numeric"
-                  placeholder="0.0"
-                  placeholderTextColor="#4b5563"
-                  className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
-                />
+              {/* Platform reimburses mileage notice */}
+              {platformCtx.flags.mileageReimbursedByPlatform && (
+                <View style={{ backgroundColor: "rgba(99,102,241,0.06)", borderRadius: 10, borderWidth: 0.5, borderColor: "rgba(99,102,241,0.18)", padding: 10 }}>
+                  <Text style={{ color: "#818cf8", fontSize: 10.5, fontWeight: "700" }}>Platform Reimburses Mileage</Text>
+                  <Text style={{ color: "#4338ca", fontSize: 10, fontWeight: "600", marginTop: 2 }}>
+                    This platform pays a per-{profile.distanceUnit} rate. Log distance for your records — deductions are calculated separately.
+                  </Text>
+                </View>
+              )}
+
+              <View className="flex flex-row gap-3">
+                <View className="flex-1 flex flex-col gap-1.5">
+                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Active Distance</Text>
+                  <TextInput
+                    value={activeMileage}
+                    onChangeText={(text) => {
+                      const sanitized = text.replace(/[^0-9.]/g, "");
+                      const parts = sanitized.split(".");
+                      setActiveMileage(parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized);
+                    }}
+                    keyboardType="numeric"
+                    placeholder="0.0"
+                    placeholderTextColor="#4b5563"
+                    className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
+                  />
+                </View>
+
+                <View className="flex-1 flex flex-col gap-1.5">
+                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Dead Distance</Text>
+                  <TextInput
+                    value={deadMileage}
+                    onChangeText={(text) => {
+                      const sanitized = text.replace(/[^0-9.]/g, "");
+                      const parts = sanitized.split(".");
+                      setDeadMileage(parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized);
+                    }}
+                    keyboardType="numeric"
+                    placeholder="0.0"
+                    placeholderTextColor="#4b5563"
+                    className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
+                  />
+                </View>
               </View>
             </View>
-          </View>
+          )}
 
           {/* Route Map (if routePath exists and is a non-empty string) */}
           {existingShift?.routePath && typeof existingShift.routePath === "string" && existingShift.routePath.trim().length > 0 && (
             <RouteLargeMap
               routePathJson={existingShift.routePath}
-              strokeColor={PLATFORMS[selectedPlatform]?.color || "#3b82f6"}
+              strokeColor={PLATFORM_REGISTRY[selectedPlatform]?.color || "#3b82f6"}
             />
           )}
 

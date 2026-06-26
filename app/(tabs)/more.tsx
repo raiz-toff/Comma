@@ -71,8 +71,8 @@ export default function MoreScreen() {
         scrollEventThrottle={16}
       >
         <View style={{ marginVertical: 16 }}>
-          <Text style={{ fontSize: 28, fontWeight: "900", color: "#ffffff", letterSpacing: -0.5 }}>More</Text>
-          <Text style={{ fontSize: 12, color: "#71717a", marginTop: 4 }}>Configure your workspace and preferences</Text>
+          <Text style={{ fontSize: 24, fontWeight: "900", color: "#ffffff", letterSpacing: -0.5 }}>More</Text>
+          <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "500", marginTop: 4 }}>Configure your workspace and preferences</Text>
         </View>
 
         <View style={{ marginTop: 8 }}>

@@ -28,46 +28,50 @@ import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 import { getCountryDef } from "@/src/registry/index";
 import Svg, { Path } from "react-native-svg";
 
-const DashboardIcon = ({ size = 22, color = "#a1a1aa", strokeWidth = 1.5 }: { size?: number; color?: string; strokeWidth?: number }) => (
-  <Svg width={size} height={size} viewBox="0 -0.5 25 25" fill="none">
-    <Path
-      fillRule="evenodd"
-      clipRule="evenodd"
-      d="M9.918 10.0005H7.082C6.66587 9.99708 6.26541 10.1591 5.96873 10.4509C5.67204 10.7427 5.50343 11.1404 5.5 11.5565V17.4455C5.5077 18.3117 6.21584 19.0078 7.082 19.0005H9.918C10.3341 19.004 10.7346 18.842 11.0313 18.5502C11.328 18.2584 11.4966 17.8607 11.5 17.4445V11.5565C11.4966 11.1404 11.328 10.7427 11.0313 10.4509C10.7346 10.1591 10.3341 9.99708 9.918 10.0005Z"
-      stroke={color}
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Path
-      fillRule="evenodd"
-      clipRule="evenodd"
-      d="M9.918 4.0006H7.082C6.23326 3.97706 5.52559 4.64492 5.5 5.4936V6.5076C5.52559 7.35629 6.23326 8.02415 7.082 8.0006H9.918C10.7667 8.02415 11.4744 7.35629 11.5 6.5076V5.4936C11.4744 4.64492 10.7667 3.97706 9.918 4.0006Z"
-      stroke={color}
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Path
-      fillRule="evenodd"
-      clipRule="evenodd"
-      d="M15.082 13.0007H17.917C18.3333 13.0044 18.734 12.8425 19.0309 12.5507C19.3278 12.2588 19.4966 11.861 19.5 11.4447V5.55666C19.4966 5.14054 19.328 4.74282 19.0313 4.45101C18.7346 4.1592 18.3341 3.9972 17.918 4.00066H15.082C14.6659 3.9972 14.2654 4.1592 13.9687 4.45101C13.672 4.74282 13.5034 5.14054 13.5 5.55666V11.4447C13.5034 11.8608 13.672 12.2585 13.9687 12.5503C14.2654 12.8421 14.6659 13.0041 15.082 13.0007Z"
-      stroke={color}
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Path
-      fillRule="evenodd"
-      clipRule="evenodd"
-      d="M15.082 19.0006H17.917C18.7661 19.0247 19.4744 18.3567 19.5 17.5076V16.4936C19.4744 15.6449 18.7667 14.9771 17.918 15.0006H15.082C14.2333 14.9771 13.5256 15.6449 13.5 16.4936V17.5066C13.525 18.3557 14.2329 19.0241 15.082 19.0006Z"
-      stroke={color}
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
+const DashboardIcon = ({ size = 22, color = "#a1a1aa", strokeWidth = 1.5 }: { size?: number; color?: string; strokeWidth?: number }) => {
+  const finalStroke = strokeWidth ? strokeWidth * 0.85 : 1.7;
+  const adjustedSize = size * 1.35;
+  return (
+    <Svg width={adjustedSize} height={adjustedSize} viewBox="0 -0.5 25 25" fill="none">
+      <Path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M9.918 10.0005H7.082C6.66587 9.99708 6.26541 10.1591 5.96873 10.4509C5.67204 10.7427 5.50343 11.1404 5.5 11.5565V17.4455C5.5077 18.3117 6.21584 19.0078 7.082 19.0005H9.918C10.3341 19.004 10.7346 18.842 11.0313 18.5502C11.328 18.2584 11.4966 17.8607 11.5 17.4445V11.5565C11.4966 11.1404 11.328 10.7427 11.0313 10.4509C10.7346 10.1591 10.3341 9.99708 9.918 10.0005Z"
+        stroke={color}
+        strokeWidth={finalStroke}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M9.918 4.0006H7.082C6.23326 3.97706 5.52559 4.64492 5.5 5.4936V6.5076C5.52559 7.35629 6.23326 8.02415 7.082 8.0006H9.918C10.7667 8.02415 11.4744 7.35629 11.5 6.5076V5.4936C11.4744 4.64492 10.7667 3.97706 9.918 4.0006Z"
+        stroke={color}
+        strokeWidth={finalStroke}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M15.082 13.0007H17.917C18.3333 13.0044 18.734 12.8425 19.0309 12.5507C19.3278 12.2588 19.4966 11.861 19.5 11.4447V5.55666C19.4966 5.14054 19.328 4.74282 19.0313 4.45101C18.7346 4.1592 18.3341 3.9972 17.918 4.00066H15.082C14.6659 3.9972 14.2654 4.1592 13.9687 4.45101C13.672 4.74282 13.5034 5.14054 13.5 5.55666V11.4447C13.5034 11.8608 13.672 12.2585 13.9687 12.5503C14.2654 12.8421 14.6659 13.0041 15.082 13.0007Z"
+        stroke={color}
+        strokeWidth={finalStroke}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M15.082 19.0006H17.917C18.7661 19.0247 19.4744 18.3567 19.5 17.5076V16.4936C19.4744 15.6449 18.7667 14.9771 17.918 15.0006H15.082C14.2333 14.9771 13.5256 15.6449 13.5 16.4936V17.5066C13.525 18.3557 14.2329 19.0241 15.082 19.0006Z"
+        stroke={color}
+        strokeWidth={finalStroke}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+};
 
 const AnalyticsIcon = ({ size = 22, color = "#a1a1aa" }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -283,7 +287,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
 ];
 
 export default function TabLayout() {
-  const { isOnboardingCompleted, profile, activePlatformFilter } = useSettingsStore();
+  const { isOnboardingCompleted, profile, activePlatformFilter, xpLevel, unlockedBadgeIds, xpTotal } = useSettingsStore();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
@@ -503,15 +507,40 @@ export default function TabLayout() {
         ]}
       >
         {/* Profile Info Section */}
-        <View style={styles.profileSection}>
-          <View style={[styles.avatar, { borderColor: accentColorMid, backgroundColor: accentColorDim }]}>
-            <Text style={[styles.avatarText, { color: accentColor }]}>{initials}</Text>
-          </View>
-          <View style={styles.profileInfo}>
-            <Text style={styles.profileName} numberOfLines={1}>{profile?.displayName || "Driver"}</Text>
-            <Text style={styles.profileSub} numberOfLines={1}>
-              {profile?.country || "US"} Standard • {activePlatformLabel}
-            </Text>
+        <View style={styles.profileSectionContainer}>
+          <View style={[styles.profileCard, { borderColor: "#1f1f1f" }]}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <View style={[styles.avatar, { borderColor: accentColorMid, backgroundColor: accentColorDim }]}>
+                <Text style={[styles.avatarText, { color: accentColor }]}>{initials}</Text>
+              </View>
+              <View style={styles.profileInfo}>
+                <Text style={styles.profileName} numberOfLines={1}>{profile?.displayName || "Driver"}</Text>
+                <Text style={styles.profileSub} numberOfLines={1}>
+                  {profile?.country || "US"} Standard • {activePlatformLabel}
+                </Text>
+              </View>
+            </View>
+
+            {/* Premium level and badges stats row */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4, paddingTop: 10, borderTopWidth: 0.5, borderTopColor: "#1f1f1f" }}>
+              <View style={{ flex: 1, alignItems: "center", borderRightWidth: 0.5, borderRightColor: "#1f1f1f" }}>
+                <Text style={{ fontSize: 9, fontWeight: "700", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.5 }}>Level</Text>
+                <Text style={{ fontSize: 13, fontWeight: "800", color: "#ffffff", marginTop: 2 }}>{xpLevel}</Text>
+              </View>
+              <View style={{ flex: 1, alignItems: "center", borderRightWidth: 0.5, borderRightColor: "#1f1f1f" }}>
+                <Text style={{ fontSize: 9, fontWeight: "700", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.5 }}>Badges</Text>
+                <Text style={{ fontSize: 13, fontWeight: "800", color: accentColor, marginTop: 2 }}>{unlockedBadgeIds.length}</Text>
+              </View>
+              <View style={{ flex: 1, alignItems: "center" }}>
+                <Text style={{ fontSize: 9, fontWeight: "700", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.5 }}>Total XP</Text>
+                <Text style={{ fontSize: 13, fontWeight: "800", color: "#ffffff", marginTop: 2 }}>{xpTotal}</Text>
+              </View>
+            </View>
+
+            <View style={styles.badgeRow}>
+              <View style={[styles.badgeDot, { backgroundColor: accentColor }]} />
+              <Text style={styles.badgeText}>VAULT MODE • OFFLINE SAFE</Text>
+            </View>
           </View>
         </View>
 
@@ -530,18 +559,22 @@ export default function TabLayout() {
                 onPress={() => handleNavigate(item.path)}
                 style={[
                   styles.menuItem,
-                  active ? [styles.menuItemActive, { backgroundColor: accentColorDim, borderColor: accentColorMid, borderWidth: 0.8 }] : styles.menuItemInactive,
+                  active
+                    ? [styles.menuItemActive, { backgroundColor: "rgba(255, 255, 255, 0.03)", borderColor: "#1f1f1f", borderWidth: 0.8 }]
+                    : styles.menuItemInactive,
                 ]}
               >
-                <Icon
-                  size={22}
-                  color={active ? accentColor : "#a1a1aa"}
-                  strokeWidth={active ? 2.5 : 2}
-                />
+                <View style={styles.menuIconContainer}>
+                  <Icon
+                    size={20}
+                    color={active ? accentColor : "#64748b"}
+                    strokeWidth={active ? 2.5 : 2}
+                  />
+                </View>
                 <Text
                   style={[
                     styles.menuText,
-                    active ? [styles.menuTextActive, { color: accentColor }] : styles.menuTextInactive,
+                    active ? [styles.menuTextActive, { color: "#ffffff" }] : styles.menuTextInactive,
                   ]}
                 >
                   {item.label}
@@ -562,10 +595,12 @@ export default function TabLayout() {
                 : { backgroundColor: "transparent" }
             ]}
           >
-            <AboutIcon
-              size={18}
-              color={isRouteActive("/about") ? accentColor : "#a1a1aa"}
-            />
+            <View style={styles.menuIconContainer}>
+              <AboutIcon
+                size={18}
+                color={isRouteActive("/about") ? accentColor : "#a1a1aa"}
+              />
+            </View>
             <Text
               style={[
                 styles.aboutFooterText,
@@ -808,14 +843,39 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
 
-  profileSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#1a1a19",
+  profileSectionContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  profileCard: {
+    backgroundColor: "#0d0d0d",
+    borderWidth: 0.8,
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: "column",
+    gap: 12,
+  },
+  badgeRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+  },
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  badgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#a1a1aa",
+    letterSpacing: 0.8,
   },
   avatar: {
     width: 44,
@@ -846,24 +906,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   drawerContent: {
-    paddingVertical: 12,
+    paddingVertical: 8,
     paddingHorizontal: 12,
   },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 16,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 14,
     marginBottom: 6,
-    gap: 16,
+    gap: 12,
     position: "relative",
   },
   menuItemActive: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
   },
   menuItemInactive: {
     backgroundColor: "transparent",
+  },
+  menuIconContainer: {
+    width: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
   },
   menuText: {
     fontSize: 17,
@@ -874,7 +940,7 @@ const styles = StyleSheet.create({
     color: "#ffffff",
   },
   menuTextInactive: {
-    color: "#a1a1aa",
+    color: "#64748b",
   },
   drawerFooter: {
     padding: 16,

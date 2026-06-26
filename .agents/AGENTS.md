@@ -16,3 +16,15 @@
 - **Supported Countries**:
   - The type of `country` is `"US" | "CA" | "UK" | "NP"`.
   - When referencing allowed countries in state, type assertions, or drop-downs, ensure `"NP"` (Nepal) is explicitly supported along with `"CA"`, `"US"`, and `"UK"` to prevent TypeScript compile-time union mismatches.
+
+- **App Reset → Onboarding Gate**:
+  - `store/useSettingsStore.ts` `loadSettings()` must NOT auto-bootstrap demo data when `onboarding_completed` is missing/false.
+  - When `onboardingCompleted` is false (both web `localStorage` path and native SQLite path), set `isOnboardingCompleted: false` and return — the dashboard (`app/(tabs)/index.tsx`) will render `<OnboardingWizard />` automatically.
+  - The old auto-demo bootstrap (`completeOnboarding(demoProfile, ...)` + `loadSampleData()`) has been permanently removed.
+
+## Settings Screen Patterns (`app/settings/index.tsx`)
+
+- **Input Text Visibility**: All `inlineInput` and `fullInput` stylesheet entries must use `color: "#ffffff"` (literal white string, NOT `DS.textPrimary`) and an explicit `height` (38 for inline, 44 for full) instead of `paddingVertical`. This prevents invisible text on Android where `paddingVertical` can cause the text baseline to shift off-screen.
+- **Color Picker**: Custom platforms use the `<ColorPicker>` component (defined as a `ScrollView` of `PRESET_COLORS` swatches). Do not use a raw `InlineInput` for hex-only color entry — always pair it with the swatch row.
+- **Emoji Picker**: Custom platforms use the `<EmojiPicker>` component (defined as a `ScrollView` of `PRESET_EMOJIS` tiles). Always pair the manual text input with the emoji grid.
+- **Platform Rate Labels**: Hourly rate row is labelled "Default Hourly Pay" with segmented options "Hourly Rate" / "N/A". Mileage rate row is "Default Mileage Rate" with options "Per Distance" / "N/A". Both show `{countryDef.symbol}` prefix and `/ hr` or `/ {distanceUnit}` suffix when active.

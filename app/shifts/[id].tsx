@@ -45,7 +45,16 @@ if (!isWeb) {
   }
 }
 
-const RouteDetailMap = ({ routePathJson, strokeColor }: { routePathJson: string | null | undefined; strokeColor: string }) => {
+const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { routePathJson: string | null | undefined; strokeColor: string; isNavigatingBack?: boolean }) => {
+  const [mapReady, setMapReady] = useState(false);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setMapReady(true);
+    }, 450);
+    return () => clearTimeout(timer);
+  }, []);
+
   const points = React.useMemo(() => {
     if (!routePathJson || typeof routePathJson !== "string") return null;
     try {
@@ -65,7 +74,7 @@ const RouteDetailMap = ({ routePathJson, strokeColor }: { routePathJson: string 
     );
   }
 
-  if (isWeb || !hasWebViewNativeModule || !WebView) {
+  if (isWeb || !hasWebViewNativeModule || !WebView || !mapReady || isNavigatingBack) {
     const lats = points.map((p) => p.latitude);
     const lngs = points.map((p) => p.longitude);
     const minLat = Math.min(...lats);
@@ -223,10 +232,24 @@ const RouteDetailMap = ({ routePathJson, strokeColor }: { routePathJson: string 
 };
 
 export default function ShiftDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
   const queryClient = useQueryClient();
   const { profile, isDemoMode } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
+
+  // Exit transition optimization for WebView unmount
+  const [isNavigatingBack, setIsNavigatingBack] = useState(false);
+
+  const handleBack = () => {
+    setIsNavigatingBack(true);
+    setTimeout(() => {
+      if (from === "dashboard") {
+        router.replace("/(tabs)/");
+      } else {
+        router.replace("/(tabs)/shifts");
+      }
+    }, 60);
+  };
   const country = profile?.country || "CA";
   const customCategories = profile?.customCategories || [];
   const expenseCategories = getExpenseCategories(country, customCategories);
@@ -397,7 +420,7 @@ export default function ShiftDetailScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: "#000000", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <Text style={{ color: "#71717a", fontSize: 13, textAlign: "center" }}>Shift not found.</Text>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)/shifts")} style={{ marginTop: 16 }}>
+        <TouchableOpacity onPress={handleBack} style={{ marginTop: 16 }}>
           <Text style={{ color: accentColor, fontSize: 13, fontWeight: "700" }}>Go Back</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -448,7 +471,7 @@ export default function ShiftDetailScreen() {
     <SafeAreaView className="flex-1 bg-[#000000]">
       {/* Top Header */}
       <View className="px-4 py-3 border-b border-[#1f1f1f] bg-[#0d0d0d] flex-row items-center justify-between">
-        <TouchableOpacity onPress={() => router.replace("/(tabs)/shifts")} className="px-3.5 py-2 bg-[#161615] rounded-xl border border-[#262522]">
+        <TouchableOpacity onPress={handleBack} className="px-3.5 py-2 bg-[#161615] rounded-xl border border-[#262522]">
           <Text className="text-zinc-400 text-xs font-bold">← Back</Text>
         </TouchableOpacity>
         <Text className="text-white font-extrabold text-sm tracking-tight">Shift Details</Text>
@@ -478,7 +501,7 @@ export default function ShiftDetailScreen() {
         <View className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-[20px] overflow-hidden">
           {/* Map on the top */}
           <View style={{ height: 200, width: "100%" }}>
-            <RouteDetailMap routePathJson={shift.routePath} strokeColor={routeStrokeColor} />
+            <RouteDetailMap routePathJson={shift.routePath} strokeColor={routeStrokeColor} isNavigatingBack={isNavigatingBack} />
           </View>
 
           {/* Details below map */}

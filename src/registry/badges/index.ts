@@ -131,18 +131,18 @@ export const BADGES: BadgeDefinition[] = [
   {
     id: "goal_week_hit",
     name: "Goal Achiever",
-    description: "Hit your weekly earnings goal.",
+    description: "Hit a weekly goal.",
     icon: "🎯",
     category: "milestone",
-    checkFromGoalHistory: (g) => g.hit && g.goal.period === "weekly" && g.goal.unit === "currency",
+    checkFromGoalHistory: (g) => g.hit && g.goal.period === "weekly",
   },
   {
     id: "goal_month_hit",
     name: "Monthly Master",
-    description: "Hit your monthly earnings goal.",
+    description: "Hit a monthly goal.",
     icon: "👑",
     category: "milestone",
-    checkFromGoalHistory: (g) => g.hit && g.goal.period === "monthly" && g.goal.unit === "currency",
+    checkFromGoalHistory: (g) => g.hit && g.goal.period === "monthly",
   },
   {
     id: "streak_7",

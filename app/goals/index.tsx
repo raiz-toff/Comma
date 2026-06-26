@@ -175,6 +175,20 @@ export default function GoalsScreen() {
   const badgesUnlocked = unlockedBadgeIds?.length ?? 0;
   const badgesTotal = BADGES.length;
 
+  const [showAllBadges, setShowAllBadges] = useState(false);
+
+  const sortedBadges = useMemo(() => {
+    return [...BADGES].sort((a, b) => {
+      const aUnlocked = unlockedBadgeIds.includes(a.id);
+      const bUnlocked = unlockedBadgeIds.includes(b.id);
+      if (aUnlocked && !bUnlocked) return -1;
+      if (!aUnlocked && bUnlocked) return 1;
+      return 0;
+    });
+  }, [unlockedBadgeIds]);
+
+  const displayedBadges = showAllBadges ? sortedBadges : sortedBadges.slice(0, 3);
+
   // Handlers
   const handleOpenForm = (goal?: any) => {
     if (goal) {
@@ -351,10 +365,13 @@ export default function GoalsScreen() {
                 <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false, marginBottom: 2 }} adjustsFontSizeToFit numberOfLines={1}>
                   {xpTotal.toLocaleString()} <Text style={{ fontSize: 16, color: "#52525b" }}>XP</Text>
                 </Text>
-                <View style={{ height: 4, backgroundColor: "#262522", borderRadius: 2, marginVertical: 8 }}>
-                  <View style={{ height: "100%", width: "45%", backgroundColor: "#3b82f6", borderRadius: 2 }} />
+                <View style={{ height: 6, backgroundColor: "#262522", borderRadius: 3, marginVertical: 8, overflow: "hidden" }}>
+                  <View style={{ height: "100%", width: `${xpTotal % 100}%`, backgroundColor: "#3b82f6", borderRadius: 3 }} />
                 </View>
-                <Text style={{ fontSize: 11, fontWeight: "700", color: "#a1a1aa" }}>Level {xpLevel}</Text>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#a1a1aa" }}>Level {xpLevel}</Text>
+                  <Text style={{ fontSize: 10, fontWeight: "600", color: "#71717a" }}>{100 - (xpTotal % 100)} XP to Lvl {xpLevel + 1}</Text>
+                </View>
               </View>
 
               {/* Day Streak */}
@@ -493,6 +510,81 @@ export default function GoalsScreen() {
                   <Text style={{ fontSize: 13, color: "#71717a", fontStyle: "italic" }}>No active challenges.</Text>
                 )}
               </View>
+            </View>
+
+            {/* ── Badges Section ── */}
+            <View style={{ backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, marginTop: 12, padding: 20 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <Text style={{ fontSize: 16, fontWeight: "800", color: "#ffffff" }}>Driver Badges</Text>
+                <Text style={{ fontSize: 12, fontWeight: "700", color: "#71717a" }}>
+                  {badgesUnlocked} / {badgesTotal} Unlocked
+                </Text>
+              </View>
+              <View style={{ gap: 16 }}>
+                {displayedBadges.map((badge) => {
+                  const isUnlocked = unlockedBadgeIds.includes(badge.id);
+                  return (
+                    <View 
+                      key={badge.id} 
+                      style={{ 
+                        flexDirection: "row", 
+                        alignItems: "center", 
+                        gap: 14, 
+                        opacity: isUnlocked ? 1 : 0.4,
+                        backgroundColor: isUnlocked ? "rgba(255,255,255,0.02)" : "transparent",
+                        borderColor: isUnlocked ? "#1f1f1f" : "transparent",
+                        borderWidth: 0.8,
+                        borderRadius: 14,
+                        padding: 10,
+                      }}
+                    >
+                      <View 
+                        style={{ 
+                          width: 46, 
+                          height: 46, 
+                          borderRadius: 23, 
+                          backgroundColor: isUnlocked ? "rgba(234, 179, 8, 0.15)" : "#161615", 
+                          borderWidth: 1.2, 
+                          borderColor: isUnlocked ? "#eab308" : "#262522", 
+                          alignItems: "center", 
+                          justifyContent: "center" 
+                        }}
+                      >
+                        <Text style={{ fontSize: 24, opacity: isUnlocked ? 1 : 0.6 }}>{badge.icon}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                          <Text style={{ fontSize: 13, fontWeight: "800", color: "#ffffff" }}>{badge.name}</Text>
+                          {isUnlocked && (
+                            <View style={{ backgroundColor: "rgba(34, 197, 94, 0.15)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                              <Text style={{ fontSize: 9, fontWeight: "800", color: "#22c55e", textTransform: "uppercase" }}>UNLOCKED</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={{ fontSize: 11, color: isUnlocked ? "#a1a1aa" : "#71717a", fontWeight: "500" }}>{badge.description}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+
+              {sortedBadges.length > 3 && (
+                <TouchableOpacity 
+                  onPress={() => setShowAllBadges(!showAllBadges)} 
+                  style={{ 
+                    marginTop: 20, 
+                    paddingVertical: 12, 
+                    borderTopWidth: 0.8, 
+                    borderTopColor: "#1f1f1f", 
+                    alignItems: "center", 
+                    justifyContent: "center" 
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: "800", color: accentColor, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    {showAllBadges ? "Show Less" : `View All Badges (+${sortedBadges.length - 3} more)`}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </>
         )}

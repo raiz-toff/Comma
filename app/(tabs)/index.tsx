@@ -659,9 +659,6 @@ export default function HomeScreen() {
     };
   });
 
-  // Date filter state
-  const [dateRange, setDateRange] = useState(() => rangeForPreset("day", new Date(), 0));
-
   // Queries
   const { data: vehicles = [] } = useQuery({
     queryKey: ["vehicles"],
@@ -681,15 +678,18 @@ export default function HomeScreen() {
     enabled: isOnboardingCompleted,
   });
 
+  // Statically target today for homepage metrics
+  const todayStr = ymd(new Date());
+
   const { data: rangeStats, isLoading: isRangeLoading } = useQuery({
-    queryKey: ["analytics", "range", activePlatformFilter, dateRange.start, dateRange.end],
-    queryFn: () => getPeriodStats(new Date(dateRange.start), new Date(dateRange.end + "T23:59:59"), activePlatformFilter),
+    queryKey: ["analytics", "todayRange", activePlatformFilter, todayStr],
+    queryFn: () => getPeriodStats(new Date(todayStr), new Date(todayStr + "T23:59:59"), activePlatformFilter),
     enabled: isOnboardingCompleted,
   });
 
   const { data: financialOverview } = useQuery({
-    queryKey: ["analytics", "financial", activePlatformFilter, dateRange.start, dateRange.end],
-    queryFn: () => getFinancialOverviewForRange(new Date(dateRange.start), new Date(dateRange.end + "T23:59:59"), activePlatformFilter, 0),
+    queryKey: ["analytics", "financial", activePlatformFilter, todayStr],
+    queryFn: () => getFinancialOverviewForRange(new Date(todayStr), new Date(todayStr + "T23:59:59"), activePlatformFilter, 0),
     enabled: isOnboardingCompleted,
   });
 
@@ -714,11 +714,6 @@ export default function HomeScreen() {
     loadSettings();
     setHeaderVisible(true);
   }, []);
-
-  // Sync date preset on mount / profile change
-  useEffect(() => {
-    setDateRange(rangeForPreset(dateRange.preset, new Date(), profile?.locale?.weekStartDay ?? 0));
-  }, [profile?.country, profile?.locale?.weekStartDay]);
 
 
 
@@ -749,6 +744,14 @@ export default function HomeScreen() {
   const netEarnings = currentStats.gross + currentStats.tips - writeOff;
   const totalMiles  = activeMileage + deadMileage;
 
+  // Derive weekly summary metrics dynamically (avoiding any hardcoding)
+  const weeklyGross = weekStats?.gross ?? 0;
+  const weeklyTips = weekStats?.tips ?? 0;
+  const weeklyMiles = (weekStats?.activeMileage ?? 0) + (weekStats?.deadMileage ?? 0);
+  const weeklyWriteOff = weeklyMiles * 0.67;
+  const weeklyNet = weeklyGross + weeklyTips - weeklyWriteOff;
+  const weeklyShiftsCount = weekStats?.count ?? 0;
+
   // Sparkline calculation
   const sparkPoints = [
     todayStats?.gross ?? 0,
@@ -763,9 +766,6 @@ export default function HomeScreen() {
     }).format(val);
   };
 
-  const selectPreset = (p: string) => {
-    setDateRange(rangeForPreset(p, new Date(), profile?.locale?.weekStartDay ?? 0));
-  };
 
   const openWizard = () => {
     if (isDemoMode) {
@@ -848,6 +848,7 @@ export default function HomeScreen() {
   const handleEndShift = async () => {
     const payload = await endShift();
     reset();
+    await useSettingsStore.getState().evaluateGamification();
     queryClient.invalidateQueries({ queryKey: ["analytics"] });
     setShowClockOverlay(false);
 
@@ -880,131 +881,61 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* ── Date Presets ────────────────────────────────────────────── */}
-        <View style={S.presetRow}>
-          {["day", "week", "month"].map((p) => {
-            const act = dateRange.preset === p;
-            const hasPlatform = activePlatformFilter && activePlatformFilter !== "all";
-            
-            const btnStyle = [
-              S.presetBtn,
-              act && (hasPlatform ? { backgroundColor: platformColor } : S.presetBtnAct)
-            ];
-            
-            const textStyle = [
-              S.presetText,
-              act && (hasPlatform ? { color: platformTextColor, fontWeight: "700" as const } : S.presetTextAct)
-            ];
 
-            return (
-              <Pressable key={p} onPress={() => selectPreset(p)} style={btnStyle}>
-                <Text numberOfLines={1} style={textStyle}>
-                  {p === "day" ? "Today" : p === "week" ? "Week" : "Month"}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
 
         {isRangeLoading ? (
           <HomeSkeleton />
         ) : (
           <>
-            {/* ── Hero Earnings Summary ────────────────────────────────── */}
-            <View style={S.hero}>
-              <View style={{ padding: 12, paddingBottom: 8, gap: 8 }}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <Text style={S.heroLabel}>TOTAL EARNINGS</Text>
-                  <View style={S.trendBadge}>
-                    <Text style={S.trendText}>↑ +12.4%</Text>
-                  </View>
-                </View>
-                
-                <View style={S.heroValueRow}>
-                  <Text style={S.heroCurrency}>$</Text>
-                  <Text style={S.heroValue} numberOfLines={1} adjustsFontSizeToFit>
-                    {netEarnings.toFixed(2)}
-                  </Text>
-                </View>
-
-                <View style={S.heroColumns}>
-                  <View style={S.heroCol}>
-                    <Text style={S.heroColLabel}>Gross</Text>
-                    <Text style={S.heroColValue}>{fmt(currentStats.gross + currentStats.tips)}</Text>
-                  </View>
-                  <View style={S.heroCol}>
-                    <Text style={S.heroColLabel}>Write-off</Text>
-                    <Text style={S.heroColValue}>-{fmt(writeOff)}</Text>
-                  </View>
-                  <View style={S.heroCol}>
-                    <Text style={S.heroColLabel}>Net est.</Text>
-                    <Text style={S.heroColValue}>{fmt(netEarnings)}</Text>
-                  </View>
-                </View>
-              </View>
-
-              <View style={{ marginTop: 2, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, overflow: "hidden" }}>
-                <Sparkline points={sparkPoints} color="#3b82f6" height={28} />
-              </View>
+            {/* ── Today's Net Card ──────────────── */}
+            <View style={{ backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", paddingVertical: 24, paddingHorizontal: 20, gap: 12 }}>
+              <Text style={{ fontSize: 12, fontWeight: "800", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.8 }}>
+                TODAY · NET
+              </Text>
+              <Text style={{ fontSize: 40, fontWeight: "800", color: "#ffffff", letterSpacing: -1, lineHeight: 48 }}>
+                {fmt(netEarnings)}
+              </Text>
+              <Text style={{ fontSize: 13, color: "#71717a", fontWeight: "600" }}>
+                {`${fmt(weeklyNet)} this week · ${weeklyShiftsCount} ${weeklyShiftsCount === 1 ? "shift" : "shifts"}`}
+              </Text>
             </View>
-
-            {/* ── 2x2 Stats Grid ───────────────────────────────────────── */}
-            <View style={S.statGrid}>
-              
-              {/* Card 1: Distance */}
-              <View style={S.statCard}>
-                <View style={[S.gridIconBg, { backgroundColor: "rgba(59, 130, 246, 0.15)" }]}>
-                  <RouteIcon size={14} color="#3b82f6" />
-                </View>
-                <Text style={S.statLabel}>{profile?.distanceUnit === "km" ? "KILOMETERS DRIVEN" : "MILES DRIVEN"}</Text>
-                <Text style={S.statValue}>{currentStats.miles.toFixed(1)}</Text>
-                <Text style={[S.statTrend, { color: accentColor }]}>
-                  {currentStats.miles > 0 ? `↑ ${(currentStats.miles * 0.15).toFixed(1)} vs yesterday` : "0.0 vs yesterday"}
+            {/* ── 3-Column Stats Row ───────────────────────────────────────── */}
+            <View style={{ flexDirection: "row", gap: 10, marginVertical: 4 }}>
+              {/* Card 1: Active Time */}
+              <View style={{ flex: 1, backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
+                <Text style={{ fontSize: 20, fontWeight: "800", color: "#ffffff", textAlign: "center" }}>
+                  {(currentStats.duration / 3600).toFixed(1)}h
                 </Text>
+                <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "600", textAlign: "center" }}>Active time</Text>
               </View>
 
-              {/* Card 2: Active Time */}
-              <View style={S.statCard}>
-                <View style={[S.gridIconBg, { backgroundColor: accentColor + "26" }]}>
-                  <ClockIcon size={14} color={accentColor} />
-                </View>
-                <Text style={S.statLabel}>ACTIVE TIME</Text>
-                <Text style={S.statValue}>{formatDuration(currentStats.duration)}</Text>
-                <Text style={S.statSub}>{currentStats.count} shifts logged</Text>
+              {/* Card 2: Distance */}
+              <View style={{ flex: 1, backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
+                <Text style={{ fontSize: 20, fontWeight: "800", color: "#ffffff", textAlign: "center" }}>
+                  {currentStats.miles.toFixed(1)}{profile?.distanceUnit ?? "mi"}
+                </Text>
+                <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "600", textAlign: "center" }}>Driven</Text>
               </View>
 
-              {/* Card 3: $/Hour Rate */}
-              <View style={S.statCard}>
-                <View style={[S.gridIconBg, { backgroundColor: "rgba(245, 158, 11, 0.15)" }]}>
-                  <TrendIcon size={14} color="#f59e0b" />
-                </View>
-                <Text style={S.statLabel}>$/HOUR</Text>
-                <Text style={S.statValue}>{fmt(currentStats.rate)}</Text>
-                <Text style={[S.statTrend, { color: accentColor }]}>Best today</Text>
+              {/* Card 3: Per Hour Rate */}
+              <View style={{ flex: 1, backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
+                <Text style={{ fontSize: 20, fontWeight: "800", color: "#ffffff", textAlign: "center" }}>
+                  {fmt(currentStats.rate)}
+                </Text>
+                <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "600", textAlign: "center" }}>Per hour</Text>
               </View>
-
-              {/* Card 4: Expenses */}
-              <View style={S.statCard}>
-                <View style={[S.gridIconBg, { backgroundColor: "rgba(139, 92, 246, 0.15)" }]}>
-                  <ReceiptIcon size={14} color="#8b5cf6" />
-                </View>
-                <Text style={S.statLabel}>EXPENSES</Text>
-                <Text style={S.statValue}>{fmt(currentStats.expenses)}</Text>
-                <Text style={S.statSub}>Business costs</Text>
-              </View>
-
             </View>
 
-            {/* ── Weekly Goal Progress ─────────────────────────────────── */}
+            {/* ── Weekly Goal Progress Card ────────────────────────────────── */}
             {weeklyGoals.slice(0, 1).map((g: any) => {
               const current = g.currentValue ?? 0;
               const target = g.targetValue ?? 1;
-              const percent = Math.round((current / target) * 100);
+              const percent = Math.min(100, Math.round((current / target) * 100));
               return (
                 <Pressable
                   key={g.id}
                   onPress={() => router.push("/goals")}
-                  style={S.card}
+                  style={{ backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", padding: 16, gap: 12 }}
                 >
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                     <View style={{ flex: 1, gap: 4 }}>
@@ -1050,7 +981,7 @@ export default function HomeScreen() {
                   return (
                     <Pressable
                       key={shift.id}
-                      onPress={() => router.push({ pathname: "/shifts/[id]", params: { id: shift.id } })}
+                      onPress={() => router.push({ pathname: "/shifts/[id]", params: { id: shift.id, from: "dashboard" } })}
                       style={{
                         backgroundColor: "#0c0c0c",
                         borderRadius: 12,
@@ -1112,7 +1043,7 @@ export default function HomeScreen() {
               <View style={S.tipCard}>
                 <Text style={{ fontSize: 13 }}>🚗</Text>
                 <Text style={{ fontSize: 12, color: "#888", flex: 1, lineHeight: 18 }}>
-                  At 67¢/{profile?.distanceUnit ?? "mi"} you've earned a <Text style={{ color: "#f59e0b", fontWeight: "bold" }}>{fmt(writeOff)}</Text> write-off on <Text style={{ fontWeight: "bold", color: "#fff" }}>{currentStats.miles.toFixed(1)}</Text> {profile?.distanceUnit ?? "mi"} this {dateRange.preset}.
+                  At 67¢/{profile?.distanceUnit ?? "mi"} you've earned a <Text style={{ color: "#f59e0b", fontWeight: "bold" }}>{fmt(writeOff)}</Text> write-off on <Text style={{ fontWeight: "bold", color: "#fff" }}>{currentStats.miles.toFixed(1)}</Text> {profile?.distanceUnit ?? "mi"} today.
                 </Text>
               </View>
             )}
@@ -1474,15 +1405,15 @@ const S = StyleSheet.create({
   bellBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#1c1c1e", borderWidth: 0.5, borderColor: "#333", alignItems: "center", justifyContent: "center" },
 
   hero: { backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f" },
-  heroLabel: { fontSize: 10, fontWeight: "700", color: "#71717a", letterSpacing: 0.5 },
+  heroLabel: { fontSize: 12, fontWeight: "800", color: "#a1a1aa", textTransform: "uppercase", letterSpacing: 0.5 },
   heroValueRow: { flexDirection: "row", alignItems: "flex-start", flexWrap: "nowrap" },
-  heroCurrency: { fontSize: 20, fontWeight: "600", color: "#fff", lineHeight: 24, marginTop: 6, marginRight: 4 },
-  heroValue: { flexShrink: 1, fontSize: 36, fontWeight: "800", color: "#fff", letterSpacing: -0.5, lineHeight: 40, includeFontPadding: false },
+  heroCurrency: { fontSize: 24, fontWeight: "600", color: "#fff", lineHeight: 30, marginTop: 10, marginRight: 4 },
+  heroValue: { flexShrink: 1, fontSize: 40, fontWeight: "800", color: "#fff", letterSpacing: -0.5, lineHeight: 48, includeFontPadding: false },
   trendBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 14, backgroundColor: "rgba(255, 255, 255, 0.08)" },
-  trendText: { fontSize: 11, fontWeight: "700", color: "#a1a1aa" },
+  trendText: { fontSize: 12, fontWeight: "700", color: "#a1a1aa" },
   heroColumns: { flexDirection: "row", flexWrap: "wrap", gap: 14, marginTop: 10, paddingBottom: 10 },
   heroCol: { gap: 4 },
-  heroColLabel: { fontSize: 11, color: "#71717a", fontWeight: "500" },
+  heroColLabel: { fontSize: 12, color: "#71717a", fontWeight: "500" },
   heroColValue: { fontSize: 14, color: "#fff", fontWeight: "700" },
 
   presetRow: { flexDirection: "row", backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#222", padding: 4, marginVertical: 14, alignItems: "center" },
@@ -1494,10 +1425,10 @@ const S = StyleSheet.create({
   statGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 10 },
   statCard: { width: "48.5%", backgroundColor: "#0c0c0c", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", padding: 16, gap: 6 },
   gridIconBg: { width: 28, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center", marginBottom: 4 },
-  statLabel: { fontSize: 10, fontWeight: "600", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 4 },
-  statValue: { fontSize: 22, fontWeight: "bold", color: "#fff", marginTop: 2, paddingVertical: 1 },
-  statSub: { fontSize: 11, color: "#52525b", fontWeight: "500", marginTop: 2 },
-  statTrend: { fontSize: 11, fontWeight: "600", marginTop: 2 },
+  statLabel: { fontSize: 11, fontWeight: "700", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.8, marginTop: 4 },
+  statValue: { fontSize: 20, fontWeight: "800", color: "#fff", marginTop: 2, paddingVertical: 1 },
+  statSub: { fontSize: 12, color: "#52525b", fontWeight: "500", marginTop: 2 },
+  statTrend: { fontSize: 12, fontWeight: "600", marginTop: 2 },
 
   card: { backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", padding: 16, gap: 12 },
   cardHeader: { fontSize: 14, fontWeight: "700", color: "#fff" },

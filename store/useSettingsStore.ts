@@ -93,10 +93,13 @@ interface SettingsState {
   xpTotal: number;
   xpLevel: number;
   streakDays: number;
+  streakFrozenCount: number;
+  bestStreak: number;
   unlockedBadgeIds: string[];
   challenges: Challenge[];
   notifications: NotificationItem[];
   personalRecords: PersonalRecords;
+  lastEvaluationMonth: string | null;
 
   // Persona Feature Overrides
   featureOverrides: Partial<Record<FeatureKey, boolean>>;
@@ -192,6 +195,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   xpTotal: 0,
   xpLevel: 1,
   streakDays: 0,
+  streakFrozenCount: 1,
+  bestStreak: 0,
   unlockedBadgeIds: [],
   challenges: [],
   notifications: [],
@@ -199,6 +204,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     bestShiftGross: 0,
     bestNetHourly: 0,
   },
+  lastEvaluationMonth: null,
 
   setActivePlatformFilter: (filter: string) => {
     const profile = get().profile;
@@ -248,35 +254,19 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         }
         
         if (rawCompleted !== "true") {
-          // Auto-onboard and load sample data by default on first launch
-          const demoProfile: DriverProfile = {
-            displayName: "Jane Doe (Demo)",
-            country: "CA",
-            taxRegion: "ON",
-            avatarType: "emoji",
-            avatarData: "🚗",
-            selectedPlatforms: ["doordash", "ubereats", "skip"],
-            workSchedulePreset: "flexible",
-            weeklyGoal: 500,
-            monthlyGoal: 2165,
-            annualGoal: 26000,
-            taxWithholdingPct: 25,
-            hstRegistered: false,
-            distanceUnit: "km",
-            theme: "dark",
-            persona: "gig_worker" as PersonaKey,
-          };
-          const demoVehicle = {
-            nickname: "Prius Prime",
-            type: "hybrid",
-            make: "Toyota",
-            model: "Prius Prime",
-            year: "2020",
-          };
-          await get().completeOnboarding(demoProfile, demoVehicle, null);
-          await get().loadSampleData();
+          // Onboarding not completed — show the onboarding wizard gate.
+          // The dashboard (app/(tabs)/index.tsx) will render <OnboardingWizard />
+          // when isOnboardingCompleted is false.
+          set({
+            isOnboardingCompleted: false,
+            profile: DEFAULT_PROFILE,
+            activeVehicle: null,
+            isDemoMode: false,
+            isLoading: false,
+          });
           return;
         }
+
         
         const loadedProfile: DriverProfile = rawProfile ? { ...DEFAULT_PROFILE, ...JSON.parse(rawProfile) } : DEFAULT_PROFILE;
         loadedProfile.persona = appConfig.persona || loadedProfile.persona || 'gig_worker';
@@ -286,7 +276,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         loadedProfile.selectedPlatforms = dbPlatforms.filter(p => p.isActive).map(p => p.id);
 
         const localeDefs = syncLocaleDefsFromProfile(loadedProfile);
-        const gamificationState = await GamificationService.loadState();
+        const gamificationState = await GamificationService.evaluateAll();
         let finalFilter = localStorage.getItem("comma_active_platform_filter") || "all";
         if (loadedProfile.selectedPlatforms && loadedProfile.selectedPlatforms.length === 1) {
           finalFilter = loadedProfile.selectedPlatforms[0];
@@ -333,33 +323,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       }
 
       if (!onboardingCompleted) {
-        // Auto-onboard and load sample data by default on first launch
-        const demoProfile: DriverProfile = {
-          displayName: "Jane Doe (Demo)",
-          country: "CA",
-          taxRegion: "ON",
-          avatarType: "emoji",
-          avatarData: "🚗",
-          selectedPlatforms: ["doordash", "ubereats", "skip"],
-          workSchedulePreset: "flexible",
-          weeklyGoal: 500,
-          monthlyGoal: 2165,
-          annualGoal: 26000,
-          taxWithholdingPct: 25,
-          hstRegistered: false,
-          distanceUnit: "km",
-          theme: "dark",
-          persona: "gig_worker" as PersonaKey,
-        };
-        const demoVehicle = {
-          nickname: "Prius Prime",
-          type: "hybrid",
-          make: "Toyota",
-          model: "Prius Prime",
-          year: "2020",
-        };
-        await get().completeOnboarding(demoProfile, demoVehicle, null);
-        await get().loadSampleData();
+        // Onboarding not completed — show the onboarding wizard gate.
+        // The dashboard (app/(tabs)/index.tsx) will render <OnboardingWizard />
+        // when isOnboardingCompleted is false.
+        set({
+          isOnboardingCompleted: false,
+          profile: DEFAULT_PROFILE,
+          activeVehicle: null,
+          isDemoMode: false,
+          isLoading: false,
+        });
         return;
       }
 
@@ -405,7 +378,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         : vehicleRows[0]?.id || null;
 
       const localeDefs = syncLocaleDefsFromProfile(nextProfile);
-      const gamificationState = await GamificationService.loadState();
+      const gamificationState = await GamificationService.evaluateAll();
       let finalFilter = filter;
       if (nextProfile.selectedPlatforms && nextProfile.selectedPlatforms.length === 1) {
         finalFilter = nextProfile.selectedPlatforms[0];
@@ -1147,8 +1120,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         streakDays: 0,
         streakLastDay: null,
         streakFrozenCount: 1,
+        bestStreak: 0,
         personalRecords: { bestShiftGross: 0, bestNetHourly: 0 },
         unlockedBadgeIds: [],
+        lastEvaluationMonth: null,
         challenges: [
           {
             id: "challenge_earn_500_week",

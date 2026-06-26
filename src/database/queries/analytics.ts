@@ -2,10 +2,11 @@ import { db } from "../client";
 import { shifts, vehicles, settings, goals, expenses } from "../schema";
 import { and, gte, lte, eq, sql, inArray } from "drizzle-orm";
 import { Platform } from "react-native";
+import { getGoalsWithProgress } from "./goals";
 
 const isWeb = Platform.OS === "web";
 
-function getPeriodDates(period: string): { start: Date; end: Date } {
+function getPeriodDates(period: string, weekStartDay: number = 0): { start: Date; end: Date } {
   const start = new Date();
   const end = new Date();
   
@@ -14,7 +15,7 @@ function getPeriodDates(period: string): { start: Date; end: Date } {
     end.setHours(23, 59, 59, 999);
   } else if (period === "weekly") {
     const day = start.getDay();
-    const diff = start.getDate() - day + (day === 0 ? -6 : 1);
+    const diff = start.getDate() - ((day - weekStartDay + 7) % 7);
     start.setDate(diff);
     start.setHours(0, 0, 0, 0);
     
@@ -96,12 +97,23 @@ export async function getTodayStats(platform?: string): Promise<{ gross: number;
 }
 
 export async function getWeekStats(platform?: string): Promise<{ gross: number; tips: number; count: number; activeMileage: number; deadMileage: number; durationSeconds: number }> {
+  let weekStartDay = 0;
   if (isWeb) {
+    try {
+      const rawProfile = localStorage.getItem("comma_profile");
+      if (rawProfile) {
+        const profile = JSON.parse(rawProfile);
+        if (profile.locale?.weekStartDay !== undefined) {
+          weekStartDay = parseInt(profile.locale.weekStartDay, 10);
+        }
+      }
+    } catch {}
+
     try {
       const existing = localStorage.getItem("comma_shifts");
       if (!existing) return { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0 };
       let list = JSON.parse(existing);
-      const { start, end } = getPeriodDates("weekly");
+      const { start, end } = getPeriodDates("weekly", weekStartDay);
       
       list = list.filter((s: any) => {
         const d = new Date(s.startTime);
@@ -127,7 +139,21 @@ export async function getWeekStats(platform?: string): Promise<{ gross: number; 
     }
   }
 
-  const { start, end } = getPeriodDates("weekly");
+  try {
+    const rows = await db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, "profile"))
+      .limit(1);
+    if (rows[0]?.value) {
+      const profile = JSON.parse(rows[0].value);
+      if (profile.locale?.weekStartDay !== undefined) {
+        weekStartDay = parseInt(profile.locale.weekStartDay, 10);
+      }
+    }
+  } catch {}
+
+  const { start, end } = getPeriodDates("weekly", weekStartDay);
   const conditions = [gte(shifts.startTime, start), lte(shifts.startTime, end)];
   if (platform && platform !== "all") {
     const parts = platform.split(",");
@@ -185,57 +211,13 @@ export async function getActiveVehicle(): Promise<any> {
 }
 
 export async function getGoalProgress(period: string): Promise<any[]> {
-  if (isWeb) {
-    return [];
-  }
-
-  const activeGoals = await db
-    .select()
-    .from(goals)
-    .where(and(eq(goals.period, period), eq(goals.isActive, true)));
-
-  const results = [];
-  const { start, end } = getPeriodDates(period);
-
-  for (const goal of activeGoals) {
-    let currentValue = 0;
-    
-    if (goal.unit === "currency") {
-      const agg = await db
-        .select({ value: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue}), 0)` })
-        .from(shifts)
-        .where(and(gte(shifts.startTime, start), lte(shifts.startTime, end)));
-      currentValue = agg[0]?.value || 0;
-    } else if (goal.unit === "hours") {
-      const agg = await db
-        .select({ value: sql<number>`COALESCE(SUM(${shifts.durationSeconds}), 0)` })
-        .from(shifts)
-        .where(and(gte(shifts.startTime, start), lte(shifts.startTime, end)));
-      currentValue = (agg[0]?.value || 0) / 3600.0;
-    } else if (goal.unit === "shifts") {
-      const agg = await db
-        .select({ value: sql<number>`COUNT(${shifts.id})` })
-        .from(shifts)
-        .where(and(gte(shifts.startTime, start), lte(shifts.startTime, end)));
-      currentValue = agg[0]?.value || 0;
-    } else if (goal.unit === "mileage") {
-      const agg = await db
-        .select({ value: sql<number>`COALESCE(SUM(${shifts.activeMileage}), 0)` })
-        .from(shifts)
-        .where(and(gte(shifts.startTime, start), lte(shifts.startTime, end)));
-      currentValue = agg[0]?.value || 0;
-    }
-
-    const progressPct = goal.targetValue > 0 ? (currentValue / goal.targetValue) * 100 : 0;
-    
-    results.push({
-      ...goal,
-      currentValue,
-      progressPct: Math.min(progressPct, 100),
-    });
-  }
-
-  return results;
+  const allGoals = await getGoalsWithProgress();
+  return allGoals
+    .filter((g) => g.period === period)
+    .map((g) => ({
+      ...g,
+      progressPct: Math.min(g.progressPct, 100),
+    }));
 }
 
 // ─── Phase 5 Analytics Queries ─────────────────────────────────────────────

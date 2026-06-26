@@ -152,6 +152,12 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
       routePathJson = JSON.stringify(cleaned);
     }
 
+    let notes: string | null = null;
+    if (state.targetTime && state.startTime) {
+      const targetSec = Math.round((state.targetTime - state.startTime) / 1000);
+      notes = `[ShiftTarget: ${targetSec}]`;
+    }
+
     const payload = {
       id: shiftId,
       vehicleId: state.vehicleId,
@@ -166,6 +172,7 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
       durationSeconds: durationSeconds,
       pausedSeconds: state.pausedSeconds,
       routePath: routePathJson,
+      notes,
     };
 
     try {

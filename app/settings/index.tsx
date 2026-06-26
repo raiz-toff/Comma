@@ -344,6 +344,96 @@ const PRESET_ACCENTS = [
   "#e11d48", "#22c55e", "#6366f1", "#6b7280",
 ];
 
+const PRESET_COLORS = [
+  "#22c55e", // Green
+  "#3b82f6", // Blue
+  "#8b5cf6", // Purple
+  "#f59e0b", // Amber/Yellow
+  "#ef4444", // Red
+  "#f97316", // Orange
+  "#06b6d4", // Cyan
+  "#ec4899", // Pink
+  "#a855f7", // Indigo/Purple
+  "#71717a", // Gray
+];
+
+const PRESET_EMOJIS = [
+  "🚗", "🚲", "🛵", "📦", "🍔", "🛍️", "🏃", "🚚", "🍽️", "🚐", "🚕", "⚙️"
+];
+
+function ColorPicker({ selectedColor, onSelectColor }: { selectedColor: string; onSelectColor: (c: string) => void }) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 6 }}>
+      {PRESET_COLORS.map((c) => {
+        const isSelected = selectedColor.toLowerCase() === c.toLowerCase();
+        return (
+          <TouchableOpacity
+            key={c}
+            onPress={() => onSelectColor(c)}
+            style={[
+              {
+                width: 28,
+                height: 28,
+                borderRadius: 14,
+                backgroundColor: c,
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.1)",
+              },
+              isSelected && {
+                borderWidth: 2.5,
+                borderColor: "#ffffff",
+                transform: [{ scale: 1.1 }],
+              }
+            ]}
+          >
+            {isSelected && (
+              <Check size={12} color={c.toLowerCase() === "#ffffff" ? "#000000" : "#ffffff"} strokeWidth={3.5} />
+            )}
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+function EmojiPicker({ selectedEmoji, onSelectEmoji }: { selectedEmoji: string; onSelectEmoji: (e: string) => void }) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 6 }}>
+      {PRESET_EMOJIS.map((e) => {
+        const isSelected = selectedEmoji === e;
+        return (
+          <TouchableOpacity
+            key={e}
+            onPress={() => onSelectEmoji(e)}
+            style={[
+              {
+                width: 34,
+                height: 34,
+                borderRadius: 8,
+                backgroundColor: DS.inputBg,
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 1,
+                borderColor: DS.inputBorder,
+              },
+              isSelected && {
+                borderColor: "#ffffff",
+                backgroundColor: "rgba(255,255,255,0.08)",
+                transform: [{ scale: 1.1 }],
+              }
+            ]}
+          >
+            <Text style={{ fontSize: 16 }}>{e}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+
 const DATE_FORMATS = [
   { value: "YYYY-MM-DD", label: "ISO" },
   { value: "MM/DD/YYYY", label: "US" },
@@ -995,7 +1085,7 @@ export default function SettingsScreen() {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={s.swatches}>
                     {PRESET_ACCENTS.map((hex) => {
-                      const on = selectedAccent.toLowerCase() === hex;
+                      const on = (selectedAccent || "#ffffff").toLowerCase() === hex;
                       return (
                         <TouchableOpacity
                           key={hex}
@@ -1052,7 +1142,7 @@ export default function SettingsScreen() {
           const countryDef = getCountryDef(country);
           const platformKeys = dbPlatforms.filter(p => p.country === country).map((p) => p.id) as PlatformKey[];
           const activeKeys = platformKeys.filter((k) => platformConfigs[k]?.active);
-          const inactiveKeys = platformKeys.filter((k) => !platformConfigs[k]?.active);
+          const inactiveKeys = platformKeys.filter((k) => !platformConfigs[k]?.active && k !== "other");
 
           const renderPlatformCard = (pKey: PlatformKey) => {
             const dbPlatform = dbPlatforms.find((p) => p.id === pKey);
@@ -1112,7 +1202,7 @@ export default function SettingsScreen() {
                   </View>
                 </TouchableOpacity>
 
-                {cfg.active && isExpanded && (
+                {(cfg.active && isExpanded) && (
                   <>
                     <Sep />
                     {(pKey === "other" || pKey.startsWith("custom_")) && (
@@ -1124,55 +1214,95 @@ export default function SettingsScreen() {
                             onChangeText={(v) => updateCfg({ customLabel: v })}
                           />
                         </Row>
-                        <Row label="Theme Color" last={false}>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                            <InlineInput
-                              value={cfg.customColor ?? ""}
-                              placeholder="e.g. #a855f7"
-                              onChangeText={(v) => updateCfg({ customColor: v })}
-                              style={{ width: 100 }}
+                        <Row label="Theme Color" last={false} block>
+                          <View style={{ gap: 6 }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                              <Text style={{ color: DS.textSecondary, fontSize: 12 }}>Hex Color Code</Text>
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                <InlineInput
+                                  value={cfg.customColor ?? ""}
+                                  placeholder="e.g. #a855f7"
+                                  onChangeText={(v) => updateCfg({ customColor: v })}
+                                  style={{ width: 100 }}
+                                />
+                                <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: cfg.customColor || "#71717a" }} />
+                              </View>
+                            </View>
+                            <ColorPicker
+                              selectedColor={cfg.customColor ?? ""}
+                              onSelectColor={(c) => updateCfg({ customColor: c })}
                             />
-                            <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: cfg.customColor || "#71717a" }} />
                           </View>
                         </Row>
-                        <Row label="Logo/Emoji" last={false}>
-                          <InlineInput
-                            value={cfg.customEmoji ?? ""}
-                            placeholder="e.g. 🚲"
-                            onChangeText={(v) => updateCfg({ customEmoji: v })}
-                            maxLength={2}
-                            style={{ width: 60 }}
-                          />
+                        <Row label="Logo/Emoji" last={false} block>
+                          <View style={{ gap: 6 }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                              <Text style={{ color: DS.textSecondary, fontSize: 12 }}>Custom Emoji</Text>
+                              <InlineInput
+                                value={cfg.customEmoji ?? ""}
+                                placeholder="e.g. 🚲"
+                                onChangeText={(v) => updateCfg({ customEmoji: v })}
+                                maxLength={2}
+                                style={{ width: 60 }}
+                              />
+                            </View>
+                            <EmojiPicker
+                              selectedEmoji={cfg.customEmoji ?? ""}
+                              onSelectEmoji={(e) => updateCfg({ customEmoji: e })}
+                            />
+                          </View>
                         </Row>
                       </>
                     )}
-                    <Row label="Hourly rate" last={false}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Row label="Default Hourly Pay" last={false} hint="Used for shift pay estimation & targets">
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
                         <Segmented
                           options={[
-                            { value: "custom" as const, label: "Rate" },
+                            { value: "custom" as const, label: "Hourly Rate" },
                             { value: "na" as const, label: "N/A" }
                           ]}
                           value={cfg.hourlyRate === "N/A" ? "na" : "custom"}
                           onChange={(v) => updateCfg({ hourlyRate: v === "na" ? "N/A" : "20" })}
-                          style={{ minWidth: 90 }}
+                          style={{ minWidth: 140 }}
                         />
                         {cfg.hourlyRate !== "N/A" && (
-                          <InlineInput
-                            value={cfg.hourlyRate}
-                            keyboardType="numeric"
-                            onChangeText={(v) => updateCfg({ hourlyRate: v })}
-                            style={{ minWidth: 60 }}
-                          />
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                            <Text style={{ color: DS.textSecondary, fontSize: 13 }}>{countryDef.symbol}</Text>
+                            <InlineInput
+                              value={cfg.hourlyRate}
+                              keyboardType="numeric"
+                              onChangeText={(v) => updateCfg({ hourlyRate: v })}
+                              style={{ minWidth: 50, textAlign: "center" }}
+                            />
+                            <Text style={{ color: DS.textSecondary, fontSize: 13 }}>/ hr</Text>
+                          </View>
                         )}
                       </View>
                     </Row>
-                    <Row label={`Mileage ($/${distanceUnit})`} last={false}>
-                      <InlineInput
-                        value={cfg.mileageRate}
-                        keyboardType="numeric"
-                        onChangeText={(v) => updateCfg({ mileageRate: v })}
-                      />
+                    <Row label="Default Mileage Rate" last={false} hint="Claimable driving expense deduction rate">
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                        <Segmented
+                          options={[
+                            { value: "custom" as const, label: "Per Distance" },
+                            { value: "na" as const, label: "N/A" }
+                          ]}
+                          value={cfg.mileageRate === "N/A" ? "na" : "custom"}
+                          onChange={(v) => updateCfg({ mileageRate: v === "na" ? "N/A" : getMileagePresetRate(country, taxRegion) })}
+                          style={{ minWidth: 140 }}
+                        />
+                        {cfg.mileageRate !== "N/A" && (
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                            <Text style={{ color: DS.textSecondary, fontSize: 13 }}>{countryDef.symbol}</Text>
+                            <InlineInput
+                              value={cfg.mileageRate}
+                              keyboardType="numeric"
+                              onChangeText={(v) => updateCfg({ mileageRate: v })}
+                              style={{ minWidth: 50, textAlign: "center" }}
+                            />
+                            <Text style={{ color: DS.textSecondary, fontSize: 13 }}>/ {distanceUnit}</Text>
+                          </View>
+                        )}
+                      </View>
                     </Row>
                     <Row label="Sort priority" last>
                       <InlineInput
@@ -1310,41 +1440,64 @@ export default function SettingsScreen() {
                       </Text>
                     </TouchableOpacity>
                   ) : (
-                    <View style={{ padding: 16, gap: 12 }}>
-                      <Text style={{ color: DS.textPrimary, fontSize: 13, fontWeight: "700", marginBottom: 4 }}>
+                    <View style={{ padding: 16, gap: 16 }}>
+                      <Text style={{ color: DS.textPrimary, fontSize: 14, fontWeight: "700" }}>
                         New Custom Platform
                       </Text>
-                      
+
+                      {/* Platform Name */}
                       <View style={{ gap: 6 }}>
-                        <Text style={{ color: DS.textSecondary, fontSize: 11, fontWeight: "600" }}>Platform Name</Text>
-                        <InlineInput
+                        <Text style={{ color: DS.textSecondary, fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>Platform Name</Text>
+                        <TextInput
                           value={newPlatformLabel}
                           onChangeText={setNewPlatformLabel}
                           placeholder="e.g. Pathao, InDriver"
-                          style={{ minHeight: 40, width: "100%", paddingHorizontal: 10 }}
+                          placeholderTextColor={DS.textMuted}
+                          style={[
+                            s.inlineInput,
+                            { textAlign: "left", width: "100%", paddingHorizontal: 12 }
+                          ]}
                         />
                       </View>
 
-                      <View style={{ flexDirection: "row", gap: 16 }}>
-                        <View style={{ flex: 1, gap: 6 }}>
-                          <Text style={{ color: DS.textSecondary, fontSize: 11, fontWeight: "600" }}>Theme Color</Text>
-                          <InlineInput
-                            value={newPlatformColor}
-                            onChangeText={setNewPlatformColor}
-                            placeholder="e.g. #22c55e"
-                            style={{ minHeight: 40, width: "100%", paddingHorizontal: 10 }}
-                          />
+                      {/* Theme Color */}
+                      <View style={{ gap: 8 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                          <Text style={{ color: DS.textSecondary, fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>Theme Color</Text>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <TextInput
+                              value={newPlatformColor}
+                              onChangeText={setNewPlatformColor}
+                              placeholder="#a855f7"
+                              placeholderTextColor={DS.textMuted}
+                              style={[s.inlineInput, { width: 95 }]}
+                            />
+                            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: newPlatformColor || "#71717a", borderWidth: 1, borderColor: "rgba(255,255,255,0.15)" }} />
+                          </View>
                         </View>
-                        <View style={{ width: 80, gap: 6 }}>
-                          <Text style={{ color: DS.textSecondary, fontSize: 11, fontWeight: "600" }}>Emoji Logo</Text>
-                          <InlineInput
+                        <ColorPicker
+                          selectedColor={newPlatformColor}
+                          onSelectColor={setNewPlatformColor}
+                        />
+                      </View>
+
+                      {/* Emoji Logo */}
+                      <View style={{ gap: 8 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                          <Text style={{ color: DS.textSecondary, fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>Emoji Logo</Text>
+                          <TextInput
                             value={newPlatformEmoji}
                             onChangeText={setNewPlatformEmoji}
-                            placeholder="e.g. 🚲"
+                            placeholder="🚲"
+                            placeholderTextColor={DS.textMuted}
                             maxLength={2}
-                            style={{ minHeight: 40, width: "100%", textAlign: "center" }}
+                            style={[s.inlineInput, { width: 60, textAlign: "center" }]}
                           />
                         </View>
+                        <EmojiPicker
+                          selectedEmoji={newPlatformEmoji}
+                          onSelectEmoji={setNewPlatformEmoji}
+                        />
                       </View>
 
                       <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
@@ -1586,14 +1739,27 @@ export default function SettingsScreen() {
                 last={false}
               >
                 <Chips
-                  options={(Object.keys(PLATFORMS) as PlatformKey[]).map((p) => ({ value: p, label: p }))}
+                  options={Object.keys(platformConfigs)
+                    .filter((k) => platformConfigs[k].active)
+                    .map((k) => ({
+                      value: k,
+                      label: platformConfigs[k].customLabel || PLATFORMS[k as PlatformKey]?.label || k
+                    }))}
                   value={resetPlatformTarget as any}
                   onChange={setResetPlatformTarget as any}
                   danger
                 />
                 {resetPlatformTarget ? (
                   <View style={{ marginTop: 10 }}>
-                    <Btn label={`Wipe ${resetPlatformTarget} data`} variant="danger" onPress={confirmResetPlatform} />
+                    <Btn 
+                      label={`Wipe ${
+                        platformConfigs[resetPlatformTarget]?.customLabel || 
+                        PLATFORMS[resetPlatformTarget as PlatformKey]?.label || 
+                        resetPlatformTarget
+                      } data`} 
+                      variant="danger" 
+                      onPress={confirmResetPlatform} 
+                    />
                   </View>
                 ) : null}
               </Row>
@@ -1854,25 +2020,25 @@ const s = StyleSheet.create({
     borderRadius: DS.rInput,
     borderWidth: 0.5,
     borderColor: DS.inputBorder,
-    color: DS.textPrimary,
+    color: "#ffffff",          // force white — prevents invisible text on Android
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "500" as const,
     paddingHorizontal: 12,
-    paddingVertical: 7,
+    height: 38,                // explicit height prevents vertical text clipping
     minWidth: 90,
-    textAlign: "right",
+    textAlign: "right" as const,
   },
   fullInput: {
     backgroundColor: DS.inputBg,
     borderRadius: DS.rInput,
     borderWidth: 0.5,
     borderColor: DS.inputBorder,
-    color: DS.textPrimary,
+    color: "#ffffff",          // force white — prevents invisible text on Android
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "500" as const,
     paddingHorizontal: 14,
-    paddingVertical: 11,
-    width: "100%",
+    height: 44,                // explicit height prevents vertical text clipping
+    width: "100%" as const,
   },
 
   // ── Button ──────────────────────────────────────────────────────────────────

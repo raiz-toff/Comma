@@ -246,6 +246,7 @@ export default function AddShiftModal() {
   const [activeMileage, setActiveMileage] = useState<string>("");
   const [deadMileage, setDeadMileage] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
+  const [shiftTargetSeconds, setShiftTargetSeconds] = useState<number | null>(null);
 
   // Platform context — drives revenue fields, terminology, and feature flags
   const platformCtx = usePlatformContext(selectedPlatform);
@@ -304,7 +305,16 @@ export default function AddShiftModal() {
       });
       setActiveMileage(String(existingShift.activeMileage || ""));
       setDeadMileage(String(existingShift.deadMileage || ""));
-      setNotes(existingShift.notes || "");
+      
+      let rawNotes = existingShift.notes || "";
+      const match = rawNotes.match(/\[ShiftTarget:\s*(\d+)\]/);
+      if (match) {
+        setShiftTargetSeconds(parseInt(match[1], 10));
+        rawNotes = rawNotes.replace(/\[ShiftTarget:\s*\d+\]/, "").trim();
+      } else {
+        setShiftTargetSeconds(null);
+      }
+      setNotes(rawNotes);
     }
   }, [existingShift]);
 
@@ -377,6 +387,11 @@ export default function AddShiftModal() {
       const grossRev = parseFloat(revenueValues.grossRevenue || "0") || 0.0;
       const tipsRev = parseFloat(revenueValues.tipsRevenue || "0") || 0.0;
 
+      let finalNotes = notes.trim() || null;
+      if (shiftTargetSeconds !== null) {
+        finalNotes = finalNotes ? `${finalNotes} [ShiftTarget: ${shiftTargetSeconds}]` : `[ShiftTarget: ${shiftTargetSeconds}]`;
+      }
+
       if (shiftId) {
         // Edit mode
         await updateShift(shiftId, {
@@ -390,7 +405,7 @@ export default function AddShiftModal() {
           activeMileage: parseFloat(activeMileage) || 0.0,
           deadMileage: parseFloat(deadMileage) || 0.0,
           durationSeconds,
-          notes: notes.trim() || null,
+          notes: finalNotes,
         });
       } else {
         // Create mode
@@ -408,7 +423,7 @@ export default function AddShiftModal() {
           deadMileage: parseFloat(deadMileage) || 0.0,
           durationSeconds,
           pausedSeconds: 0,
-          notes: notes.trim() || null,
+          notes: finalNotes,
         });
       }
       

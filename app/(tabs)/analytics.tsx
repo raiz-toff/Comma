@@ -116,10 +116,10 @@ function PremiumStatCard({ label, value, subtitle, color, Icon, width, flex }: a
         <View style={{ backgroundColor: color + "20", padding: 6, borderRadius: 8 }}>
           <Icon size={14} color={color} strokeWidth={2.5} />
         </View>
-        <Text style={{ fontSize: 10, fontWeight: "800", color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</Text>
+        <Text style={{ fontSize: 11, fontWeight: "800", color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 0.8 }}>{label}</Text>
       </View>
       <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
-      {subtitle && <Text style={{ fontSize: 11, fontWeight: "700", color: color, marginTop: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{subtitle}</Text>}
+      {subtitle && <Text style={{ fontSize: 12, fontWeight: "500", color: color, marginTop: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{subtitle}</Text>}
     </View>
   );
 }
@@ -137,7 +137,7 @@ function SwitchableStatCard({ label, activeValue, onlineValue, activeSubtitle, o
           <View style={{ backgroundColor: color + "20", padding: 6, borderRadius: 8 }}>
             <Icon size={14} color={color} strokeWidth={2.5} />
           </View>
-          <Text style={{ fontSize: 10, fontWeight: "800", color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</Text>
+          <Text style={{ fontSize: 11, fontWeight: "800", color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 0.8 }}>{label}</Text>
         </View>
 
         <View style={{ flexDirection: "row", backgroundColor: "#1f1f1e", borderRadius: 8, padding: 2, borderWidth: 1, borderColor: BORDER }}>
@@ -151,7 +151,7 @@ function SwitchableStatCard({ label, activeValue, onlineValue, activeSubtitle, o
       </View>
       
       <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
-      <Text style={{ fontSize: 11, fontWeight: "700", color: color, marginTop: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{subtitle}</Text>
+      <Text style={{ fontSize: 12, fontWeight: "500", color: color, marginTop: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{subtitle}</Text>
     </View>
   );
 }
@@ -170,7 +170,7 @@ function WidgetCard({ id, children }: { id: string; children: React.ReactNode })
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AnalyticsScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, isOnboardingCompleted, activePlatformFilter, setHeaderVisible } = useSettingsStore();
+  const { profile, isOnboardingCompleted, activePlatformFilter, setHeaderVisible, streakDays, bestStreak } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
 
   const [periodType, setPeriodType] = useState<PeriodType>("month");
@@ -225,10 +225,8 @@ export default function AnalyticsScreen() {
   const maxHourAvg    = Math.max(1, ...bestHourData.map((h) => h.avgEarnings));
 
   const streak = useMemo(() => {
-    let best = 0, cur = 0;
-    dailyData.forEach((d) => { if (d.total > 0) { cur++; best = Math.max(best, cur); } else cur = 0; });
-    return { current: cur, best };
-  }, [dailyData]);
+    return { current: streakDays, best: bestStreak ?? 0 };
+  }, [streakDays, bestStreak]);
 
   const country = profile.country;
 

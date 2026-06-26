@@ -142,7 +142,7 @@ function ExpenseRow({
 
       <View style={{ flex: 1, gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <Text style={{ fontSize: 15, fontWeight: "800", color: "#ffffff" }}>
+          <Text style={{ fontSize: 14, fontWeight: "700", color: "#ffffff" }}>
             {cat.label}
           </Text>
           {expense.isDeductible && (
@@ -162,14 +162,14 @@ function ExpenseRow({
             </View>
           )}
         </View>
-        <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "600" }}>
+        <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "500" }}>
           {dateLabel}
           {expense.notes ? ` · ${expense.notes}` : ""}
         </Text>
       </View>
 
       <View style={{ alignItems: "flex-end", gap: 6 }}>
-        <Text style={{ fontSize: 16, fontWeight: "900", color: "#f87171", letterSpacing: -0.5 }}>
+        <Text style={{ fontSize: 15, fontWeight: "700", color: "#f87171", letterSpacing: -0.5 }}>
           -{formatCurrency(expense.amount, country)}
         </Text>
         <TouchableOpacity
@@ -400,7 +400,7 @@ export default function ExpensesScreen() {
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 }}>
           <View>
             <Text style={{ fontSize: 24, fontWeight: "900", color: "#ffffff", letterSpacing: -0.5 }}>Expenses</Text>
-            <Text style={{ fontSize: 13, color: "#71717a", fontWeight: "600", marginTop: 2 }}>Track deductible costs</Text>
+            <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "500", marginTop: 2 }}>Track deductible costs</Text>
           </View>
           <TouchableOpacity
             onPress={() => router.push("/expense/add")}

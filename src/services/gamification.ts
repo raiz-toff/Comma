@@ -36,10 +36,12 @@ export interface GamificationState {
   streakDays: number;
   streakLastDay: string | null;
   streakFrozenCount: number;
+  bestStreak: number;
   personalRecords: PersonalRecords;
   unlockedBadgeIds: string[];
   challenges: Challenge[];
   notifications: NotificationItem[];
+  lastEvaluationMonth: string | null;
 }
 
 const DEFAULT_GAMIFICATION_STATE: GamificationState = {
@@ -48,6 +50,7 @@ const DEFAULT_GAMIFICATION_STATE: GamificationState = {
   streakDays: 0,
   streakLastDay: null,
   streakFrozenCount: 1,
+  bestStreak: 0,
   personalRecords: {
     bestShiftGross: 0,
     bestNetHourly: 0,
@@ -86,6 +89,7 @@ const DEFAULT_GAMIFICATION_STATE: GamificationState = {
     },
   ],
   notifications: [],
+  lastEvaluationMonth: null,
 };
 
 /** Parse a date safely, returning a Date object */
@@ -102,6 +106,20 @@ function toYmdString(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+/** Calculate days between two YYYY-MM-DD dates in local time */
+function getDaysDifference(ymd1: string, ymd2: string): number {
+  const d1 = new Date(`${ymd1}T12:00:00`);
+  const d2 = new Date(`${ymd2}T12:00:00`);
+  return Math.round((d2.getTime() - d1.getTime()) / 86400000);
+}
+
+/** Calculate calendar months between two YYYY-MM-DD dates in local time */
+function getMonthsDifference(ymd1: string, ymd2: string): number {
+  const d1 = new Date(`${ymd1}T12:00:00`);
+  const d2 = new Date(`${ymd2}T12:00:00`);
+  return (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
 }
 
 export const GamificationService = {
@@ -149,7 +167,6 @@ export const GamificationService = {
     }
   },
 
-  /** Evaluates shift list and triggers streaks, records, badges, challenges, notifications */
   async evaluateAll(): Promise<GamificationState> {
     // 1. Fetch current stored gamification state
     const state = await this.loadState();
@@ -177,41 +194,117 @@ export const GamificationService = {
       }
     }
     
-    // Calculate streaks
-    let streakCount = 0;
-    let streakLastDay: string | null = null;
-    let streakFreezes = state.streakFrozenCount;
-    
-    const uniqueDays = Array.from(new Set(sortedShifts.map((s) => toYmdString(safeDate(s.startTime))))).sort();
-    
-    if (uniqueDays.length > 0) {
-      streakCount = 1;
-      streakLastDay = uniqueDays[0];
-      
-      for (let i = 1; i < uniqueDays.length; i++) {
-        const prevDate = new Date(`${uniqueDays[i - 1]}T12:00:00`);
-        const currDate = new Date(`${uniqueDays[i]}T12:00:00`);
-        const diffDays = Math.round((currDate.getTime() - prevDate.getTime()) / 86400000);
-        
-        if (diffDays === 1) {
-          streakCount++;
-          streakLastDay = uniqueDays[i];
-        } else if (diffDays > 1) {
-          if (streakFreezes > 0) {
-            streakFreezes--;
-            streakCount++; // preserve streak using freeze
-            streakLastDay = uniqueDays[i];
-          } else {
-            streakCount = 1; // reset streak
-            streakLastDay = uniqueDays[i];
-          }
+    // Parse target duration achievements
+    let completedShiftTargetsCount = 0;
+    for (const s of sortedShifts) {
+      const match = String(s.notes || "").match(/\[ShiftTarget:\s*(\d+)\]/);
+      if (match) {
+        const targetSec = parseInt(match[1], 10);
+        if (s.durationSeconds >= targetSec) {
+          completedShiftTargetsCount++;
         }
       }
+    }
+
+    // Calculate streaks using a robust, backward-scanning calendar streak calculator
+    let streakCount = 0;
+    let streakLastDay: string | null = null;
+    let freezesAvailable = state.streakFrozenCount;
+    const now = new Date();
+    
+    // Monthly freeze replenishment: grant 1 freeze per calendar month passed since last evaluation
+    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    if (state.lastEvaluationMonth && state.lastEvaluationMonth !== currentMonthStr) {
+      const monthsDiff = getMonthsDifference(state.lastEvaluationMonth + "-01", currentMonthStr + "-01");
+      if (monthsDiff > 0) {
+        freezesAvailable = Math.min(3, freezesAvailable + monthsDiff);
+        state.notifications.unshift({
+          id: `monthly_freeze_${Date.now()}`,
+          title: `Monthly Streak Freeze Granted!`,
+          description: `A new month has started. You've been granted ${monthsDiff} Streak Freeze(s) (Capped at 3).`,
+          time: "Just now",
+          type: "success",
+          read: false,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+    state.lastEvaluationMonth = currentMonthStr;
+
+    const uniqueDays = Array.from(new Set(sortedShifts.map((s) => toYmdString(safeDate(s.startTime))))).sort();
+    const workedDaysSet = new Set(uniqueDays);
+
+    if (uniqueDays.length > 0) {
+      const todayStr = toYmdString(now);
+      let checkDate = new Date(now);
+      let tempFreezes = 0;
+      let committedFreezes = 0;
+      let tempStreak = 0;
+      let hasFoundFirstShift = false;
+      const earliestYmd = uniqueDays[0];
+
+      while (true) {
+        const checkStr = toYmdString(checkDate);
+        if (workedDaysSet.has(checkStr)) {
+          if (!hasFoundFirstShift) {
+            hasFoundFirstShift = true;
+            streakLastDay = checkStr;
+          }
+          
+          if (tempFreezes > 0) {
+            // Commit the freezes used to bridge the gap
+            committedFreezes += tempFreezes;
+            tempStreak += tempFreezes;
+            tempFreezes = 0;
+          }
+          
+          tempStreak += 1;
+          streakCount = tempStreak; // Update the confirmed streak
+        } else {
+          // Missed day
+          if (hasFoundFirstShift) {
+            tempFreezes += 1;
+            if (committedFreezes + tempFreezes > freezesAvailable) {
+              // Out of freezes, cannot bridge this gap. Terminate.
+              break;
+            }
+          } else {
+            // We haven't found the first shift yet (scanning backwards from today)
+            // If we are at today, they just haven't worked today yet. We can skip today without breaking the streak.
+            if (checkStr !== todayStr) {
+              // They missed yesterday (or earlier) and haven't worked since.
+              // This means they need to consume a freeze immediately to keep any previous streak alive.
+              tempFreezes += 1;
+              hasFoundFirstShift = true; 
+              streakLastDay = todayStr;
+              if (committedFreezes + tempFreezes > freezesAvailable) {
+                break;
+              }
+            }
+          }
+        }
+
+        if (checkStr === earliestYmd) {
+          // Reached the earliest shift in history, stop scanning.
+          break;
+        }
+
+        // Go to previous day
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+
+      freezesAvailable = Math.max(0, freezesAvailable - committedFreezes);
+    } else {
+      streakCount = 0;
+      streakLastDay = null;
     }
     
     state.streakDays = streakCount;
     state.streakLastDay = streakLastDay;
-    state.streakFrozenCount = streakFreezes;
+    state.streakFrozenCount = freezesAvailable;
+    if (streakCount > (state.bestStreak || 0)) {
+      state.bestStreak = streakCount;
+    }
     
     // 3. Evaluate Personal Records
     let recordsChanged = { changedGross: false, changedNetHourly: false };
@@ -230,10 +323,6 @@ export const GamificationService = {
       }
     }
     
-    if (recordsChanged.changedGross || recordsChanged.changedNetHourly) {
-      state.xpTotal += 30; // award personal record XP
-    }
-    
     // 4. Evaluate Badges
     const badgeStats: BadgeSweepStats = {
       shiftCount,
@@ -242,24 +331,32 @@ export const GamificationService = {
       streakCount,
     };
     
-    const now = new Date();
     const currentWeekStart = new Date(now);
     currentWeekStart.setDate(now.getDate() - now.getDay());
     currentWeekStart.setHours(0, 0, 0, 0);
     
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     
-    // Sum week and month grosses
-    let weekGross = 0;
-    let monthGross = 0;
+    // Sum stats for different goal ranges
+    let weekGross = 0, weekHours = 0, weekShifts = 0, weekMileage = 0;
+    let monthGross = 0, monthHours = 0, monthShifts = 0, monthMileage = 0;
     for (const s of sortedShifts) {
       const time = safeDate(s.startTime).getTime();
       const gross = s.grossRevenue + s.tipsRevenue;
+      const hours = (s.durationSeconds || 0) / 3600;
+      const mileage = s.activeMileage || 0;
+      
       if (time >= currentWeekStart.getTime()) {
         weekGross += gross;
+        weekHours += hours;
+        weekShifts++;
+        weekMileage += mileage;
       }
       if (time >= currentMonthStart.getTime()) {
         monthGross += gross;
+        monthHours += hours;
+        monthShifts++;
+        monthMileage += mileage;
       }
     }
     
@@ -301,11 +398,26 @@ export const GamificationService = {
       if (!shouldUnlock && def.checkFromGoalHistory && activeGoals.length > 0) {
         for (const g of activeGoals) {
           let hit = false;
+          let currentVal = 0;
           if (g.period === "weekly") {
-            hit = weekGross >= g.targetValue;
+            if (g.unit === "currency") currentVal = weekGross;
+            else if (g.unit === "hours") currentVal = weekHours;
+            else if (g.unit === "shifts") currentVal = weekShifts;
+            else if (g.unit === "mileage") currentVal = weekMileage;
           } else if (g.period === "monthly") {
-            hit = monthGross >= g.targetValue;
+            if (g.unit === "currency") currentVal = monthGross;
+            else if (g.unit === "hours") currentVal = monthHours;
+            else if (g.unit === "shifts") currentVal = monthShifts;
+            else if (g.unit === "mileage") currentVal = monthMileage;
+          } else if (g.period === "daily") {
+            const todayStr = toYmdString(now);
+            const todayShifts = sortedShifts.filter(s => toYmdString(safeDate(s.startTime)) === todayStr);
+            if (g.unit === "currency") currentVal = todayShifts.reduce((sum, s) => sum + s.grossRevenue + s.tipsRevenue, 0);
+            else if (g.unit === "hours") currentVal = todayShifts.reduce((sum, s) => sum + (s.durationSeconds || 0), 0) / 3600;
+            else if (g.unit === "shifts") currentVal = todayShifts.length;
+            else if (g.unit === "mileage") currentVal = todayShifts.reduce((sum, s) => sum + (s.activeMileage || 0), 0);
           }
+          hit = currentVal >= g.targetValue;
           if (await def.checkFromGoalHistory({ goal: g, hit })) {
             shouldUnlock = true;
             break;
@@ -316,7 +428,6 @@ export const GamificationService = {
       if (shouldUnlock) {
         state.unlockedBadgeIds.push(def.id);
         newlyUnlockedBadges.push(def.id);
-        state.xpTotal += 40; // Badge unlock XP
         
         // Add notification
         state.notifications.unshift({
@@ -339,7 +450,6 @@ export const GamificationService = {
       challenge1.current = Math.round(weekGross);
       if (challenge1.current >= challenge1.target) {
         challenge1.completedAt = new Date().toISOString();
-        state.xpTotal += 60;
         state.notifications.unshift({
           id: `challenge_comp_1_${Date.now()}`,
           title: `Challenge Complete: ${challenge1.name}!`,
@@ -357,11 +467,8 @@ export const GamificationService = {
     const challenge2 = state.challenges.find((c) => c.id === "challenge_20_deliveries_week");
     if (challenge2 && !challenge2.completedAt) {
       let deliveries = 0;
-      // In native, platform is Uber Eats / DoorDash etc. Let's count shifts as deliveries for simple mock,
-      // or check shift active mileage. Let's sum shifts of food delivery platforms.
       for (const s of sortedShifts) {
         if (safeDate(s.startTime).getTime() >= currentWeekStart.getTime()) {
-          // If notes mentions a delivery count, parse it; otherwise count each shift as 8 deliveries on average.
           const match = String(s.notes || "").match(/(\d+)\s*deliver/i);
           if (match) {
             deliveries += parseInt(match[1], 10);
@@ -373,7 +480,6 @@ export const GamificationService = {
       challenge2.current = deliveries;
       if (challenge2.current >= challenge2.target) {
         challenge2.completedAt = new Date().toISOString();
-        state.xpTotal += 60;
         state.notifications.unshift({
           id: `challenge_comp_2_${Date.now()}`,
           title: `Challenge Complete: ${challenge2.name}!`,
@@ -393,7 +499,6 @@ export const GamificationService = {
       challenge3.current = streakCount;
       if (challenge3.current >= challenge3.target) {
         challenge3.completedAt = new Date().toISOString();
-        state.xpTotal += 60;
         state.notifications.unshift({
           id: `challenge_comp_3_${Date.now()}`,
           title: `Challenge Complete: ${challenge3.name}!`,
@@ -407,8 +512,69 @@ export const GamificationService = {
       }
     }
     
-    // Calculate Level
-    state.xpLevel = Math.max(1, Math.floor(state.xpTotal / 100) + 1);
+    // Calculate Active Goals Met count for direct XP reward
+    let activeGoalsXp = 0;
+    for (const g of activeGoals) {
+      let currentVal = 0;
+      if (g.period === "weekly") {
+        if (g.unit === "currency") currentVal = weekGross;
+        else if (g.unit === "hours") currentVal = weekHours;
+        else if (g.unit === "shifts") currentVal = weekShifts;
+        else if (g.unit === "mileage") currentVal = weekMileage;
+      } else if (g.period === "monthly") {
+        if (g.unit === "currency") currentVal = monthGross;
+        else if (g.unit === "hours") currentVal = monthHours;
+        else if (g.unit === "shifts") currentVal = monthShifts;
+        else if (g.unit === "mileage") currentVal = monthMileage;
+      } else if (g.period === "daily") {
+        const todayStr = toYmdString(now);
+        const todayShifts = sortedShifts.filter(s => toYmdString(safeDate(s.startTime)) === todayStr);
+        if (g.unit === "currency") currentVal = todayShifts.reduce((sum, s) => sum + s.grossRevenue + s.tipsRevenue, 0);
+        else if (g.unit === "hours") currentVal = todayShifts.reduce((sum, s) => sum + (s.durationSeconds || 0), 0) / 3600;
+        else if (g.unit === "shifts") currentVal = todayShifts.length;
+        else if (g.unit === "mileage") currentVal = todayShifts.reduce((sum, s) => sum + (s.activeMileage || 0), 0);
+      }
+      
+      if (currentVal >= g.targetValue) {
+        activeGoalsXp += 20; // +20 XP per active goal met
+      }
+    }
+
+    // Dynamic XP Accumulation
+    let xpTotal = 0;
+    const totalEarnings = sortedShifts.reduce((sum, s) => sum + (s.grossRevenue || 0) + (s.tipsRevenue || 0), 0);
+    const totalActiveMileage = sortedShifts.reduce((sum, s) => sum + (s.activeMileage || 0), 0);
+    
+    xpTotal += sortedShifts.length * 10;
+    xpTotal += Math.floor(totalEarnings / 10);
+    xpTotal += Math.floor(totalActiveMileage / 10);
+    xpTotal += completedShiftTargetsCount * 15;
+    if (state.personalRecords.bestShiftGross > 0) xpTotal += 30;
+    if (state.personalRecords.bestNetHourly > 0) xpTotal += 30;
+    xpTotal += state.unlockedBadgeIds.length * 40;
+    xpTotal += state.challenges.filter(c => !!c.completedAt).length * 60;
+    xpTotal += activeGoalsXp;
+
+    state.xpTotal = xpTotal;
+
+    // Calculate Level & Award Level-Up Freezes
+    const oldLevel = state.xpLevel;
+    const newLevel = Math.max(1, Math.floor(xpTotal / 100) + 1);
+    state.xpLevel = newLevel;
+
+    if (newLevel > oldLevel) {
+      const diff = newLevel - oldLevel;
+      state.streakFrozenCount = Math.min(3, state.streakFrozenCount + diff);
+      state.notifications.unshift({
+        id: `level_up_${newLevel}_${Date.now()}`,
+        title: `Level Up! Level ${newLevel}`,
+        description: `Congratulations! You reached Level ${newLevel} and earned +${diff} Streak Freeze(s) (Capped at 3).`,
+        time: "Just now",
+        type: "success",
+        read: false,
+        createdAt: new Date().toISOString(),
+      });
+    }
     
     // 6. Evaluate Smart Notifications (Throttled/Daily alert logic)
     // Alert: Streak risk
@@ -431,7 +597,7 @@ export const GamificationService = {
       }
     }
     
-    // Alert: Tax deadline approaching (fires 10 days before quarterly deadlines: March 31, June 15, Sept 15, Dec 15)
+    // Alert: Tax deadline approaching
     const deadLines = [
       new Date(now.getFullYear(), 2, 31),
       new Date(now.getFullYear(), 5, 15),
@@ -458,7 +624,6 @@ export const GamificationService = {
       }
     }
     
-    // Keep notifications list capped at 100 items to avoid bloating settings JSON
     if (state.notifications.length > 100) {
       state.notifications = state.notifications.slice(0, 100);
     }

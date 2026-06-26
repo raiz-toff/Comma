@@ -105,6 +105,7 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
     setPreferredVehicle,
     isOnboardingCompleted,
     isHeaderVisible,
+    dbPlatforms,
   } = useSettingsStore();
 
   const headerVisibleAnim = React.useRef(new Animated.Value(1)).current;
@@ -209,8 +210,12 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
     if (activePlatformFilter === "all") return null;
     const firstPlatformId = activePlatformFilter.split(",")[0];
     const cfg = PLATFORMS[firstPlatformId as PlatformKey];
-    return cfg ?? null;
-  }, [activePlatformFilter]);
+    if (cfg) return cfg;
+    // Fall back to dbPlatforms for custom/regional platforms
+    const dbCfg = dbPlatforms.find((p) => p.id === firstPlatformId);
+    if (dbCfg) return { label: dbCfg.label, color: dbCfg.color };
+    return null;
+  }, [activePlatformFilter, dbPlatforms]);
 
   const doublePlatforms = React.useMemo(() => {
     if (activePlatformFilter === "all") return [];
@@ -249,11 +254,16 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
   const activeLabel = React.useMemo(() => {
     if (activePlatformFilter === "all") return "All Platforms";
     const parts = activePlatformFilter.split(",");
+    const resolveName = (id: string) => {
+      const reg = PLATFORMS[id as PlatformKey]?.label;
+      if (reg) return reg;
+      return dbPlatforms.find((p) => p.id === id)?.label || id;
+    };
     if (parts.length > 1) {
-      return parts.map(p => PLATFORMS[p as PlatformKey]?.label || p).join(" + ");
+      return parts.map(resolveName).join(" + ");
     }
-    return activePlatformConfig?.label ?? activePlatformFilter;
-  }, [activePlatformFilter, activePlatformConfig]);
+    return activePlatformConfig?.label ?? resolveName(parts[0]);
+  }, [activePlatformFilter, activePlatformConfig, dbPlatforms]);
 
   const selectedPlatformsList: string[] = profile?.selectedPlatforms ?? [];
   const allPlatformIds = selectedPlatformsList.length <= 1
@@ -382,7 +392,9 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
 
               {/* Name 1 */}
               <Text style={{ color: "#e2e8f0", fontSize: 14, fontWeight: "600" }} numberOfLines={1}>
-                {PLATFORMS[doublePlatforms[0] as PlatformKey]?.label || doublePlatforms[0]}
+                {PLATFORMS[doublePlatforms[0] as PlatformKey]?.label ||
+                  dbPlatforms.find((p) => p.id === doublePlatforms[0])?.label ||
+                  doublePlatforms[0]}
               </Text>
 
               {/* Centered Plus */}
@@ -392,7 +404,9 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
 
               {/* Name 2 */}
               <Text style={{ color: "#e2e8f0", fontSize: 14, fontWeight: "600" }} numberOfLines={1}>
-                {PLATFORMS[doublePlatforms[1] as PlatformKey]?.label || doublePlatforms[1]}
+                {PLATFORMS[doublePlatforms[1] as PlatformKey]?.label ||
+                  dbPlatforms.find((p) => p.id === doublePlatforms[1])?.label ||
+                  doublePlatforms[1]}
               </Text>
 
               {/* Right Logo */}
@@ -475,7 +489,9 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
                 : (activePlatformFilter.split(",").includes(pId) ||
                    (selectedPlatformsList.length === 1 && activePlatformFilter === "all"));
               const cfg = !isAll ? PLATFORMS[pId as PlatformKey] : null;
-              const pColor = cfg?.color ?? "#ffffff";
+              const dbCfg = !isAll && !cfg ? dbPlatforms.find((p) => p.id === pId) : null;
+              const pColor = cfg?.color ?? dbCfg?.color ?? "#ffffff";
+              const pLabel = cfg?.label ?? dbCfg?.label ?? pId;
 
               return (
                 <Pressable
@@ -507,7 +523,7 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
                     styles.dropdownPillLabel,
                     { color: isSelected ? "#ffffff" : "#a1a1aa", flex: 1 },
                   ]} numberOfLines={1}>
-                    {isAll ? "All" : cfg?.label || pId}
+                    {isAll ? "All" : pLabel}
                   </Text>
                   {isSelected && (
                     <View style={[styles.checkDot, { backgroundColor: pColor }]} />

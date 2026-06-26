@@ -1,11 +1,11 @@
 import { db } from "../client";
-import { goals, shifts } from "../schema";
+import { goals, shifts, settings } from "../schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { Platform } from "react-native";
 
 const isWeb = Platform.OS === "web";
 
-function getPeriodDates(period: string): { start: Date; end: Date } {
+function getPeriodDates(period: string, weekStartDay: number = 0): { start: Date; end: Date } {
   const start = new Date();
   const end = new Date();
 
@@ -14,7 +14,7 @@ function getPeriodDates(period: string): { start: Date; end: Date } {
     end.setHours(23, 59, 59, 999);
   } else if (period === "weekly") {
     const day = start.getDay();
-    const diff = start.getDate() - day + (day === 0 ? -6 : 1);
+    const diff = start.getDate() - ((day - weekStartDay + 7) % 7);
     start.setDate(diff);
     start.setHours(0, 0, 0, 0);
 
@@ -40,7 +40,19 @@ function getPeriodDates(period: string): { start: Date; end: Date } {
 }
 
 export async function getGoalsWithProgress(): Promise<any[]> {
+  let weekStartDay = 0;
+  
   if (isWeb) {
+    try {
+      const rawProfile = localStorage.getItem("comma_profile");
+      if (rawProfile) {
+        const profile = JSON.parse(rawProfile);
+        if (profile.locale?.weekStartDay !== undefined) {
+          weekStartDay = parseInt(profile.locale.weekStartDay, 10);
+        }
+      }
+    } catch {}
+    
     const existingGoals = localStorage.getItem("comma_goals");
     if (!existingGoals) return [];
     const goalsList = JSON.parse(existingGoals).filter((g: any) => g.isActive);
@@ -50,7 +62,7 @@ export async function getGoalsWithProgress(): Promise<any[]> {
 
     const results = [];
     for (const goal of goalsList) {
-      const { start, end } = getPeriodDates(goal.period);
+      const { start, end } = getPeriodDates(goal.period, weekStartDay);
       const filteredShifts = shiftsList.filter(
         (s: any) => new Date(s.startTime) >= start && new Date(s.startTime) <= end
       );
@@ -79,11 +91,27 @@ export async function getGoalsWithProgress(): Promise<any[]> {
   }
 
   // SQLite execution
+  try {
+    const rows = await db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, "profile"))
+      .limit(1);
+    if (rows[0]?.value) {
+      const profile = JSON.parse(rows[0].value);
+      if (profile.locale?.weekStartDay !== undefined) {
+        weekStartDay = parseInt(profile.locale.weekStartDay, 10);
+      }
+    }
+  } catch (e) {
+    console.warn("Failed to load settings profile for weekStartDay in getGoalsWithProgress:", e);
+  }
+
   const activeGoals = await db.select().from(goals).where(eq(goals.isActive, true));
   const results = [];
 
   for (const goal of activeGoals) {
-    const { start, end } = getPeriodDates(goal.period);
+    const { start, end } = getPeriodDates(goal.period, weekStartDay);
     let currentValue = 0;
 
     if (goal.unit === "currency") {

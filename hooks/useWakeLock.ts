@@ -71,6 +71,14 @@ export function useWakeLock() {
                 target: settings.key,
                 set: { value: payload },
               });
+            try {
+              const { requestWidgetUpdate } = require("react-native-android-widget");
+              requestWidgetUpdate({ widgetName: "ActiveShiftWidget" }).catch((err: any) => {
+                // Catch and ignore native linkage rejection under Expo Go / unlinked builds
+              });
+            } catch (widgetErr) {
+              // Catch synchronous import/resolution failures
+            }
           }
         } catch {
           // Quiet catch

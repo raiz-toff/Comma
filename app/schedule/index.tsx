@@ -79,7 +79,7 @@ export default function ScheduleScreen() {
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const { profile, isOnboardingCompleted } = useSettingsStore();
+  const { profile, isOnboardingCompleted, updateProfile } = useSettingsStore();
 
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -1210,6 +1210,41 @@ export default function ScheduleScreen() {
               })}
             </View>
           )}
+        </View>
+
+        {/* Work Schedule Preset Card */}
+        <View style={s.card}>
+          <Text style={s.cardTitle}>Work Schedule Preset</Text>
+          <Text style={{ fontSize: 10, color: DS.textSecondary, marginBottom: 12 }}>
+            Choose a recurring preset to help shape your weekly goals and targets.
+          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {[
+              { value: "flexible", label: "Flexible" },
+              { value: "weekdays", label: "Weekdays Only" },
+              { value: "evenings", label: "Evenings Only" },
+              { value: "weekends", label: "Weekends Only" },
+            ].map((preset) => {
+              const isSel = profile?.workSchedulePreset === preset.value;
+              return (
+                <TouchableOpacity
+                  key={preset.value}
+                  onPress={async () => {
+                    await updateProfile({ workSchedulePreset: preset.value as any });
+                  }}
+                  style={[
+                    s.platformChip,
+                    { flex: 1, minWidth: "45%", paddingVertical: 10, alignItems: "center" },
+                    isSel && { borderColor: accentColorMid, backgroundColor: accentColorDim }
+                  ]}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: "600", color: isSel ? accentColor : DS.textPrimary }}>
+                    {preset.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
       </ScrollView>

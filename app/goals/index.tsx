@@ -132,6 +132,7 @@ export default function GoalsScreen() {
     streakDays,
     unlockedBadgeIds,
     challenges,
+    isDemoMode,
   } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
 
@@ -193,6 +194,18 @@ export default function GoalsScreen() {
   };
 
   const handleSaveGoal = async () => {
+    if (isDemoMode) {
+      Alert.alert(
+        "Demo Mode Active",
+        "You cannot add or edit goals while Demo Mode is active. Please turn off Demo Mode in Settings to manage your goals.",
+        [
+          { text: "Go to Settings", onPress: () => router.push("/settings") },
+          { text: "Cancel", style: "cancel" }
+        ]
+      );
+      return;
+    }
+
     const parsedTarget = parseFloat(targetValue);
     if (!label.trim() || isNaN(parsedTarget) || parsedTarget <= 0) {
       Alert.alert("Invalid Input", "Please enter a valid name and target greater than 0.");
@@ -225,6 +238,18 @@ export default function GoalsScreen() {
   };
 
   const handleDeleteGoal = (id: string) => {
+    if (isDemoMode) {
+      Alert.alert(
+        "Demo Mode Active",
+        "You cannot delete goals while Demo Mode is active. Please turn off Demo Mode in Settings to manage your goals.",
+        [
+          { text: "Go to Settings", onPress: () => router.push("/settings") },
+          { text: "Cancel", style: "cancel" }
+        ]
+      );
+      return;
+    }
+
     const performDelete = async () => {
       await deleteGoal(id);
       queryClient.invalidateQueries({ queryKey: ["goals"] });
@@ -372,7 +397,9 @@ export default function GoalsScreen() {
             {/* ── Active Goals List ── */}
             <View style={{ backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, marginTop: 12, overflow: "hidden" }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: 0.8, borderBottomColor: "#1f1f1f" }}>
-                <Text style={{ fontSize: 16, fontWeight: "800", color: "#ffffff" }}>Active Goals</Text>
+                <Text style={{ fontSize: 16, fontWeight: "800", color: "#ffffff" }}>
+                  {weeklyEarningsGoal ? "Other Active Goals" : "Active Goals"}
+                </Text>
                 <TouchableOpacity
                   onPress={() => handleOpenForm()}
                   style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
@@ -383,51 +410,53 @@ export default function GoalsScreen() {
               </View>
               
               <View style={{ padding: 20, gap: 20 }}>
-                {goalsList.length === 0 ? (
+                {goalsList.filter((g: any) => g.id !== weeklyEarningsGoal?.id).length === 0 ? (
                   <Text style={{ fontSize: 13, color: "#71717a", fontStyle: "italic", textAlign: "center" }}>
-                    No active goals. Set one to start tracking!
+                    No other active goals. Set one to start tracking!
                   </Text>
                 ) : (
-                  goalsList.map((goal: any) => {
-                    const unitMeta = GOAL_UNITS.find((u) => u.id === goal.unit);
-                    const progressPct = goal.progressPct || 0;
+                  goalsList
+                    .filter((g: any) => g.id !== weeklyEarningsGoal?.id)
+                    .map((goal: any) => {
+                      const unitMeta = GOAL_UNITS.find((u) => u.id === goal.unit);
+                      const progressPct = goal.progressPct || 0;
 
-                    return (
-                      <View key={goal.id} style={{ gap: 10 }}>
-                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                            <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: "#0d0d0d", borderWidth: 1, borderColor: "#262522", alignItems: "center", justifyContent: "center" }}>
-                              <Text style={{ fontSize: 16 }}>{unitMeta?.icon}</Text>
+                      return (
+                        <View key={goal.id} style={{ gap: 10 }}>
+                          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                              <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: "#0d0d0d", borderWidth: 1, borderColor: "#262522", alignItems: "center", justifyContent: "center" }}>
+                                <Text style={{ fontSize: 16 }}>{unitMeta?.icon}</Text>
+                              </View>
+                              <View>
+                                <Text style={{ fontSize: 14, fontWeight: "800", color: "#ffffff", textTransform: "capitalize" }}>
+                                  {goal.label}
+                                </Text>
+                                <Text style={{ fontSize: 11, fontWeight: "700", color: "#71717a", textTransform: "uppercase", marginTop: 2 }}>
+                                  {goal.period} · {unitMeta?.label}
+                                </Text>
+                              </View>
                             </View>
-                            <View>
-                              <Text style={{ fontSize: 14, fontWeight: "800", color: "#ffffff", textTransform: "capitalize" }}>
-                                {goal.label}
+                            <View style={{ alignItems: "flex-end", gap: 6 }}>
+                              <Text style={{ fontSize: 15, fontWeight: "900", color: "#ffffff" }}>
+                                {goal.unit === "currency" ? formatCurrency(goal.targetValue, profile.country) : goal.targetValue}
                               </Text>
-                              <Text style={{ fontSize: 11, fontWeight: "700", color: "#71717a", textTransform: "uppercase", marginTop: 2 }}>
-                                {goal.period} · {unitMeta?.label}
-                              </Text>
+                              <View style={{ flexDirection: "row", gap: 8 }}>
+                                <TouchableOpacity onPress={() => handleOpenForm(goal)} hitSlop={10}>
+                                  <Edit2 size={14} color="#a1a1aa" />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => handleDeleteGoal(goal.id)} hitSlop={10}>
+                                  <Trash2 size={14} color="#f43f5e" />
+                                </TouchableOpacity>
+                              </View>
                             </View>
                           </View>
-                          <View style={{ alignItems: "flex-end", gap: 6 }}>
-                            <Text style={{ fontSize: 15, fontWeight: "900", color: "#ffffff" }}>
-                              {goal.unit === "currency" ? formatCurrency(goal.targetValue, profile.country) : goal.targetValue}
-                            </Text>
-                            <View style={{ flexDirection: "row", gap: 8 }}>
-                              <TouchableOpacity onPress={() => handleOpenForm(goal)} hitSlop={10}>
-                                <Edit2 size={14} color="#a1a1aa" />
-                              </TouchableOpacity>
-                              <TouchableOpacity onPress={() => handleDeleteGoal(goal.id)} hitSlop={10}>
-                                <Trash2 size={14} color="#f43f5e" />
-                              </TouchableOpacity>
-                            </View>
+                          <View style={{ height: 6, backgroundColor: "#0d0d0d", borderRadius: 3, overflow: "hidden" }}>
+                            <View style={{ height: "100%", width: `${Math.min(100, progressPct)}%`, backgroundColor: progressPct >= 100 ? "#10b981" : accentColor }} />
                           </View>
                         </View>
-                        <View style={{ height: 6, backgroundColor: "#0d0d0d", borderRadius: 3, overflow: "hidden" }}>
-                          <View style={{ height: "100%", width: `${Math.min(100, progressPct)}%`, backgroundColor: progressPct >= 100 ? "#10b981" : accentColor }} />
-                        </View>
-                      </View>
-                    );
-                  })
+                      );
+                    })
                 )}
               </View>
             </View>

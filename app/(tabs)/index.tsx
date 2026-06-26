@@ -9,6 +9,7 @@ import {
   Platform,
   Modal,
   TextInput,
+  Dimensions,
   Animated as RNAnimated,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,6 +17,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Text } from "../../src/components/ui/text";
 import { BlurView } from "expo-blur";
+import { ReceiptText, Calendar, Play } from "lucide-react-native";
 import { useActiveShift, type GigPlatform } from "../../store/useActiveShift";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { getVehicles } from "../../src/database/queries/vehicles";
@@ -41,6 +43,37 @@ import Animated, {
   withTiming,
   runOnJS,
 } from 'react-native-reanimated';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function ScalePressable({ onPress, style, children, android_ripple }: any) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.95, { damping: 15 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15 });
+  };
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={[style, animatedStyle]}
+      android_ripple={android_ripple}
+    >
+      {children}
+    </AnimatedPressable>
+  );
+}
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 const PlayIcon = ({ size = 14, color = "white" }: { size?: number; color?: string }) => (
@@ -535,7 +568,7 @@ export default function HomeScreen() {
   const {
     isActive, platform: activePlatform, elapsedSeconds,
     activeMileage, deadMileage, targetTime, startTime,
-    isPaused, isFirstOrderReceived, routePath,
+    isPaused, isFirstOrderReceived, routePath, sessionId,
     startShift, endShift, incrementTimer, updateMileage,
     pauseShift, resumeShift, markFirstOrderReceived, reset,
   } = useActiveShift();
@@ -575,11 +608,16 @@ export default function HomeScreen() {
   const lastScrollY = React.useRef(0);
   const handleScroll = (event: any) => {
     const currentY = event.nativeEvent.contentOffset.y;
-    if (currentY <= 0) {
+    const diff = currentY - lastScrollY.current;
+    const contentHeight = event.nativeEvent.contentSize.height;
+    const layoutHeight = event.nativeEvent.layoutMeasurement.height;
+    const isNearBottom = currentY + layoutHeight >= contentHeight - 40;
+
+    if (currentY <= 0 || isNearBottom) {
       setHeaderVisible(true);
-    } else if (currentY > lastScrollY.current && currentY > 50) {
+    } else if (diff > 15 && currentY > 50) {
       setHeaderVisible(false);
-    } else if (currentY < lastScrollY.current) {
+    } else if (diff < -15) {
       setHeaderVisible(true);
     }
     lastScrollY.current = currentY;
@@ -590,8 +628,8 @@ export default function HomeScreen() {
   React.useEffect(() => {
     RNAnimated.spring(actionBarVisibleAnim, {
       toValue: isHeaderVisible ? 1 : 0,
-      tension: 60,
-      friction: 12,
+      tension: 90,
+      friction: 9,
       useNativeDriver: true,
     }).start();
   }, [isHeaderVisible]);
@@ -604,6 +642,27 @@ export default function HomeScreen() {
   // Overlay state
   const [showClockOverlay, setShowClockOverlay] = useState(false);
   const [endedShiftId, setEndedShiftId] = useState<string | null>(null);
+
+  const sheetTranslateY = useSharedValue(SCREEN_HEIGHT);
+  
+  useEffect(() => {
+    sheetTranslateY.value = withSpring(showClockOverlay ? 0 : SCREEN_HEIGHT, {
+      damping: 24,
+      stiffness: 110,
+    });
+    // Hide the global top header when the fullscreen shift console/tracking page is open
+    if (showClockOverlay) {
+      setHeaderVisible(false);
+    } else {
+      setHeaderVisible(true);
+    }
+  }, [showClockOverlay]);
+
+  const animatedSheetStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateY: sheetTranslateY.value }],
+    };
+  });
 
   // Date filter state
   const [dateRange, setDateRange] = useState(() => rangeForPreset("day", new Date(), 0));
@@ -714,6 +773,18 @@ export default function HomeScreen() {
   };
 
   const openWizard = () => {
+    if (isDemoMode) {
+      Alert.alert(
+        "Demo Mode Active",
+        "You cannot start tracking live shifts while Demo Mode is active. Please turn off Demo Mode in Settings to use real tracking.",
+        [
+          { text: "Go to Settings", onPress: () => router.push("/settings") },
+          { text: "Cancel", style: "cancel" }
+        ]
+      );
+      return;
+    }
+
     setTargetMode(false);
     setCustomHours(2);
     setCustomMinutes(0);
@@ -793,7 +864,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={S.root} edges={["top", "left", "right"]}>
       <ScrollView
-        contentContainerStyle={S.scroll}
+        contentContainerStyle={[S.scroll, { paddingBottom: 110 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -1031,14 +1102,14 @@ export default function HomeScreen() {
 
             {/* ── Active Shift Banner ──────────────────────────────────── */}
             {isActive && (
-              <Pressable onPress={() => setShowClockOverlay(true)} style={[S.activeBanner, { borderColor: accentColor }]}>
+              <ScalePressable onPress={() => setShowClockOverlay(true)} style={[S.activeBanner, { borderColor: accentColor }]}>
                 <View style={[S.pulseDot, { backgroundColor: accentColor }]} />
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={S.activeBannerTitle}>Active shift in progress</Text>
                   <Text style={S.activeBannerSub}>{PLATFORMS[activePlatform as GigPlatform]?.label ?? "Gig Platform"} • <Text style={{ fontWeight: "bold", color: "#fff" }}>{formatTime(elapsedSeconds)}</Text></Text>
                 </View>
                 <Text style={{ color: "#888", fontSize: 12 }}>View timer ›</Text>
-              </Pressable>
+              </ScalePressable>
             )}
 
             {/* ── IRS Mileage Tip ──────────────────────────────────────── */}
@@ -1065,36 +1136,42 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* ── Action Bar ────────────────────────────────────────────────── */}
-      <RNAnimated.View style={[S.actionBar, { transform: [{ translateY: actionBarTranslateY }] }]}>
-        <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFill} />
-        <Pressable onPress={() => router.push("/expense/add")} style={S.secBtn}>
-          <Text style={S.secBtnText}>Log Expense</Text>
-        </Pressable>
+      <RNAnimated.View style={[S.actionBar, { bottom: insets.bottom > 0 ? insets.bottom + 8 : 16, transform: [{ translateY: actionBarTranslateY }] }]}>
+        <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
         
+        {/* Left Action: Log Expense */}
+        <ScalePressable onPress={() => router.push("/expense/add")} style={S.iconActionBtn} android_ripple={{ color: "rgba(255,255,255,0.1)" }}>
+          <ReceiptText color="#a1a1aa" size={20} />
+        </ScalePressable>
+        
+        {/* Center Action: Start/Active Shift */}
         {!isActive ? (
-          <Pressable onPress={openWizard} style={[S.primBtn, { backgroundColor: accentColor }]}>
-            <Text style={[S.primBtnText, { color: accentColorContrast }]}>Start Shift</Text>
-          </Pressable>
+          <ScalePressable onPress={openWizard} style={[S.centerActionBtn, { backgroundColor: accentColor }]} android_ripple={{ color: "rgba(255,255,255,0.2)" }}>
+            <Play color={accentColorContrast} size={16} fill={accentColorContrast} />
+            <Text style={[S.centerActionText, { color: accentColorContrast }]}>Start Shift</Text>
+          </ScalePressable>
         ) : (
-          <Pressable onPress={() => setShowClockOverlay(true)} style={[S.primBtn, { backgroundColor: "#1c1c1e", borderWidth: 0.5, borderColor: "#333" }]}>
-            <Text style={[S.primBtnText, { color: accentColor }]}>{formatTime(elapsedSeconds)}</Text>
-          </Pressable>
+          <ScalePressable onPress={() => setShowClockOverlay(true)} style={S.centerActionBtnActive} android_ripple={{ color: "rgba(255,255,255,0.1)" }}>
+            <View style={[S.pulseDot, { backgroundColor: accentColor }]} />
+            <Text style={[S.centerActionTextActive, { color: "#fff" }]}>{formatTime(elapsedSeconds)}</Text>
+          </ScalePressable>
         )}
         
-        <Pressable onPress={() => router.push("/shift/add")} style={S.secBtn}>
-          <Text style={S.secBtnText}>Add Past Shift</Text>
-        </Pressable>
+        {/* Right Action: Add Past Shift */}
+        <ScalePressable onPress={() => router.push("/shift/add")} style={S.iconActionBtn} android_ripple={{ color: "rgba(255,255,255,0.1)" }}>
+          <Calendar color="#a1a1aa" size={20} />
+        </ScalePressable>
       </RNAnimated.View>
 
-      {/* ── Fullscreen Clock Overlay ──────────────────────────────────── */}
-      <Modal visible={showClockOverlay} animationType="slide" transparent>
+      {/* ── Fullscreen Clock Overlay ── */}
+      <Animated.View style={[StyleSheet.absoluteFill, { zIndex: 10000, backgroundColor: "#000" }, animatedSheetStyle]}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <SafeAreaView style={S.clockOverlay}>
             <View style={S.clockHeader}>
               <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>Shift Console</Text>
-              <Pressable onPress={() => setShowClockOverlay(false)} style={S.clockCloseBtn}>
+              <ScalePressable onPress={() => setShowClockOverlay(false)} style={S.clockCloseBtn}>
                 <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>Minimize</Text>
-              </Pressable>
+              </ScalePressable>
             </View>
 
             <View style={S.clockBody}>
@@ -1112,8 +1189,6 @@ export default function HomeScreen() {
                   Started {startTime ? new Date(startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: profile?.locale?.timeFormat !== "24h" }) : ""}
                 </Text>
               </View>
-
-
 
               <View style={{ width: "85%", backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#1e1e1e", padding: 14, gap: 12 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -1149,12 +1224,12 @@ export default function HomeScreen() {
                 </View>
 
                 <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
-                  <Pressable onPress={() => isPaused ? resumeShift() : pauseShift()} style={[S.clockSecBtn, { flex: 1 }]}>
+                  <ScalePressable onPress={() => isPaused ? resumeShift() : pauseShift()} style={[S.clockSecBtn, { flex: 1 }]}>
                     {isPaused
                       ? <><PlayIcon size={10} color="#fff" /><Text style={S.clockSecBtnText}>Resume</Text></>
                       : <><View style={{ width: 8, height: 8, backgroundColor: "#f59e0b", borderRadius: 1 }} /><Text style={[S.clockSecBtnText, { color: "#f59e0b" }]}>Pause</Text></>
                     }
-                  </Pressable>
+                  </ScalePressable>
                   
                   {isFirstOrderReceived ? (
                     <View
@@ -1164,13 +1239,13 @@ export default function HomeScreen() {
                       <Text style={[S.clockSecBtnText, { color: "#a1a1aa" }]}>Active Mode On</Text>
                     </View>
                   ) : (
-                    <Pressable
+                    <ScalePressable
                       onPress={() => markFirstOrderReceived()}
                       style={[S.clockSecBtn, { flex: 1, borderColor: "#10b981", backgroundColor: "rgba(16, 185, 129, 0.05)" }]}
                     >
                       <View style={{ width: 8, height: 8, backgroundColor: "#10b981", borderRadius: 4 }} />
                       <Text style={[S.clockSecBtnText, { color: "#10b981" }]}>Got First Order</Text>
-                    </Pressable>
+                    </ScalePressable>
                   )}
                 </View>
               </View>
@@ -1181,11 +1256,11 @@ export default function HomeScreen() {
                 <View style={[S.pulseDot, { backgroundColor: "#10b981", width: 6, height: 6, borderRadius: 3 }]} />
                 <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>GPS is collecting data</Text>
               </View>
-              <SwipeToEnd onEnd={handleEndShift} />
+              <SwipeToEnd key={sessionId || "idle"} onEnd={handleEndShift} />
             </View>
           </SafeAreaView>
         </GestureHandlerRootView>
-      </Modal>
+      </Animated.View>
 
       {/* ── Shift Completed Modal ─────────────────────────────────────── */}
       <Modal visible={!!endedShiftId} transparent animationType="fade">
@@ -1423,13 +1498,81 @@ const S = StyleSheet.create({
   activeBanner: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", padding: 16 },
   activeBannerTitle: { fontSize: 13, fontWeight: "700", color: "#fff" },
   activeBannerSub: { fontSize: 11, color: "#888" },
-  pulseDot: { width: 6, height: 6, borderRadius: 3 },
+  pulseDot: { width: 8, height: 8, borderRadius: 4 },
 
-  actionBar: { position: "absolute", bottom: 0, left: 0, right: 0, flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "rgba(0, 0, 0, 0.4)", borderTopWidth: 0.5, borderTopColor: "#1e1e1e", paddingBottom: Platform.OS === "ios" ? 34 : 20, zIndex: 1000, overflow: "hidden" },
-  secBtn: { flex: 1, height: 44, borderRadius: 12, backgroundColor: "#0c0c0c", borderWidth: 0.8, borderColor: "#1e1e1e", justifyContent: "center", alignItems: "center" },
-  secBtnText: { fontSize: 12, fontWeight: "700", color: "#888" },
-  primBtn: { width: 72, height: 72, borderRadius: 36, justifyContent: "center", alignItems: "center", marginHorizontal: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
-  primBtnText: { fontSize: 13, fontWeight: "800", textAlign: "center" },
+  actionBar: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    height: 64,
+    borderRadius: 32,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    backgroundColor: "rgba(10, 10, 10, 0.75)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+    zIndex: 1000,
+    overflow: "hidden",
+  },
+  iconActionBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 0.5,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  centerActionBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 23,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  centerActionText: {
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  centerActionBtnActive: {
+    flex: 1,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "#1c1c1e",
+    borderWidth: 0.5,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 12,
+  },
+  centerActionTextActive: {
+    fontSize: 14,
+    fontWeight: "800",
+    fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace",
+  },
+
+  primBtn: { justifyContent: "center", alignItems: "center" },
+  primBtnText: { textAlign: "center" },
+  secBtn: { justifyContent: "center", alignItems: "center" },
+  secBtnText: { color: "#888" },
 
   clockOverlay: { flex: 1, backgroundColor: "#000" },
   clockHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 14, borderBottomWidth: 0.5, borderBottomColor: "#1e1e1e" },

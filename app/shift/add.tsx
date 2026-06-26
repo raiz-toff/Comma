@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   StyleSheet,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -224,7 +225,7 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
 
 export default function AddShiftModal() {
   const queryClient = useQueryClient();
-  const { profile } = useSettingsStore();
+  const { profile, isDemoMode } = useSettingsStore();
   const { shiftId } = useLocalSearchParams<{ shiftId: string }>();
 
   const { accentColor, accentColorDim, accentColorContrast } = usePlatformTheme();
@@ -312,6 +313,18 @@ export default function AddShiftModal() {
   }, [displayPlatforms, selectedPlatform]);
 
   const handleSave = async () => {
+    if (isDemoMode) {
+      Alert.alert(
+        "Demo Mode Active",
+        "You cannot add or edit shifts while Demo Mode is active. Please turn off Demo Mode in Settings to manage your shifts.",
+        [
+          { text: "Go to Settings", onPress: () => router.push("/settings") },
+          { text: "Cancel", style: "cancel" }
+        ]
+      );
+      return;
+    }
+
     setErrorMessage("");
     
     // Construct final start/end timestamps based on chosen date and times

@@ -231,11 +231,16 @@ export default function ShiftsScreen() {
   const lastScrollY = useRef(0);
   const handleScroll = (event: any) => {
     const currentY = event.nativeEvent.contentOffset.y;
-    if (currentY <= 0) {
+    const diff = currentY - lastScrollY.current;
+    const contentHeight = event.nativeEvent.contentSize.height;
+    const layoutHeight = event.nativeEvent.layoutMeasurement.height;
+    const isNearBottom = currentY + layoutHeight >= contentHeight - 40;
+
+    if (currentY <= 0 || isNearBottom) {
       setHeaderVisible(true);
-    } else if (currentY > lastScrollY.current && currentY > 50) {
+    } else if (diff > 15 && currentY > 50) {
       setHeaderVisible(false);
-    } else if (currentY < lastScrollY.current) {
+    } else if (diff < -15) {
       setHeaderVisible(true);
     }
     lastScrollY.current = currentY;

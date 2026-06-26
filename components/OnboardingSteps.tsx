@@ -11,7 +11,7 @@ import { Button } from "../src/components/ui/button";
 import { Text } from "../src/components/ui/text";
 import { cn } from "../src/lib/utils";
 import { getCountryDef } from "../src/registry/countries/index";
-import { getRegionsByCountry } from "../src/registry/provinces/index";
+import { getRegionsByCountry, getMileagePresetRate, getMileagePresetLabel } from "../src/registry/provinces/index";
 import { PLATFORMS, type PlatformKey } from "../src/registry/platforms";
 import { getWithholdingPresetPct } from "../src/registry/tax/withholdingPresets";
 
@@ -134,16 +134,24 @@ interface RegionSelectProps {
   country: "US" | "CA" | "UK";
   taxRegion: string;
   setTaxRegion: (r: string) => void;
+  useMileagePreset: boolean;
+  setUseMileagePreset: (v: boolean) => void;
 }
 
-export function RegionSelectStep({ country, taxRegion, setTaxRegion }: RegionSelectProps) {
+export function RegionSelectStep({
+  country,
+  taxRegion,
+  setTaxRegion,
+  useMileagePreset,
+  setUseMileagePreset,
+}: RegionSelectProps) {
   const regions = getRegionsByCountry(country);
   const countryDef = getCountryDef(country);
   const regionLabel = countryDef.tax.regionLabel;
   const label = regionLabel === "province" ? "Province or territory" : regionLabel === "state" ? "State" : "Region";
 
   return (
-    <View className="flex flex-col gap-5">
+    <View className="flex flex-col gap-4">
       <View className="gap-1.5">
         <Text className="text-2xl font-bold text-[#f4f2ed]">{label}</Text>
         <Text className="text-xs text-[#7a7670]">Tax presets and catalog data use this where your country is supported.</Text>
@@ -154,14 +162,14 @@ export function RegionSelectStep({ country, taxRegion, setTaxRegion }: RegionSel
         body="Currency and mileage rules follow your country so numbers stay trustworthy." 
       />
 
-      <ScrollView className="max-h-72 border border-[#3d3a35] rounded-xl bg-[#1c1b18]/50 p-2">
+      <ScrollView className="max-h-56 border border-[#3d3a35] rounded-xl bg-[#1c1b18]/50 p-2">
         <View className="flex flex-col gap-1">
           {regions.map((r) => (
             <TouchableOpacity
               key={r.id}
               onPress={() => setTaxRegion(r.id)}
               className={cn(
-                "p-3.5 rounded-lg flex flex-row justify-between items-center bg-transparent",
+                "p-3 rounded-lg flex flex-row justify-between items-center bg-transparent",
                 taxRegion === r.id && "bg-[#1c1b18] border border-[#3d3a35]"
               )}
             >
@@ -171,6 +179,23 @@ export function RegionSelectStep({ country, taxRegion, setTaxRegion }: RegionSel
           ))}
         </View>
       </ScrollView>
+
+      <View className="p-3.5 bg-[#1c1b18] border border-[#3d3a35] rounded-xl flex flex-row justify-between items-center gap-3">
+        <View className="flex-1">
+          <Text className="font-bold text-[#f4f2ed] text-xs">
+            Apply {getMileagePresetLabel(country, taxRegion)} preset?
+          </Text>
+          <Text className="text-[10px] text-[#7a7670] mt-1 leading-relaxed">
+            Pre-configures default mileage rates for your gig platforms to {getMileagePresetRate(country, taxRegion)}/{countryDef.distanceUnit}.
+          </Text>
+        </View>
+        <Switch
+          value={useMileagePreset}
+          onValueChange={setUseMileagePreset}
+          trackColor={{ false: "#262522", true: "#10b981" }}
+          thumbColor="#f4f2ed"
+        />
+      </View>
     </View>
   );
 }

@@ -1,11 +1,16 @@
 /**
  * Market Resolver — determines which platforms are available in a given country+region.
- * Mirrors PWA: src/registry/market/resolve.js
+ *
+ * Resolution priority:
+ * 1. Platform-level `restrictedToRegions` (e.g. Prop 22 CA only)
+ * 2. Platform-level `availableInCountries` (new modular registry)
+ * 3. Province-level `availablePlatforms` (legacy fine-grained override)
+ * 4. Country-level `defaultAvailablePlatforms` (final fallback)
  */
 
 import { getCountryDef } from "../countries/index";
 import { resolveProvinceDef } from "../provinces/index";
-import { PLATFORMS } from "../platforms";
+import { PLATFORM_REGISTRY, getPlatformsByCountry } from "../platforms/index";
 
 export interface MarketContext {
   countryId: string;
@@ -14,27 +19,49 @@ export interface MarketContext {
   currency: string;
   distanceUnit: "km" | "mi";
   intlLocaleTag: string;
+  /** Whether cash economy is primary in this market */
+  cashEconomyPrimary: boolean;
 }
 
 /**
  * Resolve the platform IDs available in a given country+region.
- * Province-level list takes priority; falls back to country defaults.
+ * Uses the new modular PlatformDef.availableInCountries as the primary source.
+ * Falls back to province / country legacy lists for unmatched regions.
  */
 export function resolveAvailablePlatformIds(
   countryId: string,
   regionCode: string
 ): string[] {
-  const province = resolveProvinceDef(countryId, regionCode);
+  const c = String(countryId).toUpperCase();
+  const r = String(regionCode).toUpperCase();
+
+  // Primary: platforms registered for this country via the modular registry
+  const marketPlatforms = getPlatformsByCountry(c);
+  if (marketPlatforms.length > 0) {
+    return marketPlatforms
+      .filter((p) => {
+        // If platform restricts to specific regions, enforce that
+        if (p.restrictedToRegions && p.restrictedToRegions.length > 0) {
+          return p.restrictedToRegions.includes(r);
+        }
+        return true;
+      })
+      .map((p) => p.id);
+  }
+
+  // Legacy fallback: province-level list
+  const province = resolveProvinceDef(c, r);
   if (province && province.availablePlatforms.length > 0) {
     return province.availablePlatforms;
   }
-  const country = getCountryDef(countryId);
+
+  // Final fallback: country default list
+  const country = getCountryDef(c);
   return country.defaultAvailablePlatforms;
 }
 
 /**
  * Build a full market context object from country + region.
- * This is the equivalent of `getMarketContext()` in the PWA store.
  */
 export function getMarketContext(
   countryId: string,
@@ -50,31 +77,34 @@ export function getMarketContext(
     currency: country.currency,
     distanceUnit: country.distanceUnit,
     intlLocaleTag: country.tax.intlLocaleTag,
+    cashEconomyPrimary: country.cashEconomyPrimary ?? false,
   };
 }
 
 /**
- * Filter the available platform keys down to those in the user's market.
- * Always includes "other".
+ * Get available platform entries (id + display metadata) for a market.
+ * Always ensures "other" is included.
  */
 export function getMarketPlatforms(
   countryId: string,
   regionCode: string
 ): Array<{ id: string; label: string; color: string; textColor: string }> {
   const ids = resolveAvailablePlatformIds(countryId, regionCode);
-  const allPlatforms = PLATFORMS as Record<string, { label: string; color: string; textColor: string }>;
   const result: Array<{ id: string; label: string; color: string; textColor: string }> = [];
 
   for (const id of ids) {
-    if (allPlatforms[id]) {
-      result.push({ id, ...allPlatforms[id] });
+    const p = PLATFORM_REGISTRY[id];
+    if (p) {
+      result.push({ id: p.id, label: p.label, color: p.color, textColor: p.textColor });
     }
   }
 
   // Always ensure "other" is available
-  if (!result.find((p) => p.id === "other") && allPlatforms["other"]) {
-    result.push({ id: "other", ...allPlatforms["other"] });
+  if (!result.find((p) => p.id === "other") && PLATFORM_REGISTRY["other"]) {
+    const o = PLATFORM_REGISTRY["other"];
+    result.push({ id: o.id, label: o.label, color: o.color, textColor: o.textColor });
   }
 
   return result;
 }
+

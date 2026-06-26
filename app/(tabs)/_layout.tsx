@@ -3,6 +3,7 @@ import { Tabs, usePathname, useRouter } from "expo-router";
 import { View, Platform, ColorValue, Animated, Pressable, ScrollView, StyleSheet, BackHandler, useWindowDimensions, TouchableOpacity, PanResponder } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSettingsStore } from "../../store/useSettingsStore";
+import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
 import GlobalTopHeader from "../../src/components/GlobalTopHeader";
 import {
   Home,
@@ -201,6 +202,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
 
 export default function TabLayout() {
   const { isOnboardingCompleted, profile, activePlatformFilter } = useSettingsStore();
+  const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const router = useRouter();
@@ -390,7 +392,6 @@ export default function TabLayout() {
     { label: "Schedule", path: "/schedule", icon: Calendar },
     { label: "Vehicles", path: "/vehicles", icon: Car },
     { label: "Settings", path: "/settings", icon: SettingsIcon },
-    { label: "About", path: "/about", icon: Info },
   ];
 
   const toggleDrawer = () => {
@@ -411,12 +412,18 @@ export default function TabLayout() {
           },
         ]}
       >
-        {/* Header */}
-        <View style={styles.drawerHeader}>
-          <Text style={styles.drawerBrand}>COMMA</Text>
+        {/* Profile Info Section */}
+        <View style={styles.profileSection}>
+          <View style={[styles.avatar, { borderColor: accentColorMid, backgroundColor: accentColorDim }]}>
+            <Text style={[styles.avatarText, { color: accentColor }]}>{initials}</Text>
+          </View>
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName} numberOfLines={1}>{profile?.displayName || "Driver"}</Text>
+            <Text style={styles.profileSub} numberOfLines={1}>
+              {profile?.country || "US"} Standard • {activePlatformLabel}
+            </Text>
+          </View>
         </View>
-
-
 
         {/* Navigation Items */}
         <ScrollView
@@ -433,19 +440,18 @@ export default function TabLayout() {
                 onPress={() => handleNavigate(item.path)}
                 style={[
                   styles.menuItem,
-                  active ? styles.menuItemActive : styles.menuItemInactive,
+                  active ? [styles.menuItemActive, { backgroundColor: accentColorDim, borderColor: accentColorMid, borderWidth: 0.8 }] : styles.menuItemInactive,
                 ]}
               >
-                {active && <View style={styles.activeBar} />}
                 <Icon
                   size={22}
-                  color={active ? "#ffffff" : "#64748b"}
-                  strokeWidth={2}
+                  color={active ? accentColor : "#a1a1aa"}
+                  strokeWidth={active ? 2.5 : 2}
                 />
                 <Text
                   style={[
                     styles.menuText,
-                    active ? styles.menuTextActive : styles.menuTextInactive,
+                    active ? [styles.menuTextActive, { color: accentColor }] : styles.menuTextInactive,
                   ]}
                 >
                   {item.label}
@@ -457,6 +463,29 @@ export default function TabLayout() {
 
         {/* Footer */}
         <View style={styles.drawerFooter}>
+          <Pressable
+            onPress={() => handleNavigate("/about")}
+            style={[
+              styles.aboutFooterBtn,
+              isRouteActive("/about")
+                ? { backgroundColor: accentColorDim, borderColor: accentColorMid, borderWidth: 0.8 }
+                : { backgroundColor: "transparent" }
+            ]}
+          >
+            <Info
+              size={18}
+              color={isRouteActive("/about") ? accentColor : "#a1a1aa"}
+              strokeWidth={isRouteActive("/about") ? 2.5 : 2}
+            />
+            <Text
+              style={[
+                styles.aboutFooterText,
+                isRouteActive("/about") ? { color: accentColor } : { color: "#a1a1aa" }
+              ]}
+            >
+              About Comma
+            </Text>
+          </Pressable>
           <Text style={styles.footerText}>COMMA APP · LOCAL & PRIVATE</Text>
         </View>
       </Animated.View>
@@ -499,7 +528,7 @@ export default function TabLayout() {
                 </Text>
                 <View style={{ flexDirection: "row", gap: 16 }}>
                   <TouchableOpacity onPress={markAllAsRead}>
-                    <Text style={styles.actionTextGreen}>Mark all read</Text>
+                    <Text style={[styles.actionTextGreen, { color: accentColor }]}>Mark all read</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={clearAll}>
                     <Text style={styles.actionTextGray}>Clear all</Text>
@@ -525,7 +554,7 @@ export default function TabLayout() {
                           {item.title}
                         </Text>
                         {!item.read && (
-                          <View style={styles.unreadDot} />
+                          <View style={[styles.unreadDot, { backgroundColor: accentColor }]} />
                         )}
                       </View>
                       <Text style={styles.notifCardDesc}>
@@ -643,8 +672,8 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     backgroundColor: "#000000",
-    borderRightWidth: 1,
-    borderRightColor: "#1a1a19",
+    borderRightWidth: 0.8,
+    borderRightColor: "#1f1f1f",
     zIndex: 1,
     flexDirection: "column",
   },
@@ -654,8 +683,8 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     backgroundColor: "#000000",
-    borderLeftWidth: 1,
-    borderLeftColor: "#1e293b",
+    borderLeftWidth: 0.8,
+    borderLeftColor: "#1f1f1f",
     zIndex: 1,
     flexDirection: "column",
   },
@@ -734,11 +763,11 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 16,
     borderRadius: 14,
     marginBottom: 6,
-    gap: 14,
+    gap: 16,
     position: "relative",
   },
   menuItemActive: {
@@ -747,17 +776,8 @@ const styles = StyleSheet.create({
   menuItemInactive: {
     backgroundColor: "transparent",
   },
-  activeBar: {
-    position: "absolute",
-    left: 0,
-    top: 14,
-    bottom: 14,
-    width: 3.5,
-    backgroundColor: "#ffffff",
-    borderRadius: 2,
-  },
   menuText: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700",
     flex: 1,
   },
@@ -765,18 +785,36 @@ const styles = StyleSheet.create({
     color: "#ffffff",
   },
   menuTextInactive: {
-    color: "#94a3b8",
+    color: "#a1a1aa",
   },
   drawerFooter: {
     padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#1a1a19",
+    borderTopWidth: 0.8,
+    borderTopColor: "#1f1f1f",
     alignItems: "center",
+    width: "100%",
+  },
+  aboutFooterBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    gap: 8,
+    width: "100%",
+    marginBottom: 10,
+  },
+  aboutFooterText: {
+    fontSize: 14,
+    fontWeight: "700",
   },
   footerText: {
     fontSize: 10,
     color: "#52525b",
     fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   backBtn: {
     paddingVertical: 6,
@@ -825,20 +863,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   notifCard: {
-    borderWidth: 1,
+    borderWidth: 0.8,
     borderRadius: 16,
     padding: 16,
     flexDirection: "row",
     gap: 12,
   },
   notifCardUnread: {
-    backgroundColor: "rgba(15, 23, 42, 0.8)",
-    borderColor: "rgba(30, 41, 59, 0.8)",
+    backgroundColor: "#0d0d0d",
+    borderColor: "#1f1f1f",
   },
   notifCardRead: {
-    backgroundColor: "rgba(15, 23, 42, 0.3)",
-    borderColor: "rgba(15, 23, 42, 0.6)",
-    opacity: 0.6,
+    backgroundColor: "transparent",
+    borderColor: "#161615",
+    opacity: 0.5,
   },
   notifCardTitle: {
     fontSize: 14,
@@ -856,7 +894,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#ffffff",
     marginTop: 4,
   },
   notifCardDesc: {
@@ -884,9 +921,9 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "#0f172a",
-    borderWidth: 1,
-    borderColor: "#1e293b",
+    backgroundColor: "#0d0d0d",
+    borderWidth: 0.8,
+    borderColor: "#1f1f1f",
     alignItems: "center",
     justifyContent: "center",
   },

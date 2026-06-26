@@ -47,7 +47,7 @@ export default function AddExpenseModal() {
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
 
   // ── Form State ───────────────────────────────────────────────────────────
-  const { profile, loadSettings } = useSettingsStore();
+  const { profile, loadSettings, isDemoMode } = useSettingsStore();
   const country = profile?.country || "CA";
   const customCategories = profile?.customCategories || [];
   const expenseCategories = getExpenseCategories(country, customCategories);
@@ -279,6 +279,18 @@ export default function AddExpenseModal() {
 
   // ── Save Handler ──────────────────────────────────────────────────────────
   const handleSave = async () => {
+    if (isDemoMode) {
+      Alert.alert(
+        "Demo Mode Active",
+        "You cannot add or edit expenses while Demo Mode is active. Please turn off Demo Mode in Settings to manage your expenses.",
+        [
+          { text: "Go to Settings", onPress: () => router.push("/settings") },
+          { text: "Cancel", style: "cancel" }
+        ]
+      );
+      return;
+    }
+
     setErrorMessage("");
     const parsedAmount = parseFloat(amount);
     if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {

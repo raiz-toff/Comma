@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Platform } from "react-native";
+import { Platform, Alert } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
+import * as SecureStore from "expo-secure-store";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   saveTokens,
@@ -11,6 +12,13 @@ import {
   restoreFromDrive,
   type DriveBackupFile,
 } from "../src/services/googleDrive";
+
+let GoogleSignin: any = null;
+try {
+  GoogleSignin = require("@react-native-google-signin/google-signin").GoogleSignin;
+} catch (e) {
+  // Silent fallback
+}
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -55,6 +63,15 @@ export function useGoogleDriveSync() {
   };
 
   useEffect(() => {
+    if (!isWeb && GoogleSignin) {
+      try {
+        GoogleSignin.configure({
+          scopes: ["https://www.googleapis.com/auth/drive.appdata"],
+        });
+      } catch (err) {
+        console.warn("Failed to configure GoogleSignin:", err);
+      }
+    }
     checkAuth();
   }, []);
 
@@ -77,14 +94,46 @@ export function useGoogleDriveSync() {
   }, [response]);
 
   const login = async () => {
-    await promptAsync();
+    if (isWeb) {
+      await promptAsync();
+    } else {
+      if (!GoogleSignin) {
+        Alert.alert(
+          "Google Sign-In Unavailable",
+          "Google Drive sync requires a custom native build. This option is not supported in the current development client."
+        );
+        return;
+      }
+      try {
+        await GoogleSignin.hasPlayServices();
+        await GoogleSignin.signIn();
+        const tokens = await GoogleSignin.getTokens();
+        
+        const expiryTime = Date.now() + 3600 * 1000; // estimate 1 hour
+        await saveTokens({
+          accessToken: tokens.accessToken,
+          refreshToken: "", // GoogleSignin automatically refreshes tokens in background
+          expiryTime,
+        });
+        setIsAuthenticated(true);
+        loadBackupsList();
+      } catch (error) {
+        console.error("Google Sign-In Error:", error);
+        Alert.alert("Google Sign-In Failed", "Could not sign in to your Google Account.");
+      }
+    }
   };
 
   const logout = async () => {
     if (isWeb) {
       localStorage.removeItem("comma_gdrive_tokens");
     } else {
-      // expo-secure-store delete
+      await SecureStore.deleteItemAsync("comma_gdrive_tokens");
+      if (GoogleSignin) {
+        try {
+          await GoogleSignin.signOut();
+        } catch (e) {}
+      }
     }
     setIsAuthenticated(false);
     setBackups([]);

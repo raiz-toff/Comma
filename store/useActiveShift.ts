@@ -49,6 +49,48 @@ interface ActiveShiftState {
   hydrateShift: (state: Partial<ActiveShiftState>) => void;
 }
 
+const updateWidgetState = async (state: any) => {
+  if (Platform.OS === "web") return;
+  try {
+    const payload = JSON.stringify({
+      isActive: state.isActive,
+      platform: state.platform,
+      vehicleId: state.vehicleId,
+      startTime: state.startTime,
+      elapsedSeconds: state.elapsedSeconds,
+      activeMileage: state.activeMileage,
+      deadMileage: state.deadMileage,
+      targetTime: state.targetTime,
+      isPaused: state.isPaused,
+      isAutoPaused: state.isAutoPaused,
+      pausedSeconds: state.pausedSeconds,
+      isFirstOrderReceived: state.isFirstOrderReceived,
+      sessionId: state.sessionId,
+    });
+    
+    if (db) {
+      await db
+        .insert(settings)
+        .values({ key: "active_shift_state", value: payload })
+        .onConflictDoUpdate({
+          target: settings.key,
+          set: { value: payload },
+        });
+        
+      try {
+        const { requestWidgetUpdate } = require("react-native-android-widget");
+        requestWidgetUpdate({ widgetName: "ActiveShiftWidget" }).catch((err: any) => {
+          // Catch and ignore native linkage rejection under Expo Go / unlinked builds
+        });
+      } catch (widgetErr) {
+        // Catch synchronous import/resolution failures
+      }
+    }
+  } catch (e) {
+    console.error("Failed to update widget state:", e);
+  }
+};
+
 export const useActiveShift = create<ActiveShiftState>((set, get) => ({
   isActive: false,
   platform: null,
@@ -65,22 +107,26 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
   sessionId: null,
   routePath: [],
 
-  startShift: (platform, vehicleId, targetTime) => set({
-    isActive: true,
-    platform,
-    vehicleId,
-    startTime: Date.now(),
-    elapsedSeconds: 0,
-    activeMileage: 0,
-    deadMileage: 0,
-    targetTime,
-    isPaused: false,
-    isAutoPaused: false,
-    pausedSeconds: 0,
-    isFirstOrderReceived: false,
-    sessionId: `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-    routePath: [],
-  }),
+  startShift: (platform, vehicleId, targetTime) => {
+    const newState = {
+      isActive: true,
+      platform,
+      vehicleId,
+      startTime: Date.now(),
+      elapsedSeconds: 0,
+      activeMileage: 0,
+      deadMileage: 0,
+      targetTime,
+      isPaused: false,
+      isAutoPaused: false,
+      pausedSeconds: 0,
+      isFirstOrderReceived: false,
+      sessionId: `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      routePath: [],
+    };
+    set(newState);
+    updateWidgetState(newState);
+  },
 
   endShift: async () => {
     const state = get();
@@ -137,6 +183,26 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
       activeMileage: state.activeMileage,
       deadMileage: state.deadMileage,
     };
+
+    const emptyState = {
+      isActive: false,
+      platform: null,
+      vehicleId: null,
+      startTime: null,
+      elapsedSeconds: 0,
+      activeMileage: 0,
+      deadMileage: 0,
+      targetTime: null,
+      isPaused: false,
+      isAutoPaused: false,
+      pausedSeconds: 0,
+      isFirstOrderReceived: false,
+      sessionId: null,
+      routePath: [],
+    };
+    set(emptyState);
+    updateWidgetState(emptyState);
+
     return completedPayload;
   },
 
@@ -161,11 +227,20 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     };
   }),
 
-  pauseShift: () => set({ isPaused: true, isAutoPaused: false }),
+  pauseShift: () => {
+    set({ isPaused: true, isAutoPaused: false });
+    updateWidgetState(get());
+  },
   
-  resumeShift: () => set({ isPaused: false, isAutoPaused: false }),
+  resumeShift: () => {
+    set({ isPaused: false, isAutoPaused: false });
+    updateWidgetState(get());
+  },
 
-  setAutoPaused: (paused) => set({ isPaused: paused, isAutoPaused: paused }),
+  setAutoPaused: (paused) => {
+    set({ isPaused: paused, isAutoPaused: paused });
+    updateWidgetState(get());
+  },
 
   markFirstOrderReceived: () => set({ isFirstOrderReceived: true }),
 
@@ -180,7 +255,7 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
       } catch {}
     })();
     
-    set({
+    const emptyState = {
       isActive: false,
       platform: null,
       vehicleId: null,
@@ -195,7 +270,9 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
       isFirstOrderReceived: false,
       sessionId: null,
       routePath: [],
-    });
+    };
+    set(emptyState);
+    updateWidgetState(emptyState);
   },
 
   hydrateShift: (state) => set((s) => ({ ...s, ...state }))

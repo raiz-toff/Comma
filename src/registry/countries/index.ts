@@ -37,6 +37,20 @@ export interface CountryDef {
   mileageRateSource?: "IRS" | "CRA";
   defaultAvailablePlatforms: string[];
   tax: TaxProfile;
+
+  // ── Extended market-context fields ─────────────────────────────────────────
+  /** Whether formal independent contractor economy rules apply */
+  hasContractorEconomy?: boolean;
+  /** Whether workers file self-assessment tax returns */
+  hasSelfAssessmentTax?: boolean;
+  /** Whether mileage deduction against income is available */
+  hasMileageDeduction?: boolean;
+  /** Label for the mileage deduction source (e.g. "IRS Standard Rate") */
+  mileageDeductionLabel?: string;
+  /** Whether cash-based gig economy is the norm (shows cash tools prominently) */
+  cashEconomyPrimary?: boolean;
+  /** Expense category profile to use for deduction UI */
+  expenseProfile?: "cra" | "irs" | "hmrc" | "generic";
 }
 
 const CA: CountryDef = {
@@ -134,7 +148,39 @@ const UK: CountryDef = {
   },
 };
 
-const COUNTRY_MAP: Record<string, CountryDef> = { CA, US, UK };
+// ─── Nepal ────────────────────────────────────────────────────────────────────
+
+const NP: CountryDef = {
+  id: "NP",
+  label: "Nepal",
+  currency: "NPR",
+  symbol: "₨",
+  distanceUnit: "km",
+  taxInstallmentDates: [], // No formal instalment schedule
+  hasContractorEconomy: false,
+  hasSelfAssessmentTax: false,
+  hasMileageDeduction: false,
+  cashEconomyPrimary: true,
+  expenseProfile: "generic",
+  defaultAvailablePlatforms: ["pathao", "pathao_food", "indriver", "foodmandu", "bhoj", "other"],
+  tax: {
+    intlLocaleTag: "ne-NP",
+    defaultWithholdingPct: 0,
+    regionPresetType: "OTHER",
+    fallbackCurrency: "NPR",
+    hstOnboarding: false,
+    hstRateWhenRegistered: 0,
+    calcCpp: false,
+    calcSeTax: false,
+    regionLabel: "province",
+    secondaryEstimator: "none",
+    footnote: "generic",
+    defaultRegionCode: "P3",   // Bagmati Province (Kathmandu region)
+    taxInstallmentReminderDays: 0,
+  },
+};
+
+const COUNTRY_MAP: Record<string, CountryDef> = { CA, US, UK, NP };
 
 export function getCountryDef(countryId: string): CountryDef {
   return COUNTRY_MAP[String(countryId).toUpperCase()] ?? CA;

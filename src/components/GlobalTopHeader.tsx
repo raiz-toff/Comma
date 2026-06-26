@@ -5,7 +5,6 @@ import {
   Pressable,
   StyleSheet,
   Platform,
-  UIManager,
   Animated,
   PanResponder,
 } from "react-native";
@@ -18,11 +17,6 @@ import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 import { blendColors } from "../hooks/usePlatformTheme";
 import { Bell, Menu, ChevronDown, ChevronUp } from "lucide-react-native";
 import Svg, { Path, Circle, Rect } from "react-native-svg";
-
-// Enable LayoutAnimation on Android
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 // ── Platform SVG logos (exact PWA brand assets) ────────────────────────────
 export const PlatformLogo = ({ id, size = 14 }: { id: string; size?: number }) => {
@@ -118,8 +112,8 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
   React.useEffect(() => {
     Animated.spring(headerVisibleAnim, {
       toValue: isHeaderVisible ? 1 : 0,
-      tension: 60,
-      friction: 12,
+      tension: 90,
+      friction: 9,
       useNativeDriver: true,
     }).start();
   }, [isHeaderVisible]);

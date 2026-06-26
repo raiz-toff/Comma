@@ -88,3 +88,12 @@ export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 });
+
+export const taxHistory = sqliteTable('tax_history', {
+  id: text('id').primaryKey(),
+  oldRegion: text('old_region'),
+  oldRate: real('old_rate'),
+  newRegion: text('new_region').notNull(),
+  newRate: real('new_rate').notNull(),
+  changedAt: integer('changed_at', { mode: 'timestamp' }).notNull(),
+});

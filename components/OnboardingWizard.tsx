@@ -51,6 +51,7 @@ export default function OnboardingWizard() {
 
   const [taxWithholdingPct, setTaxWithholdingPct] = useState("25");
   const [hstRegistered, setHstRegistered] = useState(false);
+  const [useMileagePreset, setUseMileagePreset] = useState(true);
 
   // Vehicle 1 State
   const [vehicleNickname, setVehicleNickname] = useState("");
@@ -188,7 +189,7 @@ export default function OnboardingWizard() {
       year: vehicle2Year.trim(),
     } : null;
 
-    await completeOnboarding(profileData, vehicleData, vehicle2Data);
+    await completeOnboarding(profileData, vehicleData, vehicle2Data, useMileagePreset);
   };
 
   const handleDemoMode = async () => {
@@ -262,6 +263,8 @@ export default function OnboardingWizard() {
             country={country}
             taxRegion={taxRegion}
             setTaxRegion={setTaxRegion}
+            useMileagePreset={useMileagePreset}
+            setUseMileagePreset={setUseMileagePreset}
           />
         );
       case 2:

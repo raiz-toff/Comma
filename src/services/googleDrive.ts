@@ -4,6 +4,13 @@ import { db } from "../database/client";
 import { vehicles, shifts, expenses, goals, settings } from "../database/schema";
 import { getOrCreateEncryptionKey, encrypt, decrypt } from "./cryptoHelper";
 
+let GoogleSignin: any = null;
+try {
+  GoogleSignin = require("@react-native-google-signin/google-signin").GoogleSignin;
+} catch (e) {
+  // Silent fallback
+}
+
 const isWeb = Platform.OS === "web";
 const ENCRYPTION_KEY_STORE_KEY = "COMMA_BACKUP_ENCRYPTION_KEY";
 
@@ -62,7 +69,16 @@ export async function getValidAccessToken(): Promise<string> {
   const tokens = await getTokens();
   if (!tokens) throw new Error("Google Drive is not authenticated.");
 
-  // If token expires in less than 5 minutes, refresh
+  if (!isWeb && GoogleSignin) {
+    try {
+      const nativeTokens = await GoogleSignin.getTokens();
+      return nativeTokens.accessToken;
+    } catch (e) {
+      console.warn("Failed to get native Google tokens:", e);
+    }
+  }
+
+  // If token expires in less than 5 minutes, refresh (web fallback)
   if (tokens.expiryTime - Date.now() < 5 * 60 * 1000 && tokens.refreshToken) {
     return await refreshGoogleToken(tokens.refreshToken);
   }

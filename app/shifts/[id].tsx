@@ -224,7 +224,7 @@ const RouteDetailMap = ({ routePathJson, strokeColor }: { routePathJson: string 
 export default function ShiftDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
-  const { profile } = useSettingsStore();
+  const { profile, isDemoMode } = useSettingsStore();
   const country = profile?.country || "CA";
   const customCategories = profile?.customCategories || [];
   const expenseCategories = getExpenseCategories(country, customCategories);
@@ -264,6 +264,18 @@ export default function ShiftDetailScreen() {
   });
 
   const handleDeleteShift = () => {
+    if (isDemoMode) {
+      Alert.alert(
+        "Demo Mode Active",
+        "You cannot delete shifts while Demo Mode is active. Please turn off Demo Mode in Settings to manage your shifts.",
+        [
+          { text: "Go to Settings", onPress: () => router.push("/settings") },
+          { text: "Cancel", style: "cancel" }
+        ]
+      );
+      return;
+    }
+
     const performDelete = async () => {
       try {
         await deleteShift(id!);
@@ -294,6 +306,18 @@ export default function ShiftDetailScreen() {
   };
 
   const handleSaveExpense = async () => {
+    if (isDemoMode) {
+      Alert.alert(
+        "Demo Mode Active",
+        "You cannot add expenses while Demo Mode is active. Please turn off Demo Mode in Settings to manage your expenses.",
+        [
+          { text: "Go to Settings", onPress: () => router.push("/settings") },
+          { text: "Cancel", style: "cancel" }
+        ]
+      );
+      return;
+    }
+
     if (!expenseAmount || isNaN(parseFloat(expenseAmount))) {
       Alert.alert("Validation", "Please enter a valid expense amount.");
       return;
@@ -326,6 +350,18 @@ export default function ShiftDetailScreen() {
   };
 
   const handleDeleteExpense = (expId: string) => {
+    if (isDemoMode) {
+      Alert.alert(
+        "Demo Mode Active",
+        "You cannot delete expenses while Demo Mode is active. Please turn off Demo Mode in Settings to manage your expenses.",
+        [
+          { text: "Go to Settings", onPress: () => router.push("/settings") },
+          { text: "Cancel", style: "cancel" }
+        ]
+      );
+      return;
+    }
+
     const performDelete = async () => {
       try {
         await deleteExpense(expId);
@@ -415,7 +451,20 @@ export default function ShiftDetailScreen() {
         </TouchableOpacity>
         <Text className="text-white font-extrabold text-sm tracking-tight">Shift Details</Text>
         <TouchableOpacity
-          onPress={() => router.push({ pathname: "/shift/add", params: { shiftId: shift.id } })}
+          onPress={() => {
+            if (isDemoMode) {
+              Alert.alert(
+                "Demo Mode Active",
+                "You cannot edit shifts while Demo Mode is active. Please turn off Demo Mode in Settings to manage your shifts.",
+                [
+                  { text: "Go to Settings", onPress: () => router.push("/settings") },
+                  { text: "Cancel", style: "cancel" }
+                ]
+              );
+              return;
+            }
+            router.push({ pathname: "/shift/add", params: { shiftId: shift.id } });
+          }}
           className="px-3.5 py-2 bg-[#161615] rounded-xl border border-[#262522]"
         >
           <Text className="text-[#10b981] text-xs font-bold">Edit</Text>

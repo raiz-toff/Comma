@@ -7,7 +7,7 @@ import { DEMO_ROUTES } from './demoRoutes';
 
 import { type ExpenseCategory } from "../src/registry/expenseCategories";
 import { getCountryDef, type CountryDef } from "../src/registry/countries/index";
-import { resolveProvinceDef, type ProvinceDef } from "../src/registry/provinces/index";
+import { resolveProvinceDef, type ProvinceDef, getMileagePresetRate } from "../src/registry/provinces/index";
 import { getMarketContext, type MarketContext } from "../src/registry/market/resolve";
 import { getWithholdingPresetPct } from "../src/registry/tax/withholdingPresets";
 import {
@@ -98,7 +98,8 @@ interface SettingsState {
   completeOnboarding: (
     profile: DriverProfile,
     vehicle: VehicleDraft,
-    vehicle2?: VehicleDraft | null
+    vehicle2?: VehicleDraft | null,
+    useMileagePreset?: boolean
   ) => Promise<void>;
   resetSettings: () => Promise<void>;
   loadSampleData: () => Promise<void>;
@@ -388,7 +389,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   completeOnboarding: async (
     profile: DriverProfile,
     vehicle: VehicleDraft,
-    vehicle2?: VehicleDraft | null
+    vehicle2?: VehicleDraft | null,
+    useMileagePreset?: boolean
   ) => {
     set({ isLoading: true });
     
@@ -418,6 +420,19 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       if (vehicle2) {
         localStorage.setItem("comma_vehicle2", JSON.stringify(vehicle2));
       }
+
+      // Save platform configurations on Web
+      const platformConfigs: Record<string, any> = {};
+      const mileageVal = useMileagePreset ? getMileagePresetRate(finalProfile.country, finalProfile.taxRegion) : "0.62";
+      finalProfile.selectedPlatforms.forEach((pKey, idx) => {
+        platformConfigs[pKey] = {
+          active: true,
+          hourlyRate: "20",
+          mileageRate: mileageVal,
+          priority: String(idx + 1),
+        };
+      });
+      localStorage.setItem("comma_setting_platform_configurations", JSON.stringify(platformConfigs));
 
       // Initialize goals on Web
       const initialGoals = [];
@@ -486,6 +501,26 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         .onConflictDoUpdate({
           target: settings.key,
           set: { value: JSON.stringify(finalProfile) },
+        });
+
+      // Save platform configurations
+      const platformConfigs: Record<string, any> = {};
+      const mileageVal = useMileagePreset ? getMileagePresetRate(finalProfile.country, finalProfile.taxRegion) : "0.62";
+      finalProfile.selectedPlatforms.forEach((pKey, idx) => {
+        platformConfigs[pKey] = {
+          active: true,
+          hourlyRate: "20",
+          mileageRate: mileageVal,
+          priority: String(idx + 1),
+        };
+      });
+
+      await db
+        .insert(settings)
+        .values({ key: "platform_configurations", value: JSON.stringify(platformConfigs) })
+        .onConflictDoUpdate({
+          target: settings.key,
+          set: { value: JSON.stringify(platformConfigs) },
         });
 
       // Save vehicle details
@@ -803,27 +838,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       localStorage.setItem("comma_shifts", JSON.stringify(demoShifts));
       localStorage.setItem("comma_expenses", JSON.stringify(demoExpenses));
 
-      const demoGoals = [
-        {
-          id: "goal_weekly_" + Date.now(),
-          label: "Weekly Revenue Goal",
-          targetValue: 500,
-          unit: "currency",
-          period: "weekly",
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: "goal_monthly_" + (Date.now() + 1),
-          label: "Monthly Revenue Goal",
-          targetValue: 2165,
-          unit: "currency",
-          period: "monthly",
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        }
-      ];
-      localStorage.setItem("comma_goals", JSON.stringify(demoGoals));
 
       set({
         isOnboardingCompleted: true,
@@ -977,24 +991,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         await db.insert(expenses).values(e);
       }
 
-      await db.insert(goals).values({
-        id: "goal_weekly_" + Date.now(),
-        label: "Weekly Revenue Goal",
-        targetValue: 500,
-        unit: "currency",
-        period: "weekly",
-        isActive: true,
-        createdAt: new Date(),
-      });
-      await db.insert(goals).values({
-        id: "goal_monthly_" + (Date.now() + 1),
-        label: "Monthly Revenue Goal",
-        targetValue: 2165,
-        unit: "currency",
-        period: "monthly",
-        isActive: true,
-        createdAt: new Date(),
-      });
 
       await get().loadSettings();
       await get().evaluateGamification();

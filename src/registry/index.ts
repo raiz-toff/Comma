@@ -33,8 +33,28 @@ export {
   type MarketContext,
 } from "./market/resolve";
 
-export { PLATFORMS, type PlatformKey } from "./platforms";
+// ── New modular platform registry ────────────────────────────────────────────
+export {
+  PLATFORMS,
+  PLATFORM_REGISTRY,
+  getPlatformDef,
+  getPlatformsByCountry,
+  resolveMarketPlatformIds,
+  type PlatformDef,
+  type PlatformKey,
+} from "./platforms/index";
 
+// ── Operational models ────────────────────────────────────────────────────────
+export {
+  getOperationalModel,
+  listOperationalModels,
+  resolveTerminology,
+  type OperationalModelDef,
+  type OperationalModelId,
+  type RevenueFieldDef,
+} from "./operationalModels/index";
+
+// ── Other registries ──────────────────────────────────────────────────────────
 export {
   CANADIAN_CRA_CATEGORIES,
   US_IRS_CATEGORIES,
@@ -51,4 +71,3 @@ export {
   type BadgeContext,
   type BadgeSweepStats,
 } from "./badges/index";
-

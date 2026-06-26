@@ -325,6 +325,7 @@ const COUNTRIES = [
   { id: "CA", label: "🇨🇦 Canada", unit: "km" as const, currency: "CAD" },
   { id: "US", label: "🇺🇸 United States", unit: "mi" as const, currency: "USD" },
   { id: "UK", label: "🇬🇧 United Kingdom", unit: "mi" as const, currency: "GBP" },
+  { id: "NP", label: "🇳🇵 Nepal", unit: "km" as const, currency: "NPR" },
 ] as const;
 
 const CA_PROVINCES = listCaProvinceCodes();
@@ -419,18 +420,18 @@ export default function SettingsScreen() {
   const [showShortcuts, setShowShortcuts] = useState(false);
 
   // ── Tab: You ────────────────────────────────────────────────────────────────
-  const [displayName, setDisplayName] = useState(profile.displayName ?? "");
-  const [country, setCountry] = useState<"US" | "CA" | "UK">(profile.country ?? "CA");
-  const [taxRegion, setTaxRegion] = useState(profile.taxRegion ?? "ON");
-  const [distanceUnit, setDistanceUnit] = useState<"km" | "mi">(profile.distanceUnit ?? "km");
+  const [displayName, setDisplayName] = useState(profile?.displayName ?? "");
+  const [country, setCountry] = useState<"US" | "CA" | "UK" | "NP">(profile?.country ?? "CA");
+  const [taxRegion, setTaxRegion] = useState(profile?.taxRegion ?? "ON");
+  const [distanceUnit, setDistanceUnit] = useState<"km" | "mi">(profile?.distanceUnit ?? "km");
   const [isEditingYou, setIsEditingYou] = useState(false);
 
   // States for changing country flow
-  const [selectedNewCountry, setSelectedNewCountry] = useState<"US" | "CA" | "UK" | null>(null);
+  const [selectedNewCountry, setSelectedNewCountry] = useState<"US" | "CA" | "UK" | "NP" | null>(null);
   const [incompatiblePlatforms, setIncompatiblePlatforms] = useState<string[]>([]);
 
-  const handleSelectCountry = (newCountryId: "CA" | "US" | "UK") => {
-    if (newCountryId === profile.country) {
+  const handleSelectCountry = (newCountryId: "CA" | "US" | "UK" | "NP") => {
+    if (newCountryId === profile?.country) {
       setCountry(newCountryId);
       // Reset back to profile values
       setTaxRegion(profile.taxRegion ?? "ON");
@@ -485,8 +486,8 @@ export default function SettingsScreen() {
     setPlatformConfigs(configs);
 
     // 3. Record tax history entry for the transition!
-    const oldRegion = profile.taxRegion || null;
-    const oldRate = profile.taxWithholdingPct || null;
+    const oldRegion = profile?.taxRegion || null;
+    const oldRate = profile?.taxWithholdingPct || null;
     const newRate = newCountryDef.tax.defaultWithholdingPct;
 
     await insertTaxHistory({
@@ -502,14 +503,14 @@ export default function SettingsScreen() {
   };
 
   // ── Tab: Appearance ─────────────────────────────────────────────────────────
-  const [theme, setTheme] = useState<"auto" | "light" | "dark">(profile.theme ?? "dark");
+  const [theme, setTheme] = useState<"auto" | "light" | "dark">(profile?.theme ?? "dark");
   const [selectedAccent, setSelectedAccent] = useState(
-    (profile.avatarData && profile.avatarData.startsWith("#")) ? profile.avatarData : "#ffffff"
+    (profile?.avatarData && profile?.avatarData.startsWith("#")) ? profile.avatarData : "#ffffff"
   );
-  const [currency, setCurrency] = useState<string>(profile.locale?.currency ?? "CAD");
-  const [dateFormat, setDateFormat] = useState<string>(profile.locale?.dateFormat ?? "YYYY-MM-DD");
-  const [weekStartDay, setWeekStartDay] = useState<string>(String(profile.locale?.weekStartDay ?? "0"));
-  const [timeFormat, setTimeFormat] = useState<"12h" | "24h">(profile.locale?.timeFormat ?? "12h");
+  const [currency, setCurrency] = useState<string>(profile?.locale?.currency ?? "CAD");
+  const [dateFormat, setDateFormat] = useState<string>(profile?.locale?.dateFormat ?? "YYYY-MM-DD");
+  const [weekStartDay, setWeekStartDay] = useState<string>(String(profile?.locale?.weekStartDay ?? "0"));
+  const [timeFormat, setTimeFormat] = useState<"12h" | "24h">(profile?.locale?.timeFormat ?? "12h");
 
 
   // ── Tab: Platforms ──────────────────────────────────────────────────────────
@@ -554,16 +555,16 @@ export default function SettingsScreen() {
 
   // ── Sync profile → local state ───────────────────────────────────────────────
   useEffect(() => {
-    setDisplayName(profile.displayName ?? "");
-    setCountry((profile.country ?? "CA") as "US" | "CA" | "UK");
-    setTaxRegion(profile.taxRegion ?? "ON");
-    setDistanceUnit(profile.distanceUnit ?? "km");
-    setTheme(profile.theme ?? "dark");
+    setDisplayName(profile?.displayName ?? "");
+    setCountry((profile?.country ?? "CA") as "US" | "CA" | "UK" | "NP");
+    setTaxRegion(profile?.taxRegion ?? "ON");
+    setDistanceUnit(profile?.distanceUnit ?? "km");
+    setTheme(profile?.theme ?? "dark");
     setSelectedAccent(
-      (profile.avatarData && profile.avatarData.startsWith("#")) ? profile.avatarData : "#ffffff"
+      (profile?.avatarData && profile?.avatarData.startsWith("#")) ? profile.avatarData : "#ffffff"
     );
 
-    if (profile.locale) {
+    if (profile?.locale) {
       if (profile.locale.currency) setCurrency(profile.locale.currency);
       if (profile.locale.dateFormat) setDateFormat(profile.locale.dateFormat);
       if (profile.locale.weekStartDay !== undefined) setWeekStartDay(String(profile.locale.weekStartDay));
@@ -614,7 +615,7 @@ export default function SettingsScreen() {
 
       // Use updateProfile — it auto-derives country defs and persists
       await updateProfile({
-        displayName: displayName.trim() || profile.displayName,
+        displayName: displayName.trim() || profile?.displayName || "Driver",
         country: country as DriverProfile["country"],
         taxRegion,
         distanceUnit,
@@ -923,7 +924,7 @@ export default function SettingsScreen() {
                     <Chips
                       options={COUNTRIES.map((c) => ({ value: c.id, label: c.label }))}
                       value={country}
-                      onChange={(v) => handleSelectCountry(v as "CA" | "US" | "UK")}
+                      onChange={(v) => handleSelectCountry(v as "CA" | "US" | "UK" | "NP")}
                     />
                   </Row>
                   <Row label={country === "CA" ? "Province" : country === "US" ? "State" : "Region"} block last={false}>
@@ -1644,7 +1645,7 @@ export default function SettingsScreen() {
           style={s.overlay}
           activeOpacity={1}
           onPress={() => {
-            setCountry(profile.country as "CA" | "US" | "UK");
+            setCountry(profile.country as "CA" | "US" | "UK" | "NP");
             setSelectedNewCountry(null);
             setIncompatiblePlatforms([]);
           }}
@@ -1654,7 +1655,7 @@ export default function SettingsScreen() {
               <Text style={s.overlayTitle}>Change Active Country</Text>
               <TouchableOpacity
                 onPress={() => {
-                  setCountry(profile.country as "CA" | "US" | "UK");
+                  setCountry(profile.country as "CA" | "US" | "UK" | "NP");
                   setSelectedNewCountry(null);
                   setIncompatiblePlatforms([]);
                 }}
@@ -1747,7 +1748,7 @@ export default function SettingsScreen() {
             <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
               <TouchableOpacity
                 onPress={() => {
-                  setCountry(profile.country as "CA" | "US" | "UK");
+                  setCountry(profile.country as "CA" | "US" | "UK" | "NP");
                   setSelectedNewCountry(null);
                   setIncompatiblePlatforms([]);
                 }}

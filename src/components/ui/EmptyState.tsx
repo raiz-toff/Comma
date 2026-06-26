@@ -70,15 +70,15 @@ export function EmptyState({
       )}
     >
       {/* Icon Wrapper */}
-      <View className="w-16 h-16 rounded-2xl bg-slate-900/40 border border-slate-800/80 items-center justify-center mb-4">
+      <View className="w-16 h-16 rounded-2xl bg-secondary border border-border items-center justify-center mb-4">
         {IconComponent && <IconComponent size={32} color="#64748b" />}
       </View>
 
       {/* Copy */}
-      <Text className="text-base font-bold text-slate-200 text-center tracking-tight">
+      <Text className="text-base font-bold text-foreground text-center tracking-tight">
         {title}
       </Text>
-      <Text className="text-xs text-slate-400 text-center mt-1.5 max-w-[280px] leading-relaxed">
+      <Text className="text-xs text-muted-foreground text-center mt-1.5 max-w-[280px] leading-relaxed">
         {message}
       </Text>
 
@@ -87,10 +87,10 @@ export function EmptyState({
         <Button
           variant="outline"
           size="sm"
-          className="mt-6 border-slate-800 bg-[#1a1916] active:bg-slate-800 px-4 py-2.5 rounded-xl"
+          className="mt-6 border-border bg-card active:bg-secondary px-4 py-2.5 rounded-xl"
           onPress={onAction}
         >
-          <Text className="text-xs font-semibold text-slate-300">
+          <Text className="text-xs font-semibold text-foreground">
             {actionLabel}
           </Text>
         </Button>

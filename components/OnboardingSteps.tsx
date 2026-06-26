@@ -1,128 +1,209 @@
-import React from "react";
+import React, { useState } from "react";
 import {
-  ScrollView,
   View,
+  ScrollView,
   TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
+  Pressable,
   Switch,
+  StyleSheet,
 } from "react-native";
-import { Button } from "../src/components/ui/button";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "../src/components/ui/text";
-import { cn } from "../src/lib/utils";
-import { getCountryDef } from "../src/registry/countries/index";
-import { getRegionsByCountry, getMileagePresetRate, getMileagePresetLabel } from "../src/registry/provinces/index";
-import { PLATFORMS, type PlatformKey, getPlatformsByCountry } from "../src/registry/platforms";
-import { getWithholdingPresetPct } from "../src/registry/tax/withholdingPresets";
+import { getPlatformsByCountry, PLATFORMS } from "../src/registry/platforms";
+import { getRegionsByCountry } from "../src/registry/provinces/index";
+import {
+  Truck,
+  Briefcase,
+  Wrench,
+  MapPin,
+  Car,
+  Bike,
+  Zap,
+  Check,
+  MapPinned,
+  Navigation,
+} from "lucide-react-native";
 
-// Custom vector icons implemented as pure Views to avoid react-native-svg native dependency
-const CheckIcon = ({ color = "#10b981" }) => (
-  <View style={{ width: 12, height: 7, borderLeftWidth: 2, borderBottomWidth: 2, borderColor: color, transform: [{ rotate: "-45deg" }] }} />
-);
+type WorkType = "delivery" | "business" | "contractor" | "mileage";
 
-// Collapsible "Why we ask" component mirroring the legacy web HTML details/summary design
-function WhyWeAsk({ summary, body }: { summary: string; body: string }) {
-  const [isOpen, setIsOpen] = React.useState(false);
+// ─── Shared primitives ────────────────────────────────────────────────────────
+
+function StepHeading({ title, sub }: { title: string; sub?: string }) {
   return (
-    <View className="mb-4">
-      <TouchableOpacity 
-        onPress={() => setIsOpen(!isOpen)}
-        className="flex flex-row items-center py-2 px-3 bg-[#1c1b18] border border-[#3d3a35] rounded-lg"
-      >
-        <View style={{ 
-          width: 6, 
-          height: 6, 
-          borderRightWidth: 1.5, 
-          borderBottomWidth: 1.5, 
-          borderColor: "#b8b4ab", 
-          transform: [{ rotate: isOpen ? "45deg" : "-45deg" }],
-          marginRight: 8,
-          marginTop: isOpen ? -1 : 1
-        }} />
-        <Text className="text-xs font-semibold text-[#b8b4ab]">{summary}</Text>
-      </TouchableOpacity>
-      {isOpen && (
-        <View className="p-3 bg-[#12110f] border-x border-b border-[#3d3a35] rounded-b-lg -mt-1">
-          <Text className="text-xs text-[#b8b4ab] leading-relaxed">{body}</Text>
-        </View>
-      )}
+    <View style={{ gap: 6, marginBottom: 28 }}>
+      <Text style={s.heading}>{title}</Text>
+      {sub && <Text style={s.sub}>{sub}</Text>}
     </View>
   );
 }
 
-const EMOJI_AVATARS = ["🚗", "🛵", "🚲", "📦", "⭐", "🔥", "💼", "🤑"];
-
-const VEHICLE_TYPES = [
-  { id: "gas", label: "Gas vehicle" },
-  { id: "hybrid", label: "Hybrid" },
-  { id: "ev", label: "Electric" },
-  { id: "motorcycle", label: "Motorcycle" },
-  { id: "bicycle", label: "Bicycle" },
-  { id: "ebike", label: "E-bike" },
-  { id: "scooter", label: "Scooter" },
-  { id: "walking", label: "Walking" },
-];
-
-const SCHEDULE_PRESETS = [
-  { id: "flexible", label: "Flexible hours" },
-  { id: "weekdays", label: "Mostly weekdays" },
-  { id: "evenings", label: "Evenings" },
-  { id: "weekends", label: "Weekends" },
-];
-
-interface CountrySelectProps {
-  country: "US" | "CA" | "UK";
-  setCountry: (c: "US" | "CA" | "UK") => void;
-  setTaxRegion: (r: string) => void;
+function OptionTile({
+  selected,
+  onPress,
+  children,
+}: {
+  selected: boolean;
+  onPress: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[s.tile, selected && s.tileSelected]}
+    >
+      {children}
+      {selected && (
+        <View style={s.checkBadge}>
+          <Check size={10} color="#000" strokeWidth={3} />
+        </View>
+      )}
+    </Pressable>
+  );
 }
 
-export function CountrySelectStep({ country, setCountry, setTaxRegion }: CountrySelectProps) {
+function FieldLabel({ label }: { label: string }) {
   return (
-    <View className="flex flex-col gap-5">
-      <View className="gap-1.5">
-        <Text className="text-2xl font-bold text-[#f4f2ed]">Which country do you drive in?</Text>
-        <Text className="text-xs text-[#7a7670]">Currency and distance units follow your market.</Text>
-      </View>
+    <Text style={s.fieldLabel}>{label}</Text>
+  );
+}
 
-      <WhyWeAsk 
-        summary="Why we ask" 
-        body="Currency and mileage rules follow your country so numbers stay trustworthy." 
+function StyledInput({
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType,
+  prefix,
+  suffix,
+}: {
+  value: string;
+  onChangeText: (v: string) => void;
+  placeholder?: string;
+  keyboardType?: "default" | "numeric";
+  prefix?: string;
+  suffix?: string;
+}) {
+  return (
+    <View style={s.inputRow}>
+      {prefix && <Text style={s.inputAffix}>{prefix}</Text>}
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor="#7a7670"
+        keyboardType={keyboardType}
+        style={[s.input, { flex: 1 }]}
       />
+      {suffix && <Text style={s.inputAffix}>{suffix}</Text>}
+    </View>
+  );
+}
 
-      <View className="flex flex-row gap-2">
-        {(["CA", "US", "UK"] as const).map((cCode) => {
-          let flag = "🇨🇦";
-          let label = "Canada";
-          let sub = "CAD ($) • Metric (km)";
-          if (cCode === "US") {
-            flag = "🇺🇸";
-            label = "United States";
-            sub = "USD ($) • Imperial (mi)";
-          } else if (cCode === "UK") {
-            flag = "🇬🇧";
-            label = "United Kingdom";
-            sub = "GBP (£) • Imperial (mi)";
-          }
+// ─── Welcome screen ───────────────────────────────────────────────────────────
+
+export function WelcomeScreen({
+  onStart,
+  onDemo,
+}: {
+  onStart: () => void;
+  onDemo: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={{ flex: 1, backgroundColor: "#000000", paddingTop: insets.top, paddingBottom: insets.bottom }}>
+      <View style={{ flex: 1, justifyContent: "space-between", paddingHorizontal: 28, paddingVertical: 32 }}>
+
+        {/* Logo */}
+        <View style={{ alignItems: "center" }}>
+          <View style={{ width: 60, height: 60, borderRadius: 18, backgroundColor: "#ffffff", alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ fontSize: 30, fontWeight: "900", color: "#000000" }}>C</Text>
+          </View>
+          <Text style={{ fontSize: 10, fontWeight: "700", color: "#ffffff", letterSpacing: 2.5, textTransform: "uppercase", marginTop: 14 }}>
+            COMMA
+          </Text>
+        </View>
+
+        {/* Hero */}
+        <View style={{ alignItems: "center", gap: 14 }}>
+          <Text style={{ fontSize: 38, fontWeight: "800", color: "#f4f2ed", textAlign: "center", letterSpacing: -0.5, lineHeight: 46 }}>
+            Stop guessing{"\n"}what you made.
+          </Text>
+          <Text style={{ fontSize: 15, color: "#7a7670", textAlign: "center", lineHeight: 24, maxWidth: 260 }}>
+            Every dollar earned. Every mile driven. Every deduction tracked — all on your device.
+          </Text>
+        </View>
+
+        {/* CTAs */}
+        <View style={{ gap: 10 }}>
+          <Pressable
+            onPress={onStart}
+            style={{ backgroundColor: "#ffffff", borderRadius: 16, paddingVertical: 17, alignItems: "center" }}
+          >
+            <Text style={{ fontSize: 16, fontWeight: "800", color: "#000000", letterSpacing: 0.2 }}>
+              Get started
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={onDemo}
+            style={{ borderRadius: 16, paddingVertical: 14, alignItems: "center" }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: "600", color: "#7a7670" }}>
+              Try with demo data
+            </Text>
+          </Pressable>
+
+          <Text style={{ fontSize: 11, color: "#52525b", textAlign: "center", fontWeight: "600", letterSpacing: 0.3, marginTop: 4 }}>
+            No account required · No data leaves your device
+          </Text>
+        </View>
+
+      </View>
+    </View>
+  );
+}
+
+// ─── Step 0 — Persona ─────────────────────────────────────────────────────────
+
+const PERSONA_OPTIONS: {
+  value: WorkType;
+  label: string;
+  sub: string;
+  Icon: React.ComponentType<{ size: number; color: string; strokeWidth: number }>;
+}[] = [
+  { value: "delivery", label: "Delivery & Rideshare", sub: "DoorDash, Uber, Skip, Lyft", Icon: Truck },
+  { value: "business", label: "Business driving", sub: "Sales, real estate, consulting", Icon: Briefcase },
+  { value: "contractor", label: "Contracting", sub: "Trades, freelance, field work", Icon: Wrench },
+  { value: "mileage", label: "Mileage tracking only", sub: "Reimbursement or personal records", Icon: MapPin },
+];
+
+export function PersonaStep({
+  value,
+  onChange,
+}: {
+  value: WorkType;
+  onChange: (v: WorkType) => void;
+}) {
+  return (
+    <View style={{ flex: 1 }}>
+      <StepHeading
+        title="What kind of work do you do?"
+        sub="We'll build your dashboard around how you actually work."
+      />
+      <View style={{ gap: 10 }}>
+        {PERSONA_OPTIONS.map(({ value: v, label, sub, Icon }) => {
+          const selected = value === v;
           return (
-            <TouchableOpacity
-              key={cCode}
-              onPress={() => {
-                setCountry(cCode);
-                setTaxRegion(cCode === "CA" ? "ON" : cCode === "US" ? "NY" : "ENG");
-              }}
-              className={cn(
-                "flex-1 p-3.5 rounded-xl bg-[#1c1b18] border border-[#3d3a35] items-center justify-center gap-2",
-                country === cCode && "border-primary bg-primary/5"
-              )}
-            >
-              <Text className="text-2xl">{flag}</Text>
-              <Text className="font-bold text-[#f4f2ed] text-xs">
-                {label}
-              </Text>
-              <Text className="text-[8px] text-[#7a7670] font-mono text-center">
-                {sub}
-              </Text>
-            </TouchableOpacity>
+            <OptionTile key={v} selected={selected} onPress={() => onChange(v)}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 14, flex: 1 }}>
+                <View style={[s.iconBox, selected && s.iconBoxSelected]}>
+                  <Icon size={18} color={selected ? "#ffffff" : "#7a7670"} strokeWidth={2} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.tileTitle, selected && { color: "#f4f2ed" }]}>{label}</Text>
+                  <Text style={s.tileSub}>{sub}</Text>
+                </View>
+              </View>
+            </OptionTile>
           );
         })}
       </View>
@@ -130,126 +211,90 @@ export function CountrySelectStep({ country, setCountry, setTaxRegion }: Country
   );
 }
 
-interface RegionSelectProps {
-  country: "US" | "CA" | "UK";
-  taxRegion: string;
-  setTaxRegion: (r: string) => void;
-  useMileagePreset: boolean;
-  setUseMileagePreset: (v: boolean) => void;
-}
+// ─── Step 1 — Country ─────────────────────────────────────────────────────────
 
-export function RegionSelectStep({
-  country,
-  taxRegion,
-  setTaxRegion,
-  useMileagePreset,
-  setUseMileagePreset,
-}: RegionSelectProps) {
-  const regions = getRegionsByCountry(country);
-  const countryDef = getCountryDef(country);
-  const regionLabel = countryDef.tax.regionLabel;
-  const label = regionLabel === "province" ? "Province or territory" : regionLabel === "state" ? "State" : "Region";
+const COUNTRIES = [
+  { code: "CA" as const, flag: "🇨🇦", label: "Canada", sub: "CAD · km" },
+  { code: "US" as const, flag: "🇺🇸", label: "United States", sub: "USD · miles" },
+  { code: "UK" as const, flag: "🇬🇧", label: "United Kingdom", sub: "GBP · miles" },
+  { code: "NP" as const, flag: "🇳🇵", label: "Nepal", sub: "NPR · km" },
+];
 
+export function CountryStep({
+  value,
+  onChange,
+}: {
+  value: "US" | "CA" | "UK" | "NP";
+  onChange: (c: "US" | "CA" | "UK" | "NP") => void;
+}) {
   return (
-    <View className="flex flex-col gap-4">
-      <View className="gap-1.5">
-        <Text className="text-2xl font-bold text-[#f4f2ed]">{label}</Text>
-        <Text className="text-xs text-[#7a7670]">Tax presets and catalog data use this where your country is supported.</Text>
-      </View>
-
-      <WhyWeAsk 
-        summary="Why we ask" 
-        body="Currency and mileage rules follow your country so numbers stay trustworthy." 
+    <View style={{ flex: 1 }}>
+      <StepHeading
+        title="Where do you work?"
+        sub="Sets your currency, distance unit, and tax rules automatically."
       />
-
-      <ScrollView className="max-h-56 border border-[#3d3a35] rounded-xl bg-[#1c1b18]/50 p-2">
-        <View className="flex flex-col gap-1">
-          {regions.map((r) => (
-            <TouchableOpacity
-              key={r.id}
-              onPress={() => setTaxRegion(r.id)}
-              className={cn(
-                "p-3 rounded-lg flex flex-row justify-between items-center bg-transparent",
-                taxRegion === r.id && "bg-[#1c1b18] border border-[#3d3a35]"
-              )}
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+        {COUNTRIES.map(({ code, flag, label, sub }) => {
+          const selected = value === code;
+          return (
+            <Pressable
+              key={code}
+              onPress={() => onChange(code)}
+              style={[
+                s.countryTile,
+                selected && s.tileSelected,
+              ]}
             >
-              <Text className="text-[#f4f2ed] font-semibold text-sm">{r.label}</Text>
-              {taxRegion === r.id && <View className="w-4 h-4 items-center justify-center"><CheckIcon /></View>}
-            </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
-
-      <View className="p-3.5 bg-[#1c1b18] border border-[#3d3a35] rounded-xl flex flex-row justify-between items-center gap-3">
-        <View className="flex-1">
-          <Text className="font-bold text-[#f4f2ed] text-xs">
-            Apply {getMileagePresetLabel(country, taxRegion)} preset?
-          </Text>
-          <Text className="text-[10px] text-[#7a7670] mt-1 leading-relaxed">
-            Pre-configures default mileage rates for your gig platforms to {getMileagePresetRate(country, taxRegion)}/{countryDef.distanceUnit}.
-          </Text>
-        </View>
-        <Switch
-          value={useMileagePreset}
-          onValueChange={setUseMileagePreset}
-          trackColor={{ false: "#262522", true: "#10b981" }}
-          thumbColor="#f4f2ed"
-        />
+              <Text style={{ fontSize: 28 }}>{flag}</Text>
+              <Text style={[s.tileTitle, { textAlign: "center" }, selected && { color: "#f4f2ed" }]}>
+                {label}
+              </Text>
+              <Text style={[s.tileSub, { textAlign: "center" }]}>{sub}</Text>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
 }
 
-interface PlatformsProps {
-  country: "US" | "CA" | "UK";
-  selectedPlatforms: string[];
-  togglePlatform: (id: string) => void;
-}
+// ─── Step 2 — Region ─────────────────────────────────────────────────────────
 
-export function PlatformsStep({ country, selectedPlatforms, togglePlatform }: PlatformsProps) {
-  const countryDef = getCountryDef(country);
-  const platformOptions = getPlatformsByCountry(country);
+export function RegionStep({
+  country,
+  value,
+  onChange,
+}: {
+  country: "US" | "CA" | "UK" | "NP";
+  value: string;
+  onChange: (r: string) => void;
+}) {
+  const regions = getRegionsByCountry(country);
+  const label = country === "CA" ? "Province or territory" : country === "US" ? "State" : "Region";
 
   return (
-    <View className="flex flex-col gap-5">
-      <View className="gap-1.5">
-        <Text className="text-2xl font-bold text-[#f4f2ed]">Which platforms do you use?</Text>
-        <Text className="text-xs text-[#7a7670]">Select every gig or delivery app you earn through. You can change this anytime.</Text>
-      </View>
-
-      <View className="py-2.5 px-3.5 bg-[#161512] border border-[#2d2c29] rounded-xl">
-        <Text className="text-[10px] font-extrabold text-[#a1a1aa] uppercase tracking-wider">
-          Platforms available in your region ({countryDef.label})
-        </Text>
-      </View>
-
-      <WhyWeAsk 
-        summary="Why we ask" 
-        body="We use your choices to match labels, colors, and filters to the services you actually work with." 
+    <View style={{ flex: 1 }}>
+      <StepHeading
+        title={label}
+        sub="Used for regional tax presets and mileage rates."
       />
-
-      <ScrollView className="max-h-80 pr-1">
-        <View className="flex flex-col gap-2.5">
-          {platformOptions.map((p) => {
-            const isSelected = selectedPlatforms.includes(p.id);
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        <View style={{ gap: 6 }}>
+          {regions.map((r) => {
+            const selected = value === r.id;
             return (
-              <TouchableOpacity
-                key={p.id}
-                onPress={() => togglePlatform(p.id)}
-                className={cn(
-                  "p-4 rounded-xl bg-[#1c1b18] border border-[#3d3a35] flex flex-row items-center justify-between",
-                  isSelected && "border-primary bg-primary/5"
-                )}
+              <Pressable
+                key={r.id}
+                onPress={() => onChange(r.id)}
+                style={[
+                  { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 14, borderRadius: 12, backgroundColor: selected ? "rgba(255,255,255,0.05)" : "#0d0d0d", borderWidth: 1, borderColor: selected ? "#ffffff" : "#1f1f1f" },
+                ]}
               >
-                <View className="flex flex-row items-center gap-3">
-                  <View
-                    className="w-3.5 h-3.5 rounded-full"
-                    style={{ backgroundColor: p.color }}
-                  />
-                  <Text className="font-bold text-[#f4f2ed]">{p.label}</Text>
-                </View>
-                {isSelected && <View className="w-4 h-4 items-center justify-center"><CheckIcon /></View>}
-              </TouchableOpacity>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: selected ? "#f4f2ed" : "#c8c4bb" }}>
+                  {r.label}
+                </Text>
+                {selected && <Check size={14} color="#ffffff" strokeWidth={2.5} />}
+              </Pressable>
             );
           })}
         </View>
@@ -258,661 +303,574 @@ export function PlatformsStep({ country, selectedPlatforms, togglePlatform }: Pl
   );
 }
 
+// ─── Step 3 — Branch ─────────────────────────────────────────────────────────
 
+const BUSINESS_TYPES = ["Real estate", "Sales", "Consulting", "Field service", "Other"];
+const CLIENT_TYPES = [
+  { id: "one", label: "One main client" },
+  { id: "multiple", label: "Multiple clients" },
+  { id: "own", label: "My own business" },
+];
 
-interface DriverProfileProps {
-  displayName: string;
-  setDisplayName: (n: string) => void;
-  avatarType: "emoji" | "initials" | "custom";
-  setAvatarType: (t: "emoji" | "initials" | "custom") => void;
-  avatarData: string;
-  setAvatarData: (a: string) => void;
-}
-
-export function DriverProfileStep({ 
-  displayName, 
-  setDisplayName, 
-  avatarType, 
-  setAvatarType, 
-  avatarData, 
-  setAvatarData 
-}: DriverProfileProps) {
-  // Generate initials from the entered display name
-  const getInitials = (name: string) => {
-    if (!name.trim()) return "D";
-    const parts = name.trim().split(/\s+/);
-    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  };
-
-  return (
-    <View className="flex flex-col gap-5">
-      <View className="gap-1.5">
-        <Text className="text-2xl font-bold text-[#f4f2ed]">How should we greet you?</Text>
-        <Text className="text-xs text-[#7a7670]">This name appears on your dashboard and exports.</Text>
-      </View>
-
-      <WhyWeAsk 
-        summary="Why we ask" 
-        body="Exports and summaries read better with your name and a recognizable avatar." 
-      />
-
-      <View className="flex flex-col gap-4">
-        <View className="flex flex-col gap-1.5">
-          <Text className="text-[#b8b4ab] text-xs font-bold uppercase tracking-wide">Your name</Text>
-          <TextInput
-            value={displayName}
-            onChangeText={setDisplayName}
-            placeholder="e.g. Alex"
-            placeholderTextColor="#7a7670"
-            className="bg-[#1c1b18] border border-[#3d3a35] rounded-lg p-3 text-[#f4f2ed] font-semibold"
-          />
-        </View>
-
-        <View className="flex flex-col gap-3">
-          <Text className="text-[#b8b4ab] text-xs font-bold uppercase tracking-wide">Avatar Style</Text>
-          
-          <View className="flex flex-row gap-2.5">
-            <TouchableOpacity
-              onPress={() => {
-                setAvatarType("emoji");
-                setAvatarData("🚗");
-              }}
-              className={cn(
-                "flex-1 p-2.5 rounded-lg border border-[#3d3a35] bg-[#1c1b18] items-center justify-center",
-                avatarType === "emoji" && "border-primary bg-primary/5"
-              )}
-            >
-              <Text className="text-xs font-bold text-[#f4f2ed]">Use Emoji</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => {
-                setAvatarType("initials");
-                setAvatarData(getInitials(displayName));
-              }}
-              className={cn(
-                "flex-1 p-2.5 rounded-lg border border-[#3d3a35] bg-[#1c1b18] items-center justify-center",
-                avatarType === "initials" && "border-primary bg-primary/5"
-              )}
-            >
-              <Text className="text-xs font-bold text-[#f4f2ed]">Use Initials</Text>
-            </TouchableOpacity>
-          </View>
-
-          {avatarType === "emoji" && (
-            <View className="flex flex-row flex-wrap gap-2 pt-1.5">
-              {EMOJI_AVATARS.map((emoji) => (
-                <TouchableOpacity
-                  key={emoji}
-                  onPress={() => setAvatarData(emoji)}
-                  className={cn(
-                    "w-10 h-10 rounded-full items-center justify-center bg-[#1c1b18] border border-[#3d3a35]",
-                    avatarData === emoji && "border-primary bg-primary/10"
-                  )}
-                >
-                  <Text className="text-lg">{emoji}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          {avatarType === "initials" && (
-            <View className="items-center py-4 bg-[#1c1b18] border border-[#3d3a35] rounded-xl mt-1">
-              <View className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 items-center justify-center">
-                <Text className="text-2xl font-bold text-primary">
-                  {getInitials(displayName)}
-                </Text>
-              </View>
-              <Text className="text-xs text-[#7a7670] mt-2 font-semibold">Avatar representation based on name initials</Text>
-            </View>
-          )}
-        </View>
-      </View>
-    </View>
-  );
-}
-
-interface VehicleSetupProps {
-  vehicleNickname: string;
-  setVehicleNickname: (n: string) => void;
-  vehicleType: string;
-  setVehicleType: (t: string) => void;
-  vehicleMake: string;
-  setVehicleMake: (m: string) => void;
-  vehicleModel: string;
-  setVehicleModel: (m: string) => void;
-  vehicleYear: string;
-  setVehicleYear: (y: string) => void;
-
-  addSecondVehicle: boolean;
-  setAddSecondVehicle: (v: boolean) => void;
-  vehicle2Nickname: string;
-  setVehicle2Nickname: (n: string) => void;
-  vehicle2Type: string;
-  setVehicle2Type: (t: string) => void;
-  vehicle2Make: string;
-  setVehicle2Make: (m: string) => void;
-  vehicle2Model: string;
-  setVehicle2Model: (m: string) => void;
-  vehicle2Year: string;
-  setVehicle2Year: (y: string) => void;
-}
-
-export function VehicleSetupStep({
-  vehicleNickname,
-  setVehicleNickname,
-  vehicleType,
-  setVehicleType,
-  vehicleMake,
-  setVehicleMake,
-  vehicleModel,
-  setVehicleModel,
-  vehicleYear,
-  setVehicleYear,
-
-  addSecondVehicle,
-  setAddSecondVehicle,
-  vehicle2Nickname,
-  setVehicle2Nickname,
-  vehicle2Type,
-  setVehicle2Type,
-  vehicle2Make,
-  setVehicle2Make,
-  vehicle2Model,
-  setVehicle2Model,
-  vehicle2Year,
-  setVehicle2Year,
-}: VehicleSetupProps) {
-  return (
-    <ScrollView className="max-h-96 pr-1">
-      <View className="flex flex-col gap-4">
-        <View className="gap-1.5">
-          <Text className="text-2xl font-bold text-[#f4f2ed]">Primary vehicle</Text>
-          <Text className="text-xs text-[#7a7670]">Fuel or EV details unlock smarter cost estimates later.</Text>
-        </View>
-
-        <WhyWeAsk 
-          summary="Why we ask" 
-          body="Vehicle type unlocks the right cost fields when we estimate per-shift expenses." 
+export function BranchStep({
+  workType,
+  country,
+  selectedPlatforms,
+  togglePlatform,
+  businessType,
+  setBusinessType,
+  clientType,
+  setClientType,
+}: {
+  workType: WorkType;
+  country: string;
+  selectedPlatforms: string[];
+  togglePlatform: (id: string) => void;
+  businessType: string;
+  setBusinessType: (v: string) => void;
+  clientType: string;
+  setClientType: (v: string) => void;
+}) {
+  if (workType === "delivery") {
+    const platforms = getPlatformsByCountry(country);
+    return (
+      <View style={{ flex: 1 }}>
+        <StepHeading
+          title="Which platforms do you use?"
+          sub="Select all that apply. You can change this anytime."
         />
-
-        {/* Primary Vehicle Form */}
-        <View className="flex flex-col gap-3.5 bg-[#12110f]/40 p-3 rounded-xl border border-[#3d3a35]/40">
-          <View className="flex flex-col gap-1.5">
-            <Text className="text-[#b8b4ab] text-xs font-bold uppercase tracking-wide">Vehicle Nickname</Text>
-            <TextInput
-              value={vehicleNickname}
-              onChangeText={setVehicleNickname}
-              placeholder="e.g. My Prius, E-Bike"
-              placeholderTextColor="#7a7670"
-              className="bg-[#1c1b18] border border-[#3d3a35] rounded-lg p-3 text-[#f4f2ed] font-semibold"
-            />
-          </View>
-
-          <View className="flex flex-col gap-1.5">
-            <Text className="text-[#b8b4ab] text-xs font-bold uppercase tracking-wide">Vehicle Type</Text>
-            <View className="flex flex-row flex-wrap gap-1.5">
-              {VEHICLE_TYPES.map((v) => (
-                <TouchableOpacity
-                  key={v.id}
-                  onPress={() => setVehicleType(v.id)}
-                  className={cn(
-                    "px-3 py-2 rounded-lg bg-[#1c1b18] border border-[#3d3a35]",
-                    vehicleType === v.id && "border-primary bg-primary/10"
-                  )}
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={{ gap: 8 }}>
+            {platforms.map((p) => {
+              const selected = selectedPlatforms.includes(p.id);
+              return (
+                <Pressable
+                  key={p.id}
+                  onPress={() => togglePlatform(p.id)}
+                  style={[s.tile, selected && s.tileSelected]}
                 >
-                  <Text
-                    className={cn(
-                      "text-[11px] font-semibold",
-                      vehicleType === v.id ? "text-primary" : "text-[#b8b4ab]"
-                    )}
-                  >
-                    {v.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
+                    <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: p.color }} />
+                    <Text style={[s.tileTitle, selected && { color: "#f4f2ed" }]}>{p.label}</Text>
+                  </View>
+                  {selected && <Check size={14} color="#ffffff" strokeWidth={2.5} />}
+                </Pressable>
+              );
+            })}
           </View>
+        </ScrollView>
+      </View>
+    );
+  }
 
-          <View className="flex flex-row gap-3">
-            <View className="flex-1 flex flex-col gap-1.5">
-              <Text className="text-[#b8b4ab] text-xs font-bold uppercase tracking-wide">Make</Text>
-              <TextInput
-                value={vehicleMake}
-                onChangeText={setVehicleMake}
-                placeholder="Toyota"
-                placeholderTextColor="#7a7670"
-                className="bg-[#1c1b18] border border-[#3d3a35] rounded-lg p-3 text-[#f4f2ed] font-semibold"
-              />
-            </View>
-            <View className="flex-1 flex flex-col gap-1.5">
-              <Text className="text-[#b8b4ab] text-xs font-bold uppercase tracking-wide">Model</Text>
-              <TextInput
-                value={vehicleModel}
-                onChangeText={setVehicleModel}
-                placeholder="Prius"
-                placeholderTextColor="#7a7670"
-                className="bg-[#1c1b18] border border-[#3d3a35] rounded-lg p-3 text-[#f4f2ed] font-semibold"
-              />
-            </View>
-          </View>
-
-          <View className="flex flex-col gap-1.5">
-            <Text className="text-[#b8b4ab] text-xs font-bold uppercase tracking-wide">Year</Text>
-            <TextInput
-              value={vehicleYear}
-              onChangeText={setVehicleYear}
-              keyboardType="numeric"
-              placeholder="2020"
-              placeholderTextColor="#7a7670"
-              className="bg-[#1c1b18] border border-[#3d3a35] rounded-lg p-3 text-[#f4f2ed] font-semibold"
-            />
-          </View>
+  if (workType === "business") {
+    return (
+      <View style={{ flex: 1 }}>
+        <StepHeading
+          title="What's your primary business type?"
+          sub="Helps us label your trips correctly."
+        />
+        <View style={{ gap: 8 }}>
+          {BUSINESS_TYPES.map((bt) => {
+            const selected = businessType === bt;
+            return (
+              <Pressable
+                key={bt}
+                onPress={() => setBusinessType(bt)}
+                style={[s.tile, selected && s.tileSelected]}
+              >
+                <Text style={[s.tileTitle, selected && { color: "#f4f2ed" }]}>{bt}</Text>
+                {selected && <Check size={14} color="#ffffff" strokeWidth={2.5} />}
+              </Pressable>
+            );
+          })}
         </View>
+      </View>
+    );
+  }
 
-        {/* Second Vehicle Toggle */}
-        <View className="flex flex-row justify-between items-center p-3 bg-[#1c1b18] border border-[#3d3a35] rounded-xl mt-1">
-          <View className="flex-1 pr-3">
-            <Text className="font-bold text-[#f4f2ed] text-sm">Add a second vehicle</Text>
-            <Text className="text-[10px] text-[#7a7670] mt-0.5">Useful if you switch between car and bike.</Text>
-          </View>
-          <Switch
-            value={addSecondVehicle}
-            onValueChange={setAddSecondVehicle}
-            trackColor={{ false: "#262522", true: "#10b981" }}
-            thumbColor="#f4f2ed"
+  if (workType === "contractor") {
+    return (
+      <View style={{ flex: 1 }}>
+        <StepHeading
+          title="How do you work?"
+          sub="We'll set up your client and job tracking accordingly."
+        />
+        <View style={{ gap: 8 }}>
+          {CLIENT_TYPES.map((ct) => {
+            const selected = clientType === ct.id;
+            return (
+              <Pressable
+                key={ct.id}
+                onPress={() => setClientType(ct.id)}
+                style={[s.tile, selected && s.tileSelected]}
+              >
+                <Text style={[s.tileTitle, selected && { color: "#f4f2ed" }]}>{ct.label}</Text>
+                {selected && <Check size={14} color="#ffffff" strokeWidth={2.5} />}
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    );
+  }
+
+  return null;
+}
+
+// ─── Step 4 — Vehicle ─────────────────────────────────────────────────────────
+
+const VEHICLE_TYPES = [
+  { id: "gas", label: "Gas", Icon: Car },
+  { id: "hybrid", label: "Hybrid", Icon: Car },
+  { id: "ev", label: "Electric", Icon: Zap },
+  { id: "scooter", label: "Scooter", Icon: Car },
+  { id: "ebike", label: "E-bike", Icon: Bike },
+  { id: "bicycle", label: "Bicycle", Icon: Bike },
+];
+
+export function VehicleStep({
+  nickname, setNickname,
+  type, setType,
+  make, setMake,
+  model, setModel,
+  year, setYear,
+}: {
+  nickname: string; setNickname: (v: string) => void;
+  type: string; setType: (v: string) => void;
+  make: string; setMake: (v: string) => void;
+  model: string; setModel: (v: string) => void;
+  year: string; setYear: (v: string) => void;
+}) {
+  return (
+    <ScrollView showsVerticalScrollIndicator={false}>
+      <StepHeading
+        title="Your vehicle"
+        sub="Used to calculate fuel costs and maintenance over time."
+      />
+      <View style={{ gap: 20 }}>
+        <View style={{ gap: 8 }}>
+          <FieldLabel label="Nickname" />
+          <StyledInput
+            value={nickname}
+            onChangeText={setNickname}
+            placeholder="e.g. My Prius, E-Bike"
           />
         </View>
 
-        {/* Second Vehicle Form */}
-        {addSecondVehicle && (
-          <View className="flex flex-col gap-3.5 bg-[#12110f]/40 p-3 rounded-xl border border-[#3d3a35]/40 mt-1">
-            <Text className="text-sm font-bold text-primary">Secondary vehicle details</Text>
-            
-            <View className="flex flex-col gap-1.5">
-              <Text className="text-[#b8b4ab] text-xs font-bold uppercase tracking-wide">Vehicle Nickname</Text>
-              <TextInput
-                value={vehicle2Nickname}
-                onChangeText={setVehicle2Nickname}
-                placeholder="e.g. My E-Bike"
-                placeholderTextColor="#7a7670"
-                className="bg-[#1c1b18] border border-[#3d3a35] rounded-lg p-3 text-[#f4f2ed] font-semibold"
-              />
-            </View>
-
-            <View className="flex flex-col gap-1.5">
-              <Text className="text-[#b8b4ab] text-xs font-bold uppercase tracking-wide">Vehicle Type</Text>
-              <View className="flex flex-row flex-wrap gap-1.5">
-                {VEHICLE_TYPES.map((v) => (
-                  <TouchableOpacity
-                    key={`v2-${v.id}`}
-                    onPress={() => setVehicle2Type(v.id)}
-                    className={cn(
-                      "px-3 py-2 rounded-lg bg-[#1c1b18] border border-[#3d3a35]",
-                      vehicle2Type === v.id && "border-primary bg-primary/10"
-                    )}
-                  >
-                    <Text
-                      className={cn(
-                        "text-[11px] font-semibold",
-                        vehicle2Type === v.id ? "text-primary" : "text-[#b8b4ab]"
-                      )}
-                    >
-                      {v.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View className="flex flex-row gap-3">
-              <View className="flex-1 flex flex-col gap-1.5">
-                <Text className="text-[#b8b4ab] text-xs font-bold uppercase tracking-wide">Make</Text>
-                <TextInput
-                  value={vehicle2Make}
-                  onChangeText={setVehicle2Make}
-                  placeholder="Specialized"
-                  placeholderTextColor="#7a7670"
-                  className="bg-[#1c1b18] border border-[#3d3a35] rounded-lg p-3 text-[#f4f2ed] font-semibold"
-                />
-              </View>
-              <View className="flex-1 flex flex-col gap-1.5">
-                <Text className="text-[#b8b4ab] text-xs font-bold uppercase tracking-wide">Model</Text>
-                <TextInput
-                  value={vehicle2Model}
-                  onChangeText={setVehicle2Model}
-                  placeholder="Turbo Vado"
-                  placeholderTextColor="#7a7670"
-                  className="bg-[#1c1b18] border border-[#3d3a35] rounded-lg p-3 text-[#f4f2ed] font-semibold"
-                />
-              </View>
-            </View>
-
-            <View className="flex flex-col gap-1.5">
-              <Text className="text-[#b8b4ab] text-xs font-bold uppercase tracking-wide">Year</Text>
-              <TextInput
-                value={vehicle2Year}
-                onChangeText={setVehicle2Year}
-                keyboardType="numeric"
-                placeholder="2022"
-                placeholderTextColor="#7a7670"
-                className="bg-[#1c1b18] border border-[#3d3a35] rounded-lg p-3 text-[#f4f2ed] font-semibold"
-              />
-            </View>
+        <View style={{ gap: 8 }}>
+          <FieldLabel label="Type" />
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {VEHICLE_TYPES.map(({ id, label, Icon }) => {
+              const selected = type === id;
+              return (
+                <Pressable
+                  key={id}
+                  onPress={() => setType(id)}
+                  style={[s.chip, selected && s.chipSelected]}
+                >
+                  <Icon size={14} color={selected ? "#ffffff" : "#7a7670"} strokeWidth={2} />
+                  <Text style={[s.chipText, selected && { color: "#ffffff" }]}>{label}</Text>
+                </Pressable>
+              );
+            })}
           </View>
-        )}
+        </View>
+
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <View style={{ flex: 1, gap: 8 }}>
+            <FieldLabel label="Make" />
+            <StyledInput value={make} onChangeText={setMake} placeholder="Toyota" />
+          </View>
+          <View style={{ flex: 1, gap: 8 }}>
+            <FieldLabel label="Model" />
+            <StyledInput value={model} onChangeText={setModel} placeholder="Prius" />
+          </View>
+        </View>
+
+        <View style={{ gap: 8 }}>
+          <FieldLabel label="Year (optional)" />
+          <StyledInput value={year} onChangeText={setYear} placeholder="2020" keyboardType="numeric" />
+        </View>
       </View>
     </ScrollView>
   );
 }
 
-interface ScheduleProps {
-  workSchedulePreset: "flexible" | "weekdays" | "evenings" | "weekends";
-  setWorkSchedulePreset: (p: "flexible" | "weekdays" | "evenings" | "weekends") => void;
-}
+// ─── Step 5 — Goal ────────────────────────────────────────────────────────────
 
-export function ScheduleStep({ workSchedulePreset, setWorkSchedulePreset }: ScheduleProps) {
+export function GoalStep({
+  value,
+  onChange,
+  country,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  country: string;
+}) {
+  const num = Number(value) || 0;
+  const currencySymbol = country === "UK" ? "£" : country === "NP" ? "₨" : "$";
+  const pct = Math.min((num / 1000) * 100, 100);
+
   return (
-    <View className="flex flex-col gap-5">
-      <View className="gap-1.5">
-        <Text className="text-2xl font-bold text-[#f4f2ed]">Typical schedule</Text>
-        <Text className="text-xs text-[#7a7670]">Helps with reminders and planning views.</Text>
-      </View>
-
-      <WhyWeAsk 
-        summary="Why we ask" 
-        body="We schedule gentle reminders around the times you actually drive." 
+    <View style={{ flex: 1 }}>
+      <StepHeading
+        title="What would a great week look like?"
+        sub="Sets your weekly earnings target. You can change this anytime."
       />
+      <View style={{ gap: 24 }}>
+        <StyledInput
+          value={value}
+          onChangeText={onChange}
+          keyboardType="numeric"
+          prefix={currencySymbol}
+          suffix="/ week"
+          placeholder="500"
+        />
 
-      <View className="flex flex-col gap-3">
-        {SCHEDULE_PRESETS.map((p) => (
-          <TouchableOpacity
-            key={p.id}
-            onPress={() => setWorkSchedulePreset(p.id as any)}
-            className={cn(
-              "p-4 rounded-xl bg-[#1c1b18] border border-[#3d3a35] flex flex-row justify-between items-center",
-              workSchedulePreset === p.id && "border-primary bg-primary/5"
-            )}
-          >
-            <Text className="font-bold text-[#f4f2ed]">{p.label}</Text>
-            {workSchedulePreset === p.id && <View className="w-4 h-4 items-center justify-center"><CheckIcon /></View>}
-          </TouchableOpacity>
-        ))}
+        {/* Visual bar */}
+        <View style={{ gap: 8 }}>
+          <View style={{ height: 6, backgroundColor: "#262522", borderRadius: 3, overflow: "hidden" }}>
+            <View style={{ height: 6, backgroundColor: "#ffffff", borderRadius: 3, width: `${pct}%` }} />
+          </View>
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <Text style={{ fontSize: 10, color: "#52525b", fontWeight: "600" }}>{currencySymbol}0</Text>
+            <Text style={{ fontSize: 10, color: "#52525b", fontWeight: "600" }}>{currencySymbol}1,000</Text>
+          </View>
+        </View>
+
+        {num > 0 && (
+          <View style={{ backgroundColor: "#0d0d0d", borderWidth: 1, borderColor: "#1f1f1f", borderRadius: 14, padding: 16, gap: 4 }}>
+            <Text style={{ fontSize: 10, fontWeight: "700", color: "#7a7670", textTransform: "uppercase", letterSpacing: 1 }}>
+              That works out to
+            </Text>
+            <Text style={{ fontSize: 20, fontWeight: "800", color: "#f4f2ed" }}>
+              {currencySymbol}{Math.round(num * 4.33).toLocaleString()} / month
+            </Text>
+            <Text style={{ fontSize: 13, color: "#7a7670" }}>
+              {currencySymbol}{(num * 52).toLocaleString()} / year
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );
 }
 
-interface WeeklyGoalProps {
-  weeklyGoal: string;
-  handleWeeklyGoalChange: (val: string) => void;
-}
+// ─── Step 6 — Name ────────────────────────────────────────────────────────────
 
-export function WeeklyGoalStep({ weeklyGoal, handleWeeklyGoalChange }: WeeklyGoalProps) {
-  const wNum = Number(weeklyGoal) || 0;
-  let motivation = "Every journey starts with a single shift logged.";
-  if (wNum >= 800) motivation = "Strong target — we will cheer you on every week. 🏎️";
-  else if (wNum >= 400) motivation = "Solid goal — great balance of stretch and realism.";
-  else if (wNum >= 200) motivation = "Gentle ramp — you can raise it anytime in Goals.";
-
+export function NameStep({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
   return (
-    <View className="flex flex-col gap-5">
-      <View className="gap-1.5">
-        <Text className="text-2xl font-bold text-[#f4f2ed]">Weekly earnings goal</Text>
-        <Text className="text-xs text-[#7a7670]">We use this for the goal ring and weekly nudges.</Text>
-      </View>
-
-      <WhyWeAsk 
-        summary="Why we ask" 
-        body="A visible target keeps earnings momentum without judgment." 
+    <View style={{ flex: 1 }}>
+      <StepHeading
+        title="What should we call you?"
+        sub="Appears on your dashboard and in exported reports."
       />
-
-      <View className="flex flex-col gap-4">
-        <View className="flex flex-row items-center bg-[#1c1b18] border border-[#3d3a35] rounded-lg p-1.5">
-          <Text className="text-[#b8b4ab] font-bold text-lg px-3">$</Text>
-          <TextInput
-            value={weeklyGoal}
-            onChangeText={handleWeeklyGoalChange}
-            keyboardType="numeric"
-            placeholder="500"
-            placeholderTextColor="#7a7670"
-            className="flex-1 text-[#f4f2ed] font-bold text-xl py-2"
-          />
-          <Text className="text-[#7a7670] text-xs font-semibold pr-3">/ WEEK</Text>
-        </View>
-        <Text className="text-primary font-bold text-sm text-center italic px-4">
-          "{motivation}"
-        </Text>
-      </View>
+      <StyledInput
+        value={value}
+        onChangeText={onChange}
+        placeholder="Your first name"
+      />
     </View>
   );
 }
 
-interface LongTermGoalsProps {
-  monthlyGoal: string;
-  setMonthlyGoal: (val: string) => void;
-  annualGoal: string;
-  setAnnualGoal: (val: string) => void;
-}
+// ─── Step 7 — GPS permission ──────────────────────────────────────────────────
 
-export function LongTermGoalsStep({ monthlyGoal, setMonthlyGoal, annualGoal, setAnnualGoal }: LongTermGoalsProps) {
-  return (
-    <View className="flex flex-col gap-5">
-      <View className="gap-1.5">
-        <Text className="text-2xl font-bold text-[#f4f2ed]">Monthly and annual targets</Text>
-        <Text className="text-xs text-[#7a7670]">Prefilled from your weekly goal — adjust freely.</Text>
-      </View>
+export function GPSStep({ onNext }: { onNext: () => void }) {
+  const [requested, setRequested] = useState(false);
 
-      <WhyWeAsk 
-        summary="Why we ask" 
-        body="Longer horizons smooth out slow weeks and busy seasons." 
-      />
-
-      <View className="flex flex-col gap-4">
-        <View className="flex flex-col gap-1.5">
-          <Text className="text-[#b8b4ab] text-xs font-bold uppercase tracking-wide">Monthly target</Text>
-          <TextInput
-            value={monthlyGoal}
-            onChangeText={setMonthlyGoal}
-            keyboardType="numeric"
-            className="bg-[#1c1b18] border border-[#3d3a35] rounded-lg p-3 text-[#f4f2ed] font-bold"
-          />
-        </View>
-
-        <View className="flex flex-col gap-1.5">
-          <Text className="text-[#b8b4ab] text-xs font-bold uppercase tracking-wide">Annual target</Text>
-          <TextInput
-            value={annualGoal}
-            onChangeText={setAnnualGoal}
-            keyboardType="numeric"
-            className="bg-[#1c1b18] border border-[#3d3a35] rounded-lg p-3 text-[#f4f2ed] font-bold"
-          />
-        </View>
-      </View>
-    </View>
-  );
-}
-
-interface TaxWithholdingProps {
-  country: "US" | "CA" | "UK";
-  taxRegion: string;
-  taxWithholdingPct: string;
-  setTaxWithholdingPct: (val: string) => void;
-}
-
-export function TaxWithholdingStep({ country, taxRegion, taxWithholdingPct, setTaxWithholdingPct }: TaxWithholdingProps) {
-  const handleApplyPreset = () => {
-    const countryDef = getCountryDef(country);
-    const rate = getWithholdingPresetPct(countryDef.tax.regionPresetType, taxRegion) ?? countryDef.tax.defaultWithholdingPct;
-    setTaxWithholdingPct(rate.toString());
+  const handleRequest = async () => {
+    try {
+      const Location = await import("expo-location");
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === "granted") {
+        await Location.requestBackgroundPermissionsAsync();
+      }
+    } catch {
+      // simulator or web — silently continue
+    }
+    setRequested(true);
+    onNext();
   };
 
-  const countryName = country === "CA" ? "Canada" : country === "US" ? "USA" : "UK";
-
   return (
-    <View className="flex flex-col gap-5">
-      <View className="gap-1.5">
-        <Text className="text-2xl font-bold text-[#f4f2ed]">Tax set-aside</Text>
-        <Text className="text-xs text-[#7a7670]">Rough percentage to set aside from gross for taxes.</Text>
-      </View>
-
-      <WhyWeAsk 
-        summary="Why we ask" 
-        body="This is guidance only — not tax advice. It powers set-aside reminders." 
-      />
-
-      <View className="flex flex-col gap-4">
-        <View className="flex flex-row justify-between items-center p-3 bg-[#1c1b18]/60 border border-[#3d3a35]/60 rounded-xl">
-          <View>
-            <Text className="text-[10px] text-[#7a7670] uppercase font-bold tracking-wide">Current Region</Text>
-            <Text className="text-sm font-bold text-[#f4f2ed] mt-0.5">{taxRegion} ({countryName})</Text>
-          </View>
-          <Button
-            variant="outline"
-            size="sm"
-            onPress={handleApplyPreset}
-            className="border-[#3d3a35] bg-[#1c1b18] py-2 px-3 rounded-lg"
-          >
-            <Text className="text-[10px] font-bold text-primary uppercase">Apply region preset</Text>
-          </Button>
+    <View style={{ flex: 1, justifyContent: "space-between" }}>
+      <View>
+        <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.20)", alignItems: "center", justifyContent: "center", marginBottom: 28 }}>
+          <Navigation size={28} color="#ffffff" strokeWidth={1.5} />
         </View>
-
-        <View className="flex flex-row items-center bg-[#1c1b18] border border-[#3d3a35] rounded-lg p-1.5">
-          <TextInput
-            value={taxWithholdingPct}
-            onChangeText={setTaxWithholdingPct}
-            keyboardType="numeric"
-            className="flex-1 text-[#f4f2ed] font-bold text-xl py-2 px-3 text-right"
-          />
-          <Text className="text-[#b8b4ab] font-bold text-lg px-3">%</Text>
-        </View>
-
-        <View className="flex flex-row justify-between pt-1">
-          {["15", "20", "25", "30"].map((rate) => (
-            <TouchableOpacity
-              key={rate}
-              onPress={() => setTaxWithholdingPct(rate)}
-              className={cn(
-                "px-4 py-2 rounded-lg bg-[#1c1b18] border border-[#3d3a35]",
-                taxWithholdingPct === rate && "border-primary bg-primary/10"
-              )}
-            >
-              <Text className="text-xs font-bold text-[#b8b4ab]">{rate}%</Text>
-            </TouchableOpacity>
+        <StepHeading
+          title="Automatic mileage tracking"
+          sub="Comma tracks your mileage in the background while you drive — so you never have to log it manually."
+        />
+        <View style={{ gap: 12 }}>
+          {[
+            "Mileage logged automatically during active shifts",
+            "Separates active delivery miles from dead miles",
+            "All location data stays 100% on your device",
+          ].map((point) => (
+            <View key={point} style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+              <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center", marginTop: 1 }}>
+                <Check size={10} color="#ffffff" strokeWidth={3} />
+              </View>
+              <Text style={{ fontSize: 14, color: "#c8c4bb", flex: 1, lineHeight: 20 }}>{point}</Text>
+            </View>
           ))}
         </View>
       </View>
-    </View>
-  );
-}
 
-interface SalesTaxProps {
-  country: "US" | "CA" | "UK";
-  hstRegistered: boolean;
-  setHstRegistered: (v: boolean) => void;
-  setStep: (s: number | ((prev: number) => number)) => void;
-}
-
-export function SalesTaxStep({ country, hstRegistered, setHstRegistered, setStep }: SalesTaxProps) {
-  const countryDef = getCountryDef(country);
-  if (!countryDef.tax.hstOnboarding) {
-    setTimeout(() => setStep(10), 50);
-    return <ActivityIndicator size="small" />;
-  }
-  return (
-    <View className="flex flex-col gap-5">
-      <View className="gap-1.5">
-        <Text className="text-2xl font-bold text-[#f4f2ed]">GST / HST registration</Text>
-        <Text className="text-xs text-[#7a7670]">Canada only — affects HST worksheets later.</Text>
-      </View>
-
-      <WhyWeAsk 
-        summary="Why we ask" 
-        body="Registered collectors have different worksheets than drivers who only earn T4-style income." 
-      />
-
-      <View className="p-4 rounded-xl bg-[#1c1b18] border border-[#3d3a35] flex flex-row items-center justify-between">
-        <View className="flex-1 pr-3">
-          <Text className="font-bold text-[#f4f2ed] text-sm">I collect or remit GST / HST</Text>
-          <Text className="text-xs text-[#7a7670] mt-1 font-semibold">Standard tax reporting rules will apply for your shifts.</Text>
-        </View>
-        <Switch
-          value={hstRegistered}
-          onValueChange={setHstRegistered}
-          trackColor={{ false: "#262522", true: "#10b981" }}
-          thumbColor="#f4f2ed"
-        />
+      <View style={{ gap: 10 }}>
+        <Pressable
+          onPress={handleRequest}
+          style={{ backgroundColor: "#ffffff", borderRadius: 16, paddingVertical: 17, alignItems: "center" }}
+        >
+          <Text style={{ fontSize: 16, fontWeight: "800", color: "#000000" }}>
+            Enable GPS tracking
+          </Text>
+        </Pressable>
+        <Pressable onPress={onNext} style={{ paddingVertical: 14, alignItems: "center" }}>
+          <Text style={{ fontSize: 13, fontWeight: "600", color: "#7a7670" }}>
+            Skip — I'll enter mileage manually
+          </Text>
+        </Pressable>
       </View>
     </View>
   );
 }
 
-interface CompletionProps {
+// ─── Reveal screen ────────────────────────────────────────────────────────────
+
+export function RevealStep({
+  displayName,
+  workType,
+  selectedPlatforms,
+  businessType,
+  country,
+  weeklyGoal,
+  onEnter,
+}: {
   displayName: string;
-  handleComplete: () => void;
-  handleDemoMode: () => void;
-  handleExportSetup: () => void;
-  handleConnectDrive: () => void;
-}
+  workType: WorkType;
+  selectedPlatforms: string[];
+  businessType: string;
+  country: string;
+  weeklyGoal: string;
+  onEnter: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const currencySymbol = country === "UK" ? "£" : country === "NP" ? "₨" : "$";
+  const distanceUnit = country === "US" || country === "UK" ? "miles" : "km";
 
-export function CompletionStep({ 
-  displayName, 
-  handleComplete, 
-  handleDemoMode, 
-  handleExportSetup, 
-  handleConnectDrive 
-}: CompletionProps) {
+  const personaLabel = {
+    delivery: "Delivery & Rideshare",
+    business: "Business driver",
+    contractor: "Contractor",
+    mileage: "Mileage tracker",
+  }[workType];
+
   return (
-    <View className="flex flex-col gap-6 items-center justify-center py-6">
-      <View className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 items-center justify-center">
-        <Text className="text-3xl">🎉</Text>
-      </View>
-      <View className="items-center gap-1.5">
-        <Text className="text-2xl font-extrabold text-[#f4f2ed] text-center tracking-tight">
-          Your vault is ready, {displayName || "driver"}
-        </Text>
-        <Text className="text-xs font-semibold text-[#b8b4ab] text-center">
-          Export a tiny setup file, try sample data, or head straight in.
-        </Text>
-      </View>
+    <View style={{ flex: 1, backgroundColor: "#000000", paddingTop: insets.top, paddingBottom: insets.bottom }}>
+      <View style={{ flex: 1, justifyContent: "space-between", paddingHorizontal: 24, paddingVertical: 32 }}>
 
-      <Text className="text-[#7a7670] text-[10px] text-center leading-relaxed max-w-xs">
-        Your profile and vehicle details are stored offline-first in your local secure vault.
-      </Text>
+        {/* Success mark */}
+        <View style={{ alignItems: "center", gap: 20 }}>
+          <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.20)", alignItems: "center", justifyContent: "center" }}>
+            <Check size={28} color="#ffffff" strokeWidth={2.5} />
+          </View>
+          <View style={{ alignItems: "center", gap: 6 }}>
+            <Text style={{ fontSize: 26, fontWeight: "800", color: "#f4f2ed", textAlign: "center", letterSpacing: -0.3 }}>
+              Your setup is ready{displayName ? `, ${displayName}` : ""}
+            </Text>
+            <Text style={{ fontSize: 14, color: "#7a7670", textAlign: "center" }}>
+              Start your first shift to see your numbers come alive.
+            </Text>
+          </View>
+        </View>
 
-      <View className="w-full flex flex-col gap-2.5 mt-3 max-w-sm">
-        <Button
-          onPress={handleComplete}
-          className="bg-primary py-3.5 rounded-xl shadow-lg shadow-primary/20"
+        {/* Summary card */}
+        <View style={{ backgroundColor: "#0d0d0d", borderWidth: 1, borderColor: "#1f1f1f", borderRadius: 20, padding: 20, gap: 16 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Text style={{ fontSize: 10, fontWeight: "700", color: "#7a7670", textTransform: "uppercase", letterSpacing: 1 }}>Your profile</Text>
+          </View>
+
+          <View style={{ gap: 12 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <Text style={{ fontSize: 13, color: "#7a7670" }}>Work type</Text>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: "#f4f2ed" }}>{personaLabel}</Text>
+            </View>
+
+            {workType === "delivery" && selectedPlatforms.length > 0 && (
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <Text style={{ fontSize: 13, color: "#7a7670" }}>Platforms</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, maxWidth: "60%", justifyContent: "flex-end" }}>
+                  {selectedPlatforms.slice(0, 4).map((pid) => {
+                    const p = PLATFORMS[pid];
+                    return (
+                      <View key={pid} style={{ backgroundColor: p?.color ?? "#27272a", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 }}>
+                        <Text style={{ fontSize: 9, fontWeight: "800", color: p?.textColor ?? "#fff", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                          {p?.label ?? pid}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <Text style={{ fontSize: 13, color: "#7a7670" }}>Distance unit</Text>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: "#f4f2ed" }}>{distanceUnit}</Text>
+            </View>
+
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <Text style={{ fontSize: 13, color: "#7a7670" }}>Weekly goal</Text>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: "#ffffff" }}>
+                {currencySymbol}{Number(weeklyGoal).toLocaleString()} / week
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* CTA */}
+        <Pressable
+          onPress={onEnter}
+          style={{ backgroundColor: "#ffffff", borderRadius: 16, paddingVertical: 17, alignItems: "center" }}
         >
-          <Text className="font-bold text-white text-sm uppercase">Enter my vault</Text>
-        </Button>
+          <Text style={{ fontSize: 16, fontWeight: "800", color: "#000000" }}>
+            Go to my dashboard
+          </Text>
+        </Pressable>
 
-        <Button
-          onPress={handleConnectDrive}
-          variant="outline"
-          className="border-[#3d3a35] bg-[#1c1b18] py-3 rounded-xl"
-        >
-          <Text className="font-semibold text-[#b8b4ab] text-xs uppercase">Connect Google Drive</Text>
-        </Button>
-
-        <Button
-          onPress={handleExportSetup}
-          variant="outline"
-          className="border-[#3d3a35] bg-[#1c1b18] py-3 rounded-xl"
-        >
-          <Text className="font-semibold text-[#b8b4ab] text-xs uppercase">Save setup to file</Text>
-        </Button>
-
-        <Button
-          onPress={handleDemoMode}
-          variant="ghost"
-          className="py-2.5 rounded-xl"
-        >
-          <Text className="font-bold text-primary text-xs uppercase">Load sample demo data</Text>
-        </Button>
       </View>
     </View>
   );
 }
+
+// ─── Shared styles ────────────────────────────────────────────────────────────
+
+const s = StyleSheet.create({
+  heading: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#f4f2ed",
+    letterSpacing: -0.3,
+    lineHeight: 32,
+  },
+  sub: {
+    fontSize: 14,
+    color: "#7a7670",
+    lineHeight: 20,
+  },
+  tile: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#0d0d0d",
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+    borderRadius: 16,
+    padding: 16,
+  },
+  tileSelected: {
+    borderColor: "#ffffff",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
+  tileTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#c8c4bb",
+  },
+  tileSub: {
+    fontSize: 12,
+    color: "#7a7670",
+    marginTop: 2,
+  },
+  iconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#121212",
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconBoxSelected: {
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.20)",
+  },
+  checkBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  countryTile: {
+    width: "47%",
+    backgroundColor: "#0d0d0d",
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "center",
+    gap: 6,
+  },
+  fieldLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#7a7670",
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0d0d0d",
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    gap: 8,
+  },
+  input: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#f4f2ed",
+    paddingVertical: 12,
+  },
+  inputAffix: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#7a7670",
+  },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: "#0d0d0d",
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+  },
+  chipSelected: {
+    borderColor: "#ffffff",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#7a7670",
+  },
+});

@@ -56,6 +56,25 @@ export {
   type RevenueFieldDef,
 } from "./operationalModels/index";
 
+// ── Personas, Vocabulary, and Modules ──────────────────────────────────────────
+export {
+  type PersonaKey,
+  type PersonaConfig,
+  PERSONAS,
+} from "./personas";
+
+export {
+  type VocabularyKey,
+} from "./vocabulary";
+
+export {
+  type FeatureKey,
+  type FeatureModule,
+  FEATURE_MODULES,
+  TOGGLEABLE_FEATURE_KEYS,
+  FEATURE_MODULE_MAP,
+} from "./modules";
+
 // ── Other registries ──────────────────────────────────────────────────────────
 export {
   CANADIAN_CRA_CATEGORIES,

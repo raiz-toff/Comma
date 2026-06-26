@@ -24,7 +24,8 @@ if (!isWeb) {
       const { locations } = data;
       if (!locations || locations.length === 0) return;
 
-      const unit = useSettingsStore.getState().profile.distanceUnit;
+      const profile = useSettingsStore.getState().profile;
+      const unit = profile?.distanceUnit ?? "km";
       const conversionFactor = unit === "mi" ? 1609.344 : 1000.0;
 
       for (const loc of locations) {

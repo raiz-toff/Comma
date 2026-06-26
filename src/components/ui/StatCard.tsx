@@ -63,13 +63,13 @@ export function StatCard({
   return (
     <View
       className={cn(
-        "border border-slate-800 bg-[#1a1916] rounded-2xl p-4 flex flex-col justify-between overflow-hidden min-h-[120px]",
+        "border border-border bg-card rounded-2xl p-4 flex flex-col justify-between overflow-hidden min-h-[120px]",
         className
       )}
     >
       {/* Icon Row */}
       <View className="flex-row items-center justify-between">
-        <View className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 items-center justify-center">
+        <View className="w-9 h-9 rounded-xl bg-secondary border border-border items-center justify-center">
           {IconComponent && <IconComponent size={18} color="#22c55e" />}
         </View>
         
@@ -103,10 +103,10 @@ export function StatCard({
 
       {/* Value & Label Section */}
       <View className="mt-3">
-        <Text className="text-2xl font-extrabold text-slate-100 tracking-tight">
+        <Text className="text-2xl font-extrabold text-foreground tracking-tight">
           {value}
         </Text>
-        <Text className="text-xs text-slate-400 font-semibold uppercase tracking-wider mt-0.5">
+        <Text className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mt-0.5">
           {label}
         </Text>
       </View>

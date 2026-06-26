@@ -1,202 +1,168 @@
 import React, { useState } from "react";
-import { View, ScrollView, TouchableOpacity, Alert, Image, ActivityIndicator } from "react-native";
-import { Button } from "../src/components/ui/button";
+import { View, Pressable, ActivityIndicator, Alert } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "../src/components/ui/text";
 import { useSettingsStore, type DriverProfile, type VehicleDraft } from "../store/useSettingsStore";
-import { cn } from "../src/lib/utils";
-
-// Import modular step components
+import { getCountryDef } from "../src/registry/countries/index";
+import { type PersonaKey } from "../src/registry/personas";
 import {
-  CountrySelectStep,
-  RegionSelectStep,
-  PlatformsStep,
-  DriverProfileStep,
-  VehicleSetupStep,
-  ScheduleStep,
-  WeeklyGoalStep,
-  LongTermGoalsStep,
-  TaxWithholdingStep,
-  SalesTaxStep,
-  CompletionStep,
+  WelcomeScreen,
+  PersonaStep,
+  CountryStep,
+  RegionStep,
+  BranchStep,
+  VehicleStep,
+  GoalStep,
+  NameStep,
+  GPSStep,
+  RevealStep,
 } from "./OnboardingSteps";
 
-import { getCountryDef } from "../src/registry/countries/index";
+type WorkType = "delivery" | "business" | "contractor" | "mileage";
 
-const BackIcon = ({ color = "#b8b4ab" }) => (
-  <View style={{ width: 10, height: 10, borderLeftWidth: 2, borderBottomWidth: 2, borderColor: color, transform: [{ rotate: "45deg" }], marginRight: 4 }} />
-);
+const WORK_TYPE_TO_PERSONA: Record<WorkType, PersonaKey> = {
+  delivery: "gig_worker",
+  business: "business_driver",
+  contractor: "contractor",
+  mileage: "business_driver",
+};
 
-const NextIcon = ({ color = "white" }) => (
-  <View style={{ width: 10, height: 10, borderRightWidth: 2, borderTopWidth: 2, borderColor: color, transform: [{ rotate: "45deg" }], marginLeft: 4 }} />
-);
+const TOTAL_STEPS = 8;
+
+function getStepSequence(country: string, workType: WorkType): number[] {
+  const steps = [0, 1];
+  if (country !== "NP") steps.push(2);
+  if (workType !== "mileage") steps.push(3);
+  steps.push(4, 5, 6, 7);
+  return steps;
+}
 
 export default function OnboardingWizard() {
   const { completeOnboarding, loadSampleData, isLoading } = useSettingsStore();
+  const insets = useSafeAreaInsets();
 
-  const [step, setStep] = useState(0);
-  const [landingComplete, setLandingComplete] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
+  const [showReveal, setShowReveal] = useState(false);
+  const [stepIndex, setStepIndex] = useState(0);
 
-  // Wizard State
-  const [displayName, setDisplayName] = useState("");
-  const [country, setCountry] = useState<"US" | "CA" | "UK">("CA");
+  // Persona
+  const [workType, setWorkType] = useState<WorkType>("delivery");
+
+  // Country / region
+  const [country, setCountry] = useState<"US" | "CA" | "UK" | "NP">("CA");
   const [taxRegion, setTaxRegion] = useState("ON");
+
+  // Branch step
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const [avatarType, setAvatarType] = useState<"emoji" | "initials" | "custom">("emoji");
-  const [avatarData, setAvatarData] = useState("🚗");
-  const [workSchedulePreset, setWorkSchedulePreset] = useState<"flexible" | "weekdays" | "evenings" | "weekends">("flexible");
+  const [businessType, setBusinessType] = useState("Other");
+  const [clientType, setClientType] = useState("multiple");
 
-  const [weeklyGoal, setWeeklyGoal] = useState("500");
-  const [monthlyGoal, setMonthlyGoal] = useState("2165");
-  const [annualGoal, setAnnualGoal] = useState("26000");
-
-  const [taxWithholdingPct, setTaxWithholdingPct] = useState("25");
-  const [hstRegistered, setHstRegistered] = useState(false);
-  const [useMileagePreset, setUseMileagePreset] = useState(true);
-
-  // Vehicle 1 State
+  // Vehicle
   const [vehicleNickname, setVehicleNickname] = useState("");
   const [vehicleType, setVehicleType] = useState("gas");
   const [vehicleMake, setVehicleMake] = useState("");
   const [vehicleModel, setVehicleModel] = useState("");
   const [vehicleYear, setVehicleYear] = useState("");
 
-  // Vehicle 2 State
-  const [addSecondVehicle, setAddSecondVehicle] = useState(false);
-  const [vehicle2Nickname, setVehicle2Nickname] = useState("");
-  const [vehicle2Type, setVehicle2Type] = useState("gas");
-  const [vehicle2Make, setVehicle2Make] = useState("");
-  const [vehicle2Model, setVehicle2Model] = useState("");
-  const [vehicle2Year, setVehicle2Year] = useState("");
+  // Goal + name
+  const [weeklyGoal, setWeeklyGoal] = useState("500");
+  const [displayName, setDisplayName] = useState("");
 
-  const handleNextStep = () => {
-    if (validateCurrentStep()) {
-      if (step === 0 && !landingComplete) {
-        setLandingComplete(true);
-      } else {
-        setStep((s) => Math.min(s + 1, 10));
-      }
-    }
-  };
-
-  const handleBackStep = () => {
-    if (step === 0 && landingComplete) {
-      setLandingComplete(false);
-    } else {
-      setStep((s) => Math.max(s - 1, 0));
-    }
-  };
+  const sequence = getStepSequence(country, workType);
+  const currentStep = sequence[stepIndex] ?? 0;
+  const isFirst = stepIndex === 0;
+  const isLast = stepIndex === sequence.length - 1;
 
   const togglePlatform = (id: string) => {
-    if (selectedPlatforms.includes(id)) {
-      setSelectedPlatforms(selectedPlatforms.filter((p) => p !== id));
-    } else {
-      setSelectedPlatforms([...selectedPlatforms, id]);
+    setSelectedPlatforms((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+    );
+  };
+
+  const validate = (): boolean => {
+    if (currentStep === 3 && workType === "delivery" && selectedPlatforms.length === 0) {
+      Alert.alert("Select at least one platform", "You can always change this in Settings.");
+      return false;
     }
-  };
-
-  const handleWeeklyGoalChange = (val: string) => {
-    setWeeklyGoal(val);
-    const num = Number(val) || 0;
-    setMonthlyGoal(Math.round(num * 4.33).toString());
-    setAnnualGoal(Math.round(num * 52).toString());
-  };
-
-  const validateCurrentStep = () => {
-    if (!landingComplete && step === 0) return true;
-
-    switch (step) {
-      case 0:
-        return !!country;
-      case 1:
-        return !!taxRegion;
-      case 2:
-        if (selectedPlatforms.length === 0) {
-          Alert.alert("Required", "Please select at least one gig platform.");
-          return false;
-        }
-        return true;
-      case 3:
-        if (!displayName.trim()) {
-          Alert.alert("Required", "Please enter a driver display name.");
-          return false;
-        }
-        return true;
-      case 4:
-        if (!vehicleNickname.trim()) {
-          Alert.alert("Required", "Please enter a primary vehicle nickname.");
-          return false;
-        }
-        if (addSecondVehicle && !vehicle2Nickname.trim()) {
-          Alert.alert("Required", "Please enter a secondary vehicle nickname.");
-          return false;
-        }
-        return true;
-      case 5:
-        return true;
-      case 6:
-        if (Number(weeklyGoal) <= 0 || isNaN(Number(weeklyGoal))) {
-          Alert.alert("Invalid Input", "Please enter a valid weekly earnings goal.");
-          return false;
-        }
-        return true;
-      case 7:
-        return true;
-      case 8:
-        const pct = Number(taxWithholdingPct);
-        if (isNaN(pct) || pct < 0 || pct > 100) {
-          Alert.alert("Invalid Input", "Please enter a valid tax withholding percentage (0-100).");
-          return false;
-        }
-        return true;
-      case 9:
-        return true;
-      default:
-        return true;
+    if (currentStep === 4 && !vehicleNickname.trim()) {
+      Alert.alert("Vehicle name required", "Give your vehicle a nickname to continue.");
+      return false;
     }
+    return true;
   };
 
-  const handleComplete = async () => {
-    const profileData: DriverProfile = {
-      displayName: displayName.trim(),
+  const handleNext = () => {
+    if (!validate()) return;
+    if (isLast) {
+      handleComplete();
+      return;
+    }
+    setStepIndex((i) => i + 1);
+  };
+
+  const handleBack = () => {
+    if (isFirst) {
+      setShowWelcome(true);
+      return;
+    }
+    setStepIndex((i) => i - 1);
+  };
+
+  const buildProfile = (): DriverProfile => {
+    const countryDef = getCountryDef(country);
+    const persona = WORK_TYPE_TO_PERSONA[workType];
+    const weekly = Number(weeklyGoal) || 500;
+
+    const platforms =
+      workType === "delivery"
+        ? selectedPlatforms
+        : workType === "business"
+        ? []
+        : workType === "contractor"
+        ? []
+        : [];
+
+    return {
+      displayName: displayName.trim() || "Driver",
       country,
       taxRegion,
-      avatarType: avatarType === "initials" ? "initials" : "emoji",
-      avatarData,
-      selectedPlatforms,
-      workSchedulePreset,
-      weeklyGoal: Number(weeklyGoal),
-      monthlyGoal: Number(monthlyGoal),
-      annualGoal: Number(annualGoal),
-      taxWithholdingPct: Number(taxWithholdingPct),
-      hstRegistered: country === "CA" ? hstRegistered : false,
-      distanceUnit: getCountryDef(country).distanceUnit,
+      persona,
+      avatarType: "emoji",
+      avatarData: "🚗",
+      selectedPlatforms: platforms,
+      workSchedulePreset: "flexible",
+      weeklyGoal: weekly,
+      monthlyGoal: Math.round(weekly * 4.33),
+      annualGoal: weekly * 52,
+      taxWithholdingPct: countryDef.tax.defaultWithholdingPct,
+      hstRegistered: false,
+      distanceUnit: countryDef.distanceUnit,
       theme: "dark",
     };
+  };
 
-    const vehicleData: VehicleDraft = {
-      nickname: vehicleNickname.trim(),
+  const handleComplete = () => {
+    setShowReveal(true);
+  };
+
+  const handleEnterDashboard = async () => {
+    const profile = buildProfile();
+    const vehicle: VehicleDraft = {
+      nickname: vehicleNickname.trim() || "My Vehicle",
       type: vehicleType,
       make: vehicleMake.trim(),
       model: vehicleModel.trim(),
       year: vehicleYear.trim(),
     };
-
-    const vehicle2Data: VehicleDraft | null = addSecondVehicle ? {
-      nickname: vehicle2Nickname.trim(),
-      type: vehicle2Type,
-      make: vehicle2Make.trim(),
-      model: vehicle2Model.trim(),
-      year: vehicle2Year.trim(),
-    } : null;
-
-    await completeOnboarding(profileData, vehicleData, vehicle2Data, useMileagePreset);
+    await completeOnboarding(profile, vehicle, null, true);
   };
 
   const handleDemoMode = async () => {
-    const profileData: DriverProfile = {
-      displayName: "Jane Doe (Demo)",
+    const profile: DriverProfile = {
+      displayName: "Jane Doe",
       country: "CA",
       taxRegion: "ON",
+      persona: "gig_worker",
       avatarType: "emoji",
       avatarData: "🚗",
       selectedPlatforms: ["doordash", "ubereats", "skip"],
@@ -209,370 +175,163 @@ export default function OnboardingWizard() {
       distanceUnit: "km",
       theme: "dark",
     };
-
-    const vehicleData: VehicleDraft = {
-      nickname: "Prius Prime",
-      type: "hybrid",
-      make: "Toyota",
-      model: "Prius Prime",
-      year: "2020",
-    };
-
-    await completeOnboarding(profileData, vehicleData, null);
+    const vehicle: VehicleDraft = { nickname: "Prius Prime", type: "hybrid", make: "Toyota", model: "Prius Prime", year: "2020" };
+    await completeOnboarding(profile, vehicle, null);
     await loadSampleData();
   };
 
-  const handleExportSetup = () => {
-    const setupExport = {
-      exportKind: "comma_setup",
-      version: 1,
-      displayName: displayName.trim(),
-      country,
-      taxRegion,
-      selectedPlatforms,
-      weeklyGoal: Number(weeklyGoal),
-      monthlyGoal: Number(monthlyGoal),
-      annualGoal: Number(annualGoal),
-      taxWithholdingPct: Number(taxWithholdingPct),
-      hstRegistered,
-      vehicles: [
-        { nickname: vehicleNickname, type: vehicleType, make: vehicleMake, model: vehicleModel, year: vehicleYear },
-        ...(addSecondVehicle ? [{ nickname: vehicle2Nickname, type: vehicle2Type, make: vehicle2Make, model: vehicle2Model, year: vehicle2Year }] : [])
-      ]
-    };
-    Alert.alert("Export Setup File", JSON.stringify(setupExport, null, 2));
-  };
+  if (showWelcome) {
+    return <WelcomeScreen onStart={() => setShowWelcome(false)} onDemo={handleDemoMode} />;
+  }
 
-  const handleConnectDrive = () => {
-    Alert.alert("Google Drive Sync", "Google Drive connection will be available post-onboarding from Settings.");
-  };
+  if (showReveal) {
+    return (
+      <RevealStep
+        displayName={displayName.trim() || "Driver"}
+        workType={workType}
+        selectedPlatforms={selectedPlatforms}
+        businessType={businessType}
+        country={country}
+        weeklyGoal={weeklyGoal}
+        onEnter={handleEnterDashboard}
+      />
+    );
+  }
 
-  const renderWizardStepContent = () => {
-    switch (step) {
+  const renderStep = () => {
+    switch (currentStep) {
       case 0:
-        return (
-          <CountrySelectStep
-            country={country}
-            setCountry={setCountry}
-            setTaxRegion={setTaxRegion}
-          />
-        );
+        return <PersonaStep value={workType} onChange={setWorkType} />;
       case 1:
         return (
-          <RegionSelectStep
-            country={country}
-            taxRegion={taxRegion}
-            setTaxRegion={setTaxRegion}
-            useMileagePreset={useMileagePreset}
-            setUseMileagePreset={setUseMileagePreset}
+          <CountryStep
+            value={country}
+            onChange={(c) => {
+              setCountry(c);
+              setTaxRegion(c === "CA" ? "ON" : c === "US" ? "CA" : c === "NP" ? "P3" : "ENG");
+            }}
           />
         );
       case 2:
         return (
-          <PlatformsStep
-            country={country}
-            selectedPlatforms={selectedPlatforms}
-            togglePlatform={togglePlatform}
+          <RegionStep
+            country={country as "US" | "CA" | "UK" | "NP"}
+            value={taxRegion}
+            onChange={setTaxRegion}
           />
         );
       case 3:
         return (
-          <DriverProfileStep
-            displayName={displayName}
-            setDisplayName={setDisplayName}
-            avatarType={avatarType}
-            setAvatarType={setAvatarType}
-            avatarData={avatarData}
-            setAvatarData={setAvatarData}
+          <BranchStep
+            workType={workType}
+            country={country}
+            selectedPlatforms={selectedPlatforms}
+            togglePlatform={togglePlatform}
+            businessType={businessType}
+            setBusinessType={setBusinessType}
+            clientType={clientType}
+            setClientType={setClientType}
           />
         );
       case 4:
         return (
-          <VehicleSetupStep
-            vehicleNickname={vehicleNickname}
-            setVehicleNickname={setVehicleNickname}
-            vehicleType={vehicleType}
-            setVehicleType={setVehicleType}
-            vehicleMake={vehicleMake}
-            setVehicleMake={setVehicleMake}
-            vehicleModel={vehicleModel}
-            setVehicleModel={setVehicleModel}
-            vehicleYear={vehicleYear}
-            setVehicleYear={setVehicleYear}
-            addSecondVehicle={addSecondVehicle}
-            setAddSecondVehicle={setAddSecondVehicle}
-            vehicle2Nickname={vehicle2Nickname}
-            setVehicle2Nickname={setVehicle2Nickname}
-            vehicle2Type={vehicle2Type}
-            setVehicle2Type={setVehicle2Type}
-            vehicle2Make={vehicle2Make}
-            setVehicle2Make={setVehicle2Make}
-            vehicle2Model={vehicle2Model}
-            setVehicle2Model={setVehicle2Model}
-            vehicle2Year={vehicle2Year}
-            setVehicle2Year={setVehicle2Year}
+          <VehicleStep
+            nickname={vehicleNickname}
+            setNickname={setVehicleNickname}
+            type={vehicleType}
+            setType={setVehicleType}
+            make={vehicleMake}
+            setMake={setVehicleMake}
+            model={vehicleModel}
+            setModel={setVehicleModel}
+            year={vehicleYear}
+            setYear={setVehicleYear}
           />
         );
       case 5:
         return (
-          <ScheduleStep
-            workSchedulePreset={workSchedulePreset}
-            setWorkSchedulePreset={setWorkSchedulePreset}
+          <GoalStep
+            value={weeklyGoal}
+            onChange={setWeeklyGoal}
+            country={country}
           />
         );
       case 6:
-        return (
-          <WeeklyGoalStep
-            weeklyGoal={weeklyGoal}
-            handleWeeklyGoalChange={handleWeeklyGoalChange}
-          />
-        );
+        return <NameStep value={displayName} onChange={setDisplayName} />;
       case 7:
-        return (
-          <LongTermGoalsStep
-            monthlyGoal={monthlyGoal}
-            setMonthlyGoal={setMonthlyGoal}
-            annualGoal={annualGoal}
-            setAnnualGoal={setAnnualGoal}
-          />
-        );
-      case 8:
-        return (
-          <TaxWithholdingStep
-            country={country}
-            taxRegion={taxRegion}
-            taxWithholdingPct={taxWithholdingPct}
-            setTaxWithholdingPct={setTaxWithholdingPct}
-          />
-        );
-      case 9:
-        return (
-          <SalesTaxStep
-            country={country}
-            hstRegistered={hstRegistered}
-            setHstRegistered={setHstRegistered}
-            setStep={setStep}
-          />
-        );
-      case 10:
-        return (
-          <CompletionStep
-            displayName={displayName}
-            handleComplete={handleComplete}
-            handleDemoMode={handleDemoMode}
-            handleExportSetup={handleExportSetup}
-            handleConnectDrive={handleConnectDrive}
-          />
-        );
+        return <GPSStep onNext={handleNext} />;
       default:
         return null;
     }
   };
 
-  // Render Full Landing Page (if landingComplete is false)
-  if (!landingComplete) {
-    return (
-      <View className="flex-1 bg-[#12110f]">
-        <ScrollView contentContainerClassName="px-6 py-12 flex flex-col gap-10">
-          
-          {/* Logo and Header */}
-          <View className="flex flex-col items-center gap-1.5">
-            <View className="w-12 h-12 rounded-2xl bg-primary items-center justify-center mb-1">
-              <Text className="text-2xl font-black text-white">C</Text>
-            </View>
-            <Text className="text-xs font-bold text-primary tracking-widest uppercase">
-              INTRODUCING COMMA
-            </Text>
-          </View>
- 
-          {/* Hero Section */}
-          <View className="flex flex-col gap-4 items-center">
-            <Text className="text-4xl font-extrabold text-[#f4f2ed] text-center tracking-tight leading-tight">
-              Take control of your road
-            </Text>
-            <Text className="text-[#b8b4ab] text-sm text-center leading-relaxed max-w-sm">
-              Track earnings, optimize mileage, write off taxes, and back up securely to your own cloud.
-            </Text>
-
-            <View className="w-full flex flex-col gap-3 mt-4 max-w-xs">
-              <Button
-                onPress={handleNextStep}
-                className="bg-primary py-3.5 rounded-xl shadow-lg shadow-primary/20"
-              >
-                <Text className="font-bold text-white text-base">START SETUP</Text>
-              </Button>
-              <Button
-                onPress={handleDemoMode}
-                variant="outline"
-                className="border-[#3d3a35] bg-[#1c1b18]/50 py-3.5 rounded-xl"
-              >
-                <Text className="font-semibold text-[#b8b4ab] text-base">TRY DEMO</Text>
-              </Button>
-            </View>
-          </View>
-
-          {/* Web App Image Screenshot for Hero */}
-          <View className="w-full bg-[#1c1b18] border border-[#3d3a35] rounded-2xl overflow-hidden shadow-2xl p-1.5 mt-3">
-            <Image
-              source={require("../assets/image.png")}
-              style={{ width: "100%", height: 260, resizeMode: "contain" }}
-              className="rounded-xl"
-            />
-          </View>
-
-          {/* Divider */}
-          <View className="h-[1px] bg-[#3d3a35] w-full" />
-
-          {/* Product Features List */}
-          <View className="flex flex-col gap-9">
-            
-            {/* Feature 1: Analytics */}
-            <View className="flex flex-col gap-3">
-              <View className="flex flex-col gap-1">
-                <Text className="text-xs font-bold text-primary uppercase tracking-wider">Analytics</Text>
-                <Text className="text-xl font-bold text-[#f4f2ed]">Track shifts automatically</Text>
-              </View>
-              <Text className="text-[#b8b4ab] text-sm leading-relaxed">
-                Record gross earnings, tips, active hours, and distance with single-tap precision.
-              </Text>
-              <View className="w-full bg-[#1c1b18] border border-[#3d3a35] rounded-xl overflow-hidden p-1.5">
-                <Image
-                  source={require("../assets/image.png")}
-                  style={{ width: "100%", height: 200, resizeMode: "contain" }}
-                  className="rounded-lg"
-                />
-              </View>
-            </View>
-
-            {/* Feature 2: Finance */}
-            <View className="flex flex-col gap-3">
-              <View className="flex flex-col gap-1">
-                <Text className="text-xs font-bold text-primary uppercase tracking-wider">Finance</Text>
-                <Text className="text-xl font-bold text-[#f4f2ed]">Tax estimations and vehicle deductions</Text>
-              </View>
-              <Text className="text-[#b8b4ab] text-sm leading-relaxed">
-                Auto-calculate your write-offs using local standard mileage rates, estimating net income in real-time.
-              </Text>
-              <View className="w-full bg-[#1c1b18] border border-[#3d3a35] rounded-xl overflow-hidden p-1.5">
-                <Image
-                  source={require("../assets/image-1.png")}
-                  style={{ width: "100%", height: 200, resizeMode: "contain" }}
-                  className="rounded-lg"
-                />
-              </View>
-            </View>
-
-            {/* Feature 3: Workflow */}
-            <View className="flex flex-col gap-3">
-              <View className="flex flex-col gap-1">
-                <Text className="text-xs font-bold text-primary uppercase tracking-wider">Workflow</Text>
-                <Text className="text-xl font-bold text-[#f4f2ed]">Multi-Platform Mastery</Text>
-              </View>
-              <Text className="text-[#b8b4ab] text-sm leading-relaxed">
-                Switch between platforms effortlessly. COMMA adapts its terminology and tracking to match exactly how you work.
-              </Text>
-              <View className="w-full bg-[#1c1b18] border border-[#3d3a35] rounded-xl overflow-hidden p-1.5">
-                <Image
-                  source={require("../assets/image-2.png")}
-                  style={{ width: "100%", height: 200, resizeMode: "contain" }}
-                  className="rounded-lg"
-                />
-              </View>
-            </View>
-
-            {/* Feature 4: Privacy */}
-            <View className="flex flex-col gap-3">
-              <View className="flex flex-col gap-1">
-                <Text className="text-xs font-bold text-primary uppercase tracking-wider">Privacy First</Text>
-                <Text className="text-xl font-bold text-[#f4f2ed]">Self-sovereign data</Text>
-              </View>
-              <Text className="text-[#b8b4ab] text-sm leading-relaxed">
-                Your data is encrypted and saved directly to your personal Google Drive or local storage. No central servers.
-              </Text>
-              <View className="w-full bg-[#1c1b18] border border-[#3d3a35] rounded-xl overflow-hidden p-1.5">
-                <Image
-                  source={require("../assets/image-3.png")}
-                  style={{ width: "100%", height: 200, resizeMode: "contain" }}
-                  className="rounded-lg"
-                />
-              </View>
-            </View>
-
-          </View>
-
-          {/* Footer */}
-          <View className="flex flex-col items-center gap-4 pt-4 pb-8 border-t border-[#3d3a35]">
-            <View className="flex flex-row gap-3">
-              <Text className="text-xs text-[#7a7670]">Privacy Policy</Text>
-              <Text className="text-xs text-[#3d3a35]">•</Text>
-              <Text className="text-xs text-[#7a7670]">Terms</Text>
-            </View>
-            <Text className="text-[10px] text-[#7a7670]">
-              © 2026 COMMA
-            </Text>
-          </View>
-
-        </ScrollView>
-      </View>
-    );
-  }
-
-  // Render Onboarding Wizard Card (if landingComplete is true)
   return (
-    <View className="flex-1 bg-[#12110f] px-6 pt-14 pb-6">
-      {/* Pinned Header: Progress Dots */}
-      <View className="flex flex-row justify-between items-center mb-6 max-w-md w-full mx-auto">
-        <View className="flex flex-row gap-1.5 items-center">
-          {Array.from({ length: 11 }).map((_, idx) => {
-            const isCompleted = idx < step;
-            const isCurrent = idx === step;
-            return (
-              <View
-                key={idx}
-                className={cn(
-                  "h-1.5 rounded-full transition-all duration-300",
-                  isCurrent ? "w-5 bg-primary" : isCompleted ? "w-2 bg-emerald-500" : "w-1.5 bg-[#3d3a35]"
-                )}
-              />
-            );
-          })}
+    <View style={{ flex: 1, backgroundColor: "#000000", paddingTop: insets.top, paddingBottom: insets.bottom }}>
+      {/* Progress */}
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 24, paddingTop: 20, paddingBottom: 8 }}>
+        <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+          {sequence.map((_, i) => (
+            <View
+              key={i}
+              style={{
+                height: 4,
+                width: i === stepIndex ? 20 : 6,
+                borderRadius: 2,
+                backgroundColor: i <= stepIndex ? "#ffffff" : "#27272a",
+              }}
+            />
+          ))}
         </View>
-        <Text className="text-[9px] font-bold text-[#7a7670] uppercase tracking-wide">
-          Step {step + 1} of 11
+        <Text style={{ fontSize: 10, fontWeight: "700", color: "#52525b", letterSpacing: 1, textTransform: "uppercase" }}>
+          {stepIndex + 1} / {sequence.length}
         </Text>
       </View>
 
-      {/* Main Content Container (No Card box frame) */}
-      <View className="flex-1 max-w-md w-full mx-auto justify-center">
+      {/* Step content */}
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 8 }}>
         {isLoading ? (
-          <View className="py-12 items-center justify-center">
-            <ActivityIndicator size="large" color="#10b981" />
-            <Text className="text-[#7a7670] text-xs mt-3">Persisting configuration...</Text>
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12 }}>
+            <ActivityIndicator size="large" color="#ffffff" />
+            <Text style={{ fontSize: 12, color: "#7a7670" }}>Setting up your vault…</Text>
           </View>
         ) : (
-          renderWizardStepContent()
+          renderStep()
         )}
       </View>
 
-      {/* Navigation Buttons Pinned at Footer */}
-      {step < 10 && !isLoading && (
-        <View className="flex flex-row justify-between items-center max-w-md w-full mx-auto mt-6 pt-4 border-t border-[#3d3a35]/40 bg-[#12110f]">
-          <Button
-            variant="ghost"
-            className="flex flex-row items-center text-[#b8b4ab] py-2.5 px-4"
-            onPress={handleBackStep}
+      {/* Navigation — hidden on GPS step (it controls its own next) */}
+      {currentStep !== 7 && !isLoading && (
+        <View style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          paddingHorizontal: 24,
+          paddingVertical: 16,
+          borderTopWidth: 0.8,
+          borderTopColor: "#1f1f1f",
+        }}>
+          <Pressable
+            onPress={handleBack}
+            style={{ paddingVertical: 12, paddingHorizontal: 4 }}
           >
-            <BackIcon />
-            <Text className="font-semibold text-[#b8b4ab] text-sm">Back</Text>
-          </Button>
+            <Text style={{ fontSize: 14, fontWeight: "600", color: "#7a7670" }}>
+              {isFirst ? "Cancel" : "Back"}
+            </Text>
+          </Pressable>
 
-          <Button
-            className="bg-primary flex flex-row items-center px-6 py-2.5 rounded-lg"
-            onPress={handleNextStep}
+          <Pressable
+            onPress={handleNext}
+            style={{
+              backgroundColor: "#ffffff",
+              paddingVertical: 14,
+              paddingHorizontal: 36,
+              borderRadius: 14,
+            }}
           >
-            <Text className="font-bold text-white text-sm">Next</Text>
-            <NextIcon />
-          </Button>
+            <Text style={{ fontSize: 15, fontWeight: "800", color: "#000000" }}>
+              {isLast ? "Finish" : "Continue"}
+            </Text>
+          </Pressable>
         </View>
       )}
     </View>

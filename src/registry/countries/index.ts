@@ -3,6 +3,9 @@
  * Mirrors PWA: src/registry/countries/
  */
 
+import { type FeatureKey } from "../modules";
+import { type VocabularyKey } from "../vocabulary";
+
 export interface TaxProfile {
   intlLocaleTag: string;
   defaultWithholdingPct: number;
@@ -51,6 +54,13 @@ export interface CountryDef {
   cashEconomyPrimary?: boolean;
   /** Expense category profile to use for deduction UI */
   expenseProfile?: "cra" | "irs" | "hmrc" | "generic";
+
+  // ── Extended feature and vocabulary overrides ──────────────────────────────
+  featureOverrides: {
+    force_on: FeatureKey[];   // country hard-enables these (user cannot turn off)
+    force_off: FeatureKey[];  // country hard-disables these (user cannot turn on)
+  };
+  vocabularyOverrides: Partial<Record<VocabularyKey, string>>;
 }
 
 const CA: CountryDef = {
@@ -89,6 +99,14 @@ const CA: CountryDef = {
     footnote: "canada",
     defaultRegionCode: "ON",
     taxInstallmentReminderDays: 10,
+  },
+  featureOverrides: {
+    force_on: [],
+    force_off: [],
+  },
+  vocabularyOverrides: {
+    active_miles: "active km",
+    dead_miles: "dead km",
   },
 };
 
@@ -129,6 +147,11 @@ const US: CountryDef = {
     defaultRegionCode: "CA",
     taxInstallmentReminderDays: 10,
   },
+  featureOverrides: {
+    force_on: [],
+    force_off: [],
+  },
+  vocabularyOverrides: {},
 };
 
 const UK: CountryDef = {
@@ -164,6 +187,11 @@ const UK: CountryDef = {
     defaultRegionCode: "ENG",
     taxInstallmentReminderDays: 14,
   },
+  featureOverrides: {
+    force_on: [],
+    force_off: ["tax_workspace"],
+  },
+  vocabularyOverrides: {},
 };
 
 // ─── Nepal ────────────────────────────────────────────────────────────────────
@@ -195,6 +223,14 @@ const NP: CountryDef = {
     footnote: "generic",
     defaultRegionCode: "P3",   // Bagmati Province (Kathmandu region)
     taxInstallmentReminderDays: 0,
+  },
+  featureOverrides: {
+    force_on: [],
+    force_off: ["tax_workspace", "mileage_log_export", "google_drive_backup"],
+  },
+  vocabularyOverrides: {
+    active_miles: "active km",
+    dead_miles: "dead km",
   },
 };
 

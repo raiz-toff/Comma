@@ -12,6 +12,7 @@ import { getCountryDef, type CountryDef } from "../src/registry/countries/index"
 import { resolveProvinceDef, type ProvinceDef, getMileagePresetRate } from "../src/registry/provinces/index";
 import { getMarketContext, type MarketContext } from "../src/registry/market/resolve";
 import { getWithholdingPresetPct } from "../src/registry/tax/withholdingPresets";
+import { type PersonaKey, type FeatureKey, PERSONAS } from "../src/registry/index";
 import {
   GamificationService,
   type Challenge,
@@ -40,7 +41,7 @@ const generateMockRoutePath = (shiftCounter: number, vehicleType: VehicleType = 
 
 export interface DriverProfile {
   displayName: string;
-  country: "US" | "CA" | "UK";
+  country: "US" | "CA" | "UK" | "NP";
   taxRegion: string;
   avatarType: "emoji" | "initials";
   avatarData: string;
@@ -53,6 +54,7 @@ export interface DriverProfile {
   hstRegistered: boolean;
   distanceUnit: "km" | "mi";
   theme: "light" | "dark" | "auto";
+  persona?: PersonaKey; // set during onboarding, default 'gig_worker'
   customCategories?: ExpenseCategory[];
   bentoLayout?: string;
   locale?: {
@@ -96,6 +98,9 @@ interface SettingsState {
   notifications: NotificationItem[];
   personalRecords: PersonalRecords;
 
+  // Persona Feature Overrides
+  featureOverrides: Partial<Record<FeatureKey, boolean>>;
+
   // Actions
   loadSettings: () => Promise<void>;
   completeOnboarding: (
@@ -114,6 +119,8 @@ interface SettingsState {
   updateProfile: (patch: Partial<DriverProfile>) => Promise<void>;
   /** Apply the registry withholding preset for the current country+region. */
   applyTaxPreset: (regionCode: string) => Promise<void>;
+  /** Update user-level feature overrides. */
+  updateFeatureOverride: (key: FeatureKey, val: boolean) => Promise<void>;
 
   // Gamification Actions
   evaluateGamification: () => Promise<void>;
@@ -155,6 +162,7 @@ const DEFAULT_PROFILE: DriverProfile = {
   hstRegistered: false,
   distanceUnit: "km",
   theme: "dark",
+  persona: "gig_worker" as PersonaKey,
   customCategories: [],
   locale: {
     currency: "CAD",
@@ -175,6 +183,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   preferredVehicleId: null,
   isHeaderVisible: true,
   dbPlatforms: [],
+  featureOverrides: {},
   countryDef: null,
   provinceDef: null,
   marketContext: null,
@@ -229,6 +238,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         const rawProfile = localStorage.getItem("comma_profile");
         const rawVehicle = localStorage.getItem("comma_vehicle");
         const rawDemoMode = localStorage.getItem("comma_demo_mode");
+        const rawAppConfig = localStorage.getItem("comma_app_config");
+
+        let appConfig = { persona: 'gig_worker' as PersonaKey, country: 'CA', featureOverrides: {} as Partial<Record<FeatureKey, boolean>> };
+        if (rawAppConfig) {
+          try {
+            appConfig = JSON.parse(rawAppConfig);
+          } catch {}
+        }
         
         if (rawCompleted !== "true") {
           // Auto-onboard and load sample data by default on first launch
@@ -247,6 +264,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
             hstRegistered: false,
             distanceUnit: "km",
             theme: "dark",
+            persona: "gig_worker" as PersonaKey,
           };
           const demoVehicle = {
             nickname: "Prius Prime",
@@ -261,6 +279,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         }
         
         const loadedProfile: DriverProfile = rawProfile ? { ...DEFAULT_PROFILE, ...JSON.parse(rawProfile) } : DEFAULT_PROFILE;
+        loadedProfile.persona = appConfig.persona || loadedProfile.persona || 'gig_worker';
         const activeCountry = loadedProfile.country || "CA";
         await seedDBPlatforms(activeCountry, loadedProfile.selectedPlatforms || []);
         const dbPlatforms = await getDBPlatforms(activeCountry);
@@ -280,6 +299,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           isDemoMode: rawDemoMode === "true",
           activePlatformFilter: finalFilter,
           preferredVehicleId: localStorage.getItem("comma_preferred_vehicle_id") || null,
+          featureOverrides: appConfig.featureOverrides || {},
           isLoading: false,
           ...localeDefs,
           ...gamificationState,
@@ -292,20 +312,25 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
 
     try {
-      // Delete all settings rows
       const raw = await db.select().from(settings).execute();
       const st: Record<string, string> = {};
       raw.forEach((r: { key: string; value: string }) => {
         st[r.key] = r.value;
       });
 
-
       const profileStr = st["profile"];
-      const widgetsStr = st["dashboard_widgets"];
+      const appConfigStr = st["app_config"];
       const isDemo = st["demo_mode"] === "true";
       const filter = st["active_platform_filter"] || "all";
       const pvid = st["preferred_vehicle_id"] || null;
       const onboardingCompleted = st["onboarding_completed"] === "true";
+
+      let appConfig = { persona: 'gig_worker' as PersonaKey, country: 'CA', featureOverrides: {} as Partial<Record<FeatureKey, boolean>> };
+      if (appConfigStr) {
+        try {
+          appConfig = JSON.parse(appConfigStr);
+        } catch {}
+      }
 
       if (!onboardingCompleted) {
         // Auto-onboard and load sample data by default on first launch
@@ -324,6 +349,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           hstRegistered: false,
           distanceUnit: "km",
           theme: "dark",
+          persona: "gig_worker" as PersonaKey,
         };
         const demoVehicle = {
           nickname: "Prius Prime",
@@ -348,6 +374,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         }
       }
 
+      nextProfile.persona = appConfig.persona || nextProfile.persona || 'gig_worker';
       const activeCountry = nextProfile.country || "CA";
       await seedDBPlatforms(activeCountry, nextProfile.selectedPlatforms || []);
       const dbPlatforms = await getDBPlatforms(activeCountry);
@@ -391,6 +418,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         isDemoMode: isDemo,
         activePlatformFilter: finalFilter,
         preferredVehicleId: preferredVehicleId,
+        featureOverrides: appConfig.featureOverrides || {},
         isLoading: false,
         ...localeDefs,
         ...gamificationState,
@@ -437,15 +465,21 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       });
     }
 
+    const appConfig = {
+      persona: finalProfile.persona || 'gig_worker' as PersonaKey,
+      country: finalProfile.country || 'CA',
+      featureOverrides: {} as Partial<Record<FeatureKey, boolean>>,
+    };
+    const appConfigJson = JSON.stringify(appConfig);
+
     if (isWeb) {
       localStorage.setItem("comma_onboarding_completed", "true");
       localStorage.setItem("comma_profile", JSON.stringify(finalProfile));
       localStorage.setItem("comma_vehicle", JSON.stringify(vehicle));
+      localStorage.setItem("comma_app_config", appConfigJson);
       if (vehicle2) {
         localStorage.setItem("comma_vehicle2", JSON.stringify(vehicle2));
       }
-
-
 
       // Initialize goals on Web
       const initialGoals = [];
@@ -490,6 +524,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         profile: finalProfile,
         activeVehicle: vehicle,
         activePlatformFilter: finalProfile.selectedPlatforms?.length === 1 ? finalProfile.selectedPlatforms[0] : "all",
+        featureOverrides: {},
         isLoading: false,
         ...localeDefs,
       });
@@ -516,7 +551,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           set: { value: JSON.stringify(finalProfile) },
         });
 
-
+      // Save app_config configuration
+      await db
+        .insert(settings)
+        .values({ key: "app_config", value: appConfigJson })
+        .onConflictDoUpdate({
+          target: settings.key,
+          set: { value: appConfigJson },
+        });
 
       // Save vehicle details
       // First de-activate all vehicles
@@ -589,6 +631,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         profile: finalProfile,
         activeVehicle: vehicle,
         activePlatformFilter: finalProfile.selectedPlatforms?.length === 1 ? finalProfile.selectedPlatforms[0] : "all",
+        featureOverrides: {},
         isLoading: false,
         ...localeDefs,
       });
@@ -671,16 +714,66 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
     // Persist
     const profileJson = JSON.stringify(updated);
+    const appConfig = {
+      persona: updated.persona || 'gig_worker' as PersonaKey,
+      country: updated.country || 'CA',
+      featureOverrides: get().featureOverrides || {},
+    };
+    const appConfigJson = JSON.stringify(appConfig);
+
     if (isWeb) {
       localStorage.setItem("comma_profile", profileJson);
+      localStorage.setItem("comma_app_config", appConfigJson);
     } else {
       try {
         await db
           .insert(settings)
           .values({ key: "profile", value: profileJson })
           .onConflictDoUpdate({ target: settings.key, set: { value: profileJson } });
+
+        await db
+          .insert(settings)
+          .values({ key: "app_config", value: appConfigJson })
+          .onConflictDoUpdate({ target: settings.key, set: { value: appConfigJson } });
       } catch (e) {
         console.error("Failed to persist profile update:", e);
+      }
+    }
+  },
+
+  updateFeatureOverride: async (key: FeatureKey, val: boolean) => {
+    const currentOverrides = get().featureOverrides || {};
+    const updatedOverrides = { ...currentOverrides, [key]: val };
+
+    const profile = get().profile;
+    const personaKey = profile.persona || 'gig_worker';
+    const personaDef = PERSONAS[personaKey];
+    if (personaDef) {
+      const defaultVal = personaDef.defaultFeatures[key];
+      if (defaultVal === val) {
+        delete updatedOverrides[key];
+      }
+    }
+
+    set({ featureOverrides: updatedOverrides });
+
+    const appConfig = {
+      persona: profile.persona || 'gig_worker' as PersonaKey,
+      country: profile.country || 'CA',
+      featureOverrides: updatedOverrides,
+    };
+    const appConfigJson = JSON.stringify(appConfig);
+
+    if (isWeb) {
+      localStorage.setItem("comma_app_config", appConfigJson);
+    } else {
+      try {
+        await db
+          .insert(settings)
+          .values({ key: "app_config", value: appConfigJson })
+          .onConflictDoUpdate({ target: settings.key, set: { value: appConfigJson } });
+      } catch (e) {
+        console.error("Failed to persist feature override:", e);
       }
     }
   },
@@ -758,6 +851,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         hstRegistered: false,
         distanceUnit: "km" as const,
         theme: "dark" as const,
+        persona: "gig_worker" as PersonaKey,
       };
       localStorage.setItem("comma_profile", JSON.stringify(finalProfile));
 

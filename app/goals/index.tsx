@@ -384,7 +384,7 @@ export default function GoalsScreen() {
               {/* Personal Best */}
               <View style={{ flex: 1, minWidth: "45%", backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, padding: 16 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                  <TrendingUp size={16} color="#10b981" />
+                  <TrendingUp size={16} color={accentColor} />
                   <Text style={{ fontSize: 12, fontWeight: "800", color: "#71717a", textTransform: "uppercase" }}>Best Shift</Text>
                 </View>
                 <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -1, marginBottom: 14 }} adjustsFontSizeToFit numberOfLines={1}>
@@ -452,7 +452,7 @@ export default function GoalsScreen() {
                             </View>
                           </View>
                           <View style={{ height: 6, backgroundColor: "#0d0d0d", borderRadius: 3, overflow: "hidden" }}>
-                            <View style={{ height: "100%", width: `${Math.min(100, progressPct)}%`, backgroundColor: progressPct >= 100 ? "#10b981" : accentColor }} />
+                            <View style={{ height: "100%", width: `${Math.min(100, progressPct)}%`, backgroundColor: progressPct >= 100 ? "#22c55e" : accentColor }} />
                           </View>
                         </View>
                       );
@@ -472,18 +472,18 @@ export default function GoalsScreen() {
                     return (
                       <View key={c.id} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                         <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#0d0d0d", borderWidth: 1, borderColor: "#262522", alignItems: "center", justifyContent: "center" }}>
-                          <Target size={20} color={isCompleted ? "#10b981" : "#ec4899"} />
+                          <Target size={20} color={isCompleted ? "#22c55e" : "#ec4899"} />
                         </View>
                         <View style={{ flex: 1 }}>
                           <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
                             <Text style={{ fontSize: 13, fontWeight: "800", color: "#ffffff" }}>{c.name}</Text>
-                            <Text style={{ fontSize: 12, fontWeight: "900", color: isCompleted ? "#10b981" : "#ec4899" }}>
+                            <Text style={{ fontSize: 12, fontWeight: "900", color: isCompleted ? "#22c55e" : "#ec4899" }}>
                               {isCompleted ? "Completed" : `${pct}%`}
                             </Text>
                           </View>
                           <Text style={{ fontSize: 11, color: "#71717a", marginBottom: 6 }}>{c.description}</Text>
                           <View style={{ height: 4, backgroundColor: "#1f1f1f", borderRadius: 2 }}>
-                            <View style={{ height: "100%", width: `${pct}%`, backgroundColor: isCompleted ? "#10b981" : "#ec4899", borderRadius: 2 }} />
+                            <View style={{ height: "100%", width: `${pct}%`, backgroundColor: isCompleted ? "#22c55e" : "#ec4899", borderRadius: 2 }} />
                           </View>
                         </View>
                       </View>

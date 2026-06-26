@@ -1836,7 +1836,7 @@ const s = StyleSheet.create({
   },
   overviewValueSuccess: {
     fontSize: 11,
-    color: "#10b981",
+    color: "#22c55e",
     fontWeight: "700",
     marginTop: 2,
   },

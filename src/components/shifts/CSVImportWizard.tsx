@@ -255,7 +255,7 @@ export function CSVImportWizard() {
           </Text>
 
           {isParsing ? (
-            <ActivityIndicator size="small" color="#10b981" className="mt-4" />
+            <ActivityIndicator size="small" color="#22c55e" className="mt-4" />
           ) : (
             <TouchableOpacity
               onPress={pickCSV}

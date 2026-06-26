@@ -96,13 +96,13 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
             <Line x1="170" y1="0" x2="170" y2="200" stroke="#121216" strokeWidth="0.8" />
             <Line x1="255" y1="0" x2="255" y2="200" stroke="#121216" strokeWidth="0.8" />
             <Polyline points={svgPoints} fill="none" stroke={strokeColor} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-            <Circle cx={startX} cy={startY} r="5" fill="#10b981" />
+            <Circle cx={startX} cy={startY} r="5" fill="#22c55e" />
             <Circle cx={endX} cy={endY} r="6" fill="#ef4444" stroke="#000" strokeWidth="1" />
           </Svg>
         </View>
         <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 8 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#10b981" }} />
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#22c55e" }} />
             <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600" }}>Start</Text>
           </View>
           <Text style={{ color: "#52525b", fontSize: 11, fontWeight: "600" }}>{points.length} GPS points</Text>
@@ -186,7 +186,7 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
 
           L.circleMarker(startLatLng, {
             radius: 7,
-            fillColor: '#10b981',
+            fillColor: '#22c55e',
             fillOpacity: 1,
             color: '#ffffff',
             weight: 2

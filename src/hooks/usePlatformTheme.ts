@@ -4,12 +4,12 @@
  * Subscribes to `activePlatformFilter` in the settings store and returns
  * derived color values.
  *
- * DESIGN DECISION: The app uses a single fixed accent color (#10b981) for
+ * DESIGN DECISION: The app previously used a fixed accent color. It now uses the platform context and semantic colors (e.g. #22c55e) for
  * all UI chrome (buttons, active states, selections). Platform brand colors
  * are available via `platformColor` for use ONLY in the platform selector
  * pills — they do NOT bleed into the rest of the interface.
  *
- *  - `accentColor`        → fixed app accent (#10b981) — use everywhere
+ *  - `accentColor`        → current active platform brand color — use for active/primary interactions
  *  - `accentColorDim`     → 18% opacity version of accent
  *  - `accentColorMid`     → 30% opacity version of accent
  *  - `accentColorContrast`→ contrast text on accentColor background

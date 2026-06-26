@@ -151,9 +151,21 @@ const UK_REGIONS: ProvinceDef[] = [
   { id: "NIR", label: "Northern Ireland", countryId: "UK", salesTaxRate: 0.20, isHarmonized: false, availablePlatforms: ["ubereats", "doordash", "instacart", "amazonflex", "other"] },
 ];
 
+// ─── NEPAL ────────────────────────────────────────────────────────────────────
+
+const NP_PROVINCES: ProvinceDef[] = [
+  { id: "P1", label: "Koshi Province", countryId: "NP", salesTaxRate: 0, isHarmonized: false, availablePlatforms: ["pathao", "indriver", "other"] },
+  { id: "P2", label: "Madhesh Province", countryId: "NP", salesTaxRate: 0, isHarmonized: false, availablePlatforms: ["pathao", "indriver", "other"] },
+  { id: "P3", label: "Bagmati Province", countryId: "NP", salesTaxRate: 0, isHarmonized: false, availablePlatforms: ["pathao", "pathao_food", "indriver", "foodmandu", "bhoj", "other"] },
+  { id: "P4", label: "Gandaki Province", countryId: "NP", salesTaxRate: 0, isHarmonized: false, availablePlatforms: ["pathao", "indriver", "other"] },
+  { id: "P5", label: "Lumbini Province", countryId: "NP", salesTaxRate: 0, isHarmonized: false, availablePlatforms: ["pathao", "indriver", "other"] },
+  { id: "P6", label: "Karnali Province", countryId: "NP", salesTaxRate: 0, isHarmonized: false, availablePlatforms: ["pathao", "other"] },
+  { id: "P7", label: "Sudurpashchim Province", countryId: "NP", salesTaxRate: 0, isHarmonized: false, availablePlatforms: ["pathao", "other"] },
+];
+
 // ─── Lookup helpers ────────────────────────────────────────────────────────────
 
-const ALL_REGIONS: ProvinceDef[] = [...CA_PROVINCES, ...US_STATES, ...UK_REGIONS];
+const ALL_REGIONS: ProvinceDef[] = [...CA_PROVINCES, ...US_STATES, ...UK_REGIONS, ...NP_PROVINCES];
 
 export function resolveProvinceDef(
   countryId: string,
@@ -173,8 +185,10 @@ export function getRegionsByCountry(countryId: string): ProvinceDef[] {
 export function getSalesTaxRate(countryId: string, regionCode: string): number {
   const province = resolveProvinceDef(countryId, regionCode);
   if (province) return province.salesTaxRate;
-  // Fallback: if CA, default to ON 13%; if US, 0%
-  return countryId === "CA" ? 0.13 : 0;
+  // Fallback
+  if (countryId === "CA") return 0.13;
+  if (countryId === "UK") return 0.20;
+  return 0;
 }
 
 /** Get the regional/national mileage preset rate ($ per unit distance) */
@@ -193,7 +207,7 @@ export function getMileagePresetRate(countryId: string, regionCode: string): str
   if (c === "UK") {
     return "0.45"; // HMRC Standard rate
   }
-  return "0.62";
+  return "0.00";
 }
 
 /** Get the readable label for a region's standard mileage preset */
@@ -206,5 +220,5 @@ export function getMileagePresetLabel(countryId: string, regionCode: string): st
     return "IRS Standard ($0.67/mi)";
   }
   if (c === "UK") return "HMRC (£0.45/mi)";
-  return "Standard";
+  return "None";
 }

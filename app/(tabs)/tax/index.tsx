@@ -4,13 +4,17 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
-import { AlertTriangle, Settings, Coins, Calendar, TrendingUp } from "lucide-react-native";
+import { AlertTriangle, Settings, Coins, Calendar, TrendingUp, Calculator } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
 import { CurrencyText } from "@/src/components/ui/CurrencyText";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
-import { listCaProvinceCodes, listUsStateCodes, getWithholdingPresetPct } from "@/src/registry/tax/withholdingPresets";
-import { getCountryDef } from "@/src/registry/countries/index";
+import {
+  getCountryDef,
+  getRegionsByCountry,
+  getMileagePresetRate,
+  getWithholdingPresetPct,
+} from "@/src/registry/index";
 import { getPeriodStats } from "@/src/database/queries/analytics";
 import { getExpenseYTDSummary } from "@/src/database/queries/expenses";
 import { getTaxHistory, insertTaxHistory } from "@/src/database/queries/tax";
@@ -60,11 +64,12 @@ export default function TaxScreen() {
   
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  const countryDef = useMemo(() => {
+    return getCountryDef(profile?.country || "CA");
+  }, [profile?.country]);
+
   const regions = useMemo(() => {
-    if (profile?.country === "CA") {
-      return listCaProvinceCodes();
-    }
-    return listUsStateCodes();
+    return getRegionsByCountry(profile?.country || "CA").map((r) => r.id);
   }, [profile?.country]);
 
   const currentYear = new Date().getFullYear();
@@ -94,7 +99,6 @@ export default function TaxScreen() {
   const [selectedNewRegion, setSelectedNewRegion] = useState<string | null>(null);
 
   const getPresetForRegion = (regionCode: string) => {
-    const countryDef = getCountryDef(profile?.country || "CA");
     const preset = getWithholdingPresetPct(countryDef.tax.regionPresetType, regionCode);
     return preset ?? countryDef.tax.defaultWithholdingPct;
   };
@@ -136,45 +140,58 @@ export default function TaxScreen() {
   const netIncome = Math.max(0, grossRevenue - deductibleExpenses);
   const totalMileage = (ytdStats?.activeMileage || 0) + (ytdStats?.deadMileage || 0);
 
-  const isCanada = profile?.country === "CA";
-  const regionLabel = isCanada ? `Canada (${profile?.taxRegion || "ON"})` : `USA (${profile?.taxRegion || "CA"})`;
-
-  // Tax calculations based on region
-  const taxData = useMemo(() => {
-    if (isCanada) {
-      const cpp = calculateCPP(netIncome);
-      const hst = profile?.hstRegistered ? calculateHSTOwing(grossRevenue, profile?.taxRegion || "ON") : 0;
-      const mileageDeduction = calculateCRAMileageDeduction(totalMileage);
-      const estimatedIncomeTax = netIncome * ((profile?.taxWithholdingPct || 0) / 100);
-      const totalEstimatedTax = cpp.total + estimatedIncomeTax + hst;
-      const installments = calculateQuarterlyInstallments(totalEstimatedTax);
-
-      return {
-        cpp: cpp.total,
-        hst,
-        mileageDeduction,
-        estimatedIncomeTax,
-        totalEstimatedTax,
-        installments,
-      };
-    } else {
-      const seTax = calculateSelfEmploymentTax(netIncome);
-      const scheduleCProfit = calculateScheduleC(grossRevenue, deductibleExpenses);
-      const mileageDeduction = calculateIRSMileageDeduction(totalMileage);
-      const estimatedIncomeTax = netIncome * ((profile?.taxWithholdingPct || 0) / 100);
-      const totalEstimatedTax = seTax + estimatedIncomeTax;
-      const installments = calculateQuarterlyInstallments(totalEstimatedTax);
-
-      return {
-        seTax,
-        scheduleCProfit,
-        mileageDeduction,
-        estimatedIncomeTax,
-        totalEstimatedTax,
-        installments,
-      };
+  const regionLabel = useMemo(() => {
+    if (regions.length === 0) {
+      return countryDef.label;
     }
-  }, [isCanada, netIncome, grossRevenue, totalMileage, deductibleExpenses, profile]);
+    return `${countryDef.label} (${profile?.taxRegion || countryDef.tax.defaultRegionCode})`;
+  }, [countryDef, profile?.taxRegion, regions]);
+
+  // Tax calculations based on country definition
+  const taxData = useMemo(() => {
+    // 1. CPP (Canada)
+    const cpp = countryDef.tax.calcCpp ? calculateCPP(netIncome).total : 0;
+
+    // 2. SE Tax (USA)
+    const seTax = countryDef.tax.calcSeTax ? calculateSelfEmploymentTax(netIncome) : 0;
+
+    // 3. HST/GST/Sales Tax owing
+    let hst = 0;
+    if (countryDef.tax.hstOnboarding && profile?.hstRegistered) {
+      hst = calculateHSTOwing(grossRevenue, profile?.taxRegion || countryDef.tax.defaultRegionCode);
+    }
+
+    // 4. Mileage deduction calculation
+    let mileageDeduction = 0;
+    if (countryDef.hasMileageDeduction) {
+      if (profile?.country === "CA") {
+        mileageDeduction = calculateCRAMileageDeduction(totalMileage);
+      } else {
+        const rateStr = getMileagePresetRate(profile?.country || "US", profile?.taxRegion || countryDef.tax.defaultRegionCode);
+        const rate = parseFloat(rateStr) || 0;
+        mileageDeduction = totalMileage * rate;
+      }
+    }
+
+    // 5. Estimated Income Tax
+    const estimatedIncomeTax = netIncome * ((profile?.taxWithholdingPct || 0) / 100);
+
+    // 6. Total Estimated Tax
+    const totalEstimatedTax = cpp + seTax + estimatedIncomeTax + hst;
+
+    // 7. Installments
+    const installments = calculateQuarterlyInstallments(totalEstimatedTax);
+
+    return {
+      cpp,
+      seTax,
+      hst,
+      mileageDeduction,
+      estimatedIncomeTax,
+      totalEstimatedTax,
+      installments,
+    };
+  }, [countryDef, profile, netIncome, grossRevenue, totalMileage]);
 
   const lastScrollY = useRef(0);
   const handleScroll = (event: any) => {
@@ -199,6 +216,33 @@ export default function TaxScreen() {
   }, []);
 
   const isLoading = loadingStats || loadingExpenses;
+
+  if (countryDef.hasSelfAssessmentTax === false) {
+    return (
+      <SafeAreaView style={S.root} edges={["left", "right"]}>
+        {/* Header */}
+        <View style={[S.header, { paddingTop: insets.top + 64 }]}>
+          <Text style={S.headerTitle}>Tax Estimator ({currentYear})</Text>
+        </View>
+
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: "#000000" }}>
+          <View style={{ width: "100%", alignItems: "center", gap: 16, padding: 24, backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20 }}>
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: "rgba(34, 197, 94, 0.08)", borderStyle: "dashed", borderWidth: 1, borderColor: "rgba(34, 197, 94, 0.3)", alignItems: "center", justifyContent: "center" }}>
+              <Calculator size={28} color={accentColor} />
+            </View>
+            <View style={{ alignItems: "center" }}>
+              <Text style={{ fontSize: 16, fontWeight: "900", color: "#ffffff", textAlign: "center" }}>
+                No Self-Assessment Required
+              </Text>
+              <Text style={{ fontSize: 13, color: "#a1a1aa", textAlign: "center", marginTop: 8, lineHeight: 18 }}>
+                In {countryDef.label}, gig platform earnings are either subject to withholding at source or handled directly by the platforms. Independent self-assessment estimated payments are not required.
+              </Text>
+            </View>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={S.root} edges={["left", "right"]}>
@@ -235,7 +279,7 @@ export default function TaxScreen() {
             </View>
             <View style={[S.regionBadge, { borderColor: accentColorMid, backgroundColor: accentColorDim }]}>
               <Text style={[S.regionBadgeText, { color: accentColor }]}>
-                {profile?.country || "US"} Standard
+                {countryDef.label} Standard
               </Text>
             </View>
           </View>
@@ -245,39 +289,41 @@ export default function TaxScreen() {
             <View style={S.settingsCard}>
               <Text style={S.settingsCardTitle}>Configure Tax Profile</Text>
               
-              {/* Province / State Selector */}
-              <View style={S.settingGroup}>
-                <Text style={S.settingGroupLabel}>
-                  {profile?.country === "CA" ? "Province" : "State"} Region Preset
-                </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.horizontalChips}>
-                  {regions.map((code) => {
-                    const isSelected = profile?.taxRegion === code;
-                    return (
-                      <Pressable
-                        key={code}
-                        onPress={() => handleSelectRegion(code)}
-                        style={[
-                          S.chip,
-                          isSelected
-                            ? { borderColor: accentColor, backgroundColor: accentColorDim }
-                            : S.chipInactive
-                        ]}
-                      >
-                        <Text style={[
-                          S.chipText,
-                          isSelected ? { color: accentColor, fontWeight: "800" } : { color: "#71717a" }
-                        ]}>
-                          {code}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+              {/* Province / State Selector (Only if regions exist) */}
+              {regions.length > 0 && (
+                <View style={S.settingGroup}>
+                  <Text style={S.settingGroupLabel}>
+                    {countryDef.tax.regionLabel ? countryDef.tax.regionLabel.charAt(0).toUpperCase() + countryDef.tax.regionLabel.slice(1) : "Region"} Preset
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.horizontalChips}>
+                    {regions.map((code) => {
+                      const isSelected = profile?.taxRegion === code;
+                      return (
+                        <Pressable
+                          key={code}
+                          onPress={() => handleSelectRegion(code)}
+                          style={[
+                            S.chip,
+                            isSelected
+                              ? { borderColor: accentColor, backgroundColor: accentColorDim }
+                              : S.chipInactive
+                          ]}
+                        >
+                          <Text style={[
+                            S.chipText,
+                            isSelected ? { color: accentColor, fontWeight: "800" } : { color: "#71717a" }
+                          ]}>
+                            {code}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
 
-              {/* GST/HST Registered Toggle (Only if CA) */}
-              {profile?.country === "CA" && (
+              {/* GST/HST Registered Toggle (Only if country has HST/GST onboarding) */}
+              {countryDef.tax.hstOnboarding && (
                 <View style={S.settingRow}>
                   <View style={{ flex: 1, paddingRight: 10 }}>
                     <Text style={S.settingRowLabel}>GST/HST Registered</Text>
@@ -331,10 +377,10 @@ export default function TaxScreen() {
                 </View>
               </View>
 
-              {/* Tax Region History Log List */}
-              {taxHistoryList && taxHistoryList.length > 0 && (
+              {/* Tax Region History Log List (Only if regions exist) */}
+              {regions.length > 0 && taxHistoryList && taxHistoryList.length > 0 && (
                 <View style={S.historySection}>
-                  <Text style={S.settingGroupLabel}>Tax Region Change History</Text>
+                  <Text style={S.settingGroupLabel}>{countryDef.tax.regionLabel ? countryDef.tax.regionLabel.charAt(0).toUpperCase() + countryDef.tax.regionLabel.slice(1) : "Region"} Change History</Text>
                   <View style={S.historyList}>
                     {taxHistoryList.map((hist) => (
                       <View key={hist.id} style={S.historyRow}>
@@ -370,7 +416,9 @@ export default function TaxScreen() {
                 <CurrencyText amount={deductibleExpenses} size="sm" style={S.rowValueRose} />
               </View>
               <View style={[S.rowItemHighlight, { backgroundColor: accentColorDim, borderTopWidth: 0.5, borderTopColor: accentColorMid }]}>
-                <Text style={S.rowLabelBold}>Net Self-Employment Income</Text>
+                <Text style={S.rowLabelBold}>
+                  {countryDef.hasContractorEconomy ? "Net Self-Employment Income" : "Net Business Income"}
+                </Text>
                 <CurrencyText amount={netIncome} size="sm" style={[S.rowValueBold, { color: accentColor }]} />
               </View>
             </View>
@@ -380,32 +428,36 @@ export default function TaxScreen() {
           <View style={S.section}>
             <Text style={S.sectionTitle}>Estimated Obligations</Text>
             <View style={S.bentoCard}>
-              {isCanada ? (
-                <>
-                  <View style={S.rowItem}>
-                    <View>
-                      <Text style={S.rowLabelBold}>CPP Contribution</Text>
-                      <Text style={S.rowSubText}>Self-employed portion (11.9%)</Text>
-                    </View>
-                    <CurrencyText amount={taxData.cpp || 0} size="sm" style={S.rowValue} />
+              {/* CPP Contribution (Canada) */}
+              {countryDef.tax.calcCpp && (
+                <View style={S.rowItem}>
+                  <View>
+                    <Text style={S.rowLabelBold}>CPP Contribution</Text>
+                    <Text style={S.rowSubText}>Self-employed portion (11.9%)</Text>
                   </View>
-                  {profile?.hstRegistered && (
-                    <View style={S.rowItem}>
-                      <View>
-                        <Text style={S.rowLabelBold}>HST/GST Owing</Text>
-                        <Text style={S.rowSubText}>Estimated on gross revenue</Text>
-                      </View>
-                      <CurrencyText amount={taxData.hst || 0} size="sm" style={S.rowValue} />
-                    </View>
-                  )}
-                </>
-              ) : (
+                  <CurrencyText amount={taxData.cpp || 0} size="sm" style={S.rowValue} />
+                </View>
+              )}
+
+              {/* Self-Employment Tax (USA) */}
+              {countryDef.tax.calcSeTax && (
                 <View style={S.rowItem}>
                   <View>
                     <Text style={S.rowLabelBold}>Self-Employment Tax</Text>
                     <Text style={S.rowSubText}>IRS SE Tax (15.3% of 92.35% profit)</Text>
                   </View>
                   <CurrencyText amount={taxData.seTax || 0} size="sm" style={S.rowValue} />
+                </View>
+              )}
+
+              {/* HST/GST (Canada) */}
+              {countryDef.tax.hstOnboarding && profile?.hstRegistered && (
+                <View style={S.rowItem}>
+                  <View>
+                    <Text style={S.rowLabelBold}>HST/GST Owing</Text>
+                    <Text style={S.rowSubText}>Estimated on gross revenue</Text>
+                  </View>
+                  <CurrencyText amount={taxData.hst || 0} size="sm" style={S.rowValue} />
                 </View>
               )}
 
@@ -426,47 +478,55 @@ export default function TaxScreen() {
             </View>
           </View>
 
-          {/* Mileage Deduction Card */}
-          <View style={S.section}>
-            <Text style={S.sectionTitle}>Standard Mileage Deduction</Text>
-            <View style={S.regionCard}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 16, fontWeight: "900", color: "#fff" }}>
-                  {totalMileage.toFixed(1)} {profile?.distanceUnit || "mi"}
-                </Text>
-                <Text style={S.regionLabel}>Logged YTD Mileage</Text>
-              </View>
-              <View style={{ alignItems: "flex-end" }}>
-                <CurrencyText amount={taxData.mileageDeduction || 0} size="md" style={[S.rowValueBold, { color: accentColor }]} />
-                <Text style={S.regionLabel}>
-                  Write-off Value ({profile?.country === "CA" ? "CRA" : "IRS"})
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Quarterly Installment Dates */}
-          <View style={S.section}>
-            <Text style={S.sectionTitle}>
-              {profile?.country === "CA" ? "CRA" : "IRS"} Quarterly Due Dates
-            </Text>
-            <View style={S.dueDatesList}>
-              {[
-                { label: "Q1 Installment", date: "April 15, 2024" },
-                { label: "Q2 Installment", date: "June 15, 2024" },
-                { label: "Q3 Installment", date: "September 15, 2024" },
-                { label: "Q4 Installment", date: "January 15, 2025" },
-              ].map((q, idx) => (
-                <View key={idx} style={S.dueDateCard}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Calendar size={14} color="#71717a" />
-                    <Text style={S.dueDateLabel}>{q.label}</Text>
-                  </View>
-                  <Text style={S.dueDateValue}>{q.date}</Text>
+          {/* Mileage Deduction Card (Only if country has mileage deduction) */}
+          {countryDef.hasMileageDeduction && (
+            <View style={S.section}>
+              <Text style={S.sectionTitle}>Standard Mileage Deduction</Text>
+              <View style={S.regionCard}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: "900", color: "#fff" }}>
+                    {totalMileage.toFixed(1)} {profile?.distanceUnit || "mi"}
+                  </Text>
+                  <Text style={S.regionLabel}>Logged YTD Mileage</Text>
                 </View>
-              ))}
+                <View style={{ alignItems: "flex-end" }}>
+                  <CurrencyText amount={taxData.mileageDeduction || 0} size="md" style={[S.rowValueBold, { color: accentColor }]} />
+                  <Text style={S.regionLabel}>
+                    Write-off Value ({countryDef.mileageDeductionLabel || "Standard"})
+                  </Text>
+                </View>
+              </View>
             </View>
-          </View>
+          )}
+
+          {/* Quarterly Installment Dates (Only if country has installment schedule) */}
+          {countryDef.taxInstallmentDates && countryDef.taxInstallmentDates.length > 0 && (
+            <View style={S.section}>
+              <Text style={S.sectionTitle}>
+                {countryDef.label} Tax Deadlines
+              </Text>
+              <View style={S.dueDatesList}>
+                {countryDef.taxInstallmentDates.map((item, idx) => {
+                  const year = currentYear + (item.followYear ? 1 : 0);
+                  const dateObj = new Date(year, item.month - 1, item.day);
+                  const formattedDate = dateObj.toLocaleDateString("en-US", {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  });
+                  return (
+                    <View key={idx} style={S.dueDateCard}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <Calendar size={14} color="#71717a" />
+                        <Text style={S.dueDateLabel}>{item.label}</Text>
+                      </View>
+                      <Text style={S.dueDateValue}>{formattedDate}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          )}
 
           {/* Disclaimer Card */}
           <View style={S.disclaimerCard}>
@@ -486,19 +546,19 @@ export default function TaxScreen() {
         >
           <Pressable style={S.overlayCard} onPress={(e) => e.stopPropagation()}>
             <View style={S.overlayHeader}>
-              <Text style={S.overlayTitle}>Change Tax Region</Text>
+              <Text style={S.overlayTitle}>Change Tax {countryDef.tax.regionLabel ? countryDef.tax.regionLabel.charAt(0).toUpperCase() + countryDef.tax.regionLabel.slice(1) : "Region"}</Text>
               <Pressable onPress={() => setSelectedNewRegion(null)} style={S.overlayClose}>
                 <Text style={{ color: "#a1a1aa", fontSize: 16, lineHeight: 16, fontWeight: "700" }}>×</Text>
               </Pressable>
             </View>
 
             <Text style={S.overlayWarningText}>
-              Are you sure you want to change your active tax region from <Text style={{ color: "#ffffff", fontWeight: "800" }}>{profile?.taxRegion}</Text> to <Text style={{ color: accentColor, fontWeight: "800" }}>{selectedNewRegion}</Text>?
+              Are you sure you want to change your active {countryDef.tax.regionLabel || "region"} from <Text style={{ color: "#ffffff", fontWeight: "800" }}>{profile?.taxRegion}</Text> to <Text style={{ color: accentColor, fontWeight: "800" }}>{selectedNewRegion}</Text>?
             </Text>
 
             <View style={S.comparisonContainer}>
               <View style={S.comparisonColumn}>
-                <Text style={S.comparisonLabel}>Previous Region</Text>
+                <Text style={S.comparisonLabel}>Previous {countryDef.tax.regionLabel ? countryDef.tax.regionLabel.charAt(0).toUpperCase() + countryDef.tax.regionLabel.slice(1) : "Region"}</Text>
                 <Text style={S.comparisonRegionCode}>{profile?.taxRegion}</Text>
                 <Text style={S.comparisonRate}>Rate: {profile?.taxWithholdingPct || 0}%</Text>
               </View>
@@ -506,7 +566,7 @@ export default function TaxScreen() {
                 <Text style={{ color: "#71717a", fontSize: 18 }}>➔</Text>
               </View>
               <View style={S.comparisonColumn}>
-                <Text style={S.comparisonLabel}>New Region</Text>
+                <Text style={S.comparisonLabel}>New {countryDef.tax.regionLabel ? countryDef.tax.regionLabel.charAt(0).toUpperCase() + countryDef.tax.regionLabel.slice(1) : "Region"}</Text>
                 <Text style={[S.comparisonRegionCode, { color: accentColor }]}>{selectedNewRegion}</Text>
                 <Text style={S.comparisonRate}>
                   Rate: {selectedNewRegion ? getPresetForRegion(selectedNewRegion) : 0}%
@@ -515,7 +575,7 @@ export default function TaxScreen() {
             </View>
 
             <Text style={S.overlayInfoText}>
-              All tax estimations, deductions, and set-aside recommendations from today and onward will be calculated using the new region's rates. Past shift logs will remain archived.
+              All tax estimations, deductions, and set-aside recommendations from today and onward will be calculated using the new {countryDef.tax.regionLabel || "region"}'s rates. Past shift logs will remain archived.
             </Text>
 
             <View style={S.overlayActions}>

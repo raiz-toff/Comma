@@ -15,6 +15,8 @@ export {
   resolveProvinceDef,
   getRegionsByCountry,
   getSalesTaxRate,
+  getMileagePresetRate,
+  getMileagePresetLabel,
   type ProvinceDef,
 } from "./provinces/index";
 

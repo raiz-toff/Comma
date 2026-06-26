@@ -192,7 +192,7 @@ const RouteMinimap = ({ routePathJson, strokeColor }: { routePathJson: string; s
           strokeLinejoin="round"
         />
 
-        <Circle cx={startX} cy={startY} r="3" fill="#10b981" />
+        <Circle cx={startX} cy={startY} r="3" fill="#22c55e" />
         <Circle cx={endX} cy={endY} r="3.5" fill="#ef4444" stroke="#000" strokeWidth="0.8" />
       </Svg>
     </View>

@@ -25,6 +25,7 @@ import {
 } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { db } from "@/src/database/client";
 import { shifts, expenses, settings } from "@/src/database/schema";
 import { and, gte, lte, eq } from "drizzle-orm";
@@ -40,6 +41,7 @@ import {
   WITHHOLDING_PRESETS_US,
 } from "@/src/registry/tax/withholdingPresets";
 import { getSalesTaxRate } from "@/src/registry/provinces/index";
+import { getCountryDef } from "@/src/registry/index";
 
 const isWeb = Platform.OS === "web";
 
@@ -223,6 +225,7 @@ const REGION_PRESETS_US = Object.entries(WITHHOLDING_PRESETS_US)
 export default function TaxDashboardScreen() {
   const queryClient = useQueryClient();
   const { profile, applyTaxPreset } = useSettingsStore();
+  const { accentColor } = usePlatformTheme();
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
 
   const { data: summary, isLoading, refetch } = useQuery({
@@ -358,7 +361,41 @@ export default function TaxDashboardScreen() {
   if (isLoading) {
     return (
       <SafeAreaView className="dark flex-1 bg-[#000000] items-center justify-center">
-        <ActivityIndicator size="large" color="#10b981" />
+        <ActivityIndicator size="large" color={accentColor} />
+      </SafeAreaView>
+    );
+  }
+
+  const countryDef = getCountryDef(profile.country || "CA");
+  if (countryDef.hasSelfAssessmentTax === false) {
+    return (
+      <SafeAreaView className="dark flex-1 bg-[#000000]">
+        {/* Header */}
+        <View className="px-4 pt-3 pb-3 border-b border-slate-800/80 bg-slate-900/40 flex-row items-center gap-3">
+          <TouchableOpacity onPress={() => router.back()} className="p-1.5 rounded-lg bg-slate-850 active:bg-slate-800">
+            <ArrowLeft size={18} color="#f4f2ed" />
+          </TouchableOpacity>
+          <View>
+            <Text className="text-base font-extrabold text-slate-100 tracking-tight">Tax Center</Text>
+            <Text className="text-[10px] text-slate-400">{countryDef.label} Tax Profile</Text>
+          </View>
+        </View>
+
+        <View className="flex-1 items-center justify-center p-6 bg-[#000000]">
+          <View style={[styles.bentoCardOuter, { width: "100%", alignItems: "center", gap: 16, padding: 24 }]}>
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: "rgba(34, 197, 94, 0.08)", borderStyle: "dashed", borderWidth: 1, borderColor: "rgba(34, 197, 94, 0.3)", alignItems: "center", justifyContent: "center" }}>
+              <Calculator size={28} color={accentColor} />
+            </View>
+            <View style={{ alignItems: "center" }}>
+              <Text style={{ fontSize: 16, fontWeight: "900", color: "#ffffff", textAlign: "center" }}>
+                No Self-Assessment Required
+              </Text>
+              <Text style={{ fontSize: 13, color: "#a1a1aa", textAlign: "center", marginTop: 8, lineHeight: 18 }}>
+                In {countryDef.label}, gig platform earnings are either subject to withholding at source or handled directly by the platforms. Independent self-assessment estimated payments are not required.
+              </Text>
+            </View>
+          </View>
+        </View>
       </SafeAreaView>
     );
   }
@@ -412,7 +449,7 @@ export default function TaxDashboardScreen() {
                 style={{
                   position: "absolute",
                   bottom: -2,
-                  backgroundColor: "#10b981",
+                  backgroundColor: accentColor,
                   paddingHorizontal: 8,
                   paddingVertical: 2,
                   borderRadius: 999,
@@ -630,7 +667,7 @@ export default function TaxDashboardScreen() {
               onPress={() => handleExport("json")}
               className="flex-1 py-3 rounded-xl bg-slate-900 border border-slate-800 flex-row justify-center items-center gap-2 active:bg-slate-850"
             >
-              <Download size={14} color="#10b981" />
+              <Download size={14} color={accentColor} />
               <Text className="text-xs font-bold text-emerald-400">JSON</Text>
             </TouchableOpacity>
 
@@ -638,7 +675,7 @@ export default function TaxDashboardScreen() {
               onPress={() => handleExport("csv")}
               className="flex-1 py-3 rounded-xl bg-slate-900 border border-slate-800 flex-row justify-center items-center gap-2 active:bg-slate-850"
             >
-              <Download size={14} color="#10b981" />
+              <Download size={14} color={accentColor} />
               <Text className="text-xs font-bold text-emerald-400">CSV</Text>
             </TouchableOpacity>
           </View>

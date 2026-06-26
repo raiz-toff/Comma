@@ -20,7 +20,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 44 8% 10%;
 
-    --primary: 160 72% 39%;            /* #10b981 — COMMA brand green */
+    --primary: 142 71% 45%;            /* #22c55e — standard semantic green */
     --primary-foreground: 44 8% 10%;   /* dark text on green */
 
     --secondary: 40 8% 93%;            /* #f2f0eb — surface-raised */
@@ -58,7 +58,7 @@
     --popover: 36 8% 10%;
     --popover-foreground: 38 17% 94%;
 
-    --primary: 160 72% 39%;            /* #10b981 — stays the same */
+    --primary: 142 71% 45%;            /* #22c55e — stays the same */
     --primary-foreground: 0 0% 100%;   /* white text on green */
 
     --secondary: 36 7% 14%;            /* #262522 — surface-raised */

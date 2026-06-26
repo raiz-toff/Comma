@@ -12,7 +12,7 @@ interface BestHourWidgetProps {
   maxHourAvg: number;
 }
 
-function MiniBar({ value, maxValue, color = "#10b981", height = 60 }: { value: number; maxValue: number; color?: string; height?: number }) {
+function MiniBar({ value, maxValue, color = "#22c55e", height = 60 }: { value: number; maxValue: number; color?: string; height?: number }) {
   const pct = maxValue > 0 ? Math.max(8, (value / maxValue) * 100) : 8;
   return (
     <View style={{ flex: 1, height, justifyContent: "flex-end", alignItems: "center", paddingHorizontal: 1 }}>

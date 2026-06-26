@@ -1,3 +1,5 @@
+import { getCountryDef } from "./countries/index";
+
 export interface ExpenseCategory {
   id: string;
   label: string;
@@ -31,21 +33,64 @@ export const US_IRS_CATEGORIES: ExpenseCategory[] = [
   { id: "other",       label: "Other Expenses",  icon: "💵" },
 ];
 
+export const UK_HMRC_CATEGORIES: ExpenseCategory[] = [
+  { id: "fuel",        label: "Fuel & Oil",      icon: "⛽" },
+  { id: "maintenance", label: "Repairs & Serv.", icon: "🔧" },
+  { id: "insurance",   label: "Car Insurance",   icon: "🛡️" },
+  { id: "licensing",   label: "Road Tax & Reg.", icon: "🪪" },
+  { id: "interest",    label: "Finance Interest",icon: "📈" },
+  { id: "leasing",     label: "Vehicle Hire",    icon: "🤝" },
+  { id: "phone",       label: "Mobile & Data",   icon: "📱" },
+  { id: "supplies",    label: "Equipment",       icon: "🎒" },
+  { id: "parking",     label: "Parking & Tolls", icon: "🅿️" },
+  { id: "other",       label: "Other Expenses",  icon: "💵" },
+];
+
+export const GENERIC_CATEGORIES: ExpenseCategory[] = [
+  { id: "fuel",        label: "Fuel & Gas",      icon: "⛽" },
+  { id: "maintenance", label: "Maintenance",     icon: "🔧" },
+  { id: "insurance",   label: "Insurance",       icon: "🛡️" },
+  { id: "phone",       label: "Phone & Data",    icon: "📱" },
+  { id: "supplies",    label: "Tools & Supplies",icon: "🎒" },
+  { id: "other",       label: "Other Expenses",  icon: "💵" },
+];
+
 export type ExpenseCategoryKey = string;
 
 export function getExpenseCategories(
-  country: string = "CA",
+  countryOrProfile: string = "CA",
   customCategories: ExpenseCategory[] = []
 ): ExpenseCategory[] {
-  const base = country === "US" ? US_IRS_CATEGORIES : CANADIAN_CRA_CATEGORIES;
+  let profile: "cra" | "irs" | "hmrc" | "generic" = "generic";
+  const input = String(countryOrProfile).trim();
+
+  if (input === "cra") profile = "cra";
+  else if (input === "irs") profile = "irs";
+  else if (input === "hmrc") profile = "hmrc";
+  else if (input === "generic") profile = "generic";
+  else {
+    const country = getCountryDef(input);
+    profile = country.expenseProfile || "generic";
+  }
+
+  const base =
+    profile === "cra"
+      ? CANADIAN_CRA_CATEGORIES
+      : profile === "irs"
+      ? US_IRS_CATEGORIES
+      : profile === "hmrc"
+      ? UK_HMRC_CATEGORIES
+      : GENERIC_CATEGORIES;
+
   return [...base, ...customCategories];
 }
 
 export function getCategoryMeta(
   id: string,
-  country: string = "CA",
+  countryOrProfile: string = "CA",
   customCategories: ExpenseCategory[] = []
 ): ExpenseCategory {
-  const list = getExpenseCategories(country, customCategories);
+  const list = getExpenseCategories(countryOrProfile, customCategories);
   return list.find((c) => c.id === id) ?? { id: "other", label: "Other Expenses", icon: "💵" };
 }
+

@@ -26,6 +26,7 @@ import { cn } from "@/src/lib/utils";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 import { ArrowLeft, Clock3, Gauge, MapPinned, PencilLine, Plus, Route, Trash2, ReceiptText } from "lucide-react-native";
 import Svg, { Polyline, Circle, Line } from "react-native-svg";
+import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 
 const isWeb = Platform.OS === "web";
 
@@ -100,7 +101,7 @@ const RouteDetailMap = ({ routePathJson, strokeColor }: { routePathJson: string 
           <Line x1="160" y1="0" x2="160" y2={height} stroke="#121212" strokeWidth="1" />
           <Line x1="240" y1="0" x2="240" y2={height} stroke="#121212" strokeWidth="1" />
           <Polyline points={svgPoints} fill="none" stroke={strokeColor} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-          <Circle cx={startX} cy={startY} r="6" fill="#10b981" stroke="#ffffff" strokeWidth="2" />
+          <Circle cx={startX} cy={startY} r="6" fill="#22c55e" stroke="#ffffff" strokeWidth="2" />
           <Circle cx={endX} cy={endY} r="6" fill="#ef4444" stroke="#ffffff" strokeWidth="2" />
         </Svg>
       </View>
@@ -183,7 +184,7 @@ const RouteDetailMap = ({ routePathJson, strokeColor }: { routePathJson: string 
 
           L.circleMarker(startLatLng, {
             radius: 7,
-            fillColor: '#10b981',
+            fillColor: '#22c55e',
             fillOpacity: 1,
             color: '#ffffff',
             weight: 2
@@ -225,6 +226,7 @@ export default function ShiftDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
   const { profile, isDemoMode } = useSettingsStore();
+  const { accentColor, accentColorContrast } = usePlatformTheme();
   const country = profile?.country || "CA";
   const customCategories = profile?.customCategories || [];
   const expenseCategories = getExpenseCategories(country, customCategories);
@@ -385,18 +387,18 @@ export default function ShiftDetailScreen() {
 
   if (isLoadingShift) {
     return (
-      <SafeAreaView className="dark flex-1 bg-[#000000] items-center justify-center">
-        <ActivityIndicator size="large" color="#10b981" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#000000", alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" color={accentColor} />
       </SafeAreaView>
     );
   }
 
   if (!shift) {
     return (
-      <SafeAreaView className="dark flex-1 bg-[#000000] items-center justify-center p-6">
-        <Text className="text-slate-400 text-sm text-center">Shift not found.</Text>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)/shifts")} className="mt-4">
-          <Text className="text-[#10b981] text-sm font-bold">← Go Back</Text>
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#000000", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <Text style={{ color: "#71717a", fontSize: 13, textAlign: "center" }}>Shift not found.</Text>
+        <TouchableOpacity onPress={() => router.replace("/(tabs)/shifts")} style={{ marginTop: 16 }}>
+          <Text style={{ color: accentColor, fontSize: 13, fontWeight: "700" }}>Go Back</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -420,7 +422,7 @@ export default function ShiftDetailScreen() {
     }
   }
   const expenseTotal = expensesList.reduce((sum, exp: any) => sum + (Number(exp.amount) || 0), 0);
-  const routeStrokeColor = PLATFORMS[shift.platform as PlatformKey]?.color || "#10b981";
+  const routeStrokeColor = PLATFORMS[shift.platform as PlatformKey]?.color || accentColor;
   const gpsPointCount = localPoints.length;
   const firstGpsPoint = localPoints[0];
   const lastGpsPoint = localPoints[gpsPointCount - 1];
@@ -467,7 +469,7 @@ export default function ShiftDetailScreen() {
           }}
           className="px-3.5 py-2 bg-[#161615] rounded-xl border border-[#262522]"
         >
-          <Text className="text-[#10b981] text-xs font-bold">Edit</Text>
+          <Text style={{ color: accentColor, fontSize: 12, fontWeight: "700" }}>Edit</Text>
         </TouchableOpacity>
       </View>
 
@@ -495,7 +497,7 @@ export default function ShiftDetailScreen() {
                 )}
               </View>
               <View className="items-end ml-4">
-                <CurrencyText amount={totalRevenue} size="xl" className="font-black text-3xl text-[#10b981]" />
+                <CurrencyText amount={totalRevenue} size="xl" style={{ fontWeight: "900", fontSize: 28, color: accentColor }} />
                 <Text className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1">Total Revenue</Text>
               </View>
             </View>
@@ -552,7 +554,7 @@ export default function ShiftDetailScreen() {
 
             {/* Split Progress Bar */}
             <View className="w-full h-3 bg-[#161615] rounded-full overflow-hidden flex-row mt-2">
-              <View style={{ flex: Math.max(0.01, activeMiles), backgroundColor: "#10b981" }} />
+              <View style={{ flex: Math.max(0.01, activeMiles), backgroundColor: accentColor }} />
               <View style={{ flex: Math.max(0.01, deadMiles), backgroundColor: "#f43f5e" }} />
             </View>
           </View>
@@ -581,15 +583,15 @@ export default function ShiftDetailScreen() {
                   <TouchableOpacity
                     key={cat.id}
                     onPress={() => setExpenseCategory(cat.id)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg border flex-row items-center gap-1.5",
+                    style={[
+                      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 0.8, flexDirection: "row", alignItems: "center", gap: 6 },
                       expenseCategory === cat.id
-                        ? "border-[#10b981] bg-[#10b981]/10"
-                        : "border-[#262522] bg-[#0d0d0d]"
-                    )}
+                        ? { borderColor: accentColor, backgroundColor: accentColor + "18" }
+                        : { borderColor: "#262522", backgroundColor: "#0d0d0d" }
+                    ]}
                   >
-                    <Text className="text-sm">{cat.icon}</Text>
-                    <Text className={cn("text-[11px] font-bold", expenseCategory === cat.id ? "text-[#10b981]" : "text-zinc-500")}>
+                    <Text style={{ fontSize: 14 }}>{cat.icon}</Text>
+                    <Text style={{ fontSize: 11, fontWeight: "700", color: expenseCategory === cat.id ? accentColor : "#71717a" }}>
                       {cat.label}
                     </Text>
                   </TouchableOpacity>
@@ -622,12 +624,12 @@ export default function ShiftDetailScreen() {
               <TouchableOpacity
                 onPress={handleSaveExpense}
                 disabled={isSavingExpense}
-                className="w-full py-3.5 bg-[#10b981] rounded-xl items-center justify-center"
+                style={{ width: "100%", paddingVertical: 14, backgroundColor: accentColor, borderRadius: 12, alignItems: "center", justifyContent: "center" }}
               >
                 {isSavingExpense ? (
-                  <ActivityIndicator size="small" color="white" />
+                  <ActivityIndicator size="small" color={accentColorContrast} />
                 ) : (
-                  <Text className="text-white font-bold text-sm">Save Expense</Text>
+                  <Text style={{ color: accentColorContrast, fontWeight: "700", fontSize: 13 }}>Save Expense</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -635,7 +637,7 @@ export default function ShiftDetailScreen() {
 
           {/* Expenses list cards */}
           {isLoadingExpenses ? (
-            <ActivityIndicator size="small" color="#10b981" />
+            <ActivityIndicator size="small" color={accentColor} />
           ) : expensesList.length === 0 ? (
             <View className="py-6 border border-dashed border-[#262522] rounded-xl items-center justify-center">
               <Text className="text-zinc-500 text-xs font-medium">No expenses linked to this shift.</Text>

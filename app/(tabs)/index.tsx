@@ -334,7 +334,7 @@ const LiveRouteMap = ({ points, strokeColor }: { points: Array<{ latitude: numbe
           strokeLinejoin="round"
         />
 
-        <Circle cx={startX} cy={startY} r="4" fill="#10b981" />
+        <Circle cx={startX} cy={startY} r="4" fill="#22c55e" />
         <Circle cx={endX} cy={endY} r="5" fill={strokeColor} stroke="#fff" strokeWidth="1" />
       </Svg>
     </View>
@@ -401,7 +401,7 @@ const RouteMinimap = ({ routePathJson, strokeColor }: { routePathJson: string; s
           strokeLinejoin="round"
         />
 
-        <Circle cx={startX} cy={startY} r="3" fill="#10b981" />
+        <Circle cx={startX} cy={startY} r="3" fill="#22c55e" />
         <Circle cx={endX} cy={endY} r="3.5" fill="#ef4444" stroke="#000" strokeWidth="0.8" />
       </Svg>
     </View>
@@ -963,15 +963,15 @@ export default function HomeScreen() {
                 </View>
                 <Text style={S.statLabel}>{profile?.distanceUnit === "km" ? "KILOMETERS DRIVEN" : "MILES DRIVEN"}</Text>
                 <Text style={S.statValue}>{currentStats.miles.toFixed(1)}</Text>
-                <Text style={[S.statTrend, { color: "#10b981" }]}>
+                <Text style={[S.statTrend, { color: accentColor }]}>
                   {currentStats.miles > 0 ? `↑ ${(currentStats.miles * 0.15).toFixed(1)} vs yesterday` : "0.0 vs yesterday"}
                 </Text>
               </View>
 
               {/* Card 2: Active Time */}
               <View style={S.statCard}>
-                <View style={[S.gridIconBg, { backgroundColor: "rgba(16, 185, 129, 0.15)" }]}>
-                  <ClockIcon size={14} color="#10b981" />
+                <View style={[S.gridIconBg, { backgroundColor: accentColor + "26" }]}>
+                  <ClockIcon size={14} color={accentColor} />
                 </View>
                 <Text style={S.statLabel}>ACTIVE TIME</Text>
                 <Text style={S.statValue}>{formatDuration(currentStats.duration)}</Text>
@@ -985,7 +985,7 @@ export default function HomeScreen() {
                 </View>
                 <Text style={S.statLabel}>$/HOUR</Text>
                 <Text style={S.statValue}>{fmt(currentStats.rate)}</Text>
-                <Text style={[S.statTrend, { color: "#10b981" }]}>Best today</Text>
+                <Text style={[S.statTrend, { color: accentColor }]}>Best today</Text>
               </View>
 
               {/* Card 4: Expenses */}
@@ -1027,8 +1027,8 @@ export default function HomeScreen() {
                           <Text style={{ fontSize: 12, marginRight: 2 }}>🔥</Text>
                           <Text style={{ fontSize: 11, fontWeight: "800", color: "#f97316" }}>{streakDays} DAY STREAK</Text>
                         </View>
-                        <View style={{ backgroundColor: percent >= 100 ? "rgba(16, 185, 129, 0.15)" : "rgba(255, 255, 255, 0.08)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 0.5, borderColor: percent >= 100 ? "rgba(16, 185, 129, 0.3)" : "rgba(255, 255, 255, 0.12)" }}>
-                          <Text style={{ fontSize: 11, fontWeight: "800", color: percent >= 100 ? "#10b981" : "#a1a1aa" }}>{percent}% DONE</Text>
+                        <View style={{ backgroundColor: percent >= 100 ? accentColor + "26" : "rgba(255, 255, 255, 0.08)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 0.5, borderColor: percent >= 100 ? accentColor + "40" : "rgba(255, 255, 255, 0.12)" }}>
+                          <Text style={{ fontSize: 11, fontWeight: "800", color: percent >= 100 ? accentColor : "#a1a1aa" }}>{percent}% DONE</Text>
                         </View>
                       </View>
                     </View>
@@ -1080,7 +1080,7 @@ export default function HomeScreen() {
                       </View>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                         <View style={{ alignItems: "flex-end", gap: 2 }}>
-                          <Text style={{ fontSize: 15, fontWeight: "800", color: "#10b981" }}>
+                          <Text style={{ fontSize: 15, fontWeight: "800", color: accentColor }}>
                             {new Intl.NumberFormat("en-US", { style: "currency", currency: profile?.locale?.currency || "USD" }).format(totalRevenue)}
                           </Text>
                           <Text style={{ fontSize: 11, color: "#52525b", fontWeight: "600" }}>
@@ -1194,14 +1194,14 @@ export default function HomeScreen() {
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                   <Text style={{ fontSize: 11, fontWeight: "800", color: "#6b7280", textTransform: "uppercase" }}>Current Mileage</Text>
                   <View style={{
-                    backgroundColor: isFirstOrderReceived ? "rgba(16,185,129,.1)" : "rgba(245,158,11,.1)",
+                    backgroundColor: isFirstOrderReceived ? accentColor + "1a" : "rgba(245,158,11,.1)",
                     borderRadius: 4,
                     paddingHorizontal: 8,
                     paddingVertical: 3,
                     borderWidth: 0.5,
-                    borderColor: isFirstOrderReceived ? "rgba(16,185,129,.25)" : "rgba(245,158,11,.25)"
+                    borderColor: isFirstOrderReceived ? accentColor + "40" : "rgba(245,158,11,.25)"
                   }}>
-                    <Text style={{ fontSize: 9, fontWeight: "800", color: isFirstOrderReceived ? "#10b981" : "#f59e0b", textTransform: "uppercase" }}>
+                    <Text style={{ fontSize: 9, fontWeight: "800", color: isFirstOrderReceived ? accentColor : "#f59e0b", textTransform: "uppercase" }}>
                       {isFirstOrderReceived ? "Active miles 🚀" : `Dead ${profile?.distanceUnit === "mi" ? "miles" : "km"} 💀`}
                     </Text>
                   </View>
@@ -1235,16 +1235,16 @@ export default function HomeScreen() {
                     <View
                       style={[S.clockSecBtn, { flex: 1, borderColor: "#3f3f46", backgroundColor: "rgba(63, 63, 70, 0.2)", opacity: 0.8 }]}
                     >
-                      <Text style={{ color: "#10b981", fontSize: 11, fontWeight: "900" }}>✓</Text>
+                      <Text style={{ color: accentColor, fontSize: 11, fontWeight: "900" }}>✓</Text>
                       <Text style={[S.clockSecBtnText, { color: "#a1a1aa" }]}>Active Mode On</Text>
                     </View>
                   ) : (
                     <ScalePressable
                       onPress={() => markFirstOrderReceived()}
-                      style={[S.clockSecBtn, { flex: 1, borderColor: "#10b981", backgroundColor: "rgba(16, 185, 129, 0.05)" }]}
+                      style={[S.clockSecBtn, { flex: 1, borderColor: accentColor, backgroundColor: accentColor + "0d" }]}
                     >
-                      <View style={{ width: 8, height: 8, backgroundColor: "#10b981", borderRadius: 4 }} />
-                      <Text style={[S.clockSecBtnText, { color: "#10b981" }]}>Got First Order</Text>
+                      <View style={{ width: 8, height: 8, backgroundColor: accentColor, borderRadius: 4 }} />
+                      <Text style={[S.clockSecBtnText, { color: accentColor }]}>Got First Order</Text>
                     </ScalePressable>
                   )}
                 </View>
@@ -1253,7 +1253,7 @@ export default function HomeScreen() {
 
             <View style={{ padding: 14, gap: 10 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 8 }}>
-                <View style={[S.pulseDot, { backgroundColor: "#10b981", width: 6, height: 6, borderRadius: 3 }]} />
+                <View style={[S.pulseDot, { backgroundColor: accentColor, width: 6, height: 6, borderRadius: 3 }]} />
                 <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>GPS is collecting data</Text>
               </View>
               <SwipeToEnd key={sessionId || "idle"} onEnd={handleEndShift} />
@@ -1266,8 +1266,8 @@ export default function HomeScreen() {
       <Modal visible={!!endedShiftId} transparent animationType="fade">
         <View style={S.wizardOverlay}>
           <View style={[S.wizardContent, { alignItems: "center", paddingVertical: 32, gap: 20 }]}>
-            <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: "rgba(16, 185, 129, 0.1)", justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "rgba(16, 185, 129, 0.2)" }}>
-              <SquareIcon size={24} color="#10b981" />
+            <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: accentColor + "1a", justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: accentColor + "33" }}>
+              <SquareIcon size={24} color={accentColor} />
             </View>
             <View style={{ alignItems: "center", gap: 8 }}>
               <Text style={{ fontSize: 22, fontWeight: "900", color: "#fff", letterSpacing: 0.5 }}>Shift Completed</Text>
@@ -1467,8 +1467,8 @@ const S = StyleSheet.create({
   heroValueRow: { flexDirection: "row", alignItems: "flex-start", flexWrap: "nowrap" },
   heroCurrency: { fontSize: 20, fontWeight: "600", color: "#fff", lineHeight: 24, marginTop: 6, marginRight: 4 },
   heroValue: { flexShrink: 1, fontSize: 36, fontWeight: "800", color: "#fff", letterSpacing: -0.5, lineHeight: 40, includeFontPadding: false },
-  trendBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 14, backgroundColor: "rgba(16, 185, 129, 0.12)" },
-  trendText: { fontSize: 11, fontWeight: "700", color: "#10b981" },
+  trendBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 14, backgroundColor: "rgba(255, 255, 255, 0.08)" },
+  trendText: { fontSize: 11, fontWeight: "700", color: "#a1a1aa" },
   heroColumns: { flexDirection: "row", flexWrap: "wrap", gap: 14, marginTop: 10, paddingBottom: 10 },
   heroCol: { gap: 4 },
   heroColLabel: { fontSize: 11, color: "#71717a", fontWeight: "500" },

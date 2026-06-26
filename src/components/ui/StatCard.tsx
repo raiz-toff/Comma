@@ -70,7 +70,7 @@ export function StatCard({
       {/* Icon Row */}
       <View className="flex-row items-center justify-between">
         <View className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 items-center justify-center">
-          {IconComponent && <IconComponent size={18} color="#10b981" />}
+          {IconComponent && <IconComponent size={18} color="#22c55e" />}
         </View>
         
         {/* Optional Delta Badge */}

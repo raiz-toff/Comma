@@ -337,7 +337,7 @@ const WORK_PRESETS = [
 ] as const;
 
 const PRESET_ACCENTS = [
-  "#ffffff", "#10b981", "#3b82f6", "#8b5cf6",
+  "#ffffff", "#22c55e", "#3b82f6", "#8b5cf6",
   "#f59e0b", "#ef4444", "#f97316", "#14b8a6",
   "#e11d48", "#22c55e", "#6366f1", "#6b7280",
 ];
@@ -963,7 +963,7 @@ export default function SettingsScreen() {
                           style={[
                             s.swatch,
                             { backgroundColor: hex },
-                            on && { borderWidth: 2.5, borderColor: hex === "#ffffff" ? "#10b981" : "#ffffff" }
+                            on && { borderWidth: 2.5, borderColor: hex === "#ffffff" ? "#52525b" : "#ffffff" }
                           ]}
                         />
                       );
@@ -1478,17 +1478,17 @@ export default function SettingsScreen() {
             {/* Platform compatibility audit result */}
             <View
               style={{
-                backgroundColor: incompatiblePlatforms.length > 0 ? DS.dangerSurface : "rgba(16, 185, 129, 0.05)",
+                backgroundColor: incompatiblePlatforms.length > 0 ? DS.dangerSurface : "rgba(34, 197, 94, 0.05)",
                 borderRadius: DS.rCard - 2,
                 borderWidth: 0.5,
-                borderColor: incompatiblePlatforms.length > 0 ? DS.dangerBorder : "rgba(16, 185, 129, 0.18)",
+                borderColor: incompatiblePlatforms.length > 0 ? DS.dangerBorder : "rgba(34, 197, 94, 0.18)",
                 padding: 12,
                 gap: 6,
               }}
             >
               <Text
                 style={{
-                  color: incompatiblePlatforms.length > 0 ? DS.dangerText : "#10b981",
+                  color: incompatiblePlatforms.length > 0 ? DS.dangerText : "#22c55e",
                   fontSize: 11,
                   fontWeight: "800",
                   textTransform: "uppercase",

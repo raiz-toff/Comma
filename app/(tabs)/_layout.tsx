@@ -25,6 +25,7 @@ import {
 } from "lucide-react-native";
 import { Text } from "../../src/components/ui/text";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
+import { getCountryDef } from "@/src/registry/index";
 
 // Custom pure View icon implementations to avoid react-native-svg native dependency crashes
 const HomeIcon = ({ color, size = 20 }: { color: ColorValue; size?: number }) => (
@@ -268,7 +269,7 @@ export default function TabLayout() {
   };
 
   const getNotificationIcon = (type: string, read: boolean) => {
-    const color = read ? "#64748b" : "#10b981";
+    const color = read ? "#64748b" : accentColor;
     switch (type) {
       case "success":
         return <Trophy size={18} color={read ? "#64748b" : "#eab308"} />;
@@ -381,18 +382,26 @@ export default function TabLayout() {
     return cfg?.color ?? "#ffffff";
   }, [activePlatformFilter]);
 
-  const DRAWER_ITEMS = [
-    { label: "Dashboard", path: "/", icon: Home },
-    { label: "Shifts", path: "/shifts", icon: Clock },
-    { label: "Analytics", path: "/analytics", icon: BarChart3 },
-    { label: "Expenses", path: "/expenses", icon: Receipt },
-    { label: "Goals", path: "/goals", icon: Target },
-    { label: "Tax", path: "/tax", icon: Calculator },
-    { label: "Reports", path: "/reports", icon: FileText },
-    { label: "Schedule", path: "/schedule", icon: Calendar },
-    { label: "Vehicles", path: "/vehicles", icon: Car },
-    { label: "Settings", path: "/settings", icon: SettingsIcon },
-  ];
+  const DRAWER_ITEMS = React.useMemo(() => {
+    const countryDef = getCountryDef(profile?.country || "CA");
+    const items = [
+      { label: "Dashboard", path: "/", icon: Home },
+      { label: "Shifts", path: "/shifts", icon: Clock },
+      { label: "Analytics", path: "/analytics", icon: BarChart3 },
+      { label: "Expenses", path: "/expenses", icon: Receipt },
+      { label: "Goals", path: "/goals", icon: Target },
+    ];
+    if (countryDef.hasSelfAssessmentTax !== false) {
+      items.push({ label: "Tax", path: "/tax", icon: Calculator });
+    }
+    items.push(
+      { label: "Reports", path: "/reports", icon: FileText },
+      { label: "Schedule", path: "/schedule", icon: Calendar },
+      { label: "Vehicles", path: "/vehicles", icon: Car },
+      { label: "Settings", path: "/settings", icon: SettingsIcon }
+    );
+    return items;
+  }, [profile?.country]);
 
   const toggleDrawer = () => {
     setIsDrawerOpen((prev) => !prev);

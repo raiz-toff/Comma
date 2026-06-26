@@ -1,0 +1,1 @@
+ALTER TABLE `platforms` ADD `logo_emoji` text;

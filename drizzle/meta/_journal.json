@@ -78,6 +78,20 @@
       "when": 1782372171641,
       "tag": "0010_loose_molly_hayes",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1782435088073,
+      "tag": "0011_plain_richard_fisk",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1782435424959,
+      "tag": "0012_magenta_wraith",
+      "breakpoints": true
     }
   ]
 }

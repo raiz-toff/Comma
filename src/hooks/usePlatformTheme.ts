@@ -69,57 +69,65 @@ export function blendColors(c1: string, c2: string): string {
   
   const h1 = norm(c1);
   const h2 = norm(c2);
-
+ 
   const r1 = parseInt(h1.slice(0, 2), 16);
   const g1 = parseInt(h1.slice(2, 4), 16);
   const b1 = parseInt(h1.slice(4, 6), 16);
-
+ 
   const r2 = parseInt(h2.slice(0, 2), 16);
   const g2 = parseInt(h2.slice(2, 4), 16);
   const b2 = parseInt(h2.slice(4, 6), 16);
-
+ 
   const r = Math.round((r1 + r2) / 2).toString(16).padStart(2, "0");
   const g = Math.round((g1 + g2) / 2).toString(16).padStart(2, "0");
   const b = Math.round((b1 + b2) / 2).toString(16).padStart(2, "0");
-
+ 
   return `#${r}${g}${b}`;
 }
 
 export function usePlatformTheme(): PlatformTheme {
   const activePlatformFilter = useSettingsStore((s) => s.activePlatformFilter);
   const rawAccent = useSettingsStore((s) => s.profile?.avatarData);
+  const dbPlatforms = useSettingsStore((s) => s.dbPlatforms || []);
   const userAccentColor = (rawAccent && rawAccent.startsWith("#")) ? rawAccent : "#ffffff";
 
   return useMemo<PlatformTheme>(() => {
     const isFiltered = activePlatformFilter !== "all";
     const platformParts = activePlatformFilter.split(",");
     const firstPlatformId = platformParts[0];
-    const cfg = isFiltered ? PLATFORMS[firstPlatformId as PlatformKey] : null;
+
+    const getPlatformColor = (pId: string) => {
+      const dbP = dbPlatforms.find(p => p.id === pId);
+      return dbP?.color || PLATFORMS[pId as PlatformKey]?.color || userAccentColor;
+    };
+
+    const getPlatformLabel = (pId: string) => {
+      const dbP = dbPlatforms.find(p => p.id === pId);
+      return dbP?.label || PLATFORMS[pId as PlatformKey]?.label || pId;
+    };
 
     // Resolve the platform brand color (for pills only)
     let platformColor = userAccentColor;
     if (isFiltered) {
       if (platformParts.length === 2) {
-        const c1 = PLATFORMS[platformParts[0] as PlatformKey]?.color ?? userAccentColor;
-        const c2 = PLATFORMS[platformParts[1] as PlatformKey]?.color ?? userAccentColor;
+        const c1 = getPlatformColor(platformParts[0]);
+        const c2 = getPlatformColor(platformParts[1]);
         try {
           platformColor = blendColors(c1, c2);
         } catch {
           platformColor = c1;
         }
       } else {
-        platformColor = cfg?.color ?? userAccentColor;
+        platformColor = getPlatformColor(firstPlatformId);
       }
     }
 
     let label = "All Platforms";
     if (isFiltered) {
       if (platformParts.length > 1) {
-        label = platformParts
-          .map((p) => PLATFORMS[p as PlatformKey]?.label || p)
-          .join(" + ");
+        label = platformParts.map(getPlatformLabel).join(" + ");
       } else {
-        label = cfg?.label ?? activePlatformFilter;
+        label = getPlatformLabel(firstPlatformId);
       }
     }
 
@@ -135,6 +143,5 @@ export function usePlatformTheme(): PlatformTheme {
       activePlatformId: isFiltered ? activePlatformFilter : null,
       activePlatformLabel: label,
     };
-  }, [activePlatformFilter, userAccentColor]);
+  }, [activePlatformFilter, userAccentColor, dbPlatforms]);
 }
-

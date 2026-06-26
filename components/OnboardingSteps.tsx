@@ -12,7 +12,7 @@ import { Text } from "../src/components/ui/text";
 import { cn } from "../src/lib/utils";
 import { getCountryDef } from "../src/registry/countries/index";
 import { getRegionsByCountry, getMileagePresetRate, getMileagePresetLabel } from "../src/registry/provinces/index";
-import { PLATFORMS, type PlatformKey } from "../src/registry/platforms";
+import { PLATFORMS, type PlatformKey, getPlatformsByCountry } from "../src/registry/platforms";
 import { getWithholdingPresetPct } from "../src/registry/tax/withholdingPresets";
 
 // Custom vector icons implemented as pure Views to avoid react-native-svg native dependency
@@ -208,21 +208,19 @@ interface PlatformsProps {
 
 export function PlatformsStep({ country, selectedPlatforms, togglePlatform }: PlatformsProps) {
   const countryDef = getCountryDef(country);
-  const platformIds = countryDef.defaultAvailablePlatforms;
-  const platformOptions = platformIds.map((id) => {
-    const config = PLATFORMS[id as PlatformKey] || PLATFORMS.other;
-    return {
-      id,
-      label: config.label,
-      color: config.color,
-    };
-  });
+  const platformOptions = getPlatformsByCountry(country);
 
   return (
     <View className="flex flex-col gap-5">
       <View className="gap-1.5">
         <Text className="text-2xl font-bold text-[#f4f2ed]">Which platforms do you use?</Text>
         <Text className="text-xs text-[#7a7670]">Select every gig or delivery app you earn through. You can change this anytime.</Text>
+      </View>
+
+      <View className="py-2.5 px-3.5 bg-[#161512] border border-[#2d2c29] rounded-xl">
+        <Text className="text-[10px] font-extrabold text-[#a1a1aa] uppercase tracking-wider">
+          Platforms available in your region ({countryDef.label})
+        </Text>
       </View>
 
       <WhyWeAsk 

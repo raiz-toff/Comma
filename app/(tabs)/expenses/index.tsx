@@ -495,7 +495,7 @@ export default function ExpensesScreen() {
                 </View>
                 <Text style={{ fontSize: 10, fontWeight: "800", color: "#71717a", textTransform: "uppercase", letterSpacing: 1 }}>Deductible YTD</Text>
               </View>
-              <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -1 }} numberOfLines={1} adjustsFontSizeToFit>
+              <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                 {formatCurrency(ytdSummary?.deductible ?? 0, country)}
               </Text>
             </View>
@@ -506,7 +506,7 @@ export default function ExpensesScreen() {
                 </View>
                 <Text style={{ fontSize: 10, fontWeight: "800", color: "#71717a", textTransform: "uppercase", letterSpacing: 1 }}>Standard YTD</Text>
               </View>
-              <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -1 }} numberOfLines={1} adjustsFontSizeToFit>
+              <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                 {formatCurrency(ytdSummary?.nonDeductible ?? 0, country)}
               </Text>
             </View>

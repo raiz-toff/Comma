@@ -36,12 +36,13 @@ import { ChevronLeft, ArrowUp, ArrowDown, Trash2, Check, ChevronDown, ChevronUp 
 import * as LocalAuthentication from "expo-local-authentication";
 
 import { useSettingsStore, type DriverProfile } from "@/store/useSettingsStore";
-import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
+import { PLATFORMS, type PlatformKey, getPlatformsByCountry } from "@/src/registry/platforms";
 import { listCaProvinceCodes, listUsStateCodes } from "@/src/registry/tax/withholdingPresets";
 import { getMileagePresetRate, getRegionsByCountry } from "@/src/registry/provinces/index";
 import { getCountryDef } from "@/src/registry/countries/index";
 import { resolveAvailablePlatformIds } from "@/src/registry/market/resolve";
 import { insertTaxHistory } from "@/src/database/queries/tax";
+import { getDBPlatforms, updateDBPlatform } from "@/src/database/queries/platforms";
 import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
 import { db } from "@/src/database/client";
 import { settings, shifts, expenses } from "@/src/database/schema";
@@ -375,6 +376,9 @@ type PlatformConfig = {
   hourlyRate: string;
   mileageRate: string;
   priority: string;
+  customLabel?: string;
+  customColor?: string;
+  customEmoji?: string;
 };
 
 type NotifPrefs = {
@@ -403,6 +407,7 @@ export default function SettingsScreen() {
     resetSettings,
     clearSampleData,
     updateProfile,
+    dbPlatforms,
   } = useSettingsStore();
 
   const [dashWidgets, setDashWidgets] = useState<string[]>([]);
@@ -457,14 +462,27 @@ export default function SettingsScreen() {
     setDistanceUnit(newCountryDef.distanceUnit);
     setCurrency(newCountryDef.currency);
 
-    // 2. Deactivate incompatible platforms in local state
-    const updatedConfigs = { ...platformConfigs };
+    // 2. Load platform configs for the new country from DB, and deactivate incompatible ones
+    const dbPlatforms = await getDBPlatforms(selectedNewCountry);
+    const configs: Record<string, PlatformConfig> = {};
+    dbPlatforms.forEach((p, idx) => {
+      configs[p.id] = {
+        active: p.isActive,
+        hourlyRate: p.hourlyRate,
+        mileageRate: p.mileageRate,
+        priority: String(p.sortPriority || idx + 1),
+        customLabel: p.label,
+        customColor: p.color,
+        customEmoji: p.logoEmoji || "",
+      };
+    });
+
     incompatiblePlatforms.forEach((k) => {
-      if (updatedConfigs[k]) {
-        updatedConfigs[k] = { ...updatedConfigs[k], active: false };
+      if (configs[k]) {
+        configs[k] = { ...configs[k], active: false };
       }
     });
-    setPlatformConfigs(updatedConfigs);
+    setPlatformConfigs(configs);
 
     // 3. Record tax history entry for the transition!
     const oldRegion = profile.taxRegion || null;
@@ -498,6 +516,10 @@ export default function SettingsScreen() {
   const [platformConfigs, setPlatformConfigs] = useState<Record<string, PlatformConfig>>({});
   const [showOtherPlatforms, setShowOtherPlatforms] = useState(false);
   const [expandedPlatforms, setExpandedPlatforms] = useState<Record<string, boolean>>({});
+  const [isAddingCustom, setIsAddingCustom] = useState(false);
+  const [newPlatformLabel, setNewPlatformLabel] = useState("");
+  const [newPlatformColor, setNewPlatformColor] = useState("#a855f7");
+  const [newPlatformEmoji, setNewPlatformEmoji] = useState("🚲");
 
   // ── Tab: Alerts ─────────────────────────────────────────────────────────────
   const [notifs, setNotifs] = useState<NotifPrefs>({
@@ -553,22 +575,24 @@ export default function SettingsScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const [platformRaw, notifsRaw, weekStartRaw] = await Promise.all([
-          readSetting("platform_configurations"),
+        const [dbPlatforms, notifsRaw, weekStartRaw] = await Promise.all([
+          getDBPlatforms(profile.country),
           readSetting("notification_prefs"),
           readSetting("week_start_day"),
         ]);
 
         if (weekStartRaw) setWeekStartDay(weekStartRaw);
 
-        const parsedRates = platformRaw ? JSON.parse(platformRaw) : {};
         const configs: Record<string, PlatformConfig> = {};
-        (Object.keys(PLATFORMS) as PlatformKey[]).forEach((key, i) => {
-          configs[key] = {
-            active: profile.selectedPlatforms?.includes(key) || parsedRates[key]?.active || false,
-            hourlyRate: parsedRates[key]?.hourlyRate ?? "20",
-            mileageRate: parsedRates[key]?.mileageRate ?? getMileagePresetRate(profile.country, profile.taxRegion),
-            priority: parsedRates[key]?.priority ?? String(i + 1),
+        dbPlatforms.forEach((p, idx) => {
+          configs[p.id] = {
+            active: p.isActive,
+            hourlyRate: p.hourlyRate,
+            mileageRate: p.mileageRate,
+            priority: String(p.sortPriority || idx + 1),
+            customLabel: p.label,
+            customColor: p.color,
+            customEmoji: p.logoEmoji || "",
           };
         });
         setPlatformConfigs(configs);
@@ -606,11 +630,26 @@ export default function SettingsScreen() {
         },
       });
 
+      // Save platform customizations (hourlyRate, mileageRate, sortPriority) to DB
+      for (const pKey of Object.keys(platformConfigs)) {
+        await updateDBPlatform(country, pKey, {
+          isActive: platformConfigs[pKey].active,
+          hourlyRate: platformConfigs[pKey].hourlyRate,
+          mileageRate: platformConfigs[pKey].mileageRate,
+          sortPriority: parseInt(platformConfigs[pKey].priority, 10) || 1,
+          label: platformConfigs[pKey].customLabel,
+          color: platformConfigs[pKey].customColor,
+          logoEmoji: platformConfigs[pKey].customEmoji || null,
+        });
+      }
+
       await Promise.all([
-        upsertSetting("platform_configurations", JSON.stringify(platformConfigs)),
         upsertSetting("notification_prefs", JSON.stringify(notifs)),
         upsertSetting("week_start_day", weekStartDay),
       ]);
+
+      const refreshed = await getDBPlatforms(country);
+      useSettingsStore.setState({ dbPlatforms: refreshed });
 
       queryClient.invalidateQueries();
       setSavedFeedback(true);
@@ -1009,19 +1048,26 @@ export default function SettingsScreen() {
 
         {/* ═══════════════════ TAB: PLATFORMS ═══════════════════ */}
         {activeTab === "platforms" && (() => {
-          const platformKeys = Object.keys(PLATFORMS) as PlatformKey[];
+          const countryDef = getCountryDef(country);
+          const platformKeys = dbPlatforms.filter(p => p.country === country).map((p) => p.id) as PlatformKey[];
           const activeKeys = platformKeys.filter((k) => platformConfigs[k]?.active);
           const inactiveKeys = platformKeys.filter((k) => !platformConfigs[k]?.active);
 
           const renderPlatformCard = (pKey: PlatformKey) => {
+            const dbPlatform = dbPlatforms.find((p) => p.id === pKey);
             const cfg = platformConfigs[pKey] ?? {
               active: false, hourlyRate: "20", mileageRate: getMileagePresetRate(profile.country, profile.taxRegion), priority: "1",
+              customLabel: dbPlatform?.label || PLATFORMS[pKey]?.label || pKey,
+              customColor: dbPlatform?.color || PLATFORMS[pKey]?.color || "#71717a",
+              customEmoji: dbPlatform?.logoEmoji || "",
             };
             const updateCfg = (patch: Partial<PlatformConfig>) =>
               setPlatformConfigs((p) => ({ ...p, [pKey]: { ...p[pKey], ...patch } }));
 
             const isExpanded = !!expandedPlatforms[pKey];
             const toggleExpand = () => setExpandedPlatforms((prev) => ({ ...prev, [pKey]: !prev[pKey] }));
+
+            const resolvedLabel = cfg.customLabel || dbPlatform?.label || PLATFORMS[pKey]?.label || pKey;
 
             return (
               <Card key={pKey}>
@@ -1033,7 +1079,7 @@ export default function SettingsScreen() {
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
                     <PlatformBadge platform={pKey} size="sm" />
                     <View style={{ flex: 1 }}>
-                      <Text style={s.rowLabel}>{PLATFORMS[pKey]?.label || pKey}</Text>
+                      <Text style={s.rowLabel}>{resolvedLabel}</Text>
                       {cfg.active && (
                         <Text style={[s.rowHint, { color: accentColor }]}>
                           {isExpanded ? "Hide settings" : "Configure settings"}
@@ -1068,6 +1114,37 @@ export default function SettingsScreen() {
                 {cfg.active && isExpanded && (
                   <>
                     <Sep />
+                    {(pKey === "other" || pKey.startsWith("custom_")) && (
+                      <>
+                        <Row label="Platform Name" last={false}>
+                          <InlineInput
+                            value={cfg.customLabel ?? ""}
+                            placeholder="e.g. Pathao"
+                            onChangeText={(v) => updateCfg({ customLabel: v })}
+                          />
+                        </Row>
+                        <Row label="Theme Color" last={false}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <InlineInput
+                              value={cfg.customColor ?? ""}
+                              placeholder="e.g. #a855f7"
+                              onChangeText={(v) => updateCfg({ customColor: v })}
+                              style={{ width: 100 }}
+                            />
+                            <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: cfg.customColor || "#71717a" }} />
+                          </View>
+                        </Row>
+                        <Row label="Logo/Emoji" last={false}>
+                          <InlineInput
+                            value={cfg.customEmoji ?? ""}
+                            placeholder="e.g. 🚲"
+                            onChangeText={(v) => updateCfg({ customEmoji: v })}
+                            maxLength={2}
+                            style={{ width: 60 }}
+                          />
+                        </Row>
+                      </>
+                    )}
                     <Row label="Hourly rate" last={false}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                         <Segmented
@@ -1111,6 +1188,25 @@ export default function SettingsScreen() {
 
           return (
             <View style={{ gap: 12 }}>
+              <View style={{
+                backgroundColor: DS.inputBg,
+                borderColor: DS.inputBorder,
+                borderWidth: 1,
+                borderRadius: 12,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                marginBottom: 4,
+              }}>
+                <Text style={{
+                  color: DS.textSecondary,
+                  fontSize: 10,
+                  fontWeight: "800",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                }}>
+                  Platforms available in your region ({countryDef.label})
+                </Text>
+              </View>
               <GroupLabel text="Active Platforms" />
               {activeKeys.length === 0 ? (
                 <Card>
@@ -1174,7 +1270,7 @@ export default function SettingsScreen() {
                               <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                                 <PlatformBadge platform={pKey} size="sm" />
                                 <Text style={{ color: DS.textPrimary, fontSize: 13, fontWeight: "600" }}>
-                                  {PLATFORMS[pKey]?.label || pKey}
+                                  {cfg.customLabel || dbPlatforms.find((p) => p.id === pKey)?.label || PLATFORMS[pKey]?.label || pKey}
                                 </Text>
                               </View>
                               <Switch
@@ -1191,6 +1287,143 @@ export default function SettingsScreen() {
                   </Card>
                 </View>
               )}
+
+              {/* Add Custom Platform section */}
+              <View style={{ marginTop: 12 }}>
+                <GroupLabel text="Add Custom Platform" />
+                <Card>
+                  {!isAddingCustom ? (
+                    <TouchableOpacity
+                      onPress={() => setIsAddingCustom(true)}
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        paddingVertical: 14,
+                        paddingHorizontal: 16,
+                        gap: 8,
+                      }}
+                    >
+                      <Text style={{ color: accentColor, fontSize: 13, fontWeight: "700" }}>
+                        + Create Custom Platform
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={{ padding: 16, gap: 12 }}>
+                      <Text style={{ color: DS.textPrimary, fontSize: 13, fontWeight: "700", marginBottom: 4 }}>
+                        New Custom Platform
+                      </Text>
+                      
+                      <View style={{ gap: 6 }}>
+                        <Text style={{ color: DS.textSecondary, fontSize: 11, fontWeight: "600" }}>Platform Name</Text>
+                        <InlineInput
+                          value={newPlatformLabel}
+                          onChangeText={setNewPlatformLabel}
+                          placeholder="e.g. Pathao, InDriver"
+                          style={{ minHeight: 40, width: "100%", paddingHorizontal: 10 }}
+                        />
+                      </View>
+
+                      <View style={{ flexDirection: "row", gap: 16 }}>
+                        <View style={{ flex: 1, gap: 6 }}>
+                          <Text style={{ color: DS.textSecondary, fontSize: 11, fontWeight: "600" }}>Theme Color</Text>
+                          <InlineInput
+                            value={newPlatformColor}
+                            onChangeText={setNewPlatformColor}
+                            placeholder="e.g. #22c55e"
+                            style={{ minHeight: 40, width: "100%", paddingHorizontal: 10 }}
+                          />
+                        </View>
+                        <View style={{ width: 80, gap: 6 }}>
+                          <Text style={{ color: DS.textSecondary, fontSize: 11, fontWeight: "600" }}>Emoji Logo</Text>
+                          <InlineInput
+                            value={newPlatformEmoji}
+                            onChangeText={setNewPlatformEmoji}
+                            placeholder="e.g. 🚲"
+                            maxLength={2}
+                            style={{ minHeight: 40, width: "100%", textAlign: "center" }}
+                          />
+                        </View>
+                      </View>
+
+                      <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+                        <TouchableOpacity
+                          onPress={() => {
+                            setIsAddingCustom(false);
+                            setNewPlatformLabel("");
+                          }}
+                          style={{
+                            paddingVertical: 8,
+                            paddingHorizontal: 12,
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            borderColor: DS.inputBorder,
+                          }}
+                        >
+                          <Text style={{ color: DS.textSecondary, fontSize: 12, fontWeight: "600" }}>Cancel</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          onPress={async () => {
+                            if (!newPlatformLabel.trim()) {
+                              Alert.alert("Required", "Please enter a platform name.");
+                              return;
+                            }
+                            const newId = `custom_platform_${Date.now()}`;
+                            const defaultMileage = getMileagePresetRate(country, taxRegion);
+                            
+                            // Insert into database directly
+                            await updateDBPlatform(country, newId, {
+                              id: newId,
+                              label: newPlatformLabel.trim(),
+                              color: newPlatformColor.trim() || "#71717a",
+                              textColor: "#ffffff",
+                              country: country,
+                              isActive: true,
+                              hourlyRate: "20",
+                              mileageRate: defaultMileage,
+                              sortPriority: 10,
+                              logoEmoji: newPlatformEmoji.trim() || null,
+                            });
+
+                            // Update local configs state so it shows up active immediately!
+                            setPlatformConfigs(prev => ({
+                              ...prev,
+                              [newId]: {
+                                active: true,
+                                hourlyRate: "20",
+                                mileageRate: defaultMileage,
+                                priority: "10",
+                                customLabel: newPlatformLabel.trim(),
+                                customColor: newPlatformColor.trim() || "#71717a",
+                                customEmoji: newPlatformEmoji.trim() || "",
+                              }
+                            }));
+
+                            // Invalidate store and reload
+                            const refreshed = await getDBPlatforms(country);
+                            useSettingsStore.setState({ dbPlatforms: refreshed });
+
+                            // Close the form
+                            setIsAddingCustom(false);
+                            setNewPlatformLabel("");
+                            setNewPlatformColor("#a855f7");
+                            setNewPlatformEmoji("🚲");
+                          }}
+                          style={{
+                            paddingVertical: 8,
+                            paddingHorizontal: 16,
+                            borderRadius: 6,
+                            backgroundColor: accentColor,
+                          }}
+                        >
+                          <Text style={{ color: accentColorContrast, fontSize: 12, fontWeight: "700" }}>Add Platform</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                </Card>
+              </View>
             </View>
           );
         })()}

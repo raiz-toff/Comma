@@ -111,7 +111,7 @@ function CircularProgress({
         />
       </Svg>
       <View style={{ position: "absolute", alignItems: "center", justifyContent: "center" }}>
-        <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -1 }} adjustsFontSizeToFit numberOfLines={1}>
+        <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} adjustsFontSizeToFit numberOfLines={1}>
           {Math.round(progressPct)}%
         </Text>
       </View>
@@ -348,7 +348,7 @@ export default function GoalsScreen() {
                   <Award size={16} color="#3b82f6" />
                   <Text style={{ fontSize: 12, fontWeight: "800", color: "#71717a", textTransform: "uppercase" }}>Driver XP</Text>
                 </View>
-                <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -1, marginBottom: 2 }} adjustsFontSizeToFit numberOfLines={1}>
+                <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false, marginBottom: 2 }} adjustsFontSizeToFit numberOfLines={1}>
                   {xpTotal.toLocaleString()} <Text style={{ fontSize: 16, color: "#52525b" }}>XP</Text>
                 </Text>
                 <View style={{ height: 4, backgroundColor: "#262522", borderRadius: 2, marginVertical: 8 }}>
@@ -363,7 +363,7 @@ export default function GoalsScreen() {
                   <Flame size={16} color="#ef4444" />
                   <Text style={{ fontSize: 12, fontWeight: "800", color: "#71717a", textTransform: "uppercase" }}>Day Streak</Text>
                 </View>
-                <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -1, marginBottom: 14 }} adjustsFontSizeToFit numberOfLines={1}>
+                <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false, marginBottom: 14 }} adjustsFontSizeToFit numberOfLines={1}>
                   {streakDays} <Text style={{ fontSize: 16, color: "#52525b" }}>days</Text>
                 </Text>
                 <Text style={{ fontSize: 11, fontWeight: "700", color: "#a1a1aa" }}>Active streak</Text>
@@ -375,7 +375,7 @@ export default function GoalsScreen() {
                   <Star size={16} color="#8b5cf6" />
                   <Text style={{ fontSize: 12, fontWeight: "800", color: "#71717a", textTransform: "uppercase" }}>Badges</Text>
                 </View>
-                <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -1, marginBottom: 14 }} adjustsFontSizeToFit numberOfLines={1}>
+                <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false, marginBottom: 14 }} adjustsFontSizeToFit numberOfLines={1}>
                   {badgesUnlocked} <Text style={{ fontSize: 16, color: "#52525b" }}>/ {badgesTotal}</Text>
                 </Text>
                 <Text style={{ fontSize: 11, fontWeight: "700", color: "#a1a1aa" }}>Unlocked</Text>
@@ -387,7 +387,7 @@ export default function GoalsScreen() {
                   <TrendingUp size={16} color={accentColor} />
                   <Text style={{ fontSize: 12, fontWeight: "800", color: "#71717a", textTransform: "uppercase" }}>Best Shift</Text>
                 </View>
-                <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -1, marginBottom: 14 }} adjustsFontSizeToFit numberOfLines={1}>
+                <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false, marginBottom: 14 }} adjustsFontSizeToFit numberOfLines={1}>
                   {formatCurrency(bestShift?.grossRevenue ?? 0, profile.country)}
                 </Text>
                 <Text style={{ fontSize: 11, fontWeight: "700", color: "#a1a1aa" }}>All-time record</Text>

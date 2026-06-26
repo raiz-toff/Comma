@@ -1,9 +1,11 @@
 import { create } from "zustand";
 import { Platform } from "react-native";
 import { db } from "../src/database/client";
-import { settings, vehicles, shifts, expenses, goals } from "../src/database/schema";
+import { settings, vehicles, shifts, expenses, goals, platforms } from "../src/database/schema";
 import { eq } from "drizzle-orm";
 import { DEMO_ROUTES } from './demoRoutes';
+import { getDBPlatforms, updateDBPlatform, seedDBPlatforms, type DBPlatform } from "../src/database/queries/platforms";
+import { getPlatformsByCountry } from "../src/registry/platforms";
 
 import { type ExpenseCategory } from "../src/registry/expenseCategories";
 import { getCountryDef, type CountryDef } from "../src/registry/countries/index";
@@ -78,6 +80,7 @@ interface SettingsState {
   activePlatformFilter: string;
   preferredVehicleId: string | null;
   isHeaderVisible: boolean;
+  dbPlatforms: DBPlatform[];
 
   // Derived from registry — synced on every profile load/update
   countryDef: CountryDef | null;
@@ -171,6 +174,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   activePlatformFilter: "all",
   preferredVehicleId: null,
   isHeaderVisible: true,
+  dbPlatforms: [],
   countryDef: null,
   provinceDef: null,
   marketContext: null,
@@ -257,6 +261,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         }
         
         const loadedProfile: DriverProfile = rawProfile ? { ...DEFAULT_PROFILE, ...JSON.parse(rawProfile) } : DEFAULT_PROFILE;
+        const activeCountry = loadedProfile.country || "CA";
+        await seedDBPlatforms(activeCountry, loadedProfile.selectedPlatforms || []);
+        const dbPlatforms = await getDBPlatforms(activeCountry);
+        loadedProfile.selectedPlatforms = dbPlatforms.filter(p => p.isActive).map(p => p.id);
+
         const localeDefs = syncLocaleDefsFromProfile(loadedProfile);
         const gamificationState = await GamificationService.loadState();
         let finalFilter = localStorage.getItem("comma_active_platform_filter") || "all";
@@ -266,6 +275,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         set({
           isOnboardingCompleted: true,
           profile: loadedProfile,
+          dbPlatforms,
           activeVehicle: rawVehicle ? JSON.parse(rawVehicle) : null,
           isDemoMode: rawDemoMode === "true",
           activePlatformFilter: finalFilter,
@@ -338,6 +348,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         }
       }
 
+      const activeCountry = nextProfile.country || "CA";
+      await seedDBPlatforms(activeCountry, nextProfile.selectedPlatforms || []);
+      const dbPlatforms = await getDBPlatforms(activeCountry);
+      nextProfile.selectedPlatforms = dbPlatforms.filter(p => p.isActive).map(p => p.id);
+
       // Fetch vehicle
       const vehicleRows = await db
         .select()
@@ -371,6 +386,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       set({
         isOnboardingCompleted: true,
         profile: nextProfile,
+        dbPlatforms,
         activeVehicle: actVeh,
         isDemoMode: isDemo,
         activePlatformFilter: finalFilter,
@@ -412,6 +428,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       },
     };
 
+    await seedDBPlatforms(finalProfile.country, finalProfile.selectedPlatforms);
+    const mileageVal = useMileagePreset ? getMileagePresetRate(finalProfile.country, finalProfile.taxRegion) : "0.62";
+    for (const pKey of finalProfile.selectedPlatforms) {
+      await updateDBPlatform(finalProfile.country, pKey, {
+        isActive: true,
+        mileageRate: mileageVal,
+      });
+    }
 
     if (isWeb) {
       localStorage.setItem("comma_onboarding_completed", "true");
@@ -421,18 +445,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         localStorage.setItem("comma_vehicle2", JSON.stringify(vehicle2));
       }
 
-      // Save platform configurations on Web
-      const platformConfigs: Record<string, any> = {};
-      const mileageVal = useMileagePreset ? getMileagePresetRate(finalProfile.country, finalProfile.taxRegion) : "0.62";
-      finalProfile.selectedPlatforms.forEach((pKey, idx) => {
-        platformConfigs[pKey] = {
-          active: true,
-          hourlyRate: "20",
-          mileageRate: mileageVal,
-          priority: String(idx + 1),
-        };
-      });
-      localStorage.setItem("comma_setting_platform_configurations", JSON.stringify(platformConfigs));
+
 
       // Initialize goals on Web
       const initialGoals = [];
@@ -503,25 +516,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           set: { value: JSON.stringify(finalProfile) },
         });
 
-      // Save platform configurations
-      const platformConfigs: Record<string, any> = {};
-      const mileageVal = useMileagePreset ? getMileagePresetRate(finalProfile.country, finalProfile.taxRegion) : "0.62";
-      finalProfile.selectedPlatforms.forEach((pKey, idx) => {
-        platformConfigs[pKey] = {
-          active: true,
-          hourlyRate: "20",
-          mileageRate: mileageVal,
-          priority: String(idx + 1),
-        };
-      });
 
-      await db
-        .insert(settings)
-        .values({ key: "platform_configurations", value: JSON.stringify(platformConfigs) })
-        .onConflictDoUpdate({
-          target: settings.key,
-          set: { value: JSON.stringify(platformConfigs) },
-        });
 
       // Save vehicle details
       // First de-activate all vehicles
@@ -625,6 +620,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         countryDef.tax.defaultRegionCode
       );
       updated.taxWithholdingPct = preset ?? countryDef.tax.defaultWithholdingPct;
+
+      // Filter selectedPlatforms to only include ones valid in the new country
+      const newCountryPlatforms = getPlatformsByCountry(patch.country).map(p => p.id);
+      updated.selectedPlatforms = (updated.selectedPlatforms || []).filter(
+        (pId) => newCountryPlatforms.includes(pId)
+      );
     }
 
     // If taxRegion changed, apply region withholding preset
@@ -644,6 +645,29 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       nextFilter = "all";
     }
     set({ profile: updated, activePlatformFilter: nextFilter, ...localeDefs });
+
+    // Sync platform active states in DB
+    try {
+      const activeCountry = updated.country;
+      if (patch.country && patch.country !== current.country) {
+        await seedDBPlatforms(patch.country, patch.selectedPlatforms || []);
+      }
+      if (patch.selectedPlatforms) {
+        for (const pKey of patch.selectedPlatforms) {
+          await updateDBPlatform(activeCountry, pKey, { isActive: true });
+        }
+        const allPlatforms = await getDBPlatforms(activeCountry);
+        for (const dbP of allPlatforms) {
+          if (!patch.selectedPlatforms.includes(dbP.id)) {
+            await updateDBPlatform(activeCountry, dbP.id, { isActive: false });
+          }
+        }
+      }
+      const dbPlatforms = await getDBPlatforms(activeCountry);
+      set({ dbPlatforms });
+    } catch (e) {
+      console.error("Failed to sync platforms in DB during updateProfile:", e);
+    }
 
     // Persist
     const profileJson = JSON.stringify(updated);

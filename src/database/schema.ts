@@ -97,3 +97,16 @@ export const taxHistory = sqliteTable('tax_history', {
   newRate: real('new_rate').notNull(),
   changedAt: integer('changed_at', { mode: 'timestamp' }).notNull(),
 });
+
+export const platforms = sqliteTable('platforms', {
+  id: text('id').primaryKey(),
+  label: text('label').notNull(),
+  color: text('color').notNull(),
+  textColor: text('text_color').notNull(),
+  country: text('country').notNull(), // 'CA' | 'US' | 'UK' | 'NP'
+  isActive: integer('is_active', { mode: 'boolean' }).default(false).notNull(),
+  hourlyRate: text('hourly_rate').default('20').notNull(),
+  mileageRate: text('mileage_rate').default('0.62').notNull(),
+  sortPriority: integer('sort_priority').default(1).notNull(),
+  logoEmoji: text('logo_emoji'),
+});

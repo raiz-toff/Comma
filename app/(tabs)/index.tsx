@@ -623,21 +623,6 @@ export default function HomeScreen() {
     lastScrollY.current = currentY;
   };
 
-  const actionBarVisibleAnim = React.useRef(new RNAnimated.Value(1)).current;
-
-  React.useEffect(() => {
-    RNAnimated.spring(actionBarVisibleAnim, {
-      toValue: isHeaderVisible ? 1 : 0,
-      tension: 90,
-      friction: 9,
-      useNativeDriver: true,
-    }).start();
-  }, [isHeaderVisible]);
-
-  const actionBarTranslateY = actionBarVisibleAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [120, 0],
-  });
 
   // Overlay state
   const [showClockOverlay, setShowClockOverlay] = useState(false);
@@ -862,9 +847,9 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={S.root} edges={["top", "left", "right"]}>
+    <SafeAreaView style={S.root} edges={["top", "left", "right", "bottom"]}>
       <ScrollView
-        contentContainerStyle={[S.scroll, { paddingBottom: 110 + insets.bottom }]}
+        contentContainerStyle={[S.scroll, { paddingBottom: 24 }]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -1135,33 +1120,49 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
-      {/* ── Action Bar ────────────────────────────────────────────────── */}
-      <RNAnimated.View style={[S.actionBar, { bottom: insets.bottom > 0 ? insets.bottom + 8 : 16, transform: [{ translateY: actionBarTranslateY }] }]}>
-        <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
-        
-        {/* Left Action: Log Expense */}
-        <ScalePressable onPress={() => router.push("/expense/add")} style={S.iconActionBtn} android_ripple={{ color: "rgba(255,255,255,0.1)" }}>
-          <ReceiptText color="#a1a1aa" size={20} />
-        </ScalePressable>
-        
-        {/* Center Action: Start/Active Shift */}
-        {!isActive ? (
-          <ScalePressable onPress={openWizard} style={[S.centerActionBtn, { backgroundColor: accentColor }]} android_ripple={{ color: "rgba(255,255,255,0.2)" }}>
-            <Play color={accentColorContrast} size={16} fill={accentColorContrast} />
-            <Text style={[S.centerActionText, { color: accentColorContrast }]}>Start Shift</Text>
+      {/* ── Fixed Bottom Action Bar ────────────────────────────────────────── */}
+      <View style={{ borderTopWidth: 1, borderTopColor: "#1f1f1f", backgroundColor: "#000", paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 }}>
+        <View style={{ flexDirection: "row", backgroundColor: "#0c0c0c", borderRadius: 16, borderWidth: 1, borderColor: "#1f1f1f", padding: 4, gap: 4 }}>
+          
+          {/* Left: Log Expense */}
+          <ScalePressable
+            onPress={() => router.push("/expense/add")}
+            style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: "transparent" }}
+          >
+            <ReceiptText color="#a1a1aa" size={13} strokeWidth={2} />
+            <Text style={{ fontSize: 11, fontWeight: "600", color: "#a1a1aa", letterSpacing: 0.1 }}>Expense</Text>
           </ScalePressable>
-        ) : (
-          <ScalePressable onPress={() => setShowClockOverlay(true)} style={S.centerActionBtnActive} android_ripple={{ color: "rgba(255,255,255,0.1)" }}>
-            <View style={[S.pulseDot, { backgroundColor: accentColor }]} />
-            <Text style={[S.centerActionTextActive, { color: "#fff" }]}>{formatTime(elapsedSeconds)}</Text>
+
+          {/* Center: Start Shift or Active Shift */}
+          {!isActive ? (
+            <ScalePressable
+              onPress={openWizard}
+              style={{ flex: 1.2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: accentColor, borderWidth: 1, borderColor: accentColor }}
+            >
+              <Play color={accentColorContrast} size={13} fill={accentColorContrast} strokeWidth={2.5} />
+              <Text style={{ fontSize: 11, fontWeight: "800", color: accentColorContrast, letterSpacing: 0.1 }}>Start Shift</Text>
+            </ScalePressable>
+          ) : (
+            <ScalePressable
+              onPress={() => setShowClockOverlay(true)}
+              style={{ flex: 1.2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: "#1f1f1e", borderWidth: 1, borderColor: "#1f1f1f" }}
+            >
+              <View style={[S.pulseDot, { backgroundColor: accentColor }]} />
+              <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 0.1 }}>{formatTime(elapsedSeconds)}</Text>
+            </ScalePressable>
+          )}
+
+          {/* Right: Log Past Shift */}
+          <ScalePressable
+            onPress={() => router.push("/shift/add")}
+            style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: "transparent" }}
+          >
+            <Calendar color="#a1a1aa" size={13} strokeWidth={2} />
+            <Text style={{ fontSize: 11, fontWeight: "600", color: "#a1a1aa", letterSpacing: 0.1 }}>Log Shift</Text>
           </ScalePressable>
-        )}
-        
-        {/* Right Action: Add Past Shift */}
-        <ScalePressable onPress={() => router.push("/shift/add")} style={S.iconActionBtn} android_ripple={{ color: "rgba(255,255,255,0.1)" }}>
-          <Calendar color="#a1a1aa" size={20} />
-        </ScalePressable>
-      </RNAnimated.View>
+
+        </View>
+      </View>
 
       {/* ── Fullscreen Clock Overlay ── */}
       <Animated.View style={[StyleSheet.absoluteFill, { zIndex: 10000, backgroundColor: "#000" }, animatedSheetStyle]}>

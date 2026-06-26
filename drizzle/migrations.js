@@ -12,6 +12,8 @@ import m0007 from './0007_outgoing_masque.sql';
 import m0008 from './0008_kind_fenris.sql';
 import m0009 from './0009_lush_killmonger.sql';
 import m0010 from './0010_loose_molly_hayes.sql';
+import m0011 from './0011_plain_richard_fisk.sql';
+import m0012 from './0012_magenta_wraith.sql';
 
   export default {
     journal,
@@ -26,7 +28,9 @@ m0006,
 m0007,
 m0008,
 m0009,
-m0010
+m0010,
+m0011,
+m0012
     }
   }
   

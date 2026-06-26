@@ -118,7 +118,7 @@ function PremiumStatCard({ label, value, subtitle, color, Icon, width, flex }: a
         </View>
         <Text style={{ fontSize: 10, fontWeight: "800", color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</Text>
       </View>
-      <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -1 }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
+      <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
       {subtitle && <Text style={{ fontSize: 11, fontWeight: "700", color: color, marginTop: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{subtitle}</Text>}
     </View>
   );
@@ -150,7 +150,7 @@ function SwitchableStatCard({ label, activeValue, onlineValue, activeSubtitle, o
         </View>
       </View>
       
-      <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -1 }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
+      <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
       <Text style={{ fontSize: 11, fontWeight: "700", color: color, marginTop: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{subtitle}</Text>
     </View>
   );

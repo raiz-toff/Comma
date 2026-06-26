@@ -2,6 +2,7 @@ import * as React from "react";
 import { View, Text } from "react-native";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 import { PlatformLogo } from "@/src/components/GlobalTopHeader";
+import { useSettingsStore } from "@/store/useSettingsStore";
 
 export interface PlatformBadgeProps {
   platform: PlatformKey;
@@ -13,8 +14,17 @@ export interface PlatformBadgeProps {
 const HAS_LOGO = ["doordash", "ubereats", "instacart", "skip", "amazonflex", "amazon", "foodora", "lyft"];
 
 export function PlatformBadge({ platform, size = "md", style }: PlatformBadgeProps) {
-  const config = PLATFORMS[platform] || PLATFORMS.other;
-  const hasLogo = HAS_LOGO.includes(platform);
+  const dbPlatforms = useSettingsStore((state) => state.dbPlatforms || []);
+  const dbPlatform = dbPlatforms.find(p => p.id === platform);
+
+  const config = {
+    label: dbPlatform?.label || PLATFORMS[platform]?.label || platform,
+    color: dbPlatform?.color || PLATFORMS[platform]?.color || PLATFORMS.other.color,
+    textColor: dbPlatform?.textColor || PLATFORMS[platform]?.textColor || PLATFORMS.other.textColor,
+    logoEmoji: dbPlatform?.logoEmoji || null,
+  };
+
+  const hasLogo = HAS_LOGO.includes(platform) && !config.logoEmoji;
 
   if (hasLogo) {
     const logoSize = size === "sm" ? 16 : 22;
@@ -24,6 +34,8 @@ export function PlatformBadge({ platform, size = "md", style }: PlatformBadgePro
       </View>
     );
   }
+
+  const emojiSize = size === "sm" ? 12 : 15;
 
   return (
     <View
@@ -37,10 +49,14 @@ export function PlatformBadge({ platform, size = "md", style }: PlatformBadgePro
           paddingHorizontal: size === "sm" ? 8 : 12,
           paddingVertical: size === "sm" ? 2 : 4,
           borderRadius: 999,
+          gap: config.logoEmoji ? 4 : 0,
         },
         style
       ]}
     >
+      {config.logoEmoji ? (
+        <Text style={{ fontSize: emojiSize, marginRight: 2 }}>{config.logoEmoji}</Text>
+      ) : null}
       <Text
         style={{
           color: config.textColor,

@@ -430,3 +430,69 @@ Stop execution immediately upon closing the append stream. Await PM verification
   - Modified: `modules/comma-tracker/android/src/main/java/expo/modules/commatracker/CommaTrackerModule.kt`
 - **Database Impact:** None.
 - **State:** Modified early `return@Function` in CommaTrackerModule to simple conditional `if (context != null)` checks, resolving the Kotlin compile-time return mismatch. Manually cleared C++ build cache folders and ran a full clean compile (`./gradlew assembleDebug`), which completed successfully (`BUILD SUCCESSFUL in 3m 30s`).
+
+### Task Completed: Implement Dev GPS Console, Post-Processing (Phase 4), & MapLibre Rendering (Phase 5) - 2026-06-27T01:15:35Z
+- **Files Created/Modified:**
+  - Created: `components/DevGPSTestScreen.tsx`, `utils/polyline.ts`
+  - Modified: `components/OnboardingSteps.tsx`, `components/OnboardingWizard.tsx`, `store/useActiveShift.ts`, `app/shifts/[id].tsx`, `modules/comma-tracker/src/CommaTrackerModule.ts`, `modules/comma-tracker/src/CommaTrackerModule.web.ts`, `android/app/src/main/AndroidManifest.xml`
+- **Database Impact:**
+  - Reads from `temp_native_points` to process final shift metrics, then deletes/wipes the scratchpad rows.
+  - Commits `routePath` polyline string and calculated mileage metrics directly into the permanent `shifts` table.
+- **State:**
+  - Created a developer test page (`DevGPSTestScreen`) wired directly to the native `CommaTracker` background location service and the SQLite scratchpad.
+  - Implemented full post-processing in `endShift()` (RDP simplification at 10m tolerance, Google Polyline encoding, active/dead mileage separation, and scratchpad wiping).
+  - Switched the details view map to MapLibre GL with inline polyline decoding and Catmull-Rom spline smoothing.
+  - Added `POST_NOTIFICATIONS` permission to `AndroidManifest.xml` and wired up notification status requests to guarantee foreground service stability on Android 13+.
+  - Confirmed TypeScript type safety compilation successfully check passes with zero errors (`tsc --noEmit`).
+
+### Task Completed: Fix SQLite Database Path & MainLooper in Foreground Service - 2026-06-27T01:39:45Z
+- **Files Created/Modified:**
+  - Modified: `modules/comma-tracker/android/src/main/java/expo/modules/commatracker/LocationTrackingService.kt`
+- **Database Impact:** None.
+- **State:**
+  - Corrected the database open file path inside `LocationTrackingService.kt` from legacy databases directory to the actual Expo SQLite location: `java.io.File(filesDir, "SQLite/comma.db")`.
+  - Passed `android.os.Looper.getMainLooper()` to `requestLocationUpdates` to ensure callbacks are posted on the main application looper, resolving silent updates failure.
+
+### Task Completed: Implement Interactive Shift Post-Processing Simulator & Route Injector - 2026-06-27T01:42:10Z
+- **Files Created/Modified:**
+  - Modified: `components/DevGPSTestScreen.tsx`
+- **Database Impact:**
+  - Temporary coordinate writes to `temp_native_points` via the route sequence injector simulator.
+- **State:**
+  - Implemented an interactive shift simulation panel directly on the `DevGPSTestScreen` developer console.
+  - Added a "🚗 Mock Route" injector button that populates the scratchpad with a 10-point driving route containing speed variations.
+  - Added a "🏁 End Shift & Post-Process Data" button that executes the full post-processing logic (Haversine metrics, RDP compression, Google Polyline encoding, and decoding) and renders the smoothed route path using a custom inline SVG spline visualizer directly on screen.
+  - Verified compilation via `npx tsc --noEmit`.
+
+### Task Completed: Implement Interactive MapLibre GL Map inside GPS Debugger - 2026-06-27T02:05:30Z
+- **Files Created/Modified:**
+  - Modified: `components/DevGPSTestScreen.tsx`
+- **Database Impact:** None.
+- **State:**
+  - Integrated full MapLibre GL dark theme map support directly inside the `DevGPSTestScreen` debugger console.
+  - Dynamically loads the `react-native-webview` component to load the interactive MapLibre map on native platforms, overlaying the path line and start/end coordinates on the map.
+  - Retained the offline-ready SVG rendering as a web-client fallback.
+  - Verified type safety via `npx tsc --noEmit`.
+
+### Task Completed: Integrate Valhalla Custom Endpoint & Snapping Logic - 2026-06-27T02:32:27Z
+- **Files Created/Modified:**
+  - Modified: `components/DevGPSTestScreen.tsx`
+- **Database Impact:** None.
+- **State:**
+  - Added a "Valhalla Map Snapping Endpoint" text input on the `DevGPSTestScreen` debugger console.
+  - Integrated `expo-secure-store` to load/save the custom endpoint URL persistently.
+  - Added real-time Valhalla `/trace_route` API execution in `runPostProcessing()` to fetch snapped-to-road coordinates.
+  - Implemented 6-decimal precision polyline decoding (`decodeValhallaPolyline`) to extract snapped coordinates.
+  - Configured automatic proportional splitting of snapped distance metrics between active pay and waiting pay.
+  - Added automatic fallback to the offline RDP-spline logic if the Valhalla server is unreachable.
+  - Verified compilation via `npx tsc --noEmit` successfully.
+
+### Task Completed: Implement Toronto Mock Route & Fixed Map Height - 2026-06-27T02:38:30Z
+- **Files Created/Modified:**
+  - Modified: `components/DevGPSTestScreen.tsx`
+- **Database Impact:**
+  - Temporary coordinate writes to `temp_native_points` via the updated Toronto route sequence injector.
+- **State:**
+  - Updated the "🚗 Mock Route" injector inside `DevGPSTestScreen` to populate the scratchpad with the user-provided 10 sequential coordinates in Toronto, Ontario (spaced out to match the real timestamps).
+  - Modified `miniMapBox` container styling to enforce an explicit height of `200` and flex stretch bounds on the native WebView, ensuring the map renders perfectly without collapsing on Android.
+  - Verified compilation via `npx tsc --noEmit` successfully.

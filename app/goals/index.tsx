@@ -399,7 +399,20 @@ export default function GoalsScreen() {
               </View>
 
               {/* Personal Best */}
-              <View style={{ flex: 1, minWidth: "45%", backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, padding: 16 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  if (bestShift?.id) {
+                    router.push({
+                      pathname: "/shifts/[id]",
+                      params: { id: bestShift.id, from: "goals" }
+                    });
+                  } else {
+                    Alert.alert("No shift found", "You haven't completed any shifts yet to view.");
+                  }
+                }}
+                activeOpacity={0.7}
+                style={{ flex: 1, minWidth: "45%", backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, padding: 16 }}
+              >
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
                   <TrendingUp size={16} color={accentColor} />
                   <Text style={{ fontSize: 12, fontWeight: "800", color: "#71717a", textTransform: "uppercase" }}>Best Shift</Text>
@@ -408,7 +421,7 @@ export default function GoalsScreen() {
                   {formatCurrency(bestShift?.grossRevenue ?? 0, profile.country)}
                 </Text>
                 <Text style={{ fontSize: 11, fontWeight: "700", color: "#a1a1aa" }}>All-time record</Text>
-              </View>
+              </TouchableOpacity>
             </View>
 
             {/* ── Active Goals List ── */}

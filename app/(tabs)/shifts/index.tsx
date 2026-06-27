@@ -13,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Text } from "@/src/components/ui/text";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { parseRoutePath } from "@/utils/polyline";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { getShiftsPaginated } from "@/src/database/queries/shifts";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
@@ -134,13 +135,7 @@ const formatDayName = (dateStr: string | Date): string => {
 
 const RouteMinimap = ({ routePathJson, strokeColor }: { routePathJson: string; strokeColor: string }) => {
   const points = React.useMemo(() => {
-    try {
-      const parsed = JSON.parse(routePathJson);
-      if (!Array.isArray(parsed) || parsed.length < 2) return null;
-      return parsed as Array<{ latitude: number; longitude: number }>;
-    } catch {
-      return null;
-    }
+    return parseRoutePath(routePathJson);
   }, [routePathJson]);
 
   if (!points) return null;
@@ -338,7 +333,12 @@ export default function ShiftsScreen() {
         return sTime >= wStart.getTime() && sTime <= wEnd.getTime();
       });
       
-      const wTotal = wShifts.reduce((sum, s) => sum + (s.grossRevenue || 0) + (s.tipsRevenue || 0), 0);
+      const wTotal = wShifts.reduce((sum, s) => {
+        const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0);
+        const miles = (s.activeMileage || 0) + (s.deadMileage || 0);
+        const writeOff = miles * 0.67;
+        return sum + (gross - writeOff);
+      }, 0);
       
       const daysData = Array.from({ length: 7 }, (_, i) => {
         const day = new Date(wStart);
@@ -350,7 +350,12 @@ export default function ShiftsScreen() {
           return sDateStr === dayStr;
         });
         
-        const dayTotal = dayShifts.reduce((sum, s) => sum + (s.grossRevenue || 0) + (s.tipsRevenue || 0), 0);
+        const dayTotal = dayShifts.reduce((sum, s) => {
+          const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0);
+          const miles = (s.activeMileage || 0) + (s.deadMileage || 0);
+          const writeOff = miles * 0.67;
+          return sum + (gross - writeOff);
+        }, 0);
         return {
           total: dayTotal,
           dateNum: day.getDate(),
@@ -434,7 +439,12 @@ export default function ShiftsScreen() {
         return sDateStr === dayStr;
       });
 
-      const dayTotal = dayShifts.reduce((sum, s) => sum + (s.grossRevenue || 0) + (s.tipsRevenue || 0), 0);
+      const dayTotal = dayShifts.reduce((sum, s) => {
+        const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0);
+        const miles = (s.activeMileage || 0) + (s.deadMileage || 0);
+        const writeOff = miles * 0.67;
+        return sum + (gross - writeOff);
+      }, 0);
       return {
         date: day,
         shifts: dayShifts,
@@ -445,7 +455,12 @@ export default function ShiftsScreen() {
   }, [weekStart, weeklyShifts]);
 
   // Calculate totals and labels dynamically
-  const weeklyTotal = weeklyShifts.reduce((sum, s) => sum + (s.grossRevenue || 0) + (s.tipsRevenue || 0), 0);
+  const weeklyTotal = weeklyShifts.reduce((sum, s) => {
+    const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0);
+    const miles = (s.activeMileage || 0) + (s.deadMileage || 0);
+    const writeOff = miles * 0.67;
+    return sum + (gross - writeOff);
+  }, 0);
   const maxDayTotal = Math.max(...shiftsByDay.map((d) => d.total), 0);
 
   const displayedTotal = selectedDayIndex !== null ? shiftsByDay[selectedDayIndex].total : weeklyTotal;
@@ -636,7 +651,9 @@ export default function ShiftsScreen() {
           ) : (
             <View style={styles.shiftsList}>
               {displayedShifts.map((shift) => {
-                const totalShiftEarnings = (shift.grossRevenue || 0) + (shift.tipsRevenue || 0);
+                const shiftMiles = (shift.activeMileage || 0) + (shift.deadMileage || 0);
+                const shiftWriteOff = shiftMiles * 0.67;
+                const totalShiftEarnings = (shift.grossRevenue || 0) + (shift.tipsRevenue || 0) - shiftWriteOff;
                 const durationHrs = (shift.durationSeconds || 0) / 3600;
                 return (
                   <Pressable

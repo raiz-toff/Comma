@@ -1,11 +1,15 @@
 import { create } from "zustand";
 import { attachLocationPointsToShift, insertShift } from "../src/database/queries/shifts";
 import { type PlatformKey } from "../src/registry/platforms";
-import { cleanRoute } from "../utils/mapMatching";
 import { db } from "../src/database/client";
-import { settings } from "../src/database/schema";
-import { eq } from "drizzle-orm";
+import { settings, tempNativePoints } from "../src/database/schema";
+import { eq, asc } from "drizzle-orm";
 import { Platform } from "react-native";
+import CommaTracker from "../modules/comma-tracker";
+import { haversineDistance } from "../utils/geoCalculations";
+import { useSettingsStore } from "./useSettingsStore";
+import simplify from "simplify-js";
+import { encodePolyline } from "../utils/polyline";
 
 export type GigPlatform = PlatformKey;
 
@@ -35,7 +39,7 @@ interface ActiveShiftState {
   sessionId: string | null;
   
   // Actions
-  startShift: (platform: GigPlatform, vehicleId: string, targetTime: number | null) => void;
+  startShift: (platform: GigPlatform, vehicleId: string, targetTime: number | null) => Promise<void>;
   endShift: () => Promise<CompletedShiftPayload | null>;
   incrementTimer: () => void;
   updateMileage: (activeMiles: number, deadMiles: number) => void;
@@ -104,7 +108,15 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
   isFirstOrderReceived: false,
   sessionId: null,
 
-  startShift: (platform, vehicleId, targetTime) => {
+  startShift: async (platform, vehicleId, targetTime) => {
+    if (Platform.OS !== "web") {
+      try {
+        await db.delete(tempNativePoints);
+      } catch (e) {
+        console.error("Failed to clear temp_native_points on startShift:", e);
+      }
+    }
+
     const newState = {
       isActive: true,
       platform,
@@ -132,16 +144,73 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     const durationSeconds = state.elapsedSeconds;
     const shiftId = `shift_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
-    if (state.sessionId) {
+    // 1. Halt Native Tracking
+    if (Platform.OS !== "web") {
       try {
-        await attachLocationPointsToShift(state.sessionId, shiftId);
+        CommaTracker.stopTracking();
       } catch (e) {
-        console.error("Failed to attach local location points to shift:", e);
+        console.error("Failed to stop native tracking:", e);
       }
     }
 
-    // Clean & road-snap the route before saving (will be loaded from temp_native_points in Phase 3/4)
-    let routePathJson: string | null = null;
+    // 2. Fetch Temp Data
+    let points: { id: number; lat: number; lon: number; timestamp: number }[] = [];
+    if (Platform.OS !== "web") {
+      try {
+        points = await db
+          .select()
+          .from(tempNativePoints)
+          .orderBy(asc(tempNativePoints.timestamp));
+      } catch (e) {
+        console.error("Failed to fetch temp native points:", e);
+      }
+    }
+
+    // 3. Calculate Final Metrics
+    let calculatedActiveMileage = 0;
+    let calculatedDeadMileage = 0;
+
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1];
+      const curr = points[i];
+      const distM = haversineDistance(
+        { lat: prev.lat, lng: prev.lon },
+        { lat: curr.lat, lng: curr.lon }
+      );
+      const timeDeltaMs = curr.timestamp - prev.timestamp;
+      const speedMps = timeDeltaMs > 0 ? distM / (timeDeltaMs / 1000) : 0;
+      const speedKmh = speedMps * 3.6;
+
+      const unit = useSettingsStore.getState().profile?.distanceUnit ?? "mi";
+      const conversionFactor = unit === "mi" ? 1609.344 : 1000.0;
+      const distanceConverted = distM / conversionFactor;
+
+      if (speedKmh < 5) {
+        calculatedDeadMileage += distanceConverted;
+      } else {
+        calculatedActiveMileage += distanceConverted;
+      }
+    }
+
+    calculatedActiveMileage = Number(calculatedActiveMileage.toFixed(2));
+    calculatedDeadMileage = Number(calculatedDeadMileage.toFixed(2));
+
+    // 4. Compress (RDP) & 5. Save as JSON with timestamps
+    let encodedPolylineString: string | null = null;
+    if (points.length >= 2) {
+      const formattedForSimplify = points.map((p) => ({ x: p.lon, y: p.lat }));
+      const toleranceInDegrees = 10 / 111320; // 10 meters in degrees
+      const simplified = simplify(formattedForSimplify, toleranceInDegrees, true);
+      const simplifiedLatLng = simplified.map((sp) => {
+        const original = points.find((p) => Math.abs(p.lon - sp.x) < 0.00001 && Math.abs(p.lat - sp.y) < 0.00001);
+        return {
+          latitude: sp.y,
+          longitude: sp.x,
+          timestamp: original ? original.timestamp : Date.now(),
+        };
+      });
+      encodedPolylineString = JSON.stringify(simplifiedLatLng);
+    }
 
     let notes: string | null = null;
     if (state.targetTime && state.startTime) {
@@ -149,6 +218,7 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
       notes = `[ShiftTarget: ${targetSec}]`;
     }
 
+    // 6. Final Commit
     const payload = {
       id: shiftId,
       vehicleId: state.vehicleId,
@@ -157,12 +227,12 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
       endTime: new Date(endTime),
       grossRevenue: 0.0,
       tipsRevenue: 0.0,
-      trackedMileage: state.activeMileage + state.deadMileage,
-      activeMileage: state.activeMileage,
-      deadMileage: state.deadMileage,
+      trackedMileage: calculatedActiveMileage + calculatedDeadMileage,
+      activeMileage: calculatedActiveMileage,
+      deadMileage: calculatedDeadMileage,
       durationSeconds: durationSeconds,
       pausedSeconds: state.pausedSeconds,
-      routePath: routePathJson,
+      routePath: encodedPolylineString,
       notes,
     };
 
@@ -171,6 +241,15 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     } catch (e) {
       console.error("Failed to insert shift in database:", e);
     }
+
+    // 7. Wipe Scratchpad
+    if (Platform.OS !== "web") {
+      try {
+        await db.delete(tempNativePoints);
+      } catch (e) {
+        console.error("Failed to clear temp_native_points scratchpad:", e);
+      }
+    }
     
     const completedPayload: CompletedShiftPayload = {
       shiftId,
@@ -178,8 +257,8 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
       vehicleId: state.vehicleId,
       startTime: state.startTime,
       endTime,
-      activeMileage: state.activeMileage,
-      deadMileage: state.deadMileage,
+      activeMileage: calculatedActiveMileage,
+      deadMileage: calculatedDeadMileage,
     };
 
     const emptyState = {

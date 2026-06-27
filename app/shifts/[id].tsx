@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ScrollView,
   View,
@@ -7,6 +7,8 @@ import {
   Platform,
   ActivityIndicator,
   TextInput,
+  Modal,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -24,9 +26,12 @@ import { useSettingsStore } from "@/store/useSettingsStore";
 import { getExpenseCategories, getCategoryMeta } from "@/src/registry/expenseCategories";
 import { cn } from "@/src/lib/utils";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
-import { ArrowLeft, Clock3, Gauge, MapPinned, PencilLine, Plus, Route, Trash2, ReceiptText } from "lucide-react-native";
+import { ArrowLeft, Clock3, Gauge, MapPinned, PencilLine, Plus, Route, Trash2, ReceiptText, Maximize2 } from "lucide-react-native";
 import Svg, { Polyline, Circle, Line } from "react-native-svg";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+
+import { parseRoutePath, catmullRomSpline } from "../../utils/polyline";
+import { haversineDistance } from "../../utils/geoCalculations";
 
 const isWeb = Platform.OS === "web";
 
@@ -56,15 +61,69 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
   }, []);
 
   const points = React.useMemo(() => {
-    if (!routePathJson || typeof routePathJson !== "string") return null;
-    try {
-      const parsed = JSON.parse(routePathJson);
-      if (!Array.isArray(parsed) || parsed.length < 2) return null;
-      return parsed as Array<{ latitude: number; longitude: number }>;
-    } catch {
-      return null;
-    }
+    return parseRoutePath(routePathJson) as Array<{ latitude: number; longitude: number; timestamp?: number }> | null;
   }, [routePathJson]);
+
+  const smoothedPoints = React.useMemo(() => {
+    if (!points) return null;
+    return catmullRomSpline(points, 8);
+  }, [points]);
+
+  const mapEvents = React.useMemo(() => {
+    if (!points || points.length === 0) return [];
+    
+    const events: Array<{
+      type: "start" | "pause" | "stop" | "end";
+      latitude: number;
+      longitude: number;
+      label: string;
+    }> = [];
+
+    events.push({
+      type: "start",
+      latitude: points[0].latitude,
+      longitude: points[0].longitude,
+      label: "Start Point",
+    });
+
+    for (let i = 1; i < points.length - 1; i++) {
+      const prev = points[i - 1];
+      const curr = points[i];
+      
+      if (prev.timestamp && curr.timestamp) {
+        const dt = (curr.timestamp - prev.timestamp) / 1000;
+        const ds = haversineDistance(
+          { lat: prev.latitude, lng: prev.longitude },
+          { lat: curr.latitude, lng: curr.longitude }
+        );
+
+        if (dt > 120) {
+          events.push({
+            type: "pause",
+            latitude: curr.latitude,
+            longitude: curr.longitude,
+            label: "Pause",
+          });
+        } else if (ds < 20 && dt > 45) {
+          events.push({
+            type: "stop",
+            latitude: curr.latitude,
+            longitude: curr.longitude,
+            label: "Stop",
+          });
+        }
+      }
+    }
+
+    events.push({
+      type: "end",
+      latitude: points[points.length - 1].latitude,
+      longitude: points[points.length - 1].longitude,
+      label: "Ending Point",
+    });
+
+    return events;
+  }, [points]);
 
   if (!points) {
     return (
@@ -74,58 +133,59 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
     );
   }
 
-  if (isWeb || !hasWebViewNativeModule || !WebView || !mapReady || isNavigatingBack) {
-    const lats = points.map((p) => p.latitude);
-    const lngs = points.map((p) => p.longitude);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-    const latRange = maxLat - minLat || 0.001;
-    const lngRange = maxLng - minLng || 0.001;
-    const startPoint = points[0];
-    const endPoint = points[points.length - 1];
-    const sampledPoints = points.length <= 25 ? points : points.filter((_, index) => index % Math.max(1, Math.floor(points.length / 24)) === 0);
+  const [isFullscreen, setIsFullscreen] = React.useState(false);
 
-    const width = 320;
-    const height = 200;
-    const padding = 16;
-    const svgPoints = sampledPoints.map((p) => {
-      const x = padding + ((p.longitude - minLng) / lngRange) * (width - 2 * padding);
-      const y = padding + (1 - (p.latitude - minLat) / latRange) * (height - 2 * padding);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(" ");
-    const startX = padding + ((startPoint.longitude - minLng) / lngRange) * (width - 2 * padding);
-    const startY = padding + (1 - (startPoint.latitude - minLat) / latRange) * (height - 2 * padding);
-    const endX = padding + ((endPoint.longitude - minLng) / lngRange) * (width - 2 * padding);
-    const endY = padding + (1 - (endPoint.latitude - minLat) / latRange) * (height - 2 * padding);
+  const smoothed = smoothedPoints || points;
+  const lats = smoothed.map((p) => p.latitude);
+  const lngs = smoothed.map((p) => p.longitude);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const latRange = maxLat - minLat || 0.001;
+  const lngRange = maxLng - minLng || 0.001;
+  const startPoint = points[0];
+  const endPoint = points[points.length - 1];
 
+  const width = 320;
+  const height = 200;
+  const padding = 16;
+  const svgPoints = smoothed.map((p) => {
+    const x = padding + ((p.longitude - minLng) / lngRange) * (width - 2 * padding);
+    const y = padding + (1 - (p.latitude - minLat) / latRange) * (height - 2 * padding);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const startX = padding + ((startPoint.longitude - minLng) / lngRange) * (width - 2 * padding);
+  const startY = padding + (1 - (startPoint.latitude - minLat) / latRange) * (height - 2 * padding);
+  const endX = padding + ((endPoint.longitude - minLng) / lngRange) * (width - 2 * padding);
+  const endY = padding + (1 - (endPoint.latitude - minLat) / latRange) * (height - 2 * padding);
+
+  const renderSvg = (isFull: boolean) => {
     return (
-      <View className="overflow-hidden bg-[#0d0d0d]" style={{ height: 200 }}>
-        <Svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`}>
-          <Line x1="0" y1="50" x2={width} y2="50" stroke="#121212" strokeWidth="1" />
-          <Line x1="0" y1="100" x2={width} y2="100" stroke="#121212" strokeWidth="1" />
-          <Line x1="0" y1="150" x2={width} y2="150" stroke="#121212" strokeWidth="1" />
-          <Line x1="80" y1="0" x2="80" y2={height} stroke="#121212" strokeWidth="1" />
-          <Line x1="160" y1="0" x2="160" y2={height} stroke="#121212" strokeWidth="1" />
-          <Line x1="240" y1="0" x2="240" y2={height} stroke="#121212" strokeWidth="1" />
-          <Polyline points={svgPoints} fill="none" stroke={strokeColor} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-          <Circle cx={startX} cy={startY} r="6" fill="#22c55e" stroke="#ffffff" strokeWidth="2" />
-          <Circle cx={endX} cy={endY} r="6" fill="#ef4444" stroke="#ffffff" strokeWidth="2" />
-        </Svg>
-      </View>
+      <Svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`}>
+        <Line x1="0" y1="50" x2={width} y2="50" stroke="#121212" strokeWidth="1" />
+        <Line x1="0" y1="100" x2={width} y2="100" stroke="#121212" strokeWidth="1" />
+        <Line x1="0" y1="150" x2={width} y2="150" stroke="#121212" strokeWidth="1" />
+        <Line x1="80" y1="0" x2="80" y2={height} stroke="#121212" strokeWidth="1" />
+        <Line x1="160" y1="0" x2="160" y2={height} stroke="#121212" strokeWidth="1" />
+        <Line x1="240" y1="0" x2="240" y2={height} stroke="#121212" strokeWidth="1" />
+        <Polyline points={svgPoints} fill="none" stroke={strokeColor} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+        <Circle cx={startX} cy={startY} r="6" fill="#22c55e" stroke="#ffffff" strokeWidth="2" />
+        <Circle cx={endX} cy={endY} r="6" fill="#ef4444" stroke="#ffffff" strokeWidth="2" />
+      </Svg>
     );
-  }
+  };
 
-  const pointsJson = JSON.stringify(points);
+  const smoothedPointsJson = JSON.stringify(smoothedPoints);
+  const rawPointsJson = JSON.stringify(points);
   const htmlContent = `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+      <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+      <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
       <style>
         html, body, #map {
           height: 100%;
@@ -134,90 +194,117 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
           padding: 0;
           background-color: #0d0d0d;
         }
-        .leaflet-control-attribution {
-          font-size: 8px !important;
-          background: rgba(13, 13, 13, 0.85) !important;
-          color: #4b5563 !important;
-          }
-        .leaflet-control-zoom {
-          border: 1px solid #1f1f1f !important;
-          margin-top: 12px !important;
-          margin-left: 12px !important;
-        }
-        .leaflet-bar a {
-          background-color: #161615 !important;
-          color: #9ca3af !important;
-          border-bottom: 1px solid #262522 !important;
-        }
-        .leaflet-bar a:hover {
-          background-color: #262522 !important;
-          color: #f3f4f6 !important;
-        }
       </style>
     </head>
     <body>
       <div id="map"></div>
       <script>
-        var points = ${pointsJson};
-        var map = L.map('map', {
-          zoomControl: false,
-          dragging: false,
-          touchZoom: false,
-          doubleClickZoom: false,
-          scrollWheelZoom: false,
-          boxZoom: false,
-          keyboard: false,
+        var points = ${smoothedPointsJson};
+        var rawPoints = ${rawPointsJson};
+        
+        var map = new maplibregl.Map({
+          container: 'map',
+          style: {
+            "version": 8,
+            "sources": {
+              "cartodb-dark": {
+                "type": "raster",
+                "tiles": [
+                  "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+                  "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+                  "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+                  "https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
+                ],
+                "tileSize": 256
+              }
+            },
+            "layers": [
+              {
+                "id": "cartodb-dark-layer",
+                "type": "raster",
+                "source": "cartodb-dark",
+                "minzoom": 0,
+                "maxzoom": 20
+              }
+            ]
+          },
+          center: [0, 0],
+          zoom: 2,
+          interactive: true,
           attributionControl: false
         });
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-          subdomains: 'abcd',
-          maxZoom: 20
-        }).addTo(map);
+        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
-        if (points && points.length > 0) {
-          var latLngs = points.map(function(p) {
-            return [p.latitude, p.longitude];
-          });
+        map.on('load', function() {
+          if (points && points.length > 0) {
+            var coordinates = points.map(function(p) {
+              return [p.longitude, p.latitude];
+            });
 
-          var polyline = L.polyline(latLngs, {
-            color: '${strokeColor}',
-            weight: 5,
-            opacity: 0.9,
-            lineCap: 'round',
-            lineJoin: 'round'
-          }).addTo(map);
+            map.addSource('route', {
+              'type': 'geojson',
+              'data': {
+                'type': 'Feature',
+                'properties': {},
+                'geometry': {
+                  'type': 'LineString',
+                  'coordinates': coordinates
+                }
+              }
+            });
 
-          var startLatLng = latLngs[0];
-          var endLatLng = latLngs[latLngs.length - 1];
+            map.addLayer({
+              'id': 'route-line',
+              'type': 'line',
+              'source': 'route',
+              'layout': {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              'paint': {
+                'line-color': '${strokeColor}',
+                'line-width': 5,
+                'line-opacity': 0.9
+              }
+            });
 
-          L.circleMarker(startLatLng, {
-            radius: 7,
-            fillColor: '#22c55e',
-            fillOpacity: 1,
-            color: '#ffffff',
-            weight: 2
-          }).addTo(map);
+            var timelineEvents = ${JSON.stringify(mapEvents)};
 
-          L.circleMarker(endLatLng, {
-            radius: 7,
-            fillColor: '#ef4444',
-            fillOpacity: 1,
-            color: '#ffffff',
-            weight: 2
-          }).addTo(map);
+            timelineEvents.forEach(function(ev) {
+              var color = '#3b82f6'; // stop
+              if (ev.type === 'start') color = '#10b981';
+              else if (ev.type === 'end') color = '#f43f5e';
+              else if (ev.type === 'pause') color = '#f59e0b';
+              
+              var el = document.createElement('div');
+              var size = (ev.type === 'start' || ev.type === 'end') ? '14px' : '10px';
+              el.style.width = size;
+              el.style.height = size;
+              el.style.borderRadius = '50%';
+              el.style.backgroundColor = color;
+              el.style.border = '2px solid #ffffff';
+              el.style.boxShadow = '0 1px 3px rgba(0,0,0,0.4)';
+              
+              new maplibregl.Marker({ element: el })
+                .setLngLat([ev.longitude, ev.latitude])
+                .addTo(map);
+            });
 
-          map.fitBounds(polyline.getBounds(), { padding: [30, 30], maxZoom: 16 });
-        } else {
-          map.setView([0, 0], 2);
-        }
+            var bounds = coordinates.reduce(function(acc, coord) {
+              return acc.extend(coord);
+            }, new maplibregl.LngLatBounds(coordinates[0], coordinates[0]));
+
+            map.fitBounds(bounds, { padding: 30, animate: false });
+          }
+        });
       </script>
     </body>
     </html>
   `;
 
-  return (
-    <View className="overflow-hidden bg-[#0d0d0d]" style={{ height: 200 }}>
+  const renderWebView = (isFull: boolean) => {
+    return (
       <WebView
         originWhitelist={["*"]}
         source={{ html: htmlContent }}
@@ -227,6 +314,61 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
         scalesPageToFit={true}
         scrollEnabled={false}
       />
+    );
+  };
+
+  const useFallback = isWeb || !hasWebViewNativeModule || !WebView || !mapReady || isNavigatingBack;
+
+  return (
+    <View className="overflow-hidden bg-[#0d0d0d]" style={{ height: 200, position: "relative" }}>
+      {useFallback ? renderSvg(false) : renderWebView(false)}
+      
+      <TouchableOpacity
+        onPress={() => setIsFullscreen(true)}
+        style={{
+          position: "absolute",
+          bottom: 12,
+          right: 12,
+          backgroundColor: "rgba(0,0,0,0.75)",
+          padding: 10,
+          borderRadius: 10,
+          borderWidth: 0.8,
+          borderColor: "rgba(255,255,255,0.15)",
+          zIndex: 999,
+        }}
+      >
+        <Maximize2 size={16} color="#ffffff" />
+      </TouchableOpacity>
+
+      <Modal visible={isFullscreen} animationType="fade" onRequestClose={() => setIsFullscreen(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#0d0d0d" }}>
+          <View style={{ flex: 1, position: "relative" }}>
+            {useFallback ? renderSvg(true) : renderWebView(true)}
+
+            {/* Exit Fullscreen Button */}
+            <TouchableOpacity
+              onPress={() => setIsFullscreen(false)}
+              style={{
+                position: "absolute",
+                top: Platform.OS === "ios" ? 12 : 24,
+                left: 16,
+                backgroundColor: "rgba(0,0,0,0.75)",
+                padding: 10,
+                borderRadius: 10,
+                borderWidth: 0.8,
+                borderColor: "rgba(255,255,255,0.15)",
+                zIndex: 999,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <ArrowLeft size={16} color="#ffffff" />
+              <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "600" }}>Back</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 };
@@ -408,6 +550,143 @@ export default function ShiftDetailScreen() {
     }
   };
 
+  const routePoints = React.useMemo(() => {
+    return parseRoutePath(shift?.routePath) as Array<{ latitude: number; longitude: number; timestamp?: number }> | null;
+  }, [shift?.routePath]);
+
+  const timelineEvents = React.useMemo(() => {
+    if (!routePoints || routePoints.length === 0) return [];
+    
+    const events: Array<{
+      type: "start" | "pause" | "stop" | "end";
+      latitude: number;
+      longitude: number;
+      timestamp?: number;
+      duration?: number;
+      label: string;
+    }> = [];
+
+    // 1. Start Point
+    events.push({
+      type: "start",
+      latitude: routePoints[0].latitude,
+      longitude: routePoints[0].longitude,
+      timestamp: routePoints[0].timestamp,
+      label: "Start Point",
+    });
+
+    // 2. Scan for intermediate pauses/stops
+    for (let i = 1; i < routePoints.length - 1; i++) {
+      const prev = routePoints[i - 1];
+      const curr = routePoints[i];
+      
+      if (prev.timestamp && curr.timestamp) {
+        const dt = (curr.timestamp - prev.timestamp) / 1000; // in seconds
+        const ds = haversineDistance(
+          { lat: prev.latitude, lng: prev.longitude },
+          { lat: curr.latitude, lng: curr.longitude }
+        );
+
+        if (dt > 120) {
+          events.push({
+            type: "pause",
+            latitude: curr.latitude,
+            longitude: curr.longitude,
+            timestamp: curr.timestamp,
+            duration: dt,
+            label: `Paused Shift (${Math.round(dt / 60)}m)`,
+          });
+        } else if (ds < 20 && dt > 45) {
+          events.push({
+            type: "stop",
+            latitude: curr.latitude,
+            longitude: curr.longitude,
+            timestamp: curr.timestamp,
+            duration: dt,
+            label: `Stopped (${Math.round(dt)}s)`,
+          });
+        }
+      }
+    }
+
+    // 3. Ending Point
+    events.push({
+      type: "end",
+      latitude: routePoints[routePoints.length - 1].latitude,
+      longitude: routePoints[routePoints.length - 1].longitude,
+      timestamp: routePoints[routePoints.length - 1].timestamp,
+      label: "Ending Point",
+    });
+
+    return events;
+  }, [routePoints]);
+
+  const [eventAddresses, setEventAddresses] = useState<Record<number, string>>({});
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
+
+  useEffect(() => {
+    if (!timelineEvents || timelineEvents.length === 0) {
+      setEventAddresses({});
+      return;
+    }
+
+    const resolveAddresses = async () => {
+      setIsLoadingAddresses(true);
+      const addresses: Record<number, string> = {};
+
+      const fetchAddress = async (lat: number, lng: number) => {
+        try {
+          const Location = require("expo-location");
+          const results = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+          if (results && results.length > 0) {
+            const res = results[0];
+            const parts = [
+              res.streetNumber,
+              res.street,
+              res.city,
+              res.region,
+            ].filter(Boolean);
+            if (parts.length > 0) {
+              return parts.join(" ");
+            }
+          }
+        } catch (e) {
+          // Fallback to OSM Nominatim
+        }
+
+        try {
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`, {
+            headers: { 'User-Agent': 'CommaApp/1.0' }
+          });
+          const data = await response.json();
+          if (data && data.display_name) {
+            const parts = data.display_name.split(",");
+            return parts.slice(0, 3).map((p: string) => p.trim()).join(", ");
+          }
+        } catch (e) {
+          // Fallback to raw coords
+        }
+
+        return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      };
+
+      try {
+        const promises = timelineEvents.map(async (event, index) => {
+          const addr = await fetchAddress(event.latitude, event.longitude);
+          addresses[index] = addr;
+        });
+        await Promise.all(promises);
+        setEventAddresses(addresses);
+      } catch (err) {
+        console.error("Geocoding failed:", err);
+      } finally {
+        setIsLoadingAddresses(false);
+      }
+    };
+
+    resolveAddresses();
+  }, [timelineEvents]);
+
   if (isLoadingShift) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: "#000000", alignItems: "center", justifyContent: "center" }}>
@@ -433,18 +712,10 @@ export default function ShiftDetailScreen() {
   const totalMiles = activeMiles + deadMiles;
   const deadMilePct = totalMiles > 0 ? (deadMiles / totalMiles) * 100 : 0;
   const durationHrs = (shift.durationSeconds / 3600).toFixed(1);
-  const totalRevenue = shift.grossRevenue + shift.tipsRevenue;
-  const hourlyRate = shift.durationSeconds > 0 ? (totalRevenue / (shift.durationSeconds / 3600)) : 0;
-  let routePoints: Array<{ latitude: number; longitude: number }> = [];
-  if (shift.routePath && typeof shift.routePath === "string") {
-    try {
-      const parsed = JSON.parse(shift.routePath);
-      routePoints = Array.isArray(parsed) ? parsed : [];
-    } catch {
-      routePoints = [];
-    }
-  }
   const expenseTotal = expensesList.reduce((sum, exp: any) => sum + (Number(exp.amount) || 0), 0);
+  const writeOff = totalMiles * 0.67;
+  const netEarnings = (shift.grossRevenue || 0) + (shift.tipsRevenue || 0) - writeOff - expenseTotal;
+  const hourlyRate = shift.durationSeconds > 0 ? (netEarnings / (shift.durationSeconds / 3600)) : 0;
   const routeStrokeColor = PLATFORMS[shift.platform as PlatformKey]?.color || accentColor;
   const gpsPointCount = localPoints.length;
   const firstGpsPoint = localPoints[0];
@@ -520,8 +791,8 @@ export default function ShiftDetailScreen() {
                 )}
               </View>
               <View className="items-end ml-4">
-                <CurrencyText amount={totalRevenue} size="xl" style={{ fontWeight: "900", fontSize: 28, color: accentColor }} />
-                <Text className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1">Total Revenue</Text>
+                <CurrencyText amount={netEarnings} size="xl" style={{ fontWeight: "900", fontSize: 28, color: accentColor }} />
+                <Text className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1">Net Earnings</Text>
               </View>
             </View>
 
@@ -582,6 +853,78 @@ export default function ShiftDetailScreen() {
             </View>
           </View>
         </View>
+
+        {/* Route Timeline */}
+        {timelineEvents && timelineEvents.length >= 2 && (
+          <View className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-[20px] p-5 flex flex-col gap-4">
+            <Text className="text-base font-extrabold text-white tracking-tight">Route Timeline</Text>
+            
+            <View className="flex flex-col">
+              {timelineEvents.map((event, index) => {
+                const color = event.type === "start" ? "#10b981" : event.type === "end" ? "#f43f5e" : event.type === "pause" ? "#f59e0b" : "#3b82f6";
+                const bgLight = event.type === "start" ? "bg-[#10b981]/10" : event.type === "end" ? "bg-[#f43f5e]/10" : event.type === "pause" ? "bg-[#f59e0b]/10" : "bg-[#3b82f6]/10";
+                const borderLight = event.type === "start" ? "border-[#10b981]/20" : event.type === "end" ? "border-[#f43f5e]/20" : event.type === "pause" ? "border-[#f59e0b]/20" : "border-[#3b82f6]/20";
+                
+                return (
+                  <View key={index} className="flex-row items-stretch">
+                    {/* Visual line and indicator column */}
+                    <View className="items-center mr-3 w-8">
+                      <View className={cn("w-8 h-8 rounded-full items-center justify-center border", bgLight, borderLight)}>
+                        <MapPinned size={14} color={color} />
+                      </View>
+                      {index < timelineEvents.length - 1 && (
+                        <View className="w-[2px] bg-[#1f1f1f] flex-grow my-1.5" style={{ minHeight: 30 }} />
+                      )}
+                    </View>
+
+                    {/* Content Column */}
+                    <View className="flex-1 pb-6 flex flex-col justify-start">
+                      <View className="flex-row justify-between items-center">
+                        <Text className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">{event.label}</Text>
+                        {event.timestamp && (
+                          <Text className="text-[10px] text-zinc-500 font-medium">
+                            {new Date(event.timestamp).toLocaleTimeString(undefined, {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: profile?.locale?.timeFormat !== "24h",
+                            })}
+                          </Text>
+                        )}
+                      </View>
+
+                      <Text className="text-zinc-200 text-sm font-semibold mt-1">
+                        {eventAddresses[index] || (isLoadingAddresses ? "Resolving address..." : `${event.latitude.toFixed(5)}, ${event.longitude.toFixed(5)}`)}
+                      </Text>
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          const url = `https://www.google.com/maps/search/?api=1&query=${event.latitude},${event.longitude}`;
+                          Linking.openURL(url).catch((err) => console.error("Error opening map link:", err));
+                        }}
+                        style={{
+                          alignSelf: "flex-start",
+                          marginTop: 8,
+                          paddingHorizontal: 10,
+                          paddingVertical: 5,
+                          borderRadius: 20,
+                          backgroundColor: accentColor + "15",
+                          borderWidth: 0.8,
+                          borderColor: accentColor + "30",
+                          flexDirection: "row",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Text style={{ color: accentColor, fontSize: 9, fontWeight: "800", uppercase: true, letterSpacing: 0.5 } as any}>
+                          VIEW MAP →
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {/* Expenses List Section */}
         <View className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-[20px] p-5 flex flex-col gap-4">

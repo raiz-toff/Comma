@@ -26,7 +26,7 @@ import {
 import { Text } from "../../src/components/ui/text";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 import { getCountryDef } from "@/src/registry/index";
-import Svg, { Path } from "react-native-svg";
+import Svg, { Path, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 
 const DashboardIcon = ({ size = 22, color = "#a1a1aa", strokeWidth = 1.5 }: { size?: number; color?: string; strokeWidth?: number }) => {
   const finalStroke = strokeWidth ? strokeWidth * 0.85 : 1.7;
@@ -287,7 +287,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
 ];
 
 export default function TabLayout() {
-  const { isOnboardingCompleted, profile, activePlatformFilter, xpLevel, unlockedBadgeIds, xpTotal } = useSettingsStore();
+  const { isOnboardingCompleted, profile, activePlatformFilter, xpLevel, unlockedBadgeIds, xpTotal, streakDays } = useSettingsStore();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
@@ -508,12 +508,25 @@ export default function TabLayout() {
       >
         {/* Profile Info Section */}
         <View style={styles.profileSectionContainer}>
-          <View style={[styles.profileCard, { borderColor: "#1f1f1f" }]}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <View style={[styles.profileCard, { borderColor: "#1f1f1f", overflow: "hidden" }]}>
+            {/* Standard sleek dark background */}
+            <View style={StyleSheet.absoluteFill}>
+              <Svg width="100%" height="100%">
+                <Defs>
+                  <LinearGradient id="profileCardGrad" x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0%" stopColor="#0d0d0d" />
+                    <Stop offset="100%" stopColor="#070707" />
+                  </LinearGradient>
+                </Defs>
+                <Rect width="100%" height="100%" fill="url(#profileCardGrad)" />
+              </Svg>
+            </View>
+
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12, zIndex: 1 }}>
               <View style={[styles.avatar, { borderColor: accentColorMid, backgroundColor: accentColorDim }]}>
                 <Text style={[styles.avatarText, { color: accentColor }]}>{initials}</Text>
               </View>
-              <View style={styles.profileInfo}>
+              <View style={[styles.profileInfo, { flex: 1 }]}>
                 <Text style={styles.profileName} numberOfLines={1}>{profile?.displayName || "Driver"}</Text>
                 <Text style={styles.profileSub} numberOfLines={1}>
                   {profile?.country || "US"} Standard • {activePlatformLabel}
@@ -521,27 +534,85 @@ export default function TabLayout() {
               </View>
             </View>
 
-            {/* Premium level and badges stats row */}
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4, paddingTop: 10, borderTopWidth: 0.5, borderTopColor: "#1f1f1f" }}>
-              <View style={{ flex: 1, alignItems: "center", borderRightWidth: 0.5, borderRightColor: "#1f1f1f" }}>
-                <Text style={{ fontSize: 9, fontWeight: "700", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.5 }}>Level</Text>
-                <Text style={{ fontSize: 13, fontWeight: "800", color: "#ffffff", marginTop: 2 }}>{xpLevel}</Text>
-              </View>
-              <View style={{ flex: 1, alignItems: "center", borderRightWidth: 0.5, borderRightColor: "#1f1f1f" }}>
-                <Text style={{ fontSize: 9, fontWeight: "700", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.5 }}>Badges</Text>
-                <Text style={{ fontSize: 13, fontWeight: "800", color: accentColor, marginTop: 2 }}>{unlockedBadgeIds.length}</Text>
-              </View>
-              <View style={{ flex: 1, alignItems: "center" }}>
-                <Text style={{ fontSize: 9, fontWeight: "700", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.5 }}>Total XP</Text>
-                <Text style={{ fontSize: 13, fontWeight: "800", color: "#ffffff", marginTop: 2 }}>{xpTotal}</Text>
-              </View>
-            </View>
 
-            <View style={styles.badgeRow}>
+            <View style={[styles.badgeRow, { zIndex: 1 }]}>
               <View style={[styles.badgeDot, { backgroundColor: accentColor }]} />
               <Text style={styles.badgeText}>VAULT MODE • OFFLINE SAFE</Text>
             </View>
           </View>
+
+          {/* Dedicated Streak Card widget below profile card */}
+          {streakDays > 0 && (
+            <View
+              style={{
+                marginTop: 10,
+                borderRadius: 16,
+                borderWidth: 0.8,
+                borderColor: streakDays >= 5 ? "rgba(239, 68, 68, 0.4)" : "rgba(245, 158, 11, 0.3)",
+                overflow: "hidden",
+                padding: 12,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+              }}
+            >
+              {/* Top-to-Down Gradient Background */}
+              <View style={StyleSheet.absoluteFill}>
+                <Svg width="100%" height="100%">
+                  <Defs>
+                    <LinearGradient id="widgetStreakGrad" x1="0" y1="0" x2="0" y2="1">
+                      <Stop
+                        offset="0%"
+                        stopColor={streakDays >= 5 ? "#2d0e0b" : "#261a03"}
+                      />
+                      <Stop
+                        offset="100%"
+                        stopColor={streakDays >= 5 ? "#140403" : "#120c02"}
+                      />
+                    </LinearGradient>
+                  </Defs>
+                  <Rect width="100%" height="100%" fill="url(#widgetStreakGrad)" />
+                </Svg>
+              </View>
+
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: streakDays >= 5 ? "rgba(239, 68, 68, 0.2)" : "rgba(245, 158, 11, 0.15)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 1,
+                }}
+              >
+                <Text style={{ fontSize: 18 }}>{streakDays >= 5 ? "🔥" : "🕯️"}</Text>
+              </View>
+
+              <View style={{ flex: 1, zIndex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: "900", color: "#ffffff" }}>
+                  {streakDays} Day Streak!
+                </Text>
+                <Text style={{ fontSize: 10, fontWeight: "700", color: streakDays >= 5 ? "#fca5a5" : "#fcd34d", marginTop: 2 }}>
+                  {streakDays >= 5 ? "You are on fire!" : "Flame at risk — work today!"}
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  backgroundColor: streakDays >= 5 ? "#ef4444" : "#f59e0b",
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 8,
+                  zIndex: 1,
+                }}
+              >
+                <Text style={{ fontSize: 9, fontWeight: "900", color: "#000000" }}>
+                  {streakDays >= 5 ? "HOT" : "WARN"}
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Navigation Items */}

@@ -55,7 +55,23 @@ class LocationTrackingService : Service() {
         }.build()
 
         try {
-            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null)
+            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, android.os.Looper.getMainLooper())
+
+            // Immediately capture the last known location as an anchor start point.
+            // This avoids the GPS cold-start delay where the first real update fires
+            // 10+ seconds after the shift starts, losing the initial position.
+            fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+                if (loc != null) {
+                    val ageMs = System.currentTimeMillis() - loc.time
+                    // Only use it if the cached fix is less than 60 seconds old
+                    if (ageMs < 60_000L) {
+                        Log.d(TAG, "Saving last known location as shift anchor: lat=${loc.latitude}, lon=${loc.longitude} (age=${ageMs}ms)")
+                        saveLocationToDatabase(loc)
+                    } else {
+                        Log.d(TAG, "Last known location too stale (${ageMs}ms), skipping anchor.")
+                    }
+                }
+            }
         } catch (unlikely: SecurityException) {
             Log.e(TAG, "Lost location permission. Could not request updates. $unlikely")
         }
@@ -80,7 +96,7 @@ class LocationTrackingService : Service() {
     private fun saveLocationToDatabase(loc: android.location.Location) {
         var db: SQLiteDatabase? = null
         try {
-            val dbFile = getDatabasePath("comma.db")
+            val dbFile = java.io.File(filesDir, "SQLite/comma.db")
             db = SQLiteDatabase.openDatabase(dbFile.absolutePath, null, SQLiteDatabase.OPEN_READWRITE)
             
             val values = ContentValues().apply {

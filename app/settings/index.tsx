@@ -37,6 +37,7 @@ import * as LocalAuthentication from "expo-local-authentication";
 
 import { useSettingsStore, type DriverProfile } from "@/store/useSettingsStore";
 import { PLATFORMS, type PlatformKey, getPlatformsByCountry } from "@/src/registry/platforms";
+import { PERSONAS, type PersonaKey, FEATURE_MODULES } from "@/src/registry/index";
 import { listCaProvinceCodes, listUsStateCodes } from "@/src/registry/tax/withholdingPresets";
 import { getMileagePresetRate, getRegionsByCountry } from "@/src/registry/provinces/index";
 import { getCountryDef } from "@/src/registry/countries/index";
@@ -323,9 +324,9 @@ function Btn({
 
 const COUNTRIES = [
   { id: "CA", label: "🇨🇦 Canada", unit: "km" as const, currency: "CAD" },
-  { id: "US", label: "🇺🇸 United States", unit: "mi" as const, currency: "USD" },
-  { id: "UK", label: "🇬🇧 United Kingdom", unit: "mi" as const, currency: "GBP" },
-  { id: "NP", label: "🇳🇵 Nepal", unit: "km" as const, currency: "NPR" },
+  // { id: "US", label: "🇺🇸 United States", unit: "mi" as const, currency: "USD" },
+  // { id: "UK", label: "🇬🇧 United Kingdom", unit: "mi" as const, currency: "GBP" },
+  // { id: "NP", label: "🇳🇵 Nepal", unit: "km" as const, currency: "NPR" },
 ] as const;
 
 const CA_PROVINCES = listCaProvinceCodes();
@@ -341,7 +342,7 @@ const WORK_PRESETS = [
 const PRESET_ACCENTS = [
   "#ffffff", "#22c55e", "#3b82f6", "#8b5cf6",
   "#f59e0b", "#ef4444", "#f97316", "#14b8a6",
-  "#e11d48", "#22c55e", "#6366f1", "#6b7280",
+  "#e11d48", "#ec4899", "#6366f1", "#6b7280",
 ];
 
 const PRESET_COLORS = [
@@ -499,6 +500,8 @@ export default function SettingsScreen() {
     clearSampleData,
     updateProfile,
     dbPlatforms,
+    featureOverrides,
+    updateFeatureOverride,
   } = useSettingsStore();
 
   const [dashWidgets, setDashWidgets] = useState<string[]>([]);
@@ -511,6 +514,7 @@ export default function SettingsScreen() {
 
   // ── Tab: You ────────────────────────────────────────────────────────────────
   const [displayName, setDisplayName] = useState(profile?.displayName ?? "");
+  const [persona, setPersona] = useState<PersonaKey>(profile?.persona ?? "gig_worker");
   const [country, setCountry] = useState<"US" | "CA" | "UK" | "NP">(profile?.country ?? "CA");
   const [taxRegion, setTaxRegion] = useState(profile?.taxRegion ?? "ON");
   const [distanceUnit, setDistanceUnit] = useState<"km" | "mi">(profile?.distanceUnit ?? "km");
@@ -527,6 +531,7 @@ export default function SettingsScreen() {
       setTaxRegion(profile.taxRegion ?? "ON");
       setDistanceUnit(profile.distanceUnit ?? "km");
       if (profile.locale?.currency) setCurrency(profile.locale.currency);
+      setDateFormat(profile.locale?.dateFormat ?? (newCountryId === "US" ? "MM/DD/YYYY" : "YYYY-MM-DD"));
       return;
     }
 
@@ -552,6 +557,7 @@ export default function SettingsScreen() {
     setTaxRegion(defaultRegion);
     setDistanceUnit(newCountryDef.distanceUnit);
     setCurrency(newCountryDef.currency);
+    setDateFormat(selectedNewCountry === "US" ? "MM/DD/YYYY" : "YYYY-MM-DD");
 
     // 2. Load platform configs for the new country from DB, and deactivate incompatible ones
     const dbPlatforms = await getDBPlatforms(selectedNewCountry);
@@ -646,6 +652,7 @@ export default function SettingsScreen() {
   // ── Sync profile → local state ───────────────────────────────────────────────
   useEffect(() => {
     setDisplayName(profile?.displayName ?? "");
+    setPersona(profile?.persona ?? "gig_worker");
     setCountry((profile?.country ?? "CA") as "US" | "CA" | "UK" | "NP");
     setTaxRegion(profile?.taxRegion ?? "ON");
     setDistanceUnit(profile?.distanceUnit ?? "km");
@@ -712,6 +719,7 @@ export default function SettingsScreen() {
         selectedPlatforms: activePlatforms,
         theme: theme as DriverProfile["theme"],
         avatarData: selectedAccent,
+        persona,
         locale: {
           ...(profile.locale ?? {}),
           currency,
@@ -999,11 +1007,24 @@ export default function SettingsScreen() {
             {isEditingYou ? (
               <>
                 <Card>
-                  <Row label="Display name" last={true}>
+                  <Row label="Display name" last={false}>
                     <InlineInput
                       value={displayName}
                       onChangeText={setDisplayName}
                       placeholder="Your name"
+                    />
+                  </Row>
+                  <Row label="Work Type" block last={true}>
+                    <Chips
+                      options={[
+                        { value: "gig_worker", label: "Delivery" },
+                        { value: "rideshare", label: "Rideshare" },
+                        // { value: "business_driver", label: "Business" },
+                        // { value: "contractor", label: "Contractor" },
+                        // { value: "mileage_tracker", label: "Mileage Tracker" },
+                      ]}
+                      value={persona}
+                      onChange={(v) => setPersona(v as PersonaKey)}
                     />
                   </Row>
                 </Card>
@@ -1035,9 +1056,14 @@ export default function SettingsScreen() {
             ) : (
               <>
                 <Card>
-                  <Row label="Display name" last={true}>
+                  <Row label="Display name" last={false}>
                     <Text style={{ color: DS.textPrimary, fontSize: 14, fontWeight: "500" }}>
                       {displayName || "Not set"}
+                    </Text>
+                  </Row>
+                  <Row label="Work Type" last={true}>
+                    <Text style={{ color: DS.textPrimary, fontSize: 14, fontWeight: "500" }}>
+                      {PERSONAS[persona]?.label ?? persona}
                     </Text>
                   </Row>
                 </Card>
@@ -1062,6 +1088,32 @@ export default function SettingsScreen() {
                 </Card>
               </>
             )}
+
+            <GroupLabel text="Custom Features" />
+            <Card>
+              {FEATURE_MODULES.filter((f) => !f.core && f.userToggleable).map((feature, idx, arr) => {
+                const defaultVal = PERSONAS[persona]?.defaultFeatures[feature.key] ?? false;
+                const active = feature.key in (featureOverrides || {})
+                  ? !!featureOverrides[feature.key]
+                  : defaultVal;
+
+                return (
+                  <Row
+                    key={feature.key}
+                    label={feature.label}
+                    hint={feature.description}
+                    last={idx === arr.length - 1}
+                  >
+                    <Switch
+                      value={active}
+                      onValueChange={(val) => updateFeatureOverride(feature.key, val)}
+                      trackColor={{ false: DS.inputBorder, true: accentColor }}
+                      thumbColor="#fff"
+                    />
+                  </Row>
+                );
+              })}
+            </Card>
           </>
         )}
 
@@ -1085,7 +1137,7 @@ export default function SettingsScreen() {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={s.swatches}>
                     {PRESET_ACCENTS.map((hex) => {
-                      const on = (selectedAccent || "#ffffff").toLowerCase() === hex;
+                      const on = String(selectedAccent || "#ffffff").toLowerCase() === hex;
                       return (
                         <TouchableOpacity
                           key={hex}
@@ -1109,13 +1161,6 @@ export default function SettingsScreen() {
                 <Text style={{ color: DS.textSecondary, fontSize: 14, fontWeight: "500" }}>
                   {currency}
                 </Text>
-              </Row>
-              <Row label="Date format" block last={false}>
-                <Chips
-                  options={DATE_FORMATS.map((d) => ({ value: d.value, label: d.label }))}
-                  value={dateFormat as any}
-                  onChange={setDateFormat as any}
-                />
               </Row>
               <Row label="Week starts" last={false}>
                 <Segmented

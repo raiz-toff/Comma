@@ -3,7 +3,7 @@ import * as Print from "expo-print";
 import { Platform } from "react-native";
 import { db } from "../src/database/client";
 import { shifts, expenses } from "../src/database/schema";
-import { and, gte, lte } from "drizzle-orm";
+import { and, gte, lte, asc } from "drizzle-orm";
 import { useSettingsStore } from "../store/useSettingsStore";
 
 const isWeb = Platform.OS === "web";
@@ -22,27 +22,37 @@ export async function generateShiftsCSV(startDate: Date, endDate: Date): Promise
   if (isWeb) {
     const existing = localStorage.getItem("comma_shifts");
     if (existing) {
-      list = JSON.parse(existing).filter(
-        (s: any) => new Date(s.startTime) >= startDate && new Date(s.startTime) <= endDate
-      );
+      list = JSON.parse(existing)
+        .filter((s: any) => new Date(s.startTime) >= startDate && new Date(s.startTime) <= endDate)
+        .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     }
   } else {
     list = await db
       .select()
       .from(shifts)
-      .where(and(gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)));
+      .where(and(gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)))
+      .orderBy(asc(shifts.startTime));
   }
 
-  const csvRows = list.map((s: any) => ({
-    date: new Date(s.startTime).toLocaleDateString(),
-    platform: s.platform,
-    grossRevenue: s.grossRevenue,
-    tips: s.tipsRevenue || 0,
-    [`activeDistance_${distUnit}`]: s.activeMileage || 0,
-    [`deadDistance_${distUnit}`]: s.deadMileage || 0,
-    durationSeconds: s.durationSeconds || 0,
-    notes: s.notes || "",
-  }));
+  const csvRows = list.map((s: any) => {
+    const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0);
+    const miles = (s.activeMileage || 0) + (s.deadMileage || 0);
+    const writeOff = miles * 0.67;
+    const net = gross - writeOff;
+    return {
+      date: new Date(s.startTime).toLocaleDateString(),
+      platform: s.platform,
+      grossRevenue: s.grossRevenue,
+      tips: s.tipsRevenue || 0,
+      totalGrossWithTips: gross,
+      [`activeDistance_${distUnit}`]: s.activeMileage || 0,
+      [`deadDistance_${distUnit}`]: s.deadMileage || 0,
+      [`mileageWriteOff_${distUnit}`]: writeOff,
+      netEarnings: net,
+      durationSeconds: s.durationSeconds || 0,
+      notes: s.notes || "",
+    };
+  });
 
   return Papa.unparse(csvRows);
 }
@@ -53,15 +63,16 @@ export async function generateExpensesCSV(startDate: Date, endDate: Date): Promi
   if (isWeb) {
     const existing = localStorage.getItem("comma_expenses");
     if (existing) {
-      list = JSON.parse(existing).filter(
-        (e: any) => new Date(e.date) >= startDate && new Date(e.date) <= endDate
-      );
+      list = JSON.parse(existing)
+        .filter((e: any) => new Date(e.date) >= startDate && new Date(e.date) <= endDate)
+        .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }
   } else {
     list = await db
       .select()
       .from(expenses)
-      .where(and(gte(expenses.date, startDate), lte(expenses.date, endDate)));
+      .where(and(gte(expenses.date, startDate), lte(expenses.date, endDate)))
+      .orderBy(asc(expenses.date));
   }
 
   const csvRows = list.map((e: any) => ({
@@ -87,25 +98,27 @@ export async function generatePDFSummary(startDate: Date, endDate: Date): Promis
   if (isWeb) {
     const existingShifts = localStorage.getItem("comma_shifts");
     if (existingShifts) {
-      shiftList = JSON.parse(existingShifts).filter(
-        (s: any) => new Date(s.startTime) >= startDate && new Date(s.startTime) <= endDate
-      );
+      shiftList = JSON.parse(existingShifts)
+        .filter((s: any) => new Date(s.startTime) >= startDate && new Date(s.startTime) <= endDate)
+        .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     }
     const existingExpenses = localStorage.getItem("comma_expenses");
     if (existingExpenses) {
-      expenseList = JSON.parse(existingExpenses).filter(
-        (e: any) => new Date(e.date) >= startDate && new Date(e.date) <= endDate
-      );
+      expenseList = JSON.parse(existingExpenses)
+        .filter((e: any) => new Date(e.date) >= startDate && new Date(e.date) <= endDate)
+        .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }
   } else {
     shiftList = await db
       .select()
       .from(shifts)
-      .where(and(gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)));
+      .where(and(gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)))
+      .orderBy(asc(shifts.startTime));
     expenseList = await db
       .select()
       .from(expenses)
-      .where(and(gte(expenses.date, startDate), lte(expenses.date, endDate)));
+      .where(and(gte(expenses.date, startDate), lte(expenses.date, endDate)))
+      .orderBy(asc(expenses.date));
   }
 
   // Calculate Aggregates
@@ -118,11 +131,13 @@ export async function generatePDFSummary(startDate: Date, endDate: Date): Promis
   const totalNonDeductibleExpenses = expenseList
     .filter((e) => !e.isDeductible)
     .reduce((sum, e) => sum + (e.amount || 0), 0);
-  const netEarnings = totalRevenue - totalDeductibleExpenses;
 
   const totalActiveMiles = shiftList.reduce((sum, s) => sum + (s.activeMileage || 0), 0);
   const totalDeadMiles = shiftList.reduce((sum, s) => sum + (s.deadMileage || 0), 0);
   const totalMiles = totalActiveMiles + totalDeadMiles;
+  const mileageDeduction = totalMiles * 0.67;
+
+  const netEarnings = totalRevenue - totalDeductibleExpenses - mileageDeduction;
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -136,10 +151,10 @@ export async function generatePDFSummary(startDate: Date, endDate: Date): Promis
           .logo { font-size: 28px; font-weight: 800; color: #10b981; margin: 0; letter-spacing: -0.5px; }
           .title { font-size: 16px; color: #64748b; margin: 0; text-align: right; }
           .date-range { font-size: 14px; font-weight: bold; color: #1e293b; }
-          .grid { display: flex; gap: 20px; margin-bottom: 30px; }
+          .grid { display: flex; gap: 15px; margin-bottom: 30px; }
           .card { flex: 1; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; background: #f8fafc; }
           .card-title { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; margin-bottom: 5px; }
-          .card-value { font-size: 20px; font-weight: 800; color: #0f172a; }
+          .card-value { font-size: 18px; font-weight: 800; color: #0f172a; }
           .card-value.income { color: #10b981; }
           .card-value.expense { color: #ef4444; }
           h3 { font-size: 16px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; color: #475569; margin-top: 30px; }
@@ -165,6 +180,10 @@ export async function generatePDFSummary(startDate: Date, endDate: Date): Promis
           <div class="card">
             <div class="card-title">Gross Income</div>
             <div class="card-value income">${currencySymbol}${totalRevenue.toFixed(2)}</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Mileage Deduction</div>
+            <div class="card-value expense">${currencySymbol}${mileageDeduction.toFixed(2)}</div>
           </div>
           <div class="card">
             <div class="card-title">Expenses (Deductible)</div>

@@ -17,14 +17,14 @@ import {
   GPSStep,
   RevealStep,
 } from "./OnboardingSteps";
-
+import DevGPSTestScreen from "./DevGPSTestScreen";
 type WorkType = "delivery" | "business" | "contractor" | "mileage";
 
 const WORK_TYPE_TO_PERSONA: Record<WorkType, PersonaKey> = {
   delivery: "gig_worker",
   business: "business_driver",
   contractor: "contractor",
-  mileage: "business_driver",
+  mileage: "mileage_tracker",
 };
 
 const TOTAL_STEPS = 8;
@@ -42,6 +42,7 @@ export default function OnboardingWizard() {
   const insets = useSafeAreaInsets();
 
   const [showWelcome, setShowWelcome] = useState(true);
+  const [showDevDemo, setShowDevDemo] = useState(false);
   const [showReveal, setShowReveal] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
 
@@ -180,8 +181,18 @@ export default function OnboardingWizard() {
     await loadSampleData();
   };
 
+  if (showDevDemo) {
+    return <DevGPSTestScreen onClose={() => setShowDevDemo(false)} />;
+  }
+
   if (showWelcome) {
-    return <WelcomeScreen onStart={() => setShowWelcome(false)} onDemo={handleDemoMode} />;
+    return (
+      <WelcomeScreen
+        onStart={() => setShowWelcome(false)}
+        onDemo={handleDemoMode}
+        onDevDemo={() => setShowDevDemo(true)}
+      />
+    );
   }
 
   if (showReveal) {
@@ -254,12 +265,13 @@ export default function OnboardingWizard() {
             value={weeklyGoal}
             onChange={setWeeklyGoal}
             country={country}
+            workType={workType}
           />
         );
       case 6:
         return <NameStep value={displayName} onChange={setDisplayName} />;
       case 7:
-        return <GPSStep onNext={handleNext} />;
+        return <GPSStep workType={workType} onNext={handleNext} />;
       default:
         return null;
     }

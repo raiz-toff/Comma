@@ -5,7 +5,8 @@ export type PersonaKey =
   | 'gig_worker'       // DoorDash, UberEats, Skip, Instacart
   | 'rideshare'        // Uber, Lyft, InDriver, Pathao
   | 'business_driver'  // Sales reps, realtors, consultants — MileIQ territory
-  | 'contractor';      // Trades, freelance, field service
+  | 'contractor'       // Trades, freelance, field service
+  | 'mileage_tracker'; // Mileage tracking only for reimbursement / personal records
 
 export interface PersonaConfig {
   key: PersonaKey;
@@ -159,6 +160,44 @@ export const PERSONAS: Record<PersonaKey, PersonaConfig> = {
       google_drive_backup: true,
       analytics_advanced: false,
       tax_workspace: true,
+      goals: false,
+      schedule: false,
+      gamification: false,
+      pdf_reports: false,
+      csv_import: false,
+      android_widget: false,
+      business_personal_split: true,
+      mileage_log_export: true,
+    },
+  },
+  mileage_tracker: {
+    key: 'mileage_tracker',
+    label: 'Mileage Tracker',
+    description: 'Reimbursement or personal records tracking drives only',
+    showPlatformSelectorInOnboarding: false,
+    vocabulary: {
+      session: 'trip',
+      session_plural: 'trips',
+      platform: 'purpose',
+      active_miles: 'tracked miles',
+      dead_miles: 'personal miles',
+      revenue: 'reimbursement',
+      start_cta: 'Start tracking',
+      end_cta: 'Stop tracking',
+      history_tab: 'Trips',
+      active_indicator: 'On trip',
+      no_sessions_yet: 'No trips yet',
+    },
+    defaultFeatures: {
+      session_tracking_gps: true,
+      session_tracking_manual: true,
+      expense_tracking: true,
+      analytics_basic: true,
+      vehicle_profiles: true,
+      csv_export: true,
+      google_drive_backup: true,
+      analytics_advanced: false,
+      tax_workspace: false,
       goals: false,
       schedule: false,
       gamification: false,

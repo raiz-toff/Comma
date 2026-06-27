@@ -6,12 +6,12 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
-  Share,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { ArrowLeft, FileText, Table, BarChart2, Download, CalendarDays } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
@@ -116,7 +116,7 @@ export default function ReportsScreen() {
       } else {
         const fileUri = FileSystem.cacheDirectory + filename;
         await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
-        await Share.share({ url: fileUri, title: "Export Shifts CSV", message: "Comma Shifts Export" });
+        await Sharing.shareAsync(fileUri, { mimeType: "text/csv", dialogTitle: "Export Shifts CSV" });
       }
     } catch (err: any) {
       Alert.alert("Export Failed", err.message || "An error occurred exporting CSV.");
@@ -139,7 +139,7 @@ export default function ReportsScreen() {
       } else {
         const fileUri = FileSystem.cacheDirectory + filename;
         await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
-        await Share.share({ url: fileUri, title: "Export Expenses CSV", message: "Comma Expenses Export" });
+        await Sharing.shareAsync(fileUri, { mimeType: "text/csv", dialogTitle: "Export Expenses CSV" });
       }
     } catch (err: any) {
       Alert.alert("Export Failed", err.message || "An error occurred exporting CSV.");
@@ -157,7 +157,7 @@ export default function ReportsScreen() {
           printWindow.print();
         }
       } else {
-        await Share.share({ url: result, title: "Export PDF Summary" });
+        await Sharing.shareAsync(result, { mimeType: "application/pdf", dialogTitle: "Export PDF Summary" });
       }
     } catch (err: any) {
       Alert.alert("Export Failed", err.message || "An error occurred generating PDF.");

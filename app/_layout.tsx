@@ -10,6 +10,17 @@ import { DATABASE_NAME, useDatabaseMigrations, useStudio } from "../src/database
 import { QueryProvider } from "../providers/QueryProvider";
 import { useGPSTracking } from "../hooks/useGPSTracking";
 import { useWakeLock } from "../hooks/useWakeLock";
+import * as Notifications from "expo-notifications";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 function ShiftBackgroundServices() {
   useGPSTracking();

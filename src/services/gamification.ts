@@ -2,6 +2,8 @@ import { db } from "../database/client";
 import { shifts, expenses, settings, goals } from "../database/schema";
 import { eq } from "drizzle-orm";
 import { BADGES, BadgeSweepStats, BadgeContext } from "../registry/badges/index";
+import { Platform } from "react-native";
+import * as Notifications from "expo-notifications";
 
 export interface PersonalRecords {
   bestShiftGross: number;
@@ -29,6 +31,25 @@ export interface NotificationItem {
   createdAt: string;
   actionUrl?: string;
 }
+
+const triggerNativeNotification = async (title: string, body: string) => {
+  if (Platform.OS === "web") return;
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status === "granted") {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          sound: true,
+        },
+        trigger: null,
+      });
+    }
+  } catch (e) {
+    console.warn("Failed to trigger native notification in gamification:", e);
+  }
+};
 
 export interface GamificationState {
   xpTotal: number;
@@ -227,6 +248,10 @@ export const GamificationService = {
           read: false,
           createdAt: new Date().toISOString(),
         });
+        triggerNativeNotification(
+          "Monthly Streak Freeze Granted!",
+          `A new month has started. You've been granted ${monthsDiff} Streak Freeze(s) (Capped at 3).`
+        );
       }
     }
     state.lastEvaluationMonth = currentMonthStr;
@@ -440,6 +465,7 @@ export const GamificationService = {
           createdAt: new Date().toISOString(),
           actionUrl: "/goals",
         });
+        triggerNativeNotification(`New Badge Unlocked: ${def.name}!`, `${def.icon} ${def.description}`);
       }
     }
     
@@ -460,6 +486,7 @@ export const GamificationService = {
           createdAt: new Date().toISOString(),
           actionUrl: "/goals",
         });
+        triggerNativeNotification(`Challenge Complete: ${challenge1.name}!`, `You reached your target and earned +60 XP.`);
       }
     }
     
@@ -490,6 +517,7 @@ export const GamificationService = {
           createdAt: new Date().toISOString(),
           actionUrl: "/goals",
         });
+        triggerNativeNotification(`Challenge Complete: ${challenge2.name}!`, `Completed ${deliveries} deliveries. +60 XP awarded.`);
       }
     }
     
@@ -509,6 +537,7 @@ export const GamificationService = {
           createdAt: new Date().toISOString(),
           actionUrl: "/goals",
         });
+        triggerNativeNotification(`Challenge Complete: ${challenge3.name}!`, `Logged shifts on 5 consecutive days. +60 XP awarded.`);
       }
     }
     
@@ -574,6 +603,7 @@ export const GamificationService = {
         read: false,
         createdAt: new Date().toISOString(),
       });
+      triggerNativeNotification(`Level Up! Level ${newLevel}`, `Congratulations! You reached Level ${newLevel} and earned Streak Freeze(s).`);
     }
     
     // 6. Evaluate Smart Notifications (Throttled/Daily alert logic)
@@ -594,6 +624,7 @@ export const GamificationService = {
           read: false,
           createdAt: new Date().toISOString(),
         });
+        triggerNativeNotification("Day Streak at Risk!", `You are on a ${streakCount}-day streak. Log a shift today to keep it active!`);
       }
     }
     
@@ -620,6 +651,7 @@ export const GamificationService = {
             createdAt: new Date().toISOString(),
             actionUrl: "/(tabs)/tax",
           });
+          triggerNativeNotification("Tax Installment Due Soon", `Estimated quarterly tax deadline is approaching in ${diffDays} days.`);
         }
       }
     }

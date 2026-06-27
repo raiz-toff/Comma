@@ -103,9 +103,11 @@ function StyledInput({
 export function WelcomeScreen({
   onStart,
   onDemo,
+  onDevDemo,
 }: {
   onStart: () => void;
   onDemo: () => void;
+  onDevDemo?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   return (
@@ -152,6 +154,17 @@ export function WelcomeScreen({
             </Text>
           </Pressable>
 
+          {onDevDemo && (
+            <Pressable
+              onPress={onDevDemo}
+              style={{ borderRadius: 16, paddingVertical: 14, alignItems: "center", borderWidth: 1, borderColor: "#3f3f46" }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: "600", color: "#ffffff" }}>
+                🛠️ Try GPS Engine Demo
+              </Text>
+            </Pressable>
+          )}
+
           <Text style={{ fontSize: 11, color: "#52525b", textAlign: "center", fontWeight: "600", letterSpacing: 0.3, marginTop: 4 }}>
             No account required · No data leaves your device
           </Text>
@@ -171,9 +184,9 @@ const PERSONA_OPTIONS: {
   Icon: React.ComponentType<{ size: number; color: string; strokeWidth: number }>;
 }[] = [
   { value: "delivery", label: "Delivery & Rideshare", sub: "DoorDash, Uber, Skip, Lyft", Icon: Truck },
-  { value: "business", label: "Business driving", sub: "Sales, real estate, consulting", Icon: Briefcase },
-  { value: "contractor", label: "Contracting", sub: "Trades, freelance, field work", Icon: Wrench },
-  { value: "mileage", label: "Mileage tracking only", sub: "Reimbursement or personal records", Icon: MapPin },
+  // { value: "business", label: "Business driving", sub: "Sales, real estate, consulting", Icon: Briefcase },
+  // { value: "contractor", label: "Contracting", sub: "Trades, freelance, field work", Icon: Wrench },
+  // { value: "mileage", label: "Mileage tracking only", sub: "Reimbursement or personal records", Icon: MapPin },
 ];
 
 export function PersonaStep({
@@ -215,9 +228,9 @@ export function PersonaStep({
 
 const COUNTRIES = [
   { code: "CA" as const, flag: "🇨🇦", label: "Canada", sub: "CAD · km" },
-  { code: "US" as const, flag: "🇺🇸", label: "United States", sub: "USD · miles" },
-  { code: "UK" as const, flag: "🇬🇧", label: "United Kingdom", sub: "GBP · miles" },
-  { code: "NP" as const, flag: "🇳🇵", label: "Nepal", sub: "NPR · km" },
+  // { code: "US" as const, flag: "🇺🇸", label: "United States", sub: "USD · miles" },
+  // { code: "UK" as const, flag: "🇬🇧", label: "United Kingdom", sub: "GBP · miles" },
+  // { code: "NP" as const, flag: "🇳🇵", label: "Nepal", sub: "NPR · km" },
 ];
 
 export function CountryStep({
@@ -503,29 +516,36 @@ export function GoalStep({
   value,
   onChange,
   country,
+  workType,
 }: {
   value: string;
   onChange: (v: string) => void;
   country: string;
+  workType?: WorkType;
 }) {
   const num = Number(value) || 0;
   const currencySymbol = country === "UK" ? "£" : country === "NP" ? "₨" : "$";
-  const pct = Math.min((num / 1000) * 100, 100);
+  const distanceUnit = country === "US" || country === "UK" ? "mi" : "km";
+  const isMileage = workType === "mileage";
+
+  const targetSymbol = isMileage ? ` ${distanceUnit}` : "";
+  const prefixSymbol = isMileage ? "" : currencySymbol;
+  const pct = Math.min((num / (isMileage ? 500 : 1000)) * 100, 100);
 
   return (
     <View style={{ flex: 1 }}>
       <StepHeading
-        title="What would a great week look like?"
-        sub="Sets your weekly earnings target. You can change this anytime."
+        title={isMileage ? "What is your weekly mileage goal?" : "What would a great week look like?"}
+        sub={isMileage ? "Sets your weekly distance target. You can change this anytime." : "Sets your weekly earnings target. You can change this anytime."}
       />
       <View style={{ gap: 24 }}>
         <StyledInput
           value={value}
           onChangeText={onChange}
           keyboardType="numeric"
-          prefix={currencySymbol}
-          suffix="/ week"
-          placeholder="500"
+          prefix={prefixSymbol}
+          suffix={isMileage ? `${distanceUnit} / week` : "/ week"}
+          placeholder={isMileage ? "100" : "500"}
         />
 
         {/* Visual bar */}
@@ -534,12 +554,12 @@ export function GoalStep({
             <View style={{ height: 6, backgroundColor: "#ffffff", borderRadius: 3, width: `${pct}%` }} />
           </View>
           <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <Text style={{ fontSize: 10, color: "#52525b", fontWeight: "600" }}>{currencySymbol}0</Text>
-            <Text style={{ fontSize: 10, color: "#52525b", fontWeight: "600" }}>{currencySymbol}1,000</Text>
+            <Text style={{ fontSize: 10, color: "#52525b", fontWeight: "600" }}>0{targetSymbol}</Text>
+            <Text style={{ fontSize: 10, color: "#52525b", fontWeight: "600" }}>{isMileage ? `500${targetSymbol}` : `${currencySymbol}1,000`}</Text>
           </View>
         </View>
 
-        {num > 0 && (
+        {num > 0 && !isMileage && (
           <View style={{ backgroundColor: "#0d0d0d", borderWidth: 1, borderColor: "#1f1f1f", borderRadius: 14, padding: 16, gap: 4 }}>
             <Text style={{ fontSize: 10, fontWeight: "700", color: "#7a7670", textTransform: "uppercase", letterSpacing: 1 }}>
               That works out to
@@ -549,6 +569,20 @@ export function GoalStep({
             </Text>
             <Text style={{ fontSize: 13, color: "#7a7670" }}>
               {currencySymbol}{(num * 52).toLocaleString()} / year
+            </Text>
+          </View>
+        )}
+
+        {num > 0 && isMileage && (
+          <View style={{ backgroundColor: "#0d0d0d", borderWidth: 1, borderColor: "#1f1f1f", borderRadius: 14, padding: 16, gap: 4 }}>
+            <Text style={{ fontSize: 10, fontWeight: "700", color: "#7a7670", textTransform: "uppercase", letterSpacing: 1 }}>
+              Distance Projection
+            </Text>
+            <Text style={{ fontSize: 20, fontWeight: "800", color: "#f4f2ed" }}>
+              {Math.round(num * 4.33).toLocaleString()} {distanceUnit} / month
+            </Text>
+            <Text style={{ fontSize: 13, color: "#7a7670" }}>
+              {(num * 52).toLocaleString()} {distanceUnit} / year
             </Text>
           </View>
         )}
@@ -583,7 +617,7 @@ export function NameStep({
 
 // ─── Step 7 — GPS permission ──────────────────────────────────────────────────
 
-export function GPSStep({ onNext }: { onNext: () => void }) {
+export function GPSStep({ workType, onNext }: { workType: WorkType; onNext: () => void }) {
   const [requested, setRequested] = useState(false);
 
   const handleRequest = async () => {
@@ -596,9 +630,41 @@ export function GPSStep({ onNext }: { onNext: () => void }) {
     } catch {
       // simulator or web — silently continue
     }
+    try {
+      const Notifications = await import("expo-notifications");
+      await Notifications.requestPermissionsAsync();
+    } catch {
+      // silently continue
+    }
     setRequested(true);
     onNext();
   };
+
+  const points = {
+    delivery: [
+      "Mileage logged automatically during active shifts",
+      "Separates active delivery miles from dead miles",
+      "All location data stays 100% on your device",
+    ],
+    business: [
+      "Mileage logged automatically during business drives",
+      "Classify trips as business or personal with one tap",
+      "All location data stays 100% on your device",
+    ],
+    contractor: [
+      "Mileage tracked automatically between job sites",
+      "Easily allocate travel expenses to specific clients",
+      "All location data stays 100% on your device",
+    ],
+    mileage: [
+      "Track every mile driven automatically in the background",
+      "Generate detailed logs ready for tax or reimbursement",
+      "All location data stays 100% on your device",
+    ],
+  }[workType] ?? [
+    "Mileage logged automatically during drives",
+    "All location data stays 100% on your device",
+  ];
 
   return (
     <View style={{ flex: 1, justifyContent: "space-between" }}>
@@ -611,11 +677,7 @@ export function GPSStep({ onNext }: { onNext: () => void }) {
           sub="Comma tracks your mileage in the background while you drive — so you never have to log it manually."
         />
         <View style={{ gap: 12 }}>
-          {[
-            "Mileage logged automatically during active shifts",
-            "Separates active delivery miles from dead miles",
-            "All location data stays 100% on your device",
-          ].map((point) => (
+          {points.map((point) => (
             <View key={point} style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
               <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center", marginTop: 1 }}>
                 <Check size={10} color="#ffffff" strokeWidth={3} />

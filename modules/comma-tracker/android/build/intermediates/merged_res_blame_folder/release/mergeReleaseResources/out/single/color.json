@@ -1,0 +1,14 @@
+[
+    {
+        "merged": "expo.modules.commatracker.comma-tracker-release-10:/color/common_google_signin_btn_tint.xml",
+        "source": "expo.modules.commatracker.comma-tracker-play-services-base-18.1.0-6:/color/common_google_signin_btn_tint.xml"
+    },
+    {
+        "merged": "expo.modules.commatracker.comma-tracker-release-10:/color/common_google_signin_btn_text_dark.xml",
+        "source": "expo.modules.commatracker.comma-tracker-play-services-base-18.1.0-6:/color/common_google_signin_btn_text_dark.xml"
+    },
+    {
+        "merged": "expo.modules.commatracker.comma-tracker-release-10:/color/common_google_signin_btn_text_light.xml",
+        "source": "expo.modules.commatracker.comma-tracker-play-services-base-18.1.0-6:/color/common_google_signin_btn_text_light.xml"
+    }
+]

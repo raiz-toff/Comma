@@ -1,0 +1,23 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.commatracker'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.commatracker"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+dependencies {
+  implementation 'com.google.android.gms:play-services-location:21.0.1'
+  implementation 'androidx.core:core-ktx:1.10.1'
+}

@@ -578,7 +578,7 @@ export default function HomeScreen() {
   const {
     isActive, platform: activePlatform, elapsedSeconds,
     activeMileage, deadMileage, targetTime, startTime,
-    isPaused, isFirstOrderReceived, routePath, sessionId,
+    isPaused, isFirstOrderReceived, sessionId,
     startShift, endShift, incrementTimer, updateMileage,
     pauseShift, resumeShift, markFirstOrderReceived, reset,
   } = useActiveShift();
@@ -795,17 +795,6 @@ export default function HomeScreen() {
   };
 
   const handleSimulateGPSMove = () => {
-    let nextLat = 40.7128;
-    let nextLng = -74.0060;
-    
-    if (routePath && routePath.length > 0) {
-      const last = routePath[routePath.length - 1];
-      nextLat = last.latitude + 0.0009;
-      nextLng = last.longitude + 0.0009;
-    }
-    
-    useActiveShift.getState().addCoordinate(nextLat, nextLng);
-    
     const unit = profile?.distanceUnit ?? "mi";
     const conversionFactor = unit === "mi" ? 1609.344 : 1000.0;
     const distanceConverted = 100.0 / conversionFactor;

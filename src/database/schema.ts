@@ -110,3 +110,11 @@ export const platforms = sqliteTable('platforms', {
   sortPriority: integer('sort_priority').default(1).notNull(),
   logoEmoji: text('logo_emoji'),
 });
+
+export const tempNativePoints = sqliteTable('temp_native_points', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  lat: real('lat').notNull(),
+  lon: real('lon').notNull(),
+  timestamp: integer('timestamp').notNull(),
+});
+

@@ -33,14 +33,12 @@ interface ActiveShiftState {
   pausedSeconds: number;
   isFirstOrderReceived: boolean;
   sessionId: string | null;
-  routePath: Array<{ latitude: number; longitude: number; timestamp: number }>;
   
   // Actions
   startShift: (platform: GigPlatform, vehicleId: string, targetTime: number | null) => void;
   endShift: () => Promise<CompletedShiftPayload | null>;
   incrementTimer: () => void;
   updateMileage: (activeMiles: number, deadMiles: number) => void;
-  addCoordinate: (latitude: number, longitude: number) => void;
   pauseShift: () => void;
   resumeShift: () => void;
   setAutoPaused: (paused: boolean) => void;
@@ -105,7 +103,6 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
   pausedSeconds: 0,
   isFirstOrderReceived: false,
   sessionId: null,
-  routePath: [],
 
   startShift: (platform, vehicleId, targetTime) => {
     const newState = {
@@ -122,7 +119,6 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
       pausedSeconds: 0,
       isFirstOrderReceived: false,
       sessionId: `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      routePath: [],
     };
     set(newState);
     updateWidgetState(newState);
@@ -144,13 +140,8 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
       }
     }
 
-    // Clean & road-snap the route before saving (simplify + OSRM match, graceful fallback)
+    // Clean & road-snap the route before saving (will be loaded from temp_native_points in Phase 3/4)
     let routePathJson: string | null = null;
-    if (state.routePath.length >= 2) {
-      const raw = state.routePath.map(({ latitude, longitude }) => ({ latitude, longitude }));
-      const cleaned = await cleanRoute(raw);
-      routePathJson = JSON.stringify(cleaned);
-    }
 
     let notes: string | null = null;
     if (state.targetTime && state.startTime) {
@@ -205,7 +196,6 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
       pausedSeconds: 0,
       isFirstOrderReceived: false,
       sessionId: null,
-      routePath: [],
     };
     set(emptyState);
     updateWidgetState(emptyState);
@@ -226,13 +216,6 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     activeMileage: Number((state.activeMileage + activeMiles).toFixed(2)),
     deadMileage: Number((state.deadMileage + deadMiles).toFixed(2))
   })),
-
-  addCoordinate: (latitude, longitude) => set((state) => {
-    if (!state.isActive || state.isPaused) return {};
-    return {
-      routePath: [...state.routePath, { latitude, longitude, timestamp: Date.now() }]
-    };
-  }),
 
   pauseShift: () => {
     set({ isPaused: true, isAutoPaused: false });
@@ -276,7 +259,6 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
       pausedSeconds: 0,
       isFirstOrderReceived: false,
       sessionId: null,
-      routePath: [],
     };
     set(emptyState);
     updateWidgetState(emptyState);

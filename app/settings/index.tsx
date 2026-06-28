@@ -37,10 +37,8 @@ import * as LocalAuthentication from "expo-local-authentication";
 
 import { useSettingsStore, type DriverProfile } from "@/store/useSettingsStore";
 import { PLATFORMS, type PlatformKey, getPlatformsByCountry } from "@/src/registry/platforms";
-import { PERSONAS, type PersonaKey, FEATURE_MODULES } from "@/src/registry/index";
-import { listCaProvinceCodes, listUsStateCodes } from "@/src/registry/tax/withholdingPresets";
-import { getMileagePresetRate, getRegionsByCountry } from "@/src/registry/provinces/index";
-import { getCountryDef } from "@/src/registry/countries/index";
+import { PERSONAS, type PersonaKey, FEATURE_MODULES, listCaProvinceCodes, listUsStateCodes } from "@/src/registry/index";
+import { getMileagePresetRate, getRegionsByCountry, getCountryDef } from "@/src/registry/countries/index";
 import { resolveAvailablePlatformIds } from "@/src/registry/market/resolve";
 import { insertTaxHistory } from "@/src/database/queries/tax";
 import { getDBPlatforms, updateDBPlatform } from "@/src/database/queries/platforms";

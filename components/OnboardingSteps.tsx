@@ -10,7 +10,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "../src/components/ui/text";
 import { getPlatformsByCountry, PLATFORMS } from "../src/registry/platforms";
-import { getRegionsByCountry } from "../src/registry/provinces/index";
+import { getRegionsByCountry } from "../src/registry/countries/index";
 import {
   Truck,
   Briefcase,

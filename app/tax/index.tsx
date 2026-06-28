@@ -39,9 +39,9 @@ import {
 import {
   WITHHOLDING_PRESETS_CA,
   WITHHOLDING_PRESETS_US,
-} from "@/src/registry/tax/withholdingPresets";
-import { getSalesTaxRate } from "@/src/registry/provinces/index";
-import { getCountryDef } from "@/src/registry/index";
+  getSalesTaxRate,
+  getCountryDef,
+} from "@/src/registry/index";
 
 const isWeb = Platform.OS === "web";
 

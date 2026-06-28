@@ -1,52 +1,291 @@
 /**
- * Platform Registry — main entry point.
- *
- * Aggregates all platform definitions across all countries into a single
- * deduplicated map keyed by platform ID. Also exports a backward-compatible
- * `PLATFORMS` shim so existing code that only needs label/color/textColor
- * continues to work without changes.
+ * Platform Registry — single source of truth for platform definitions.
  */
 
 import { type PlatformDef } from "./types";
-import { CA_PLATFORMS } from "./ca";
-import { US_PLATFORMS } from "./us";
-import { UK_PLATFORMS } from "./uk";
-import { NP_PLATFORMS } from "./np";
-import { GLOBAL_PLATFORMS } from "./global";
+import { resolveProvinceDef } from "../countries/index";
 
-// ─── Aggregate all platforms (deduplicated by id) ────────────────────────────
+export const doordash: PlatformDef = {
+  id: "doordash",
+  label: "DoorDash",
+  shortLabel: "DD",
+  color: "#FF3008",
+  textColor: "#FFFFFF",
+  availableInCountries: ["CA", "US", "AU"],
+  operationalModel: "delivery_fixed",
+  issuesTaxForm: true,
+  platformTracksOwnMileage: false,
+  offersMileageReimbursement: false,
+  terminology: { driverTerm: "Dasher" },
+};
 
-const ALL_PLATFORM_LISTS: PlatformDef[] = [
-  ...CA_PLATFORMS,
-  ...US_PLATFORMS,
-  ...UK_PLATFORMS,
-  ...NP_PLATFORMS,
-  ...GLOBAL_PLATFORMS,
+export const ubereats: PlatformDef = {
+  id: "ubereats",
+  label: "Uber Eats",
+  shortLabel: "UE",
+  color: "#06C167",
+  textColor: "#000000",
+  availableInCountries: ["CA", "US", "UK", "AU"],
+  operationalModel: "delivery_fixed",
+  issuesTaxForm: true,
+  platformTracksOwnMileage: false,
+  offersMileageReimbursement: false,
+  terminology: { driverTerm: "Courier" },
+};
+
+export const skip: PlatformDef = {
+  id: "skip",
+  label: "SkipTheDishes",
+  shortLabel: "Skip",
+  color: "#ED5A1F",
+  textColor: "#FFFFFF",
+  availableInCountries: ["CA"],
+  operationalModel: "delivery_fixed",
+  issuesTaxForm: true,
+  platformTracksOwnMileage: false,
+  offersMileageReimbursement: false,
+  terminology: { driverTerm: "Courier" },
+};
+
+export const foodora: PlatformDef = {
+  id: "foodora",
+  label: "Foodora",
+  shortLabel: "FD",
+  color: "#D8003F",
+  textColor: "#FFFFFF",
+  availableInCountries: ["CA"],
+  operationalModel: "delivery_fixed",
+  issuesTaxForm: true,
+  platformTracksOwnMileage: false,
+  offersMileageReimbursement: false,
+};
+
+export const instacart: PlatformDef = {
+  id: "instacart",
+  label: "Instacart",
+  shortLabel: "IC",
+  color: "#0AAD0A",
+  textColor: "#FFFFFF",
+  availableInCountries: ["CA", "US"],
+  operationalModel: "grocery_batch",
+  issuesTaxForm: true,
+  platformTracksOwnMileage: false,
+  offersMileageReimbursement: false,
+  terminology: { driverTerm: "Shopper", sessionTerm: "Batch" },
+};
+
+export const lyft: PlatformDef = {
+  id: "lyft",
+  label: "Lyft",
+  shortLabel: "LY",
+  color: "#FF00BF",
+  textColor: "#FFFFFF",
+  availableInCountries: ["US"],
+  operationalModel: "rideshare_metered",
+  issuesTaxForm: true,
+  platformTracksOwnMileage: false,
+  offersMileageReimbursement: false,
+  terminology: { driverTerm: "Driver" },
+};
+
+export const uber: PlatformDef = {
+  id: "uber",
+  label: "Uber",
+  shortLabel: "UB",
+  color: "#000000",
+  textColor: "#FFFFFF",
+  availableInCountries: ["US", "UK", "CA", "AU"],
+  operationalModel: "rideshare_metered",
+  issuesTaxForm: true,
+  platformTracksOwnMileage: false,
+  offersMileageReimbursement: false,
+  terminology: { driverTerm: "Driver" },
+};
+
+export const deliveroo: PlatformDef = {
+  id: "deliveroo",
+  label: "Deliveroo",
+  shortLabel: "DR",
+  color: "#00CCBC",
+  textColor: "#FFFFFF",
+  availableInCountries: ["UK"],
+  operationalModel: "delivery_fixed",
+  issuesTaxForm: true,
+  platformTracksOwnMileage: false,
+  offersMileageReimbursement: false,
+  terminology: { driverTerm: "Rider" },
+};
+
+export const stuart: PlatformDef = {
+  id: "stuart",
+  label: "Stuart",
+  shortLabel: "ST",
+  color: "#7C3AED",
+  textColor: "#FFFFFF",
+  availableInCountries: ["UK"],
+  operationalModel: "delivery_fixed",
+  issuesTaxForm: true,
+  platformTracksOwnMileage: false,
+  offersMileageReimbursement: false,
+  terminology: { driverTerm: "Courier" },
+};
+
+export const amazonflex: PlatformDef = {
+  id: "amazonflex",
+  label: "Amazon Flex",
+  shortLabel: "AF",
+  color: "#232F3E",
+  textColor: "#FF9900",
+  availableInCountries: ["CA", "US", "UK"],
+  operationalModel: "parcel_route",
+  issuesTaxForm: true,
+  platformTracksOwnMileage: false,
+  offersMileageReimbursement: true,
+  terminology: { sessionTerm: "Block" },
+};
+
+export const pathao: PlatformDef = {
+  id: "pathao",
+  label: "Pathao",
+  shortLabel: "PT",
+  color: "#FF4444",
+  textColor: "#FFFFFF",
+  availableInCountries: ["NP", "BD"],
+  operationalModel: "rideshare_bidding",
+  issuesTaxForm: false,
+  platformTracksOwnMileage: true,
+  offersMileageReimbursement: false,
+  paymentCurrency: "NPR",
+  terminology: {
+    driverTerm: "Partner",
+    sessionTerm: "Session",
+    tripTerm: "Ride",
+  },
+};
+
+export const pathao_food: PlatformDef = {
+  id: "pathao_food",
+  label: "Pathao Food",
+  shortLabel: "PTF",
+  color: "#CC2222",
+  textColor: "#FFFFFF",
+  availableInCountries: ["NP"],
+  operationalModel: "delivery_negotiated",
+  issuesTaxForm: false,
+  platformTracksOwnMileage: true,
+  offersMileageReimbursement: false,
+  paymentCurrency: "NPR",
+  terminology: {
+    driverTerm: "Rider",
+    sessionTerm: "Session",
+    tripTerm: "Delivery",
+  },
+};
+
+export const indriver: PlatformDef = {
+  id: "indriver",
+  label: "InDriver",
+  shortLabel: "ID",
+  color: "#1DBF73",
+  textColor: "#FFFFFF",
+  availableInCountries: ["NP", "KZ", "UZ", "PK", "NG", "GH"],
+  operationalModel: "rideshare_bidding",
+  issuesTaxForm: false,
+  platformTracksOwnMileage: false,
+  offersMileageReimbursement: false,
+  paymentCurrency: "NPR",
+  terminology: {
+    driverTerm: "Driver",
+    sessionTerm: "Session",
+    tripTerm: "Ride",
+  },
+};
+
+export const foodmandu: PlatformDef = {
+  id: "foodmandu",
+  label: "Foodmandu",
+  shortLabel: "FM",
+  color: "#E04B2E",
+  textColor: "#FFFFFF",
+  availableInCountries: ["NP"],
+  operationalModel: "delivery_fixed",
+  issuesTaxForm: false,
+  platformTracksOwnMileage: false,
+  offersMileageReimbursement: false,
+  paymentCurrency: "NPR",
+  terminology: {
+    driverTerm: "Rider",
+    sessionTerm: "Shift",
+    tripTerm: "Order",
+  },
+};
+
+export const bhoj: PlatformDef = {
+  id: "bhoj",
+  label: "Bhoj",
+  shortLabel: "BJ",
+  color: "#F97316",
+  textColor: "#FFFFFF",
+  availableInCountries: ["NP"],
+  operationalModel: "delivery_fixed",
+  issuesTaxForm: false,
+  platformTracksOwnMileage: false,
+  offersMileageReimbursement: false,
+  paymentCurrency: "NPR",
+  terminology: {
+    driverTerm: "Rider",
+    sessionTerm: "Shift",
+    tripTerm: "Order",
+  },
+};
+
+export const other: PlatformDef = {
+  id: "other",
+  label: "Other",
+  shortLabel: "OTH",
+  color: "#6B7280",
+  textColor: "#FFFFFF",
+  availableInCountries: ["CA", "US", "UK", "NP", "AU", "BD", "KZ", "UZ", "PK", "NG", "GH"],
+  operationalModel: "delivery_fixed",
+  issuesTaxForm: false,
+  platformTracksOwnMileage: false,
+  offersMileageReimbursement: false,
+};
+
+const ALL_PLATFORMS_LIST: PlatformDef[] = [
+  doordash,
+  ubereats,
+  skip,
+  foodora,
+  instacart,
+  lyft,
+  uber,
+  deliveroo,
+  stuart,
+  amazonflex,
+  pathao,
+  pathao_food,
+  indriver,
+  foodmandu,
+  bhoj,
+  other,
 ];
 
-/**
- * Full platform registry — keyed by platform ID (deduplicated, first-wins).
- * Use this when you need the complete PlatformDef.
- */
 export const PLATFORM_REGISTRY: Record<string, PlatformDef> = {};
-for (const p of ALL_PLATFORM_LISTS) {
+for (const p of ALL_PLATFORMS_LIST) {
   if (!PLATFORM_REGISTRY[p.id]) {
     PLATFORM_REGISTRY[p.id] = p;
   }
 }
 
-// ─── Public helpers ────────────────────────────────────────────────────────────
-
-/** Get the full PlatformDef for a platform ID. Falls back to "other". */
 export function getPlatformDef(platformId: string): PlatformDef {
   return PLATFORM_REGISTRY[platformId] ?? PLATFORM_REGISTRY["other"]!;
 }
 
-/** List all platforms available in a given country. */
 export function getPlatformsByCountry(countryId: string): PlatformDef[] {
   const seen = new Set<string>();
   const result: PlatformDef[] = [];
-  for (const p of ALL_PLATFORM_LISTS) {
+  for (const p of ALL_PLATFORMS_LIST) {
     if (!seen.has(p.id) && p.availableInCountries.includes(countryId)) {
       seen.add(p.id);
       result.push(p);
@@ -55,23 +294,28 @@ export function getPlatformsByCountry(countryId: string): PlatformDef[] {
   return result;
 }
 
-/** Get all platform IDs available in a country (+ optional region filter). */
 export function resolveMarketPlatformIds(
   countryId: string,
   regionCode?: string
 ): string[] {
-  return getPlatformsByCountry(countryId)
+  const countryPlatforms = getPlatformsByCountry(countryId);
+  if (!regionCode) {
+    return countryPlatforms.map((p) => p.id);
+  }
+
+  const province = resolveProvinceDef(countryId, regionCode);
+  const banned = province?.bannedPlatforms || [];
+
+  return countryPlatforms
     .filter((p) => {
-      if (!regionCode || !p.restrictedToRegions) return true;
-      return p.restrictedToRegions.includes(regionCode);
+      if (banned.includes(p.id)) return false;
+      if (p.restrictedToRegions && p.restrictedToRegions.length > 0) {
+        return p.restrictedToRegions.includes(regionCode);
+      }
+      return true;
     })
     .map((p) => p.id);
 }
-
-// ─── Backward-compatibility shim ─────────────────────────────────────────────
-//
-// The old `PLATFORMS` was: Record<string, { label, color, textColor }>
-// Any file still importing `PLATFORMS` will keep working.
 
 export const PLATFORMS: Record<string, { label: string; color: string; textColor: string }> =
   Object.fromEntries(
@@ -81,8 +325,5 @@ export const PLATFORMS: Record<string, { label: string; color: string; textColor
     ])
   );
 
-// Re-export the type so callers can do: import { type PlatformDef } from '@/src/registry/platforms'
 export type { PlatformDef };
-
-// PlatformKey type — union of all known platform IDs for type safety
 export type PlatformKey = keyof typeof PLATFORM_REGISTRY;

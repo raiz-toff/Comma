@@ -8,11 +8,9 @@ import { getDBPlatforms, updateDBPlatform, seedDBPlatforms, type DBPlatform } fr
 import { getPlatformsByCountry } from "../src/registry/platforms";
 
 import { type ExpenseCategory } from "../src/registry/expenseCategories";
-import { getCountryDef, type CountryDef } from "../src/registry/countries/index";
-import { resolveProvinceDef, type ProvinceDef, getMileagePresetRate } from "../src/registry/provinces/index";
+import { getCountryDef, type CountryDef, resolveProvinceDef, type ProvinceDef, getMileagePresetRate } from "../src/registry/countries/index";
 import { getMarketContext, type MarketContext } from "../src/registry/market/resolve";
-import { getWithholdingPresetPct } from "../src/registry/tax/withholdingPresets";
-import { type PersonaKey, type FeatureKey, PERSONAS } from "../src/registry/index";
+import { type PersonaKey, type FeatureKey, PERSONAS, getWithholdingPresetPct } from "../src/registry/index";
 import {
   GamificationService,
   type Challenge,

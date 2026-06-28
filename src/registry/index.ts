@@ -18,7 +18,7 @@ export {
   getMileagePresetRate,
   getMileagePresetLabel,
   type ProvinceDef,
-} from "./provinces/index";
+} from "./countries/index";
 
 export {
   WITHHOLDING_PRESETS_CA,
@@ -26,7 +26,7 @@ export {
   getWithholdingPresetPct,
   listCaProvinceCodes,
   listUsStateCodes,
-} from "./tax/withholdingPresets";
+} from "./countries/tax/index";
 
 export {
   getMarketContext,

@@ -8,8 +8,7 @@
  * 4. Country-level `defaultAvailablePlatforms` (final fallback)
  */
 
-import { getCountryDef } from "../countries/index";
-import { resolveProvinceDef } from "../provinces/index";
+import { getCountryDef, resolveProvinceDef } from "../countries/index";
 import { PLATFORM_REGISTRY, getPlatformsByCountry } from "../platforms/index";
 
 export interface MarketContext {
@@ -37,10 +36,17 @@ export function resolveAvailablePlatformIds(
 
   // Primary: platforms registered for this country via the modular registry
   const marketPlatforms = getPlatformsByCountry(c);
+  const province = resolveProvinceDef(c, r);
+  const banned = province?.bannedPlatforms || [];
+
   if (marketPlatforms.length > 0) {
     return marketPlatforms
       .filter((p) => {
-        // If platform restricts to specific regions, enforce that
+        // 1. If platform is banned in this province, filter it out
+        if (banned.includes(p.id)) {
+          return false;
+        }
+        // 2. If platform restricts to specific regions, enforce that
         if (p.restrictedToRegions && p.restrictedToRegions.length > 0) {
           return p.restrictedToRegions.includes(r);
         }
@@ -49,15 +55,9 @@ export function resolveAvailablePlatformIds(
       .map((p) => p.id);
   }
 
-  // Legacy fallback: province-level list
-  const province = resolveProvinceDef(c, r);
-  if (province && province.availablePlatforms.length > 0) {
-    return province.availablePlatforms;
-  }
-
-  // Final fallback: country default list
+  // Fallback: country default list
   const country = getCountryDef(c);
-  return country.defaultAvailablePlatforms;
+  return country.defaultAvailablePlatforms.filter((id) => !banned.includes(id));
 }
 
 /**

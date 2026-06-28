@@ -1,5 +1,5 @@
 import { db } from "../client";
-import { shifts, locationPoints } from "../schema";
+import { shifts, locationPoints, shiftPlatforms, vehicles } from "../schema";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { Platform } from "react-native";
 
@@ -119,7 +119,7 @@ export async function getShiftsPaginated(
       list = list.filter((s: any) => new Date(s.startTime) <= filters.endDate!);
     }
     if (filters?.platforms && filters.platforms.length > 0) {
-      list = list.filter((s: any) => filters.platforms!.includes(s.platform));
+      list = list.filter((s: any) => s.platform && filters.platforms!.some((p: string) => s.platform.includes(p)));
     }
     
     // Sort descending by default
@@ -157,7 +157,7 @@ export async function getShiftsPaginated(
     .offset(offset);
 
   if (filters?.platforms && filters.platforms.length > 0) {
-    return results.filter((r: typeof shifts.$inferSelect) => filters.platforms!.includes(r.platform));
+    return results.filter((r: typeof shifts.$inferSelect) => r.platform && filters.platforms!.some((p: string) => r.platform.includes(p)));
   }
   return results;
 }
@@ -170,10 +170,84 @@ export async function deleteShift(id: string): Promise<void> {
       const filtered = list.filter((s: any) => s.id !== id);
       localStorage.setItem("comma_shifts", JSON.stringify(filtered));
     }
+    const spExisting = localStorage.getItem("comma_shift_platforms");
+    if (spExisting) {
+      const spList = JSON.parse(spExisting);
+      const spFiltered = spList.filter((sp: any) => sp.shiftId !== id);
+      localStorage.setItem("comma_shift_platforms", JSON.stringify(spFiltered));
+    }
     return;
   }
   await db.delete(shifts).where(eq(shifts.id, id));
 }
+
+export async function getShiftPlatforms(shiftId: string): Promise<any[]> {
+  if (isWeb) {
+    const existing = localStorage.getItem("comma_shift_platforms");
+    if (!existing) return [];
+    const list = JSON.parse(existing);
+    return list.filter((sp: any) => sp.shiftId === shiftId);
+  }
+  return db
+    .select()
+    .from(shiftPlatforms)
+    .where(eq(shiftPlatforms.shiftId, shiftId));
+}
+
+export async function insertShiftPlatform(payload: typeof shiftPlatforms.$inferInsert): Promise<void> {
+  if (isWeb) {
+    const existing = localStorage.getItem("comma_shift_platforms");
+    const list = existing ? JSON.parse(existing) : [];
+    list.push(payload);
+    localStorage.setItem("comma_shift_platforms", JSON.stringify(list));
+    return;
+  }
+  await db.insert(shiftPlatforms).values(payload);
+}
+
+export async function deleteShiftPlatforms(shiftId: string): Promise<void> {
+  if (isWeb) {
+    const existing = localStorage.getItem("comma_shift_platforms");
+    if (existing) {
+      const list = JSON.parse(existing);
+      const filtered = list.filter((sp: any) => sp.shiftId !== shiftId);
+      localStorage.setItem("comma_shift_platforms", JSON.stringify(filtered));
+    }
+    return;
+  }
+  await db.delete(shiftPlatforms).where(eq(shiftPlatforms.shiftId, shiftId));
+}
+
+export async function getUnreconciledShifts(): Promise<any[]> {
+  if (isWeb) {
+    const existing = localStorage.getItem("comma_shifts");
+    if (!existing) return [];
+    const list = JSON.parse(existing);
+    return list.filter((s: any) => s.reconciliationStatus === "pending_reconciliation")
+               .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }
+  return db
+    .select()
+    .from(shifts)
+    .where(eq(shifts.reconciliationStatus, "pending_reconciliation"))
+    .orderBy(desc(shifts.startTime));
+}
+
+export async function getGPSOnlyShifts(): Promise<any[]> {
+  if (isWeb) {
+    const existing = localStorage.getItem("comma_shifts");
+    if (!existing) return [];
+    const list = JSON.parse(existing);
+    return list.filter((s: any) => s.distanceSource === "gps_only")
+               .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }
+  return db
+    .select()
+    .from(shifts)
+    .where(eq(shifts.distanceSource, "gps_only"))
+    .orderBy(shifts.startTime);
+}
+
 
 export async function insertManyShifts(
   rows: (typeof shifts.$inferInsert)[]
@@ -201,4 +275,116 @@ export async function insertManyShifts(
   }
   
   return { successCount, skippedCount };
+}
+
+export async function reconcileOdometerAnchors(vehicleId: string, newOdometer: number): Promise<void> {
+  let previousOdometer = 0;
+  
+  if (isWeb) {
+    const vStr = localStorage.getItem("comma_vehicles");
+    const vList = vStr ? JSON.parse(vStr) : [];
+    const vIdx = vList.findIndex((v: any) => v.id === vehicleId);
+    if (vIdx !== -1) {
+      previousOdometer = vList[vIdx].currentOdometer || 0;
+      vList[vIdx].currentOdometer = newOdometer;
+      localStorage.setItem("comma_vehicles", JSON.stringify(vList));
+    }
+  } else {
+    const vehicleResult = await db.select({ currentOdometer: vehicles.currentOdometer }).from(vehicles).where(eq(vehicles.id, vehicleId)).limit(1);
+    if (vehicleResult.length > 0) {
+      previousOdometer = vehicleResult[0].currentOdometer || 0;
+    }
+    await db.update(vehicles).set({ currentOdometer: newOdometer }).where(eq(vehicles.id, vehicleId));
+  }
+
+  // Fetch un-reconciled shifts for this vehicle sorted by startTime
+  let unrecShifts: any[] = [];
+  if (isWeb) {
+    const sStr = localStorage.getItem("comma_shifts");
+    const sList = sStr ? JSON.parse(sStr) : [];
+    unrecShifts = sList
+      .filter((s: any) => s.vehicleId === vehicleId && s.distanceSource === "gps_only")
+      .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  } else {
+    unrecShifts = await db
+      .select()
+      .from(shifts)
+      .where(and(eq(shifts.vehicleId, vehicleId), eq(shifts.distanceSource, "gps_only")))
+      .orderBy(shifts.startTime);
+  }
+
+  if (unrecShifts.length === 0) {
+    return;
+  }
+
+  // Compute cumulative GPS active+dead mileage for these shifts
+  let totalGpsMileage = 0;
+  unrecShifts.forEach((s: any) => {
+    totalGpsMileage += (s.activeMileage || 0) + (s.deadMileage || 0);
+  });
+
+  // Calculate drift
+  const odometerDiff = newOdometer - previousOdometer;
+  const drift = odometerDiff - totalGpsMileage;
+
+  // Distribute drift proportionally and assign running odometer boundaries
+  let runningOdo = previousOdometer;
+  const updatedShifts = unrecShifts.map((s: any) => {
+    const shiftGps = (s.activeMileage || 0) + (s.deadMileage || 0);
+    let proportion = totalGpsMileage > 0 ? shiftGps / totalGpsMileage : 1 / unrecShifts.length;
+    let shiftDrift = drift * proportion;
+
+    const act = s.activeMileage || 0;
+    const dead = s.deadMileage || 0;
+    const totalM = act + dead;
+    const actRatio = totalM > 0 ? act / totalM : 0.75;
+    const deadRatio = totalM > 0 ? dead / totalM : 0.25;
+
+    const newActive = Math.max(0, act + (shiftDrift * actRatio));
+    const newDead = Math.max(0, dead + (shiftDrift * deadRatio));
+    const newTotal = newActive + newDead;
+
+    const startOdo = Math.round(runningOdo);
+    runningOdo += newTotal;
+    const endOdo = Math.round(runningOdo);
+
+    return {
+      ...s,
+      activeMileage: Number(newActive.toFixed(2)),
+      deadMileage: Number(newDead.toFixed(2)),
+      trackedMileage: Number(newActive.toFixed(2)),
+      startOdometer: startOdo,
+      endOdometer: endOdo,
+      distanceSource: "odometer_reconciled",
+    };
+  });
+
+  // Persist updated shifts
+  if (isWeb) {
+    const sStr = localStorage.getItem("comma_shifts");
+    if (sStr) {
+      const sList = JSON.parse(sStr);
+      updatedShifts.forEach((updated: any) => {
+        const idx = sList.findIndex((s: any) => s.id === updated.id);
+        if (idx !== -1) {
+          sList[idx] = updated;
+        }
+      });
+      localStorage.setItem("comma_shifts", JSON.stringify(sList));
+    }
+  } else {
+    for (const updated of updatedShifts) {
+      await db
+        .update(shifts)
+        .set({
+          activeMileage: updated.activeMileage,
+          deadMileage: updated.deadMileage,
+          trackedMileage: updated.trackedMileage,
+          startOdometer: updated.startOdometer,
+          endOdometer: updated.endOdometer,
+          distanceSource: updated.distanceSource,
+        })
+        .where(eq(shifts.id, updated.id));
+    }
+  }
 }

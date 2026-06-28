@@ -21,6 +21,7 @@ import { getExpenseYTDSummary } from "@/src/database/queries/expenses";
 import { generateShiftsCSV, generateExpensesCSV, generatePDFSummary } from "@/utils/reportGenerator";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
 
 const isWeb = Platform.OS === "web";
 
@@ -74,6 +75,8 @@ export default function ReportsScreen() {
   const insets = useSafeAreaInsets();
   const { profile, isOnboardingCompleted } = useSettingsStore();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
+
+  const isPdfEnabled = useFeatureEnabled("pdf_reports");
 
   const [preset, setPreset] = useState<Preset>("this_month");
 
@@ -353,19 +356,46 @@ export default function ReportsScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={handleExportPDF}
-            style={{ backgroundColor: accentColor, borderRadius: 20, padding: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
+            onPress={() => {
+              if (!isPdfEnabled) {
+                Alert.alert("Feature Locked", "PDF Report generation is not enabled for your current persona.");
+                return;
+              }
+              handleExportPDF();
+            }}
+            style={{ 
+              backgroundColor: isPdfEnabled ? accentColor : SURFACE, 
+              borderWidth: isPdfEnabled ? 0 : 0.8,
+              borderColor: isPdfEnabled ? undefined : BORDER,
+              opacity: isPdfEnabled ? 1 : 0.5, 
+              borderRadius: 20, 
+              padding: 16, 
+              flexDirection: "row", 
+              justifyContent: "space-between", 
+              alignItems: "center" 
+            }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(0,0,0,0.15)", alignItems: "center", justifyContent: "center" }}>
-                <FileText size={20} color={accentColorContrast} />
+              <View style={{ 
+                width: 44, 
+                height: 44, 
+                borderRadius: 22, 
+                backgroundColor: isPdfEnabled ? "rgba(0,0,0,0.15)" : PILL, 
+                borderWidth: isPdfEnabled ? 0 : 0.8,
+                borderColor: isPdfEnabled ? undefined : BORDER2,
+                alignItems: "center", 
+                justifyContent: "center" 
+              }}>
+                <FileText size={20} color={isPdfEnabled ? accentColorContrast : MUTED} />
               </View>
               <View style={{ gap: 2 }}>
-                <Text style={{ fontSize: 14, fontWeight: "800", color: accentColorContrast }}>Generate PDF Summary</Text>
-                <Text style={{ fontSize: 11, color: accentColorContrast, opacity: 0.7 }}>Print-safe tax summary report</Text>
+                <Text style={{ fontSize: 14, fontWeight: "800", color: isPdfEnabled ? accentColorContrast : "#ffffff" }}>Generate PDF Summary</Text>
+                <Text style={{ fontSize: 11, color: isPdfEnabled ? accentColorContrast : MUTED, opacity: isPdfEnabled ? 0.7 : 1 }}>
+                  {isPdfEnabled ? "Print-safe tax summary report" : "Locked for current persona"}
+                </Text>
               </View>
             </View>
-            <Download size={16} color={accentColorContrast} />
+            <Download size={16} color={isPdfEnabled ? accentColorContrast : MUTED} />
           </TouchableOpacity>
         </View>
       </ScrollView>

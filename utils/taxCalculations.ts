@@ -93,3 +93,17 @@ export function calculateScheduleC(grossIncome: number, totalExpenses: number): 
 export function calculateIRSMileageDeduction(miles: number): number {
   return miles * IRS_2024.MILE_RATE;
 }
+
+// ─── UNITED KINGDOM (HMRC) ───────────────────────────────────────────────────
+
+export const HMRC_2024 = {
+  MILE_RATE_TIER1: 0.45, // First 10,000 miles
+  MILE_RATE_TIER2: 0.25, // Thereafter
+} as const;
+
+export function calculateHMRCMileageDeduction(miles: number): number {
+  if (miles <= 10000) {
+    return miles * HMRC_2024.MILE_RATE_TIER1;
+  }
+  return 10000 * HMRC_2024.MILE_RATE_TIER1 + (miles - 10000) * HMRC_2024.MILE_RATE_TIER2;
+}

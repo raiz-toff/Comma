@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { attachLocationPointsToShift, insertShift } from "../src/database/queries/shifts";
+import { attachLocationPointsToShift, insertShift, insertShiftPlatform } from "../src/database/queries/shifts";
 import { type PlatformKey } from "../src/registry/platforms";
 import { db } from "../src/database/client";
 import { settings, tempNativePoints } from "../src/database/schema";
@@ -234,10 +234,28 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
       pausedSeconds: state.pausedSeconds,
       routePath: encodedPolylineString,
       notes,
+      reconciliationStatus: "pending_reconciliation" as any,
     };
 
     try {
       await insertShift(payload);
+      
+      if (state.platform) {
+        const activePlatformsList = state.platform.split(",");
+        for (const pKey of activePlatformsList) {
+          if (pKey) {
+            await insertShiftPlatform({
+              id: `sp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+              shiftId: shiftId,
+              platform: pKey,
+              platformOnlineSeconds: 0,
+              grossRevenue: 0.0,
+              tipsRevenue: 0.0,
+              tripsCount: 0,
+            });
+          }
+        }
+      }
     } catch (e) {
       console.error("Failed to insert shift in database:", e);
     }

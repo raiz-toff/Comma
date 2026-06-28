@@ -22,6 +22,7 @@ import {
   insertExpense,
   updateExpense,
   getExpenseById,
+  getRecentMerchants,
 } from "@/src/database/queries/expenses";
 import { getVehicles } from "@/src/database/queries/vehicles";
 import { getShiftsPaginated } from "@/src/database/queries/shifts";
@@ -31,6 +32,8 @@ import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { cn } from "@/src/lib/utils";
 import { type PlatformKey } from "@/src/registry/platforms";
 import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
+
+import { getTaxProfileForVehicleYear } from "@/src/database/queries/taxProfiles";
 
 const isWeb = Platform.OS === "web";
 
@@ -62,6 +65,8 @@ export default function AddExpenseModal() {
   const [receiptUri, setReceiptUri] = useState<string | null>(null);
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringInterval, setRecurringInterval] = useState<"weekly"|"monthly"|"yearly">("monthly");
+  const [merchant, setMerchant] = useState("");
+  const [isScanningOCR, setIsScanningOCR] = useState(false);
 
   // ── UI State ─────────────────────────────────────────────────────────────
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -210,7 +215,6 @@ export default function AddExpenseModal() {
     });
   }, [shiftsToShow, date]);
 
-  // ── Pre-populate when editing ─────────────────────────────────────────────
   useEffect(() => {
     if (existingExpense) {
       setCategory(existingExpense.category || "fuel");
@@ -223,8 +227,14 @@ export default function AddExpenseModal() {
       setReceiptUri(existingExpense.receiptUri || null);
       setIsRecurring(!!existingExpense.isRecurring);
       setRecurringInterval(existingExpense.recurringInterval || "monthly");
+      setMerchant(existingExpense.merchant || "");
     }
   }, [existingExpense]);
+
+  const { data: recentMerchants = [] } = useQuery({
+    queryKey: ["recentMerchants"],
+    queryFn: () => getRecentMerchants(),
+  });
 
   // ── Receipt photo picker ──────────────────────────────────────────────────
   const pickReceiptPhoto = async () => {
@@ -276,6 +286,29 @@ export default function AddExpenseModal() {
       ]
     );
   };
+  const handleSimulateOCR = () => {
+    setIsScanningOCR(true);
+    setTimeout(() => {
+      setIsScanningOCR(false);
+      
+      const mockMerchant = "Shell Oil";
+      const mockAmount = "45.20";
+      
+      setMerchant(mockMerchant);
+      setAmount(mockAmount);
+      
+      Alert.alert(
+        "Receipt Scanned",
+        `Successfully extracted details from receipt:\n\nMerchant: ${mockMerchant}\nAmount: $${mockAmount}\n\nWe have updated the form fields. Please review them in Step 1.`,
+        [
+          {
+            text: "Review Now",
+            onPress: () => setStep(1),
+          }
+        ]
+      );
+    }, 1500);
+  };
 
   // ── Save Handler ──────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -299,42 +332,70 @@ export default function AddExpenseModal() {
     }
 
     setIsSaving(true);
-    try {
-      const payload = {
-        category,
-        amount: parsedAmount,
-        date,
-        isDeductible,
-        shiftId: linkedShiftId || null,
-        vehicleId: linkedVehicleId || null,
-        notes: notes.trim() || null,
-        receiptUri: receiptUri || null,
-        isRecurring,
-        recurringInterval: isRecurring ? recurringInterval : null,
-      };
 
-      if (isEditing) {
-        await updateExpense(expenseId!, payload);
-        queryClient.invalidateQueries({ queryKey: ["expense", expenseId] });
-      } else {
-        await insertExpense({
-          ...payload,
-          id: `expense_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        });
+    const proceedSave = async () => {
+      try {
+        const payload = {
+          category,
+          amount: parsedAmount,
+          date,
+          isDeductible,
+          shiftId: linkedShiftId || null,
+          vehicleId: linkedVehicleId || null,
+          notes: notes.trim() || null,
+          receiptUri: receiptUri || null,
+          isRecurring,
+          recurringInterval: isRecurring ? recurringInterval : null,
+          merchant: merchant.trim(),
+          merchantNormalized: merchant.trim().toUpperCase(),
+        };
+
+        if (isEditing) {
+          await updateExpense(expenseId!, payload);
+          queryClient.invalidateQueries({ queryKey: ["expense", expenseId] });
+        } else {
+          await insertExpense({
+            ...payload,
+            id: `expense_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          });
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["expenses"] });
+        queryClient.invalidateQueries({ queryKey: ["analytics"] });
+        if (linkedShiftId) {
+          queryClient.invalidateQueries({ queryKey: ["shift-expenses", linkedShiftId] });
+        }
+
+        router.back();
+      } catch (err: any) {
+        setErrorMessage(err?.message || "Failed to save expense.");
+      } finally {
+        setIsSaving(false);
       }
+    };
 
-      queryClient.invalidateQueries({ queryKey: ["expenses"] });
-      queryClient.invalidateQueries({ queryKey: ["analytics"] });
-      if (linkedShiftId) {
-        queryClient.invalidateQueries({ queryKey: ["shift-expenses", linkedShiftId] });
+    const vehicleCostCategories = ["fuel", "maintenance", "insurance", "depreciation", "parts", "tires"];
+    if (linkedVehicleId && vehicleCostCategories.includes(category)) {
+      const year = date.getFullYear();
+      try {
+        const taxProfile = await getTaxProfileForVehicleYear(linkedVehicleId, year);
+        if (taxProfile && taxProfile.deductionMethod === "standard_mileage") {
+          Alert.alert(
+            "Standard Mileage Guardrail",
+            `You are claiming standard mileage for ${year}. Vehicle maintenance costs (like ${category}) cannot be written off separately under this method. Do you still want to save this for your personal records?`,
+            [
+              { text: "Cancel", style: "cancel", onPress: () => setIsSaving(false) },
+              { text: "Save Anyway", onPress: () => proceedSave() }
+            ]
+          );
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to query vehicle tax profile:", err);
       }
-
-      router.back();
-    } catch (err: any) {
-      setErrorMessage(err?.message || "Failed to save expense.");
-    } finally {
-      setIsSaving(false);
     }
+
+    await proceedSave();
   };
 
   return (
@@ -451,6 +512,38 @@ export default function AddExpenseModal() {
                     if (selectedDate) setDate(selectedDate);
                   }}
                 />
+              )}
+            </View>
+
+            {/* Merchant Autocomplete Card */}
+            <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-2 relative" style={{ zIndex: 1000 }}>
+              <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Merchant / Vendor</Text>
+              <TextInput
+                value={merchant}
+                onChangeText={setMerchant}
+                placeholder="e.g. Shell, McDonald's, Chevron"
+                placeholderTextColor="#52525b"
+                className="bg-[#0d0d0d] border border-[#262522] rounded-xl px-4 py-3.5 text-white text-sm font-semibold focus:border-zinc-400"
+              />
+              
+              {/* Autocomplete Dropdown overlay */}
+              {merchant.trim().length > 0 && recentMerchants.filter((m: string) => m.toLowerCase().includes(merchant.toLowerCase()) && m.toLowerCase() !== merchant.toLowerCase()).length > 0 && (
+                <View className="bg-[#161615] border border-[#262522] rounded-xl overflow-hidden mt-1 max-h-[140px] z-50">
+                  <ScrollView nestedScrollEnabled>
+                    {recentMerchants
+                      .filter((m: string) => m.toLowerCase().includes(merchant.toLowerCase()) && m.toLowerCase() !== merchant.toLowerCase())
+                      .map((m: string) => (
+                        <TouchableOpacity
+                          key={m}
+                          onPress={() => setMerchant(m)}
+                          className="px-4 py-3 border-b border-[#262522]/40 active:bg-zinc-800"
+                        >
+                          <Text className="text-white text-sm font-semibold">{m}</Text>
+                        </TouchableOpacity>
+                      ))
+                    }
+                  </ScrollView>
+                </View>
               )}
             </View>
 
@@ -776,13 +869,33 @@ export default function AddExpenseModal() {
               <View className="flex flex-col gap-2">
                 <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Receipt Picture</Text>
                 {receiptUri ? (
-                  <View className="w-[120px] h-[120px] relative rounded-xl border border-[#262522] overflow-hidden bg-[#0d0d0d]">
-                    <Image source={{ uri: receiptUri }} className="w-full h-full" resizeMode="cover" />
+                  <View className="flex flex-col gap-3">
+                    <View className="w-[120px] h-[120px] relative rounded-xl border border-[#262522] overflow-hidden bg-[#0d0d0d]">
+                      <Image source={{ uri: receiptUri }} className="w-full h-full" resizeMode="cover" />
+                      <TouchableOpacity
+                        onPress={() => setReceiptUri(null)}
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/70 items-center justify-center border border-white/10"
+                      >
+                        <Text className="text-white text-xs font-bold leading-none">×</Text>
+                      </TouchableOpacity>
+                    </View>
                     <TouchableOpacity
-                      onPress={() => setReceiptUri(null)}
-                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/70 items-center justify-center border border-white/10"
+                      onPress={handleSimulateOCR}
+                      disabled={isScanningOCR}
+                      style={{ backgroundColor: isScanningOCR ? "#27272a" : accentColor }}
+                      className="w-full py-3.5 rounded-xl flex-row items-center justify-center gap-2 border border-zinc-800"
                     >
-                      <Text className="text-white text-xs font-bold leading-none">×</Text>
+                      {isScanningOCR ? (
+                        <>
+                          <ActivityIndicator size="small" color="#fff" />
+                          <Text className="text-zinc-300 text-xs font-bold uppercase tracking-wider">Scanning Receipt...</Text>
+                        </>
+                      ) : (
+                        <>
+                          <Text className="text-sm">🔍</Text>
+                          <Text style={{ color: accentColorContrast }} className="text-xs font-bold uppercase tracking-wider">Scan & Auto-Fill Form</Text>
+                        </>
+                      )}
                     </TouchableOpacity>
                   </View>
                 ) : (

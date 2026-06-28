@@ -42,26 +42,28 @@ export interface PlatformContext {
   };
 }
 
-export function usePlatformContext(platformId: string): PlatformContext {
-  return useMemo(() => {
-    const platform = getPlatformDef(platformId);
-    const model = getOperationalModel(platform.operationalModel);
-    const terminology = resolveTerminology(model, platform.terminology);
+export function getPlatformContext(platformId: string): PlatformContext {
+  const platform = getPlatformDef(platformId);
+  const model = getOperationalModel(platform.operationalModel);
+  const terminology = resolveTerminology(model, platform.terminology);
 
-    return {
-      platform,
-      model,
-      terminology,
-      revenueFields: model.revenueFields,
-      flags: {
-        hasTips: model.hasTips,
-        hasSurge: model.hasSurge,
-        supportsCashPayments: model.supportsCashPayments,
-        tracksMileage: model.tracksMileage,
-        mileageReimbursedByPlatform: model.mileageReimbursedByPlatform,
-        driverSetsPricing: model.driverSetsPricing,
-        platformIssuesTaxForm: model.platformIssuesTaxForm,
-      },
-    };
-  }, [platformId]);
+  return {
+    platform,
+    model,
+    terminology,
+    revenueFields: model.revenueFields,
+    flags: {
+      hasTips: model.hasTips,
+      hasSurge: model.hasSurge,
+      supportsCashPayments: model.supportsCashPayments,
+      tracksMileage: model.tracksMileage,
+      mileageReimbursedByPlatform: model.mileageReimbursedByPlatform,
+      driverSetsPricing: model.driverSetsPricing,
+      platformIssuesTaxForm: model.platformIssuesTaxForm,
+    },
+  };
+}
+
+export function usePlatformContext(platformId: string): PlatformContext {
+  return useMemo(() => getPlatformContext(platformId), [platformId]);
 }

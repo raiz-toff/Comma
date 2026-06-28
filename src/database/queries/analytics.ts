@@ -1,8 +1,23 @@
 import { db } from "../client";
 import { shifts, vehicles, settings, goals, expenses } from "../schema";
-import { and, gte, lte, eq, sql, inArray } from "drizzle-orm";
+import { and, gte, lte, eq, sql, inArray, like, or } from "drizzle-orm";
 import { Platform } from "react-native";
 import { getGoalsWithProgress } from "./goals";
+
+function matchesPlatformWeb(platformField: string | null | undefined, filterPlatform: string): boolean {
+  if (!platformField) return false;
+  const parts = filterPlatform.split(",");
+  return parts.some((p) => platformField.includes(p));
+}
+
+function getPlatformConditions(platform: string) {
+  const parts = platform.split(",");
+  if (parts.length > 1) {
+    return or(...parts.map((p) => like(shifts.platform, `%${p}%`)));
+  }
+  return like(shifts.platform, `%${platform}%`);
+}
+
 
 const isWeb = Platform.OS === "web";
 
@@ -54,8 +69,7 @@ export async function getTodayStats(platform?: string): Promise<{ gross: number;
       });
 
       if (platform && platform !== "all") {
-        const parts = platform.split(",");
-        list = list.filter((s: any) => parts.includes(s.platform));
+        list = list.filter((s: any) => matchesPlatformWeb(s.platform, platform));
       }
 
       let gross = 0, tips = 0, activeMileage = 0, deadMileage = 0;
@@ -74,12 +88,7 @@ export async function getTodayStats(platform?: string): Promise<{ gross: number;
   const { start, end } = getPeriodDates("daily");
   const conditions = [gte(shifts.startTime, start), lte(shifts.startTime, end)];
   if (platform && platform !== "all") {
-    const parts = platform.split(",");
-    if (parts.length > 1) {
-      conditions.push(inArray(shifts.platform, parts));
-    } else {
-      conditions.push(eq(shifts.platform, platform));
-    }
+    conditions.push(getPlatformConditions(platform));
   }
 
   const result = await db
@@ -121,8 +130,7 @@ export async function getWeekStats(platform?: string): Promise<{ gross: number; 
       });
 
       if (platform && platform !== "all") {
-        const parts = platform.split(",");
-        list = list.filter((s: any) => parts.includes(s.platform));
+        list = list.filter((s: any) => matchesPlatformWeb(s.platform, platform));
       }
 
       let gross = 0, tips = 0, activeMileage = 0, deadMileage = 0, durationSeconds = 0;
@@ -156,12 +164,7 @@ export async function getWeekStats(platform?: string): Promise<{ gross: number; 
   const { start, end } = getPeriodDates("weekly", weekStartDay);
   const conditions = [gte(shifts.startTime, start), lte(shifts.startTime, end)];
   if (platform && platform !== "all") {
-    const parts = platform.split(",");
-    if (parts.length > 1) {
-      conditions.push(inArray(shifts.platform, parts));
-    } else {
-      conditions.push(eq(shifts.platform, platform));
-    }
+    conditions.push(getPlatformConditions(platform));
   }
 
   const result = await db
@@ -234,9 +237,8 @@ export async function getEarningsByPlatform(
       (s: any) => new Date(s.startTime) >= startDate && new Date(s.startTime) <= endDate
     );
     if (platform && platform !== "all") {
-      const parts = platform.split(",");
-      list = list.filter((s: any) => parts.includes(s.platform));
-    }
+        list = list.filter((s: any) => matchesPlatformWeb(s.platform, platform));
+      }
     const map: Record<string, { total: number; count: number }> = {};
     list.forEach((s: any) => {
       if (!map[s.platform]) map[s.platform] = { total: 0, count: 0 };
@@ -253,12 +255,7 @@ export async function getEarningsByPlatform(
 
   const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
-    const parts = platform.split(",");
-    if (parts.length > 1) {
-      conditions.push(inArray(shifts.platform, parts));
-    } else {
-      conditions.push(eq(shifts.platform, platform));
-    }
+    conditions.push(getPlatformConditions(platform));
   }
 
   const rows = await db
@@ -346,8 +343,7 @@ export async function getEarningsByDayRange(
         (s: any) => new Date(s.startTime) >= startDate && new Date(s.startTime) <= endDate
       );
       if (platform && platform !== "all") {
-        const parts = platform.split(",");
-        list = list.filter((s: any) => parts.includes(s.platform));
+        list = list.filter((s: any) => matchesPlatformWeb(s.platform, platform));
       }
       list.forEach((s: any) => {
         const d = new Date(s.startTime);
@@ -364,13 +360,8 @@ export async function getEarningsByDayRange(
   } else {
     const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
     if (platform && platform !== "all") {
-      const parts = platform.split(",");
-      if (parts.length > 1) {
-        conditions.push(inArray(shifts.platform, parts));
-      } else {
-        conditions.push(eq(shifts.platform, platform));
-      }
-    }
+    conditions.push(getPlatformConditions(platform));
+  }
 
     const rows = await db
       .select({
@@ -405,9 +396,8 @@ export async function getHourlyRate(startDate: Date, endDate: Date, platform?: s
       (s: any) => new Date(s.startTime) >= startDate && new Date(s.startTime) <= endDate
     );
     if (platform && platform !== "all") {
-      const parts = platform.split(",");
-      list = list.filter((s: any) => parts.includes(s.platform));
-    }
+        list = list.filter((s: any) => matchesPlatformWeb(s.platform, platform));
+      }
     const totalEarnings = list.reduce((sum: number, s: any) => sum + (s.grossRevenue || 0) + (s.tipsRevenue || 0), 0);
     const totalSecs = list.reduce((sum: number, s: any) => sum + (s.durationSeconds || 0), 0);
     return totalSecs > 0 ? totalEarnings / (totalSecs / 3600) : 0;
@@ -415,12 +405,7 @@ export async function getHourlyRate(startDate: Date, endDate: Date, platform?: s
 
   const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
-    const parts = platform.split(",");
-    if (parts.length > 1) {
-      conditions.push(inArray(shifts.platform, parts));
-    } else {
-      conditions.push(eq(shifts.platform, platform));
-    }
+    conditions.push(getPlatformConditions(platform));
   }
 
   const result = await db
@@ -449,9 +434,8 @@ export async function getBestDayOfWeek(
       (s: any) => new Date(s.startTime) >= startDate && new Date(s.startTime) <= endDate
     );
     if (platform && platform !== "all") {
-      const parts = platform.split(",");
-      list = list.filter((s: any) => parts.includes(s.platform));
-    }
+        list = list.filter((s: any) => matchesPlatformWeb(s.platform, platform));
+      }
     const map: Record<number, { total: number; count: number }> = {};
     list.forEach((s: any) => {
       const dow = new Date(s.startTime).getDay();
@@ -468,12 +452,7 @@ export async function getBestDayOfWeek(
 
   const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
-    const parts = platform.split(",");
-    if (parts.length > 1) {
-      conditions.push(inArray(shifts.platform, parts));
-    } else {
-      conditions.push(eq(shifts.platform, platform));
-    }
+    conditions.push(getPlatformConditions(platform));
   }
 
   const rows = await db
@@ -503,9 +482,8 @@ export async function getBestHourOfDay(
       (s: any) => new Date(s.startTime) >= startDate && new Date(s.startTime) <= endDate
     );
     if (platform && platform !== "all") {
-      const parts = platform.split(",");
-      list = list.filter((s: any) => parts.includes(s.platform));
-    }
+        list = list.filter((s: any) => matchesPlatformWeb(s.platform, platform));
+      }
     const map: Record<number, { total: number; count: number }> = {};
     list.forEach((s: any) => {
       const hour = new Date(s.startTime).getHours();
@@ -521,12 +499,7 @@ export async function getBestHourOfDay(
 
   const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
-    const parts = platform.split(",");
-    if (parts.length > 1) {
-      conditions.push(inArray(shifts.platform, parts));
-    } else {
-      conditions.push(eq(shifts.platform, platform));
-    }
+    conditions.push(getPlatformConditions(platform));
   }
 
   const rows = await db
@@ -555,12 +528,7 @@ export async function getMileageSplit(
 
   const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
-    const parts = platform.split(",");
-    if (parts.length > 1) {
-      conditions.push(inArray(shifts.platform, parts));
-    } else {
-      conditions.push(eq(shifts.platform, platform));
-    }
+    conditions.push(getPlatformConditions(platform));
   }
 
   const result = await db
@@ -581,12 +549,7 @@ export async function getNetIncome(startDate: Date, endDate: Date, platform?: st
 
   const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
-    const parts = platform.split(",");
-    if (parts.length > 1) {
-      conditions.push(inArray(shifts.platform, parts));
-    } else {
-      conditions.push(eq(shifts.platform, platform));
-    }
+    conditions.push(getPlatformConditions(platform));
   }
 
   const earningsResult = await db
@@ -600,8 +563,7 @@ export async function getNetIncome(startDate: Date, endDate: Date, platform?: st
   
   let expensesResult;
   if (platform && platform !== "all") {
-    const parts = platform.split(",");
-    const platformCond = parts.length > 1 ? inArray(shifts.platform, parts) : eq(shifts.platform, platform);
+    const platformCond = getPlatformConditions(platform);
     expensesResult = await db
       .select({
         total: sql<number>`COALESCE(SUM(${expenses.amount}), 0)`,
@@ -648,8 +610,7 @@ export async function getPeriodStats(
         return d >= startDate && d <= endDate;
       });
       if (platform && platform !== "all") {
-        const parts = platform.split(",");
-        list = list.filter((s: any) => parts.includes(s.platform));
+        list = list.filter((s: any) => matchesPlatformWeb(s.platform, platform));
       }
       let gross = 0, tips = 0, activeMileage = 0, deadMileage = 0, durationSeconds = 0, pausedSeconds = 0;
       list.forEach((s: any) => {
@@ -668,12 +629,7 @@ export async function getPeriodStats(
 
   const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
-    const parts = platform.split(",");
-    if (parts.length > 1) {
-      conditions.push(inArray(shifts.platform, parts));
-    } else {
-      conditions.push(eq(shifts.platform, platform));
-    }
+    conditions.push(getPlatformConditions(platform));
   }
 
   const result = await db
@@ -740,13 +696,8 @@ export async function getFinancialOverviewForRange(
   } else {
     const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
     if (platform && platform !== "all") {
-      const parts = platform.split(",");
-      if (parts.length > 1) {
-        conditions.push(inArray(shifts.platform, parts));
-      } else {
-        conditions.push(eq(shifts.platform, platform));
-      }
-    }
+    conditions.push(getPlatformConditions(platform));
+  }
     shiftList = await db.select().from(shifts).where(and(...conditions));
   }
 
@@ -788,8 +739,7 @@ export async function getFinancialOverviewForRange(
   } else {
     let expList: any[] = [];
     if (platform && platform !== "all") {
-      const parts = platform.split(",");
-      const platformCond = parts.length > 1 ? inArray(shifts.platform, parts) : eq(shifts.platform, platform);
+      const platformCond = getPlatformConditions(platform);
       expList = await db
         .select({ amount: expenses.amount })
         .from(expenses)
@@ -874,8 +824,7 @@ export async function getFinancialOverviewForRange(
     } else {
     let expList: any[] = [];
     if (platform && platform !== "all") {
-      const parts = platform.split(",");
-      const platformCond = parts.length > 1 ? inArray(shifts.platform, parts) : eq(shifts.platform, platform);
+      const platformCond = getPlatformConditions(platform);
       expList = await db
         .select({ amount: expenses.amount })
         .from(expenses)
@@ -995,8 +944,7 @@ export async function getFinancialMonthlyBreakdown(
     } catch {}
   } else {
     if (platform && platform !== "all") {
-      const parts = platform.split(",");
-      const platformCond = parts.length > 1 ? inArray(shifts.platform, parts) : eq(shifts.platform, platform);
+      const platformCond = getPlatformConditions(platform);
       expenseList = await db
         .select({ amount: expenses.amount, date: expenses.date, isDeductible: expenses.isDeductible })
         .from(expenses)
@@ -1132,13 +1080,8 @@ export async function getRolling30DayTrend(platform?: string): Promise<any> {
   } else {
     const conditions = [gte(shifts.startTime, start), lte(shifts.startTime, today)];
     if (platform && platform !== "all") {
-      const parts = platform.split(",");
-      if (parts.length > 1) {
-        conditions.push(inArray(shifts.platform, parts));
-      } else {
-        conditions.push(eq(shifts.platform, platform));
-      }
-    }
+    conditions.push(getPlatformConditions(platform));
+  }
     shiftList = await db.select().from(shifts).where(and(...conditions));
   }
 

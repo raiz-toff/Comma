@@ -184,9 +184,9 @@ const PERSONA_OPTIONS: {
   Icon: React.ComponentType<{ size: number; color: string; strokeWidth: number }>;
 }[] = [
   { value: "delivery", label: "Delivery & Rideshare", sub: "DoorDash, Uber, Skip, Lyft", Icon: Truck },
-  // { value: "business", label: "Business driving", sub: "Sales, real estate, consulting", Icon: Briefcase },
-  // { value: "contractor", label: "Contracting", sub: "Trades, freelance, field work", Icon: Wrench },
-  // { value: "mileage", label: "Mileage tracking only", sub: "Reimbursement or personal records", Icon: MapPin },
+  { value: "business", label: "Business driving", sub: "Sales, real estate, consulting", Icon: Briefcase },
+  { value: "contractor", label: "Contracting", sub: "Trades, freelance, field work", Icon: Wrench },
+  { value: "mileage", label: "Mileage tracking only", sub: "Reimbursement or personal records", Icon: MapPin },
 ];
 
 export function PersonaStep({

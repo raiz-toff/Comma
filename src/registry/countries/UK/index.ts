@@ -46,7 +46,7 @@ export const UK: CountryDef = {
   },
   featureOverrides: {
     force_on: [],
-    force_off: ["tax_workspace"],
+    force_off: [],
   },
   vocabularyOverrides: {},
 };

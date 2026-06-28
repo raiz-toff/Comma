@@ -52,7 +52,8 @@ export interface DriverProfile {
   hstRegistered: boolean;
   distanceUnit: "km" | "mi";
   theme: "light" | "dark" | "auto";
-  persona?: PersonaKey; // set during onboarding, default 'gig_worker'
+  persona?: PersonaKey; // set during onboarding, default 'platform_driver'
+  transportType?: 'passengers' | 'delivery' | 'both';
   customCategories?: ExpenseCategory[];
   bentoLayout?: string;
   locale?: {
@@ -163,7 +164,8 @@ const DEFAULT_PROFILE: DriverProfile = {
   hstRegistered: false,
   distanceUnit: "km",
   theme: "dark",
-  persona: "gig_worker" as PersonaKey,
+  persona: "platform_driver" as PersonaKey,
+  transportType: "both",
   customCategories: [],
   locale: {
     currency: "CAD",
@@ -267,7 +269,18 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
         
         const loadedProfile: DriverProfile = rawProfile ? { ...DEFAULT_PROFILE, ...JSON.parse(rawProfile) } : DEFAULT_PROFILE;
-        loadedProfile.persona = appConfig.persona || loadedProfile.persona || 'gig_worker';
+        
+        // Data Migration / Collapse
+        const loadedPers = loadedProfile.persona as string;
+        if (loadedPers === 'gig_worker' || loadedPers === 'rideshare' || loadedPers === 'platform_driver') {
+          if (!loadedProfile.transportType) {
+            loadedProfile.transportType = loadedPers === 'rideshare' ? 'passengers' : 'delivery';
+          }
+          loadedProfile.persona = 'platform_driver';
+        } else {
+          loadedProfile.persona = appConfig.persona || loadedProfile.persona || 'platform_driver';
+        }
+        
         const activeCountry = loadedProfile.country || "CA";
         await seedDBPlatforms(activeCountry, loadedProfile.selectedPlatforms || []);
         const dbPlatforms = await getDBPlatforms(activeCountry);
@@ -345,7 +358,17 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         }
       }
 
-      nextProfile.persona = appConfig.persona || nextProfile.persona || 'gig_worker';
+      // Data Migration / Collapse
+      const nextPers = nextProfile.persona as string;
+      if (nextPers === 'gig_worker' || nextPers === 'rideshare' || nextPers === 'platform_driver') {
+        if (!nextProfile.transportType) {
+          nextProfile.transportType = nextPers === 'rideshare' ? 'passengers' : 'delivery';
+        }
+        nextProfile.persona = 'platform_driver';
+      } else {
+        nextProfile.persona = appConfig.persona || nextProfile.persona || 'platform_driver';
+      }
+      
       const activeCountry = nextProfile.country || "CA";
       await seedDBPlatforms(activeCountry, nextProfile.selectedPlatforms || []);
       const dbPlatforms = await getDBPlatforms(activeCountry);
@@ -437,7 +460,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
 
     const appConfig = {
-      persona: finalProfile.persona || 'gig_worker' as PersonaKey,
+      persona: finalProfile.persona || 'platform_driver' as PersonaKey,
       country: finalProfile.country || 'CA',
       featureOverrides: {} as Partial<Record<FeatureKey, boolean>>,
     };
@@ -686,7 +709,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     // Persist
     const profileJson = JSON.stringify(updated);
     const appConfig = {
-      persona: updated.persona || 'gig_worker' as PersonaKey,
+      persona: updated.persona || 'platform_driver' as PersonaKey,
       country: updated.country || 'CA',
       featureOverrides: get().featureOverrides || {},
     };
@@ -717,7 +740,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const updatedOverrides = { ...currentOverrides, [key]: val };
 
     const profile = get().profile;
-    const personaKey = profile.persona || 'gig_worker';
+    const personaKey = profile.persona || 'platform_driver';
     const personaDef = PERSONAS[personaKey];
     if (personaDef) {
       const defaultVal = personaDef.defaultFeatures[key];
@@ -729,7 +752,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ featureOverrides: updatedOverrides });
 
     const appConfig = {
-      persona: profile.persona || 'gig_worker' as PersonaKey,
+      persona: profile.persona || 'platform_driver' as PersonaKey,
       country: profile.country || 'CA',
       featureOverrides: updatedOverrides,
     };

@@ -13,7 +13,18 @@ export interface PlatformBadgeProps {
 
 const HAS_LOGO = ["doordash", "ubereats", "instacart", "skip", "amazonflex", "amazon", "foodora", "lyft"];
 
-export function PlatformBadge({ platform, size = "md", style }: PlatformBadgeProps) {
+export function PlatformBadge({ platform, size = "md", style, className }: PlatformBadgeProps) {
+  if (typeof platform === "string" && platform.includes(",")) {
+    const parts = platform.split(",");
+    return (
+      <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        {parts.map((p) => (
+          <PlatformBadge key={p} platform={p.trim() as PlatformKey} size={size} style={style} className={className} />
+        ))}
+      </View>
+    );
+  }
+
   const dbPlatforms = useSettingsStore((state) => state.dbPlatforms || []);
   const dbPlatform = dbPlatforms.find(p => p.id === platform);
 

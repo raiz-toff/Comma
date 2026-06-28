@@ -21,7 +21,7 @@ import DevGPSTestScreen from "./DevGPSTestScreen";
 type WorkType = "delivery" | "business" | "contractor" | "mileage";
 
 const WORK_TYPE_TO_PERSONA: Record<WorkType, PersonaKey> = {
-  delivery: "gig_worker",
+  delivery: "platform_driver",
   business: "business_driver",
   contractor: "contractor",
   mileage: "mileage_tracker",
@@ -128,6 +128,7 @@ export default function OnboardingWizard() {
       country,
       taxRegion,
       persona,
+      transportType: persona === "platform_driver" ? "both" : undefined,
       avatarType: "emoji",
       avatarData: "🚗",
       selectedPlatforms: platforms,
@@ -163,7 +164,8 @@ export default function OnboardingWizard() {
       displayName: "Jane Doe",
       country: "CA",
       taxRegion: "ON",
-      persona: "gig_worker",
+      persona: "platform_driver",
+      transportType: "both",
       avatarType: "emoji",
       avatarData: "🚗",
       selectedPlatforms: ["doordash", "ubereats", "skip"],

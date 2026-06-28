@@ -19,7 +19,7 @@ import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
 import { CurrencyText } from "@/src/components/ui/CurrencyText";
 import { SectionHeader } from "@/src/components/ui/SectionHeader";
 import { StatCard } from "@/src/components/ui/StatCard";
-import { getShiftById, deleteShift, getLocationPointsByShiftId } from "@/src/database/queries/shifts";
+import { getShiftById, deleteShift, getLocationPointsByShiftId, getShiftPlatforms } from "@/src/database/queries/shifts";
 import { getVehicleById } from "@/src/database/queries/vehicles";
 import { getExpensesByShift, insertExpense, deleteExpense } from "@/src/database/queries/expenses";
 import { useSettingsStore } from "@/store/useSettingsStore";
@@ -420,6 +420,12 @@ export default function ShiftDetailScreen() {
   const { data: localPoints = [] } = useQuery({
     queryKey: ["shift-location-points", id],
     queryFn: () => getLocationPointsByShiftId(id!),
+    enabled: !!id,
+  });
+
+  const { data: shiftPlatformsList = [] } = useQuery({
+    queryKey: ["shift-platforms", id],
+    queryFn: () => getShiftPlatforms(id!),
     enabled: !!id,
   });
 
@@ -826,6 +832,65 @@ export default function ShiftDetailScreen() {
             ) : null}
           </View>
         </View>
+
+        {/* Platform breakdown card */}
+        {shiftPlatformsList && shiftPlatformsList.length > 0 && (
+          <View className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-[20px] p-5 flex flex-col gap-4">
+            <Text className="text-base font-extrabold text-white tracking-tight">Platform Breakdown</Text>
+            
+            <View className="flex-col gap-4">
+              {shiftPlatformsList.map((sp: any) => {
+                const total = sp.grossRevenue + sp.tipsRevenue;
+                const onlineHrs = sp.platformOnlineSeconds / 3600;
+                const payPerHour = onlineHrs > 0 ? total / onlineHrs : 0;
+                const payPerTrip = sp.tripsCount > 0 ? total / sp.tripsCount : 0;
+                
+                const formatOnlineTime = (secs: number) => {
+                  const h = Math.floor(secs / 3600);
+                  const m = Math.floor((secs % 3600) / 60);
+                  if (h > 0) return `${h}h ${m}m`;
+                  return `${m}m`;
+                };
+
+                return (
+                  <View key={sp.id} className="bg-[#161615]/70 border border-[#262522] rounded-[16px] p-4 flex flex-col gap-3">
+                    <View className="flex-row justify-between items-center border-b border-[#1f1f1f]/80 pb-2">
+                      <PlatformBadge platform={sp.platform} size="sm" />
+                      <View className="flex-row items-center gap-1">
+                        <Text className="text-zinc-400 text-xs font-bold">Total: </Text>
+                        <CurrencyText amount={total} size="sm" className="font-extrabold text-white" />
+                      </View>
+                    </View>
+
+                    <View className="flex-row flex-wrap gap-2">
+                      <View className="flex-1 min-w-[45%] bg-[#000] border border-[#1f1f1f]/60 rounded-xl p-2.5 items-center">
+                        <Text className="text-sm font-black text-white">{formatOnlineTime(sp.platformOnlineSeconds)}</Text>
+                        <Text className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">Online Time</Text>
+                      </View>
+                      <View className="flex-1 min-w-[45%] bg-[#000] border border-[#1f1f1f]/60 rounded-xl p-2.5 items-center">
+                        <Text className="text-sm font-black text-white">{sp.tripsCount} trips</Text>
+                        <Text className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">Trips</Text>
+                      </View>
+                      <View className="flex-1 min-w-[45%] bg-[#000] border border-[#1f1f1f]/60 rounded-xl p-2.5 items-center">
+                        <CurrencyText amount={payPerHour} size="sm" className="font-black text-sm text-white" />
+                        <Text className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">Pay / Hour</Text>
+                      </View>
+                      <View className="flex-1 min-w-[45%] bg-[#000] border border-[#1f1f1f]/60 rounded-xl p-2.5 items-center">
+                        <CurrencyText amount={payPerTrip} size="sm" className="font-black text-sm text-white" />
+                        <Text className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">Pay / Trip</Text>
+                      </View>
+                    </View>
+
+                    <View className="flex-row justify-between items-center text-xs mt-1 px-1">
+                      <Text className="text-zinc-500 text-xs font-semibold">Gross: <Text className="text-zinc-300 font-bold">${sp.grossRevenue.toFixed(2)}</Text></Text>
+                      <Text className="text-zinc-500 text-xs font-semibold">Tips: <Text className="text-zinc-300 font-bold">${sp.tipsRevenue.toFixed(2)}</Text></Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {/* Mileage breakdown card */}
         <View className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-[20px] p-5 flex flex-col gap-4">

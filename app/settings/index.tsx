@@ -512,7 +512,8 @@ export default function SettingsScreen() {
 
   // ── Tab: You ────────────────────────────────────────────────────────────────
   const [displayName, setDisplayName] = useState(profile?.displayName ?? "");
-  const [persona, setPersona] = useState<PersonaKey>(profile?.persona ?? "gig_worker");
+  const [persona, setPersona] = useState<PersonaKey>(profile?.persona ?? "platform_driver");
+  const [transportType, setTransportType] = useState<"passengers" | "delivery" | "both">(profile?.transportType ?? "both");
   const [country, setCountry] = useState<"US" | "CA" | "UK" | "NP">(profile?.country ?? "CA");
   const [taxRegion, setTaxRegion] = useState(profile?.taxRegion ?? "ON");
   const [distanceUnit, setDistanceUnit] = useState<"km" | "mi">(profile?.distanceUnit ?? "km");
@@ -650,11 +651,12 @@ export default function SettingsScreen() {
   // ── Sync profile → local state ───────────────────────────────────────────────
   useEffect(() => {
     setDisplayName(profile?.displayName ?? "");
-    setPersona(profile?.persona ?? "gig_worker");
+    setPersona(profile?.persona ?? "platform_driver");
     setCountry((profile?.country ?? "CA") as "US" | "CA" | "UK" | "NP");
     setTaxRegion(profile?.taxRegion ?? "ON");
     setDistanceUnit(profile?.distanceUnit ?? "km");
     setTheme(profile?.theme ?? "dark");
+    setTransportType(profile?.transportType ?? "both");
     setSelectedAccent(
       (profile?.avatarData && profile?.avatarData.startsWith("#")) ? profile.avatarData : "#ffffff"
     );
@@ -718,6 +720,7 @@ export default function SettingsScreen() {
         theme: theme as DriverProfile["theme"],
         avatarData: selectedAccent,
         persona,
+        transportType: persona === "platform_driver" ? transportType : undefined,
         locale: {
           ...(profile.locale ?? {}),
           currency,
@@ -1012,19 +1015,37 @@ export default function SettingsScreen() {
                       placeholder="Your name"
                     />
                   </Row>
-                  <Row label="Work Type" block last={true}>
+                  <Row label="Work Type" block last={persona !== "platform_driver"}>
                     <Chips
                       options={[
-                        { value: "gig_worker", label: "Delivery" },
-                        { value: "rideshare", label: "Rideshare" },
-                        // { value: "business_driver", label: "Business" },
-                        // { value: "contractor", label: "Contractor" },
-                        // { value: "mileage_tracker", label: "Mileage Tracker" },
+                        { value: "platform_driver", label: "Platform Driver" },
+                        { value: "business_driver", label: "Business Driver" },
+                        { value: "contractor", label: "Contractor" },
+                        { value: "mileage_tracker", label: "Mileage Tracker" },
                       ]}
                       value={persona}
-                      onChange={(v) => setPersona(v as PersonaKey)}
+                      onChange={(v) => {
+                        const newPersona = v as PersonaKey;
+                        setPersona(newPersona);
+                        if (newPersona !== "platform_driver") {
+                          setTransportType("both");
+                        }
+                      }}
                     />
                   </Row>
+                  {persona === "platform_driver" && (
+                    <Row label="Primary Transport" block last={true}>
+                      <Chips
+                        options={[
+                          { value: "passengers", label: "Passengers" },
+                          { value: "delivery", label: "Food / Packages" },
+                          { value: "both", label: "Both" },
+                        ]}
+                        value={transportType}
+                        onChange={(v) => setTransportType(v as "passengers" | "delivery" | "both")}
+                      />
+                    </Row>
+                  )}
                 </Card>
 
                 <GroupLabel text="Location" />
@@ -1059,11 +1080,18 @@ export default function SettingsScreen() {
                       {displayName || "Not set"}
                     </Text>
                   </Row>
-                  <Row label="Work Type" last={true}>
+                  <Row label="Work Type" last={persona !== "platform_driver"}>
                     <Text style={{ color: DS.textPrimary, fontSize: 14, fontWeight: "500" }}>
                       {PERSONAS[persona]?.label ?? persona}
                     </Text>
                   </Row>
+                  {persona === "platform_driver" && (
+                    <Row label="Primary Transport" last={true}>
+                      <Text style={{ color: DS.textPrimary, fontSize: 14, fontWeight: "500" }}>
+                        {transportType === "passengers" ? "Passengers" : transportType === "delivery" ? "Food / Packages" : "Both (Passengers & Delivery)"}
+                      </Text>
+                    </Row>
+                  )}
                 </Card>
 
                 <GroupLabel text="Location" />

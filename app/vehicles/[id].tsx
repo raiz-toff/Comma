@@ -30,6 +30,7 @@ import { Text } from "@/src/components/ui/text";
 import { CurrencyText } from "@/src/components/ui/CurrencyText";
 import { getVehicles, getVehicleStats, updateVehicle, deleteVehicle } from "@/src/database/queries/vehicles";
 import { getMaintenanceLogs, insertMaintenanceLog, deleteMaintenanceLog } from "@/src/database/queries/maintenance";
+import { getTaxProfilesForVehicle, upsertTaxProfile, deleteTaxProfile } from "@/src/database/queries/taxProfiles";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 
@@ -113,6 +114,95 @@ export default function VehicleDetailScreen() {
   const [mOdometer, setMOdometer] = useState("");
   const [mNotes, setMNotes] = useState("");
   const [isSavingMaintenance, setIsSavingMaintenance] = useState(false);
+
+  // Tax Profile query & state
+  const { data: taxProfiles = [], refetch: refetchTaxProfiles } = useQuery({
+    queryKey: ["taxProfiles", id],
+    queryFn: () => getTaxProfilesForVehicle(id!),
+    enabled: !!id,
+  });
+
+  const [showAddTaxProfile, setShowAddTaxProfile] = useState(false);
+  const [taxYear, setTaxYear] = useState(String(new Date().getFullYear()));
+  const [deductionMethod, setDeductionMethod] = useState<"standard_mileage" | "actual_expenses">("standard_mileage");
+
+  const defaultRate = React.useMemo(() => {
+    const { getMileagePresetRate } = require("@/src/registry/countries/index");
+    const r = profile?.taxRegion || (profile?.country === "CA" ? "ON" : "CA");
+    return getMileagePresetRate(profile?.country || "CA", r);
+  }, [profile?.country, profile?.taxRegion]);
+
+  const [ratePrimary, setRatePrimary] = useState(defaultRate);
+  const [rateSecondary, setRateSecondary] = useState("");
+  const [thresholdDistance, setThresholdDistance] = useState("");
+
+  useEffect(() => {
+    if (defaultRate) {
+      setRatePrimary(defaultRate);
+      if (profile?.country === "CA") {
+        setRateSecondary("0.64");
+        setThresholdDistance("5000");
+      } else {
+        setRateSecondary("");
+        setThresholdDistance("");
+      }
+    }
+  }, [defaultRate, profile?.country]);
+
+  const handleSaveTaxProfile = async () => {
+    const yr = parseInt(taxYear, 10);
+    if (isNaN(yr) || yr < 2000 || yr > 2100) {
+      Alert.alert("Validation", "Please enter a valid tax year.");
+      return;
+    }
+    
+    if (taxProfiles.some((p: any) => p.taxYear === yr)) {
+      Alert.alert("Validation", `A tax profile for the year ${yr} already exists.`);
+      return;
+    }
+    
+    try {
+      await upsertTaxProfile({
+        id: `tp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        vehicleId: id!,
+        taxYear: yr,
+        deductionMethod,
+        country: profile?.country || "CA",
+        standardRatePrimary: ratePrimary ? parseFloat(ratePrimary) : null,
+        standardRateSecondary: rateSecondary ? parseFloat(rateSecondary) : null,
+        rateThreshold: thresholdDistance ? parseInt(thresholdDistance, 10) : null,
+      });
+      refetchTaxProfiles();
+      queryClient.invalidateQueries({ queryKey: ["taxProfiles", id] });
+      setShowAddTaxProfile(false);
+      setTaxYear(String(new Date().getFullYear()));
+    } catch (err: any) {
+      Alert.alert("Error", err?.message || "Failed to save tax profile.");
+    }
+  };
+
+  const handleDeleteTaxProfile = async (profileId: string) => {
+    Alert.alert(
+      "Delete Profile",
+      "Are you sure you want to delete this tax year profile?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteTaxProfile(profileId);
+              refetchTaxProfiles();
+              queryClient.invalidateQueries({ queryKey: ["taxProfiles", id] });
+            } catch (err: any) {
+              Alert.alert("Error", err?.message || "Failed to delete profile.");
+            }
+          }
+        }
+      ]
+    );
+  };
 
   // Vehicle data
   const { data: vehiclesList = [], isLoading: isLoadingVehicle } = useQuery({
@@ -465,6 +555,168 @@ export default function VehicleDetailScreen() {
               >
                 <Text style={s.dangerBtnText}>Delete Vehicle</Text>
               </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Annual Tax Profiles Section */}
+        <View style={s.card}>
+          <View style={s.cardHeaderRow}>
+            <Text style={s.cardTitle}>Annual Tax Profiles</Text>
+            <TouchableOpacity
+              onPress={() => setShowAddTaxProfile((v) => !v)}
+              style={[
+                s.saveBtn,
+                { backgroundColor: accentColor },
+                showAddTaxProfile && s.saveBtnCancel,
+                { minWidth: 0, paddingHorizontal: 12, paddingVertical: 6 }
+              ]}
+            >
+              <Text style={[s.saveBtnText, showAddTaxProfile ? { color: DS.dangerText } : { color: accentColorContrast }, { fontSize: 10 }]}>
+                {showAddTaxProfile ? "Cancel" : "+ Add Year"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Add Year Profile Form */}
+          {showAddTaxProfile && (
+            <View style={{ marginTop: 14, borderTopWidth: 0.5, borderColor: DS.sep, paddingTop: 14 }}>
+              <Text style={[s.cardTitle, { marginBottom: 12, fontSize: 12 }]}>Configure Year Profile</Text>
+
+              {/* Year Input */}
+              <View style={s.row}>
+                <Text style={s.rowLabel}>Tax Year</Text>
+                <TextInput
+                  value={taxYear}
+                  onChangeText={setTaxYear}
+                  placeholder="e.g. 2026"
+                  keyboardType="numeric"
+                  placeholderTextColor={DS.textMuted}
+                  style={s.input}
+                />
+              </View>
+
+              {/* Method Selection */}
+              <View style={s.row}>
+                <Text style={s.rowLabel}>Deduction Method</Text>
+                <View style={s.chips}>
+                  <TouchableOpacity
+                    onPress={() => setDeductionMethod("standard_mileage")}
+                    style={[s.chip, deductionMethod === "standard_mileage" && { borderColor: accentColorMid, backgroundColor: accentColorDim }]}
+                  >
+                    <Text style={[s.chipText, deductionMethod === "standard_mileage" && { color: accentColor }]}>
+                      Standard Mileage
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setDeductionMethod("actual_expenses")}
+                    style={[s.chip, deductionMethod === "actual_expenses" && { borderColor: accentColorMid, backgroundColor: accentColorDim }]}
+                  >
+                    <Text style={[s.chipText, deductionMethod === "actual_expenses" && { color: accentColor }]}>
+                      Actual Expenses
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Rate Configurations if standard_mileage */}
+              {deductionMethod === "standard_mileage" && (
+                <View style={{ gap: 12, marginBottom: 12 }}>
+                  <View style={s.rowInline}>
+                    <View style={s.col}>
+                      <Text style={s.rowLabel}>Primary Rate</Text>
+                      <TextInput
+                        value={ratePrimary}
+                        onChangeText={setRatePrimary}
+                        placeholder="0.67"
+                        keyboardType="decimal-pad"
+                        placeholderTextColor={DS.textMuted}
+                        style={s.input}
+                      />
+                    </View>
+                    <View style={s.col}>
+                      <Text style={s.rowLabel}>Secondary Rate (Opt)</Text>
+                      <TextInput
+                        value={rateSecondary}
+                        onChangeText={setRateSecondary}
+                        placeholder="e.g. 0.61"
+                        keyboardType="decimal-pad"
+                        placeholderTextColor={DS.textMuted}
+                        style={s.input}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={s.row}>
+                    <Text style={s.rowLabel}>Rate Threshold (Opt distance)</Text>
+                    <TextInput
+                      value={thresholdDistance}
+                      onChangeText={setThresholdDistance}
+                      placeholder="e.g. 5000"
+                      keyboardType="numeric"
+                      placeholderTextColor={DS.textMuted}
+                      style={s.input}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* Save Button */}
+              <TouchableOpacity
+                onPress={handleSaveTaxProfile}
+                style={[s.primaryBtn, { backgroundColor: accentColor, height: 40, marginTop: 4 }]}
+              >
+                <Text style={[s.primaryBtnText, { color: accentColorContrast, fontSize: 12 }]}>Add Profile</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Tax Profiles List */}
+          {taxProfiles.length === 0 ? (
+            <View style={{ paddingVertical: 16, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ color: DS.textSecondary, fontSize: 12, fontStyle: "italic", textAlign: "center", marginTop: 8 }}>
+                No active tax profiles configured.
+              </Text>
+            </View>
+          ) : (
+            <View style={{ gap: 8, marginTop: 12 }}>
+              {taxProfiles.map((p: any) => (
+                <View
+                  key={p.id}
+                  style={{
+                    backgroundColor: DS.inputBg,
+                    borderRadius: DS.rInput,
+                    borderWidth: 0.5,
+                    borderColor: DS.inputBorder,
+                    padding: 12,
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}
+                >
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>
+                        {p.taxYear} Tax Strategy
+                      </Text>
+                      <View style={{ backgroundColor: p.deductionMethod === "standard_mileage" ? accentColorDim : "rgba(244,63,94,0.08)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 0.5, borderColor: p.deductionMethod === "standard_mileage" ? accentColorMid : "rgba(244,63,94,0.18)" }}>
+                        <Text style={{ color: p.deductionMethod === "standard_mileage" ? accentColor : "#fb7185", fontSize: 10, fontWeight: "700" }}>
+                          {p.deductionMethod === "standard_mileage" ? "Standard Mileage" : "Actual Expenses"}
+                        </Text>
+                      </View>
+                    </View>
+                    {p.deductionMethod === "standard_mileage" && (
+                      <Text style={{ color: DS.textSecondary, fontSize: 11 }}>
+                        Rate: {p.standardRatePrimary} / {profile?.distanceUnit === "km" ? "km" : "mi"}
+                        {p.standardRateSecondary ? ` (drops to ${p.standardRateSecondary} after ${p.rateThreshold || 5000} ${profile?.distanceUnit})` : ""}
+                      </Text>
+                    )}
+                  </View>
+                  <TouchableOpacity onPress={() => handleDeleteTaxProfile(p.id)} style={{ padding: 4 }}>
+                    <Trash2 size={16} color={DS.dangerText} />
+                  </TouchableOpacity>
+                </View>
+              ))}
             </View>
           )}
         </View>

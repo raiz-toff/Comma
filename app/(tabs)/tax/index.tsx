@@ -9,6 +9,7 @@ import { Text } from "@/src/components/ui/text";
 import { CurrencyText } from "@/src/components/ui/CurrencyText";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
 import {
   getCountryDef,
   getRegionsByCountry,
@@ -26,6 +27,7 @@ import {
   calculateSelfEmploymentTax,
   calculateScheduleC,
   calculateIRSMileageDeduction,
+  calculateHMRCMileageDeduction,
 } from "@/utils/taxCalculations";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -61,6 +63,18 @@ export default function TaxScreen() {
   const insets = useSafeAreaInsets();
   const { profile, isOnboardingCompleted, setHeaderVisible, updateProfile, applyTaxPreset } = useSettingsStore();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
+  
+  const isTaxEnabled = useFeatureEnabled("tax_workspace");
+
+  useEffect(() => {
+    if (!isTaxEnabled && isOnboardingCompleted) {
+      router.replace("/");
+    }
+  }, [isTaxEnabled, isOnboardingCompleted]);
+
+  if (!isTaxEnabled) {
+    return null;
+  }
   
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -166,6 +180,8 @@ export default function TaxScreen() {
     if (countryDef.hasMileageDeduction) {
       if (profile?.country === "CA") {
         mileageDeduction = calculateCRAMileageDeduction(totalMileage);
+      } else if (profile?.country === "UK") {
+        mileageDeduction = calculateHMRCMileageDeduction(totalMileage);
       } else {
         const rateStr = getMileagePresetRate(profile?.country || "US", profile?.taxRegion || countryDef.tax.defaultRegionCode);
         const rate = parseFloat(rateStr) || 0;

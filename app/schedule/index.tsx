@@ -19,6 +19,7 @@ import { Text } from "@/src/components/ui/text";
 import { CurrencyText } from "@/src/components/ui/CurrencyText";
 import { getShiftsPaginated } from "@/src/database/queries/shifts";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
@@ -80,6 +81,18 @@ export default function ScheduleScreen() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { profile, isOnboardingCompleted, updateProfile } = useSettingsStore();
+  
+  const isScheduleEnabled = useFeatureEnabled("schedule");
+
+  useEffect(() => {
+    if (!isScheduleEnabled && isOnboardingCompleted) {
+      router.replace("/");
+    }
+  }, [isScheduleEnabled, isOnboardingCompleted]);
+
+  if (!isScheduleEnabled) {
+    return null;
+  }
 
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => new Date());

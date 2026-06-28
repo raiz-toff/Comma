@@ -5,6 +5,7 @@ import { db } from "../src/database/client";
 import { shifts, expenses } from "../src/database/schema";
 import { and, gte, lte, asc } from "drizzle-orm";
 import { useSettingsStore } from "../store/useSettingsStore";
+import { resolveAppContext } from "../src/hooks/useAppContext";
 
 const isWeb = Platform.OS === "web";
 
@@ -89,6 +90,17 @@ export async function generateExpensesCSV(startDate: Date, endDate: Date): Promi
 
 export async function generatePDFSummary(startDate: Date, endDate: Date): Promise<string> {
   const profile = useSettingsStore.getState().profile;
+  const featureOverrides = useSettingsStore.getState().featureOverrides || {};
+  const appContext = resolveAppContext(
+    profile?.persona || "platform_driver",
+    profile?.country || "CA",
+    featureOverrides
+  );
+
+  if (!appContext.features.pdf_reports) {
+    throw new Error("PDF report generation is not enabled for your current persona.");
+  }
+
   const currencySymbol = getCurrencySymbol(profile?.locale?.currency);
   const distUnit = profile?.distanceUnit || "km";
   

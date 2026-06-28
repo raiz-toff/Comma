@@ -17,7 +17,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Text } from "../../src/components/ui/text";
 import { BlurView } from "expo-blur";
-import { ReceiptText, Calendar, Play } from "lucide-react-native";
+import { ReceiptText, Calendar, Play, AlertCircle } from "lucide-react-native";
 import { useActiveShift, type GigPlatform } from "../../store/useActiveShift";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { parseRoutePath } from "../../utils/polyline";
@@ -32,7 +32,7 @@ import {
   getFinancialOverviewForRange,
   getPeriodStats,
 } from "../../src/database/queries/analytics";
-import { getShiftsPaginated } from "../../src/database/queries/shifts";
+import { getShiftsPaginated, getUnreconciledShifts, getGPSOnlyShifts, reconcileOdometerAnchors } from "../../src/database/queries/shifts";
 import { PlatformBadge } from "../../src/components/ui/PlatformBadge";
 import Svg, { Path, Circle, Defs, LinearGradient, Stop, Polyline, Line } from "react-native-svg";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
@@ -611,8 +611,10 @@ export default function HomeScreen() {
   // Wizard state
   const [showWizard, setShowWizard] = useState(false);
   const [wizardStep, setWizardStep] = useState<"vehicle" | "platform" | "target">("vehicle");
+
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [selectedPlatformId, setSelectedPlatformId] = useState<GigPlatform>("doordash");
+  const [selectedPlatformIds, setSelectedPlatformIds] = useState<GigPlatform[]>(["doordash"]);
   const [customPurpose, setCustomPurpose] = useState("Client Visit");
   const [customClient, setCustomClient] = useState("");
   const [targetMode, setTargetMode] = useState(false);
@@ -642,6 +644,12 @@ export default function HomeScreen() {
   const [showClockOverlay, setShowClockOverlay] = useState(false);
   const [endedShiftId, setEndedShiftId] = useState<string | null>(null);
 
+  // Odometer Prompt states
+  const [showOdoPrompt, setShowOdoPrompt] = useState(false);
+  const [odoPromptVehicleId, setOdoPromptVehicleId] = useState<string | null>(null);
+  const [odoInput, setOdoInput] = useState("");
+  const [odoError, setOdoError] = useState("");
+
   const sheetTranslateY = useSharedValue(SCREEN_HEIGHT);
   
   useEffect(() => {
@@ -669,6 +677,17 @@ export default function HomeScreen() {
     queryFn: getVehicles,
     enabled: isOnboardingCompleted,
   });
+
+  const isFirstWizardStep = React.useMemo(() => {
+    const hasMultipleVehicles = vehicles && vehicles.length > 1;
+    const persona = profile?.persona ?? "platform_driver";
+    
+    if (persona === "mileage_tracker") {
+      if (hasMultipleVehicles) return wizardStep === "vehicle";
+      return wizardStep === "target";
+    }
+    return wizardStep === "platform";
+  }, [wizardStep, vehicles, profile?.persona]);
 
   const { data: todayStats } = useQuery({
     queryKey: ["analytics", "today", activePlatformFilter],
@@ -709,6 +728,18 @@ export default function HomeScreen() {
       const data = await getShiftsPaginated(1);
       return data.slice(0, 3);
     },
+    enabled: isOnboardingCompleted,
+  });
+
+  const { data: unreconciledShifts = [], refetch: refetchUnreconciled } = useQuery({
+    queryKey: ["shifts", "unreconciled"],
+    queryFn: () => getUnreconciledShifts(),
+    enabled: isOnboardingCompleted,
+  });
+
+  const { data: gpsOnlyShifts = [], refetch: refetchGpsOnly } = useQuery({
+    queryKey: ["shifts", "gps-only"],
+    queryFn: () => getGPSOnlyShifts(),
     enabled: isOnboardingCompleted,
   });
 
@@ -790,20 +821,20 @@ export default function HomeScreen() {
     setCustomClient("");
     setCustomPurpose("Client Visit");
 
-    const persona = profile?.persona ?? "gig_worker";
+    const persona = profile?.persona ?? "platform_driver";
     const hasMultipleVehicles = vehicles && vehicles.length > 1;
 
-    if (hasMultipleVehicles) {
-      const preferred = vehicles.find((v: any) => v.id === preferredVehicleId)?.id ?? vehicles[0]?.id;
-      setSelectedVehicleId(preferred ?? null);
-      setWizardStep("vehicle");
-    } else {
-      setSelectedVehicleId(vehicles[0]?.id ?? "default_vehicle_1");
-      if (persona === "mileage_tracker") {
-        setWizardStep("target");
+    const preferred = vehicles.find((v: any) => v.id === preferredVehicleId)?.id ?? vehicles[0]?.id;
+    setSelectedVehicleId(preferred ?? "default_vehicle_1");
+
+    if (persona === "mileage_tracker") {
+      if (hasMultipleVehicles) {
+        setWizardStep("vehicle");
       } else {
-        setWizardStep("platform");
+        setWizardStep("target");
       }
+    } else {
+      setWizardStep("platform");
     }
     setShowWizard(true);
   };
@@ -813,8 +844,8 @@ export default function HomeScreen() {
     const conversionFactor = unit === "mi" ? 1609.344 : 1000.0;
     const distanceConverted = 100.0 / conversionFactor;
     
-    const persona = profile?.persona ?? "gig_worker";
-    const isGig = persona === "gig_worker" || persona === "rideshare";
+    const persona = profile?.persona ?? "platform_driver";
+    const isGig = persona === "platform_driver";
     if (!isGig || isFirstOrderReceived) {
       updateMileage(distanceConverted, 0);
     } else {
@@ -823,18 +854,20 @@ export default function HomeScreen() {
   };
 
   const nextStep = () => {
-    const persona = profile?.persona ?? "gig_worker";
-    if (wizardStep === "vehicle") {
-      if (persona === "mileage_tracker") {
-        setWizardStep("target");
-      } else {
-        setWizardStep("platform");
-      }
-    } else if (wizardStep === "platform") {
+    const persona = profile?.persona ?? "platform_driver";
+    const hasMultipleVehicles = vehicles && vehicles.length > 1;
+
+    if (wizardStep === "platform") {
       if (persona === "contractor" && !customClient.trim()) {
         Alert.alert("Client required", "Please enter a client name to track this job.");
         return;
       }
+      if (hasMultipleVehicles) {
+        setWizardStep("vehicle");
+      } else {
+        setWizardStep("target");
+      }
+    } else if (wizardStep === "vehicle") {
       setWizardStep("target");
     } else if (wizardStep === "target") {
       submitWizard();
@@ -842,15 +875,21 @@ export default function HomeScreen() {
   };
 
   const prevStep = () => {
-    const persona = profile?.persona ?? "gig_worker";
+    const persona = profile?.persona ?? "platform_driver";
+    const hasMultipleVehicles = vehicles && vehicles.length > 1;
+
     if (wizardStep === "target") {
       if (persona === "mileage_tracker") {
-        if (vehicles && vehicles.length > 1) setWizardStep("vehicle");
+        if (hasMultipleVehicles) setWizardStep("vehicle");
       } else {
-        setWizardStep("platform");
+        if (hasMultipleVehicles) {
+          setWizardStep("vehicle");
+        } else {
+          setWizardStep("platform");
+        }
       }
-    } else if (wizardStep === "platform" && vehicles && vehicles.length > 1) {
-      setWizardStep("vehicle");
+    } else if (wizardStep === "vehicle") {
+      setWizardStep("platform");
     }
   };
 
@@ -864,8 +903,8 @@ export default function HomeScreen() {
     }
     const vId = selectedVehicleId || "default_vehicle_1";
     
-    const persona = profile?.persona ?? "gig_worker";
-    let finalPlatformValue = selectedPlatformId;
+    const persona = profile?.persona ?? "platform_driver";
+    let finalPlatformValue = selectedPlatformIds.join(",");
     if (persona === "business_driver") {
       finalPlatformValue = customPurpose as GigPlatform;
     } else if (persona === "contractor") {
@@ -885,10 +924,33 @@ export default function HomeScreen() {
     reset();
     await useSettingsStore.getState().evaluateGamification();
     queryClient.invalidateQueries({ queryKey: ["analytics"] });
+    queryClient.invalidateQueries({ queryKey: ["shifts"] });
     setShowClockOverlay(false);
 
     if (payload?.shiftId) {
       setEndedShiftId(payload.shiftId);
+
+      // Check if odometer prompt is due:
+      // 1. Today is the 1st of the month, or
+      // 2. The oldest un-reconciled gps_only shift is >= 14 days old
+      const today = new Date();
+      const isFirstOfMonth = today.getDate() === 1;
+
+      let is14DaysOld = false;
+      const gpsOnly = await getGPSOnlyShifts();
+      if (gpsOnly.length > 0) {
+        const oldestDate = new Date(gpsOnly[0].startTime);
+        const diffTime = Math.abs(today.getTime() - oldestDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays >= 14) {
+          is14DaysOld = true;
+        }
+      }
+
+      if ((isFirstOfMonth || is14DaysOld) && payload.vehicleId) {
+        setOdoPromptVehicleId(payload.vehicleId);
+        setShowOdoPrompt(true);
+      }
     }
   };
 
@@ -915,6 +977,36 @@ export default function HomeScreen() {
             </View>
           </View>
         </View>
+
+        {/* ── Unreconciled Shifts Banner ───────────────────────────────── */}
+        {!isActive && unreconciledShifts.length > 0 && (
+          <Pressable
+            onPress={() => router.push({ pathname: "/shift/add", params: { shiftId: unreconciledShifts[0].id } })}
+            style={{
+              backgroundColor: "rgba(217, 119, 6, 0.08)",
+              borderWidth: 0.8,
+              borderColor: "rgba(217, 119, 6, 0.3)",
+              borderRadius: 16,
+              padding: 16,
+              marginHorizontal: 16,
+              marginBottom: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12
+            }}
+          >
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={{ color: "#f59e0b", fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Action Required
+              </Text>
+              <Text style={{ color: "#e4e4e7", fontSize: 13, fontWeight: "600", lineHeight: 18 }}>
+                You have {unreconciledShifts.length} un-reconciled shift{unreconciledShifts.length > 1 ? "s" : ""} from {new Date(unreconciledShifts[0].startTime).toLocaleDateString([], { weekday: 'long' })}. Tap to enter earnings.
+              </Text>
+            </View>
+            <Text style={{ color: "#f59e0b", fontSize: 16, fontWeight: "800" }}>›</Text>
+          </Pressable>
+        )}
 
 
 
@@ -1073,7 +1165,7 @@ export default function HomeScreen() {
                       }}
                     >
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1, marginRight: 8 }}>
-                        {(profile?.persona === "gig_worker" || profile?.persona === "rideshare") ? (
+                        {(profile?.persona === "platform_driver") ? (
                           <PlatformBadge platform={shift.platform} size="md" />
                         ) : (
                           <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.05)", justifyContent: "center", alignItems: "center" }}>
@@ -1185,13 +1277,23 @@ export default function HomeScreen() {
 
           {/* Center: Start Shift or Active Shift */}
           {!isActive ? (
-            <ScalePressable
-              onPress={openWizard}
-              style={{ flex: 1.2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: accentColor, borderWidth: 1, borderColor: accentColor }}
-            >
-              <Play color={accentColorContrast} size={13} fill={accentColorContrast} strokeWidth={2.5} />
-              <Text style={{ fontSize: 11, fontWeight: "800", color: accentColorContrast, letterSpacing: 0.1 }}>{vocab('start_cta')}</Text>
-            </ScalePressable>
+            unreconciledShifts.length > 0 ? (
+              <ScalePressable
+                onPress={() => router.push({ pathname: "/shift/add", params: { shiftId: unreconciledShifts[0].id } })}
+                style={{ flex: 1.2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: "rgba(217, 119, 6, 0.2)", borderWidth: 1, borderColor: "#d97706" }}
+              >
+                <AlertCircle color="#f59e0b" size={13} strokeWidth={2.5} />
+                <Text style={{ fontSize: 11, fontWeight: "800", color: "#f59e0b", letterSpacing: 0.1 }}>Reconcile</Text>
+              </ScalePressable>
+            ) : (
+              <ScalePressable
+                onPress={openWizard}
+                style={{ flex: 1.2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: accentColor, borderWidth: 1, borderColor: accentColor }}
+              >
+                <Play color={accentColorContrast} size={13} fill={accentColorContrast} strokeWidth={2.5} />
+                <Text style={{ fontSize: 11, fontWeight: "800", color: accentColorContrast, letterSpacing: 0.1 }}>{vocab('start_cta')}</Text>
+              </ScalePressable>
+            )
           ) : (
             <ScalePressable
               onPress={() => setShowClockOverlay(true)}
@@ -1247,15 +1349,15 @@ export default function HomeScreen() {
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                   <Text style={{ fontSize: 11, fontWeight: "800", color: "#6b7280", textTransform: "uppercase" }}>Current Mileage</Text>
                   <View style={{
-                    backgroundColor: (profile?.persona === "gig_worker" || profile?.persona === "rideshare") ? (isFirstOrderReceived ? accentColor + "1a" : "rgba(245,158,11,.1)") : accentColor + "1a",
+                    backgroundColor: (profile?.persona === "platform_driver") ? (isFirstOrderReceived ? accentColor + "1a" : "rgba(245,158,11,.1)") : accentColor + "1a",
                     borderRadius: 4,
                     paddingHorizontal: 8,
                     paddingVertical: 3,
                     borderWidth: 0.5,
-                    borderColor: (profile?.persona === "gig_worker" || profile?.persona === "rideshare") ? (isFirstOrderReceived ? accentColor + "40" : "rgba(245,158,11,.25)") : accentColor + "40"
+                    borderColor: (profile?.persona === "platform_driver") ? (isFirstOrderReceived ? accentColor + "40" : "rgba(245,158,11,.25)") : accentColor + "40"
                   }}>
-                    <Text style={{ fontSize: 9, fontWeight: "800", color: (profile?.persona === "gig_worker" || profile?.persona === "rideshare") ? (isFirstOrderReceived ? accentColor : "#f59e0b") : accentColor, textTransform: "uppercase" }}>
-                      {(profile?.persona === "gig_worker" || profile?.persona === "rideshare") ? (isFirstOrderReceived ? `${vocab('active_miles')} 🚀` : `${vocab('dead_miles')} 💀`) : `${vocab('active_miles')} 🚀`}
+                    <Text style={{ fontSize: 9, fontWeight: "800", color: (profile?.persona === "platform_driver") ? (isFirstOrderReceived ? accentColor : "#f59e0b") : accentColor, textTransform: "uppercase" }}>
+                      {(profile?.persona === "platform_driver") ? (isFirstOrderReceived ? `${vocab('active_miles')} 🚀` : `${vocab('dead_miles')} 💀`) : `${vocab('active_miles')} 🚀`}
                     </Text>
                   </View>
                 </View>
@@ -1284,7 +1386,7 @@ export default function HomeScreen() {
                     }
                   </ScalePressable>
                   
-                  {(profile?.persona === "gig_worker" || profile?.persona === "rideshare") && (
+                  {(profile?.persona === "platform_driver") && (
                     isFirstOrderReceived ? (
                       <View
                         style={[S.clockSecBtn, { flex: 1, borderColor: "#3f3f46", backgroundColor: "rgba(63, 63, 70, 0.2)", opacity: 0.8 }]}
@@ -1355,6 +1457,93 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
+      {/* ── Odometer Anchor Prompt Modal ───────────────────────────────── */}
+      <Modal visible={showOdoPrompt} transparent animationType="fade">
+        <View style={S.wizardOverlay}>
+          <View style={[S.wizardContent, { paddingVertical: 28, gap: 16 }]}>
+            <View style={{ alignItems: "center", gap: 6 }}>
+              <Text style={{ fontSize: 18, fontWeight: "900", color: "#fff", letterSpacing: 0.5 }}>Quick Audit Required</Text>
+              <Text style={{ fontSize: 13, color: "#a1a1aa", textAlign: "center", lineHeight: 18 }}>
+                To maintain tax audit compliance, please enter your vehicle's current dashboard odometer reading.
+              </Text>
+            </View>
+
+            {odoError ? (
+              <View style={{ backgroundColor: "rgba(239, 68, 68, 0.08)", borderWidth: 0.5, borderColor: "rgba(239, 68, 68, 0.2)", padding: 10, borderRadius: 10 }}>
+                <Text style={{ color: "#ef4444", fontSize: 12, textAlign: "center", fontWeight: "600" }}>{odoError}</Text>
+              </View>
+            ) : null}
+
+            <View style={{ gap: 8 }}>
+              <Text style={{ fontSize: 10, fontWeight: "800", color: "#a1a1aa", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Current Odometer
+              </Text>
+              <TextInput
+                value={odoInput}
+                onChangeText={(val) => {
+                  setOdoError("");
+                  setOdoInput(val.replace(/[^0-9]/g, ""));
+                }}
+                keyboardType="numeric"
+                placeholder="e.g. 45210"
+                placeholderTextColor="#4b5563"
+                style={{
+                  backgroundColor: "#0d0d0d",
+                  borderWidth: 0.8,
+                  borderColor: "#1f1f1f",
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  color: "#ffffff",
+                  fontSize: 15,
+                  fontWeight: "700",
+                  textAlign: "center"
+                }}
+              />
+            </View>
+
+            <View style={{ width: "100%", gap: 10, marginTop: 12 }}>
+              <Pressable
+                onPress={async () => {
+                  const num = parseInt(odoInput, 10);
+                  if (isNaN(num) || num <= 0) {
+                    setOdoError("Please enter a valid odometer reading greater than 0.");
+                    return;
+                  }
+                  
+                  if (odoPromptVehicleId) {
+                    try {
+                      await reconcileOdometerAnchors(odoPromptVehicleId, num);
+                      queryClient.invalidateQueries({ queryKey: ["shifts"] });
+                      queryClient.invalidateQueries({ queryKey: ["analytics"] });
+                      refetchGpsOnly();
+                      setShowOdoPrompt(false);
+                      setOdoInput("");
+                      setOdoPromptVehicleId(null);
+                    } catch (e: any) {
+                      setOdoError(e?.message || "Failed to reconcile odometer. Please check entry.");
+                    }
+                  }
+                }}
+                style={[S.primBtn, { width: "100%", marginHorizontal: 0, height: 48, borderRadius: 12, backgroundColor: accentColor }]}
+              >
+                <Text style={[S.primBtnText, { color: accentColorContrast, fontSize: 14, fontWeight: "800" }]}>Save & Reconcile</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setShowOdoPrompt(false);
+                  setOdoInput("");
+                  setOdoPromptVehicleId(null);
+                }}
+                style={[S.secBtn, { width: "100%", marginHorizontal: 0, height: 44, backgroundColor: "transparent", borderWidth: 0 }]}
+              >
+                <Text style={[S.secBtnText, { color: "#71717a", fontWeight: "700", fontSize: 14 }]}>Remind Me Later</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Start Shift Wizard Modal ──────────────────────────────────── */}
       <Modal visible={showWizard} transparent animationType="fade">
         <View style={S.wizardOverlay}>
@@ -1373,17 +1562,13 @@ export default function HomeScreen() {
                 {vehicles.map((v: any) => {
                   const icon = v.type === "ev" ? "⚡" : v.type === "bicycle" || v.type === "ebike" ? "🚲" : "🚗";
                   const sel = selectedVehicleId === v.id;
-                  const persona = profile?.persona ?? "gig_worker";
+                  const persona = profile?.persona ?? "platform_driver";
                   return (
                     <Pressable
                       key={v.id}
                       onPress={() => {
                         setSelectedVehicleId(v.id);
-                        if (persona === "mileage_tracker") {
-                          setWizardStep("target");
-                        } else {
-                          setWizardStep("platform");
-                        }
+                        setWizardStep("target");
                       }}
                       style={[S.wizardRow, sel && S.wizardRowSel]}
                     >
@@ -1401,17 +1586,44 @@ export default function HomeScreen() {
 
             {wizardStep === "platform" && (
               <View style={{ gap: 10 }}>
-                {(profile?.persona === "gig_worker" || profile?.persona === "rideshare") ? (
+                {(profile?.persona === "platform_driver") ? (
                   <>
-                    <Text style={S.wizardLabel}>Select Active Platform</Text>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <Text style={[S.wizardLabel, { flex: 1, marginRight: 8 }]}>On which platform you are going to work today?</Text>
+                      <Pressable
+                        onPress={() => {
+                          const allPlats = profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"];
+                          setSelectedPlatformIds(allPlats as GigPlatform[]);
+                        }}
+                        style={{
+                          backgroundColor: selectedPlatformIds.length === (profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).length ? accentColor : "#1c1c1e",
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: 8,
+                          borderWidth: 0.5,
+                          borderColor: "#333"
+                        }}
+                      >
+                        <Text style={{ color: selectedPlatformIds.length === (profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).length ? accentColorContrast : "#a1a1aa", fontSize: 11, fontWeight: "800" }}>All</Text>
+                      </Pressable>
+                    </View>
                     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                       {(profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).map((pId: string) => {
                         const pColor = PLATFORMS[pId as GigPlatform]?.color ?? "#6b7280";
-                        const sel = selectedPlatformId === pId;
+                        const sel = selectedPlatformIds.includes(pId as GigPlatform);
                         return (
                           <Pressable
                             key={pId}
-                            onPress={() => { setSelectedPlatformId(pId as GigPlatform); setWizardStep("target"); }}
+                            onPress={() => {
+                              setSelectedPlatformIds((prev) => {
+                                if (prev.includes(pId as GigPlatform)) {
+                                  if (prev.length <= 1) return prev;
+                                  return prev.filter((x) => x !== pId);
+                                } else {
+                                  return [...prev, pId as GigPlatform];
+                                }
+                              });
+                            }}
                             style={[
                               S.wizardRow,
                               { flex: 1, minWidth: "45%", justifyContent: "center", paddingVertical: 14, gap: 8 },
@@ -1436,7 +1648,14 @@ export default function HomeScreen() {
                         return (
                           <Pressable
                             key={purpose}
-                            onPress={() => { setCustomPurpose(purpose); setWizardStep("target"); }}
+                            onPress={() => {
+                              setCustomPurpose(purpose);
+                              if (vehicles && vehicles.length > 1) {
+                                setWizardStep("vehicle");
+                              } else {
+                                setWizardStep("target");
+                              }
+                            }}
                             style={[S.wizardRow, sel && S.wizardRowSel, { paddingVertical: 14 }]}
                           >
                             <Text style={{ color: sel ? "#fff" : "#888", fontSize: 14, fontWeight: "700" }}>{purpose}</Text>
@@ -1523,7 +1742,7 @@ export default function HomeScreen() {
             )}
 
             <View style={S.wizardFooter}>
-              {wizardStep !== "vehicle" && (
+              {!isFirstWizardStep && (
                 <Pressable onPress={prevStep} style={S.wizardBackBtn}>
                   <Text style={{ color: "#888", fontSize: 12, fontWeight: "600" }}>Back</Text>
                 </Pressable>

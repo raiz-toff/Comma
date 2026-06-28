@@ -1,5 +1,5 @@
 import { db } from "../client";
-import { expenses } from "../schema";
+import { expenses, merchants } from "../schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { Platform } from "react-native";
 
@@ -98,6 +98,32 @@ export async function getExpenseYTDSummary(): Promise<{ deductible: number; nonD
 }
 
 export async function insertExpense(payload: typeof expenses.$inferInsert): Promise<void> {
+  const name = (payload.merchant || "").trim();
+  const norm = name.toUpperCase();
+  payload.merchant = name;
+  payload.merchantNormalized = norm;
+
+  if (name.length > 0) {
+    if (isWeb) {
+      const mStr = localStorage.getItem("comma_merchants");
+      const mList = mStr ? JSON.parse(mStr) : [];
+      if (!mList.some((m: any) => m.normalizedName === norm)) {
+        mList.push({ id: `m_${Date.now()}`, name, normalizedName: norm });
+        localStorage.setItem("comma_merchants", JSON.stringify(mList));
+      }
+    } else {
+      try {
+        await db.insert(merchants).values({
+          id: `m_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          name,
+          normalizedName: norm
+        }).onConflictDoNothing();
+      } catch (err) {
+        // ignore unique constraints
+      }
+    }
+  }
+
   if (isWeb) {
     const existing = localStorage.getItem("comma_expenses");
     const list = existing ? JSON.parse(existing) : [];
@@ -109,6 +135,34 @@ export async function insertExpense(payload: typeof expenses.$inferInsert): Prom
 }
 
 export async function updateExpense(id: string, payload: Partial<typeof expenses.$inferInsert>): Promise<void> {
+  if (payload.merchant !== undefined) {
+    const name = (payload.merchant || "").trim();
+    const norm = name.toUpperCase();
+    payload.merchant = name;
+    payload.merchantNormalized = norm;
+
+    if (name.length > 0) {
+      if (isWeb) {
+        const mStr = localStorage.getItem("comma_merchants");
+        const mList = mStr ? JSON.parse(mStr) : [];
+        if (!mList.some((m: any) => m.normalizedName === norm)) {
+          mList.push({ id: `m_${Date.now()}`, name, normalizedName: norm });
+          localStorage.setItem("comma_merchants", JSON.stringify(mList));
+        }
+      } else {
+        try {
+          await db.insert(merchants).values({
+            id: `m_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            name,
+            normalizedName: norm
+          }).onConflictDoNothing();
+        } catch (err) {
+          // ignore
+        }
+      }
+    }
+  }
+
   if (isWeb) {
     const existing = localStorage.getItem("comma_expenses");
     if (existing) {
@@ -135,4 +189,35 @@ export async function deleteExpense(id: string): Promise<void> {
     return;
   }
   await db.delete(expenses).where(eq(expenses.id, id));
+}
+
+export async function getRecentMerchants(): Promise<string[]> {
+  if (isWeb) {
+    const mStr = localStorage.getItem("comma_merchants");
+    if (mStr) {
+      const list = JSON.parse(mStr);
+      return list.map((m: any) => m.name);
+    }
+    // Fallback from expenses
+    const eStr = localStorage.getItem("comma_expenses");
+    if (!eStr) return [];
+    const list = JSON.parse(eStr);
+    const set = new Set<string>();
+    list.forEach((e: any) => {
+      if (e.merchant) set.add(e.merchant);
+    });
+    return Array.from(set);
+  }
+  
+  const result = await db.select({ name: merchants.name }).from(merchants);
+  if (result.length > 0) {
+    return result.map((r: { name: string }) => r.name);
+  }
+  
+  const expResult = await db.select({ merchant: expenses.merchant }).from(expenses);
+  const set = new Set<string>();
+  expResult.forEach((r: { merchant: string }) => {
+    if (r.merchant) set.add(r.merchant);
+  });
+  return Array.from(set);
 }

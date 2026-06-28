@@ -26,7 +26,7 @@ export function resolveAppContext(
   countryKey: string,
   userOverrides: Partial<Record<FeatureKey, boolean>>
 ): ResolvedAppContext {
-  const persona = PERSONAS[personaKey] || PERSONAS.gig_worker;
+  const persona = PERSONAS[personaKey] || PERSONAS.platform_driver;
   const country = getCountryDef(countryKey);        // existing helper
 
   // 1. Start with persona defaults
@@ -74,7 +74,7 @@ export function useAppContext(): ResolvedAppContext {
   const featureOverrides = useSettingsStore((state) => state.featureOverrides);
 
   return useMemo(
-    () => resolveAppContext(profile.persona || "gig_worker", profile.country || "CA", featureOverrides || {}),
+    () => resolveAppContext(profile.persona || "platform_driver", profile.country || "CA", featureOverrides || {}),
     [profile.persona, profile.country, featureOverrides]
   );
 }

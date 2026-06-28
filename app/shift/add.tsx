@@ -18,9 +18,9 @@ import { Button } from "../../src/components/ui/button";
 import { Text } from "../../src/components/ui/text";
 import { PlatformBadge } from "../../src/components/ui/PlatformBadge";
 import { PLATFORM_REGISTRY } from "../../src/registry/platforms";
-import { usePlatformContext } from "../../src/hooks/usePlatformContext";
+import { getPlatformContext } from "../../src/hooks/usePlatformContext";
 import { getVehicles } from "../../src/database/queries/vehicles";
-import { insertShift, updateShift, getShiftById } from "../../src/database/queries/shifts";
+import { insertShift, updateShift, getShiftById, getShiftPlatforms, insertShiftPlatform, deleteShiftPlatforms } from "../../src/database/queries/shifts";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
 import { cn } from "../../src/lib/utils";
@@ -232,24 +232,25 @@ export default function AddShiftModal() {
   const { accentColor, accentColorDim, accentColorContrast } = usePlatformTheme();
 
   // Form State
-  const [selectedPlatform, setSelectedPlatform] = useState<GigPlatform>(
-    profile?.selectedPlatforms && profile.selectedPlatforms.length > 0
-      ? profile.selectedPlatforms[0]
-      : "doordash"
-  );
+  const [selectedPlatformsList, setSelectedPlatformsList] = useState<string[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>("");
   const [date, setDate] = useState<Date>(new Date());
   const [startTime, setStartTime] = useState<Date>(new Date());
   const [endTime, setEndTime] = useState<Date>(new Date(Date.now() + 4 * 60 * 60 * 1000)); // Default 4 hrs shift
-  // Revenue fields — keyed by RevenueFieldDef.key
-  const [revenueValues, setRevenueValues] = useState<Record<string, string>>({});
+  
+  // platformForms stores inputs per platform key
+  const [platformForms, setPlatformForms] = useState<Record<string, {
+    grossRevenue: string;
+    tipsRevenue: string;
+    tripsCount: string;
+    onlineHours: string;
+    onlineMinutes: string;
+  }>>({});
+  
   const [activeMileage, setActiveMileage] = useState<string>("");
   const [deadMileage, setDeadMileage] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [shiftTargetSeconds, setShiftTargetSeconds] = useState<number | null>(null);
-
-  // Platform context — drives revenue fields, terminology, and feature flags
-  const platformCtx = usePlatformContext(selectedPlatform);
 
   // UI state for native date pickers
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
@@ -257,6 +258,27 @@ export default function AddShiftModal() {
   const [showEndTimePicker, setShowEndTimePicker] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
+
+  // Wizard Step State
+  const [stepIndex, setStepIndex] = useState<number>(0);
+
+  const stepsSequence = React.useMemo(() => {
+    const list: Array<{ type: "context" | "duration" | "platform" | "mileage" | "notes"; platform?: string }> = [
+      { type: "context" },
+      { type: "duration" },
+    ];
+    selectedPlatformsList.forEach((pKey) => {
+      list.push({ type: "platform", platform: pKey });
+    });
+    list.push({ type: "mileage" }, { type: "notes" });
+    return list;
+  }, [selectedPlatformsList]);
+
+  React.useEffect(() => {
+    if (stepIndex >= stepsSequence.length) {
+      setStepIndex(Math.max(0, stepsSequence.length - 1));
+    }
+  }, [stepsSequence, stepIndex]);
 
   // Query Vehicles
   const { data: vehiclesList = [], isLoading: isLoadingVehicles } = useQuery({
@@ -267,7 +289,6 @@ export default function AddShiftModal() {
   });
 
   // Set default vehicle only when NOT editing an existing shift.
-  // Must be in useEffect (not queryFn) to avoid setState outside React's render cycle on Android Fabric.
   React.useEffect(() => {
     if (vehiclesList.length > 0 && !shiftId && !selectedVehicleId) {
       const active = vehiclesList.find((v: any) => v.isActive);
@@ -282,10 +303,16 @@ export default function AddShiftModal() {
     enabled: !!shiftId,
   });
 
-  // Pre-populate if editing
+  // Query Shift Platforms (Reconciliation / Multi-platform entries)
+  const { data: dbPlatformsList = [] } = useQuery({
+    queryKey: ["shiftPlatforms", shiftId],
+    queryFn: () => getShiftPlatforms(shiftId!),
+    enabled: !!shiftId,
+  });
+
+  // Pre-populate if editing/reconciling
   React.useEffect(() => {
     if (existingShift) {
-      setSelectedPlatform(existingShift.platform);
       setSelectedVehicleId(existingShift.vehicleId || "");
       
       const start = new Date(existingShift.startTime);
@@ -295,14 +322,39 @@ export default function AddShiftModal() {
       setStartTime(start);
       setEndTime(end);
       
-      // Populate revenue values from existing shift
-      setRevenueValues({
-        grossRevenue: String(existingShift.grossRevenue || ""),
-        tipsRevenue: String(existingShift.tipsRevenue || ""),
-        bonusRevenue: "",
-        surgeRevenue: "",
-        cashRevenue: "",
-      });
+      const parts = existingShift.platform.split(",");
+      setSelectedPlatformsList(parts);
+      
+      // Populate platform forms
+      const initialForms: Record<string, any> = {};
+      if (dbPlatformsList && dbPlatformsList.length > 0) {
+        dbPlatformsList.forEach((sp: any) => {
+          const hours = Math.floor((sp.platformOnlineSeconds || 0) / 3600);
+          const minutes = Math.floor(((sp.platformOnlineSeconds || 0) % 3600) / 60);
+          initialForms[sp.platform] = {
+            grossRevenue: String(sp.grossRevenue || ""),
+            tipsRevenue: String(sp.tipsRevenue || ""),
+            tripsCount: String(sp.tripsCount || ""),
+            onlineHours: hours > 0 ? String(hours) : "",
+            onlineMinutes: minutes > 0 ? String(minutes) : "",
+          };
+        });
+      } else {
+        // Legacy single platform fallback
+        parts.forEach((pKey: string) => {
+          const hours = Math.floor((existingShift.durationSeconds || 0) / 3600);
+          const minutes = Math.floor(((existingShift.durationSeconds || 0) % 3600) / 60);
+          initialForms[pKey] = {
+            grossRevenue: String(existingShift.grossRevenue || ""),
+            tipsRevenue: String(existingShift.tipsRevenue || ""),
+            tripsCount: "",
+            onlineHours: String(hours),
+            onlineMinutes: String(minutes),
+          };
+        });
+      }
+      setPlatformForms(initialForms);
+      
       setActiveMileage(String(existingShift.activeMileage || ""));
       setDeadMileage(String(existingShift.deadMileage || ""));
       
@@ -315,22 +367,51 @@ export default function AddShiftModal() {
         setShiftTargetSeconds(null);
       }
       setNotes(rawNotes);
+    } else {
+      // Default behavior for manual logging new shift
+      const list = [...(profile?.selectedPlatforms || [])];
+      if (list.length > 0 && selectedPlatformsList.length === 0) {
+        setSelectedPlatformsList([list[0]]);
+      }
     }
-  }, [existingShift]);
+  }, [existingShift, dbPlatformsList, profile]);
+
+  const togglePlatform = (pKey: string) => {
+    setSelectedPlatformsList((prev) => {
+      let next;
+      if (prev.includes(pKey)) {
+        if (prev.length <= 1) return prev;
+        next = prev.filter((x) => x !== pKey);
+      } else {
+        next = [...prev, pKey];
+      }
+      return next;
+    });
+
+    if (!platformForms[pKey]) {
+      setPlatformForms((prev) => ({
+        ...prev,
+        [pKey]: {
+          grossRevenue: "",
+          tipsRevenue: "",
+          tripsCount: "",
+          onlineHours: "",
+          onlineMinutes: "",
+        }
+      }));
+    }
+  };
 
   const displayPlatforms = React.useMemo(() => {
     const list = [...(profile?.selectedPlatforms || [])];
-    if (existingShift?.platform && !list.includes(existingShift.platform)) {
-      list.push(existingShift.platform);
+    if (existingShift?.platform) {
+      const parts = existingShift.platform.split(",");
+      parts.forEach((p: string) => {
+        if (!list.includes(p)) list.push(p);
+      });
     }
-    return list as GigPlatform[];
+    return list as string[];
   }, [profile?.selectedPlatforms, existingShift?.platform]);
-
-  React.useEffect(() => {
-    if (displayPlatforms.length > 0 && !displayPlatforms.includes(selectedPlatform)) {
-      setSelectedPlatform(displayPlatforms[0]);
-    }
-  }, [displayPlatforms, selectedPlatform]);
 
   const handleSave = async () => {
     if (isDemoMode) {
@@ -366,8 +447,8 @@ export default function AddShiftModal() {
     }
 
     // Validation
-    if (!selectedPlatform) {
-      setErrorMessage("Please select a platform.");
+    if (selectedPlatformsList.length === 0) {
+      setErrorMessage("Please select at least one platform.");
       return;
     }
     if (!selectedVehicleId) {
@@ -384,46 +465,81 @@ export default function AddShiftModal() {
     setIsSaving(true);
 
     try {
-      const grossRev = parseFloat(revenueValues.grossRevenue || "0") || 0.0;
-      const tipsRev = parseFloat(revenueValues.tipsRevenue || "0") || 0.0;
+      // Parse individual platform values and compute totals
+      let totalGross = 0;
+      let totalTips = 0;
+      
+      const platformEntries = selectedPlatformsList.map((pKey) => {
+        const form = platformForms[pKey] || { grossRevenue: "", tipsRevenue: "", tripsCount: "", onlineHours: "", onlineMinutes: "" };
+        const gross = parseFloat(form.grossRevenue) || 0.0;
+        const tips = parseFloat(form.tipsRevenue) || 0.0;
+        const trips = parseInt(form.tripsCount, 10) || 0;
+        const hrs = parseInt(form.onlineHours, 10) || 0;
+        const mins = parseInt(form.onlineMinutes, 10) || 0;
+        const onlineSecs = (hrs * 3600) + (mins * 60);
+
+        totalGross += gross;
+        totalTips += tips;
+
+        return {
+          platform: pKey,
+          platformOnlineSeconds: onlineSecs,
+          grossRevenue: gross,
+          tipsRevenue: tips,
+          tripsCount: trips,
+        };
+      });
 
       let finalNotes = notes.trim() || null;
       if (shiftTargetSeconds !== null) {
         finalNotes = finalNotes ? `${finalNotes} [ShiftTarget: ${shiftTargetSeconds}]` : `[ShiftTarget: ${shiftTargetSeconds}]`;
       }
 
+      const targetShiftId = shiftId || `shift_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
       if (shiftId) {
         // Edit mode
         await updateShift(shiftId, {
           vehicleId: selectedVehicleId || null,
-          platform: selectedPlatform,
+          platform: selectedPlatformsList.join(","),
           startTime: finalStartDate,
           endTime: finalEndDate,
-          grossRevenue: grossRev,
-          tipsRevenue: tipsRev,
+          grossRevenue: totalGross,
+          tipsRevenue: totalTips,
           trackedMileage: parseFloat(activeMileage) || 0.0,
           activeMileage: parseFloat(activeMileage) || 0.0,
           deadMileage: parseFloat(deadMileage) || 0.0,
           durationSeconds,
           notes: finalNotes,
+          reconciliationStatus: "reconciled", // reconciled on save
         });
       } else {
         // Create mode
-        const newShiftId = `shift_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
         await insertShift({
-          id: newShiftId,
+          id: targetShiftId,
           vehicleId: selectedVehicleId || null,
-          platform: selectedPlatform,
+          platform: selectedPlatformsList.join(","),
           startTime: finalStartDate,
           endTime: finalEndDate,
-          grossRevenue: grossRev,
-          tipsRevenue: tipsRev,
+          grossRevenue: totalGross,
+          tipsRevenue: totalTips,
           trackedMileage: parseFloat(activeMileage) || 0.0,
           activeMileage: parseFloat(activeMileage) || 0.0,
           deadMileage: parseFloat(deadMileage) || 0.0,
           durationSeconds,
           pausedSeconds: 0,
           notes: finalNotes,
+          reconciliationStatus: "reconciled",
+        });
+      }
+
+      // Save/Update child platform ledger entries
+      await deleteShiftPlatforms(targetShiftId);
+      for (const entry of platformEntries) {
+        await insertShiftPlatform({
+          id: `sp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          shiftId: targetShiftId,
+          ...entry
         });
       }
       
@@ -445,6 +561,8 @@ export default function AddShiftModal() {
     }
   };
 
+  const currentStep = stepsSequence[stepIndex] || { type: "context" };
+
   return (
     <SafeAreaView className="flex-1 bg-[#000000]">
       <Stack.Screen options={{ presentation: "fullScreenModal", headerShown: false }} />
@@ -463,22 +581,29 @@ export default function AddShiftModal() {
             </Text>
           </TouchableOpacity>
           <Text className="flex-1 text-white text-base font-bold tracking-tight text-center">
-            {shiftId ? "Edit Shift" : "Add Shift"}
+            {shiftId ? "Reconcile Shift" : "Log Shift"}
           </Text>
-          <View className="min-w-[70px] items-end">
-            <TouchableOpacity 
-              onPress={handleSave} 
-              disabled={isSaving}
-              style={{ backgroundColor: accentColor }}
-              className="py-2 px-3.5 rounded-xl flex-row items-center justify-center"
-            >
-              {isSaving ? (
-                <ActivityIndicator size="small" color={accentColorContrast} />
-              ) : (
-                <Text style={{ color: accentColorContrast }} className="text-xs font-bold tracking-wider">Save</Text>
-              )}
-            </TouchableOpacity>
+          <View className="min-w-[70px]" />
+        </View>
+
+        {/* Progress Bar */}
+        <View className="flex flex-row items-center justify-between px-5 pt-4 pb-2 bg-[#000000]">
+          <View className="flex flex-row gap-1.5 items-center flex-1">
+            {stepsSequence.map((_, i) => (
+              <View
+                key={i}
+                style={{
+                  height: 4,
+                  backgroundColor: i <= stepIndex ? accentColor : "#27272a",
+                  borderRadius: 2,
+                }}
+                className={cn(i === stepIndex ? "flex-1" : "w-1.5")}
+              />
+            ))}
           </View>
+          <Text className="text-zinc-500 text-[10px] font-extrabold tracking-wider uppercase ml-4">
+            Step {stepIndex + 1} / {stepsSequence.length}
+          </Text>
         </View>
 
         <ScrollView contentContainerClassName="p-4 flex flex-col gap-6 pb-12">
@@ -488,281 +613,323 @@ export default function AddShiftModal() {
             </View>
           ) : null}
 
-          {/* Platform Field */}
-          <View className="flex flex-col gap-2">
-            <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Platform</Text>
-            <View className="flex-row flex-wrap gap-2.5">
-              {displayPlatforms.length > 0 ? (
-                displayPlatforms.map((pKey) => {
-                  const isSelected = selectedPlatform === pKey;
-                  return (
-                    <TouchableOpacity
-                      key={pKey}
-                      onPress={() => setSelectedPlatform(pKey)}
-                      className="p-1 rounded-full border-2"
-                      style={{
-                        borderColor: isSelected ? accentColor : "transparent",
-                        backgroundColor: isSelected ? accentColorDim : "transparent",
-                        opacity: isSelected ? 1 : 0.65,
-                        transform: [{ scale: isSelected ? 1.05 : 1 }],
-                      }}
-                    >
-                      <PlatformBadge platform={pKey} size="md" />
-                    </TouchableOpacity>
-                  );
-                })
-              ) : (
-                <View className="flex-1 p-4 bg-[#161615] border border-[#262522] rounded-xl flex-row justify-between items-center">
-                  <Text className="text-zinc-400 text-xs font-semibold">No active platforms. Enable them in settings.</Text>
-                  <TouchableOpacity
-                    onPress={() => router.push("/settings?tab=platforms")}
-                    style={{ backgroundColor: accentColor }}
-                    className="py-1.5 px-3 rounded-lg"
-                  >
-                    <Text style={{ color: accentColorContrast }} className="text-xs font-bold">Go to Settings</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          </View>
-
-          {/* Vehicle Selector */}
-          <View className="flex flex-col gap-2">
-            <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Vehicle</Text>
-            {isLoadingVehicles ? (
-              <ActivityIndicator size="small" color={accentColor} className="self-start mt-2" />
-            ) : vehiclesList.length === 0 ? (
-              <View className="p-3 border border-dashed border-[#262522] rounded-xl bg-[#0d0d0d]">
-                <Text className="text-zinc-400 text-xs">No vehicles registered. Please add a vehicle in settings.</Text>
-              </View>
-            ) : (
+          {/* ── STEP 1: CONTEXT (PLATFORM & VEHICLE) ───────────────────── */}
+          {currentStep.type === "context" && (
+            <View className="flex flex-col gap-5">
+              {/* Platform Field */}
               <View className="flex flex-col gap-2">
-                {vehiclesList.map((vehicle: any) => {
-                  const isSelected = selectedVehicleId === vehicle.id;
-                  return (
-                    <TouchableOpacity
-                      key={vehicle.id}
-                      onPress={() => setSelectedVehicleId(vehicle.id)}
-                      className="p-3 rounded-xl border flex-row justify-between items-center bg-[#0d0d0d]"
-                      style={{
-                        borderColor: isSelected ? accentColor : "#1f1f1f",
-                        backgroundColor: isSelected ? accentColorDim : "#0d0d0d",
-                      }}
-                    >
-                      <View className="flex-col">
-                        <Text className="text-sm font-bold text-white">{vehicle.name}</Text>
-                        <Text className="text-xs text-zinc-400 mt-0.5">
-                          {vehicle.year} {vehicle.make} {vehicle.model} ({vehicle.type})
-                        </Text>
-                      </View>
-                      <View
-                        className={cn("w-4 h-4 rounded-full border items-center justify-center", !isSelected && "border-[#262522]")}
-                        style={isSelected ? { borderColor: accentColor, backgroundColor: accentColor } : {}}
+                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Platform(s)</Text>
+                <View className="flex-row flex-wrap gap-2.5">
+                  {displayPlatforms.length > 0 ? (
+                    displayPlatforms.map((pKey: string) => {
+                      const isSelected = selectedPlatformsList.includes(pKey);
+                      return (
+                        <TouchableOpacity
+                          key={pKey}
+                          onPress={() => togglePlatform(pKey)}
+                          className="p-1 rounded-full border-2"
+                          style={{
+                            borderColor: isSelected ? accentColor : "transparent",
+                            backgroundColor: isSelected ? accentColorDim : "transparent",
+                            opacity: isSelected ? 1 : 0.65,
+                            transform: [{ scale: isSelected ? 1.05 : 1 }],
+                          }}
+                        >
+                          <PlatformBadge platform={pKey} size="md" />
+                        </TouchableOpacity>
+                      );
+                    })
+                  ) : (
+                    <View className="flex-1 p-4 bg-[#161615] border border-[#262522] rounded-xl flex-row justify-between items-center">
+                      <Text className="text-zinc-400 text-xs font-semibold">No active platforms. Enable them in settings.</Text>
+                      <TouchableOpacity
+                        onPress={() => router.push("/settings?tab=platforms")}
+                        style={{ backgroundColor: accentColor }}
+                        className="py-1.5 px-3 rounded-lg"
                       >
-                        {isSelected && <View className="w-1.5 h-1.5 rounded-full bg-black" />}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-
-          {/* Date & Time Picker */}
-          <View className="flex flex-col gap-3">
-            <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Date & Duration</Text>
-            
-            {/* Cross-platform Date Input */}
-            <View className="flex flex-col gap-1.5">
-              <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Shift Date</Text>
-              {Platform.OS === "web" ? (
-                <input
-                  type="date"
-                  value={date.toISOString().substring(0, 10)}
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      setDate(new Date(e.target.value + "T00:00:00"));
-                    }
-                  }}
-                  className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 text-white text-sm w-full outline-none focus:border-white"
-                />
-              ) : (
-                <TouchableOpacity
-                  onPress={() => setShowDatePicker(true)}
-                  className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 flex-row justify-between items-center"
-                >
-                  <Text className="text-white text-sm font-semibold">{date.toLocaleDateString(undefined, { dateStyle: "medium" })}</Text>
-                  <Text style={{ color: accentColor }} className="text-[10px] uppercase font-bold tracking-wider">Select</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Cross-platform Times Row */}
-            <View className="flex flex-row gap-3">
-              <View className="flex-1 flex flex-col gap-1.5">
-                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Start Time</Text>
-                {Platform.OS === "web" ? (
-                  <input
-                    type="time"
-                    value={startTime.toTimeString().substring(0, 5)}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        const [h, m] = e.target.value.split(":");
-                        const newTime = new Date(startTime);
-                        newTime.setHours(parseInt(h, 10));
-                        newTime.setMinutes(parseInt(m, 10));
-                        setStartTime(newTime);
-                      }
-                    }}
-                    className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 text-white text-sm w-full outline-none focus:border-white"
-                  />
-                ) : (
-                  <TouchableOpacity
-                    onPress={() => setShowStartTimePicker(true)}
-                    className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 flex-row justify-between items-center"
-                  >
-                    <Text className="text-white text-sm font-semibold">
-                      {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: profile?.locale?.timeFormat !== "24h" })}
-                    </Text>
-                    <Text style={{ color: accentColor }} className="text-[10px] uppercase font-bold tracking-wider">Select</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <View className="flex-1 flex flex-col gap-1.5">
-                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">End Time</Text>
-                {Platform.OS === "web" ? (
-                  <input
-                    type="time"
-                    value={endTime.toTimeString().substring(0, 5)}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        const [h, m] = e.target.value.split(":");
-                        const newTime = new Date(endTime);
-                        newTime.setHours(parseInt(h, 10));
-                        newTime.setMinutes(parseInt(m, 10));
-                        setEndTime(newTime);
-                      }
-                    }}
-                    className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 text-white text-sm w-full outline-none focus:border-white"
-                  />
-                ) : (
-                  <TouchableOpacity
-                    onPress={() => setShowEndTimePicker(true)}
-                    className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 flex-row justify-between items-center"
-                  >
-                    <Text className="text-white text-sm font-semibold">
-                      {endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: profile?.locale?.timeFormat !== "24h" })}
-                    </Text>
-                    <Text style={{ color: accentColor }} className="text-[10px] uppercase font-bold tracking-wider">Select</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-
-            {/* Native DateTimePickers */}
-            {showDatePicker && (
-              <DateTimePicker
-                value={date}
-                mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowDatePicker(false);
-                  if (selectedDate) setDate(selectedDate);
-                }}
-              />
-            )}
-            {showStartTimePicker && (
-              <DateTimePicker
-                value={startTime}
-                mode="time"
-                display="default"
-                onChange={(event, selectedTime) => {
-                  setShowStartTimePicker(false);
-                  if (selectedTime) setStartTime(selectedTime);
-                }}
-              />
-            )}
-            {showEndTimePicker && (
-              <DateTimePicker
-                value={endTime}
-                mode="time"
-                display="default"
-                onChange={(event, selectedTime) => {
-                  setShowEndTimePicker(false);
-                  if (selectedTime) setEndTime(selectedTime);
-                }}
-              />
-            )}
-          </View>
-
-          {/* Revenue Inputs — driven by operational model */}
-          <View className="flex flex-col gap-3">
-            <View className="flex-row justify-between items-center">
-              <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Earnings</Text>
-              {/* Show model label as a soft badge */}
-              <View style={{ backgroundColor: "#161615", borderRadius: 6, borderWidth: 0.5, borderColor: "#262522", paddingHorizontal: 7, paddingVertical: 3 }}>
-                <Text style={{ color: "#6b7280", fontSize: 9, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 }}>
-                  {platformCtx.terminology.sessionTerm}
-                </Text>
-              </View>
-            </View>
-
-            {/* Cash economy notice */}
-            {platformCtx.flags.supportsCashPayments && (
-              <View style={{ backgroundColor: "rgba(245,158,11,0.06)", borderRadius: 10, borderWidth: 0.5, borderColor: "rgba(245,158,11,0.18)", padding: 10 }}>
-                <Text style={{ color: "#fbbf24", fontSize: 10.5, fontWeight: "700" }}>Cash Payments Active</Text>
-                <Text style={{ color: "#92400e", fontSize: 10, fontWeight: "600", marginTop: 2 }}>
-                  This platform commonly uses cash. Log total fares and cash portion separately.
-                </Text>
-              </View>
-            )}
-
-            {/* Dynamic revenue fields from operational model */}
-            {platformCtx.revenueFields.map((field) => (
-              <View key={field.key} className="flex flex-col gap-1.5">
-                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">
-                  {field.label} ({profile.locale?.currency || "$"})
-                  {field.required ? " *" : ""}
-                </Text>
-                <TextInput
-                  value={revenueValues[field.key] || ""}
-                  onChangeText={(text) => {
-                    const sanitized = text.replace(/[^0-9.]/g, "");
-                    const parts = sanitized.split(".");
-                    const clean = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized;
-                    setRevenueValues((prev) => ({ ...prev, [field.key]: clean }));
-                  }}
-                  keyboardType="numeric"
-                  placeholder="0.00"
-                  placeholderTextColor="#4b5563"
-                  className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
-                />
-                {field.hint ? (
-                  <Text className="text-zinc-600 text-[10px] pl-1">{field.hint}</Text>
-                ) : null}
-              </View>
-            ))}
-          </View>
-
-          {/* Mileage Inputs — only shown when the model tracks mileage */}
-          {platformCtx.flags.tracksMileage && (
-            <View className="flex flex-col gap-3">
-              <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">
-                Distance ({profile.distanceUnit})
-              </Text>
-
-              {/* Platform reimburses mileage notice */}
-              {platformCtx.flags.mileageReimbursedByPlatform && (
-                <View style={{ backgroundColor: "rgba(99,102,241,0.06)", borderRadius: 10, borderWidth: 0.5, borderColor: "rgba(99,102,241,0.18)", padding: 10 }}>
-                  <Text style={{ color: "#818cf8", fontSize: 10.5, fontWeight: "700" }}>Platform Reimburses Mileage</Text>
-                  <Text style={{ color: "#4338ca", fontSize: 10, fontWeight: "600", marginTop: 2 }}>
-                    This platform pays a per-{profile.distanceUnit} rate. Log distance for your records — deductions are calculated separately.
-                  </Text>
+                        <Text style={{ color: accentColorContrast }} className="text-xs font-bold">Go to Settings</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
-              )}
+              </View>
 
+              {/* Vehicle Selector */}
+              <View className="flex flex-col gap-2">
+                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Vehicle</Text>
+                {isLoadingVehicles ? (
+                  <ActivityIndicator size="small" color={accentColor} className="self-start mt-2" />
+                ) : vehiclesList.length === 0 ? (
+                  <View className="p-3 border border-dashed border-[#262522] rounded-xl bg-[#0d0d0d]">
+                    <Text className="text-zinc-400 text-xs">No vehicles registered. Please add a vehicle in settings.</Text>
+                  </View>
+                ) : (
+                  <View className="flex flex-col gap-2">
+                    {vehiclesList.map((vehicle: any) => {
+                      const isSelected = selectedVehicleId === vehicle.id;
+                      return (
+                        <TouchableOpacity
+                          key={vehicle.id}
+                          onPress={() => setSelectedVehicleId(vehicle.id)}
+                          className="p-3 rounded-xl border flex-row justify-between items-center bg-[#0d0d0d]"
+                          style={{
+                            borderColor: isSelected ? accentColor : "#1f1f1f",
+                            backgroundColor: isSelected ? accentColorDim : "#0d0d0d",
+                          }}
+                        >
+                          <View className="flex-col">
+                            <Text className="text-sm font-bold text-white">{vehicle.name}</Text>
+                            <Text className="text-xs text-zinc-400 mt-0.5">
+                              {vehicle.year} {vehicle.make} {vehicle.model} ({vehicle.type})
+                            </Text>
+                          </View>
+                          <View
+                            className={cn("w-4 h-4 rounded-full border items-center justify-center", !isSelected && "border-[#262522]")}
+                            style={isSelected ? { borderColor: accentColor, backgroundColor: accentColor } : {}}
+                          >
+                            {isSelected && <View className="w-1.5 h-1.5 rounded-full bg-black" />}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* ── STEP 2: DURATION ───────────────────────────────────────── */}
+          {currentStep.type === "duration" && (
+            <View className="flex flex-col gap-3">
+              <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Date & Duration</Text>
+              
+              {/* Shift Date */}
+              <View className="flex flex-col gap-1.5">
+                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Shift Date</Text>
+                {Platform.OS === "web" ? (
+                  <input
+                    type="date"
+                    value={date.toISOString().substring(0, 10)}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setDate(new Date(e.target.value + "T00:00:00"));
+                      }
+                    }}
+                    className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 text-white text-sm w-full outline-none focus:border-white"
+                  />
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => setShowDatePicker(true)}
+                    className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 flex-row justify-between items-center"
+                  >
+                    <Text className="text-white text-sm font-semibold">{date.toLocaleDateString(undefined, { dateStyle: "medium" })}</Text>
+                    <Text style={{ color: accentColor }} className="text-[10px] uppercase font-bold tracking-wider">Select</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Times Row */}
               <View className="flex flex-row gap-3">
+                <View className="flex-1 flex flex-col gap-1.5">
+                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Start Time</Text>
+                  {Platform.OS === "web" ? (
+                    <input
+                      type="time"
+                      value={startTime.toTimeString().substring(0, 5)}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const [h, m] = e.target.value.split(":");
+                          const newTime = new Date(startTime);
+                          newTime.setHours(parseInt(h, 10));
+                          newTime.setMinutes(parseInt(m, 10));
+                          setStartTime(newTime);
+                        }
+                      }}
+                      className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 text-white text-sm w-full outline-none focus:border-white"
+                    />
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => setShowStartTimePicker(true)}
+                      className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 flex-row justify-between items-center"
+                    >
+                      <Text className="text-white text-sm font-semibold">
+                        {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: profile?.locale?.timeFormat !== "24h" })}
+                      </Text>
+                      <Text style={{ color: accentColor }} className="text-[10px] uppercase font-bold tracking-wider">Select</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <View className="flex-1 flex flex-col gap-1.5">
+                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">End Time</Text>
+                  {Platform.OS === "web" ? (
+                    <input
+                      type="time"
+                      value={endTime.toTimeString().substring(0, 5)}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const [h, m] = e.target.value.split(":");
+                          const newTime = new Date(endTime);
+                          newTime.setHours(parseInt(h, 10));
+                          newTime.setMinutes(parseInt(m, 10));
+                          setEndTime(newTime);
+                        }
+                      }}
+                      className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 text-white text-sm w-full outline-none focus:border-white"
+                    />
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => setShowEndTimePicker(true)}
+                      className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-3.5 flex-row justify-between items-center"
+                    >
+                      <Text className="text-white text-sm font-semibold">
+                        {endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: profile?.locale?.timeFormat !== "24h" })}
+                      </Text>
+                      <Text style={{ color: accentColor }} className="text-[10px] uppercase font-bold tracking-wider">Select</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+
+              {/* Native DateTimePickers */}
+              {showDatePicker && (
+                <DateTimePicker
+                  value={date}
+                  mode="date"
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    setShowDatePicker(false);
+                    if (selectedDate) setDate(selectedDate);
+                  }}
+                />
+              )}
+              {showStartTimePicker && (
+                <DateTimePicker
+                  value={startTime}
+                  mode="time"
+                  display="default"
+                  onChange={(event, selectedTime) => {
+                    setShowStartTimePicker(false);
+                    if (selectedTime) setStartTime(selectedTime);
+                  }}
+                />
+              )}
+              {showEndTimePicker && (
+                <DateTimePicker
+                  value={endTime}
+                  mode="time"
+                  display="default"
+                  onChange={(event, selectedTime) => {
+                    setShowEndTimePicker(false);
+                    if (selectedTime) setEndTime(selectedTime);
+                  }}
+                />
+              )}
+            </View>
+          )}
+
+          {/* ── STEP 3: PLATFORM LEDGER ────────────────────────────────── */}
+          {currentStep.type === "platform" && (() => {
+            const pKey = currentStep.platform!;
+            const pCtx = getPlatformContext(pKey);
+            const form = platformForms[pKey] || { grossRevenue: "", tipsRevenue: "", tripsCount: "", onlineHours: "", onlineMinutes: "" };
+            
+            const updateForm = (fieldKey: string, val: string) => {
+              setPlatformForms((prev) => ({
+                ...prev,
+                [pKey]: {
+                  ...(prev[pKey] || { grossRevenue: "", tipsRevenue: "", tripsCount: "", onlineHours: "", onlineMinutes: "" }),
+                  [fieldKey]: val,
+                }
+              }));
+            };
+
+            return (
+              <View key={pKey} className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-2xl p-4 flex flex-col gap-4 mb-2">
+                <View className="flex-row justify-between items-center border-b border-[#1f1f1f] pb-3">
+                  <PlatformBadge platform={pKey} size="md" />
+                  <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider">Platform Ledger</Text>
+                </View>
+
+                {/* Platform Online Time */}
+                <View className="flex flex-col gap-1.5">
+                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Online Duration</Text>
+                  <View className="flex-row gap-3">
+                    <View className="flex-1 flex flex-row items-center bg-[#000] border border-[#1f1f1f] rounded-xl px-3">
+                      <TextInput
+                        value={form.onlineHours}
+                        onChangeText={(val) => updateForm("onlineHours", val.replace(/[^0-9]/g, ""))}
+                        keyboardType="numeric"
+                        placeholder="0"
+                        placeholderTextColor="#4b5563"
+                        className="flex-1 text-white text-sm py-3 font-semibold"
+                      />
+                      <Text className="text-zinc-500 text-xs font-bold ml-1">hrs</Text>
+                    </View>
+                    <View className="flex-1 flex flex-row items-center bg-[#000] border border-[#1f1f1f] rounded-xl px-3">
+                      <TextInput
+                        value={form.onlineMinutes}
+                        onChangeText={(val) => updateForm("onlineMinutes", val.replace(/[^0-9]/g, ""))}
+                        keyboardType="numeric"
+                        placeholder="0"
+                        placeholderTextColor="#4b5563"
+                        className="flex-1 text-white text-sm py-3 font-semibold"
+                      />
+                      <Text className="text-zinc-500 text-xs font-bold ml-1">min</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Dynamic revenue fields from registry */}
+                {pCtx.revenueFields.map((field: any) => (
+                  <View key={field.key} className="flex flex-col gap-1.5">
+                    <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">
+                      {field.label} ({profile.locale?.currency || "$"})
+                      {field.required ? " *" : ""}
+                    </Text>
+                    <TextInput
+                      value={(form as any)[field.key] || ""}
+                      onChangeText={(text) => {
+                        const sanitized = text.replace(/[^0-9.]/g, "");
+                        const parts = sanitized.split(".");
+                        const clean = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized;
+                        updateForm(field.key, clean);
+                      }}
+                      keyboardType="numeric"
+                      placeholder="0.00"
+                      placeholderTextColor="#4b5563"
+                      className="bg-[#000] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
+                    />
+                  </View>
+                ))}
+
+                {/* Trips Count */}
+                <View className="flex flex-col gap-1.5">
+                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Trips Completed</Text>
+                  <TextInput
+                    value={form.tripsCount}
+                    onChangeText={(val) => updateForm("tripsCount", val.replace(/[^0-9]/g, ""))}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor="#4b5563"
+                    className="bg-[#000] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
+                  />
+                </View>
+              </View>
+            );
+          })()}
+
+          {/* ── STEP 4: MILEAGE & ROUTE ────────────────────────────────── */}
+          {currentStep.type === "mileage" && (
+            <View className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-2xl p-4 flex flex-col gap-3.5 mb-2">
+              <View className="flex-row justify-between items-center border-b border-[#1f1f1f] pb-3">
+                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">
+                  Unified Distance ({profile.distanceUnit})
+                </Text>
+                <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider">Odometer</Text>
+              </View>
+
+              <View className="flex-row gap-3">
                 <View className="flex-1 flex flex-col gap-1.5">
                   <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Active Distance</Text>
                   <TextInput
@@ -775,7 +942,7 @@ export default function AddShiftModal() {
                     keyboardType="numeric"
                     placeholder="0.0"
                     placeholderTextColor="#4b5563"
-                    className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
+                    className="bg-[#000] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
                   />
                 </View>
 
@@ -791,35 +958,109 @@ export default function AddShiftModal() {
                     keyboardType="numeric"
                     placeholder="0.0"
                     placeholderTextColor="#4b5563"
-                    className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
+                    className="bg-[#000] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
                   />
                 </View>
               </View>
+
+              {/* Route Map (if routePath exists and is a non-empty string) */}
+              {existingShift?.routePath && typeof existingShift.routePath === "string" && existingShift.routePath.trim().length > 0 && (
+                <RouteLargeMap
+                  routePathJson={existingShift.routePath}
+                  strokeColor={PLATFORM_REGISTRY[selectedPlatformsList[0]]?.color || "#3b82f6"}
+                />
+              )}
             </View>
           )}
 
-          {/* Route Map (if routePath exists and is a non-empty string) */}
-          {existingShift?.routePath && typeof existingShift.routePath === "string" && existingShift.routePath.trim().length > 0 && (
-            <RouteLargeMap
-              routePathJson={existingShift.routePath}
-              strokeColor={PLATFORM_REGISTRY[selectedPlatform]?.color || "#3b82f6"}
-            />
+          {/* ── STEP 5: NOTES ──────────────────────────────────────────── */}
+          {currentStep.type === "notes" && (
+            <View className="flex flex-col gap-2">
+              <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Notes</Text>
+              <TextInput
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                numberOfLines={3}
+                placeholder="Add details about your shift (traffic, weather, peak pay details)..."
+                placeholderTextColor="#4b5563"
+                className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm h-24 focus:border-white text-left align-top leading-relaxed font-semibold"
+              />
+            </View>
           )}
-
-          {/* Notes Field */}
-          <View className="flex flex-col gap-2">
-            <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Notes</Text>
-            <TextInput
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              numberOfLines={3}
-              placeholder="Add details about your shift (traffic, weather, peak pay details)..."
-              placeholderTextColor="#4b5563"
-              className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl px-4 py-3.5 text-white text-sm h-24 focus:border-white text-left align-top leading-relaxed font-semibold"
-            />
-          </View>
         </ScrollView>
+
+        {/* Navigation Footer */}
+        <View className="flex flex-row justify-between items-center px-5 py-4 border-t border-[#1f1f1f] bg-[#0d0d0d]">
+          <TouchableOpacity
+            onPress={() => {
+              if (stepIndex > 0) {
+                setStepIndex(stepIndex - 1);
+              } else {
+                router.back();
+              }
+            }}
+            className="py-3 px-6 rounded-xl bg-[#1f1f1f] border border-[#27272a] items-center justify-center min-w-[100px]"
+          >
+            <Text className="text-zinc-300 font-bold text-sm">
+              {stepIndex === 0 ? "Cancel" : "Back"}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => {
+              // Validate Step 1 Context
+              if (currentStep.type === "context") {
+                if (selectedPlatformsList.length === 0) {
+                  setErrorMessage("Please select at least one platform.");
+                  return;
+                }
+                if (!selectedVehicleId) {
+                  setErrorMessage("Please select a vehicle.");
+                  return;
+                }
+              }
+              // Validate Step 2 Duration
+              if (currentStep.type === "duration") {
+                const finalStartDate = new Date(date);
+                finalStartDate.setHours(startTime.getHours());
+                finalStartDate.setMinutes(startTime.getMinutes());
+                
+                const finalEndDate = new Date(date);
+                finalEndDate.setHours(endTime.getHours());
+                finalEndDate.setMinutes(endTime.getMinutes());
+                
+                if (finalEndDate < finalStartDate) {
+                  finalEndDate.setDate(finalEndDate.getDate() + 1);
+                }
+                
+                const durationSeconds = Math.max(0, Math.floor((finalEndDate.getTime() - finalStartDate.getTime()) / 1000));
+                if (durationSeconds <= 0) {
+                  setErrorMessage("End time must be after start time.");
+                  return;
+                }
+              }
+
+              setErrorMessage("");
+
+              if (stepIndex < stepsSequence.length - 1) {
+                setStepIndex(stepIndex + 1);
+              } else {
+                handleSave();
+              }
+            }}
+            style={{ backgroundColor: accentColor }}
+            className="py-3 px-6 rounded-xl items-center justify-center min-w-[120px] flex-row gap-1"
+          >
+            {isSaving ? (
+              <ActivityIndicator size="small" color={accentColorContrast} />
+            ) : (
+              <Text style={{ color: accentColorContrast }} className="font-bold text-sm">
+                {stepIndex === stepsSequence.length - 1 ? "Finish" : "Continue"}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

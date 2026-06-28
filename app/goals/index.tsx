@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   ScrollView,
   View,
@@ -21,6 +21,7 @@ import { db } from "@/src/database/client";
 import { shifts } from "@/src/database/schema";
 import { desc, sql } from "drizzle-orm";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
 import { cn } from "@/src/lib/utils";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import Svg, { Circle } from "react-native-svg";
@@ -135,6 +136,18 @@ export default function GoalsScreen() {
     isDemoMode,
   } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
+  
+  const isGoalsEnabled = useFeatureEnabled("goals");
+
+  useEffect(() => {
+    if (!isGoalsEnabled && isOnboardingCompleted) {
+      router.replace("/");
+    }
+  }, [isGoalsEnabled, isOnboardingCompleted]);
+
+  if (!isGoalsEnabled) {
+    return null;
+  }
 
   const [isAdding, setIsAdding] = useState(false);
   const [editingGoal, setEditingGoal] = useState<any>(null);

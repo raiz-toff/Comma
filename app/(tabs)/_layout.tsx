@@ -26,6 +26,7 @@ import {
 import { Text } from "../../src/components/ui/text";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 import { getCountryDef } from "@/src/registry/index";
+import { useFeatureEnabled } from "../../hooks/useFeatureEnabled";
 import Svg, { Path, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 
 const DashboardIcon = ({ size = 22, color = "#a1a1aa", strokeWidth = 1.5 }: { size?: number; color?: string; strokeWidth?: number }) => {
@@ -294,6 +295,10 @@ export default function TabLayout() {
   const router = useRouter();
   const { width: screenWidth } = useWindowDimensions();
 
+  const isTaxEnabled = useFeatureEnabled("tax_workspace");
+  const isGoalsEnabled = useFeatureEnabled("goals");
+  const isScheduleEnabled = useFeatureEnabled("schedule");
+
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false);
 
@@ -474,19 +479,25 @@ export default function TabLayout() {
       { label: "Shifts", path: "/shifts", icon: Clock },
       { label: "Analytics", path: "/analytics", icon: AnalyticsIcon },
       { label: "Expenses", path: "/expenses", icon: ExpensesIcon },
-      { label: "Goals", path: "/goals", icon: Target },
     ];
-    if (countryDef.hasSelfAssessmentTax !== false) {
+    if (isGoalsEnabled) {
+      items.push({ label: "Goals", path: "/goals", icon: Target });
+    }
+    if (isTaxEnabled && countryDef.hasSelfAssessmentTax !== false) {
       items.push({ label: "Tax", path: "/tax", icon: Calculator });
     }
     items.push(
-      { label: "Reports", path: "/reports", icon: FileText },
-      { label: "Schedule", path: "/schedule", icon: Calendar },
+      { label: "Reports", path: "/reports", icon: FileText }
+    );
+    if (isScheduleEnabled) {
+      items.push({ label: "Schedule", path: "/schedule", icon: Calendar });
+    }
+    items.push(
       { label: "Vehicles", path: "/vehicles", icon: Car },
       { label: "Settings", path: "/settings", icon: SettingsIcon }
     );
     return items;
-  }, [profile?.country]);
+  }, [profile?.country, isTaxEnabled, isGoalsEnabled, isScheduleEnabled]);
 
   const toggleDrawer = () => {
     setIsDrawerOpen((prev) => !prev);

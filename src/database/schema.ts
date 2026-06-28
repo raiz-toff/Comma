@@ -11,6 +11,7 @@ export const vehicles = sqliteTable('vehicles', {
   year: integer('year'),
   fuelType: text('fuel_type'),   // 'gas' | 'electric' | 'hybrid' | 'other'
   licensePlate: text('license_plate'),
+  currentOdometer: integer('current_odometer').default(0).notNull(),
 });
 
 export const maintenanceLogs = sqliteTable('maintenance_logs', {
@@ -44,6 +45,10 @@ export const shifts = sqliteTable('shifts', {
   // Total paused time — net active time = durationSeconds - pausedSeconds
   notes: text('notes'),
   routePath: text('route_path'),
+  reconciliationStatus: text('reconciliation_status').default('reconciled').notNull(), // 'tracking' | 'pending_reconciliation' | 'reconciled'
+  startOdometer: integer('start_odometer'),
+  endOdometer: integer('end_odometer'),
+  distanceSource: text('distance_source').default('gps_only').notNull(),
 });
 
 export const locationPoints = sqliteTable('location_points', {
@@ -72,6 +77,8 @@ export const expenses = sqliteTable('expenses', {
   receiptUri:  text('receipt_uri'),  // local file URI for photo receipts
   isRecurring: integer('is_recurring', { mode: 'boolean' }).default(false).notNull(),
   recurringInterval: text('recurring_interval'), // 'weekly'|'monthly'|'yearly'
+  merchant: text('merchant').default("").notNull(),
+  merchantNormalized: text('merchant_normalized').default("").notNull(),
 });
 
 export const goals = sqliteTable('goals', {
@@ -117,4 +124,34 @@ export const tempNativePoints = sqliteTable('temp_native_points', {
   lon: real('lon').notNull(),
   timestamp: integer('timestamp').notNull(),
 });
+
+export const shiftPlatforms = sqliteTable('shift_platforms', {
+  id: text('id').primaryKey(),
+  shiftId: text('shift_id').notNull().references(() => shifts.id, { onDelete: 'cascade' }),
+  platform: text('platform').notNull(),
+  platformOnlineSeconds: integer('platform_online_seconds').default(0).notNull(),
+  grossRevenue: real('gross_revenue').default(0).notNull(),
+  tipsRevenue: real('tips_revenue').default(0).notNull(),
+  tripsCount: integer('trips_count').default(0).notNull(),
+});
+
+export const merchants = sqliteTable('merchants', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  normalizedName: text('normalized_name').notNull(),
+});
+
+export const vehicleTaxProfiles = sqliteTable('vehicle_tax_profiles', {
+  id: text('id').primaryKey(),
+  vehicleId: text('vehicle_id').notNull().references(() => vehicles.id, { onDelete: 'cascade' }),
+  taxYear: integer('tax_year').notNull(),
+  country: text('country').notNull(), // 'US' | 'CA' | 'UK' | 'NP'
+  deductionMethod: text('deduction_method').notNull(), // 'standard_mileage' | 'actual_expenses'
+  standardRatePrimary: real('standard_rate_primary'),
+  standardRateSecondary: real('standard_rate_secondary'),
+  rateThreshold: real('rate_threshold'),
+  beginningYearOdometer: integer('beginning_year_odometer'),
+  endingYearOdometer: integer('ending_year_odometer'),
+});
+
 

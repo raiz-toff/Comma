@@ -2,8 +2,7 @@ import { type VocabularyKey } from "./vocabulary";
 import { type FeatureKey } from "./modules";
 
 export type PersonaKey =
-  | 'gig_worker'       // DoorDash, UberEats, Skip, Instacart
-  | 'rideshare'        // Uber, Lyft, InDriver, Pathao
+  | 'platform_driver'  // Combined rideshare & delivery
   | 'business_driver'  // Sales reps, realtors, consultants — MileIQ territory
   | 'contractor'       // Trades, freelance, field service
   | 'mileage_tracker'; // Mileage tracking only for reimbursement / personal records
@@ -17,25 +16,59 @@ export interface PersonaConfig {
   defaultFeatures: Record<FeatureKey, boolean>;
 }
 
+// ─── Vocabulary Presets for Platform Drivers ──────────────────────────────────
+
+export const RIDESHARE_VOCABULARY: Record<VocabularyKey, string> = {
+  session: 'drive',
+  session_plural: 'drives',
+  platform: 'app',
+  active_miles: 'fare miles',
+  dead_miles: 'deadhead miles',
+  revenue: 'earnings',
+  start_cta: 'Go online',
+  end_cta: 'Go offline',
+  history_tab: 'Drives',
+  active_indicator: 'Online',
+  no_sessions_yet: 'No drives yet',
+};
+
+export const DELIVERY_VOCABULARY: Record<VocabularyKey, string> = {
+  session: 'shift',
+  session_plural: 'shifts',
+  platform: 'platform',
+  active_miles: 'active miles',
+  dead_miles: 'dead miles',
+  revenue: 'earnings',
+  start_cta: 'Start shift',
+  end_cta: 'End shift',
+  history_tab: 'Shifts',
+  active_indicator: 'Active shift',
+  no_sessions_yet: 'No shifts yet',
+};
+
+export const BOTH_VOCABULARY: Record<VocabularyKey, string> = {
+  session: 'shift',
+  session_plural: 'shifts',
+  platform: 'app',
+  active_miles: 'active miles',
+  dead_miles: 'deadhead miles',
+  revenue: 'earnings',
+  start_cta: 'Start work',
+  end_cta: 'End work',
+  history_tab: 'Activity',
+  active_indicator: 'Active',
+  no_sessions_yet: 'No activity yet',
+};
+
+// ─── Persona Configurations ──────────────────────────────────────────────────
+
 export const PERSONAS: Record<PersonaKey, PersonaConfig> = {
-  gig_worker: {
-    key: 'gig_worker',
-    label: 'Gig Worker / Courier',
-    description: 'Food delivery, grocery shopping, parcel courier (DoorDash, UberEats, Skip, etc.)',
+  platform_driver: {
+    key: 'platform_driver',
+    label: 'Platform Driver (Delivery & Rideshare)',
+    description: 'Food/grocery delivery, rideshare passenger transport, and parcel courier (Uber, DoorDash, Lyft, etc.)',
     showPlatformSelectorInOnboarding: true,
-    vocabulary: {
-      session: 'shift',
-      session_plural: 'shifts',
-      platform: 'platform',
-      active_miles: 'active miles',
-      dead_miles: 'dead miles',
-      revenue: 'earnings',
-      start_cta: 'Start shift',
-      end_cta: 'End shift',
-      history_tab: 'Shifts',
-      active_indicator: 'Active shift',
-      no_sessions_yet: 'No shifts yet',
-    },
+    vocabulary: BOTH_VOCABULARY,
     defaultFeatures: {
       session_tracking_gps: true,
       session_tracking_manual: true,
@@ -44,45 +77,7 @@ export const PERSONAS: Record<PersonaKey, PersonaConfig> = {
       vehicle_profiles: true,
       csv_export: true,
       google_drive_backup: true,
-      analytics_advanced: false,
-      tax_workspace: false,
-      goals: false,
-      schedule: false,
-      gamification: false,
-      pdf_reports: false,
-      csv_import: false,
-      android_widget: false,
-      business_personal_split: false,
-      mileage_log_export: false,
-    },
-  },
-  rideshare: {
-    key: 'rideshare',
-    label: 'Rideshare Driver',
-    description: 'Passenger transportation (Uber, Lyft, InDriver, Pathao, etc.)',
-    showPlatformSelectorInOnboarding: true,
-    vocabulary: {
-      session: 'drive',
-      session_plural: 'drives',
-      platform: 'app',
-      active_miles: 'fare miles',
-      dead_miles: 'deadhead miles',
-      revenue: 'earnings',
-      start_cta: 'Go online',
-      end_cta: 'Go offline',
-      history_tab: 'Drives',
-      active_indicator: 'Online',
-      no_sessions_yet: 'No drives yet',
-    },
-    defaultFeatures: {
-      session_tracking_gps: true,
-      session_tracking_manual: true,
-      expense_tracking: true,
-      analytics_basic: true,
-      vehicle_profiles: true,
-      csv_export: true,
-      google_drive_backup: true,
-      analytics_advanced: true,
+      analytics_advanced: true, // Both couriers & rideshare drivers get advanced analytics now!
       tax_workspace: false,
       goals: false,
       schedule: false,
@@ -97,7 +92,7 @@ export const PERSONAS: Record<PersonaKey, PersonaConfig> = {
   business_driver: {
     key: 'business_driver',
     label: 'Business Driver / Realtor',
-    description: 'Realtors, sales reps, consultants, or corporate employees tracking drives for tax write-offs',
+    description: 'Realtors, sales reps, consultants, or corporate employees tracking drives for corporate reimbursement',
     showPlatformSelectorInOnboarding: false,
     vocabulary: {
       session: 'drive',
@@ -121,11 +116,11 @@ export const PERSONAS: Record<PersonaKey, PersonaConfig> = {
       csv_export: true,
       google_drive_backup: true,
       analytics_advanced: false,
-      tax_workspace: true,
+      tax_workspace: false, // Turn off W-2 tax workspace to avoid tax audits/liability
       goals: false,
       schedule: false,
       gamification: false,
-      pdf_reports: false,
+      pdf_reports: true, // Turn on PDF report exports by default for reimbursement submissions
       csv_import: false,
       android_widget: false,
       business_personal_split: true,
@@ -142,7 +137,7 @@ export const PERSONAS: Record<PersonaKey, PersonaConfig> = {
       session_plural: 'jobs',
       platform: 'client',
       active_miles: 'work miles',
-      dead_miles: 'personal miles',
+      dead_miles: 'supply / run miles', // Changed from "personal miles" to preserve deductible miles (Home Depot runs, etc.)
       revenue: 'revenue',
       start_cta: 'Start job',
       end_cta: 'End job',

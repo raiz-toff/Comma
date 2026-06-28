@@ -34,6 +34,7 @@ import {
   calculateSelfEmploymentTax,
   calculateCRAMileageDeduction,
   calculateIRSMileageDeduction,
+  calculateHMRCMileageDeduction,
   PROVINCIAL_HST_RATES,
 } from "@/utils/taxCalculations";
 import {
@@ -356,6 +357,8 @@ export default function TaxDashboardScreen() {
   const mileageDeduction =
     profile.country === "CA"
       ? calculateCRAMileageDeduction(totalDistance)
+      : profile.country === "UK"
+      ? calculateHMRCMileageDeduction(distanceUnit === "mi" ? totalDistance : totalDistance * 0.621371)
       : calculateIRSMileageDeduction(distanceUnit === "mi" ? totalDistance : totalDistance * 0.621371);
 
   if (isLoading) {

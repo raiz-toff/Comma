@@ -3,6 +3,7 @@
  * Replaces the old flat `PLATFORMS` map. Backward-compat shim exported at bottom.
  */
 
+import React from "react";
 import { type OperationalModelId } from "../operationalModels/index";
 
 // ─── Core type ────────────────────────────────────────────────────────────────
@@ -50,4 +51,6 @@ export interface PlatformDef {
     sessionTerm: string;
     tripTerm: string;
   }>;
+  /** SVG logo component. Renders at `size` prop. Absent = no logo (show text badge). */
+  logo?: React.ComponentType<{ size?: number }>;
 }

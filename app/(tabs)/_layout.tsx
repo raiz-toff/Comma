@@ -1,5 +1,6 @@
 import React from "react";
 import { Tabs, usePathname, useRouter } from "expo-router";
+import ReportsScreen from "../reports/index";
 import { View, Platform, ColorValue, Animated, Pressable, ScrollView, StyleSheet, BackHandler, useWindowDimensions, TouchableOpacity, PanResponder } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSettingsStore } from "../../store/useSettingsStore";
@@ -24,10 +25,11 @@ import {
   Bell,
 } from "lucide-react-native";
 import { Text } from "../../src/components/ui/text";
-import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
+import { PLATFORMS, PLATFORM_REGISTRY, type PlatformKey } from "@/src/registry/platforms";
 import { getCountryDef } from "@/src/registry/index";
 import { useFeatureEnabled } from "../../hooks/useFeatureEnabled";
 import Svg, { Path, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
+import { PlatformLogo, PLATFORM_LOGO_IDS } from "@/src/components/GlobalTopHeader";
 
 const DashboardIcon = ({ size = 22, color = "#a1a1aa", strokeWidth = 1.5 }: { size?: number; color?: string; strokeWidth?: number }) => {
   const finalStroke = strokeWidth ? strokeWidth * 0.85 : 1.7;
@@ -288,7 +290,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
 ];
 
 export default function TabLayout() {
-  const { isOnboardingCompleted, profile, activePlatformFilter, xpLevel, unlockedBadgeIds, xpTotal, streakDays } = useSettingsStore();
+  const { isOnboardingCompleted, profile, activePlatformFilter, xpLevel, unlockedBadgeIds, xpTotal } = useSettingsStore();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
@@ -298,12 +300,15 @@ export default function TabLayout() {
   const isTaxEnabled = useFeatureEnabled("tax_workspace");
   const isGoalsEnabled = useFeatureEnabled("goals");
   const isScheduleEnabled = useFeatureEnabled("schedule");
+  const isAnalyticsEnabled = useFeatureEnabled("analytics_advanced");
 
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false);
+  const [isReportsOpen, setIsReportsOpen] = React.useState(false);
 
   const slideAnim = React.useRef(new Animated.Value(0)).current;
   const notificationsAnim = React.useRef(new Animated.Value(0)).current;
+  const reportsAnim = React.useRef(new Animated.Value(0)).current;
 
   const isDrawerOpenRef = React.useRef(isDrawerOpen);
   const isNotificationsOpenRef = React.useRef(isNotificationsOpen);
@@ -389,7 +394,20 @@ export default function TabLayout() {
   }, [isNotificationsOpen]);
 
   React.useEffect(() => {
+    Animated.spring(reportsAnim, {
+      toValue: isReportsOpen ? 1 : 0,
+      tension: 65,
+      friction: 11,
+      useNativeDriver: true,
+    }).start();
+  }, [isReportsOpen]);
+
+  React.useEffect(() => {
     const backAction = () => {
+      if (isReportsOpen) {
+        setIsReportsOpen(false);
+        return true;
+      }
       if (isNotificationsOpen) {
         setIsNotificationsOpen(false);
         return true;
@@ -407,7 +425,7 @@ export default function TabLayout() {
     );
 
     return () => backHandler.remove();
-  }, [isDrawerOpen, isNotificationsOpen]);
+  }, [isDrawerOpen, isNotificationsOpen, isReportsOpen]);
 
   const drawerWidth = Math.min(screenWidth * 0.8, 320);
   const notificationsWidth = Math.min(screenWidth, 400);
@@ -433,8 +451,17 @@ export default function TabLayout() {
     outputRange: [screenWidth, screenWidth - notificationsWidth],
   });
 
+  const reportsTranslateX = reportsAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [screenWidth, 0],
+  });
+
   const handleNavigate = (path: string) => {
     setIsDrawerOpen(false);
+    if (path === "/reports") {
+      setTimeout(() => setIsReportsOpen(true), 200);
+      return;
+    }
     // Let drawer slide back before navigating
     setTimeout(() => {
       if (path === "/" || path === "/shifts" || path === "/analytics" || path === "/expenses" || path === "/more") {
@@ -460,24 +487,12 @@ export default function TabLayout() {
     return name.slice(0, 2).toUpperCase();
   }, [profile?.displayName]);
 
-  const activePlatformLabel = React.useMemo(() => {
-    if (activePlatformFilter === "all") return "All Platforms";
-    const cfg = PLATFORMS[activePlatformFilter as PlatformKey];
-    return cfg?.label ?? "Platform Filtered";
-  }, [activePlatformFilter]);
-
-  const activePlatformColor = React.useMemo(() => {
-    if (activePlatformFilter === "all") return "#ffffff";
-    const cfg = PLATFORMS[activePlatformFilter as PlatformKey];
-    return cfg?.color ?? "#ffffff";
-  }, [activePlatformFilter]);
-
   const DRAWER_ITEMS = React.useMemo(() => {
     const countryDef = getCountryDef(profile?.country || "CA");
     const items = [
       { label: "Dashboard", path: "/", icon: DashboardIcon },
       { label: "Shifts", path: "/shifts", icon: Clock },
-      { label: "Analytics", path: "/analytics", icon: AnalyticsIcon },
+      ...(isAnalyticsEnabled ? [{ label: "Analytics", path: "/analytics", icon: AnalyticsIcon }] : []),
       { label: "Expenses", path: "/expenses", icon: ExpensesIcon },
     ];
     if (isGoalsEnabled) {
@@ -519,111 +534,25 @@ export default function TabLayout() {
       >
         {/* Profile Info Section */}
         <View style={styles.profileSectionContainer}>
-          <View style={[styles.profileCard, { borderColor: "#1f1f1f", overflow: "hidden" }]}>
-            {/* Standard sleek dark background */}
-            <View style={StyleSheet.absoluteFill}>
-              <Svg width="100%" height="100%">
-                <Defs>
-                  <LinearGradient id="profileCardGrad" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0%" stopColor="#0d0d0d" />
-                    <Stop offset="100%" stopColor="#070707" />
-                  </LinearGradient>
-                </Defs>
-                <Rect width="100%" height="100%" fill="url(#profileCardGrad)" />
-              </Svg>
-            </View>
-
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12, zIndex: 1 }}>
-              <View style={[styles.avatar, { borderColor: accentColorMid, backgroundColor: accentColorDim }]}>
-                <Text style={[styles.avatarText, { color: accentColor }]}>{initials}</Text>
-              </View>
-              <View style={[styles.profileInfo, { flex: 1 }]}>
-                <Text style={styles.profileName} numberOfLines={1}>{profile?.displayName || "Driver"}</Text>
-                <Text style={styles.profileSub} numberOfLines={1}>
-                  {profile?.country || "US"} Standard • {activePlatformLabel}
-                </Text>
-              </View>
-            </View>
-
-
-            <View style={[styles.badgeRow, { zIndex: 1 }]}>
-              <View style={[styles.badgeDot, { backgroundColor: accentColor }]} />
-              <Text style={styles.badgeText}>VAULT MODE • OFFLINE SAFE</Text>
-            </View>
+          <Text style={styles.sidebarName} numberOfLines={1}>
+            {profile?.displayName || "Driver"}
+          </Text>
+          <View style={styles.sidebarPlatformRow}>
+            {(profile?.selectedPlatforms ?? [])
+              .filter((pid: string) => PLATFORM_LOGO_IDS.has(pid))
+              .slice(0, 6)
+              .map((pid: string) => {
+                const def = PLATFORM_REGISTRY[pid];
+                return (
+                  <View
+                    key={pid}
+                    style={[styles.sidebarPlatformPill, { backgroundColor: def?.color ? def.color + "22" : "#ffffff12", borderColor: def?.color ? def.color + "40" : "#ffffff20" }]}
+                  >
+                    <PlatformLogo id={pid} size={16} />
+                  </View>
+                );
+              })}
           </View>
-
-          {/* Dedicated Streak Card widget below profile card */}
-          {streakDays > 0 && (
-            <View
-              style={{
-                marginTop: 10,
-                borderRadius: 16,
-                borderWidth: 0.8,
-                borderColor: streakDays >= 5 ? "rgba(239, 68, 68, 0.4)" : "rgba(245, 158, 11, 0.3)",
-                overflow: "hidden",
-                padding: 12,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 12,
-              }}
-            >
-              {/* Top-to-Down Gradient Background */}
-              <View style={StyleSheet.absoluteFill}>
-                <Svg width="100%" height="100%">
-                  <Defs>
-                    <LinearGradient id="widgetStreakGrad" x1="0" y1="0" x2="0" y2="1">
-                      <Stop
-                        offset="0%"
-                        stopColor={streakDays >= 5 ? "#2d0e0b" : "#261a03"}
-                      />
-                      <Stop
-                        offset="100%"
-                        stopColor={streakDays >= 5 ? "#140403" : "#120c02"}
-                      />
-                    </LinearGradient>
-                  </Defs>
-                  <Rect width="100%" height="100%" fill="url(#widgetStreakGrad)" />
-                </Svg>
-              </View>
-
-              <View
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: streakDays >= 5 ? "rgba(239, 68, 68, 0.2)" : "rgba(245, 158, 11, 0.15)",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  zIndex: 1,
-                }}
-              >
-                <Text style={{ fontSize: 18 }}>{streakDays >= 5 ? "🔥" : "🕯️"}</Text>
-              </View>
-
-              <View style={{ flex: 1, zIndex: 1 }}>
-                <Text style={{ fontSize: 13, fontWeight: "900", color: "#ffffff" }}>
-                  {streakDays} Day Streak!
-                </Text>
-                <Text style={{ fontSize: 10, fontWeight: "700", color: streakDays >= 5 ? "#fca5a5" : "#fcd34d", marginTop: 2 }}>
-                  {streakDays >= 5 ? "You are on fire!" : "Flame at risk — work today!"}
-                </Text>
-              </View>
-
-              <View
-                style={{
-                  backgroundColor: streakDays >= 5 ? "#ef4444" : "#f59e0b",
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderRadius: 8,
-                  zIndex: 1,
-                }}
-              >
-                <Text style={{ fontSize: 9, fontWeight: "900", color: "#000000" }}>
-                  {streakDays >= 5 ? "HOT" : "WARN"}
-                </Text>
-              </View>
-            </View>
-          )}
         </View>
 
         {/* Navigation Items */}
@@ -788,6 +717,22 @@ export default function TabLayout() {
         </ScrollView>
       </Animated.View>
 
+      {/* Reports Drawer - slides in from the right as a full-screen overlay */}
+      <Animated.View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 300,
+          transform: [{ translateX: reportsTranslateX }],
+          pointerEvents: isReportsOpen ? "auto" : "none",
+        }}
+      >
+        <ReportsScreen onClose={() => setIsReportsOpen(false)} />
+      </Animated.View>
+
       {/* Main Content Wrapper - Animates to the right */}
       <Animated.View
         {...panResponder.panHandlers}
@@ -927,62 +872,31 @@ const styles = StyleSheet.create({
 
   profileSectionContainer: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: 20,
+    paddingBottom: 12,
+    gap: 10,
   },
-  profileCard: {
-    backgroundColor: "#0d0d0d",
-    borderWidth: 0.8,
-    borderRadius: 16,
-    padding: 14,
-    flexDirection: "column",
-    gap: 12,
-  },
-  badgeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    paddingVertical: 5,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    alignSelf: "flex-start",
-  },
-  badgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  badgeText: {
-    fontSize: 9,
+  sidebarName: {
+    fontSize: 28,
     fontWeight: "800",
-    color: "#a1a1aa",
-    letterSpacing: 0.8,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderWidth: 1.5,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarText: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  profileInfo: {
-    flex: 1,
-  },
-  profileName: {
-    fontSize: 14,
-    fontWeight: "bold",
     color: "#ffffff",
+    letterSpacing: -0.5,
+    lineHeight: 36,
+    includeFontPadding: false,
   },
-  profileSub: {
-    fontSize: 11,
-    color: "#64748b",
+  sidebarPlatformRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  sidebarPlatformPill: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
   drawerScroll: {
     flex: 1,

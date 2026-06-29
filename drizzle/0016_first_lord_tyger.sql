@@ -1,0 +1,1 @@
+ALTER TABLE `expenses` ADD `deductible_pct` real DEFAULT 100 NOT NULL;

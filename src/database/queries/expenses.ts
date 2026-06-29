@@ -2,6 +2,7 @@ import { db } from "../client";
 import { expenses, merchants } from "../schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { Platform } from "react-native";
+import { getExpenseCategories, type ExpenseCategory } from "@/src/registry/expenseCategories";
 
 const isWeb = Platform.OS === "web";
 
@@ -78,23 +79,105 @@ export async function getExpensesByMonth(
 }
 
 export async function getExpenseYTDSummary(): Promise<{ deductible: number; nonDeductible: number }> {
+  const currentYear = new Date().getFullYear();
+
   if (isWeb) {
     const existing = localStorage.getItem("comma_expenses");
     if (!existing) return { deductible: 0, nonDeductible: 0 };
-    const list = JSON.parse(existing);
-    const currentYear = new Date().getFullYear();
-    const ytd = list.filter((e: any) => new Date(e.date).getFullYear() === currentYear);
-    const deductible = ytd.filter((e: any) => e.isDeductible).reduce((sum: number, e: any) => sum + e.amount, 0);
-    const nonDeductible = ytd.filter((e: any) => !e.isDeductible).reduce((sum: number, e: any) => sum + e.amount, 0);
+    const list: Array<{ date: string; amount: number; isDeductible: boolean; deductiblePct?: number }> = JSON.parse(existing);
+    const ytd = list.filter((e) => new Date(e.date).getFullYear() === currentYear);
+    const deductible = ytd
+      .filter((e) => e.isDeductible)
+      .reduce((sum, e) => sum + e.amount * ((e.deductiblePct ?? 100) / 100), 0);
+    const nonDeductible = ytd
+      .filter((e) => !e.isDeductible)
+      .reduce((sum, e) => sum + e.amount, 0);
     return { deductible, nonDeductible };
   }
 
-  const results = await db.select().from(expenses);
-  const currentYear = new Date().getFullYear();
-  const ytd = results.filter((e: any) => new Date(e.date).getFullYear() === currentYear);
-  const deductible = ytd.filter((e: any) => e.isDeductible).reduce((sum: number, e: any) => sum + e.amount, 0);
-  const nonDeductible = ytd.filter((e: any) => !e.isDeductible).reduce((sum: number, e: any) => sum + e.amount, 0);
-  return { deductible, nonDeductible };
+  const startOfYear = new Date(currentYear, 0, 1);
+  const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59, 999);
+
+  const rows = await db
+    .select({
+      deductible: sql<number>`COALESCE(SUM(CASE WHEN ${expenses.isDeductible} = 1 THEN ${expenses.amount} * ${expenses.deductiblePct} / 100.0 ELSE 0 END), 0)`,
+      nonDeductible: sql<number>`COALESCE(SUM(CASE WHEN ${expenses.isDeductible} = 0 THEN ${expenses.amount} ELSE 0 END), 0)`,
+    })
+    .from(expenses)
+    .where(and(gte(expenses.date, startOfYear), lte(expenses.date, endOfYear)));
+
+  return {
+    deductible: rows[0]?.deductible ?? 0,
+    nonDeductible: rows[0]?.nonDeductible ?? 0,
+  };
+}
+
+export interface TaxCodeSummaryRow {
+  taxCode: string;
+  taxCodeLabel: string;
+  totalSpend: number;
+  totalDeductible: number;
+  expenseCount: number;
+}
+
+export async function getExpensesByTaxCode(
+  year: number,
+  countryOrProfile: string,
+  customCategories: Array<Partial<ExpenseCategory> & { id: string; label: string; icon: string }> = []
+): Promise<TaxCodeSummaryRow[]> {
+  const categories = getExpenseCategories(countryOrProfile, customCategories);
+  const codeMap = new Map<string, { taxCode: string; taxCodeLabel: string }>();
+  for (const cat of categories) {
+    codeMap.set(cat.id, {
+      taxCode: cat.taxCode ?? "Other",
+      taxCodeLabel: cat.taxCodeLabel ?? "Other / Uncategorized",
+    });
+  }
+
+  const startOfYear = new Date(year, 0, 1);
+  const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
+
+  let rows: Array<{ category: string; amount: number; deductiblePct: number; isDeductible: boolean }>;
+
+  if (isWeb) {
+    const existing = localStorage.getItem("comma_expenses");
+    if (!existing) return [];
+    rows = (JSON.parse(existing) as Array<any>)
+      .filter((e) => new Date(e.date).getFullYear() === year && e.isDeductible)
+      .map((e) => ({
+        category: e.category as string,
+        amount: e.amount as number,
+        deductiblePct: (e.deductiblePct ?? 100) as number,
+        isDeductible: !!e.isDeductible,
+      }));
+  } else {
+    rows = await db
+      .select({
+        category: expenses.category,
+        amount: expenses.amount,
+        deductiblePct: expenses.deductiblePct,
+        isDeductible: expenses.isDeductible,
+      })
+      .from(expenses)
+      .where(and(gte(expenses.date, startOfYear), lte(expenses.date, endOfYear), eq(expenses.isDeductible, true)));
+  }
+
+  const grouped = new Map<string, TaxCodeSummaryRow>();
+  for (const row of rows) {
+    const meta = codeMap.get(row.category) ?? { taxCode: "Other", taxCodeLabel: "Other / Uncategorized" };
+    const key = meta.taxCode;
+    const deductibleAmount = row.amount * (row.deductiblePct / 100);
+
+    if (!grouped.has(key)) {
+      grouped.set(key, { taxCode: meta.taxCode, taxCodeLabel: meta.taxCodeLabel, totalSpend: 0, totalDeductible: 0, expenseCount: 0 });
+    }
+    const entry = grouped.get(key)!;
+    entry.totalSpend += row.amount;
+    entry.totalDeductible += deductibleAmount;
+    entry.expenseCount += 1;
+  }
+
+  return Array.from(grouped.values()).sort((a, b) => a.taxCode.localeCompare(b.taxCode));
 }
 
 export async function insertExpense(payload: typeof expenses.$inferInsert): Promise<void> {

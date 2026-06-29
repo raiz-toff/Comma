@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "../src/components/ui/text";
 import { useSettingsStore, type DriverProfile, type VehicleDraft } from "../store/useSettingsStore";
 import { getCountryDef } from "../src/registry/countries/index";
-import { type PersonaKey } from "../src/registry/personas";
+import { type OperationalModelId } from "../src/registry/index";
 import {
   WelcomeScreen,
   PersonaStep,
@@ -20,11 +20,11 @@ import {
 import DevGPSTestScreen from "./DevGPSTestScreen";
 type WorkType = "delivery" | "business" | "contractor" | "mileage";
 
-const WORK_TYPE_TO_PERSONA: Record<WorkType, PersonaKey> = {
-  delivery: "platform_driver",
-  business: "business_driver",
-  contractor: "contractor",
-  mileage: "mileage_tracker",
+const WORK_TYPE_TO_OPERATIONAL_MODEL: Record<WorkType, OperationalModelId> = {
+  delivery: "delivery_fixed",
+  business: "rideshare_metered",
+  contractor: "delivery_negotiated",
+  mileage: "parcel_route",
 };
 
 const TOTAL_STEPS = 8;
@@ -111,27 +111,17 @@ export default function OnboardingWizard() {
 
   const buildProfile = (): DriverProfile => {
     const countryDef = getCountryDef(country);
-    const persona = WORK_TYPE_TO_PERSONA[workType];
+    const operationalModelId = WORK_TYPE_TO_OPERATIONAL_MODEL[workType];
     const weekly = Number(weeklyGoal) || 500;
-
-    const platforms =
-      workType === "delivery"
-        ? selectedPlatforms
-        : workType === "business"
-        ? []
-        : workType === "contractor"
-        ? []
-        : [];
 
     return {
       displayName: displayName.trim() || "Driver",
       country,
       taxRegion,
-      persona,
-      transportType: persona === "platform_driver" ? "both" : undefined,
+      operationalModelId,
       avatarType: "emoji",
       avatarData: "🚗",
-      selectedPlatforms: platforms,
+      selectedPlatforms: workType === "delivery" ? selectedPlatforms : [],
       workSchedulePreset: "flexible",
       weeklyGoal: weekly,
       monthlyGoal: Math.round(weekly * 4.33),
@@ -164,8 +154,7 @@ export default function OnboardingWizard() {
       displayName: "Jane Doe",
       country: "CA",
       taxRegion: "ON",
-      persona: "platform_driver",
-      transportType: "both",
+      operationalModelId: "delivery_fixed",
       avatarType: "emoji",
       avatarData: "🚗",
       selectedPlatforms: ["doordash", "ubereats", "skip"],

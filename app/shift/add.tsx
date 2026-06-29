@@ -13,7 +13,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams, Stack } from "expo-router";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { DatePickerModal } from "../../src/components/ui/DatePickerModal";
+import { TimePickerModal } from "../../src/components/ui/TimePickerModal";
 import { Button } from "../../src/components/ui/button";
 import { Text } from "../../src/components/ui/text";
 import { PlatformBadge } from "../../src/components/ui/PlatformBadge";
@@ -791,40 +792,24 @@ export default function AddShiftModal() {
                 </View>
               </View>
 
-              {/* Native DateTimePickers */}
-              {showDatePicker && (
-                <DateTimePicker
-                  value={date}
-                  mode="date"
-                  display="default"
-                  onChange={(event, selectedDate) => {
-                    setShowDatePicker(false);
-                    if (selectedDate) setDate(selectedDate);
-                  }}
-                />
-              )}
-              {showStartTimePicker && (
-                <DateTimePicker
-                  value={startTime}
-                  mode="time"
-                  display="default"
-                  onChange={(event, selectedTime) => {
-                    setShowStartTimePicker(false);
-                    if (selectedTime) setStartTime(selectedTime);
-                  }}
-                />
-              )}
-              {showEndTimePicker && (
-                <DateTimePicker
-                  value={endTime}
-                  mode="time"
-                  display="default"
-                  onChange={(event, selectedTime) => {
-                    setShowEndTimePicker(false);
-                    if (selectedTime) setEndTime(selectedTime);
-                  }}
-                />
-              )}
+              <DatePickerModal
+                visible={showDatePicker}
+                value={date}
+                onChange={setDate}
+                onClose={() => setShowDatePicker(false)}
+              />
+              <TimePickerModal
+                visible={showStartTimePicker}
+                value={startTime}
+                onChange={setStartTime}
+                onClose={() => setShowStartTimePicker(false)}
+              />
+              <TimePickerModal
+                visible={showEndTimePicker}
+                value={endTime}
+                onChange={setEndTime}
+                onClose={() => setShowEndTimePicker(false)}
+              />
             </View>
           )}
 

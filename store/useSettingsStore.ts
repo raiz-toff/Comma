@@ -10,7 +10,7 @@ import { getPlatformsByCountry } from "../src/registry/platforms";
 import { type ExpenseCategory } from "../src/registry/expenseCategories";
 import { getCountryDef, type CountryDef, resolveProvinceDef, type ProvinceDef, getMileagePresetRate } from "../src/registry/countries/index";
 import { getMarketContext, type MarketContext } from "../src/registry/market/resolve";
-import { type PersonaKey, type FeatureKey, PERSONAS, getWithholdingPresetPct } from "../src/registry/index";
+import { type FeatureKey, type OperationalModelId, getWithholdingPresetPct } from "../src/registry/index";
 import {
   GamificationService,
   type Challenge,
@@ -52,8 +52,7 @@ export interface DriverProfile {
   hstRegistered: boolean;
   distanceUnit: "km" | "mi";
   theme: "light" | "dark" | "auto";
-  persona?: PersonaKey; // set during onboarding, default 'platform_driver'
-  transportType?: 'passengers' | 'delivery' | 'both';
+  operationalModelId?: OperationalModelId; // set during onboarding, default 'delivery_fixed'
   customCategories?: ExpenseCategory[];
   bentoLayout?: string;
   locale?: {
@@ -164,8 +163,7 @@ const DEFAULT_PROFILE: DriverProfile = {
   hstRegistered: false,
   distanceUnit: "km",
   theme: "dark",
-  persona: "platform_driver" as PersonaKey,
-  transportType: "both",
+  operationalModelId: "delivery_fixed" as OperationalModelId,
   customCategories: [],
   locale: {
     currency: "CAD",
@@ -246,13 +244,13 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         const rawDemoMode = localStorage.getItem("comma_demo_mode");
         const rawAppConfig = localStorage.getItem("comma_app_config");
 
-        let appConfig = { persona: 'gig_worker' as PersonaKey, country: 'CA', featureOverrides: {} as Partial<Record<FeatureKey, boolean>> };
+        let appConfig = { operationalModelId: 'delivery_fixed' as OperationalModelId, country: 'CA', featureOverrides: {} as Partial<Record<FeatureKey, boolean>> };
         if (rawAppConfig) {
           try {
             appConfig = JSON.parse(rawAppConfig);
           } catch {}
         }
-        
+
         if (rawCompleted !== "true") {
           // Onboarding not completed — show the onboarding wizard gate.
           // The dashboard (app/(tabs)/index.tsx) will render <OnboardingWizard />
@@ -269,16 +267,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
         
         const loadedProfile: DriverProfile = rawProfile ? { ...DEFAULT_PROFILE, ...JSON.parse(rawProfile) } : DEFAULT_PROFILE;
-        
-        // Data Migration / Collapse
-        const loadedPers = loadedProfile.persona as string;
-        if (loadedPers === 'gig_worker' || loadedPers === 'rideshare' || loadedPers === 'platform_driver') {
-          if (!loadedProfile.transportType) {
-            loadedProfile.transportType = loadedPers === 'rideshare' ? 'passengers' : 'delivery';
-          }
-          loadedProfile.persona = 'platform_driver';
-        } else {
-          loadedProfile.persona = appConfig.persona || loadedProfile.persona || 'platform_driver';
+
+        // Data migration: collapse old persona field to operationalModelId
+        if (!(loadedProfile as any).operationalModelId) {
+          loadedProfile.operationalModelId = appConfig.operationalModelId || 'delivery_fixed';
         }
         
         const activeCountry = loadedProfile.country || "CA";
@@ -326,7 +318,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       const pvid = st["preferred_vehicle_id"] || null;
       const onboardingCompleted = st["onboarding_completed"] === "true";
 
-      let appConfig = { persona: 'gig_worker' as PersonaKey, country: 'CA', featureOverrides: {} as Partial<Record<FeatureKey, boolean>> };
+      let appConfig = { operationalModelId: 'delivery_fixed' as OperationalModelId, country: 'CA', featureOverrides: {} as Partial<Record<FeatureKey, boolean>> };
       if (appConfigStr) {
         try {
           appConfig = JSON.parse(appConfigStr);
@@ -358,15 +350,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         }
       }
 
-      // Data Migration / Collapse
-      const nextPers = nextProfile.persona as string;
-      if (nextPers === 'gig_worker' || nextPers === 'rideshare' || nextPers === 'platform_driver') {
-        if (!nextProfile.transportType) {
-          nextProfile.transportType = nextPers === 'rideshare' ? 'passengers' : 'delivery';
-        }
-        nextProfile.persona = 'platform_driver';
-      } else {
-        nextProfile.persona = appConfig.persona || nextProfile.persona || 'platform_driver';
+      // Data migration: collapse old persona field to operationalModelId
+      if (!(nextProfile as any).operationalModelId) {
+        nextProfile.operationalModelId = appConfig.operationalModelId || 'delivery_fixed';
       }
       
       const activeCountry = nextProfile.country || "CA";
@@ -460,7 +446,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
 
     const appConfig = {
-      persona: finalProfile.persona || 'platform_driver' as PersonaKey,
+      operationalModelId: finalProfile.operationalModelId || 'delivery_fixed' as OperationalModelId,
       country: finalProfile.country || 'CA',
       featureOverrides: {} as Partial<Record<FeatureKey, boolean>>,
     };
@@ -584,39 +570,39 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         });
       }
 
-      // Insert goals from profile
+      // Upsert goals from profile — stable IDs prevent duplicates on re-runs
       if (finalProfile.weeklyGoal > 0) {
         await db.insert(goals).values({
-          id: "goal_weekly_" + Date.now(),
+          id: "goal_weekly",
           label: "Weekly Revenue Goal",
           targetValue: finalProfile.weeklyGoal,
           unit: "currency",
           period: "weekly",
           isActive: true,
           createdAt: new Date(),
-        });
+        }).onConflictDoUpdate({ target: goals.id, set: { targetValue: finalProfile.weeklyGoal, isActive: true } });
       }
       if (finalProfile.monthlyGoal > 0) {
         await db.insert(goals).values({
-          id: "goal_monthly_" + (Date.now() + 1),
+          id: "goal_monthly",
           label: "Monthly Revenue Goal",
           targetValue: finalProfile.monthlyGoal,
           unit: "currency",
           period: "monthly",
           isActive: true,
           createdAt: new Date(),
-        });
+        }).onConflictDoUpdate({ target: goals.id, set: { targetValue: finalProfile.monthlyGoal, isActive: true } });
       }
       if (finalProfile.annualGoal > 0) {
         await db.insert(goals).values({
-          id: "goal_yearly_" + (Date.now() + 2),
+          id: "goal_yearly",
           label: "Yearly Revenue Goal",
           targetValue: finalProfile.annualGoal,
           unit: "currency",
           period: "yearly",
           isActive: true,
           createdAt: new Date(),
-        });
+        }).onConflictDoUpdate({ target: goals.id, set: { targetValue: finalProfile.annualGoal, isActive: true } });
       }
 
       const localeDefs = syncLocaleDefsFromProfile(finalProfile);
@@ -709,7 +695,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     // Persist
     const profileJson = JSON.stringify(updated);
     const appConfig = {
-      persona: updated.persona || 'platform_driver' as PersonaKey,
+      operationalModelId: updated.operationalModelId || 'delivery_fixed' as OperationalModelId,
       country: updated.country || 'CA',
       featureOverrides: get().featureOverrides || {},
     };
@@ -739,20 +725,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const currentOverrides = get().featureOverrides || {};
     const updatedOverrides = { ...currentOverrides, [key]: val };
 
-    const profile = get().profile;
-    const personaKey = profile.persona || 'platform_driver';
-    const personaDef = PERSONAS[personaKey];
-    if (personaDef) {
-      const defaultVal = personaDef.defaultFeatures[key];
-      if (defaultVal === val) {
-        delete updatedOverrides[key];
-      }
-    }
-
     set({ featureOverrides: updatedOverrides });
 
+    const profile = get().profile;
     const appConfig = {
-      persona: profile.persona || 'platform_driver' as PersonaKey,
+      operationalModelId: profile.operationalModelId || 'delivery_fixed' as OperationalModelId,
       country: profile.country || 'CA',
       featureOverrides: updatedOverrides,
     };
@@ -845,7 +822,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         hstRegistered: false,
         distanceUnit: "km" as const,
         theme: "dark" as const,
-        persona: "gig_worker" as PersonaKey,
+        operationalModelId: "delivery_fixed" as OperationalModelId,
       };
       localStorage.setItem("comma_profile", JSON.stringify(finalProfile));
 
@@ -949,7 +926,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
       localStorage.setItem("comma_shifts", JSON.stringify(demoShifts));
       localStorage.setItem("comma_expenses", JSON.stringify(demoExpenses));
-
+      localStorage.setItem("comma_goals", JSON.stringify([
+        { id: "goal_weekly", label: "Weekly Revenue Goal", targetValue: 500, unit: "currency", period: "weekly", isActive: true, createdAt: new Date().toISOString() },
+        { id: "goal_monthly", label: "Monthly Revenue Goal", targetValue: 2165, unit: "currency", period: "monthly", isActive: true, createdAt: new Date().toISOString() },
+        { id: "goal_yearly", label: "Yearly Revenue Goal", targetValue: 26000, unit: "currency", period: "yearly", isActive: true, createdAt: new Date().toISOString() },
+      ]));
 
       set({
         isOnboardingCompleted: true,
@@ -1103,6 +1084,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         await db.insert(expenses).values(e);
       }
 
+      await db.delete(goals);
+      await db.insert(goals).values([
+        { id: "goal_weekly", label: "Weekly Revenue Goal", targetValue: 500, unit: "currency", period: "weekly", isActive: true, createdAt: new Date() },
+        { id: "goal_monthly", label: "Monthly Revenue Goal", targetValue: 2165, unit: "currency", period: "monthly", isActive: true, createdAt: new Date() },
+        { id: "goal_yearly", label: "Yearly Revenue Goal", targetValue: 26000, unit: "currency", period: "yearly", isActive: true, createdAt: new Date() },
+      ]);
 
       await get().loadSettings();
       await get().evaluateGamification();

@@ -28,7 +28,7 @@ import { db } from "@/src/database/client";
 import { settings } from "@/src/database/schema";
 import { eq } from "drizzle-orm";
 import { ChevronLeft, ChevronRight, Trash2, Bell, Clock } from "lucide-react-native";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { TimePickerModal } from "@/src/components/ui/TimePickerModal";
 
 const isWeb = Platform.OS === "web";
 
@@ -181,35 +181,6 @@ export default function ScheduleScreen() {
     return d;
   };
 
-  const onPickerChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === "android") {
-      setShowPickerType(null);
-    }
-
-    if (event.type === "dismissed") {
-      setShowPickerType(null);
-      return;
-    }
-
-    if (selectedDate) {
-      const h = selectedDate.getHours();
-      const m = selectedDate.getMinutes();
-      const padH = h < 10 ? `0${h}` : `${h}`;
-      const padM = m < 10 ? `0${m}` : `${m}`;
-      const time24 = `${padH}:${padM}`;
-
-      const displayVal = formatTimeForDisplay(time24);
-      if (showPickerType === "start") {
-        setPlanStart(displayVal);
-      } else if (showPickerType === "end") {
-        setPlanEnd(displayVal);
-      }
-    }
-
-    if (Platform.OS !== "ios") {
-      setShowPickerType(null);
-    }
-  };
 
   // Sync initial input value formatting with user settings preference
   useEffect(() => {
@@ -1285,43 +1256,21 @@ export default function ScheduleScreen() {
         </View>
       )}
 
-      {/* iOS Time Picker Modal */}
-      {Platform.OS === "ios" && showPickerType && (
-        <Modal transparent animationType="fade" visible={!!showPickerType}>
-          <View style={s.modalOverlay}>
-            <View style={s.iosPickerContainer}>
-              <View style={s.iosPickerHeader}>
-                <Text style={s.iosPickerTitle}>
-                  Select {showPickerType === "start" ? "Start Time" : "End Time"}
-                </Text>
-                <TouchableOpacity onPress={() => setShowPickerType(null)}>
-                  <Text style={s.iosPickerDone}>Done</Text>
-                </TouchableOpacity>
-              </View>
-              <DateTimePicker
-                value={showPickerType === "start" ? parseStringToDate(planStart, 17) : parseStringToDate(planEnd, 21)}
-                mode="time"
-                is24Hour={profile?.locale?.timeFormat !== "12h"}
-                display="spinner"
-                onChange={onPickerChange}
-                textColor="#ffffff"
-                style={{ height: 200 }}
-              />
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      {/* Android Time Picker */}
-      {Platform.OS === "android" && showPickerType && (
-        <DateTimePicker
-          value={showPickerType === "start" ? parseStringToDate(planStart, 17) : parseStringToDate(planEnd, 21)}
-          mode="time"
-          is24Hour={profile?.locale?.timeFormat !== "12h"}
-          display="default"
-          onChange={onPickerChange}
-        />
-      )}
+      <TimePickerModal
+        visible={!!showPickerType}
+        value={showPickerType === "start" ? parseStringToDate(planStart, 17) : parseStringToDate(planEnd, 21)}
+        is24Hour={profile?.locale?.timeFormat !== "12h"}
+        onChange={(d) => {
+          const h = d.getHours();
+          const m = d.getMinutes();
+          const padH = h < 10 ? `0${h}` : `${h}`;
+          const padM = m < 10 ? `0${m}` : `${m}`;
+          const displayVal = formatTimeForDisplay(`${padH}:${padM}`);
+          if (showPickerType === "start") setPlanStart(displayVal);
+          else if (showPickerType === "end") setPlanEnd(displayVal);
+        }}
+        onClose={() => setShowPickerType(null)}
+      />
     </SafeAreaView>
   );
 }

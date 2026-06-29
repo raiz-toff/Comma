@@ -8,4 +8,5 @@ export const IL: ProvinceDef = {
   isHarmonized: false,
   bannedPlatforms: ["lyft","uber"],
   withholdingPct: 25,
+  incomeTaxRate: 0.049, // IL flat rate 4.95%
 };

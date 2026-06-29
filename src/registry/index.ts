@@ -56,17 +56,12 @@ export {
   type RevenueFieldDef,
 } from "./operationalModels/index";
 
-// ── Personas, Vocabulary, and Modules ──────────────────────────────────────────
-export {
-  type PersonaKey,
-  type PersonaConfig,
-  PERSONAS,
-} from "./personas";
-
+// ── Vocabulary shape (used by country vocabularyOverrides) ────────────────────
 export {
   type VocabularyKey,
 } from "./vocabulary";
 
+// ── Feature modules ───────────────────────────────────────────────────────────
 export {
   type FeatureKey,
   type FeatureModule,

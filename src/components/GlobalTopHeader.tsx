@@ -9,83 +9,27 @@ import {
   PanResponder,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, usePathname } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { getVehicles } from "@/src/database/queries/vehicles";
 import { useSettingsStore } from "@/store/useSettingsStore";
-import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
+import { PLATFORMS, PLATFORM_REGISTRY, type PlatformKey } from "@/src/registry/platforms";
 import { blendColors } from "../hooks/usePlatformTheme";
 import { Bell, Menu, ChevronDown, ChevronUp } from "lucide-react-native";
 import Svg, { Path, Circle, Rect } from "react-native-svg";
 
 // ── Platform SVG logos (exact PWA brand assets) ────────────────────────────
+export const PLATFORM_LOGO_IDS = new Set(
+  Object.values(PLATFORM_REGISTRY)
+    .filter((p) => !!p.logo)
+    .map((p) => p.id)
+);
+
+/** Renders a platform's SVG logo from the registry. Returns null if no logo is registered. */
 export const PlatformLogo = ({ id, size = 14 }: { id: string; size?: number }) => {
-  switch (id) {
-    case "doordash":
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <Path
-            d="M23.071 8.409a6.09 6.09 0 0 0-5.396-3.228H.584A.589.589 0 0 0 .17 6.184L3.894 9.93a1.752 1.752 0 0 0 1.242.516h12.049a1.554 1.554 0 1 1 .031 3.108H8.91a.589.589 0 0 0-.415 1.003l3.725 3.747a1.75 1.75 0 0 0 1.242.516h3.757c4.887 0 8.584-5.225 5.852-10.413"
-            fill="#FF3008"
-          />
-        </Svg>
-      );
-    case "ubereats":
-      return (
-        <Svg width={size} height={size} viewBox="0 0 192 192" fill="none">
-          <Path d="M20 41.85v31.73c.77 8.11 8.14 14.41 16.88 14.52 8.91.12 16.58-6.25 17.36-14.52V41.85" stroke="#06C167" strokeLinecap="round" strokeLinejoin="round" strokeWidth={8} />
-          <Path d="M54.24 88.11V55.2m13.84 32.91V41.85" stroke="#06C167" strokeLinecap="round" strokeMiterlimit={10} strokeWidth={8} />
-          <Circle cx={84.53} cy={71.66} r={16.45} stroke="#06C167" strokeLinecap="round" strokeMiterlimit={10} strokeWidth={8} />
-          <Path d="M142.57 82.97c-3 3.17-7.24 5.14-11.95 5.14-9.09 0-16.45-7.37-16.45-16.45s7.37-16.45 16.45-16.45 16.45 7.37 16.45 16.45h-32.9" stroke="#06C167" strokeLinecap="round" strokeLinejoin="round" strokeWidth={8} />
-          <Path d="M160.22 88.11V56.96m11.78 0h0c-1.9 0-3.77.45-5.45 1.32-2.73 1.42-6.33 3.97-6.33 7.51" stroke="#06C167" strokeLinecap="round" strokeMiterlimit={10} strokeWidth={8} />
-        </Svg>
-      );
-    case "instacart":
-      return (
-        <Svg width={size} height={size} viewBox="0 0 32 32">
-          <Path
-            d="M20.839 12.823c1.896 1.906 3.443 5.026 2.557 6.87-2.37 4.953-20.052 13.635-21.557 12.135-1.5-1.5 7.188-19.193 12.135-21.568 1.849-.88 4.964.682 6.87 2.563l-.005.021zM30.208 10.74c-.307-1.141-1.094-2.292-2.266-2.427-2.146-.25-5.536 3.547-5.297 4.448.245.922 5.026 2.5 6.802 1.224.922-.661 1.042-2.083.74-3.219zM23.552.208c1.599.432 3.214 1.531 3.406 3.177.344 3.016-4.979 7.76-6.245 7.422-1.26-.339-3.49-7.047-1.688-9.552.927-1.297 2.932-1.474 4.531-1.052v.005z"
-            fill="#0AAD0A"
-          />
-        </Svg>
-      );
-    case "skip":
-      return (
-        <Svg width={size} height={size} viewBox="0 0 20 20">
-          <Rect width={20} height={20} rx={4} fill="#ED5A1F" />
-          <Path d="M6 6h8v2H9v2h4v2H9v4H6V6z" fill="#FFFFFF" />
-        </Svg>
-      );
-    case "amazonflex":
-    case "amazon":
-      return (
-        <Svg width={size} height={size} viewBox="0 0 20 20">
-          <Rect width={20} height={20} rx={4} fill="#232F3E" />
-          <Path d="M5 14V6h2l2.5 5 2.5-5h2v8h-2V9.5L9 14H8L6 9.5V14H5z" fill="#FF9900" />
-        </Svg>
-      );
-    case "foodora":
-      return (
-        <Svg width={size} height={size} viewBox="0 0 20 20">
-          <Rect width={20} height={20} rx={4} fill="#D8003F" />
-          <Path d="M7 5h6v2H9v2h3v2H9v4H7V5z" fill="#FFFFFF" />
-        </Svg>
-      );
-    case "lyft":
-      return (
-        <Svg width={size} height={size} viewBox="0 0 20 20">
-          <Rect width={20} height={20} rx={4} fill="#FF00BF" />
-          <Path d="M7 5v8c0 1.1.9 2 2 2h4v-2H9V5H7z" fill="#FFFFFF" />
-        </Svg>
-      );
-    default:
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-          <Rect x={2} y={7} width={20} height={14} rx={2} ry={2} />
-          <Path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-        </Svg>
-      );
-  }
+  const Logo = PLATFORM_REGISTRY[id]?.logo;
+  if (!Logo) return null;
+  return <Logo size={size} />;
 };
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -97,6 +41,8 @@ interface GlobalTopHeaderProps {
 export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: GlobalTopHeaderProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const pathname = usePathname();
+  const isTaxTab = pathname === "/tax";
   const {
     profile,
     activePlatformFilter,
@@ -346,7 +292,7 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
   });
 
   return (
-    <Animated.View style={[styles.container, { paddingTop: Math.max(insets.top, 8), transform: [{ translateY: headerTranslateY }] }]}>
+    <Animated.View style={[styles.container, { paddingTop: Math.max(insets.top, 8), transform: [{ translateY: headerTranslateY }] }]} pointerEvents={isTaxTab ? "box-none" : "auto"}>
       {/* ── Backdrop for closing switcher when clicked outside ── */}
       {showDropdown && (
         <Animated.View
@@ -368,7 +314,7 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
       )}
 
       {/* ── Main header row ── */}
-      <View style={styles.headerRow}>
+      <View style={styles.headerRow} pointerEvents={isTaxTab ? "box-none" : "auto"}>
         {/* Hamburger Menu Button (Pill 1) */}
         <Pressable
           style={styles.hamburgerBtn}
@@ -377,8 +323,8 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
           <Menu size={22} color="#94a3b8" strokeWidth={2} />
         </Pressable>
 
-        {/* Centre: collapsed platform switcher trigger (Pill 2) */}
-        <Pressable
+        {/* Centre: collapsed platform switcher trigger (Pill 2) — hidden on tax tab */}
+        {!isTaxTab && <Pressable
           style={[styles.filterPill, { borderColor: borderPillColor }]}
           onPress={handleToggleExpand}
           {...pillPanResponder.panHandlers}
@@ -438,18 +384,20 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
             ? <ChevronUp size={16} color="#94a3b8" strokeWidth={2.5} style={{ marginLeft: 2 }} />
             : <ChevronDown size={16} color="#94a3b8" strokeWidth={2.5} style={{ marginLeft: 2 }} />
           }
-        </Pressable>
+        </Pressable>}
 
-        {/* Right notification button (Pill 3) */}
-        <View style={styles.rightIcons}>
-          <Pressable style={styles.iconBtn} onPress={onNotificationsPress || (() => router.push("/notifications"))}>
-            <Bell size={20} color="#ffffff" strokeWidth={2} />
-          </Pressable>
-        </View>
+        {/* Right notification button (Pill 3) — hidden on tax tab */}
+        {!isTaxTab && (
+          <View style={styles.rightIcons}>
+            <Pressable style={styles.iconBtn} onPress={onNotificationsPress || (() => router.push("/notifications"))}>
+              <Bell size={20} color="#ffffff" strokeWidth={2} />
+            </Pressable>
+          </View>
+        )}
       </View>
 
-      {/* ── Expanded platform + vehicle picker ── */}
-      {showDropdown && (
+      {/* ── Expanded platform + vehicle picker — hidden on tax tab ── */}
+      {showDropdown && !isTaxTab && (
         <Animated.View
           {...panelPanResponder.panHandlers}
           style={[

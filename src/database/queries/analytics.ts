@@ -301,12 +301,12 @@ export async function getEarningsByDay(
 
   const rows = await db
     .select({
-      date: sql<string>`strftime('%Y-%m-%d', datetime(${shifts.startTime} / 1000, 'unixepoch'))`,
+      date: sql<string>`strftime('%Y-%m-%d', datetime(${shifts.startTime}, 'unixepoch'))`,
       total: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue}), 0)`,
     })
     .from(shifts)
     .where(gte(shifts.startTime, startDate))
-    .groupBy(sql`strftime('%Y-%m-%d', datetime(${shifts.startTime} / 1000, 'unixepoch'))`)
+    .groupBy(sql`strftime('%Y-%m-%d', datetime(${shifts.startTime}, 'unixepoch'))`)
     .orderBy(sql`1 ASC`);
 
   return rows;
@@ -365,12 +365,12 @@ export async function getEarningsByDayRange(
 
     const rows = await db
       .select({
-        date: sql<string>`strftime('%Y-%m-%d', datetime(${shifts.startTime} / 1000, 'unixepoch'))`,
+        date: sql<string>`strftime('%Y-%m-%d', datetime(${shifts.startTime}, 'unixepoch'))`,
         total: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue}), 0)`,
       })
       .from(shifts)
       .where(and(...conditions))
-      .groupBy(sql`strftime('%Y-%m-%d', datetime(${shifts.startTime} / 1000, 'unixepoch'))`)
+      .groupBy(sql`strftime('%Y-%m-%d', datetime(${shifts.startTime}, 'unixepoch'))`)
       .orderBy(sql`1 ASC`);
 
     for (const r of rows) {
@@ -457,12 +457,12 @@ export async function getBestDayOfWeek(
 
   const rows = await db
     .select({
-      day: sql<number>`CAST(strftime('%w', datetime(${shifts.startTime} / 1000, 'unixepoch')) AS INTEGER)`,
+      day: sql<number>`CAST(strftime('%w', datetime(${shifts.startTime}, 'unixepoch')) AS INTEGER)`,
       avgEarnings: sql<number>`AVG(${shifts.grossRevenue} + ${shifts.tipsRevenue})`,
     })
     .from(shifts)
     .where(and(...conditions))
-    .groupBy(sql`strftime('%w', datetime(${shifts.startTime} / 1000, 'unixepoch'))`);
+    .groupBy(sql`strftime('%w', datetime(${shifts.startTime}, 'unixepoch'))`);
 
   return DAY_LABELS.map((label, day) => {
     const found = rows.find((r: any) => r.day === day);
@@ -504,12 +504,12 @@ export async function getBestHourOfDay(
 
   const rows = await db
     .select({
-      hour: sql<number>`CAST(strftime('%H', datetime(${shifts.startTime} / 1000, 'unixepoch')) AS INTEGER)`,
+      hour: sql<number>`CAST(strftime('%H', datetime(${shifts.startTime}, 'unixepoch')) AS INTEGER)`,
       avgEarnings: sql<number>`AVG(${shifts.grossRevenue} + ${shifts.tipsRevenue})`,
     })
     .from(shifts)
     .where(and(...conditions))
-    .groupBy(sql`strftime('%H', datetime(${shifts.startTime} / 1000, 'unixepoch'))`);
+    .groupBy(sql`strftime('%H', datetime(${shifts.startTime}, 'unixepoch'))`);
 
   return Array.from({ length: 24 }, (_, h) => {
     const found = rows.find((r: any) => r.hour === h);
@@ -1048,6 +1048,51 @@ export async function getFinancialMonthlyBreakdown(
       effectivePerHr: totalsHours > 0 ? totalsNet / totalsHours : 0,
     },
   };
+}
+
+export async function getMonthlyStatsForYear(
+  year: number
+): Promise<{ monthIndex: number; gross: number; tips: number; count: number }[]> {
+  if (isWeb) {
+    try {
+      const existing = localStorage.getItem("comma_shifts");
+      if (!existing) return [];
+      const list = JSON.parse(existing).filter((s: any) => {
+        const d = new Date(s.startTime);
+        return d.getFullYear() === year;
+      });
+      const map: Record<number, { gross: number; tips: number; count: number }> = {};
+      list.forEach((s: any) => {
+        const m = new Date(s.startTime).getMonth();
+        if (!map[m]) map[m] = { gross: 0, tips: 0, count: 0 };
+        map[m].gross += Number(s.grossRevenue || 0);
+        map[m].tips += Number(s.tipsRevenue || 0);
+        map[m].count++;
+      });
+      return Object.entries(map).map(([monthIndex, v]) => ({
+        monthIndex: Number(monthIndex),
+        ...v,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  const yearStart = new Date(year, 0, 1, 0, 0, 0, 0);
+  const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999);
+
+  const rows = await db
+    .select({
+      monthIndex: sql<number>`CAST(strftime('%m', datetime(${shifts.startTime}, 'unixepoch')) AS INTEGER) - 1`,
+      gross: sql<number>`COALESCE(SUM(${shifts.grossRevenue}), 0)`,
+      tips: sql<number>`COALESCE(SUM(${shifts.tipsRevenue}), 0)`,
+      count: sql<number>`COUNT(${shifts.id})`,
+    })
+    .from(shifts)
+    .where(and(gte(shifts.startTime, yearStart), lte(shifts.startTime, yearEnd)))
+    .groupBy(sql`strftime('%m', datetime(${shifts.startTime}, 'unixepoch'))`);
+
+  return rows;
 }
 
 export async function getRolling30DayTrend(platform?: string): Promise<any> {

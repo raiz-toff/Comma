@@ -8,4 +8,5 @@ export const FL: ProvinceDef = {
   isHarmonized: false,
   bannedPlatforms: ["lyft","uber"],
   withholdingPct: 23,
+  incomeTaxRate: 0, // No state income tax
 };

@@ -23,7 +23,7 @@ import { useSettingsStore } from "../../store/useSettingsStore";
 import { parseRoutePath } from "../../utils/polyline";
 import { getVehicles } from "../../src/database/queries/vehicles";
 import OnboardingWizard from "../../components/OnboardingWizard";
-import { usePersonaVocabulary } from "../../hooks/usePersonaVocabulary";
+import { useVocabulary } from "../../src/hooks/useVocabulary";
 import { useFeatureEnabled } from "../../hooks/useFeatureEnabled";
 import {
   getTodayStats,
@@ -596,10 +596,8 @@ export default function HomeScreen() {
 
   const { accentColor, accentColorContrast, platformColor } = usePlatformTheme();
 
-  const vocab = usePersonaVocabulary();
+  const { t: vocab } = useVocabulary();
   const isGoalsEnabled = useFeatureEnabled("goals");
-  const isGamificationEnabled = useFeatureEnabled("gamification");
-  const isBusinessPersonalSplitEnabled = useFeatureEnabled("business_personal_split");
 
   const platformTextColor = React.useMemo(() => {
     if (!activePlatformFilter || activePlatformFilter === "all") return "#ffffff";
@@ -615,8 +613,6 @@ export default function HomeScreen() {
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [selectedPlatformId, setSelectedPlatformId] = useState<GigPlatform>("doordash");
   const [selectedPlatformIds, setSelectedPlatformIds] = useState<GigPlatform[]>(["doordash"]);
-  const [customPurpose, setCustomPurpose] = useState("Client Visit");
-  const [customClient, setCustomClient] = useState("");
   const [targetMode, setTargetMode] = useState(false);
   const [customHours, setCustomHours] = useState(2);
   const [customMinutes, setCustomMinutes] = useState(0);
@@ -679,15 +675,8 @@ export default function HomeScreen() {
   });
 
   const isFirstWizardStep = React.useMemo(() => {
-    const hasMultipleVehicles = vehicles && vehicles.length > 1;
-    const persona = profile?.persona ?? "platform_driver";
-    
-    if (persona === "mileage_tracker") {
-      if (hasMultipleVehicles) return wizardStep === "vehicle";
-      return wizardStep === "target";
-    }
     return wizardStep === "platform";
-  }, [wizardStep, vehicles, profile?.persona]);
+  }, [wizardStep]);
 
   const { data: todayStats } = useQuery({
     queryKey: ["analytics", "today", activePlatformFilter],
@@ -818,24 +807,13 @@ export default function HomeScreen() {
     setTargetMode(false);
     setCustomHours(2);
     setCustomMinutes(0);
-    setCustomClient("");
-    setCustomPurpose("Client Visit");
 
-    const persona = profile?.persona ?? "platform_driver";
     const hasMultipleVehicles = vehicles && vehicles.length > 1;
 
     const preferred = vehicles.find((v: any) => v.id === preferredVehicleId)?.id ?? vehicles[0]?.id;
     setSelectedVehicleId(preferred ?? "default_vehicle_1");
 
-    if (persona === "mileage_tracker") {
-      if (hasMultipleVehicles) {
-        setWizardStep("vehicle");
-      } else {
-        setWizardStep("target");
-      }
-    } else {
-      setWizardStep("platform");
-    }
+    setWizardStep("platform");
     setShowWizard(true);
   };
 
@@ -844,9 +822,7 @@ export default function HomeScreen() {
     const conversionFactor = unit === "mi" ? 1609.344 : 1000.0;
     const distanceConverted = 100.0 / conversionFactor;
     
-    const persona = profile?.persona ?? "platform_driver";
-    const isGig = persona === "platform_driver";
-    if (!isGig || isFirstOrderReceived) {
+    if (isFirstOrderReceived) {
       updateMileage(distanceConverted, 0);
     } else {
       updateMileage(0, distanceConverted);
@@ -854,14 +830,9 @@ export default function HomeScreen() {
   };
 
   const nextStep = () => {
-    const persona = profile?.persona ?? "platform_driver";
     const hasMultipleVehicles = vehicles && vehicles.length > 1;
 
     if (wizardStep === "platform") {
-      if (persona === "contractor" && !customClient.trim()) {
-        Alert.alert("Client required", "Please enter a client name to track this job.");
-        return;
-      }
       if (hasMultipleVehicles) {
         setWizardStep("vehicle");
       } else {
@@ -875,18 +846,13 @@ export default function HomeScreen() {
   };
 
   const prevStep = () => {
-    const persona = profile?.persona ?? "platform_driver";
     const hasMultipleVehicles = vehicles && vehicles.length > 1;
 
     if (wizardStep === "target") {
-      if (persona === "mileage_tracker") {
-        if (hasMultipleVehicles) setWizardStep("vehicle");
+      if (hasMultipleVehicles) {
+        setWizardStep("vehicle");
       } else {
-        if (hasMultipleVehicles) {
-          setWizardStep("vehicle");
-        } else {
-          setWizardStep("platform");
-        }
+        setWizardStep("platform");
       }
     } else if (wizardStep === "vehicle") {
       setWizardStep("platform");
@@ -903,15 +869,7 @@ export default function HomeScreen() {
     }
     const vId = selectedVehicleId || "default_vehicle_1";
     
-    const persona = profile?.persona ?? "platform_driver";
-    let finalPlatformValue = selectedPlatformIds.join(",");
-    if (persona === "business_driver") {
-      finalPlatformValue = customPurpose as GigPlatform;
-    } else if (persona === "contractor") {
-      finalPlatformValue = customClient.trim() as GigPlatform;
-    } else if (persona === "mileage_tracker") {
-      finalPlatformValue = "mileage" as GigPlatform;
-    }
+    const finalPlatformValue = selectedPlatformIds.join(",");
 
     reset(); // FORCE FRESH START
     await startShift(finalPlatformValue, vId, finalTargetTimeEpoch);
@@ -1014,33 +972,18 @@ export default function HomeScreen() {
           <HomeSkeleton />
         ) : (
           <>
-            {/* ── Today's Hero Card (Earnings or Mileage depending on Persona) ──────────────── */}
-            {profile?.persona === "mileage_tracker" ? (
-              <View style={{ backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", paddingVertical: 24, paddingHorizontal: 20, gap: 12 }}>
-                <Text style={{ fontSize: 12, fontWeight: "800", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.8 }}>
-                  TODAY · {vocab('active_miles').toUpperCase()}
-                </Text>
-                <Text style={{ fontSize: 40, fontWeight: "800", color: "#ffffff", letterSpacing: -1, lineHeight: 48 }}>
-                  {currentStats.miles.toFixed(1)}
-                  <Text style={{ fontSize: 24, fontWeight: "600", color: "#71717a" }}> {profile?.distanceUnit ?? "mi"}</Text>
-                </Text>
-                <Text style={{ fontSize: 13, color: "#71717a", fontWeight: "600" }}>
-                  {`${weeklyMiles.toFixed(1)} ${profile?.distanceUnit ?? "mi"} this week · ${weeklyShiftsCount} ${weeklyShiftsCount === 1 ? vocab('session') : vocab('session_plural')}`}
-                </Text>
-              </View>
-            ) : (
-              <View style={{ backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", paddingVertical: 24, paddingHorizontal: 20, gap: 12 }}>
-                <Text style={{ fontSize: 12, fontWeight: "800", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.8 }}>
-                  TODAY · NET
-                </Text>
-                <Text style={{ fontSize: 40, fontWeight: "800", color: "#ffffff", letterSpacing: -1, lineHeight: 48 }}>
-                  {fmt(netEarnings)}
-                </Text>
-                <Text style={{ fontSize: 13, color: "#71717a", fontWeight: "600" }}>
-                  {`${fmt(weeklyNet)} this week · ${weeklyShiftsCount} ${weeklyShiftsCount === 1 ? vocab('session') : vocab('session_plural')}`}
-                </Text>
-              </View>
-            )}
+            {/* ── Today's Hero Card ──────────────────────────────────────────── */}
+            <View style={{ backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", paddingVertical: 24, paddingHorizontal: 20, gap: 12 }}>
+              <Text style={{ fontSize: 12, fontWeight: "800", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.8 }}>
+                TODAY · NET
+              </Text>
+              <Text style={{ fontSize: 40, fontWeight: "800", color: "#ffffff", letterSpacing: -1, lineHeight: 48 }}>
+                {fmt(netEarnings)}
+              </Text>
+              <Text style={{ fontSize: 13, color: "#71717a", fontWeight: "600" }}>
+                {`${fmt(weeklyNet)} this week · ${weeklyShiftsCount} ${weeklyShiftsCount === 1 ? vocab('session') : vocab('session_plural')}`}
+              </Text>
+            </View>
 
             {/* ── 3-Column Stats Row ───────────────────────────────────────── */}
             <View style={{ flexDirection: "row", gap: 10, marginVertical: 4 }}>
@@ -1054,45 +997,25 @@ export default function HomeScreen() {
                 </Text>
               </View>
 
-              {/* Card 2: Main Metric (Distance / Write-off depending on Persona) */}
-              {profile?.persona === "mileage_tracker" ? (
-                <View style={{ flex: 1, backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
-                  <Text style={{ fontSize: 20, fontWeight: "800", color: "#ffffff", textAlign: "center" }}>
-                    {fmt(writeOff)}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "600", textAlign: "center" }}>Est. Write-off</Text>
-                </View>
-              ) : (
-                <View style={{ flex: 1, backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
-                  <Text style={{ fontSize: 20, fontWeight: "800", color: "#ffffff", textAlign: "center" }}>
-                    {currentStats.miles.toFixed(1)}{profile?.distanceUnit ?? "mi"}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "600", textAlign: "center" }}>Driven</Text>
-                </View>
-              )}
+              {/* Card 2: Distance */}
+              <View style={{ flex: 1, backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
+                <Text style={{ fontSize: 20, fontWeight: "800", color: "#ffffff", textAlign: "center" }}>
+                  {currentStats.miles.toFixed(1)}{profile?.distanceUnit ?? "km"}
+                </Text>
+                <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "600", textAlign: "center" }}>Driven</Text>
+              </View>
 
-              {/* Card 3: Auxiliary Metric (Rate / Trip Count depending on Persona) */}
-              {profile?.persona === "mileage_tracker" ? (
-                <View style={{ flex: 1, backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
-                  <Text style={{ fontSize: 20, fontWeight: "800", color: "#ffffff", textAlign: "center" }}>
-                    {currentStats.count}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "600", textAlign: "center" }}>
-                    {vocab('session_plural').charAt(0).toUpperCase() + vocab('session_plural').slice(1)}
-                  </Text>
-                </View>
-              ) : (
-                <View style={{ flex: 1, backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
-                  <Text style={{ fontSize: 20, fontWeight: "800", color: "#ffffff", textAlign: "center" }}>
-                    {fmt(currentStats.rate)}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "600", textAlign: "center" }}>Per hour</Text>
-                </View>
-              )}
+              {/* Card 3: Hourly rate */}
+              <View style={{ flex: 1, backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
+                <Text style={{ fontSize: 20, fontWeight: "800", color: "#ffffff", textAlign: "center" }}>
+                  {fmt(currentStats.rate)}
+                </Text>
+                <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "600", textAlign: "center" }}>Per hour</Text>
+              </View>
             </View>
 
             {/* ── Weekly Goal Progress Card ────────────────────────────────── */}
-            {weeklyGoals.slice(0, 1).map((g: any) => {
+            {isGoalsEnabled && weeklyGoals.slice(0, 1).map((g: any) => {
               const current = g.currentValue ?? 0;
               const target = g.targetValue ?? 1;
               const percent = Math.min(100, Math.round((current / target) * 100));
@@ -1165,13 +1088,7 @@ export default function HomeScreen() {
                       }}
                     >
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1, marginRight: 8 }}>
-                        {(profile?.persona === "platform_driver") ? (
-                          <PlatformBadge platform={shift.platform} size="md" />
-                        ) : (
-                          <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.05)", justifyContent: "center", alignItems: "center" }}>
-                            <Text style={{ fontSize: 14 }}>🚗</Text>
-                          </View>
-                        )}
+                        <PlatformBadge platform={shift.platform} size="md" />
                         <View style={{ gap: 2, flex: 1 }}>
                           <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }} numberOfLines={1}>
                             {PLATFORMS[shift.platform as GigPlatform] ? PLATFORMS[shift.platform as GigPlatform]?.label : (shift.platform || "Trip")}
@@ -1182,16 +1099,14 @@ export default function HomeScreen() {
                         </View>
                       </View>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                        {profile?.persona !== "mileage_tracker" && (
-                          <View style={{ alignItems: "flex-end", gap: 2 }}>
-                            <Text style={{ fontSize: 15, fontWeight: "800", color: accentColor }}>
-                              {new Intl.NumberFormat("en-US", { style: "currency", currency: profile?.locale?.currency || "USD" }).format(totalRevenue)}
-                            </Text>
-                            <Text style={{ fontSize: 11, color: "#52525b", fontWeight: "600" }}>
-                              {new Intl.NumberFormat("en-US", { style: "currency", currency: profile?.locale?.currency || "USD" }).format(totalRevenue / (shift.durationSeconds / 3600 || 1))}/hr
-                            </Text>
-                          </View>
-                        )}
+                        <View style={{ alignItems: "flex-end", gap: 2 }}>
+                          <Text style={{ fontSize: 15, fontWeight: "800", color: accentColor }}>
+                            {new Intl.NumberFormat("en-US", { style: "currency", currency: profile?.locale?.currency || "USD" }).format(totalRevenue)}
+                          </Text>
+                          <Text style={{ fontSize: 11, color: "#52525b", fontWeight: "600" }}>
+                            {new Intl.NumberFormat("en-US", { style: "currency", currency: profile?.locale?.currency || "USD" }).format(totalRevenue / (shift.durationSeconds / 3600 || 1))}/hr
+                          </Text>
+                        </View>
                         {shift.routePath && (
                           <RouteMinimap
                             routePathJson={shift.routePath}
@@ -1349,15 +1264,15 @@ export default function HomeScreen() {
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                   <Text style={{ fontSize: 11, fontWeight: "800", color: "#6b7280", textTransform: "uppercase" }}>Current Mileage</Text>
                   <View style={{
-                    backgroundColor: (profile?.persona === "platform_driver") ? (isFirstOrderReceived ? accentColor + "1a" : "rgba(245,158,11,.1)") : accentColor + "1a",
+                    backgroundColor: isFirstOrderReceived ? accentColor + "1a" : "rgba(245,158,11,.1)",
                     borderRadius: 4,
                     paddingHorizontal: 8,
                     paddingVertical: 3,
                     borderWidth: 0.5,
-                    borderColor: (profile?.persona === "platform_driver") ? (isFirstOrderReceived ? accentColor + "40" : "rgba(245,158,11,.25)") : accentColor + "40"
+                    borderColor: isFirstOrderReceived ? accentColor + "40" : "rgba(245,158,11,.25)"
                   }}>
-                    <Text style={{ fontSize: 9, fontWeight: "800", color: (profile?.persona === "platform_driver") ? (isFirstOrderReceived ? accentColor : "#f59e0b") : accentColor, textTransform: "uppercase" }}>
-                      {(profile?.persona === "platform_driver") ? (isFirstOrderReceived ? `${vocab('active_miles')} 🚀` : `${vocab('dead_miles')} 💀`) : `${vocab('active_miles')} 🚀`}
+                    <Text style={{ fontSize: 9, fontWeight: "800", color: isFirstOrderReceived ? accentColor : "#f59e0b", textTransform: "uppercase" }}>
+                      {isFirstOrderReceived ? `${vocab('active_miles')} 🚀` : `${vocab('dead_miles')} 💀`}
                     </Text>
                   </View>
                 </View>
@@ -1386,8 +1301,7 @@ export default function HomeScreen() {
                     }
                   </ScalePressable>
                   
-                  {(profile?.persona === "platform_driver") && (
-                    isFirstOrderReceived ? (
+                  {isFirstOrderReceived ? (
                       <View
                         style={[S.clockSecBtn, { flex: 1, borderColor: "#3f3f46", backgroundColor: "rgba(63, 63, 70, 0.2)", opacity: 0.8 }]}
                       >
@@ -1403,7 +1317,7 @@ export default function HomeScreen() {
                         <Text style={[S.clockSecBtnText, { color: accentColor }]}>Got First Order</Text>
                       </ScalePressable>
                     )
-                  )}
+                  }
                 </View>
               </View>
             </View>
@@ -1562,7 +1476,6 @@ export default function HomeScreen() {
                 {vehicles.map((v: any) => {
                   const icon = v.type === "ev" ? "⚡" : v.type === "bicycle" || v.type === "ebike" ? "🚲" : "🚗";
                   const sel = selectedVehicleId === v.id;
-                  const persona = profile?.persona ?? "platform_driver";
                   return (
                     <Pressable
                       key={v.id}
@@ -1586,96 +1499,56 @@ export default function HomeScreen() {
 
             {wizardStep === "platform" && (
               <View style={{ gap: 10 }}>
-                {(profile?.persona === "platform_driver") ? (
-                  <>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                      <Text style={[S.wizardLabel, { flex: 1, marginRight: 8 }]}>On which platform you are going to work today?</Text>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <Text style={[S.wizardLabel, { flex: 1, marginRight: 8 }]}>On which platform you are going to work today?</Text>
+                  <Pressable
+                    onPress={() => {
+                      const allPlats = profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"];
+                      setSelectedPlatformIds(allPlats as GigPlatform[]);
+                    }}
+                    style={{
+                      backgroundColor: selectedPlatformIds.length === (profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).length ? accentColor : "#1c1c1e",
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 8,
+                      borderWidth: 0.5,
+                      borderColor: "#333"
+                    }}
+                  >
+                    <Text style={{ color: selectedPlatformIds.length === (profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).length ? accentColorContrast : "#a1a1aa", fontSize: 11, fontWeight: "800" }}>All</Text>
+                  </Pressable>
+                </View>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  {(profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).map((pId: string) => {
+                    const pColor = PLATFORMS[pId as GigPlatform]?.color ?? "#6b7280";
+                    const sel = selectedPlatformIds.includes(pId as GigPlatform);
+                    return (
                       <Pressable
+                        key={pId}
                         onPress={() => {
-                          const allPlats = profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"];
-                          setSelectedPlatformIds(allPlats as GigPlatform[]);
+                          setSelectedPlatformIds((prev) => {
+                            if (prev.includes(pId as GigPlatform)) {
+                              if (prev.length <= 1) return prev;
+                              return prev.filter((x) => x !== pId);
+                            } else {
+                              return [...prev, pId as GigPlatform];
+                            }
+                          });
                         }}
-                        style={{
-                          backgroundColor: selectedPlatformIds.length === (profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).length ? accentColor : "#1c1c1e",
-                          paddingHorizontal: 12,
-                          paddingVertical: 6,
-                          borderRadius: 8,
-                          borderWidth: 0.5,
-                          borderColor: "#333"
-                        }}
+                        style={[
+                          S.wizardRow,
+                          { flex: 1, minWidth: "45%", justifyContent: "center", paddingVertical: 14, gap: 8 },
+                          sel && { borderColor: pColor, backgroundColor: "rgba(255,255,255,0.02)" }
+                        ]}
                       >
-                        <Text style={{ color: selectedPlatformIds.length === (profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).length ? accentColorContrast : "#a1a1aa", fontSize: 11, fontWeight: "800" }}>All</Text>
+                        <PlatformLogo id={pId} size={16} />
+                        <Text style={{ color: sel ? "#fff" : "#888", fontSize: 13, fontWeight: "700" }}>
+                          {PLATFORMS[pId as GigPlatform]?.label ?? pId}
+                        </Text>
                       </Pressable>
-                    </View>
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                      {(profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).map((pId: string) => {
-                        const pColor = PLATFORMS[pId as GigPlatform]?.color ?? "#6b7280";
-                        const sel = selectedPlatformIds.includes(pId as GigPlatform);
-                        return (
-                          <Pressable
-                            key={pId}
-                            onPress={() => {
-                              setSelectedPlatformIds((prev) => {
-                                if (prev.includes(pId as GigPlatform)) {
-                                  if (prev.length <= 1) return prev;
-                                  return prev.filter((x) => x !== pId);
-                                } else {
-                                  return [...prev, pId as GigPlatform];
-                                }
-                              });
-                            }}
-                            style={[
-                              S.wizardRow,
-                              { flex: 1, minWidth: "45%", justifyContent: "center", paddingVertical: 14, gap: 8 },
-                              sel && { borderColor: pColor, backgroundColor: "rgba(255,255,255,0.02)" }
-                            ]}
-                          >
-                            <PlatformLogo id={pId} size={16} />
-                            <Text style={{ color: sel ? "#fff" : "#888", fontSize: 13, fontWeight: "700" }}>
-                              {PLATFORMS[pId as GigPlatform]?.label ?? pId}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </>
-                ) : profile?.persona === "business_driver" ? (
-                  <>
-                    <Text style={S.wizardLabel}>Select Drive Purpose</Text>
-                    <View style={{ gap: 8 }}>
-                      {["Client Visit", "Site Survey", "Commute to Office", "Equipment Pick-up", "Other"].map((purpose) => {
-                        const sel = customPurpose === purpose;
-                        return (
-                          <Pressable
-                            key={purpose}
-                            onPress={() => {
-                              setCustomPurpose(purpose);
-                              if (vehicles && vehicles.length > 1) {
-                                setWizardStep("vehicle");
-                              } else {
-                                setWizardStep("target");
-                              }
-                            }}
-                            style={[S.wizardRow, sel && S.wizardRowSel, { paddingVertical: 14 }]}
-                          >
-                            <Text style={{ color: sel ? "#fff" : "#888", fontSize: 14, fontWeight: "700" }}>{purpose}</Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </>
-                ) : profile?.persona === "contractor" ? (
-                  <View style={{ gap: 8 }}>
-                    <Text style={S.wizardLabel}>Enter Client Name</Text>
-                    <TextInput
-                      value={customClient}
-                      onChangeText={setCustomClient}
-                      placeholder="e.g. Acme Corp, Jane Doe"
-                      placeholderTextColor="#52525b"
-                      style={S.wizardInputFull}
-                    />
-                  </View>
-                ) : null}
+                    );
+                  })}
+                </View>
               </View>
             )}
 

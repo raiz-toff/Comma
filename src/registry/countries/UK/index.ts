@@ -38,6 +38,7 @@ export const UK: CountryDef = {
     hstRateWhenRegistered: 0.20,
     calcCpp: false,
     calcSeTax: false,
+    calcNI: true,
     regionLabel: "region",
     secondaryEstimator: "none",
     footnote: "uk",

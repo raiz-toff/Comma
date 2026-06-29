@@ -10,6 +10,9 @@ export interface BadgeSweepStats {
   expenseCount: number;
   weekendShifts: number;
   streakCount: number;
+  totalActiveMileage: number;
+  platformShiftCounts: Record<string, number>;
+  weekShifts: number;
 }
 
 export interface BadgeDefinition {
@@ -25,6 +28,7 @@ export interface BadgeDefinition {
 }
 
 export const BADGES: BadgeDefinition[] = [
+  // ─── Milestone badges ────────────────────────────────────────────────────────
   {
     id: "first_shift",
     name: "First Shift",
@@ -60,26 +64,24 @@ export const BADGES: BadgeDefinition[] = [
   {
     id: "early_bird",
     name: "Early Bird",
-    description: "Complete a shift starting before 7am.",
+    description: "Complete a shift starting before 7 AM.",
     icon: "🌅",
     category: "milestone",
     checkFromShift: (ctx) => {
       if (!ctx.shift?.startTime) return false;
-      const start = new Date(ctx.shift.startTime);
-      const hour = start.getHours();
+      const hour = new Date(ctx.shift.startTime).getHours();
       return hour >= 3 && hour < 7;
     },
   },
   {
     id: "night_owl",
     name: "Night Owl",
-    description: "Complete a shift ending late (after 10 PM).",
+    description: "Complete a shift ending after 10 PM.",
     icon: "🦉",
     category: "milestone",
     checkFromShift: (ctx) => {
       if (!ctx.shift?.endTime) return false;
-      const end = new Date(ctx.shift.endTime);
-      const hour = end.getHours();
+      const hour = new Date(ctx.shift.endTime).getHours();
       return hour >= 22 || hour < 4;
     },
   },
@@ -89,25 +91,12 @@ export const BADGES: BadgeDefinition[] = [
     description: "Work a single shift over 8 hours.",
     icon: "⏱️",
     category: "milestone",
-    checkFromShift: (ctx) => {
-      const durSec = ctx.shift?.durationSeconds ?? 0;
-      return durSec >= 8 * 3600;
-    },
-  },
-  {
-    id: "multi_app_master",
-    name: "Multi-App",
-    description: "Log a multi-app shift.",
-    icon: "📱",
-    category: "milestone",
-    checkFromShift: (ctx) => {
-      return ctx.shift?.platform === "multiapp" || ctx.shift?.isMultiApp === true;
-    },
+    checkFromShift: (ctx) => (ctx.shift?.durationSeconds ?? 0) >= 8 * 3600,
   },
   {
     id: "tip_champion",
     name: "Tip Champion",
-    description: "Tip rate above 25% on a shift.",
+    description: "Earn tips above 25% of your gross on a shift.",
     icon: "💜",
     category: "milestone",
     checkFromShift: (ctx) => {
@@ -117,21 +106,9 @@ export const BADGES: BadgeDefinition[] = [
     },
   },
   {
-    id: "bonus_hunter",
-    name: "Bonus Hunter",
-    description: "Bonus earnings over 15% of gross on a shift.",
-    icon: "🎯",
-    category: "milestone",
-    checkFromShift: (ctx) => {
-      const gross = ctx.gross ?? 0;
-      const bonus = ctx.shift?.bonusEarnings ?? ctx.shift?.bonus ?? 0;
-      return bonus > 0 && gross > 0 && bonus / gross >= 0.15;
-    },
-  },
-  {
     id: "goal_week_hit",
     name: "Goal Achiever",
-    description: "Hit a weekly goal.",
+    description: "Hit a weekly earnings goal.",
     icon: "🎯",
     category: "milestone",
     checkFromGoalHistory: (g) => g.hit && g.goal.period === "weekly",
@@ -139,11 +116,69 @@ export const BADGES: BadgeDefinition[] = [
   {
     id: "goal_month_hit",
     name: "Monthly Master",
-    description: "Hit a monthly goal.",
+    description: "Hit a monthly earnings goal.",
     icon: "👑",
     category: "milestone",
     checkFromGoalHistory: (g) => g.hit && g.goal.period === "monthly",
   },
+  {
+    id: "first_expense",
+    name: "Paper Trail",
+    description: "Log your first business expense.",
+    icon: "🧾",
+    category: "milestone",
+    checkFromSweep: (stats) => stats.expenseCount >= 1,
+  },
+  {
+    id: "expense_savvy",
+    name: "Expense Savvy",
+    description: "Track 10+ business expenses.",
+    icon: "📝",
+    category: "milestone",
+    checkFromSweep: (stats) => stats.expenseCount >= 10,
+  },
+  {
+    id: "vehicle_caretaker",
+    name: "Vehicle Caretaker",
+    description: "Log your first shift with a vehicle configured.",
+    icon: "🔧",
+    category: "milestone",
+    checkFromSweep: (stats) => stats.shiftCount >= 1,
+  },
+  {
+    id: "mileage_master",
+    name: "Mileage Master",
+    description: "Track 1,000 km of active delivery mileage.",
+    icon: "🗺️",
+    category: "milestone",
+    checkFromSweep: (stats) => stats.totalActiveMileage >= 1000,
+  },
+  {
+    id: "road_warrior",
+    name: "Road Warrior",
+    description: "Log 100 total shifts.",
+    icon: "🏅",
+    category: "milestone",
+    checkFromSweep: (stats) => stats.shiftCount >= 100,
+  },
+  // ─── Record badges ────────────────────────────────────────────────────────────
+  {
+    id: "personal_best_earnings",
+    name: "Record Breaker",
+    description: "Set a new single-shift earnings record.",
+    icon: "🚀",
+    category: "record",
+    checkFromPersonalRecords: (r) => r.changedGross,
+  },
+  {
+    id: "personal_best_hours",
+    name: "Efficiency Expert",
+    description: "Set a new best hourly rate.",
+    icon: "📈",
+    category: "record",
+    checkFromPersonalRecords: (r) => r.changedNetHourly,
+  },
+  // ─── Streak badges ────────────────────────────────────────────────────────────
   {
     id: "streak_7",
     name: "7-Day Streak",
@@ -169,82 +204,37 @@ export const BADGES: BadgeDefinition[] = [
     checkFromSweep: (stats) => stats.streakCount >= 100,
   },
   {
-    id: "expense_savvy",
-    name: "Expense Savvy",
-    description: "Track 10+ business expenses.",
-    icon: "📝",
-    category: "milestone",
-    checkFromSweep: (stats) => stats.expenseCount >= 10,
+    id: "perfect_week",
+    name: "Perfect Week",
+    description: "Log 7+ shifts in a single calendar week.",
+    icon: "🌟",
+    category: "streak",
+    checkFromSweep: (stats) => stats.weekShifts >= 7,
   },
-  {
-    id: "vehicle_caretaker",
-    name: "Vehicle Caretaker",
-    description: "Configure an active vehicle.",
-    icon: "🔧",
-    category: "milestone",
-    checkFromSweep: (stats) => stats.shiftCount >= 1, // Simple fallback trigger
-  },
-  {
-    id: "data_archivist",
-    name: "Data Archivist",
-    description: "Maintain a secure backup.",
-    icon: "💾",
-    category: "milestone",
-    checkFromSweep: (stats) => stats.shiftCount >= 5,
-  },
-  {
-    id: "personal_best_earnings",
-    name: "Record Breaker",
-    description: "Set a new single shift earnings record.",
-    icon: "🚀",
-    category: "record",
-    checkFromPersonalRecords: (r) => r.changedGross,
-  },
-  {
-    id: "personal_best_hours",
-    name: "Efficiency Expert",
-    description: "Set a new hourly rate record.",
-    icon: "📈",
-    category: "record",
-    checkFromPersonalRecords: (r) => r.changedNetHourly,
-  },
+  // ─── Special badges ───────────────────────────────────────────────────────────
   {
     id: "weekend_warrior",
     name: "Weekend Warrior",
-    description: "Work 10+ weekend shifts.",
+    description: "Work 10+ weekend shifts (Sat/Sun).",
     icon: "🛡️",
     category: "special",
     checkFromSweep: (stats) => stats.weekendShifts >= 10,
   },
   {
-    id: "rain_rider",
-    name: "Rain Rider",
-    description: "Log a shift in rain weather.",
-    icon: "🌧️",
+    id: "platform_expert",
+    name: "Platform Expert",
+    description: "Log 50 shifts on a single platform.",
+    icon: "⭐",
     category: "special",
-    checkFromShift: (ctx) => {
-      const weather = String(ctx.shift?.notes ?? "").toLowerCase();
-      return weather.includes("rain") || weather.includes("storm") || weather.includes("wet");
-    },
+    checkFromSweep: (stats) => Object.values(stats.platformShiftCounts).some((v) => v >= 50),
   },
   {
-    id: "peak_collector",
-    name: "Peak Collector",
-    description: "Earn extra peak pay bonus on a shift.",
-    icon: "🏔️",
+    id: "daily_grinder",
+    name: "Daily Grinder",
+    description: "Work 5 or more shifts in a single week.",
+    icon: "💪",
     category: "special",
-    checkFromShift: (ctx) => {
-      const notes = String(ctx.shift?.notes ?? "").toLowerCase();
-      return notes.includes("peak") || notes.includes("promot") || notes.includes("surge");
-    },
-  },
-  {
-    id: "perfect_week",
-    name: "Perfect Week",
-    description: "Work every day in a calendar week.",
-    icon: "🌟",
-    category: "streak",
-    checkFromSweep: (stats) => stats.streakCount >= 7,
+    checkFromSweep: (stats) => stats.weekShifts >= 5,
   },
 ];
 

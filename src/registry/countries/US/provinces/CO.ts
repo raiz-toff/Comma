@@ -8,4 +8,5 @@ export const CO: ProvinceDef = {
   isHarmonized: false,
   bannedPlatforms: ["lyft","uber"],
   withholdingPct: 25,
+  incomeTaxRate: 0.044, // CO flat rate 4.4%
 };

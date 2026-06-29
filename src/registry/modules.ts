@@ -105,8 +105,8 @@ export const FEATURE_MODULES: FeatureModule[] = [
   // ── Optional Features ───────────────────────────────────────────────────────
   {
     key: 'analytics_advanced',
-    label: 'Advanced Analytics',
-    description: 'View charts detailing best hours, best platforms, and trends.',
+    label: 'Analytics Tab',
+    description: 'Enables the Analytics tab — charts for earnings by platform, best hours, mileage split, and trends.',
     category: 'analytics',
     core: false,
     userToggleable: true,
@@ -114,8 +114,8 @@ export const FEATURE_MODULES: FeatureModule[] = [
   },
   {
     key: 'tax_workspace',
-    label: 'Self-Employed Tax Estimator',
-    description: 'Local tax estimator (Schedule C, T2125, CPP, SE-Tax, HST).',
+    label: 'Tax Tab',
+    description: 'Estimate quarterly CPP, HST/GST, SE-tax, and mileage deductions based on your earnings.',
     category: 'tax',
     core: false,
     userToggleable: true,
@@ -123,8 +123,8 @@ export const FEATURE_MODULES: FeatureModule[] = [
   },
   {
     key: 'goals',
-    label: 'Earning Goals Tracker',
-    description: 'Set and track daily/weekly/monthly revenue and time goals.',
+    label: 'Goals Screen',
+    description: 'Set income, hours, or mileage targets by day/week/month and track progress with rings.',
     category: 'productivity',
     core: false,
     userToggleable: true,
@@ -132,8 +132,8 @@ export const FEATURE_MODULES: FeatureModule[] = [
   },
   {
     key: 'schedule',
-    label: 'Work Calendar & Reminders',
-    description: 'Plan upcoming shifts, set repeat presets, and configure notification alerts.',
+    label: 'Schedule Screen',
+    description: 'Plan upcoming shifts on a calendar, save repeating templates, and set local reminders.',
     category: 'productivity',
     core: false,
     userToggleable: true,
@@ -141,17 +141,17 @@ export const FEATURE_MODULES: FeatureModule[] = [
   },
   {
     key: 'gamification',
-    label: 'Streaks & Achievements',
-    description: 'Gamify your work with levels, daily streaks, and badges.',
+    label: 'Streaks & Badges',
+    description: 'Shows streak counters, level progress, and unlockable achievement badges on your Dashboard.',
     category: 'productivity',
     core: false,
-    userToggleable: true,
-    requires: [],
+    userToggleable: false, // dashboard widgets not yet built; will be gated under goals when ready
+    requires: ['goals'],
   },
   {
     key: 'pdf_reports',
-    label: 'PDF Performance Reports',
-    description: 'Generate professional HTML-to-PDF summaries using expo-print.',
+    label: 'PDF Export',
+    description: 'Adds a "Export PDF Summary" button to the Reports screen — generates a printable earnings report.',
     category: 'export',
     core: false,
     userToggleable: true,
@@ -163,7 +163,7 @@ export const FEATURE_MODULES: FeatureModule[] = [
     description: 'Bulk import shifts from platform CSV statement files.',
     category: 'export',
     core: false,
-    userToggleable: true,
+    userToggleable: false, // screen not yet built
     requires: [],
   },
   {
@@ -172,7 +172,7 @@ export const FEATURE_MODULES: FeatureModule[] = [
     description: 'View active tracking status directly on your Android home screen.',
     category: 'platform_native',
     core: false,
-    userToggleable: true,
+    userToggleable: false, // not yet implemented
     requires: [],
   },
   {
@@ -181,7 +181,7 @@ export const FEATURE_MODULES: FeatureModule[] = [
     description: 'Enable flagging of mileage and expenses as business or personal.',
     category: 'tracking',
     core: false,
-    userToggleable: true,
+    userToggleable: false, // contractor/business persona only — not exposed in delivery driver settings
     requires: [],
   },
   {
@@ -190,7 +190,7 @@ export const FEATURE_MODULES: FeatureModule[] = [
     description: 'Export detailed, audit-compliant vehicle mileage logs.',
     category: 'export',
     core: false,
-    userToggleable: true,
+    userToggleable: false, // requires business_personal_split — not exposed in delivery driver settings
     requires: ['business_personal_split'],
   },
 ];

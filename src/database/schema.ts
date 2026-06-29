@@ -72,6 +72,7 @@ export const expenses = sqliteTable('expenses', {
   amount: real('amount').notNull(),
   date: integer('date', { mode: 'timestamp' }).notNull(),
   isDeductible: integer('is_deductible', { mode: 'boolean' }).default(true).notNull(),
+  deductiblePct: real('deductible_pct').default(100).notNull(), // 0–100; actual deductible amount = amount * deductiblePct / 100
   vehicleId:   text('vehicle_id').references(() => vehicles.id), // optional
   notes:       text('notes'),
   receiptUri:  text('receipt_uri'),  // local file URI for photo receipts

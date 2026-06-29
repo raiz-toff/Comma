@@ -8,4 +8,5 @@ export const NY: ProvinceDef = {
   isHarmonized: false,
   bannedPlatforms: ["uber"],
   withholdingPct: 31,
+  incomeTaxRate: 0.069,
 };

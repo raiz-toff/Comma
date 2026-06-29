@@ -50,6 +50,10 @@ export const CA: CountryDef = {
   ],
   hasCPP: true,
   hasHST: true,
+  taxFormThresholds: {
+    singleIssuer: 500,   // CRA T4A threshold ($500 CAD)
+    paymentCard: null,   // Canada has no 1099-K equivalent
+  },
   defaultAvailablePlatforms: ["doordash", "ubereats", "skip", "foodora", "instacart", "amazonflex"],
   tax: {
     intlLocaleTag: "en-CA",
@@ -60,6 +64,8 @@ export const CA: CountryDef = {
     hstRateWhenRegistered: 0.13,
     calcCpp: true,
     calcSeTax: false,
+    calcNI: false,
+    hasPensionVariants: true, // QC uses QPP instead of CPP
     regionLabel: "province",
     secondaryEstimator: "cpp",
     footnote: "canada",

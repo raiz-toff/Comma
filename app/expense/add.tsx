@@ -16,7 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams, Stack } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { DatePickerModal } from "@/src/components/ui/DatePickerModal";
 import { Text } from "@/src/components/ui/text";
 import {
   insertExpense,
@@ -26,7 +26,8 @@ import {
 } from "@/src/database/queries/expenses";
 import { getVehicles } from "@/src/database/queries/vehicles";
 import { getShiftsPaginated } from "@/src/database/queries/shifts";
-import { getExpenseCategories, type ExpenseCategory } from "@/src/registry/expenseCategories";
+import { getExpenseCategories, getCategoryMeta, getCategoryDefaultPct, type ExpenseCategory } from "@/src/registry/expenseCategories";
+import { ExpenseCategoryIcon } from "@/src/components/ui/ExpenseCategoryIcon";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { cn } from "@/src/lib/utils";
@@ -59,6 +60,7 @@ export default function AddExpenseModal() {
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(new Date());
   const [isDeductible, setIsDeductible] = useState(true);
+  const [deductiblePct, setDeductiblePct] = useState<number>(100);
   const [linkedShiftId, setLinkedShiftId] = useState(prefillShiftId || "");
   const [linkedVehicleId, setLinkedVehicleId] = useState("");
   const [notes, setNotes] = useState("");
@@ -66,6 +68,7 @@ export default function AddExpenseModal() {
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringInterval, setRecurringInterval] = useState<"weekly"|"monthly"|"yearly">("monthly");
   const [merchant, setMerchant] = useState("");
+  const [isMerchantFocused, setIsMerchantFocused] = useState(false);
   const [isScanningOCR, setIsScanningOCR] = useState(false);
 
   // ── UI State ─────────────────────────────────────────────────────────────
@@ -228,6 +231,7 @@ export default function AddExpenseModal() {
       setIsRecurring(!!existingExpense.isRecurring);
       setRecurringInterval(existingExpense.recurringInterval || "monthly");
       setMerchant(existingExpense.merchant || "");
+      setDeductiblePct(existingExpense.deductiblePct ?? 100);
     }
   }, [existingExpense]);
 
@@ -340,6 +344,7 @@ export default function AddExpenseModal() {
           amount: parsedAmount,
           date,
           isDeductible,
+          deductiblePct: isDeductible ? Math.min(100, Math.max(0, deductiblePct)) : 100,
           shiftId: linkedShiftId || null,
           vehicleId: linkedVehicleId || null,
           notes: notes.trim() || null,
@@ -502,49 +507,61 @@ export default function AddExpenseModal() {
                   <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: accentColor }}>Change</Text>
                 </TouchableOpacity>
               )}
-              {showDatePicker && !isWeb && (
-                <DateTimePicker
+              {!isWeb && (
+                <DatePickerModal
+                  visible={showDatePicker}
                   value={date}
-                  mode="date"
-                  display="default"
-                  onChange={(_, selectedDate) => {
-                    setShowDatePicker(false);
-                    if (selectedDate) setDate(selectedDate);
-                  }}
+                  onChange={setDate}
+                  onClose={() => setShowDatePicker(false)}
                 />
               )}
             </View>
 
             {/* Merchant Autocomplete Card */}
-            <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-2 relative" style={{ zIndex: 1000 }}>
+            <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-2" style={{ zIndex: 1000 }}>
               <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Merchant / Vendor</Text>
               <TextInput
                 value={merchant}
                 onChangeText={setMerchant}
+                onFocus={() => setIsMerchantFocused(true)}
+                onBlur={() => setTimeout(() => setIsMerchantFocused(false), 150)}
                 placeholder="e.g. Shell, McDonald's, Chevron"
                 placeholderTextColor="#52525b"
+                returnKeyType="done"
                 className="bg-[#0d0d0d] border border-[#262522] rounded-xl px-4 py-3.5 text-white text-sm font-semibold focus:border-zinc-400"
               />
-              
-              {/* Autocomplete Dropdown overlay */}
-              {merchant.trim().length > 0 && recentMerchants.filter((m: string) => m.toLowerCase().includes(merchant.toLowerCase()) && m.toLowerCase() !== merchant.toLowerCase()).length > 0 && (
-                <View className="bg-[#161615] border border-[#262522] rounded-xl overflow-hidden mt-1 max-h-[140px] z-50">
-                  <ScrollView nestedScrollEnabled>
-                    {recentMerchants
-                      .filter((m: string) => m.toLowerCase().includes(merchant.toLowerCase()) && m.toLowerCase() !== merchant.toLowerCase())
-                      .map((m: string) => (
-                        <TouchableOpacity
-                          key={m}
-                          onPress={() => setMerchant(m)}
-                          className="px-4 py-3 border-b border-[#262522]/40 active:bg-zinc-800"
-                        >
-                          <Text className="text-white text-sm font-semibold">{m}</Text>
-                        </TouchableOpacity>
-                      ))
-                    }
-                  </ScrollView>
-                </View>
-              )}
+
+              {/* Suggestions: show filtered list when typing, or recent 6 on focus with empty field */}
+              {(() => {
+                const q = merchant.trim().toLowerCase();
+                const suggestions: string[] = q.length > 0
+                  ? recentMerchants.filter((m: string) => m.toLowerCase().includes(q) && m.toLowerCase() !== q)
+                  : isMerchantFocused
+                    ? recentMerchants.slice(0, 6)
+                    : [];
+
+                if (!isMerchantFocused || suggestions.length === 0) return null;
+
+                return (
+                  <View className="bg-[#0d0d0d] border border-[#262522] rounded-xl overflow-hidden">
+                    {q.length === 0 && (
+                      <View className="px-4 pt-3 pb-1">
+                        <Text className="text-zinc-600 text-[10px] font-bold uppercase tracking-widest">Recent</Text>
+                      </View>
+                    )}
+                    {suggestions.map((m: string, i: number) => (
+                      <TouchableOpacity
+                        key={m}
+                        onPress={() => { setMerchant(m); setIsMerchantFocused(false); }}
+                        className="px-4 py-3 active:bg-zinc-800"
+                        style={i < suggestions.length - 1 ? { borderBottomWidth: 0.5, borderBottomColor: "#262522" } : undefined}
+                      >
+                        <Text className="text-white text-sm font-semibold">{m}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                );
+              })()}
             </View>
 
             {/* Recurring Expense Toggle */}
@@ -623,7 +640,11 @@ export default function AddExpenseModal() {
                   return (
                     <TouchableOpacity
                       key={cat.id}
-                      onPress={() => setCategory(cat.id)}
+                      onPress={() => {
+                        setCategory(cat.id);
+                        const pct = getCategoryDefaultPct(cat.id, country, customCategories);
+                        setDeductiblePct(pct);
+                      }}
                       onLongPress={() => isCustom && handleLongPressCategory(cat)}
                       style={{
                         width: "31.5%",
@@ -632,7 +653,7 @@ export default function AddExpenseModal() {
                       }}
                       className="flex-row items-center gap-1.5 px-2.5 py-2.5 rounded-xl border mb-1"
                     >
-                      <Text className="text-base leading-none">{cat.icon}</Text>
+                      <ExpenseCategoryIcon id={cat.id} size={18} color={isSelected ? accentColor : "#a1a1aa"} />
                       <Text
                         numberOfLines={1}
                         className="text-[11px] font-bold flex-1"
@@ -701,6 +722,105 @@ export default function AddExpenseModal() {
                 </TouchableOpacity>
               </View>
             </View>
+
+            {/* Business use % panel — only shown when deductible */}
+            {isDeductible && (() => {
+              const meta = getCategoryMeta(category, country, customCategories);
+              const parsedAmt = parseFloat(amount);
+              const deductibleAmount = !isNaN(parsedAmt) && parsedAmt > 0
+                ? (parsedAmt * deductiblePct / 100).toFixed(2)
+                : null;
+              return (
+                <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-3">
+                  {/* Tax code hint */}
+                  {meta.taxCode && (
+                    <View className="flex-row items-center gap-2">
+                      <View style={{ backgroundColor: accentColor + "18", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: accentColor + "30" }}>
+                        <Text style={{ color: accentColor, fontSize: 10, fontWeight: "800", letterSpacing: 0.5, fontVariant: ["tabular-nums"] }}>
+                          {meta.taxCode}
+                        </Text>
+                      </View>
+                      <Text className="text-zinc-400 text-[11px] font-semibold flex-1" numberOfLines={2}>
+                        {meta.taxCodeLabel}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Partial deductibility warning */}
+                  {deductiblePct < 100 && (
+                    <View style={{ backgroundColor: "rgba(245,158,11,0.08)", borderWidth: 1, borderColor: "rgba(245,158,11,0.2)", borderRadius: 12, padding: 12, flexDirection: "row", gap: 8 }}>
+                      <Text style={{ fontSize: 13 }}>⚠️</Text>
+                      <Text style={{ color: "#fcd34d", fontSize: 11, fontWeight: "600", flex: 1, lineHeight: 16 }}>
+                        {meta.deductibleNote ?? `This expense is ${deductiblePct}% deductible. Only the deductible portion counts toward your tax summary.`}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Business use % label row */}
+                  <View className="flex-row justify-between items-center">
+                    <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Business Use %</Text>
+                    <Text style={{ color: accentColor, fontSize: 13, fontWeight: "800" }}>{deductiblePct}%</Text>
+                  </View>
+
+                  {/* Quick-pick segments */}
+                  <View className="flex-row gap-2">
+                    {([25, 50, 75, 100] as const).map((pct) => (
+                      <TouchableOpacity
+                        key={pct}
+                        onPress={() => setDeductiblePct(pct)}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 9,
+                          borderRadius: 10,
+                          backgroundColor: deductiblePct === pct ? accentColor + "20" : "#0d0d0d",
+                          borderWidth: 1,
+                          borderColor: deductiblePct === pct ? accentColor : "#262522",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Text style={{ color: deductiblePct === pct ? accentColor : "#71717a", fontSize: 12, fontWeight: "800" }}>
+                          {pct}%
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {/* Freeform % input */}
+                  <TextInput
+                    value={String(deductiblePct)}
+                    onChangeText={(text) => {
+                      const parsed = parseInt(text.replace(/[^0-9]/g, ""), 10);
+                      if (!isNaN(parsed)) setDeductiblePct(Math.min(100, Math.max(0, parsed)));
+                      else if (text === "") setDeductiblePct(0);
+                    }}
+                    keyboardType="number-pad"
+                    placeholder="100"
+                    placeholderTextColor="#52525b"
+                    maxLength={3}
+                    style={{
+                      backgroundColor: "#0d0d0d",
+                      borderWidth: 1,
+                      borderColor: "#262522",
+                      borderRadius: 12,
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      color: "#fff",
+                      fontSize: 14,
+                      fontWeight: "700",
+                      textAlign: "center",
+                    }}
+                  />
+
+                  {/* Deductible amount preview */}
+                  {deductibleAmount && (
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#0d0d0d", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: "#262522" }}>
+                      <Text style={{ color: "#71717a", fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 }}>Deductible Amount</Text>
+                      <Text style={{ color: "#34d399", fontSize: 13, fontWeight: "800" }}>${deductibleAmount}</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })()}
 
             {/* Bottom Actions */}
             <View className="flex-row gap-3 mt-2">

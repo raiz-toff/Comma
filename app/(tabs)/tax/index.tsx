@@ -1,10 +1,18 @@
 import React, { useMemo, useEffect, useRef, useState } from "react";
-import { ScrollView, View, ActivityIndicator, StyleSheet, Pressable, Modal } from "react-native";
+import {
+  ScrollView,
+  View,
+  ActivityIndicator,
+  StyleSheet,
+  Pressable,
+  Modal,
+  TextInput,
+} from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
-import { AlertTriangle, Settings, Coins, Calendar, TrendingUp, Calculator } from "lucide-react-native";
+import { AlertTriangle, Settings, Calculator, Calendar, ChevronRight } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
 import { CurrencyText } from "@/src/components/ui/CurrencyText";
 import { useSettingsStore } from "@/store/useSettingsStore";
@@ -14,45 +22,42 @@ import {
   getCountryDef,
   getRegionsByCountry,
   getMileagePresetRate,
-  getWithholdingPresetPct,
+  resolveProvinceDef,
 } from "@/src/registry/index";
+import { getPlatformDef } from "@/src/registry/platforms";
 import { getPeriodStats } from "@/src/database/queries/analytics";
 import { getExpenseYTDSummary } from "@/src/database/queries/expenses";
-import { getTaxHistory, insertTaxHistory } from "@/src/database/queries/tax";
 import {
-  calculateCPP,
+  getTaxHistory,
+  getTaxJarBalance,
+  setTaxJarBalance,
+} from "@/src/database/queries/tax";
+import {
+  calculatePensionContributions,
   calculateHSTOwing,
   calculateCRAMileageDeduction,
-  calculateQuarterlyInstallments,
   calculateSelfEmploymentTax,
-  calculateScheduleC,
   calculateIRSMileageDeduction,
   calculateHMRCMileageDeduction,
+  calculateUKNationalInsurance,
 } from "@/utils/taxCalculations";
+import { getEarningsByPlatform } from "@/src/database/queries/analytics";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-function ScalePressable({ onPress, style, children, android_ripple }: any) {
+function ScalePressable({ onPress, style, children }: {
+  onPress: () => void;
+  style?: object | object[];
+  children: React.ReactNode;
+}) {
   const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = () => {
-    scale.value = withSpring(0.95, { damping: 15 });
-  };
-
-  const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15 });
-  };
-
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   return (
     <AnimatedPressable
       onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+      onPressIn={() => { scale.value = withSpring(0.96, { damping: 15 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 15 }); }}
       style={[style, animatedStyle]}
-      android_ripple={android_ripple}
     >
       {children}
     </AnimatedPressable>
@@ -61,36 +66,29 @@ function ScalePressable({ onPress, style, children, android_ripple }: any) {
 
 export default function TaxScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, isOnboardingCompleted, setHeaderVisible, updateProfile, applyTaxPreset } = useSettingsStore();
+  const { profile, isOnboardingCompleted, setHeaderVisible, updateProfile } =
+    useSettingsStore();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
-  
+
   const isTaxEnabled = useFeatureEnabled("tax_workspace");
 
   useEffect(() => {
-    if (!isTaxEnabled && isOnboardingCompleted) {
-      router.replace("/");
-    }
+    if (!isTaxEnabled && isOnboardingCompleted) router.replace("/");
   }, [isTaxEnabled, isOnboardingCompleted]);
 
-  if (!isTaxEnabled) {
-    return null;
-  }
-  
+  if (!isTaxEnabled) return null;
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isJarModalOpen, setIsJarModalOpen] = useState(false);
+  const [jarDepositInput, setJarDepositInput] = useState("");
 
-  const countryDef = useMemo(() => {
-    return getCountryDef(profile?.country || "CA");
-  }, [profile?.country]);
-
-  const regions = useMemo(() => {
-    return getRegionsByCountry(profile?.country || "CA").map((r) => r.id);
-  }, [profile?.country]);
+  const countryDef = useMemo(() => getCountryDef(profile?.country || "CA"), [profile?.country]);
+  const regionDefs = useMemo(() => getRegionsByCountry(profile?.country || "CA"), [profile?.country]);
 
   const currentYear = new Date().getFullYear();
   const startOfYear = useMemo(() => new Date(currentYear, 0, 1), [currentYear]);
   const endOfYear = useMemo(() => new Date(currentYear, 11, 31, 23, 59, 59, 999), [currentYear]);
 
-  // Queries
   const { data: ytdStats, isLoading: loadingStats } = useQuery({
     queryKey: ["analytics", "ytd-stats", currentYear],
     queryFn: () => getPeriodStats(startOfYear, endOfYear),
@@ -103,111 +101,163 @@ export default function TaxScreen() {
     enabled: isOnboardingCompleted,
   });
 
-  const { data: taxHistoryList, refetch: refetchTaxHistory } = useQuery({
+  const { data: taxHistoryList } = useQuery({
     queryKey: ["taxHistory"],
     queryFn: () => getTaxHistory(),
     enabled: isOnboardingCompleted,
   });
 
-  // State for changing region flow
-  const [selectedNewRegion, setSelectedNewRegion] = useState<string | null>(null);
+  const { data: taxJarBalance = 0, refetch: refetchJar } = useQuery({
+    queryKey: ["taxJar", currentYear],
+    queryFn: () => getTaxJarBalance(currentYear),
+    enabled: isOnboardingCompleted,
+  });
 
-  const getPresetForRegion = (regionCode: string) => {
-    const preset = getWithholdingPresetPct(countryDef.tax.regionPresetType, regionCode);
-    return preset ?? countryDef.tax.defaultWithholdingPct;
-  };
+  const { data: platformEarnings = [] } = useQuery({
+    queryKey: ["analytics", "platform-earnings", currentYear],
+    queryFn: () => getEarningsByPlatform(startOfYear, endOfYear),
+    enabled: isOnboardingCompleted,
+  });
 
-  const handleSelectRegion = (code: string) => {
-    if (code === profile?.taxRegion) return;
-    setSelectedNewRegion(code);
-  };
-
-  const confirmRegionChange = async () => {
-    if (!selectedNewRegion) return;
-    
-    // Get old and new rates
-    const oldRegion = profile?.taxRegion || null;
-    const oldRate = profile?.taxWithholdingPct || null;
-    const newRate = getPresetForRegion(selectedNewRegion);
-    
-    // Record history
-    await insertTaxHistory({
-      oldRegion,
-      oldRate,
-      newRegion: selectedNewRegion,
-      newRate,
-    });
-    
-    // Apply preset
-    await applyTaxPreset(selectedNewRegion);
-    
-    // Refetch history list
-    refetchTaxHistory();
-    
-    // Clear selection state
-    setSelectedNewRegion(null);
-  };
-
-  // Derived calculations
   const grossRevenue = (ytdStats?.gross || 0) + (ytdStats?.tips || 0);
   const deductibleExpenses = ytdExpenses?.deductible || 0;
   const netIncome = Math.max(0, grossRevenue - deductibleExpenses);
   const totalMileage = (ytdStats?.activeMileage || 0) + (ytdStats?.deadMileage || 0);
 
-  const regionLabel = useMemo(() => {
-    if (regions.length === 0) {
-      return countryDef.label;
-    }
-    return `${countryDef.label} (${profile?.taxRegion || countryDef.tax.defaultRegionCode})`;
-  }, [countryDef, profile?.taxRegion, regions]);
-
-  // Tax calculations based on country definition
   const taxData = useMemo(() => {
-    // 1. CPP (Canada)
-    const cpp = countryDef.tax.calcCpp ? calculateCPP(netIncome).total : 0;
+    const province = profile?.taxRegion || countryDef.tax.defaultRegionCode;
 
-    // 2. SE Tax (USA)
-    const seTax = countryDef.tax.calcSeTax ? calculateSelfEmploymentTax(netIncome) : 0;
+    const pensionResult = countryDef.tax.calcCpp
+      ? calculatePensionContributions(netIncome, province, currentYear)
+      : { cpp1Total: 0, cpp2Total: 0, total: 0, planType: "CPP" as const };
 
-    // 3. HST/GST/Sales Tax owing
-    let hst = 0;
+    const seTax = countryDef.tax.calcSeTax ? calculateSelfEmploymentTax(netIncome, currentYear) : 0;
+
+    const niResult = countryDef.tax.calcNI
+      ? calculateUKNationalInsurance(netIncome, currentYear)
+      : null;
+
+    const stateDef = profile?.country === "US" ? resolveProvinceDef("US", province) : null;
+    const stateIncomeTax = stateDef?.incomeTaxRate ? netIncome * stateDef.incomeTaxRate : 0;
+
+    let hstResult = null;
     if (countryDef.tax.hstOnboarding && profile?.hstRegistered) {
-      hst = calculateHSTOwing(grossRevenue, profile?.taxRegion || countryDef.tax.defaultRegionCode);
+      hstResult = calculateHSTOwing(0, grossRevenue, deductibleExpenses, province, currentYear);
     }
 
-    // 4. Mileage deduction calculation
     let mileageDeduction = 0;
     if (countryDef.hasMileageDeduction) {
       if (profile?.country === "CA") {
-        mileageDeduction = calculateCRAMileageDeduction(totalMileage);
+        mileageDeduction = calculateCRAMileageDeduction(totalMileage, currentYear);
       } else if (profile?.country === "UK") {
-        mileageDeduction = calculateHMRCMileageDeduction(totalMileage);
+        mileageDeduction = calculateHMRCMileageDeduction(totalMileage, currentYear);
       } else {
-        const rateStr = getMileagePresetRate(profile?.country || "US", profile?.taxRegion || countryDef.tax.defaultRegionCode);
-        const rate = parseFloat(rateStr) || 0;
-        mileageDeduction = totalMileage * rate;
+        const rateStr = getMileagePresetRate(profile?.country || "US", province);
+        mileageDeduction = totalMileage * (parseFloat(rateStr) || 0);
       }
     }
 
-    // 5. Estimated Income Tax
     const estimatedIncomeTax = netIncome * ((profile?.taxWithholdingPct || 0) / 100);
 
-    // 6. Total Estimated Tax
-    const totalEstimatedTax = cpp + seTax + estimatedIncomeTax + hst;
-
-    // 7. Installments
-    const installments = calculateQuarterlyInstallments(totalEstimatedTax);
+    const totalEstimatedTax =
+      pensionResult.total +
+      seTax +
+      (niResult?.total ?? 0) +
+      stateIncomeTax +
+      estimatedIncomeTax +
+      (hstResult?.netRemittable ?? 0);
 
     return {
-      cpp,
+      pensionResult,
       seTax,
-      hst,
+      niResult,
+      stateIncomeTax,
+      hstResult,
       mileageDeduction,
       estimatedIncomeTax,
       totalEstimatedTax,
-      installments,
     };
-  }, [countryDef, profile, netIncome, grossRevenue, totalMileage]);
+  }, [countryDef, profile, netIncome, grossRevenue, deductibleExpenses, totalMileage, currentYear]);
+
+  // 3 biggest obligation line items — shown as pills on the card
+  const obligationPills = useMemo(() => {
+    const items: { label: string; amount: number }[] = [];
+    if (countryDef.tax.calcCpp && taxData.pensionResult.total > 0) {
+      items.push({
+        label: taxData.pensionResult.planType === "QPP" ? "QPP" : "CPP",
+        amount: taxData.pensionResult.total,
+      });
+    }
+    if (countryDef.tax.calcSeTax && taxData.seTax > 0) {
+      items.push({ label: "SE Tax", amount: taxData.seTax });
+    }
+    if (taxData.stateIncomeTax > 0) {
+      items.push({ label: `${profile?.taxRegion || ""} Tax`, amount: taxData.stateIncomeTax });
+    }
+    if (countryDef.tax.calcNI && (taxData.niResult?.total ?? 0) > 0) {
+      items.push({ label: "NI", amount: taxData.niResult!.total });
+    }
+    if (taxData.estimatedIncomeTax > 0) {
+      items.push({ label: "Income Tax", amount: taxData.estimatedIncomeTax });
+    }
+    if ((taxData.hstResult?.netRemittable ?? 0) > 0) {
+      items.push({ label: "HST", amount: taxData.hstResult!.netRemittable });
+    }
+    return items.sort((a, b) => b.amount - a.amount).slice(0, 3);
+  }, [taxData, countryDef, profile?.taxRegion]);
+
+  // Next upcoming installment date
+  const nextInstallment = useMemo(() => {
+    if (!countryDef.taxInstallmentDates?.length) return null;
+    const now = new Date();
+    const upcoming = countryDef.taxInstallmentDates
+      .map((item) => {
+        const year = currentYear + (item.followYear ? 1 : 0);
+        const date = new Date(year, item.month - 1, item.day);
+        const daysUntil = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        return { label: item.label, date, daysUntil };
+      })
+      .filter((d) => d.daysUntil >= 0)
+      .sort((a, b) => a.daysUntil - b.daysUntil);
+    return upcoming[0] ?? null;
+  }, [countryDef.taxInstallmentDates, currentYear]);
+
+  // Platform threshold alerts
+  const thresholdAlerts = useMemo(() => {
+    const threshold = countryDef.taxFormThresholds;
+    if (!threshold || platformEarnings.length === 0) return [];
+    return platformEarnings
+      .filter((pe) => {
+        const def = getPlatformDef(pe.platform);
+        return def.issuesTaxForm && pe.total >= threshold.singleIssuer;
+      })
+      .map((pe) => {
+        const def = getPlatformDef(pe.platform);
+        const formType = profile?.country === "CA" ? "T4A" : "1099-NEC";
+        return {
+          platform: def.label,
+          total: pe.total,
+          message: `${def.label} will issue a ${formType} — earnings above threshold. Report this income on your return.`,
+        };
+      });
+  }, [countryDef, platformEarnings, profile?.country]);
+
+  // Tax Jar helpers
+  const taxJarTarget = grossRevenue * ((profile?.taxWithholdingPct || 0) / 100);
+  const jarCoveragePct = taxJarTarget > 0 ? Math.min(100, (taxJarBalance / taxJarTarget) * 100) : 0;
+  const todaySuggestion =
+    (ytdStats?.gross || 0) > 0
+      ? (ytdStats?.gross || 0) * ((profile?.taxWithholdingPct || 0) / 100)
+      : 0;
+
+  const handleJarDeposit = async () => {
+    const amount = parseFloat(jarDepositInput);
+    if (isNaN(amount) || amount === 0) return;
+    await setTaxJarBalance(currentYear, taxJarBalance + amount);
+    refetchJar();
+    setJarDepositInput("");
+    setIsJarModalOpen(false);
+  };
 
   const lastScrollY = useRef(0);
   const handleScroll = (event: any) => {
@@ -216,44 +266,35 @@ export default function TaxScreen() {
     const contentHeight = event.nativeEvent.contentSize.height;
     const layoutHeight = event.nativeEvent.layoutMeasurement.height;
     const isNearBottom = currentY + layoutHeight >= contentHeight - 40;
-
-    if (currentY <= 0 || isNearBottom) {
-      setHeaderVisible(true);
-    } else if (diff > 15 && currentY > 50) {
-      setHeaderVisible(false);
-    } else if (diff < -15) {
-      setHeaderVisible(true);
-    }
+    if (currentY <= 0 || isNearBottom) setHeaderVisible(true);
+    else if (diff > 15 && currentY > 50) setHeaderVisible(false);
+    else if (diff < -15) setHeaderVisible(true);
     lastScrollY.current = currentY;
   };
 
-  useEffect(() => {
-    setHeaderVisible(true);
-  }, []);
+  useEffect(() => { setHeaderVisible(true); }, []);
+
+  const regionLabel = regionDefs.length > 0
+    ? `${countryDef.label} · ${profile?.taxRegion || countryDef.tax.defaultRegionCode}`
+    : countryDef.label;
 
   const isLoading = loadingStats || loadingExpenses;
 
   if (countryDef.hasSelfAssessmentTax === false) {
     return (
       <SafeAreaView style={S.root} edges={["left", "right"]}>
-        {/* Header */}
-        <View style={[S.header, { paddingTop: insets.top + 64 }]}>
-          <Text style={S.headerTitle}>Tax Estimator ({currentYear})</Text>
+        <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8, paddingLeft: 70, height: Math.max(insets.top, 8) + 64 }]}>
+          <Text style={S.headerTitle}>Tax · {currentYear}</Text>
         </View>
-
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: "#000000" }}>
-          <View style={{ width: "100%", alignItems: "center", gap: 16, padding: 24, backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20 }}>
-            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: "rgba(34, 197, 94, 0.08)", borderStyle: "dashed", borderWidth: 1, borderColor: "rgba(34, 197, 94, 0.3)", alignItems: "center", justifyContent: "center" }}>
-              <Calculator size={28} color={accentColor} />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20, backgroundColor: "#000000" }}>
+          <View style={S.card}>
+            <View style={S.emptyIcon}>
+              <Calculator size={26} color={accentColor} />
             </View>
-            <View style={{ alignItems: "center" }}>
-              <Text style={{ fontSize: 16, fontWeight: "900", color: "#ffffff", textAlign: "center" }}>
-                No Self-Assessment Required
-              </Text>
-              <Text style={{ fontSize: 13, color: "#a1a1aa", textAlign: "center", marginTop: 8, lineHeight: 18 }}>
-                In {countryDef.label}, gig platform earnings are either subject to withholding at source or handled directly by the platforms. Independent self-assessment estimated payments are not required.
-              </Text>
-            </View>
+            <Text style={S.emptyTitle}>No Self-Assessment Required</Text>
+            <Text style={S.emptyBody}>
+              In {countryDef.label}, gig platform earnings are handled directly by the platforms. Independent self-assessment is not required.
+            </Text>
           </View>
         </View>
       </SafeAreaView>
@@ -262,22 +303,19 @@ export default function TaxScreen() {
 
   return (
     <SafeAreaView style={S.root} edges={["left", "right"]}>
-      {/* Header */}
-      <View style={[S.header, { paddingTop: insets.top + 64 }]}>
-        <Text style={S.headerTitle}>Tax Estimator ({currentYear})</Text>
-        <ScalePressable
-          onPress={() => setIsSettingsOpen(prev => !prev)}
-          style={[S.editSettingsBtn, isSettingsOpen && { borderColor: accentColor }]}
-        >
-          <Settings color={isSettingsOpen ? accentColor : "#a1a1aa"} size={13} style={{ marginRight: 6 }} />
-          <Text style={[S.editSettingsText, isSettingsOpen && { color: accentColor }]}>
-            {isSettingsOpen ? "Done" : "Configure"}
-          </Text>
+      {/* ── Header — sits in-line with the hamburger row ── */}
+      <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8, paddingLeft: 70, height: Math.max(insets.top, 8) + 64 }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={S.headerTitle}>Tax · {currentYear}</Text>
+          <Text style={S.headerSub}>{regionLabel} · {profile?.taxWithholdingPct || 0}% reserve</Text>
+        </View>
+        <ScalePressable onPress={() => setIsSettingsOpen(true)} style={S.gearBtn}>
+          <Settings size={14} color="#a1a1aa" />
         </ScalePressable>
       </View>
 
       {isLoading ? (
-        <View style={S.loadingContainer}>
+        <View style={S.loader}>
           <ActivityIndicator size="large" color={accentColor} />
         </View>
       ) : (
@@ -287,325 +325,248 @@ export default function TaxScreen() {
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >
-          {/* Region Card */}
-          <View style={S.regionCard}>
-            <View>
-              <Text style={S.regionLabel}>Active Tax Profile</Text>
-              <Text style={S.regionValue}>{regionLabel}</Text>
+          {/* ── Threshold Alert Strips ── */}
+          {thresholdAlerts.map((alert, idx) => (
+            <View key={idx} style={S.alertStrip}>
+              <AlertTriangle size={12} color="#f59e0b" />
+              <Text style={S.alertText}>{alert.message}</Text>
             </View>
-            <View style={[S.regionBadge, { borderColor: accentColorMid, backgroundColor: accentColorDim }]}>
-              <Text style={[S.regionBadgeText, { color: accentColor }]}>
-                {countryDef.label} Standard
-              </Text>
-            </View>
-          </View>
+          ))}
 
-          {/* Tax Settings Card */}
-          {isSettingsOpen && (
-            <View style={S.settingsCard}>
-              <Text style={S.settingsCardTitle}>Configure Tax Profile</Text>
-              
-              {/* Province / State Selector (Only if regions exist) */}
-              {regions.length > 0 && (
-                <View style={S.settingGroup}>
-                  <Text style={S.settingGroupLabel}>
-                    {countryDef.tax.regionLabel ? countryDef.tax.regionLabel.charAt(0).toUpperCase() + countryDef.tax.regionLabel.slice(1) : "Region"} Preset
-                  </Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.horizontalChips}>
-                    {regions.map((code) => {
-                      const isSelected = profile?.taxRegion === code;
-                      return (
-                        <Pressable
-                          key={code}
-                          onPress={() => handleSelectRegion(code)}
-                          style={[
-                            S.chip,
-                            isSelected
-                              ? { borderColor: accentColor, backgroundColor: accentColorDim }
-                              : S.chipInactive
-                          ]}
-                        >
-                          <Text style={[
-                            S.chipText,
-                            isSelected ? { color: accentColor, fontWeight: "800" } : { color: "#71717a" }
-                          ]}>
-                            {code}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-              )}
-
-              {/* GST/HST Registered Toggle (Only if country has HST/GST onboarding) */}
-              {countryDef.tax.hstOnboarding && (
-                <View style={S.settingRow}>
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={S.settingRowLabel}>GST/HST Registered</Text>
-                    <Text style={S.settingRowDesc}>
-                      Required in Canada if gig earnings exceed $30k/yr. Enables calculation of HST collected & claimable ITCs.
-                    </Text>
-                  </View>
-                  <Pressable
-                    onPress={() => updateProfile({ hstRegistered: !profile?.hstRegistered })}
-                    style={[
-                      S.toggleBtn,
-                      profile?.hstRegistered
-                        ? { backgroundColor: accentColor, borderColor: accentColor }
-                        : S.toggleBtnInactive
-                    ]}
-                  >
-                    <Text style={[
-                      S.toggleBtnText,
-                      profile?.hstRegistered ? { color: accentColorContrast } : { color: "#a1a1aa" }
-                    ]}>
-                      {profile?.hstRegistered ? "Registered" : "No"}
-                    </Text>
-                  </Pressable>
-                </View>
-              )}
-
-              {/* Tax Withholding Percentage Stepper */}
-              <View style={S.settingRow}>
-                <View style={{ flex: 1, paddingRight: 10 }}>
-                  <Text style={S.settingRowLabel}>Withholding Rate</Text>
-                  <Text style={S.settingRowDesc}>
-                    Percentage of net revenue set aside as tax reserve.
-                  </Text>
-                </View>
-                <View style={S.stepperContainer}>
-                  <Pressable
-                    onPress={() => updateProfile({ taxWithholdingPct: Math.max(0, (profile?.taxWithholdingPct || 0) - 1) })}
-                    style={S.stepperButton}
-                  >
-                    <Text style={S.stepperButtonText}>-</Text>
-                  </Pressable>
-                  <View style={S.stepperValueContainer}>
-                    <Text style={S.stepperValueText}>{profile?.taxWithholdingPct || 0}%</Text>
-                  </View>
-                  <Pressable
-                    onPress={() => updateProfile({ taxWithholdingPct: Math.min(100, (profile?.taxWithholdingPct || 0) + 1) })}
-                    style={S.stepperButton}
-                  >
-                    <Text style={S.stepperButtonText}>+</Text>
-                  </Pressable>
-                </View>
-              </View>
-
-              {/* Tax Region History Log List (Only if regions exist) */}
-              {regions.length > 0 && taxHistoryList && taxHistoryList.length > 0 && (
-                <View style={S.historySection}>
-                  <Text style={S.settingGroupLabel}>{countryDef.tax.regionLabel ? countryDef.tax.regionLabel.charAt(0).toUpperCase() + countryDef.tax.regionLabel.slice(1) : "Region"} Change History</Text>
-                  <View style={S.historyList}>
-                    {taxHistoryList.map((hist) => (
-                      <View key={hist.id} style={S.historyRow}>
-                        <View style={S.historyRowHeader}>
-                          <Text style={S.historyTextBold}>
-                            {hist.oldRegion || "None"} ➔ {hist.newRegion}
-                          </Text>
-                          <Text style={S.historyDate}>
-                            {hist.changedAt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit" })}
-                          </Text>
-                        </View>
-                        <Text style={S.historySubText}>
-                          Withholding rate updated from {hist.oldRate !== null ? `${hist.oldRate}%` : "N/A"} to {hist.newRate}%
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Income & Expenses Summary */}
-          <View style={S.section}>
-            <Text style={S.sectionTitle}>Business Schedule (YTD)</Text>
-            <View style={S.bentoCard}>
-              <View style={S.rowItem}>
-                <Text style={S.rowLabel}>Gross Revenue</Text>
-                <CurrencyText amount={grossRevenue} size="sm" style={S.rowValue} />
-              </View>
-              <View style={S.rowItem}>
-                <Text style={S.rowLabel}>Deductible Expenses</Text>
-                <CurrencyText amount={deductibleExpenses} size="sm" style={S.rowValueRose} />
-              </View>
-              <View style={[S.rowItemHighlight, { backgroundColor: accentColorDim, borderTopWidth: 0.5, borderTopColor: accentColorMid }]}>
-                <Text style={S.rowLabelBold}>
-                  {countryDef.hasContractorEconomy ? "Net Self-Employment Income" : "Net Business Income"}
-                </Text>
-                <CurrencyText amount={netIncome} size="sm" style={[S.rowValueBold, { color: accentColor }]} />
+          {/* ── Tax Jar Card ── */}
+          <View style={S.card}>
+            <Text style={S.cardLabel}>SAVED THIS YEAR</Text>
+            <View style={S.jarRow}>
+              <CurrencyText
+                amount={taxJarBalance}
+                size="xl"
+                style={{ color: accentColor, fontWeight: "900", fontSize: 34, letterSpacing: -0.5 }}
+              />
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={S.cardLabel}>TARGET</Text>
+                <CurrencyText amount={taxJarTarget} size="sm" style={S.mutedValue} />
               </View>
             </View>
-          </View>
 
-          {/* Estimated Tax Breakdown */}
-          <View style={S.section}>
-            <Text style={S.sectionTitle}>Estimated Obligations</Text>
-            <View style={S.bentoCard}>
-              {/* CPP Contribution (Canada) */}
-              {countryDef.tax.calcCpp && (
-                <View style={S.rowItem}>
-                  <View>
-                    <Text style={S.rowLabelBold}>CPP Contribution</Text>
-                    <Text style={S.rowSubText}>Self-employed portion (11.9%)</Text>
-                  </View>
-                  <CurrencyText amount={taxData.cpp || 0} size="sm" style={S.rowValue} />
-                </View>
-              )}
-
-              {/* Self-Employment Tax (USA) */}
-              {countryDef.tax.calcSeTax && (
-                <View style={S.rowItem}>
-                  <View>
-                    <Text style={S.rowLabelBold}>Self-Employment Tax</Text>
-                    <Text style={S.rowSubText}>IRS SE Tax (15.3% of 92.35% profit)</Text>
-                  </View>
-                  <CurrencyText amount={taxData.seTax || 0} size="sm" style={S.rowValue} />
-                </View>
-              )}
-
-              {/* HST/GST (Canada) */}
-              {countryDef.tax.hstOnboarding && profile?.hstRegistered && (
-                <View style={S.rowItem}>
-                  <View>
-                    <Text style={S.rowLabelBold}>HST/GST Owing</Text>
-                    <Text style={S.rowSubText}>Estimated on gross revenue</Text>
-                  </View>
-                  <CurrencyText amount={taxData.hst || 0} size="sm" style={S.rowValue} />
-                </View>
-              )}
-
-              <View style={S.rowItem}>
-                <View>
-                  <Text style={S.rowLabelBold}>Estimated Income Tax</Text>
-                  <Text style={S.rowSubText}>
-                    Withholding rate: {profile?.taxWithholdingPct || 0}% of net
-                  </Text>
-                </View>
-                <CurrencyText amount={taxData.estimatedIncomeTax || 0} size="sm" style={S.rowValue} />
-              </View>
-
-              <View style={[S.rowItemHighlight, { backgroundColor: "rgba(245, 158, 11, 0.08)", borderTopWidth: 0.5, borderTopColor: "rgba(245, 158, 11, 0.2)" }]}>
-                <Text style={[S.rowLabelBold, { color: "#f59e0b" }]}>Total Estimated Obligation</Text>
-                <CurrencyText amount={taxData.totalEstimatedTax || 0} size="sm" style={[S.rowValueBold, { color: "#f59e0b" }]} />
-              </View>
+            {/* Progress bar */}
+            <View style={S.progressTrack}>
+              <View
+                style={[
+                  S.progressFill,
+                  { width: `${Math.min(100, jarCoveragePct)}%`, backgroundColor: accentColor },
+                ]}
+              />
             </View>
-          </View>
-
-          {/* Mileage Deduction Card (Only if country has mileage deduction) */}
-          {countryDef.hasMileageDeduction && (
-            <View style={S.section}>
-              <Text style={S.sectionTitle}>Standard Mileage Deduction</Text>
-              <View style={S.regionCard}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 16, fontWeight: "900", color: "#fff" }}>
-                    {totalMileage.toFixed(1)} {profile?.distanceUnit || "mi"}
-                  </Text>
-                  <Text style={S.regionLabel}>Logged YTD Mileage</Text>
-                </View>
-                <View style={{ alignItems: "flex-end" }}>
-                  <CurrencyText amount={taxData.mileageDeduction || 0} size="md" style={[S.rowValueBold, { color: accentColor }]} />
-                  <Text style={S.regionLabel}>
-                    Write-off Value ({countryDef.mileageDeductionLabel || "Standard"})
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Quarterly Installment Dates (Only if country has installment schedule) */}
-          {countryDef.taxInstallmentDates && countryDef.taxInstallmentDates.length > 0 && (
-            <View style={S.section}>
-              <Text style={S.sectionTitle}>
-                {countryDef.label} Tax Deadlines
-              </Text>
-              <View style={S.dueDatesList}>
-                {countryDef.taxInstallmentDates.map((item, idx) => {
-                  const year = currentYear + (item.followYear ? 1 : 0);
-                  const dateObj = new Date(year, item.month - 1, item.day);
-                  const formattedDate = dateObj.toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  });
-                  return (
-                    <View key={idx} style={S.dueDateCard}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <Calendar size={14} color="#71717a" />
-                        <Text style={S.dueDateLabel}>{item.label}</Text>
-                      </View>
-                      <Text style={S.dueDateValue}>{formattedDate}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-          )}
-
-          {/* Disclaimer Card */}
-          <View style={S.disclaimerCard}>
-            <AlertTriangle size={15} color="#52525b" style={{ marginTop: 2 }} />
-            <Text style={S.disclaimerText}>
-              These are estimates only for preparation. Standard rates do not calculate provincial/state tax brackets or credits. Consult a licensed tax professional or CPA for your actual tax filings.
+            <Text style={S.progressLabel}>
+              {jarCoveragePct.toFixed(0)}% of {profile?.taxWithholdingPct || 0}% target saved
             </Text>
+
+            <View style={S.jarFooter}>
+              {todaySuggestion > 0 ? (
+                <Text style={S.suggestText}>
+                  Suggested today:{" "}
+                  <CurrencyText amount={todaySuggestion} size="sm" style={{ color: accentColor, fontWeight: "800" }} />
+                </Text>
+              ) : (
+                <View />
+              )}
+              <Pressable
+                onPress={() => setIsJarModalOpen(true)}
+                style={[S.pill, { borderColor: accentColor, backgroundColor: accentColorDim }]}
+              >
+                <Text style={[S.pillText, { color: accentColor }]}>+ Log</Text>
+              </Pressable>
+            </View>
           </View>
+
+          {/* ── Obligations Card ── */}
+          <ScalePressable onPress={() => router.push("/tax/center" as any)} style={S.card}>
+            <Text style={S.cardLabel}>ESTIMATED OBLIGATION</Text>
+            <CurrencyText
+              amount={taxData.totalEstimatedTax}
+              size="xl"
+              style={S.obligationTotal}
+            />
+
+            {/* Sub-pills */}
+            {obligationPills.length > 0 && (
+              <View style={S.pillRow}>
+                {obligationPills.map((pill) => (
+                  <View key={pill.label} style={S.pillMuted}>
+                    <Text style={S.pillMutedText}>
+                      {pill.label}{" "}
+                      <CurrencyText amount={pill.amount} size="sm" style={S.pillMutedText} />
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <View style={S.breakdownLink}>
+              <Text style={[S.breakdownText, { color: accentColor }]}>See full breakdown</Text>
+              <ChevronRight size={12} color={accentColor} />
+            </View>
+          </ScalePressable>
+
+          {/* ── Next Installment Row ── */}
+          {nextInstallment && (
+            <Pressable onPress={() => router.push("/tax/center" as any)} style={S.installmentRow}>
+              <View style={S.installmentLeft}>
+                <Calendar size={13} color="#71717a" />
+                <Text style={S.installmentLabel}>{nextInstallment.label}</Text>
+                <Text style={S.installmentDate}>
+                  {nextInstallment.date.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </Text>
+              </View>
+              <View style={S.installmentRight}>
+                <Text style={S.installmentDays}>{nextInstallment.daysUntil} days</Text>
+                <ChevronRight size={12} color="#52525b" />
+              </View>
+            </Pressable>
+          )}
+
+          {/* ── Disclaimer ── */}
+          <Text style={S.disclaimer}>
+            Estimates only — standard rates, no bracket or credit adjustments. Consult a tax professional for your actual filing.
+          </Text>
         </ScrollView>
       )}
 
-      {/* Change Tax Region Confirmation Modal */}
-      <Modal visible={!!selectedNewRegion} transparent animationType="fade">
-        <Pressable
-          style={S.overlay}
-          onPress={() => setSelectedNewRegion(null)}
-        >
+      {/* ── Settings Bottom Sheet ── */}
+      <Modal visible={isSettingsOpen} transparent animationType="slide">
+        <Pressable style={S.sheetOverlay} onPress={() => setIsSettingsOpen(false)}>
+          <Pressable
+            style={[S.sheet, { paddingBottom: insets.bottom + 20 }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={S.sheetHandle} />
+            <View style={S.sheetHeader}>
+              <Text style={S.sheetTitle}>Tax Profile</Text>
+              <Text style={S.sheetSub}>{regionLabel}</Text>
+            </View>
+
+            {/* HST toggle */}
+            {countryDef.tax.hstOnboarding && (
+              <View style={S.settingRow}>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text style={S.settingRowLabel}>GST/HST Registered</Text>
+                  <Text style={S.settingRowDesc}>
+                    Required if gig earnings exceed $30k/yr in Canada.
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => updateProfile({ hstRegistered: !profile?.hstRegistered })}
+                  style={[
+                    S.toggleBtn,
+                    profile?.hstRegistered
+                      ? { backgroundColor: accentColor, borderColor: accentColor }
+                      : S.toggleBtnOff,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      S.toggleBtnText,
+                      profile?.hstRegistered ? { color: accentColorContrast } : { color: "#a1a1aa" },
+                    ]}
+                  >
+                    {profile?.hstRegistered ? "Registered" : "No"}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+
+            {/* Withholding stepper */}
+            <View style={S.settingRow}>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={S.settingRowLabel}>Withholding Rate</Text>
+                <Text style={S.settingRowDesc}>% of net revenue set aside as tax reserve.</Text>
+              </View>
+              <View style={S.stepper}>
+                <Pressable
+                  onPress={() =>
+                    updateProfile({ taxWithholdingPct: Math.max(0, (profile?.taxWithholdingPct || 0) - 1) })
+                  }
+                  style={S.stepBtn}
+                >
+                  <Text style={S.stepBtnText}>−</Text>
+                </Pressable>
+                <View style={S.stepValue}>
+                  <Text style={S.stepValueText}>{profile?.taxWithholdingPct || 0}%</Text>
+                </View>
+                <Pressable
+                  onPress={() =>
+                    updateProfile({ taxWithholdingPct: Math.min(100, (profile?.taxWithholdingPct || 0) + 1) })
+                  }
+                  style={S.stepBtn}
+                >
+                  <Text style={S.stepBtnText}>+</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Region change history */}
+            {taxHistoryList && taxHistoryList.length > 0 && (
+              <View style={S.historyBlock}>
+                <Text style={S.settingBlockLabel}>Region Change History</Text>
+                {taxHistoryList.slice(0, 3).map((hist) => (
+                  <View key={hist.id} style={S.historyRow}>
+                    <Text style={S.historyText}>
+                      {hist.oldRegion || "—"} → {hist.newRegion}
+                    </Text>
+                    <Text style={S.historyDate}>
+                      {hist.changedAt.toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        year: "2-digit",
+                      })}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── Tax Jar Deposit Modal ── */}
+      <Modal visible={isJarModalOpen} transparent animationType="fade">
+        <Pressable style={S.overlay} onPress={() => setIsJarModalOpen(false)}>
           <Pressable style={S.overlayCard} onPress={(e) => e.stopPropagation()}>
             <View style={S.overlayHeader}>
-              <Text style={S.overlayTitle}>Change Tax {countryDef.tax.regionLabel ? countryDef.tax.regionLabel.charAt(0).toUpperCase() + countryDef.tax.regionLabel.slice(1) : "Region"}</Text>
-              <Pressable onPress={() => setSelectedNewRegion(null)} style={S.overlayClose}>
-                <Text style={{ color: "#a1a1aa", fontSize: 16, lineHeight: 16, fontWeight: "700" }}>×</Text>
+              <Text style={S.overlayTitle}>Log Tax Jar Deposit</Text>
+              <Pressable onPress={() => setIsJarModalOpen(false)} style={S.overlayClose}>
+                <Text style={{ color: "#a1a1aa", fontSize: 16, fontWeight: "700" }}>×</Text>
               </Pressable>
             </View>
-
-            <Text style={S.overlayWarningText}>
-              Are you sure you want to change your active {countryDef.tax.regionLabel || "region"} from <Text style={{ color: "#ffffff", fontWeight: "800" }}>{profile?.taxRegion}</Text> to <Text style={{ color: accentColor, fontWeight: "800" }}>{selectedNewRegion}</Text>?
-            </Text>
-
-            <View style={S.comparisonContainer}>
-              <View style={S.comparisonColumn}>
-                <Text style={S.comparisonLabel}>Previous {countryDef.tax.regionLabel ? countryDef.tax.regionLabel.charAt(0).toUpperCase() + countryDef.tax.regionLabel.slice(1) : "Region"}</Text>
-                <Text style={S.comparisonRegionCode}>{profile?.taxRegion}</Text>
-                <Text style={S.comparisonRate}>Rate: {profile?.taxWithholdingPct || 0}%</Text>
-              </View>
-              <View style={S.comparisonArrow}>
-                <Text style={{ color: "#71717a", fontSize: 18 }}>➔</Text>
-              </View>
-              <View style={S.comparisonColumn}>
-                <Text style={S.comparisonLabel}>New {countryDef.tax.regionLabel ? countryDef.tax.regionLabel.charAt(0).toUpperCase() + countryDef.tax.regionLabel.slice(1) : "Region"}</Text>
-                <Text style={[S.comparisonRegionCode, { color: accentColor }]}>{selectedNewRegion}</Text>
-                <Text style={S.comparisonRate}>
-                  Rate: {selectedNewRegion ? getPresetForRegion(selectedNewRegion) : 0}%
-                </Text>
-              </View>
+            <Text style={S.overlayBody}>Amount you're setting aside for taxes.</Text>
+            <TextInput
+              value={jarDepositInput}
+              onChangeText={setJarDepositInput}
+              placeholder="0.00"
+              placeholderTextColor="#52525b"
+              keyboardType="decimal-pad"
+              style={S.jarInput}
+            />
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {[25, 50, 100, 200].map((amt) => (
+                <Pressable
+                  key={amt}
+                  onPress={() => setJarDepositInput(String(amt))}
+                  style={[S.chip, S.chipInactive, { flex: 1, paddingHorizontal: 4 }]}
+                >
+                  <Text style={[S.chipText, { color: "#a1a1aa" }]}>${amt}</Text>
+                </Pressable>
+              ))}
             </View>
-
-            <Text style={S.overlayInfoText}>
-              All tax estimations, deductions, and set-aside recommendations from today and onward will be calculated using the new {countryDef.tax.regionLabel || "region"}'s rates. Past shift logs will remain archived.
-            </Text>
-
             <View style={S.overlayActions}>
-              <Pressable
-                onPress={() => setSelectedNewRegion(null)}
-                style={S.cancelBtn}
-              >
+              <Pressable onPress={() => setIsJarModalOpen(false)} style={S.cancelBtn}>
                 <Text style={S.cancelBtnText}>Cancel</Text>
               </Pressable>
-              <Pressable
-                onPress={confirmRegionChange}
-                style={[S.confirmBtn, { backgroundColor: accentColor }]}
-              >
-                <Text style={[S.confirmBtnText, { color: accentColorContrast }]}>Confirm Change</Text>
+              <Pressable onPress={handleJarDeposit} style={[S.confirmBtn, { backgroundColor: accentColor }]}>
+                <Text style={[S.confirmBtnText, { color: accentColorContrast }]}>Add to Jar</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -617,233 +578,285 @@ export default function TaxScreen() {
 
 const S = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#000000" },
-  loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center" },
-  scroll: { padding: 14, paddingTop: 6, gap: 18 },
+  loader: { flex: 1, alignItems: "center", justifyContent: "center" },
+  scroll: { padding: 16, paddingTop: 8, gap: 10 },
+
+  // Header
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingHorizontal: 16,
     paddingVertical: 14,
-    paddingHorizontal: 14,
     backgroundColor: "#000000",
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "900",
     color: "#ffffff",
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
   },
-  editSettingsBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
+  headerSub: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#52525b",
+    marginTop: 2,
+  },
+  gearBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "#161615",
     borderWidth: 0.8,
     borderColor: "#262522",
-  },
-  editSettingsText: {
-    color: "#a1a1aa",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  
-  // Region profile card
-  regionCard: {
-    backgroundColor: "#0d0d0d",
-    borderWidth: 0.8,
-    borderColor: "#1f1f1f",
-    borderRadius: 20,
-    padding: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    gap: 8,
-  },
-  regionLabel: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#71717a",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginTop: 2,
-  },
-  regionValue: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#ffffff",
-    marginTop: 3,
-  },
-  regionBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 14,
-    borderWidth: 0.8,
-  },
-  regionBadgeText: {
-    fontSize: 9,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+    justifyContent: "center",
   },
 
-  // Section styling
-  section: {
+  // Alert strip
+  alertStrip: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
+    backgroundColor: "rgba(245, 158, 11, 0.06)",
+    borderWidth: 0.8,
+    borderColor: "rgba(245, 158, 11, 0.2)",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  sectionTitle: {
+  alertText: {
     fontSize: 11,
-    fontWeight: "800",
-    color: "#71717a",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 2,
-    paddingHorizontal: 4,
-  },
-
-  // Bento boxes
-  bentoCard: {
-    backgroundColor: "#0d0d0d",
-    borderWidth: 0.8,
-    borderColor: "#1f1f1f",
-    borderRadius: 20,
-    overflow: "hidden",
-  },
-  rowItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#161615",
-  },
-  rowItemHighlight: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-  },
-  rowLabel: {
-    fontSize: 13,
     fontWeight: "600",
     color: "#a1a1aa",
-  },
-  rowLabelBold: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#ffffff",
-  },
-  rowValue: {
-    fontWeight: "800",
-    color: "#ffffff",
-  },
-  rowValueRose: {
-    fontWeight: "800",
-    color: "#f43f5e",
-  },
-  rowValueBold: {
-    fontWeight: "900",
-  },
-  rowSubText: {
-    fontSize: 9,
-    fontWeight: "600",
-    color: "#52525b",
-    marginTop: 2,
-  },
-
-  // Due dates
-  dueDatesList: {
-    gap: 8,
-  },
-  dueDateCard: {
-    backgroundColor: "#0d0d0d",
-    borderWidth: 0.8,
-    borderColor: "#1f1f1f",
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  dueDateLabel: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#ffffff",
-  },
-  dueDateValue: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#71717a",
-  },
-
-  // Disclaimer
-  disclaimerCard: {
-    backgroundColor: "#070707",
-    borderWidth: 0.8,
-    borderColor: "#161615",
-    borderRadius: 16,
-    padding: 14,
-    flexDirection: "row",
-    gap: 12,
-    alignItems: "flex-start",
-  },
-  disclaimerText: {
-    fontSize: 10,
-    color: "#52525b",
-    fontWeight: "600",
-    lineHeight: 15,
     flex: 1,
+    lineHeight: 15,
   },
-  
-  // Tax settings styling
-  settingsCard: {
+
+  // Cards
+  card: {
     backgroundColor: "#0d0d0d",
     borderWidth: 0.8,
     borderColor: "#1f1f1f",
     borderRadius: 20,
-    padding: 16,
-    gap: 16,
+    padding: 18,
+    gap: 12,
   },
-  settingsCardTitle: {
-    fontSize: 14,
-    fontWeight: "900",
-    color: "#ffffff",
-    letterSpacing: -0.3,
-    marginBottom: 4,
-  },
-  settingGroup: {
-    flexDirection: "column",
-    gap: 8,
-  },
-  settingGroupLabel: {
-    fontSize: 9,
+  cardLabel: {
+    fontSize: 10,
     fontWeight: "800",
-    color: "#71717a",
+    color: "#52525b",
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
-  horizontalChips: {
+
+  // Tax Jar card internals
+  jarRow: {
     flexDirection: "row",
-    gap: 8,
-    paddingVertical: 2,
+    justifyContent: "space-between",
+    alignItems: "flex-end",
   },
-  chip: {
-    paddingHorizontal: 14,
+  jarAmount: {
+    fontSize: 34,
+    fontWeight: "900",
+    letterSpacing: -0.5,
+  },
+  mutedValue: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#71717a",
+    marginTop: 2,
+  },
+  progressTrack: {
+    height: 6,
+    backgroundColor: "#1f1f1f",
+    borderRadius: 3,
+  },
+  progressFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+  progressLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#52525b",
+    marginTop: -4,
+  },
+  jarFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  suggestText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#71717a",
+  },
+  pill: {
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 14,
+    borderRadius: 20,
     borderWidth: 0.8,
     alignItems: "center",
     justifyContent: "center",
   },
-  chipInactive: {
-    borderColor: "#262522",
-    backgroundColor: "#161615",
+  pillText: {
+    fontSize: 12,
+    fontWeight: "800",
   },
-  chipText: {
+
+  // Obligations card internals
+  obligationTotal: {
+    fontSize: 36,
+    fontWeight: "900",
+    color: "#ffffff",
+    letterSpacing: -0.6,
+  },
+  pillRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: -2,
+  },
+  pillMuted: {
+    backgroundColor: "#161615",
+    borderWidth: 0.8,
+    borderColor: "#1f1f1f",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  pillMutedText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#71717a",
+  },
+  breakdownLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    justifyContent: "flex-end",
+    marginTop: 2,
+  },
+  breakdownText: {
     fontSize: 12,
     fontWeight: "700",
+  },
+
+  // Next installment row
+  installmentRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    paddingVertical: 6,
+  },
+  installmentLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  installmentLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#71717a",
+  },
+  installmentDate: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#52525b",
+  },
+  installmentRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  installmentDays: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#52525b",
+  },
+
+  // Disclaimer
+  disclaimer: {
+    fontSize: 10,
+    fontWeight: "500",
+    color: "#3f3f46",
+    textAlign: "center",
+    lineHeight: 15,
+    paddingHorizontal: 8,
+    marginTop: 4,
+  },
+
+  // Empty state
+  emptyIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "rgba(34, 197, 94, 0.08)",
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "rgba(34, 197, 94, 0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: "#ffffff",
+    textAlign: "center",
+  },
+  emptyBody: {
+    fontSize: 13,
+    color: "#a1a1aa",
+    textAlign: "center",
+    lineHeight: 18,
+  },
+
+  // Settings bottom sheet
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: "#0d0d0d",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 0.8,
+    borderColor: "#1f1f1f",
+    padding: 20,
+    gap: 18,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#3f3f46",
+    alignSelf: "center",
+    marginBottom: 4,
+  },
+  sheetHeader: { gap: 2 },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#ffffff",
+    letterSpacing: -0.3,
+  },
+  sheetSub: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#71717a",
+  },
+  settingBlock: { gap: 8 },
+  settingBlockLabel: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#71717a",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   settingRow: {
     flexDirection: "row",
@@ -865,16 +878,31 @@ const S = StyleSheet.create({
     marginTop: 2,
     lineHeight: 14,
   },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 14,
+    borderWidth: 0.8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  chipInactive: {
+    borderColor: "#262522",
+    backgroundColor: "#161615",
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
   toggleBtn: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 14,
     borderWidth: 0.8,
     minWidth: 90,
     alignItems: "center",
-    justifyContent: "center",
   },
-  toggleBtnInactive: {
+  toggleBtnOff: {
     borderColor: "#262522",
     backgroundColor: "#161615",
   },
@@ -882,9 +910,9 @@ const S = StyleSheet.create({
     fontSize: 11,
     fontWeight: "800",
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
-  stepperContainer: {
+  stepper: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#161615",
@@ -893,33 +921,56 @@ const S = StyleSheet.create({
     borderRadius: 14,
     overflow: "hidden",
   },
-  stepperButton: {
+  stepBtn: {
     width: 36,
     height: 36,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.02)",
   },
-  stepperButtonText: {
+  stepBtnText: {
     fontSize: 18,
     fontWeight: "600",
     color: "#a1a1aa",
   },
-  stepperValueContainer: {
+  stepValue: {
     width: 44,
     alignItems: "center",
-    justifyContent: "center",
   },
-  stepperValueText: {
+  stepValueText: {
     fontSize: 13,
     fontWeight: "800",
     color: "#ffffff",
   },
+  historyBlock: {
+    borderTopWidth: 0.5,
+    borderTopColor: "#161615",
+    paddingTop: 14,
+    gap: 8,
+  },
+  historyRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#161615",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  historyText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#a1a1aa",
+  },
+  historyDate: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#52525b",
+  },
 
-  // Modal overlay styles
+  // Modals
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    backgroundColor: "rgba(0,0,0,0.85)",
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
@@ -958,13 +1009,13 @@ const S = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  overlayWarningText: {
+  overlayBody: {
     color: "#a1a1aa",
     fontSize: 13,
     lineHeight: 18,
     fontWeight: "500",
   },
-  comparisonContainer: {
+  compRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -974,41 +1025,31 @@ const S = StyleSheet.create({
     borderColor: "#262522",
     padding: 14,
   },
-  comparisonColumn: {
+  compCol: {
     flex: 1,
     alignItems: "center",
     gap: 4,
   },
-  comparisonLabel: {
+  compLabel: {
     fontSize: 9,
     fontWeight: "800",
     color: "#71717a",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  comparisonRegionCode: {
+  compCode: {
     fontSize: 20,
     fontWeight: "900",
     color: "#ffffff",
   },
-  comparisonRate: {
+  compRate: {
     fontSize: 11,
     fontWeight: "700",
     color: "#a1a1aa",
   },
-  comparisonArrow: {
-    paddingHorizontal: 10,
-  },
-  overlayInfoText: {
-    color: "#52525b",
-    fontSize: 11,
-    lineHeight: 16,
-    fontWeight: "600",
-  },
   overlayActions: {
     flexDirection: "row",
     gap: 10,
-    marginTop: 8,
   },
   cancelBtn: {
     flex: 1,
@@ -1018,7 +1059,6 @@ const S = StyleSheet.create({
     borderWidth: 0.8,
     borderColor: "#262522",
     alignItems: "center",
-    justifyContent: "center",
   },
   cancelBtnText: {
     color: "#a1a1aa",
@@ -1030,50 +1070,20 @@ const S = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 14,
     alignItems: "center",
-    justifyContent: "center",
   },
   confirmBtnText: {
     fontSize: 12,
     fontWeight: "800",
   },
-
-  // History list styling
-  historySection: {
-    borderTopWidth: 0.5,
-    borderTopColor: "#161615",
-    paddingTop: 16,
-    gap: 10,
-  },
-  historyList: {
-    gap: 10,
-  },
-  historyRow: {
+  jarInput: {
     backgroundColor: "#161615",
-    borderRadius: 14,
     borderWidth: 0.8,
     borderColor: "#262522",
-    padding: 12,
-    gap: 4,
-  },
-  historyRowHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  historyTextBold: {
-    fontSize: 12,
-    fontWeight: "800",
+    borderRadius: 14,
+    padding: 14,
     color: "#ffffff",
-  },
-  historyDate: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#71717a",
-  },
-  historySubText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#71717a",
-    lineHeight: 13,
+    fontSize: 18,
+    fontWeight: "800",
+    textAlign: "center",
   },
 });

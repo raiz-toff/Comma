@@ -32,12 +32,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
 import { eq } from "drizzle-orm";
-import { ChevronLeft, ArrowUp, ArrowDown, Trash2, Check, ChevronDown, ChevronUp } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Trash2, Check, ChevronDown, ChevronUp, Calculator, Target, CalendarDays, Trophy, FileText, BarChart2 } from "lucide-react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 
 import { useSettingsStore, type DriverProfile } from "@/store/useSettingsStore";
 import { PLATFORMS, type PlatformKey, getPlatformsByCountry } from "@/src/registry/platforms";
-import { PERSONAS, type PersonaKey, FEATURE_MODULES, listCaProvinceCodes, listUsStateCodes } from "@/src/registry/index";
+import { FEATURE_MODULES, listCaProvinceCodes, listUsStateCodes } from "@/src/registry/index";
+import { GIG_DRIVER_DEFAULTS } from "@/src/hooks/useAppContext";
 import { getMileagePresetRate, getRegionsByCountry, getCountryDef } from "@/src/registry/countries/index";
 import { resolveAvailablePlatformIds } from "@/src/registry/market/resolve";
 import { insertTaxHistory } from "@/src/database/queries/tax";
@@ -511,91 +512,9 @@ export default function SettingsScreen() {
   const [showShortcuts, setShowShortcuts] = useState(false);
 
   // ── Tab: You ────────────────────────────────────────────────────────────────
-  const [displayName, setDisplayName] = useState(profile?.displayName ?? "");
-  const [persona, setPersona] = useState<PersonaKey>(profile?.persona ?? "platform_driver");
-  const [transportType, setTransportType] = useState<"passengers" | "delivery" | "both">(profile?.transportType ?? "both");
-  const [country, setCountry] = useState<"US" | "CA" | "UK" | "NP">(profile?.country ?? "CA");
-  const [taxRegion, setTaxRegion] = useState(profile?.taxRegion ?? "ON");
-  const [distanceUnit, setDistanceUnit] = useState<"km" | "mi">(profile?.distanceUnit ?? "km");
-  const [isEditingYou, setIsEditingYou] = useState(false);
+  // Profile identity (name/country/region) is edited in /settings/profile — read-only here
+  const country = (profile?.country ?? "CA") as "US" | "CA" | "UK" | "NP";
 
-  // States for changing country flow
-  const [selectedNewCountry, setSelectedNewCountry] = useState<"US" | "CA" | "UK" | "NP" | null>(null);
-  const [incompatiblePlatforms, setIncompatiblePlatforms] = useState<string[]>([]);
-
-  const handleSelectCountry = (newCountryId: "CA" | "US" | "UK" | "NP") => {
-    if (newCountryId === profile?.country) {
-      setCountry(newCountryId);
-      // Reset back to profile values
-      setTaxRegion(profile.taxRegion ?? "ON");
-      setDistanceUnit(profile.distanceUnit ?? "km");
-      if (profile.locale?.currency) setCurrency(profile.locale.currency);
-      setDateFormat(profile.locale?.dateFormat ?? (newCountryId === "US" ? "MM/DD/YYYY" : "YYYY-MM-DD"));
-      return;
-    }
-
-    const newCountryDef = getCountryDef(newCountryId);
-    const defaultRegion = newCountryDef.tax.defaultRegionCode;
-    const availablePlatformIds = resolveAvailablePlatformIds(newCountryId, defaultRegion);
-
-    const activePlatformKeys = Object.keys(platformConfigs).filter((k) => platformConfigs[k]?.active);
-    const incompatible = activePlatformKeys.filter((k) => !availablePlatformIds.includes(k));
-
-    setIncompatiblePlatforms(incompatible);
-    setSelectedNewCountry(newCountryId);
-  };
-
-  const confirmCountryChange = async () => {
-    if (!selectedNewCountry) return;
-
-    const newCountryDef = getCountryDef(selectedNewCountry);
-    const defaultRegion = newCountryDef.tax.defaultRegionCode;
-
-    // 1. Update the location states
-    setCountry(selectedNewCountry);
-    setTaxRegion(defaultRegion);
-    setDistanceUnit(newCountryDef.distanceUnit);
-    setCurrency(newCountryDef.currency);
-    setDateFormat(selectedNewCountry === "US" ? "MM/DD/YYYY" : "YYYY-MM-DD");
-
-    // 2. Load platform configs for the new country from DB, and deactivate incompatible ones
-    const dbPlatforms = await getDBPlatforms(selectedNewCountry);
-    const configs: Record<string, PlatformConfig> = {};
-    dbPlatforms.forEach((p, idx) => {
-      configs[p.id] = {
-        active: p.isActive,
-        hourlyRate: p.hourlyRate,
-        mileageRate: p.mileageRate,
-        priority: String(p.sortPriority || idx + 1),
-        customLabel: p.label,
-        customColor: p.color,
-        customEmoji: p.logoEmoji || "",
-      };
-    });
-
-    incompatiblePlatforms.forEach((k) => {
-      if (configs[k]) {
-        configs[k] = { ...configs[k], active: false };
-      }
-    });
-    setPlatformConfigs(configs);
-
-    // 3. Record tax history entry for the transition!
-    const oldRegion = profile?.taxRegion || null;
-    const oldRate = profile?.taxWithholdingPct || null;
-    const newRate = newCountryDef.tax.defaultWithholdingPct;
-
-    await insertTaxHistory({
-      oldRegion: oldRegion ? `${profile.country}-${oldRegion}` : null,
-      oldRate,
-      newRegion: `${selectedNewCountry}-${defaultRegion}`,
-      newRate,
-    });
-
-    // 4. Close modal
-    setSelectedNewCountry(null);
-    setIncompatiblePlatforms([]);
-  };
 
   // ── Tab: Appearance ─────────────────────────────────────────────────────────
   const [theme, setTheme] = useState<"auto" | "light" | "dark">(profile?.theme ?? "dark");
@@ -648,19 +567,12 @@ export default function SettingsScreen() {
     if (tab && TABS.some((t) => t.id === tab)) setActiveTab(tab);
   }, [params.tab]);
 
-  // ── Sync profile → local state ───────────────────────────────────────────────
+  // ── Sync appearance/locale → local state ────────────────────────────────────
   useEffect(() => {
-    setDisplayName(profile?.displayName ?? "");
-    setPersona(profile?.persona ?? "platform_driver");
-    setCountry((profile?.country ?? "CA") as "US" | "CA" | "UK" | "NP");
-    setTaxRegion(profile?.taxRegion ?? "ON");
-    setDistanceUnit(profile?.distanceUnit ?? "km");
     setTheme(profile?.theme ?? "dark");
-    setTransportType(profile?.transportType ?? "both");
     setSelectedAccent(
       (profile?.avatarData && profile?.avatarData.startsWith("#")) ? profile.avatarData : "#ffffff"
     );
-
     if (profile?.locale) {
       if (profile.locale.currency) setCurrency(profile.locale.currency);
       if (profile.locale.dateFormat) setDateFormat(profile.locale.dateFormat);
@@ -710,17 +622,16 @@ export default function SettingsScreen() {
         (k) => platformConfigs[k].active,
       );
 
-      // Use updateProfile — it auto-derives country defs and persists
+      // Profile identity (name/country/region) is managed by /settings/profile screen.
+      // Here we only update appearance, locale, and platform selections.
       await updateProfile({
-        displayName: displayName.trim() || profile?.displayName || "Driver",
-        country: country as DriverProfile["country"],
-        taxRegion,
-        distanceUnit,
+        displayName: profile?.displayName || "Driver",
+        country: profile?.country,
+        taxRegion: profile?.taxRegion,
+        distanceUnit: profile?.distanceUnit,
         selectedPlatforms: activePlatforms,
         theme: theme as DriverProfile["theme"],
         avatarData: selectedAccent,
-        persona,
-        transportType: persona === "platform_driver" ? transportType : undefined,
         locale: {
           ...(profile.locale ?? {}),
           currency,
@@ -732,7 +643,7 @@ export default function SettingsScreen() {
 
       // Save platform customizations (hourlyRate, mileageRate, sortPriority) to DB
       for (const pKey of Object.keys(platformConfigs)) {
-        await updateDBPlatform(country, pKey, {
+        await updateDBPlatform(profile?.country || "CA", pKey, {
           isActive: platformConfigs[pKey].active,
           hourlyRate: platformConfigs[pKey].hourlyRate,
           mileageRate: platformConfigs[pKey].mileageRate,
@@ -891,10 +802,6 @@ export default function SettingsScreen() {
 
 
 
-  const regions = useMemo(() => {
-    return getRegionsByCountry(country).map((r) => r.id);
-  }, [country]);
-
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -985,158 +892,88 @@ export default function SettingsScreen() {
               </>
             )}
 
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-              <GroupLabel text="Profile details" />
-              <TouchableOpacity
-                onPress={() => setIsEditingYou(!isEditingYou)}
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 5,
-                  borderRadius: 12,
-                  backgroundColor: isEditingYou ? accentColorDim : DS.inputBg,
-                  borderWidth: 0.5,
-                  borderColor: isEditingYou ? accentColorMid : DS.inputBorder,
-                  marginTop: 14,
-                }}
-              >
-                <Text style={{ color: isEditingYou ? accentColor : DS.textSecondary, fontSize: 11, fontWeight: "700" }}>
-                  {isEditingYou ? "Done" : "Edit Profile"}
+            <GroupLabel text="Profile" />
+            <TouchableOpacity
+              onPress={() => router.push("/settings/profile")}
+              style={{
+                backgroundColor: DS.inputBg,
+                borderRadius: 14,
+                borderWidth: 0.5,
+                borderColor: DS.inputBorder,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={{
+                width: 40, height: 40, borderRadius: 12,
+                backgroundColor: accentColorDim, borderWidth: 1, borderColor: accentColorMid,
+                justifyContent: "center", alignItems: "center",
+              }}>
+                <Text style={{ fontSize: 16, fontWeight: "800", color: accentColor }}>
+                  {(profile?.displayName || "D").charAt(0).toUpperCase()}
                 </Text>
-              </TouchableOpacity>
-            </View>
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ fontSize: 15, fontWeight: "700", color: DS.textPrimary }}>
+                  {profile?.displayName || "Driver"}
+                </Text>
+                <Text style={{ fontSize: 12, color: DS.textSecondary, fontWeight: "500" }}>
+                  {COUNTRIES.find(c => c.id === profile?.country)?.label?.replace(/^\S+\s/, "") || profile?.country} · {profile?.taxRegion} · {profile?.distanceUnit ?? "km"}
+                </Text>
+              </View>
+              <ChevronRight size={16} color={DS.textSecondary} />
+            </TouchableOpacity>
 
-            {isEditingYou ? (
-              <>
-                <Card>
-                  <Row label="Display name" last={false}>
-                    <InlineInput
-                      value={displayName}
-                      onChangeText={setDisplayName}
-                      placeholder="Your name"
-                    />
-                  </Row>
-                  <Row label="Work Type" block last={persona !== "platform_driver"}>
-                    <Chips
-                      options={[
-                        { value: "platform_driver", label: "Platform Driver" },
-                        { value: "business_driver", label: "Business Driver" },
-                        { value: "contractor", label: "Contractor" },
-                        { value: "mileage_tracker", label: "Mileage Tracker" },
-                      ]}
-                      value={persona}
-                      onChange={(v) => {
-                        const newPersona = v as PersonaKey;
-                        setPersona(newPersona);
-                        if (newPersona !== "platform_driver") {
-                          setTransportType("both");
-                        }
-                      }}
-                    />
-                  </Row>
-                  {persona === "platform_driver" && (
-                    <Row label="Primary Transport" block last={true}>
-                      <Chips
-                        options={[
-                          { value: "passengers", label: "Passengers" },
-                          { value: "delivery", label: "Food / Packages" },
-                          { value: "both", label: "Both" },
-                        ]}
-                        value={transportType}
-                        onChange={(v) => setTransportType(v as "passengers" | "delivery" | "both")}
-                      />
-                    </Row>
-                  )}
-                </Card>
-
-                <GroupLabel text="Location" />
-                <Card>
-                  <Row label="Country" hint="Changing country resets currency, distance unit, and filters active platforms." block last={false}>
-                    <Chips
-                      options={COUNTRIES.map((c) => ({ value: c.id, label: c.label }))}
-                      value={country}
-                      onChange={(v) => handleSelectCountry(v as "CA" | "US" | "UK" | "NP")}
-                    />
-                  </Row>
-                  <Row label={country === "CA" ? "Province" : country === "US" ? "State" : "Region"} block last={false}>
-                    <Chips
-                      options={regions.map((r: string) => ({ value: r, label: r }))}
-                      value={taxRegion}
-                      onChange={setTaxRegion}
-                      scrollable
-                    />
-                  </Row>
-                  <Row label="Distance unit" hint={`Locked to country metric (${distanceUnit})`} last>
-                    <Text style={{ color: DS.textSecondary, fontSize: 14, fontWeight: "500" }}>
-                      {distanceUnit}
-                    </Text>
-                  </Row>
-                </Card>
-              </>
-            ) : (
-              <>
-                <Card>
-                  <Row label="Display name" last={false}>
-                    <Text style={{ color: DS.textPrimary, fontSize: 14, fontWeight: "500" }}>
-                      {displayName || "Not set"}
-                    </Text>
-                  </Row>
-                  <Row label="Work Type" last={persona !== "platform_driver"}>
-                    <Text style={{ color: DS.textPrimary, fontSize: 14, fontWeight: "500" }}>
-                      {PERSONAS[persona]?.label ?? persona}
-                    </Text>
-                  </Row>
-                  {persona === "platform_driver" && (
-                    <Row label="Primary Transport" last={true}>
-                      <Text style={{ color: DS.textPrimary, fontSize: 14, fontWeight: "500" }}>
-                        {transportType === "passengers" ? "Passengers" : transportType === "delivery" ? "Food / Packages" : "Both (Passengers & Delivery)"}
-                      </Text>
-                    </Row>
-                  )}
-                </Card>
-
-                <GroupLabel text="Location" />
-                <Card>
-                  <Row label="Country" last={false}>
-                    <Text style={{ color: DS.textPrimary, fontSize: 14, fontWeight: "500" }}>
-                      {COUNTRIES.find((c) => c.id === country)?.label || country}
-                    </Text>
-                  </Row>
-                  <Row label={country === "CA" ? "Province" : "State"} last={false}>
-                    <Text style={{ color: DS.textPrimary, fontSize: 14, fontWeight: "500" }}>
-                      {taxRegion}
-                    </Text>
-                  </Row>
-                  <Row label="Distance unit" last={true}>
-                    <Text style={{ color: DS.textPrimary, fontSize: 14, fontWeight: "500" }}>
-                      {distanceUnit}
-                    </Text>
-                  </Row>
-                </Card>
-              </>
-            )}
-
-            <GroupLabel text="Custom Features" />
+            <GroupLabel text="Optional Features" />
             <Card>
               {FEATURE_MODULES.filter((f) => !f.core && f.userToggleable).map((feature, idx, arr) => {
-                const defaultVal = PERSONAS[persona]?.defaultFeatures[feature.key] ?? false;
+                const defaultVal = GIG_DRIVER_DEFAULTS[feature.key] ?? false;
                 const active = feature.key in (featureOverrides || {})
                   ? !!featureOverrides[feature.key]
                   : defaultVal;
 
+                const FEATURE_UI: Record<string, { Icon: React.ComponentType<{ size: number; color: string }>; where: string }> = {
+                  analytics_advanced: { Icon: BarChart2,   where: "Analytics tab" },
+                  tax_workspace:      { Icon: Calculator,  where: "Tax tab" },
+                  goals:              { Icon: Target,      where: "Goals screen" },
+                  schedule:           { Icon: CalendarDays, where: "Schedule screen" },
+                  gamification:       { Icon: Trophy,      where: "Dashboard" },
+                  pdf_reports:        { Icon: FileText,    where: "Reports screen" },
+                };
+                const meta = FEATURE_UI[feature.key];
+
                 return (
-                  <Row
-                    key={feature.key}
-                    label={feature.label}
-                    hint={feature.description}
-                    last={idx === arr.length - 1}
-                  >
-                    <Switch
-                      value={active}
-                      onValueChange={(val) => updateFeatureOverride(feature.key, val)}
-                      trackColor={{ false: DS.inputBorder, true: accentColor }}
-                      thumbColor="#fff"
-                    />
-                  </Row>
+                  <View key={feature.key}>
+                    <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 4, gap: 12 }}>
+                      {meta && (
+                        <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: active ? accentColor + "1a" : DS.inputBorder + "44", justifyContent: "center", alignItems: "center" }}>
+                          <meta.Icon size={18} color={active ? accentColor : DS.textSecondary} />
+                        </View>
+                      )}
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text style={{ fontSize: 14, fontWeight: "600", color: DS.textPrimary }}>{feature.label}</Text>
+                          {meta && (
+                            <View style={{ backgroundColor: DS.inputBorder + "66", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
+                              <Text style={{ fontSize: 10, fontWeight: "700", color: DS.textSecondary, textTransform: "uppercase", letterSpacing: 0.4 }}>{meta.where}</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={{ fontSize: 12, color: DS.textSecondary, lineHeight: 16 }}>{feature.description}</Text>
+                      </View>
+                      <Switch
+                        value={active}
+                        onValueChange={(val) => updateFeatureOverride(feature.key, val)}
+                        trackColor={{ false: DS.inputBorder, true: accentColor }}
+                        thumbColor="#fff"
+                      />
+                    </View>
+                    {idx < arr.length - 1 && <Sep />}
+                  </View>
                 );
               })}
             </Card>
@@ -1358,7 +1195,7 @@ export default function SettingsScreen() {
                             { value: "na" as const, label: "N/A" }
                           ]}
                           value={cfg.mileageRate === "N/A" ? "na" : "custom"}
-                          onChange={(v) => updateCfg({ mileageRate: v === "na" ? "N/A" : getMileagePresetRate(country, taxRegion) })}
+                          onChange={(v) => updateCfg({ mileageRate: v === "na" ? "N/A" : getMileagePresetRate(country, profile?.taxRegion ?? "ON") })}
                           style={{ minWidth: 140 }}
                         />
                         {cfg.mileageRate !== "N/A" && (
@@ -1370,7 +1207,7 @@ export default function SettingsScreen() {
                               onChangeText={(v) => updateCfg({ mileageRate: v })}
                               style={{ minWidth: 50, textAlign: "center" }}
                             />
-                            <Text style={{ color: DS.textSecondary, fontSize: 13 }}>/ {distanceUnit}</Text>
+                            <Text style={{ color: DS.textSecondary, fontSize: 13 }}>/ {profile?.distanceUnit ?? "km"}</Text>
                           </View>
                         )}
                       </View>
@@ -1595,7 +1432,7 @@ export default function SettingsScreen() {
                               return;
                             }
                             const newId = `custom_platform_${Date.now()}`;
-                            const defaultMileage = getMileagePresetRate(country, taxRegion);
+                            const defaultMileage = getMileagePresetRate(country, profile?.taxRegion ?? "ON");
                             
                             // Insert into database directly
                             await updateDBPlatform(country, newId, {
@@ -1876,149 +1713,6 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* ── Country change warning & compatibility audit modal ── */}
-      <Modal visible={!!selectedNewCountry} transparent animationType="fade">
-        <TouchableOpacity
-          style={s.overlay}
-          activeOpacity={1}
-          onPress={() => {
-            setCountry(profile.country as "CA" | "US" | "UK" | "NP");
-            setSelectedNewCountry(null);
-            setIncompatiblePlatforms([]);
-          }}
-        >
-          <TouchableOpacity activeOpacity={1} style={s.overlayCard}>
-            <View style={s.overlayHeader}>
-              <Text style={s.overlayTitle}>Change Active Country</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setCountry(profile.country as "CA" | "US" | "UK" | "NP");
-                  setSelectedNewCountry(null);
-                  setIncompatiblePlatforms([]);
-                }}
-                style={s.overlayClose}
-              >
-                <Text style={{ color: DS.textSecondary, fontSize: 16, lineHeight: 16, fontWeight: "700" }}>×</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={{ color: DS.textPrimary, fontSize: 13, lineHeight: 18, fontWeight: "500" }}>
-              Are you sure you want to change your active country to{" "}
-              <Text style={{ color: accentColor, fontWeight: "800" }}>
-                {COUNTRIES.find((c) => c.id === selectedNewCountry)?.label || selectedNewCountry}
-              </Text>
-              ? This is a drastic action that resets core regional settings.
-            </Text>
-
-            {/* Comparisons */}
-            <View
-              style={{
-                backgroundColor: DS.inputBg,
-                borderRadius: DS.rCard - 2,
-                borderWidth: 0.5,
-                borderColor: DS.inputBorder,
-                padding: 12,
-                gap: 8,
-              }}
-            >
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={{ color: DS.textSecondary, fontSize: 11, fontWeight: "700" }}>Metric</Text>
-                <Text style={{ color: DS.textSecondary, fontSize: 11, fontWeight: "700" }}>Change Details</Text>
-              </View>
-              <View style={{ height: 1, backgroundColor: DS.sep }} />
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={{ color: DS.textSecondary, fontSize: 12, fontWeight: "600" }}>Currency</Text>
-                <Text style={{ color: DS.textPrimary, fontSize: 12, fontWeight: "700" }}>
-                  {profile.locale?.currency || "CAD"} ➔ {selectedNewCountry ? getCountryDef(selectedNewCountry).currency : ""}
-                </Text>
-              </View>
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={{ color: DS.textSecondary, fontSize: 12, fontWeight: "600" }}>Distance Unit</Text>
-                <Text style={{ color: DS.textPrimary, fontSize: 12, fontWeight: "700" }}>
-                  {profile.distanceUnit || "km"} ➔ {selectedNewCountry ? getCountryDef(selectedNewCountry).distanceUnit : ""}
-                </Text>
-              </View>
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={{ color: DS.textSecondary, fontSize: 12, fontWeight: "600" }}>Default Tax Rate</Text>
-                <Text style={{ color: DS.textPrimary, fontSize: 12, fontWeight: "700" }}>
-                  {profile.taxWithholdingPct || 0}% ➔ {selectedNewCountry ? getCountryDef(selectedNewCountry).tax.defaultWithholdingPct : 0}%
-                </Text>
-              </View>
-            </View>
-
-            {/* Platform compatibility audit result */}
-            <View
-              style={{
-                backgroundColor: incompatiblePlatforms.length > 0 ? DS.dangerSurface : "rgba(34, 197, 94, 0.05)",
-                borderRadius: DS.rCard - 2,
-                borderWidth: 0.5,
-                borderColor: incompatiblePlatforms.length > 0 ? DS.dangerBorder : "rgba(34, 197, 94, 0.18)",
-                padding: 12,
-                gap: 6,
-              }}
-            >
-              <Text
-                style={{
-                  color: incompatiblePlatforms.length > 0 ? DS.dangerText : "#22c55e",
-                  fontSize: 11,
-                  fontWeight: "800",
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                }}
-              >
-                {incompatiblePlatforms.length > 0 ? "⚠️ Platform Compatibility Warning" : "✅ Platforms Compatible"}
-              </Text>
-              <Text style={{ color: DS.textPrimary, fontSize: 11.5, lineHeight: 16, fontWeight: "600" }}>
-                {incompatiblePlatforms.length > 0
-                  ? `The following active platforms are not available in the target market and will be automatically deactivated:\n${incompatiblePlatforms
-                      .map((k) => PLATFORMS[k as PlatformKey]?.label || k)
-                      .join(", ")}`
-                  : "All of your currently active platforms are compatible with this country."}
-              </Text>
-            </View>
-
-            <Text style={{ color: DS.textSecondary, fontSize: 10.5, lineHeight: 15, fontWeight: "600" }}>
-              Note: Historical logs and stats will keep their logged numbers, but all forward estimations, mileage write-offs, and tax calculations will update immediately.
-            </Text>
-
-            {/* Actions */}
-            <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
-              <TouchableOpacity
-                onPress={() => {
-                  setCountry(profile.country as "CA" | "US" | "UK" | "NP");
-                  setSelectedNewCountry(null);
-                  setIncompatiblePlatforms([]);
-                }}
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: DS.rInput,
-                  backgroundColor: DS.inputBg,
-                  borderWidth: 0.5,
-                  borderColor: DS.inputBorder,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Text style={{ color: DS.textSecondary, fontSize: 12, fontWeight: "800" }}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={confirmCountryChange}
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: DS.rInput,
-                  backgroundColor: accentColor,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Text style={{ color: accentColorContrast, fontSize: 12, fontWeight: "800" }}>Confirm Change</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
     </SafeAreaView>
   );
 }

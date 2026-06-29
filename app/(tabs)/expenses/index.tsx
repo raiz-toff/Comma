@@ -15,6 +15,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Plus, Trash2, ArrowDownRight, ArrowUpRight } from "lucide-react-native";
 import Svg, { Path } from "react-native-svg";
+import { ExpenseCategoryIcon } from "@/src/components/ui/ExpenseCategoryIcon";
 import { Text } from "@/src/components/ui/text";
 import { EmptyState } from "@/src/components/ui/EmptyState";
 import {
@@ -137,7 +138,7 @@ function ExpenseRow({
           justifyContent: "center",
         }}
       >
-        <Text style={{ fontSize: 20 }}>{cat.icon}</Text>
+        <ExpenseCategoryIcon id={expense.category} size={20} color="#a1a1aa" />
       </View>
 
       <View style={{ flex: 1, gap: 4 }}>
@@ -542,7 +543,7 @@ export default function ExpensesScreen() {
                   onPress={() => setFilterCategory(active ? "" : cat.id)}
                   style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, backgroundColor: active ? accentColor + "20" : "#161615", borderColor: active ? accentColor : "#262522" }}
                 >
-                  <Text style={{ fontSize: 14 }}>{cat.icon}</Text>
+                  <ExpenseCategoryIcon id={cat.id} size={14} color={active ? accentColor : "#71717a"} />
                   <Text style={{ fontSize: 12, fontWeight: "800", color: active ? accentColor : "#71717a" }}>{cat.label}</Text>
                 </TouchableOpacity>
               );
@@ -582,7 +583,7 @@ export default function ExpensesScreen() {
                 expense={expense}
                 country={country}
                 customCategories={customCategories}
-                onPress={() => router.push({ pathname: "/expense/add", params: { expenseId: expense.id } })}
+                onPress={() => router.push({ pathname: "/expense/[id]", params: { id: expense.id } })}
                 onDelete={() => handleDelete(expense.id)}
               />
             ))}

@@ -17,6 +17,7 @@ import m0012 from './0012_magenta_wraith.sql';
 import m0013 from './0013_fancy_layla_miller.sql';
 import m0014 from './0014_brief_zodiak.sql';
 import m0015 from './0015_early_betty_brant.sql';
+import m0016 from './0016_first_lord_tyger.sql';
 
   export default {
     journal,
@@ -36,7 +37,8 @@ m0011,
 m0012,
 m0013,
 m0014,
-m0015
+m0015,
+m0016
     }
   }
   

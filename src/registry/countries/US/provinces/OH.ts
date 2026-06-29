@@ -8,4 +8,5 @@ export const OH: ProvinceDef = {
   isHarmonized: false,
   bannedPlatforms: ["lyft","uber"],
   withholdingPct: 25,
+  incomeTaxRate: 0.04,
 };

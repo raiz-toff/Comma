@@ -789,14 +789,10 @@ export default function ShiftsScreen() {
           {/* Modal Footer with Pagination Controls */}
           <View style={styles.modalFooter}>
             <Pressable
-              onPress={handleModalPrevPage}
-              disabled={selectorPage === 0 && selectorYear >= new Date().getFullYear()}
-              style={[
-                styles.pageBtn,
-                (selectorPage === 0 && selectorYear >= new Date().getFullYear()) && styles.pageBtnDisabled
-              ]}
+              onPress={handleModalNextPage}
+              style={styles.pageBtn}
             >
-              <Text style={styles.pageBtnText}>← Newer</Text>
+              <Text style={styles.pageBtnText}>← Older</Text>
             </Pressable>
 
             <Text style={styles.pageIndicator}>
@@ -804,10 +800,14 @@ export default function ShiftsScreen() {
             </Text>
 
             <Pressable
-              onPress={handleModalNextPage}
-              style={styles.pageBtn}
+              onPress={handleModalPrevPage}
+              disabled={selectorPage === 0 && selectorYear >= new Date().getFullYear()}
+              style={[
+                styles.pageBtn,
+                (selectorPage === 0 && selectorYear >= new Date().getFullYear()) && styles.pageBtnDisabled
+              ]}
             >
-              <Text style={styles.pageBtnText}>Older →</Text>
+              <Text style={styles.pageBtnText}>Newer →</Text>
             </Pressable>
           </View>
         </SafeAreaView>

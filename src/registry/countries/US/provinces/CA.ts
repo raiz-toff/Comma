@@ -8,4 +8,5 @@ export const CA: ProvinceDef = {
   isHarmonized: false,
   bannedPlatforms: ["uber"],
   withholdingPct: 30,
+  incomeTaxRate: 0.093, // CA state effective rate for ~$50k self-employed income
 };

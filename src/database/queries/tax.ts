@@ -1,5 +1,5 @@
 import { db } from "../client";
-import { shifts, expenses, taxHistory } from "../schema";
+import { shifts, expenses, taxHistory, settings } from "../schema";
 import { sql, eq, and, gte, lte, desc } from "drizzle-orm";
 import { Platform } from "react-native";
 
@@ -71,6 +71,41 @@ export async function getTaxHistory(): Promise<TaxHistoryEntry[]> {
     newRate: Number(r.newRate),
     changedAt: new Date(r.changedAt),
   }));
+}
+
+// ─── Tax Jar (Virtual Set-Aside Account) ────────────────────────────────────
+
+/** Read the current Tax Jar balance for a given tax year */
+export async function getTaxJarBalance(year: number): Promise<number> {
+  const jarKey = `tax_virtual_jar_${year}`;
+  if (isWeb) {
+    try {
+      const val = localStorage.getItem(`comma_setting_${jarKey}`);
+      return val ? Number(val) : 0;
+    } catch {
+      return 0;
+    }
+  }
+  try {
+    const row = await db.select().from(settings).where(eq(settings.key, jarKey)).limit(1);
+    return row[0]?.value ? Number(row[0].value) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Persist the Tax Jar balance for a given tax year */
+export async function setTaxJarBalance(year: number, amount: number): Promise<void> {
+  const jarKey = `tax_virtual_jar_${year}`;
+  const value = String(Math.max(0, amount));
+  if (isWeb) {
+    localStorage.setItem(`comma_setting_${jarKey}`, value);
+    return;
+  }
+  await db
+    .insert(settings)
+    .values({ key: jarKey, value })
+    .onConflictDoUpdate({ target: settings.key, set: { value } });
 }
 
 export async function insertTaxHistory(payload: {

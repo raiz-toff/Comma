@@ -24,6 +24,8 @@ import {
 } from "@/src/database/queries/analytics";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
+import { router } from "expo-router";
 
 import BestDayWidget from "@/src/components/widgets/BestDayWidget";
 import BestHourWidget from "@/src/components/widgets/BestHourWidget";
@@ -172,6 +174,15 @@ export default function AnalyticsScreen() {
   const insets = useSafeAreaInsets();
   const { profile, isOnboardingCompleted, activePlatformFilter, setHeaderVisible, streakDays, bestStreak } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
+  const isAnalyticsEnabled = useFeatureEnabled("analytics_advanced");
+
+  useEffect(() => {
+    if (!isAnalyticsEnabled && isOnboardingCompleted) {
+      router.replace("/");
+    }
+  }, [isAnalyticsEnabled, isOnboardingCompleted]);
+
+  if (!isAnalyticsEnabled) return null;
 
   const [periodType, setPeriodType] = useState<PeriodType>("month");
   const [periodOffset, setPeriodOffset] = useState<number>(0);

@@ -126,6 +126,10 @@ export const US: CountryDef = {
   ],
   hasSETax: true,
   mileageRateSource: "IRS",
+  taxFormThresholds: {
+    singleIssuer: 600,    // 1099-NEC threshold ($600 USD)
+    paymentCard: 5000,    // 1099-K transitional threshold ($5,000 USD for 2024)
+  },
   defaultAvailablePlatforms: ["doordash", "ubereats", "instacart", "amazonflex", "lyft", "other"],
   tax: {
     intlLocaleTag: "en-US",
@@ -136,6 +140,7 @@ export const US: CountryDef = {
     hstRateWhenRegistered: 0,
     calcCpp: false,
     calcSeTax: true,
+    calcNI: false,
     regionLabel: "state",
     secondaryEstimator: "se",
     footnote: "us",

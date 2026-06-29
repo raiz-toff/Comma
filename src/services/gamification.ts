@@ -19,6 +19,8 @@ export interface Challenge {
   current: number;
   completedAt: string | null;
   startedAt: string;
+  nextResetDate: string | null;
+  weekStartedAt: string | null;
 }
 
 export interface NotificationItem {
@@ -80,13 +82,15 @@ const DEFAULT_GAMIFICATION_STATE: GamificationState = {
   challenges: [
     {
       id: "challenge_earn_500_week",
-      name: "Earn 500 This Week",
+      name: "Earn $500 This Week",
       description: "Reach $500 gross earnings this week.",
       metric: "earnings",
       target: 500,
       current: 0,
       completedAt: null,
       startedAt: new Date().toISOString(),
+      nextResetDate: getNextMondayIso(),
+      weekStartedAt: new Date().toISOString(),
     },
     {
       id: "challenge_20_deliveries_week",
@@ -97,16 +101,20 @@ const DEFAULT_GAMIFICATION_STATE: GamificationState = {
       current: 0,
       completedAt: null,
       startedAt: new Date().toISOString(),
+      nextResetDate: getNextMondayIso(),
+      weekStartedAt: new Date().toISOString(),
     },
     {
       id: "challenge_5_shift_streak",
-      name: "5 Shift Streak",
+      name: "5-Day Streak",
       description: "Log shifts on 5 consecutive days.",
       metric: "streak",
       target: 5,
       current: 0,
       completedAt: null,
       startedAt: new Date().toISOString(),
+      nextResetDate: getNextMondayIso(),
+      weekStartedAt: new Date().toISOString(),
     },
   ],
   notifications: [],
@@ -141,6 +149,17 @@ function getMonthsDifference(ymd1: string, ymd2: string): number {
   const d1 = new Date(`${ymd1}T12:00:00`);
   const d2 = new Date(`${ymd2}T12:00:00`);
   return (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+}
+
+/** Returns ISO string for next Monday at midnight local time */
+function getNextMondayIso(): string {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun … 6=Sat
+  const daysUntil = (8 - day) % 7 || 7; // Mon=7, Tue=6, …, Sun=1
+  const next = new Date(now);
+  next.setDate(now.getDate() + daysUntil);
+  next.setHours(0, 0, 0, 0);
+  return next.toISOString();
 }
 
 export const GamificationService = {
@@ -349,28 +368,28 @@ export const GamificationService = {
     }
     
     // 4. Evaluate Badges
-    const badgeStats: BadgeSweepStats = {
-      shiftCount,
-      expenseCount,
-      weekendShifts,
-      streakCount,
-    };
-    
     const currentWeekStart = new Date(now);
     currentWeekStart.setDate(now.getDate() - now.getDay());
     currentWeekStart.setHours(0, 0, 0, 0);
-    
+
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    
-    // Sum stats for different goal ranges
+
+    // Sum stats for badge evaluation and goal progress
     let weekGross = 0, weekHours = 0, weekShifts = 0, weekMileage = 0;
     let monthGross = 0, monthHours = 0, monthShifts = 0, monthMileage = 0;
+    let totalActiveMileage = 0;
+    const platformShiftCounts: Record<string, number> = {};
+
     for (const s of sortedShifts) {
       const time = safeDate(s.startTime).getTime();
       const gross = s.grossRevenue + s.tipsRevenue;
       const hours = (s.durationSeconds || 0) / 3600;
       const mileage = s.activeMileage || 0;
-      
+      const pid = String((s as any).platform || "other");
+
+      totalActiveMileage += mileage;
+      platformShiftCounts[pid] = (platformShiftCounts[pid] || 0) + 1;
+
       if (time >= currentWeekStart.getTime()) {
         weekGross += gross;
         weekHours += hours;
@@ -384,6 +403,16 @@ export const GamificationService = {
         monthMileage += mileage;
       }
     }
+
+    const badgeStats: BadgeSweepStats = {
+      shiftCount,
+      expenseCount,
+      weekendShifts,
+      streakCount,
+      totalActiveMileage,
+      platformShiftCounts,
+      weekShifts,
+    };
     
     // Check shift badges
     const newlyUnlockedBadges: string[] = [];
@@ -470,7 +499,22 @@ export const GamificationService = {
     }
     
     // 5. Evaluate Challenges
-    // Challenge 1: Earn 500 this week
+    // Reset any challenge whose weekly window has passed
+    const todayYmd = toYmdString(now);
+    for (const c of state.challenges) {
+      if (!c.nextResetDate) {
+        // Backward compat: assign reset date for challenges saved before this field existed
+        c.nextResetDate = getNextMondayIso();
+        c.weekStartedAt = c.weekStartedAt ?? c.startedAt;
+      } else if (todayYmd >= c.nextResetDate.split("T")[0]) {
+        c.current = 0;
+        c.completedAt = null;
+        c.weekStartedAt = now.toISOString();
+        c.nextResetDate = getNextMondayIso();
+      }
+    }
+
+    // Challenge 1: Earn $500 this week
     const challenge1 = state.challenges.find((c) => c.id === "challenge_earn_500_week");
     if (challenge1 && !challenge1.completedAt) {
       challenge1.current = Math.round(weekGross);
@@ -572,8 +616,7 @@ export const GamificationService = {
     // Dynamic XP Accumulation
     let xpTotal = 0;
     const totalEarnings = sortedShifts.reduce((sum, s) => sum + (s.grossRevenue || 0) + (s.tipsRevenue || 0), 0);
-    const totalActiveMileage = sortedShifts.reduce((sum, s) => sum + (s.activeMileage || 0), 0);
-    
+
     xpTotal += sortedShifts.length * 10;
     xpTotal += Math.floor(totalEarnings / 10);
     xpTotal += Math.floor(totalActiveMileage / 10);

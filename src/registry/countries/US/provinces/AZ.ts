@@ -8,4 +8,5 @@ export const AZ: ProvinceDef = {
   isHarmonized: false,
   bannedPlatforms: ["lyft","uber"],
   withholdingPct: 24,
+  incomeTaxRate: 0.025, // AZ flat rate 2.5%
 };

@@ -4,6 +4,16 @@
 
 import { type PlatformDef } from "./types";
 import { resolveProvinceDef } from "../countries/index";
+import {
+  DoorDashLogo,
+  UberEatsLogo,
+  SkipLogo,
+  FoodoraLogo,
+  InstacartLogo,
+  LyftLogo,
+  UberLogo,
+  AmazonFlexLogo,
+} from "./logos";
 
 export const doordash: PlatformDef = {
   id: "doordash",
@@ -17,6 +27,7 @@ export const doordash: PlatformDef = {
   platformTracksOwnMileage: false,
   offersMileageReimbursement: false,
   terminology: { driverTerm: "Dasher" },
+  logo: DoorDashLogo,
 };
 
 export const ubereats: PlatformDef = {
@@ -31,6 +42,7 @@ export const ubereats: PlatformDef = {
   platformTracksOwnMileage: false,
   offersMileageReimbursement: false,
   terminology: { driverTerm: "Courier" },
+  logo: UberEatsLogo,
 };
 
 export const skip: PlatformDef = {
@@ -45,6 +57,7 @@ export const skip: PlatformDef = {
   platformTracksOwnMileage: false,
   offersMileageReimbursement: false,
   terminology: { driverTerm: "Courier" },
+  logo: SkipLogo,
 };
 
 export const foodora: PlatformDef = {
@@ -58,6 +71,7 @@ export const foodora: PlatformDef = {
   issuesTaxForm: true,
   platformTracksOwnMileage: false,
   offersMileageReimbursement: false,
+  logo: FoodoraLogo,
 };
 
 export const instacart: PlatformDef = {
@@ -72,6 +86,7 @@ export const instacart: PlatformDef = {
   platformTracksOwnMileage: false,
   offersMileageReimbursement: false,
   terminology: { driverTerm: "Shopper", sessionTerm: "Batch" },
+  logo: InstacartLogo,
 };
 
 export const lyft: PlatformDef = {
@@ -86,6 +101,7 @@ export const lyft: PlatformDef = {
   platformTracksOwnMileage: false,
   offersMileageReimbursement: false,
   terminology: { driverTerm: "Driver" },
+  logo: LyftLogo,
 };
 
 export const uber: PlatformDef = {
@@ -100,6 +116,7 @@ export const uber: PlatformDef = {
   platformTracksOwnMileage: false,
   offersMileageReimbursement: false,
   terminology: { driverTerm: "Driver" },
+  logo: UberLogo,
 };
 
 export const deliveroo: PlatformDef = {
@@ -142,6 +159,7 @@ export const amazonflex: PlatformDef = {
   platformTracksOwnMileage: false,
   offersMileageReimbursement: true,
   terminology: { sessionTerm: "Block" },
+  logo: AmazonFlexLogo,
 };
 
 export const pathao: PlatformDef = {

@@ -8,4 +8,5 @@ export const GA: ProvinceDef = {
   isHarmonized: false,
   bannedPlatforms: ["lyft","uber"],
   withholdingPct: 25,
+  incomeTaxRate: 0.055,
 };

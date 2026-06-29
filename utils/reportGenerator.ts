@@ -6,6 +6,12 @@ import { shifts, expenses } from "../src/database/schema";
 import { and, gte, lte, asc } from "drizzle-orm";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { resolveAppContext } from "../src/hooks/useAppContext";
+import { getCategoryMeta } from "../src/registry/expenseCategories";
+import {
+  calculateCRAMileageDeduction,
+  calculateHMRCMileageDeduction,
+  calculateIRSMileageDeduction,
+} from "./taxCalculations";
 
 const isWeb = Platform.OS === "web";
 
@@ -35,10 +41,16 @@ export async function generateShiftsCSV(startDate: Date, endDate: Date): Promise
       .orderBy(asc(shifts.startTime));
   }
 
+  const taxYear = startDate.getFullYear();
   const csvRows = list.map((s: any) => {
     const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0);
     const miles = (s.activeMileage || 0) + (s.deadMileage || 0);
-    const writeOff = miles * 0.67;
+    const writeOff =
+      profile?.country === "CA"
+        ? calculateCRAMileageDeduction(miles, taxYear)
+        : profile?.country === "UK"
+        ? calculateHMRCMileageDeduction(miles, taxYear)
+        : calculateIRSMileageDeduction(miles, taxYear);
     const net = gross - writeOff;
     return {
       date: new Date(s.startTime).toLocaleDateString(),
@@ -59,6 +71,9 @@ export async function generateShiftsCSV(startDate: Date, endDate: Date): Promise
 }
 
 export async function generateExpensesCSV(startDate: Date, endDate: Date): Promise<string> {
+  const profile = useSettingsStore.getState().profile;
+  const country = profile?.country ?? "CA";
+  const customCategories = profile?.customCategories ?? [];
   let list: any[] = [];
 
   if (isWeb) {
@@ -76,14 +91,23 @@ export async function generateExpensesCSV(startDate: Date, endDate: Date): Promi
       .orderBy(asc(expenses.date));
   }
 
-  const csvRows = list.map((e: any) => ({
-    date: new Date(e.date).toLocaleDateString(),
-    category: e.category,
-    amount: e.amount,
-    isDeductible: e.isDeductible ? "Yes" : "No",
-    notes: e.notes || "",
-    linkedShiftId: e.shiftId || "",
-  }));
+  const csvRows = list.map((e: any) => {
+    const meta = getCategoryMeta(e.category, country, customCategories);
+    const pct = e.deductiblePct ?? 100;
+    const deductibleAmount = e.isDeductible ? (e.amount || 0) * (pct / 100) : 0;
+    return {
+      date: new Date(e.date).toLocaleDateString(),
+      category: e.category,
+      taxCode: meta.taxCode ?? "N/A",
+      taxCodeLabel: meta.taxCodeLabel ?? "Other",
+      amount: e.amount,
+      businessUsePct: pct,
+      deductibleAmount: deductibleAmount.toFixed(2),
+      isDeductible: e.isDeductible ? "Yes" : "No",
+      notes: e.notes || "",
+      linkedShiftId: e.shiftId || "",
+    };
+  });
 
   return Papa.unparse(csvRows);
 }
@@ -92,13 +116,13 @@ export async function generatePDFSummary(startDate: Date, endDate: Date): Promis
   const profile = useSettingsStore.getState().profile;
   const featureOverrides = useSettingsStore.getState().featureOverrides || {};
   const appContext = resolveAppContext(
-    profile?.persona || "platform_driver",
+    profile?.operationalModelId || "delivery_fixed",
     profile?.country || "CA",
     featureOverrides
   );
 
   if (!appContext.features.pdf_reports) {
-    throw new Error("PDF report generation is not enabled for your current persona.");
+    throw new Error("PDF report generation is not enabled for your current settings.");
   }
 
   const currencySymbol = getCurrencySymbol(profile?.locale?.currency);
@@ -134,20 +158,46 @@ export async function generatePDFSummary(startDate: Date, endDate: Date): Promis
   }
 
   // Calculate Aggregates
+  const country = profile?.country ?? "CA";
+  const customCategories = profile?.customCategories ?? [];
+
   const totalGross = shiftList.reduce((sum, s) => sum + (s.grossRevenue || 0), 0);
   const totalTips = shiftList.reduce((sum, s) => sum + (s.tipsRevenue || 0), 0);
   const totalRevenue = totalGross + totalTips;
   const totalDeductibleExpenses = expenseList
     .filter((e) => e.isDeductible)
-    .reduce((sum, e) => sum + (e.amount || 0), 0);
+    .reduce((sum, e) => sum + (e.amount || 0) * ((e.deductiblePct ?? 100) / 100), 0);
   const totalNonDeductibleExpenses = expenseList
     .filter((e) => !e.isDeductible)
     .reduce((sum, e) => sum + (e.amount || 0), 0);
 
+  // Build tax-code groups for the breakdown table
+  const taxGroupMap = new Map<string, { taxCode: string; taxCodeLabel: string; totalSpend: number; totalDeductible: number }>();
+  for (const e of expenseList) {
+    if (!e.isDeductible) continue;
+    const meta = getCategoryMeta(e.category, country, customCategories);
+    const key = meta.taxCode ?? "Other";
+    const label = meta.taxCodeLabel ?? "Other / Uncategorized";
+    const deductible = (e.amount || 0) * ((e.deductiblePct ?? 100) / 100);
+    if (!taxGroupMap.has(key)) {
+      taxGroupMap.set(key, { taxCode: key, taxCodeLabel: label, totalSpend: 0, totalDeductible: 0 });
+    }
+    const g = taxGroupMap.get(key)!;
+    g.totalSpend += e.amount || 0;
+    g.totalDeductible += deductible;
+  }
+  const taxGroups = Array.from(taxGroupMap.values()).sort((a, b) => a.taxCode.localeCompare(b.taxCode));
+
   const totalActiveMiles = shiftList.reduce((sum, s) => sum + (s.activeMileage || 0), 0);
   const totalDeadMiles = shiftList.reduce((sum, s) => sum + (s.deadMileage || 0), 0);
   const totalMiles = totalActiveMiles + totalDeadMiles;
-  const mileageDeduction = totalMiles * 0.67;
+  const pdfTaxYear = startDate.getFullYear();
+  const mileageDeduction =
+    country === "CA"
+      ? calculateCRAMileageDeduction(totalMiles, pdfTaxYear)
+      : country === "UK"
+      ? calculateHMRCMileageDeduction(totalMiles, pdfTaxYear)
+      : calculateIRSMileageDeduction(totalMiles, pdfTaxYear);
 
   const netEarnings = totalRevenue - totalDeductibleExpenses - mileageDeduction;
 
@@ -231,6 +281,34 @@ export async function generatePDFSummary(startDate: Date, endDate: Date): Promis
           </tbody>
         </table>
 
+        <h3>Deductible Expenses by Tax Line</h3>
+        ${taxGroups.length === 0
+          ? "<p style='font-size: 13px; color: #64748b;'>No deductible expenses in this period.</p>"
+          : `<table>
+          <thead>
+            <tr>
+              <th>Tax Code</th>
+              <th>Line Item</th>
+              <th class="number-col">Total Spent</th>
+              <th class="number-col">Deductible Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${taxGroups.map((g) => `
+              <tr>
+                <td style="font-family: monospace; font-weight: bold; white-space: nowrap;">${g.taxCode}</td>
+                <td>${g.taxCodeLabel}</td>
+                <td class="number-col">${currencySymbol}${g.totalSpend.toFixed(2)}</td>
+                <td class="number-col" style="font-weight: bold; color: #10b981;">${currencySymbol}${g.totalDeductible.toFixed(2)}</td>
+              </tr>`).join("")}
+            <tr style="font-weight: bold; background: #f8fafc; border-top: 2px solid #cbd5e1;">
+              <td colspan="2">Total Deductible</td>
+              <td class="number-col">–</td>
+              <td class="number-col" style="color: #10b981;">${currencySymbol}${totalDeductibleExpenses.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>`}
+
         <h3>Expense Log</h3>
         ${
           expenseList.length === 0
@@ -241,24 +319,30 @@ export async function generatePDFSummary(startDate: Date, endDate: Date): Promis
             <tr>
               <th>Date</th>
               <th>Category</th>
-              <th>Deductible</th>
+              <th>Tax Code</th>
+              <th class="number-col">Biz %</th>
               <th>Notes</th>
               <th class="number-col">Amount</th>
+              <th class="number-col">Deductible</th>
             </tr>
           </thead>
           <tbody>
             ${expenseList
-              .map(
-                (e) => `
+              .map((e) => {
+                const meta = getCategoryMeta(e.category, country, customCategories);
+                const pct = e.deductiblePct ?? 100;
+                const deductible = e.isDeductible ? (e.amount || 0) * (pct / 100) : 0;
+                return `
               <tr>
                 <td>${new Date(e.date).toLocaleDateString()}</td>
                 <td style="text-transform: capitalize;">${e.category}</td>
-                <td>${e.isDeductible ? "Yes" : "No"}</td>
+                <td style="font-family: monospace; font-size: 11px;">${meta.taxCode ?? "–"}</td>
+                <td class="number-col">${e.isDeductible ? pct + "%" : "–"}</td>
                 <td>${e.notes || ""}</td>
                 <td class="number-col">${currencySymbol}${(e.amount || 0).toFixed(2)}</td>
-              </tr>
-            `
-              )
+                <td class="number-col" style="color: #10b981;">${e.isDeductible ? currencySymbol + deductible.toFixed(2) : "–"}</td>
+              </tr>`;
+              })
               .join("")}
           </tbody>
         </table>

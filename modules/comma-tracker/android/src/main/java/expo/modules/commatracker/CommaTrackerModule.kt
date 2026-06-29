@@ -111,6 +111,29 @@ class CommaTrackerModule : Module() {
       }
     }
 
+    // JS pushes the live shift timing so the overlay's clock mirrors the in-app timer exactly
+    // (pause-aware), even while the app is backgrounded and JS timers are frozen.
+    Function("setShiftTiming") { startTimeMs: Double, pausedSeconds: Double, isPaused: Boolean, frozenElapsed: Double ->
+      val context = appContext.reactContext
+      if (context != null) {
+        context.getSharedPreferences("CommaTracker", android.content.Context.MODE_PRIVATE).edit()
+          .putLong("shift_start_time", startTimeMs.toLong())
+          .putLong("shift_paused_seconds", pausedSeconds.toLong())
+          .putBoolean("shift_is_paused", isPaused)
+          .putLong("shift_frozen_elapsed", frozenElapsed.toLong())
+          .apply()
+      }
+    }
+
+    // Returns (and clears) whether the user tapped the floating pill to open the shift console.
+    Function("consumeOpenConsole") {
+      val context = appContext.reactContext ?: return@Function false
+      val prefs = context.getSharedPreferences("CommaTracker", android.content.Context.MODE_PRIVATE)
+      val pending = prefs.getBoolean("open_console_pending", false)
+      if (pending) prefs.edit().putBoolean("open_console_pending", false).apply()
+      pending
+    }
+
     // The native overlay renders miles in the user's distance unit; JS pushes it here.
     Function("setDistanceUnit") { unit: String ->
       val context = appContext.reactContext

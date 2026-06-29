@@ -11,6 +11,8 @@ const isWeb = Platform.OS === "web";
 
 export function useGPSTracking() {
   const isActive = useActiveShift((s) => s.isActive);
+  const startTime = useActiveShift((s) => s.startTime);
+  const isPaused = useActiveShift((s) => s.isPaused);
 
   const startTracking = async () => {
     if (isWeb) return;
@@ -149,6 +151,24 @@ export function useGPSTracking() {
     // JS remounts (Fast Refresh, navigation container resets) while a shift is active. Tracking
     // is stopped explicitly when isActive flips to false (the else branch) or when the shift ends.
   }, [isActive]);
+
+  // Keep the native overlay clock in sync with the in-app timer (pause-aware). Push on shift
+  // start and whenever start time / pause state changes — NOT every second, since the native
+  // service ticks the clock itself (so it keeps moving even when JS is frozen in the background).
+  useEffect(() => {
+    if (isWeb || !isActive) return;
+    try {
+      const s = useActiveShift.getState();
+      CommaTracker.setShiftTiming(
+        s.startTime ?? Date.now(),
+        s.pausedSeconds ?? 0,
+        s.isPaused ?? false,
+        s.elapsedSeconds ?? 0
+      );
+    } catch (err) {
+      console.warn("[useGPSTracking] setShiftTiming failed:", err);
+    }
+  }, [isActive, startTime, isPaused]);
 
   return { startTracking, stopTracking };
 }

@@ -286,6 +286,7 @@ class LocationTrackingService : Service() {
 
     // ─── Floating "live shift" overlay ──────────────────────────────────────────
     private fun startOverlay() {
+        Log.d(TAG, "startOverlay: creating overlay + starting 1s ticker")
         if (overlay == null) overlay = ShiftOverlay(this)
         mainHandler.removeCallbacks(overlayTicker)
         mainHandler.post(overlayTicker)
@@ -294,15 +295,28 @@ class LocationTrackingService : Service() {
     /** Runs every second: show the floating pill ONLY when Comma is backgrounded (so it never
      *  covers Comma's own UI or steals taps from the in-app shift controls). */
     private fun tickOverlay() {
-        val o = overlay ?: return
-        if (!android.provider.Settings.canDrawOverlays(this) || isAppInForeground()) {
+        val o = overlay ?: run { Log.d(TAG, "tickOverlay: overlay object is null"); return }
+        val canDraw = android.provider.Settings.canDrawOverlays(this)
+        val foreground = isAppInForeground()
+        Log.d(TAG, "tickOverlay: canDrawOverlays=$canDraw appInForeground=$foreground")
+        if (!canDraw || foreground) {
             o.hide()
             return
         }
         o.show() // over another app — no-op if already shown
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val startedAt = prefs.getLong("tracking_started_at", System.currentTimeMillis())
-        val elapsedSec = ((System.currentTimeMillis() - startedAt) / 1000L).coerceAtLeast(0L)
+        // Mirror the in-app timer EXACTLY (pause-aware). JS pushes startTime/pausedSeconds/isPaused
+        // via setShiftTiming; native computes the same formula so the pill and the app stay synced.
+        val elapsedSec = if (prefs.getBoolean("shift_is_paused", false)) {
+            prefs.getLong("shift_frozen_elapsed", 0L)
+        } else {
+            val startTime = prefs.getLong(
+                "shift_start_time",
+                prefs.getLong("tracking_started_at", System.currentTimeMillis())
+            )
+            val pausedSec = prefs.getLong("shift_paused_seconds", 0L)
+            ((System.currentTimeMillis() - startTime) / 1000L - pausedSec).coerceAtLeast(0L)
+        }
         val unit = prefs.getString("distance_unit", "mi") ?: "mi"
         val factor = if (unit == "km") 1000.0 else 1609.344
         val dist = activeDistanceMeters / factor
@@ -328,8 +342,8 @@ class LocationTrackingService : Service() {
         val h = totalSec / 3600
         val m = (totalSec % 3600) / 60
         val s = totalSec % 60
-        return if (h > 0) String.format(java.util.Locale.US, "%d:%02d:%02d", h, m, s)
-        else String.format(java.util.Locale.US, "%d:%02d", m, s)
+        // HH:MM:SS to match the in-app formatTime() exactly.
+        return String.format(java.util.Locale.US, "%02d:%02d:%02d", h, m, s)
     }
 
     private fun processLocation(loc: android.location.Location) {

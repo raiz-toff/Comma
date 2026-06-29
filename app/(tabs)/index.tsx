@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
   Platform,
+  AppState,
   Modal,
   TextInput,
   Dimensions,
@@ -19,6 +20,7 @@ import { Text } from "../../src/components/ui/text";
 import { BlurView } from "expo-blur";
 import { ReceiptText, Calendar, Play, AlertCircle } from "lucide-react-native";
 import { useActiveShift, type GigPlatform } from "../../store/useActiveShift";
+import CommaTracker from "../../modules/comma-tracker";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { parseRoutePath } from "../../utils/polyline";
 import { getVehicles } from "../../src/database/queries/vehicles";
@@ -656,10 +658,8 @@ export default function HomeScreen() {
   const sheetTranslateY = useSharedValue(SCREEN_HEIGHT);
   
   useEffect(() => {
-    sheetTranslateY.value = withSpring(showClockOverlay ? 0 : SCREEN_HEIGHT, {
-      damping: 24,
-      stiffness: 110,
-    });
+    // Instant show/hide — no slow slide animation.
+    sheetTranslateY.value = showClockOverlay ? 0 : SCREEN_HEIGHT;
     // Hide the global top header when the fullscreen shift console/tracking page is open
     if (showClockOverlay) {
       setHeaderVisible(false);
@@ -667,6 +667,22 @@ export default function HomeScreen() {
       setHeaderVisible(true);
     }
   }, [showClockOverlay]);
+
+  // If the user tapped the floating shift pill, open the live console (not just land on home)
+  // when the app comes to the foreground.
+  useEffect(() => {
+    const checkConsole = () => {
+      if (Platform.OS === "web") return;
+      try {
+        if (CommaTracker.consumeOpenConsole()) setShowClockOverlay(true);
+      } catch {}
+    };
+    checkConsole(); // cold start / mount
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") checkConsole();
+    });
+    return () => sub.remove();
+  }, []);
 
   const animatedSheetStyle = useAnimatedStyle(() => {
     return {
@@ -1155,19 +1171,7 @@ export default function HomeScreen() {
               )}
             </View>
 
-            {/* ── Active Shift Banner ──────────────────────────────────── */}
-            {isActive && (
-              <ScalePressable onPress={() => setShowClockOverlay(true)} style={[S.activeBanner, { borderColor: accentColor }]}>
-                <View style={[S.pulseDot, { backgroundColor: accentColor }]} />
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={S.activeBannerTitle}>Active {vocab('session')} in progress</Text>
-                  <Text style={S.activeBannerSub}>
-                    {PLATFORMS[activePlatform as GigPlatform]?.label ?? activePlatform ?? `Active ${vocab('session')}`} • <Text style={{ fontWeight: "bold", color: "#fff" }}>{formatTime(elapsedSeconds)}</Text>
-                  </Text>
-                </View>
-                <Text style={{ color: "#888", fontSize: 12 }}>View timer ›</Text>
-              </ScalePressable>
-            )}
+            {/* Active-shift timer lives in the bottom action bar (single source) — no duplicate banner here. */}
 
             {/* ── IRS Mileage Tip ──────────────────────────────────────── */}
             {currentStats.miles > 0 && (
@@ -1260,22 +1264,29 @@ export default function HomeScreen() {
             </View>
 
             <View style={S.clockBody}>
-              <View style={{ width: 280, height: 280, borderRadius: 140, borderWidth: 6, borderColor: "rgba(16, 185, 129, 0.15)", borderTopColor: accentColor, alignItems: "center", justifyContent: "center", backgroundColor: "#0c0c0c", shadowColor: accentColor, shadowOpacity: 0.2, shadowRadius: 20, elevation: 10 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                  <View style={[S.pulseDot, { backgroundColor: accentColor, width: 6, height: 6, borderRadius: 3 }]} />
-                  {activePlatform && PLATFORMS[activePlatform as GigPlatform] && <PlatformLogo id={activePlatform as string} size={14} />}
-                  <Text style={{ fontSize: 12, color: "#888", fontWeight: "700", textTransform: "uppercase" }}>
+              <View style={{ alignItems: "center", gap: 14, paddingVertical: 8 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  {activePlatform && PLATFORMS[activePlatform as GigPlatform] && <PlatformLogo id={activePlatform as string} size={16} />}
+                  <Text style={{ fontSize: 12, color: "#a1a1aa", fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8 }}>
                     {PLATFORMS[activePlatform as GigPlatform]?.label ?? activePlatform ?? `Active ${vocab('session')}`}
                   </Text>
                 </View>
-                <Text style={[S.clockDigits, { fontSize: 48 }]}>{formatTime(elapsedSeconds)}</Text>
-                <Text style={S.clockLabel}>{isPaused ? "Paused" : "Total Time"}</Text>
-                <Text style={{ fontSize: 11, color: "#666", marginTop: 12 }}>
-                  Started {startTime ? new Date(startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: profile?.locale?.timeFormat !== "24h" }) : ""}
+                <Text
+                  style={[S.clockDigits, { fontSize: 56, lineHeight: 68, paddingVertical: 4, includeFontPadding: true }]}
+                  numberOfLines={1}
+                >
+                  {formatTime(elapsedSeconds)}
                 </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: isPaused ? "#f59e0b" : accentColor }} />
+                  <Text style={[S.clockLabel, { color: isPaused ? "#f59e0b" : "#a1a1aa" }]}>{isPaused ? "Paused" : "Tracking"}</Text>
+                  <Text style={{ fontSize: 12, color: "#52525b", fontWeight: "500" }}>
+                    · since {startTime ? new Date(startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: profile?.locale?.timeFormat !== "24h" }) : "—"}
+                  </Text>
+                </View>
               </View>
 
-              <View style={{ width: "85%", backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#1e1e1e", padding: 14, gap: 12 }}>
+              <View style={{ width: "92%", backgroundColor: "#0c0c0c", borderRadius: 16, borderWidth: 1, borderColor: "#1c1c1e", padding: 16, gap: 14 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                   <Text style={{ fontSize: 11, fontWeight: "800", color: "#6b7280", textTransform: "uppercase" }}>Current Mileage</Text>
                   <View style={{
@@ -1287,7 +1298,7 @@ export default function HomeScreen() {
                     borderColor: isFirstOrderReceived ? accentColor + "40" : "rgba(245,158,11,.25)"
                   }}>
                     <Text style={{ fontSize: 9, fontWeight: "800", color: isFirstOrderReceived ? accentColor : "#f59e0b", textTransform: "uppercase" }}>
-                      {isFirstOrderReceived ? `${vocab('active_miles')} 🚀` : `${vocab('dead_miles')} 💀`}
+                      {isFirstOrderReceived ? vocab('active_miles') : vocab('dead_miles')}
                     </Text>
                   </View>
                 </View>
@@ -1778,12 +1789,12 @@ const S = StyleSheet.create({
   secBtnText: { color: "#888" },
 
   clockOverlay: { flex: 1, backgroundColor: "#000" },
-  clockHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 14, borderBottomWidth: 0.5, borderBottomColor: "#1e1e1e" },
-  clockCloseBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, backgroundColor: "#1c1c1e" },
+  clockHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 18, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#161616" },
+  clockCloseBtn: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, backgroundColor: "#141414", borderWidth: 1, borderColor: "#222" },
   clockBody: { flex: 1, justifyContent: "center", alignItems: "center", gap: 20 },
   clockDigits: { fontSize: 52, fontWeight: "bold", color: "#fff", fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace", paddingVertical: 8, textAlign: "center", textAlignVertical: "center", includeFontPadding: false },
   clockLabel: { fontSize: 12, color: "#888", textTransform: "uppercase", fontWeight: "700", letterSpacing: 1 },
-  clockSecBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 38, borderRadius: 8, backgroundColor: "#0c0c0c", borderWidth: 0.5, borderColor: "#1e1e1e" },
+  clockSecBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 46, borderRadius: 12, backgroundColor: "#0c0c0c", borderWidth: 1, borderColor: "#262626" },
   clockSecBtnText: { fontSize: 12, fontWeight: "700", color: "#fff" },
 
   wizardOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "center", padding: 20 },

@@ -24,7 +24,6 @@ import { getVehicles } from "../../src/database/queries/vehicles";
 import { getShiftById, getShiftPlatforms, saveShiftWithPlatforms } from "../../src/database/queries/shifts";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
-import { cn } from "../../src/lib/utils";
 import Svg, { Polyline, Circle, Line } from "react-native-svg";
 
 type GigPlatform = string;
@@ -548,7 +547,7 @@ export default function AddShiftModal() {
     <SafeAreaView className="flex-1 bg-[#000000]">
       <Stack.Screen options={SCREEN_OPTIONS} />
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
       >
         {/* Header Bar */}
@@ -574,11 +573,11 @@ export default function AddShiftModal() {
               <View
                 key={`${step.type}-${(step as { platform?: string }).platform ?? ""}-${i}`}
                 style={{
+                  flex: 1,
                   height: 4,
                   backgroundColor: i <= stepIndex ? accentColor : "#27272a",
                   borderRadius: 2,
                 }}
-                className={cn(i === stepIndex ? "flex-1" : "w-1.5")}
               />
             ))}
           </View>
@@ -587,7 +586,13 @@ export default function AddShiftModal() {
           </Text>
         </View>
 
-        <ScrollView contentContainerClassName="p-4 flex flex-col gap-6 pb-12">
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="p-4 flex flex-col gap-6 pb-12"
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
           {errorMessage ? (
             <View className="bg-rose-500/10 border border-rose-500/20 p-3.5 rounded-xl">
               <Text className="text-rose-400 text-xs font-semibold">{errorMessage}</Text>
@@ -608,12 +613,11 @@ export default function AddShiftModal() {
                         <TouchableOpacity
                           key={pKey}
                           onPress={() => togglePlatform(pKey)}
-                          className="p-1 rounded-full border-2"
+                          activeOpacity={0.85}
+                          className="rounded-xl border-2 p-2"
                           style={{
-                            borderColor: isSelected ? accentColor : "transparent",
-                            backgroundColor: isSelected ? accentColorDim : "transparent",
-                            opacity: isSelected ? 1 : 0.65,
-                            transform: [{ scale: isSelected ? 1.05 : 1 }],
+                            borderColor: isSelected ? accentColor : "#262626",
+                            backgroundColor: isSelected ? accentColorDim : "#141414",
                           }}
                         >
                           <PlatformBadge platform={pKey} size="md" />
@@ -648,27 +652,39 @@ export default function AddShiftModal() {
                   <View className="flex flex-col gap-2">
                     {vehiclesList.map((vehicle: any) => {
                       const isSelected = selectedVehicleId === vehicle.id;
+                      const specs = [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ");
+                      const subtitle = [specs, vehicle.type].filter(Boolean).join(" · ");
                       return (
                         <TouchableOpacity
                           key={vehicle.id}
                           onPress={() => setSelectedVehicleId(vehicle.id)}
-                          className="p-3 rounded-xl border flex-row justify-between items-center bg-[#0d0d0d]"
+                          activeOpacity={0.85}
+                          className="p-3.5 rounded-xl border flex-row items-center gap-3"
                           style={{
                             borderColor: isSelected ? accentColor : "#1f1f1f",
                             backgroundColor: isSelected ? accentColorDim : "#0d0d0d",
                           }}
                         >
-                          <View className="flex-col">
-                            <Text className="text-sm font-bold text-white">{vehicle.name}</Text>
-                            <Text className="text-xs text-zinc-400 mt-0.5">
-                              {vehicle.year} {vehicle.make} {vehicle.model} ({vehicle.type})
-                            </Text>
-                          </View>
                           <View
-                            className={cn("w-4 h-4 rounded-full border items-center justify-center", !isSelected && "border-[#262522]")}
-                            style={isSelected ? { borderColor: accentColor, backgroundColor: accentColor } : {}}
+                            style={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: 10,
+                              borderWidth: 2,
+                              borderColor: isSelected ? accentColor : "#3f3f46",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
                           >
-                            {isSelected && <View className="w-1.5 h-1.5 rounded-full bg-black" />}
+                            {isSelected && (
+                              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: accentColor }} />
+                            )}
+                          </View>
+                          <View className="flex-1">
+                            <Text className="text-sm font-bold text-white">{vehicle.name}</Text>
+                            {subtitle ? (
+                              <Text className="text-xs text-zinc-400 mt-0.5">{subtitle}</Text>
+                            ) : null}
                           </View>
                         </TouchableOpacity>
                       );

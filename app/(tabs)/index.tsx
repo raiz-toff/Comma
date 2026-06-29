@@ -51,7 +51,14 @@ const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-function ScalePressable({ onPress, style, children, android_ripple }: any) {
+type ScalePressableProps = {
+  onPress?: () => void;
+  style?: React.ComponentProps<typeof AnimatedPressable>["style"];
+  android_ripple?: React.ComponentProps<typeof Pressable>["android_ripple"];
+  children?: React.ReactNode;
+};
+
+function ScalePressable({ onPress, style, children, android_ripple }: ScalePressableProps) {
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -223,13 +230,15 @@ const RingProgress = ({ pct, color, size = 28 }: { pct: number; color: string; s
 const HomeSkeleton = () => {
   const pulse = useRef(new RNAnimated.Value(0.3)).current;
   useEffect(() => {
-    RNAnimated.loop(
+    const anim = RNAnimated.loop(
       RNAnimated.sequence([
         RNAnimated.timing(pulse, { toValue: 0.6, duration: 850, useNativeDriver: true }),
         RNAnimated.timing(pulse, { toValue: 0.3, duration: 850, useNativeDriver: true }),
       ])
-    ).start();
-  }, []);
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [pulse]);
 
   return (
     <RNAnimated.View style={{ opacity: pulse, gap: 10, width: "100%" }}>
@@ -451,9 +460,7 @@ const CircularProgress = ({
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
-          originX={size / 2}
-          originY={size / 2}
-          rotation="-90"
+          transform={`rotate(-90, ${size / 2}, ${size / 2})`}
         />
       </Svg>
       <View style={{ position: "absolute", alignItems: "center", justifyContent: "center" }}>
@@ -980,7 +987,12 @@ export default function HomeScreen() {
               <Text style={{ fontSize: 12, fontWeight: "800", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.8 }}>
                 TODAY · NET
               </Text>
-              <Text style={{ fontSize: 40, fontWeight: "800", color: "#ffffff", letterSpacing: -1, lineHeight: 48 }}>
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.6}
+                style={{ fontSize: 40, fontWeight: "800", color: "#ffffff", letterSpacing: -1, lineHeight: 48 }}
+              >
                 {fmt(netEarnings)}
               </Text>
               <Text style={{ fontSize: 13, color: "#71717a", fontWeight: "600" }}>

@@ -10,7 +10,12 @@ import { DATABASE_NAME, useDatabaseMigrations, useStudio } from "../src/database
 import { QueryProvider } from "../providers/QueryProvider";
 import { useGPSTracking } from "../hooks/useGPSTracking";
 import { useWakeLock } from "../hooks/useWakeLock";
+import { useNotificationRouting } from "../hooks/useNotificationRouting";
+import { AppErrorBoundary } from "../components/ErrorBoundary";
+import { installGlobalErrorHandler } from "../src/lib/installGlobalErrorHandler";
 import * as Notifications from "expo-notifications";
+
+installGlobalErrorHandler();
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -25,6 +30,7 @@ Notifications.setNotificationHandler({
 function ShiftBackgroundServices() {
   useGPSTracking();
   useWakeLock();
+  useNotificationRouting();
   return null;
 }
 
@@ -53,8 +59,10 @@ export default function RootLayout() {
 
   const stackContent = (
     <SafeAreaProvider>
-      <ShiftBackgroundServices />
-      <Stack screenOptions={{ headerShown: false }} />
+      <AppErrorBoundary>
+        <ShiftBackgroundServices />
+        <Stack screenOptions={{ headerShown: false }} />
+      </AppErrorBoundary>
     </SafeAreaProvider>
   );
 

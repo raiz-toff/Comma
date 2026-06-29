@@ -6,10 +6,9 @@ import { settings, tempNativePoints } from "../src/database/schema";
 import { eq, asc } from "drizzle-orm";
 import { Platform } from "react-native";
 import CommaTracker from "../modules/comma-tracker";
-import { haversineDistance } from "../utils/geoCalculations";
+import { haversineDistance, isGPSJitter, classifyMiles } from "../utils/geoCalculations";
 import { useSettingsStore } from "./useSettingsStore";
 import simplify from "simplify-js";
-import { encodePolyline } from "../utils/polyline";
 
 export type GigPlatform = PlatformKey;
 
@@ -170,6 +169,10 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     let calculatedActiveMileage = 0;
     let calculatedDeadMileage = 0;
 
+    // Read the distance unit once per shift (not per point).
+    const unit = useSettingsStore.getState().profile?.distanceUnit ?? "mi";
+    const conversionFactor = unit === "mi" ? 1609.344 : 1000.0;
+
     for (let i = 1; i < points.length; i++) {
       const prev = points[i - 1];
       const curr = points[i];
@@ -178,14 +181,16 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
         { lat: curr.lat, lng: curr.lon }
       );
       const timeDeltaMs = curr.timestamp - prev.timestamp;
+
+      // Discard GPS jitter (implied speed > ~150 km/h) so a single glitchy fix can't inflate
+      // mileage — uses the shared threshold in gpsConfig via geoCalculations.
+      if (isGPSJitter(distM, timeDeltaMs)) continue;
+
       const speedMps = timeDeltaMs > 0 ? distM / (timeDeltaMs / 1000) : 0;
       const speedKmh = speedMps * 3.6;
-
-      const unit = useSettingsStore.getState().profile?.distanceUnit ?? "mi";
-      const conversionFactor = unit === "mi" ? 1609.344 : 1000.0;
       const distanceConverted = distM / conversionFactor;
 
-      if (speedKmh < 5) {
+      if (classifyMiles(speedKmh) === "dead") {
         calculatedDeadMileage += distanceConverted;
       } else {
         calculatedActiveMileage += distanceConverted;
@@ -198,17 +203,19 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
     // 4. Compress (RDP) & 5. Save as JSON with timestamps
     let encodedPolylineString: string | null = null;
     if (points.length >= 2) {
-      const formattedForSimplify = points.map((p) => ({ x: p.lon, y: p.lat }));
+      // Carry each point's timestamp THROUGH simplification. simplify-js returns references to
+      // the same input objects it keeps (it selects points, never interpolates), so extra props
+      // survive — far more reliable than matching simplified coords back to originals by an
+      // epsilon (which could miss on FP drift and fall back to a wrong Date.now() timestamp).
+      type SimplifyPoint = { x: number; y: number; timestamp: number };
+      const formattedForSimplify: SimplifyPoint[] = points.map((p) => ({ x: p.lon, y: p.lat, timestamp: p.timestamp }));
       const toleranceInDegrees = 10 / 111320; // 10 meters in degrees
-      const simplified = simplify(formattedForSimplify, toleranceInDegrees, true);
-      const simplifiedLatLng = simplified.map((sp) => {
-        const original = points.find((p) => Math.abs(p.lon - sp.x) < 0.00001 && Math.abs(p.lat - sp.y) < 0.00001);
-        return {
-          latitude: sp.y,
-          longitude: sp.x,
-          timestamp: original ? original.timestamp : Date.now(),
-        };
-      });
+      const simplified = simplify(formattedForSimplify, toleranceInDegrees, true) as SimplifyPoint[];
+      const simplifiedLatLng = simplified.map((sp) => ({
+        latitude: sp.y,
+        longitude: sp.x,
+        timestamp: sp.timestamp,
+      }));
       encodedPolylineString = JSON.stringify(simplifiedLatLng);
     }
 

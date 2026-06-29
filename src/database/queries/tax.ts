@@ -25,7 +25,10 @@ export async function getTaxYearSummary(
 
   const expensesRes = await db
     .select({
-      deductible: sql<number>`COALESCE(SUM(${expenses.amount}), 0)`,
+      // Use each expense's business-use percentage (deductible_pct, 0–100, default 100),
+      // matching getExpenseYTDSummary / reportGenerator. Summing the full amount over-deducts
+      // partially-deductible expenses and understates taxable net income.
+      deductible: sql<number>`COALESCE(SUM(${expenses.amount} * ${expenses.deductiblePct} / 100.0), 0)`,
     })
     .from(expenses)
     .where(

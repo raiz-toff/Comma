@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Pressable,
@@ -133,7 +133,10 @@ const formatDayName = (dateStr: string | Date): string => {
   return d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
 };
 
-const RouteMinimap = ({ routePathJson, strokeColor }: { routePathJson: string; strokeColor: string }) => {
+// Memoized: the min/max + SVG-polyline math below is non-trivial and the route never changes
+// for a given row, so without React.memo it would re-run on every scroll-driven parent
+// re-render of the list. Memo keeps off-screen rows from rebuilding their SVG.
+const RouteMinimap = React.memo(function RouteMinimap({ routePathJson, strokeColor }: { routePathJson: string; strokeColor: string }) {
   const points = React.useMemo(() => {
     return parseRoutePath(routePathJson);
   }, [routePathJson]);
@@ -192,7 +195,7 @@ const RouteMinimap = ({ routePathJson, strokeColor }: { routePathJson: string; s
       </Svg>
     </View>
   );
-};
+});
 
 const VEHICLE_LOOKUP: Record<string, { name: string; icon: string }> = {
   demo_vehicle_car: { name: "Prius", icon: "🚗" },
@@ -454,14 +457,19 @@ export default function ShiftsScreen() {
     });
   }, [weekStart, weeklyShifts]);
 
-  // Calculate totals and labels dynamically
-  const weeklyTotal = weeklyShifts.reduce((sum, s) => {
-    const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0);
-    const miles = (s.activeMileage || 0) + (s.deadMileage || 0);
-    const writeOff = miles * 0.67;
-    return sum + (gross - writeOff);
-  }, 0);
-  const maxDayTotal = Math.max(...shiftsByDay.map((d) => d.total), 0);
+  // Calculate totals and labels dynamically (memoized — these recompute on every render,
+  // including the frequent scroll-driven ones, otherwise).
+  const weeklyTotal = useMemo(
+    () =>
+      weeklyShifts.reduce((sum, s) => {
+        const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0);
+        const miles = (s.activeMileage || 0) + (s.deadMileage || 0);
+        const writeOff = miles * 0.67;
+        return sum + (gross - writeOff);
+      }, 0),
+    [weeklyShifts]
+  );
+  const maxDayTotal = useMemo(() => Math.max(...shiftsByDay.map((d) => d.total), 0), [shiftsByDay]);
 
   const displayedTotal = selectedDayIndex !== null ? shiftsByDay[selectedDayIndex].total : weeklyTotal;
   const displayedLabel = selectedDayIndex !== null 
@@ -520,7 +528,7 @@ export default function ShiftsScreen() {
       >
         {/* ─── Week Selection & Header ────────────────────────────────────────── */}
         <View style={styles.header}>
-          <Pressable onPress={() => setIsWeekSelectorOpen(true)} style={styles.weekLabelContainer}>
+          <Pressable onPress={() => setIsWeekSelectorOpen(true)} style={styles.weekLabelContainer} accessibilityRole="button" accessibilityLabel="Select week">
             <Text style={styles.weekLabel}>
               {displayedLabel}
             </Text>
@@ -532,7 +540,7 @@ export default function ShiftsScreen() {
           </Pressable>
 
           <View style={styles.navigationRow}>
-            <Pressable onPress={handlePrevWeek} style={styles.arrowBtn}>
+            <Pressable onPress={handlePrevWeek} style={styles.arrowBtn} accessibilityRole="button" accessibilityLabel="Previous week">
               <ChevronLeft color="#fff" />
             </Pressable>
 
@@ -548,6 +556,8 @@ export default function ShiftsScreen() {
             <Pressable
               onPress={handleNextWeek}
               disabled={isCurrentOrFutureWeek}
+              accessibilityRole="button"
+              accessibilityLabel="Next week"
               style={[styles.arrowBtn, isCurrentOrFutureWeek && styles.arrowBtnDisabled]}
             >
               <ChevronRight color={isCurrentOrFutureWeek ? "#3f3f46" : "#fff"} />

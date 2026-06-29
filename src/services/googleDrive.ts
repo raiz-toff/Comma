@@ -27,6 +27,30 @@ try {
 const isWeb = Platform.OS === "web";
 const ENCRYPTION_KEY_STORE_KEY = "COMMA_BACKUP_ENCRYPTION_KEY";
 
+/**
+ * fetch() with a hard timeout. A dropped connection mid-request otherwise hangs the promise
+ * forever (e.g. the "Backing up…" overlay never resolves). Aborts after `timeoutMs` and maps
+ * the abort to a clear, user-facing message.
+ */
+async function fetchWithTimeout(
+  input: string,
+  init: RequestInit = {},
+  timeoutMs = 60000
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (e: any) {
+    if (e?.name === "AbortError") {
+      throw new Error("The network request timed out. Check your connection and try again.");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ─── OAuth / Access Token Management ─────────────────────────────────────────
 
 export interface GoogleTokens {
@@ -54,46 +78,69 @@ export async function getTokens(): Promise<GoogleTokens | null> {
   }
 }
 
+let refreshInFlight: Promise<string> | null = null;
+
 export async function refreshGoogleToken(refreshToken: string): Promise<string> {
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `client_id=${GOOGLE_WEB_CLIENT_ID}&refresh_token=${refreshToken}&grant_type=refresh_token`,
+  // Single-flight: two Drive operations refreshing near expiry would otherwise each POST to the
+  // token endpoint and race on saveTokens (last write wins, one response wasted/invalidated).
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    const response = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `client_id=${GOOGLE_WEB_CLIENT_ID}&refresh_token=${refreshToken}&grant_type=refresh_token`,
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to refresh Google OAuth token.");
+    }
+
+    const data = await response.json();
+    const tokens = await getTokens();
+    if (tokens) {
+      await saveTokens({
+        ...tokens,
+        accessToken: data.access_token,
+        expiryTime: Date.now() + data.expires_in * 1000,
+      });
+    }
+    return data.access_token;
+  })().finally(() => {
+    refreshInFlight = null;
   });
 
-  if (!response.ok) {
-    throw new Error("Failed to refresh Google OAuth token.");
-  }
-
-  const data = await response.json();
-  const tokens = await getTokens();
-  if (tokens) {
-    const updated = {
-      ...tokens,
-      accessToken: data.access_token,
-      expiryTime: Date.now() + data.expires_in * 1000,
-    };
-    await saveTokens(updated);
-  }
-  return data.access_token;
+  return refreshInFlight;
 }
 
 export async function getValidAccessToken(): Promise<string> {
   const tokens = await getTokens();
   if (!tokens) throw new Error("Google Drive is not authenticated.");
 
+  // Native: GoogleSignin owns the token lifecycle and refreshes silently.
   if (!isWeb && GoogleSignin) {
     try {
       const nativeTokens = await GoogleSignin.getTokens();
       return nativeTokens.accessToken;
     } catch (e) {
       console.warn("Failed to get native Google tokens:", e);
+      // Do NOT silently fall through to the cached accessToken — on native it was stored as a
+      // 1-hour estimate with no refresh token, so it's almost certainly stale and would 401.
+      if (tokens.refreshToken) {
+        return await refreshGoogleToken(tokens.refreshToken);
+      }
+      throw new Error("Your Google Drive session expired. Please reconnect Google Drive in Settings.");
     }
   }
 
-  // If token expires in less than 5 minutes, refresh (web fallback)
-  if (tokens.expiryTime - Date.now() < 5 * 60 * 1000 && tokens.refreshToken) {
-    return await refreshGoogleToken(tokens.refreshToken);
+  // Web / implicit flow: refresh if near expiry, else surface a clear re-auth error rather
+  // than handing back an expired token that fails every subsequent Drive call.
+  const isExpiring = tokens.expiryTime - Date.now() < 5 * 60 * 1000;
+  if (isExpiring) {
+    if (tokens.refreshToken) {
+      return await refreshGoogleToken(tokens.refreshToken);
+    }
+    throw new Error("Your Google Drive session expired. Please reconnect Google Drive in Settings.");
   }
   return tokens.accessToken;
 }
@@ -215,7 +262,7 @@ export async function backupToDrive(passphrase: string): Promise<void> {
     `${envelope}\r\n` +
     `--${boundary}--`;
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
     {
       method: "POST",
@@ -257,7 +304,7 @@ export interface DriveBackupFile {
 
 export async function listBackups(): Promise<DriveBackupFile[]> {
   const accessToken = await getValidAccessToken();
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     "https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&fields=files(id,name,createdTime)&orderBy=createdTime%20desc",
     {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -276,7 +323,7 @@ export async function restoreFromDrive(fileId: string, passphrase: string): Prom
   if (!passphrase) throw new Error("Enter the backup password to restore.");
 
   const accessToken = await getValidAccessToken();
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
     {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -301,10 +348,25 @@ export async function restoreFromDrive(fileId: string, passphrase: string): Prom
   }
 
   if (isWeb) {
-    for (const { name } of BACKUP_TABLES) {
-      if (payload.tables[name]) {
-        localStorage.setItem(`comma_${name}`, JSON.stringify(payload.tables[name]));
+    // localStorage has no transaction, so snapshot the current values and roll back on any
+    // failure — otherwise a mid-restore error (e.g. quota exceeded) leaves a half-overwritten
+    // dataset with some tables new and some old.
+    const snapshot: Record<string, string | null> = {};
+    try {
+      for (const { name } of BACKUP_TABLES) {
+        snapshot[name] = localStorage.getItem(`comma_${name}`);
+        if (payload.tables[name]) {
+          localStorage.setItem(`comma_${name}`, JSON.stringify(payload.tables[name]));
+        }
       }
+    } catch (e) {
+      for (const { name } of BACKUP_TABLES) {
+        const prev = snapshot[name];
+        if (prev === undefined) continue; // never reached this table
+        if (prev === null) localStorage.removeItem(`comma_${name}`);
+        else localStorage.setItem(`comma_${name}`, prev);
+      }
+      throw new Error("Restore failed and was rolled back — your existing data is unchanged.");
     }
     return;
   }

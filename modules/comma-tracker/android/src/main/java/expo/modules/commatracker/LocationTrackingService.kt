@@ -58,7 +58,27 @@ class LocationTrackingService : Service() {
 
         createNotificationChannel()
         val notification = createNotification()
-        startForeground(NOTIFICATION_ID, notification)
+        try {
+            // Android 10+ requires the foreground-service type to be supplied at the
+            // startForeground() call site; on Android 14 the 2-arg overload throws
+            // MissingForegroundServiceTypeException (the manifest declaration alone is not
+            // enough). Android 12+ additionally throws ForegroundServiceStartNotAllowedException
+            // when this is reached from a background-delivered start (AlarmManager restart or
+            // BootReceiver) — in that case we cannot legally run, so abandon instead of crashing.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "startForeground refused (likely a background start on Android 12+); abandoning.", e)
+            stopSelf()
+            return START_NOT_STICKY
+        }
 
         if (!isLocationUpdateActive) {
             startLocationUpdates()
@@ -105,11 +125,18 @@ class LocationTrackingService : Service() {
             PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
         )
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        alarmManager.set(
-            AlarmManager.ELAPSED_REALTIME_WAKEUP,
-            SystemClock.elapsedRealtime() + RESTART_DELAY_MS,
-            pendingIntent
-        )
+        val triggerAt = SystemClock.elapsedRealtime() + RESTART_DELAY_MS
+        // A ~2s restart does not need exact-alarm precision. We use the inexact
+        // allow-while-idle variant, which still fires through Doze but needs no special
+        // permission — SCHEDULE_EXACT_ALARM is Play-restricted and has been removed from
+        // the manifest. (setAndAllowWhileIdle exists on API 23+.)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pendingIntent
+            )
+        } else {
+            alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pendingIntent)
+        }
     }
 
     private fun startLocationUpdates() {
@@ -132,7 +159,9 @@ class LocationTrackingService : Service() {
                 if (loc != null) {
                     val ageMs = System.currentTimeMillis() - loc.time
                     if (ageMs < 60_000L) {
-                        Log.d(TAG, "Anchor point saved: lat=${loc.latitude}, lon=${loc.longitude} (age=${ageMs}ms)")
+                        // Do not log raw coordinates — precise location is PII and Log.d is not
+                        // stripped from release builds (readable via adb logcat).
+                        Log.d(TAG, "Anchor point saved (age=${ageMs}ms)")
                         saveLocationToDatabase(loc)
                     } else {
                         Log.d(TAG, "Last known location too stale (${ageMs}ms), skipping anchor.")
@@ -172,7 +201,8 @@ class LocationTrackingService : Service() {
             }
             db.insert("temp_native_points", null, values)
             lastInsertedLocation = loc
-            Log.d(TAG, "Saved coordinate: lat=${loc.latitude}, lon=${loc.longitude}")
+            // Do not log raw coordinates (PII; survives into release logcat).
+            Log.d(TAG, "Saved coordinate")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save location to SQLite", e)
         } finally {
@@ -193,13 +223,28 @@ class LocationTrackingService : Service() {
     }
 
     private fun createNotification(): Notification {
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Comma — Shift Active")
             .setContentText("Recording your mileage in the background.")
             .setSmallIcon(android.R.drawable.ic_menu_compass)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .build()
+
+        // Tapping the ongoing notification reopens the app — without a content intent it does
+        // nothing, which is the main way a user returns to a tracking app.
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+        if (launchIntent != null) {
+            launchIntent.flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+            val contentIntent = PendingIntent.getActivity(
+                this,
+                0,
+                launchIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            builder.setContentIntent(contentIntent)
+        }
+
+        return builder.build()
     }
 
     private fun createNotificationChannel() {

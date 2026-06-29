@@ -246,22 +246,9 @@ export default function ScheduleScreen() {
 
   useEffect(() => {
     loadScheduleData();
-
-    // Register Notification Categories (Action Buttons) for interactive alerts
-    if (!isWeb) {
-      Notifications.setNotificationCategoryAsync("shift-reminder", [
-        {
-          identifier: "start-shift",
-          buttonTitle: "Start Shift 🚗",
-          options: { opensAppToForeground: true },
-        },
-        {
-          identifier: "snooze",
-          buttonTitle: "Remind in 10m ⏳",
-          options: { opensAppToForeground: false },
-        },
-      ]);
-    }
+    // The "shift-reminder" notification category (action buttons) and tap routing are
+    // registered globally at app launch in useNotificationRouting, so reminders work even if
+    // this screen was never opened.
   }, []);
 
   // Sync default plan platform with the user's selected platforms
@@ -440,6 +427,7 @@ export default function ScheduleScreen() {
               title: "Scheduled Shift Reminder",
               body: `Your planned ${planPlatform} shift starts in 30 minutes!`,
               categoryIdentifier: "shift-reminder",
+              data: { url: "/schedule" },
             },
             trigger: {
               type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
@@ -459,6 +447,7 @@ export default function ScheduleScreen() {
                 title: "Scheduled Shift Reminder",
                 body: `Your planned ${planPlatform} shift starts in 30 minutes!`,
                 categoryIdentifier: "shift-reminder",
+                data: { url: "/schedule" },
               },
               trigger: {
                 type: Notifications.SchedulableTriggerInputTypes.CALENDAR,

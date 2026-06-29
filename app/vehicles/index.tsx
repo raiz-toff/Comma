@@ -185,7 +185,7 @@ export default function VehiclesScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         {/* Add Vehicle Form */}
         {showAddForm && (
           <View style={s.card}>

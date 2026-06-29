@@ -241,6 +241,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
 
   setHeaderVisible: (visible: boolean) => {
+    // Skip no-op writes: scroll handlers call this ~60×/sec, and without this guard every call
+    // notifies all subscribers even when the value is unchanged.
+    if (get().isHeaderVisible === visible) return;
     set({ isHeaderVisible: visible });
   },
 

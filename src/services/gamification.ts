@@ -38,16 +38,23 @@ export interface NotificationItem {
   iconKey?: string;
 }
 
-const triggerNativeNotification = async (title: string, body: string) => {
+const triggerNativeNotification = async (title: string, body: string, url: string = "/goals") => {
   if (Platform.OS === "web") return;
   try {
-    const { status } = await Notifications.getPermissionsAsync();
+    const perm = await Notifications.getPermissionsAsync();
+    let status = perm.status;
+    // On Android 13+/iOS, if we've never asked (undetermined), request now — otherwise these
+    // engagement/tax notifications are silently dropped for users who weren't prompted elsewhere.
+    if (status === "undetermined" && perm.canAskAgain) {
+      status = (await Notifications.requestPermissionsAsync()).status;
+    }
     if (status === "granted") {
       await Notifications.scheduleNotificationAsync({
         content: {
           title,
           body,
           sound: true,
+          data: { url },
         },
         trigger: null,
       });
@@ -699,7 +706,7 @@ export const GamificationService = {
             createdAt: new Date().toISOString(),
             actionUrl: "/(tabs)/tax",
           });
-          triggerNativeNotification("Tax Installment Due Soon", `Estimated quarterly tax deadline is approaching in ${diffDays} days.`);
+          triggerNativeNotification("Tax Installment Due Soon", `Estimated quarterly tax deadline is approaching in ${diffDays} days.`, "/tax");
         }
       }
     }

@@ -21,7 +21,7 @@ import { PlatformBadge } from "../../src/components/ui/PlatformBadge";
 import { PLATFORM_REGISTRY } from "../../src/registry/platforms";
 import { getPlatformContext } from "../../src/hooks/usePlatformContext";
 import { getVehicles } from "../../src/database/queries/vehicles";
-import { insertShift, updateShift, getShiftById, getShiftPlatforms, insertShiftPlatform, deleteShiftPlatforms } from "../../src/database/queries/shifts";
+import { getShiftById, getShiftPlatforms, saveShiftWithPlatforms } from "../../src/database/queries/shifts";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
 import { cn } from "../../src/lib/utils";
@@ -224,6 +224,10 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
     </View>
   );
 };
+
+// Stable object reference — inline literals inside JSX recreate on every render
+// and trigger an Expo Router infinite re-render loop via Stack.Screen.
+const SCREEN_OPTIONS = { presentation: "fullScreenModal" as const, headerShown: false };
 
 export default function AddShiftModal() {
   const queryClient = useQueryClient();
@@ -498,52 +502,28 @@ export default function AddShiftModal() {
 
       const targetShiftId = shiftId || `shift_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
-      if (shiftId) {
-        // Edit mode
-        await updateShift(shiftId, {
-          vehicleId: selectedVehicleId || null,
-          platform: selectedPlatformsList.join(","),
-          startTime: finalStartDate,
-          endTime: finalEndDate,
-          grossRevenue: totalGross,
-          tipsRevenue: totalTips,
-          trackedMileage: parseFloat(activeMileage) || 0.0,
-          activeMileage: parseFloat(activeMileage) || 0.0,
-          deadMileage: parseFloat(deadMileage) || 0.0,
-          durationSeconds,
-          notes: finalNotes,
-          reconciliationStatus: "reconciled", // reconciled on save
-        });
-      } else {
-        // Create mode
-        await insertShift({
-          id: targetShiftId,
-          vehicleId: selectedVehicleId || null,
-          platform: selectedPlatformsList.join(","),
-          startTime: finalStartDate,
-          endTime: finalEndDate,
-          grossRevenue: totalGross,
-          tipsRevenue: totalTips,
-          trackedMileage: parseFloat(activeMileage) || 0.0,
-          activeMileage: parseFloat(activeMileage) || 0.0,
-          deadMileage: parseFloat(deadMileage) || 0.0,
-          durationSeconds,
-          pausedSeconds: 0,
-          notes: finalNotes,
-          reconciliationStatus: "reconciled",
-        });
-      }
+      // Persist the shift and its per-platform ledger atomically. One transaction means an
+      // interrupted/failed save can't leave the shift with a half-deleted platform breakdown.
+      const shiftPayload = {
+        id: targetShiftId,
+        vehicleId: selectedVehicleId || null,
+        platform: selectedPlatformsList.join(","),
+        startTime: finalStartDate,
+        endTime: finalEndDate,
+        grossRevenue: totalGross,
+        tipsRevenue: totalTips,
+        trackedMileage: parseFloat(activeMileage) || 0.0,
+        activeMileage: parseFloat(activeMileage) || 0.0,
+        deadMileage: parseFloat(deadMileage) || 0.0,
+        durationSeconds,
+        notes: finalNotes,
+        reconciliationStatus: "reconciled" as const,
+        // Only initialize pausedSeconds on create; never reset it on edit.
+        ...(shiftId ? {} : { pausedSeconds: 0 }),
+      };
 
-      // Save/Update child platform ledger entries
-      await deleteShiftPlatforms(targetShiftId);
-      for (const entry of platformEntries) {
-        await insertShiftPlatform({
-          id: `sp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          shiftId: targetShiftId,
-          ...entry
-        });
-      }
-      
+      await saveShiftWithPlatforms(targetShiftId, Boolean(shiftId), shiftPayload, platformEntries);
+
       // Evaluate gamification and smart notifications
       await useSettingsStore.getState().evaluateGamification();
       
@@ -566,7 +546,7 @@ export default function AddShiftModal() {
 
   return (
     <SafeAreaView className="flex-1 bg-[#000000]">
-      <Stack.Screen options={{ presentation: "fullScreenModal", headerShown: false }} />
+      <Stack.Screen options={SCREEN_OPTIONS} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
@@ -590,9 +570,9 @@ export default function AddShiftModal() {
         {/* Progress Bar */}
         <View className="flex flex-row items-center justify-between px-5 pt-4 pb-2 bg-[#000000]">
           <View className="flex flex-row gap-1.5 items-center flex-1">
-            {stepsSequence.map((_, i) => (
+            {stepsSequence.map((step, i) => (
               <View
-                key={i}
+                key={`${step.type}-${(step as { platform?: string }).platform ?? ""}-${i}`}
                 style={{
                   height: 4,
                   backgroundColor: i <= stepIndex ? accentColor : "#27272a",
@@ -995,7 +975,9 @@ export default function AddShiftModal() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            disabled={isSaving}
             onPress={() => {
+              if (isSaving) return;
               // Validate Step 1 Context
               if (currentStep.type === "context") {
                 if (selectedPlatformsList.length === 0) {
@@ -1036,7 +1018,7 @@ export default function AddShiftModal() {
                 handleSave();
               }
             }}
-            style={{ backgroundColor: accentColor }}
+            style={{ backgroundColor: accentColor, opacity: isSaving ? 0.6 : 1 }}
             className="py-3 px-6 rounded-xl items-center justify-center min-w-[120px] flex-row gap-1"
           >
             {isSaving ? (

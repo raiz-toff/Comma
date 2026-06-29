@@ -1,7 +1,9 @@
 import { registerWebModule, NativeModule } from 'expo';
 
 class CommaTrackerModule extends NativeModule {
-  startTracking() {}
+  startTracking() {
+    return false;
+  }
   stopTracking() {}
 }
 

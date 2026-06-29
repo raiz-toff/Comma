@@ -265,6 +265,7 @@ export default function BackupScreen() {
     isBackingUp,
     isRestoring,
     backups,
+    backupsError,
     login,
     logout,
     triggerBackup,
@@ -476,7 +477,11 @@ export default function BackupScreen() {
               {backups.length === 0 ? (
                 <View style={s.emptyWrap}>
                   <UploadCloud size={22} color={DS.textSecondary} />
-                  <Text style={s.emptyText}>No backups yet. Run your first backup above.</Text>
+                  <Text style={s.emptyText}>
+                    {backupsError
+                      ? `Couldn't load your backups: ${backupsError}`
+                      : "No backups yet. Run your first backup above."}
+                  </Text>
                 </View>
               ) : (
                 backups.map((b, i) => (

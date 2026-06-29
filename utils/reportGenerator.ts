@@ -51,7 +51,10 @@ export async function generateShiftsCSV(startDate: Date, endDate: Date): Promise
         : profile?.country === "UK"
         ? calculateHMRCMileageDeduction(miles, taxYear)
         : calculateIRSMileageDeduction(miles, taxYear);
-    const net = gross - writeOff;
+    // "Net after mileage write-off" = gross+tips minus the mileage tax deduction (a write-off,
+    // not a cash outflow). It deliberately does NOT subtract actual expenses — those live in the
+    // expenses CSV — so it's named explicitly to avoid being read as a true cash net.
+    const netAfterMileage = gross - writeOff;
     return {
       date: new Date(s.startTime).toLocaleDateString(),
       platform: s.platform,
@@ -61,7 +64,7 @@ export async function generateShiftsCSV(startDate: Date, endDate: Date): Promise
       [`activeDistance_${distUnit}`]: s.activeMileage || 0,
       [`deadDistance_${distUnit}`]: s.deadMileage || 0,
       [`mileageWriteOff_${distUnit}`]: writeOff,
-      netEarnings: net,
+      netAfterMileageWriteOff: netAfterMileage,
       durationSeconds: s.durationSeconds || 0,
       notes: s.notes || "",
     };

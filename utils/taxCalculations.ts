@@ -366,7 +366,9 @@ export function projectQuarterlyInstallment(
     1,
     Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24))
   );
-  const daysInYear = 365;
+  const year = now.getFullYear();
+  const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const daysInYear = isLeapYear ? 366 : 365;
 
   const projectedAnnualGross = (ytdGross / dayOfYear) * daysInYear;
   const projectedAnnualExpenses = (ytdDeductibleExpenses / dayOfYear) * daysInYear;

@@ -9,7 +9,11 @@ import { eq } from "drizzle-orm";
 const isWeb = Platform.OS === "web";
 
 export function useWakeLock() {
-  const { isActive, elapsedSeconds, incrementTimer } = useActiveShift();
+  // Subscribe only to what we use. Subscribing to elapsedSeconds (which ticks every second)
+  // would re-render this root-mounted hook once per second for nothing — the persist/hydrate
+  // effects read fresh state via useActiveShift.getState() instead.
+  const isActive = useActiveShift((s) => s.isActive);
+  const incrementTimer = useActiveShift((s) => s.incrementTimer);
 
   // 1. Keep Awake effect
   useEffect(() => {
@@ -88,7 +92,11 @@ export function useWakeLock() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isActive, elapsedSeconds]);
+    // NOTE: deliberately NOT depending on elapsedSeconds. Including it would tear down and
+    // recreate this interval every second (elapsedSeconds ticks 1/s), so the 15s callback
+    // would never fire and shift state would never persist. The callback reads fresh state
+    // via useActiveShift.getState(), so no dependency on elapsedSeconds is needed.
+  }, [isActive]);
 
   // 4. Hydrate shift on cold boot
   useEffect(() => {
@@ -124,5 +132,22 @@ export function useWakeLock() {
       } catch {}
     };
     hydrateShift();
+  }, []);
+
+  // 5. Reconcile elapsed time when returning to the foreground. The 1-second JS timer is frozen
+  //    while the app is backgrounded, so elapsedSeconds drifts behind wall-clock during a long
+  //    background period (spec Task 12.2).
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (next: AppStateStatus) => {
+      if (next !== "active") return;
+      const st = useActiveShift.getState();
+      if (st.isActive && st.startTime && !st.isPaused) {
+        const expected = Math.floor((Date.now() - st.startTime) / 1000) - st.pausedSeconds;
+        if (expected > st.elapsedSeconds) {
+          st.hydrateShift({ elapsedSeconds: expected });
+        }
+      }
+    });
+    return () => sub.remove();
   }, []);
 }

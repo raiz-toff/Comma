@@ -160,7 +160,8 @@ async function fetchTaxSummary(
 
   let totalExpenses = 0;
   rawExpenses.forEach((e: any) => {
-    if (e.isDeductible) totalExpenses += Number(e.amount || 0);
+    // Apply each expense's business-use percentage, consistent with the Tax/Analytics queries.
+    if (e.isDeductible) totalExpenses += Number(e.amount || 0) * Number(e.deductiblePct ?? 100) / 100;
   });
 
   const totalGross = gross + tips;

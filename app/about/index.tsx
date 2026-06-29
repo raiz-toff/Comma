@@ -8,6 +8,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { Text } from "@/src/components/ui/text";
 import { ChevronLeft, ShieldCheck, Mail, FileText, Heart, Terminal, Share2 } from "lucide-react-native";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { notify } from "@/src/services/notify";
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
 const DS = {
@@ -109,6 +110,13 @@ export default function AboutScreen() {
       if (isWeb) {
         console.log("Diagnostic log:", err);
       }
+      // Surface the failure (native previously swallowed it silently).
+      notify({
+        title: "Export failed",
+        description: "Couldn't export the diagnostic log. Please try again.",
+        type: "warning",
+        iconKey: "error",
+      });
     } finally {
       setIsExporting(false);
     }

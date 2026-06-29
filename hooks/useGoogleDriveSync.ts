@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Platform, Alert } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
@@ -32,10 +32,12 @@ const REDIRECT_URI = AuthSession.makeRedirectUri({
 
 export function useGoogleDriveSync() {
   const queryClient = useQueryClient();
+  const isMountedRef = useRef(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [backups, setBackups] = useState<DriveBackupFile[]>([]);
+  const [backupsError, setBackupsError] = useState<string | null>(null);
   const [lastBackup, setLastBackup] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
@@ -84,6 +86,9 @@ export function useGoogleDriveSync() {
       }
     }
     checkAuth();
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   // Handle oauth response
@@ -155,9 +160,14 @@ export function useGoogleDriveSync() {
   const loadBackupsList = async () => {
     try {
       const list = await listBackups();
+      if (!isMountedRef.current) return;
       setBackups(list);
-    } catch {
-      // Quiet fail
+      setBackupsError(null);
+    } catch (err: any) {
+      if (!isMountedRef.current) return;
+      // Surface the failure so the UI can distinguish "couldn't load (auth/network)" from the
+      // genuine "no backups yet" empty state.
+      setBackupsError(err?.message ?? "Couldn't load your backups from Google Drive.");
     }
   };
 
@@ -180,8 +190,9 @@ export function useGoogleDriveSync() {
     setIsRestoring(true);
     try {
       await restoreFromDrive(fileId, passphrase);
-      // Invalidate all react query queries to reload UI with the restored database!
-      queryClient.invalidateQueries();
+      // Await invalidation so the success message/UI reflects the restored data, not the
+      // pre-restore state (invalidateQueries returns a promise that triggers refetches).
+      await queryClient.invalidateQueries();
       notifyRestore(true);
     } catch (err: any) {
       notifyRestore(false, err?.message);
@@ -197,6 +208,7 @@ export function useGoogleDriveSync() {
     isBackingUp,
     isRestoring,
     backups,
+    backupsError,
     lastBackup,
     login,
     logout,

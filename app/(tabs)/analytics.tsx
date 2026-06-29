@@ -182,8 +182,6 @@ export default function AnalyticsScreen() {
     }
   }, [isAnalyticsEnabled, isOnboardingCompleted]);
 
-  if (!isAnalyticsEnabled) return null;
-
   const [periodType, setPeriodType] = useState<PeriodType>("month");
   const [periodOffset, setPeriodOffset] = useState<number>(0);
   const [activeCategory, setActiveCategory] = useState<Category>("perf");
@@ -219,7 +217,7 @@ export default function AnalyticsScreen() {
   const diffWeeksOffset = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
   const trendWeeks = (periodType === "week" ? 1 : periodType === "month" ? 4 : 52) + diffWeeksOffset;
 
-  const enabled = isOnboardingCompleted;
+  const enabled = isOnboardingCompleted && isAnalyticsEnabled;
 
   const { data: periodStats, isLoading: loadingStats } = useQuery({ queryKey: ["analytics", "period-stats", start.toISOString(), end.toISOString()], queryFn: () => getPeriodStats(start, end), enabled });
   const { data: platformData = [] } = useQuery({ queryKey: ["analytics", "by-platform", start.toISOString(), end.toISOString(), activePlatformFilter], queryFn: () => getEarningsByPlatform(start, end, activePlatformFilter), enabled });
@@ -317,6 +315,10 @@ export default function AnalyticsScreen() {
       return start.getFullYear().toString();
     }
   };
+
+  // All hooks above have run unconditionally — safe to early-return now without breaking
+  // the Rules of Hooks. (The redirect effect above sends the user away when disabled.)
+  if (!isAnalyticsEnabled) return null;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={["bottom", "left", "right"]}>

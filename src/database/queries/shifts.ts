@@ -1,7 +1,13 @@
 import { db } from "../client";
 import { shifts, locationPoints, shiftPlatforms, vehicles } from "../schema";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import * as schema from "../schema";
+import { eq, and, or, gte, lte, desc, sql } from "drizzle-orm";
+import type { ExpoSQLiteDatabase } from "drizzle-orm/expo-sqlite";
 import { Platform } from "react-native";
+
+// Transaction handle type derived from the drizzle expo-sqlite db (the runtime `db` export is
+// typed `any` for the web fallback, so we recover a precise tx type for transaction callbacks).
+type Tx = Parameters<Parameters<ExpoSQLiteDatabase<typeof schema>["transaction"]>[0]>[0];
 
 const isWeb = Platform.OS === "web";
 
@@ -134,32 +140,35 @@ export async function getShiftsPaginated(
   const limit = limitParam ?? 20;
   const offset = (page - 1) * limit;
 
-  let queryConditions = [];
+  const queryConditions = [];
   if (filters?.startDate) {
     queryConditions.push(gte(shifts.startTime, filters.startDate));
   }
   if (filters?.endDate) {
     queryConditions.push(lte(shifts.startTime, filters.endDate));
   }
+  // Filter platforms in SQL BEFORE limit/offset — otherwise a page is selected first and then
+  // JS-filtered, so a page can return fewer than `limit` rows (or zero) even when more matching
+  // shifts exist on later pages, and counts are wrong. `platform` is a comma-joined token list,
+  // so match whole tokens with a delimiter-padded LIKE (avoids partial-token false positives).
+  if (filters?.platforms && filters.platforms.length > 0) {
+    const platformMatch = or(
+      ...filters.platforms.map(
+        (p) => sql`(',' || ${shifts.platform} || ',') LIKE ${`%,${p},%`}`
+      )
+    );
+    if (platformMatch) queryConditions.push(platformMatch);
+  }
 
-  // Note: Drizzle has limited in-array/contains for lists but we can filter simply:
-  const baseQuery = db
-    .select()
-    .from(shifts);
-
-  const query = queryConditions.length > 0 
-    ? baseQuery.where(and(...queryConditions)) 
+  const baseQuery = db.select().from(shifts);
+  const query = queryConditions.length > 0
+    ? baseQuery.where(and(...queryConditions))
     : baseQuery;
 
-  const results = await query
+  return query
     .orderBy(desc(shifts.startTime))
     .limit(limit)
     .offset(offset);
-
-  if (filters?.platforms && filters.platforms.length > 0) {
-    return results.filter((r: typeof shifts.$inferSelect) => r.platform && filters.platforms!.some((p: string) => r.platform.includes(p)));
-  }
-  return results;
 }
 
 export async function deleteShift(id: string): Promise<void> {
@@ -218,6 +227,48 @@ export async function deleteShiftPlatforms(shiftId: string): Promise<void> {
   await db.delete(shiftPlatforms).where(eq(shiftPlatforms.shiftId, shiftId));
 }
 
+/**
+ * Atomically save a shift and its per-platform ledger. The parent shift write, the wipe of
+ * the old platform rows, and the re-insert all run inside ONE transaction, so an
+ * interrupted/failed save can never leave a shift with a half-deleted platform breakdown
+ * (which previously corrupted analytics reading shiftPlatforms — e.g. on a failed edit the
+ * old rows were deleted with nothing re-inserted).
+ */
+export async function saveShiftWithPlatforms(
+  shiftId: string,
+  isEdit: boolean,
+  shiftPayload: typeof shifts.$inferInsert,
+  platformEntries: Array<Omit<typeof shiftPlatforms.$inferInsert, "id" | "shiftId">>
+): Promise<void> {
+  if (isWeb) {
+    // localStorage has no real transaction; run the same sequence.
+    if (isEdit) {
+      await updateShift(shiftId, shiftPayload);
+    } else {
+      await insertShift(shiftPayload);
+    }
+    await deleteShiftPlatforms(shiftId);
+    let i = 0;
+    for (const entry of platformEntries) {
+      await insertShiftPlatform({ id: `sp_${shiftId}_${i++}`, shiftId, ...entry });
+    }
+    return;
+  }
+
+  await db.transaction(async (tx: Tx) => {
+    if (isEdit) {
+      await tx.update(shifts).set(shiftPayload).where(eq(shifts.id, shiftId));
+    } else {
+      await tx.insert(shifts).values(shiftPayload);
+    }
+    await tx.delete(shiftPlatforms).where(eq(shiftPlatforms.shiftId, shiftId));
+    let i = 0;
+    for (const entry of platformEntries) {
+      await tx.insert(shiftPlatforms).values({ id: `sp_${shiftId}_${i++}`, shiftId, ...entry });
+    }
+  });
+}
+
 export async function getUnreconciledShifts(): Promise<any[]> {
   if (isWeb) {
     const existing = localStorage.getItem("comma_shifts");
@@ -261,19 +312,23 @@ export async function insertManyShifts(
   }
   
   if (rows.length === 0) return { successCount: 0, skippedCount: 0 };
-  
+
   let successCount = 0;
   let skippedCount = 0;
-  
-  for (const row of rows) {
-    try {
-      await db.insert(shifts).values(row);
-      successCount++;
-    } catch (e) {
-      skippedCount++;
+
+  // Import inside one transaction so an app-kill mid-import rolls back cleanly instead of
+  // leaving an unknown number of half-imported rows. Invalid rows are still skipped/counted.
+  await db.transaction(async (tx: Tx) => {
+    for (const row of rows) {
+      try {
+        await tx.insert(shifts).values(row);
+        successCount++;
+      } catch (e) {
+        skippedCount++;
+      }
     }
-  }
-  
+  });
+
   return { successCount, skippedCount };
 }
 

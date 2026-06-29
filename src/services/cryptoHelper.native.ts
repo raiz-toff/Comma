@@ -1,4 +1,5 @@
 import crypto from "react-native-quick-crypto";
+import { Buffer } from "@craftzdog/react-native-buffer";
 
 /**
  * Cross-device backup encryption (native).

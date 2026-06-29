@@ -301,12 +301,12 @@ export async function getEarningsByDay(
 
   const rows = await db
     .select({
-      date: sql<string>`strftime('%Y-%m-%d', datetime(${shifts.startTime}, 'unixepoch'))`,
+      date: sql<string>`strftime('%Y-%m-%d', datetime(${shifts.startTime}, 'unixepoch', 'localtime'))`,
       total: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue}), 0)`,
     })
     .from(shifts)
     .where(gte(shifts.startTime, startDate))
-    .groupBy(sql`strftime('%Y-%m-%d', datetime(${shifts.startTime}, 'unixepoch'))`)
+    .groupBy(sql`strftime('%Y-%m-%d', datetime(${shifts.startTime}, 'unixepoch', 'localtime'))`)
     .orderBy(sql`1 ASC`);
 
   return rows;
@@ -365,12 +365,12 @@ export async function getEarningsByDayRange(
 
     const rows = await db
       .select({
-        date: sql<string>`strftime('%Y-%m-%d', datetime(${shifts.startTime}, 'unixepoch'))`,
+        date: sql<string>`strftime('%Y-%m-%d', datetime(${shifts.startTime}, 'unixepoch', 'localtime'))`,
         total: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue}), 0)`,
       })
       .from(shifts)
       .where(and(...conditions))
-      .groupBy(sql`strftime('%Y-%m-%d', datetime(${shifts.startTime}, 'unixepoch'))`)
+      .groupBy(sql`strftime('%Y-%m-%d', datetime(${shifts.startTime}, 'unixepoch', 'localtime'))`)
       .orderBy(sql`1 ASC`);
 
     for (const r of rows) {
@@ -457,12 +457,12 @@ export async function getBestDayOfWeek(
 
   const rows = await db
     .select({
-      day: sql<number>`CAST(strftime('%w', datetime(${shifts.startTime}, 'unixepoch')) AS INTEGER)`,
+      day: sql<number>`CAST(strftime('%w', datetime(${shifts.startTime}, 'unixepoch', 'localtime')) AS INTEGER)`,
       avgEarnings: sql<number>`AVG(${shifts.grossRevenue} + ${shifts.tipsRevenue})`,
     })
     .from(shifts)
     .where(and(...conditions))
-    .groupBy(sql`strftime('%w', datetime(${shifts.startTime}, 'unixepoch'))`);
+    .groupBy(sql`strftime('%w', datetime(${shifts.startTime}, 'unixepoch', 'localtime'))`);
 
   return DAY_LABELS.map((label, day) => {
     const found = rows.find((r: any) => r.day === day);
@@ -504,12 +504,12 @@ export async function getBestHourOfDay(
 
   const rows = await db
     .select({
-      hour: sql<number>`CAST(strftime('%H', datetime(${shifts.startTime}, 'unixepoch')) AS INTEGER)`,
+      hour: sql<number>`CAST(strftime('%H', datetime(${shifts.startTime}, 'unixepoch', 'localtime')) AS INTEGER)`,
       avgEarnings: sql<number>`AVG(${shifts.grossRevenue} + ${shifts.tipsRevenue})`,
     })
     .from(shifts)
     .where(and(...conditions))
-    .groupBy(sql`strftime('%H', datetime(${shifts.startTime}, 'unixepoch'))`);
+    .groupBy(sql`strftime('%H', datetime(${shifts.startTime}, 'unixepoch', 'localtime'))`);
 
   return Array.from({ length: 24 }, (_, h) => {
     const found = rows.find((r: any) => r.hour === h);
@@ -566,7 +566,7 @@ export async function getNetIncome(startDate: Date, endDate: Date, platform?: st
     const platformCond = getPlatformConditions(platform);
     expensesResult = await db
       .select({
-        total: sql<number>`COALESCE(SUM(${expenses.amount}), 0)`,
+        total: sql<number>`COALESCE(SUM(${expenses.amount} * ${expenses.deductiblePct} / 100.0), 0)`,
       })
       .from(expenses)
       .innerJoin(shifts, eq(expenses.shiftId, shifts.id))
@@ -581,7 +581,7 @@ export async function getNetIncome(startDate: Date, endDate: Date, platform?: st
   } else {
     expensesResult = await db
       .select({
-        total: sql<number>`COALESCE(SUM(${expenses.amount}), 0)`,
+        total: sql<number>`COALESCE(SUM(${expenses.amount} * ${expenses.deductiblePct} / 100.0), 0)`,
       })
       .from(expenses)
       .where(
@@ -733,7 +733,7 @@ export async function getFinancialOverviewForRange(
           const shiftIds = new Set(platformShifts.map((s) => s.id));
           expList = expList.filter((e: any) => e.shiftId && shiftIds.has(e.shiftId));
         }
-        expense = expList.reduce((sum: number, e: any) => sum + Number(e.amount || 0), 0);
+        expense = expList.reduce((sum: number, e: any) => sum + Number(e.amount || 0) * Number(e.deductiblePct ?? e.pct ?? 100) / 100, 0);
       }
     } catch {}
   } else {
@@ -741,7 +741,7 @@ export async function getFinancialOverviewForRange(
     if (platform && platform !== "all") {
       const platformCond = getPlatformConditions(platform);
       expList = await db
-        .select({ amount: expenses.amount })
+        .select({ amount: expenses.amount, pct: expenses.deductiblePct })
         .from(expenses)
         .innerJoin(shifts, eq(expenses.shiftId, shifts.id))
         .where(
@@ -754,7 +754,7 @@ export async function getFinancialOverviewForRange(
         );
     } else {
       expList = await db
-        .select({ amount: expenses.amount })
+        .select({ amount: expenses.amount, pct: expenses.deductiblePct })
         .from(expenses)
         .where(
           and(
@@ -764,7 +764,7 @@ export async function getFinancialOverviewForRange(
           )
         );
     }
-    expense = expList.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+    expense = expList.reduce((sum, e) => sum + Number(e.amount || 0) * Number(e.deductiblePct ?? e.pct ?? 100) / 100, 0);
   }
 
   const totalEarnings = gross + tips;
@@ -818,7 +818,7 @@ export async function getFinancialOverviewForRange(
             const shiftIds = new Set(platformShifts.map((s) => s.id));
             expList = expList.filter((e: any) => e.shiftId && shiftIds.has(e.shiftId));
           }
-          wExpense = expList.reduce((sum: number, e: any) => sum + Number(e.amount || 0), 0);
+          wExpense = expList.reduce((sum: number, e: any) => sum + Number(e.amount || 0) * Number(e.deductiblePct ?? e.pct ?? 100) / 100, 0);
         }
       } catch {}
     } else {
@@ -826,7 +826,7 @@ export async function getFinancialOverviewForRange(
     if (platform && platform !== "all") {
       const platformCond = getPlatformConditions(platform);
       expList = await db
-        .select({ amount: expenses.amount })
+        .select({ amount: expenses.amount, pct: expenses.deductiblePct })
         .from(expenses)
         .innerJoin(shifts, eq(expenses.shiftId, shifts.id))
         .where(
@@ -839,7 +839,7 @@ export async function getFinancialOverviewForRange(
         );
     } else {
         expList = await db
-          .select({ amount: expenses.amount })
+          .select({ amount: expenses.amount, pct: expenses.deductiblePct })
           .from(expenses)
           .where(
             and(
@@ -849,7 +849,7 @@ export async function getFinancialOverviewForRange(
             )
           );
       }
-      wExpense = expList.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+      wExpense = expList.reduce((sum, e) => sum + Number(e.amount || 0) * Number(e.deductiblePct ?? e.pct ?? 100) / 100, 0);
     }
     weeksMap[weekKey].expense = wExpense;
   }
@@ -946,7 +946,7 @@ export async function getFinancialMonthlyBreakdown(
     if (platform && platform !== "all") {
       const platformCond = getPlatformConditions(platform);
       expenseList = await db
-        .select({ amount: expenses.amount, date: expenses.date, isDeductible: expenses.isDeductible })
+        .select({ amount: expenses.amount, date: expenses.date, isDeductible: expenses.isDeductible, pct: expenses.deductiblePct })
         .from(expenses)
         .innerJoin(shifts, eq(expenses.shiftId, shifts.id))
         .where(
@@ -958,7 +958,7 @@ export async function getFinancialMonthlyBreakdown(
         );
     } else {
       expenseList = await db
-        .select({ amount: expenses.amount, date: expenses.date, isDeductible: expenses.isDeductible })
+        .select({ amount: expenses.amount, date: expenses.date, isDeductible: expenses.isDeductible, pct: expenses.deductiblePct })
         .from(expenses)
         .where(
           and(
@@ -994,7 +994,7 @@ export async function getFinancialMonthlyBreakdown(
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     if (monthMap[key]) {
       if (e.isDeductible) {
-        monthMap[key].expenses += Number(e.amount || 0);
+        monthMap[key].expenses += Number(e.amount || 0) * Number(e.deductiblePct ?? e.pct ?? 100) / 100;
       } else {
         monthMap[key].outOfPocket += Number(e.amount || 0);
       }
@@ -1083,14 +1083,14 @@ export async function getMonthlyStatsForYear(
 
   const rows = await db
     .select({
-      monthIndex: sql<number>`CAST(strftime('%m', datetime(${shifts.startTime}, 'unixepoch')) AS INTEGER) - 1`,
+      monthIndex: sql<number>`CAST(strftime('%m', datetime(${shifts.startTime}, 'unixepoch', 'localtime')) AS INTEGER) - 1`,
       gross: sql<number>`COALESCE(SUM(${shifts.grossRevenue}), 0)`,
       tips: sql<number>`COALESCE(SUM(${shifts.tipsRevenue}), 0)`,
       count: sql<number>`COUNT(${shifts.id})`,
     })
     .from(shifts)
     .where(and(gte(shifts.startTime, yearStart), lte(shifts.startTime, yearEnd)))
-    .groupBy(sql`strftime('%m', datetime(${shifts.startTime}, 'unixepoch'))`);
+    .groupBy(sql`strftime('%m', datetime(${shifts.startTime}, 'unixepoch', 'localtime'))`);
 
   return rows;
 }

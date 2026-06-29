@@ -150,7 +150,7 @@ interface SettingsState {
   updateFeatureOverride: (key: FeatureKey, val: boolean) => Promise<void>;
 
   // Gamification Actions
-  evaluateGamification: () => Promise<void>;
+  evaluateGamification: () => Promise<string[]>;
   addNotification: (input: AddNotificationInput) => Promise<void>;
   dismissNotification: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
@@ -1213,6 +1213,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
 
   evaluateGamification: async () => {
+    // Capture the badge set before evaluation so we can surface NEW unlocks (Bulletin Mode).
+    const prevUnlocked = new Set(get().unlockedBadgeIds ?? []);
+
     // Serialize against notification writes so neither clobbers the shared state blob.
     const run = gamificationStateLock.then(() => GamificationService.evaluateAll());
     gamificationStateLock = run.then(
@@ -1221,6 +1224,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     );
     const updated = await run;
     set({ ...updated });
+
+    // Return badge IDs unlocked during THIS evaluation, for the celebration sheet.
+    return (updated.unlockedBadgeIds ?? []).filter((id) => !prevUnlocked.has(id));
   },
 
   addNotification: async (input: AddNotificationInput) => {

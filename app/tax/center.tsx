@@ -476,7 +476,7 @@ export default function TaxCenterScreen() {
       <SafeAreaView style={S.root}>
         <View style={S.header}>
           <Pressable onPress={() => router.back()} style={S.backBtn}>
-            <ArrowLeft size={16} color="#a1a1aa" />
+            <ArrowLeft size={16} color="#9B9BA4" />
           </Pressable>
           <Text style={[S.headerTitle, { marginLeft: 12 }]}>Tax Center</Text>
         </View>
@@ -503,7 +503,7 @@ export default function TaxCenterScreen() {
       {/* Header */}
       <View style={S.header}>
         <Pressable onPress={() => router.back()} style={S.backBtn}>
-          <ArrowLeft size={16} color="#a1a1aa" />
+          <ArrowLeft size={16} color="#9B9BA4" />
         </Pressable>
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={S.headerTitle}>Tax Center</Text>
@@ -528,7 +528,7 @@ export default function TaxCenterScreen() {
                 <Text
                   style={[
                     S.yearChipText,
-                    { color: active ? accentColorContrast : "#71717a" },
+                    { color: active ? accentColorContrast : "#9B9BA4" },
                   ]}
                 >
                   {year}
@@ -874,10 +874,10 @@ export default function TaxCenterScreen() {
               const overdue = d.daysUntil < 0;
               const urgent = !overdue && d.daysUntil <= 14;
               const accentHex = overdue
-                ? "#f43f5e"
+                ? "#FF5247"
                 : urgent
                 ? "#f59e0b"
-                : "#3f3f46";
+                : "#2E2E36";
               return (
                 <View
                   key={idx}
@@ -885,7 +885,7 @@ export default function TaxCenterScreen() {
                     S.deadlineRow,
                     idx > 0 && {
                       borderTopWidth: 0.5,
-                      borderTopColor: "#1f1f1f",
+                      borderTopColor: "#1E1E23",
                     },
                   ]}
                 >
@@ -921,10 +921,10 @@ export default function TaxCenterScreen() {
                         S.daysPillText,
                         {
                           color: overdue
-                            ? "#f43f5e"
+                            ? "#FF5247"
                             : urgent
                             ? "#f59e0b"
-                            : "#52525b",
+                            : "#65656E",
                         },
                       ]}
                     >
@@ -974,7 +974,7 @@ export default function TaxCenterScreen() {
 // ─── Styles — matches tax/index.tsx design tokens ────────────────────────────
 
 const S = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#000000" },
+  root: { flex: 1, backgroundColor: "#000" },
   loader: { flex: 1, alignItems: "center", justifyContent: "center" },
   scroll: { padding: 16, paddingTop: 8, gap: 10, paddingBottom: 60 },
 
@@ -984,29 +984,29 @@ const S = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: "#000000",
+    backgroundColor: "#000",
     borderBottomWidth: 0.5,
-    borderBottomColor: "#1f1f1f",
+    borderBottomColor: "#1E1E23",
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "900",
-    color: "#ffffff",
+    color: "#F6F6F7",
     letterSpacing: -0.4,
   },
   headerSub: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#52525b",
+    color: "#65656E",
     marginTop: 2,
   },
   backBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1015,10 +1015,10 @@ const S = StyleSheet.create({
   yearPicker: {
     flexDirection: "row",
     gap: 4,
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderRadius: 12,
     borderWidth: 0.8,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     padding: 3,
   },
   yearChip: {
@@ -1037,16 +1037,16 @@ const S = StyleSheet.create({
 
   // Cards
   card: {
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderWidth: 0.8,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     borderRadius: 20,
     padding: 18,
   },
   cardLabel: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#52525b",
+    color: "#65656E",
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },
@@ -1061,22 +1061,22 @@ const S = StyleSheet.create({
   heroAmount: {
     fontSize: 26,
     fontWeight: "900",
-    color: "#ffffff",
+    color: "#F6F6F7",
   },
   medAmount: {
     fontSize: 16,
     fontWeight: "900",
-    color: "#ffffff",
+    color: "#F6F6F7",
   },
   mutedValue: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#71717a",
+    color: "#9B9BA4",
   },
   miniNote: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#3f3f46",
+    color: "#2E2E36",
     marginTop: 4,
   },
 
@@ -1088,7 +1088,7 @@ const S = StyleSheet.create({
   },
   progressTrack: {
     height: 5,
-    backgroundColor: "#1f1f1f",
+    backgroundColor: "#1E1E23",
     borderRadius: 3,
     marginTop: 12,
   },
@@ -1096,7 +1096,7 @@ const S = StyleSheet.create({
   progressLabel: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#52525b",
+    color: "#65656E",
     marginTop: 6,
   },
   jarAdjust: {
@@ -1123,17 +1123,17 @@ const S = StyleSheet.create({
   },
   oblSep: {
     borderTopWidth: 0.5,
-    borderTopColor: "#1f1f1f",
+    borderTopColor: "#1E1E23",
   },
   oblLeft: { flex: 1, paddingRight: 12 },
-  oblLabel: { fontSize: 12, fontWeight: "700", color: "#e4e4e7" },
+  oblLabel: { fontSize: 12, fontWeight: "700", color: "#F6F6F7" },
   oblNote: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#52525b",
+    color: "#65656E",
     marginTop: 2,
   },
-  oblAmount: { fontSize: 13, fontWeight: "800", color: "#ffffff" },
+  oblAmount: { fontSize: 13, fontWeight: "800", color: "#F6F6F7" },
   oblTotal: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1161,7 +1161,7 @@ const S = StyleSheet.create({
     padding: 10,
     marginTop: 10,
   },
-  warnText: { fontSize: 10, fontWeight: "600", color: "#a1a1aa" },
+  warnText: { fontSize: 10, fontWeight: "600", color: "#9B9BA4" },
 
   // Deadlines
   deadlineRow: {
@@ -1174,7 +1174,7 @@ const S = StyleSheet.create({
     height: 34,
     borderRadius: 10,
     borderWidth: 0.8,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1199,9 +1199,9 @@ const S = StyleSheet.create({
     gap: 6,
     paddingVertical: 13,
     borderRadius: 14,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
   },
   exportBtnText: { fontSize: 12, fontWeight: "800" },
 
@@ -1222,12 +1222,12 @@ const S = StyleSheet.create({
   emptyTitle: {
     fontSize: 15,
     fontWeight: "900",
-    color: "#ffffff",
+    color: "#F6F6F7",
     textAlign: "center",
   },
   emptyBody: {
     fontSize: 13,
-    color: "#a1a1aa",
+    color: "#9B9BA4",
     textAlign: "center",
     lineHeight: 18,
     marginTop: 6,
@@ -1237,7 +1237,7 @@ const S = StyleSheet.create({
   disclaimer: {
     fontSize: 10,
     fontWeight: "500",
-    color: "#3f3f46",
+    color: "#2E2E36",
     textAlign: "center",
     lineHeight: 15,
     paddingHorizontal: 8,

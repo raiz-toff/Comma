@@ -7,6 +7,7 @@
  */
 
 import React, { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   View,
   Text,
@@ -20,7 +21,6 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { router } from "expo-router";
 import {
   ChevronLeft,
-  Cloud,
   Check,
   KeyRound,
   UploadCloud,
@@ -37,19 +37,20 @@ import {
 } from "@/src/services/backupPassword";
 import type { DriveBackupFile } from "@/src/services/googleDrive";
 import { FeedbackDialog, BusyOverlay, type FeedbackVariant } from "@/src/components/ui/FeedbackDialog";
+import { GoogleDriveLogo } from "@/src/components/logos/GoogleDriveLogo";
 
 // ─── Design tokens (match Settings) ───────────────────────────────────────────
 
 const DS = {
-  pageBg: "#000000",
-  cardBg: "#0c0c0c",
-  cardBorder: "#1e1e1e",
-  inputBg: "#161616",
-  inputBorder: "#2a2a2a",
-  sep: "#1a1a1a",
-  textPrimary: "#e8e7e0",
-  textSecondary: "#6a6963",
-  textMuted: "#38372f",
+  pageBg: "#000",
+  cardBg: "#0F0F12",
+  cardBorder: "#1E1E23",
+  inputBg: "#16161A",
+  inputBorder: "#2E2E36",
+  sep: "#1E1E23",
+  textPrimary: "#F6F6F7",
+  textSecondary: "#65656E",
+  textMuted: "#2E2E36",
   textLabel: "#48473f",
 } as const;
 
@@ -149,7 +150,7 @@ function PasswordPrompt({
           {err ? <Text style={s.dialogErr}>{err}</Text> : null}
 
           <View style={s.dialogRow}>
-            <TouchableOpacity onPress={onCancel} style={[s.dialogBtn, { backgroundColor: "#262422" }]}>
+            <TouchableOpacity onPress={onCancel} style={[s.dialogBtn, { backgroundColor: "#1C1C21" }]}>
               <Text style={s.dialogBtnNeutral}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={submit} style={[s.dialogBtn, { backgroundColor: accentColor }]}>
@@ -258,6 +259,7 @@ function PillBtn({
 
 export default function BackupScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
   const {
     isAuthenticated,
@@ -314,6 +316,8 @@ export default function BackupScreen() {
     }
     try {
       await triggerBackup(pw);
+      // Clear the Dashboard "back up your data" reminder immediately.
+      queryClient.invalidateQueries({ queryKey: ["backup", "status"] });
       setDialog({ variant: "success", title: "Backup complete", message: "Your data is safely backed up to Google Drive." });
     } catch (e: any) {
       setDialog({ variant: "error", title: "Backup failed", message: e?.message ?? "Something went wrong." });
@@ -389,8 +393,8 @@ export default function BackupScreen() {
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         {/* Intro */}
         <View style={[s.card, s.intro]}>
-          <View style={[s.introIcon, { backgroundColor: accentColorDim, borderColor: accentColorMid }]}>
-            <Cloud size={22} color={accentColor} />
+          <View style={[s.introIcon, { backgroundColor: "#16161A", borderColor: "#1E1E23" }]}>
+            <GoogleDriveLogo size={26} />
           </View>
           <Text style={s.introTitle}>Keep your data safe</Text>
           <Text style={s.introText}>
@@ -646,7 +650,7 @@ const s = StyleSheet.create({
     backgroundColor: "#1a1916",
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#2a2825",
+    borderColor: "#2E2E36",
     padding: 22,
     gap: 12,
     alignItems: "center",
@@ -659,8 +663,8 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  dialogTitle: { fontSize: 17, fontWeight: "800", color: "#fff", textAlign: "center" },
-  dialogMsg: { fontSize: 13, fontWeight: "500", color: "#a1a1aa", textAlign: "center", lineHeight: 19 },
+  dialogTitle: { fontSize: 17, fontWeight: "800", color: "#F6F6F7", textAlign: "center" },
+  dialogMsg: { fontSize: 13, fontWeight: "500", color: "#9B9BA4", textAlign: "center", lineHeight: 19 },
   dialogInput: {
     alignSelf: "stretch",
     backgroundColor: DS.inputBg,
@@ -675,6 +679,6 @@ const s = StyleSheet.create({
   dialogErr: { color: "#fb7185", fontSize: 12, fontWeight: "600", alignSelf: "flex-start" },
   dialogRow: { flexDirection: "row", gap: 10, alignSelf: "stretch", marginTop: 4 },
   dialogBtn: { flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: "center" },
-  dialogBtnNeutral: { color: "#a1a1aa", fontWeight: "700", fontSize: 14 },
+  dialogBtnNeutral: { color: "#9B9BA4", fontWeight: "700", fontSize: 14 },
   dialogBtnPrimary: { fontWeight: "800", fontSize: 14 },
 });

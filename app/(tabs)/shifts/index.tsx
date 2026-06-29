@@ -23,13 +23,13 @@ import { eq } from "drizzle-orm";
 import Svg, { Path, Polyline, Circle, Line, Rect } from "react-native-svg";
 
 // ─── Custom Icons ────────────────────────────────────────────────────────────
-const ChevronLeft = ({ size = 22, color = "#fff" }) => (
+const ChevronLeft = ({ size = 22, color = "#F6F6F7" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
     <Path d="m15 18-6-6 6-6" />
   </Svg>
 );
 
-const ChevronRight = ({ size = 22, color = "#fff" }) => (
+const ChevronRight = ({ size = 22, color = "#F6F6F7" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
     <Path d="m9 18 6-6-6-6" />
   </Svg>
@@ -96,7 +96,7 @@ const PlatformLogo = ({ id, size = 16 }: { id: string; size?: number }) => {
       );
     default:
       return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#9B9BA4" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <Rect x={2} y={7} width={20} height={14} rx={2} ry={2} />
           <Path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
         </Svg>
@@ -174,12 +174,12 @@ const RouteMinimap = React.memo(function RouteMinimap({ routePathJson, strokeCol
   const endY = padding + (1 - (endPoint.latitude - minLat) / latRange) * (height - 2 * padding);
 
   return (
-    <View style={{ width: 100, height: 60, backgroundColor: "#090909", borderRadius: 8, borderWidth: 0.5, borderColor: "#1e1e1e", overflow: "hidden", marginLeft: 12 }}>
+    <View style={{ width: 100, height: 60, backgroundColor: "#0A0A0C", borderRadius: 8, borderWidth: 0.5, borderColor: "#1E1E23", overflow: "hidden", marginLeft: 12 }}>
       <Svg width={width} height={height}>
-        <Line x1="0" y1="20" x2="100" y2="20" stroke="#121212" strokeWidth="0.5" />
-        <Line x1="0" y1="40" x2="100" y2="40" stroke="#121212" strokeWidth="0.5" />
-        <Line x1="33" y1="0" x2="33" y2="60" stroke="#121212" strokeWidth="0.5" />
-        <Line x1="66" y1="0" x2="66" y2="60" stroke="#121212" strokeWidth="0.5" />
+        <Line x1="0" y1="20" x2="100" y2="20" stroke="#0F0F12" strokeWidth="0.5" />
+        <Line x1="0" y1="40" x2="100" y2="40" stroke="#0F0F12" strokeWidth="0.5" />
+        <Line x1="33" y1="0" x2="33" y2="60" stroke="#0F0F12" strokeWidth="0.5" />
+        <Line x1="66" y1="0" x2="66" y2="60" stroke="#0F0F12" strokeWidth="0.5" />
         
         <Polyline
           points={svgPoints}
@@ -191,7 +191,7 @@ const RouteMinimap = React.memo(function RouteMinimap({ routePathJson, strokeCol
         />
 
         <Circle cx={startX} cy={startY} r="3" fill="#22c55e" />
-        <Circle cx={endX} cy={endY} r="3.5" fill="#ef4444" stroke="#000" strokeWidth="0.8" />
+        <Circle cx={endX} cy={endY} r="3.5" fill="#FF5247" stroke="#000" strokeWidth="0.8" />
       </Svg>
     </View>
   );
@@ -534,14 +534,14 @@ export default function ShiftsScreen() {
             </Text>
             <View style={styles.dropdownChevron}>
               <Svg width={10} height={6} viewBox="0 0 10 6" fill="none">
-                <Path d="M1 1L5 5L9 1" stroke="#a1a1aa" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M1 1L5 5L9 1" stroke="#9B9BA4" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </View>
           </Pressable>
 
           <View style={styles.navigationRow}>
             <Pressable onPress={handlePrevWeek} style={styles.arrowBtn} accessibilityRole="button" accessibilityLabel="Previous week">
-              <ChevronLeft color="#fff" />
+              <ChevronLeft color="#F6F6F7" />
             </Pressable>
 
             <View style={styles.amountRow}>
@@ -560,7 +560,7 @@ export default function ShiftsScreen() {
               accessibilityLabel="Next week"
               style={[styles.arrowBtn, isCurrentOrFutureWeek && styles.arrowBtnDisabled]}
             >
-              <ChevronRight color={isCurrentOrFutureWeek ? "#3f3f46" : "#fff"} />
+              <ChevronRight color={isCurrentOrFutureWeek ? "#2E2E36" : "#F6F6F7"} />
             </Pressable>
           </View>
         </View>
@@ -604,7 +604,7 @@ export default function ShiftsScreen() {
                     style={[
                       styles.chartDayLabel,
                       {
-                        color: isSelected ? (platformColor || "#3b82f6") : "#71717a",
+                        color: isSelected ? (platformColor || "#3b82f6") : "#9B9BA4",
                         fontWeight: isSelected ? "800" : "500",
                       },
                     ]}
@@ -743,7 +743,7 @@ export default function ShiftsScreen() {
           {isYearShiftsLoading ? (
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
               <ActivityIndicator size="large" color={platformColor || "#3b82f6"} />
-              <Text style={{ color: "#71717a", fontSize: 13, marginTop: 12, fontWeight: "600" }}>Loading earnings data...</Text>
+              <Text style={{ color: "#9B9BA4", fontSize: 13, marginTop: 12, fontWeight: "600" }}>Loading earnings data...</Text>
             </View>
           ) : (
             <ScrollView contentContainerStyle={styles.modalScroll} showsVerticalScrollIndicator={false}>
@@ -849,14 +849,14 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 20,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
   },
   weekLabel: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#a1a1aa",
+    color: "#9B9BA4",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -875,15 +875,15 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     justifyContent: "center",
     alignItems: "center",
   },
   arrowBtnDisabled: {
     opacity: 0.35,
-    borderColor: "#161615",
+    borderColor: "#16161A",
   },
   amountRow: {
     flexDirection: "row",
@@ -894,7 +894,7 @@ const styles = StyleSheet.create({
   amountSymbol: {
     fontSize: 24,
     fontWeight: "600",
-    color: "#fff",
+    color: "#F6F6F7",
     lineHeight: 30,
     marginTop: 10,
     marginRight: 4,
@@ -903,17 +903,17 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 40,
     fontWeight: "800",
-    color: "#fff",
+    color: "#F6F6F7",
     letterSpacing: -0.5,
     lineHeight: 48,
     paddingVertical: 2,
     includeFontPadding: false,
   },
   chartContainer: {
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderRadius: 20,
     borderWidth: 0.8,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     padding: 16,
     marginVertical: 10,
   },
@@ -935,13 +935,13 @@ const styles = StyleSheet.create({
     borderColor: "rgba(113, 113, 122, 0.25)",
   },
   highBadge: {
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     paddingLeft: 8,
   },
   highBadgeText: {
     fontSize: 9,
     fontWeight: "700",
-    color: "#a1a1aa",
+    color: "#9B9BA4",
     letterSpacing: 0.5,
   },
   chartRow: {
@@ -960,7 +960,7 @@ const styles = StyleSheet.create({
   barTrack: {
     width: 14,
     height: 64,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderRadius: 7,
     overflow: "hidden",
     justifyContent: "flex-end",
@@ -979,7 +979,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#71717a",
+    color: "#9B9BA4",
     textTransform: "uppercase",
     letterSpacing: 0.8,
     marginBottom: 12,
@@ -991,16 +991,16 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 13,
-    color: "#52525b",
+    color: "#65656E",
   },
   shiftsList: {
     gap: 12,
   },
   shiftCard: {
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderRadius: 20,
     borderWidth: 0.8,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     padding: 16,
     gap: 12,
   },
@@ -1013,33 +1013,33 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 1,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     justifyContent: "center",
     alignItems: "center",
   },
   shiftDay: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#fff",
+    color: "#F6F6F7",
   },
   shiftAmount: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#fff",
+    color: "#F6F6F7",
   },
   shiftMeta: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     borderTopWidth: 0.5,
-    borderTopColor: "#1a1a1a",
+    borderTopColor: "#1E1E23",
     paddingTop: 8,
   },
   metaText: {
     fontSize: 12,
-    color: "#71717a",
+    color: "#9B9BA4",
     fontWeight: "500",
   },
 
@@ -1055,12 +1055,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#1f1f1f",
+    borderBottomColor: "#1E1E23",
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#fff",
+    color: "#F6F6F7",
   },
   closeBtnText: {
     fontSize: 14,
@@ -1073,19 +1073,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#111",
+    borderBottomColor: "#0F0F12",
   },
   tableHeaderLeft: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#71717a",
+    color: "#9B9BA4",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   tableHeaderRight: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#71717a",
+    color: "#9B9BA4",
     letterSpacing: 0.4,
   },
   modalScroll: {
@@ -1097,8 +1097,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     borderWidth: 0.8,
-    borderColor: "#1f1f1f",
-    backgroundColor: "#0d0d0d",
+    borderColor: "#1E1E23",
+    backgroundColor: "#0F0F12",
     borderRadius: 20,
     marginHorizontal: 16,
     marginVertical: 6,
@@ -1109,12 +1109,12 @@ const styles = StyleSheet.create({
   weekRangeText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#a1a1aa",
+    color: "#9B9BA4",
   },
   weekAmountText: {
     fontSize: 18,
     fontWeight: "900",
-    color: "#fff",
+    color: "#F6F6F7",
     letterSpacing: -0.4,
   },
   miniGraph: {
@@ -1129,7 +1129,7 @@ const styles = StyleSheet.create({
   miniBarTrack: {
     width: 8,
     height: 32,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderRadius: 4,
     overflow: "hidden",
     justifyContent: "flex-end",
@@ -1141,7 +1141,7 @@ const styles = StyleSheet.create({
   miniDateText: {
     fontSize: 8,
     fontWeight: "700",
-    color: "#71717a",
+    color: "#9B9BA4",
   },
 
   // Modal Footer styles
@@ -1152,16 +1152,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderTopWidth: 0.5,
-    borderTopColor: "#1f1f1f",
+    borderTopColor: "#1E1E23",
     backgroundColor: "#000",
   },
   pageBtn: {
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
   },
   pageBtnDisabled: {
     opacity: 0.35,
@@ -1169,12 +1169,12 @@ const styles = StyleSheet.create({
   pageBtnText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#fff",
+    color: "#F6F6F7",
   },
   pageIndicator: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#71717a",
+    color: "#9B9BA4",
   },
   statsContainer: {
     marginVertical: 10,
@@ -1186,16 +1186,16 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderRadius: 20,
     borderWidth: 0.8,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     padding: 16,
   },
   statLabel: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#71717a",
+    color: "#9B9BA4",
     textTransform: "uppercase",
     letterSpacing: 0.8,
     marginBottom: 6,
@@ -1203,6 +1203,6 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: "800",
-    color: "#fff",
+    color: "#F6F6F7",
   },
 });

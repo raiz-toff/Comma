@@ -25,7 +25,7 @@ import { useFeatureEnabled } from "../../hooks/useFeatureEnabled";
 import Svg, { Path, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import { PlatformLogo, PLATFORM_LOGO_IDS } from "@/src/components/GlobalTopHeader";
 
-const DashboardIcon = ({ size = 22, color = "#a1a1aa", strokeWidth = 1.5 }: { size?: number; color?: string; strokeWidth?: number }) => {
+const DashboardIcon = ({ size = 22, color = "#9B9BA4", strokeWidth = 1.5 }: { size?: number; color?: string; strokeWidth?: number }) => {
   const finalStroke = strokeWidth ? strokeWidth * 0.85 : 1.7;
   const adjustedSize = size * 1.35;
   return (
@@ -70,7 +70,7 @@ const DashboardIcon = ({ size = 22, color = "#a1a1aa", strokeWidth = 1.5 }: { si
   );
 };
 
-const AnalyticsIcon = ({ size = 22, color = "#a1a1aa" }: { size?: number; color?: string }) => (
+const AnalyticsIcon = ({ size = 22, color = "#9B9BA4" }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M21.6702 6.94942C21.0302 4.77942 19.2202 2.96942 17.0502 2.32942C15.4002 1.84942 14.2602 1.88942 13.4702 2.47942C12.5202 3.18942 12.4102 4.46942 12.4102 5.37942V7.86942C12.4102 10.3294 13.5302 11.5794 15.7302 11.5794H18.6002C19.5002 11.5794 20.7902 11.4694 21.5002 10.5194C22.1102 9.73942 22.1602 8.59942 21.6702 6.94942Z"
@@ -83,7 +83,7 @@ const AnalyticsIcon = ({ size = 22, color = "#a1a1aa" }: { size?: number; color?
   </Svg>
 );
 
-const ExpensesIcon = ({ size = 22, color = "#a1a1aa" }: { size?: number; color?: string }) => (
+const ExpensesIcon = ({ size = 22, color = "#9B9BA4" }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 1024 1024" fill="none">
     <Path
       d="M731.15 585.97c-100.99 0-182.86 81.87-182.86 182.86s81.87 182.86 182.86 182.86 182.86-81.87 182.86-182.86-81.87-182.86-182.86-182.86z m0 292.57c-60.5 0-109.71-49.22-109.71-109.71s49.22-109.71 109.71-109.71c60.5 0 109.71 49.22 109.71 109.71s-49.21 109.71-109.71 109.71z"
@@ -100,7 +100,7 @@ const ExpensesIcon = ({ size = 22, color = "#a1a1aa" }: { size?: number; color?:
   </Svg>
 );
 
-const AboutIcon = ({ size = 18, color = "#a1a1aa" }: { size?: number; color?: string }) => (
+const AboutIcon = ({ size = 18, color = "#9B9BA4" }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 1024 1024" fill="none">
     <Path
       d="M927.4 273.5v-95.4h-87.9V82.8h-201v95.3h-87.9v95.4h-78.5v-95.4h-88V82.8H183.2v95.3H95.3v95.4H16.7v190.6h78.6v95.4h75.3v95.3H246v95.3h87.9v95.4h100.5v95.3h153.9v-95.3h100.4v-95.4h88v-95.3H852.1v-95.3h75.3v-95.4h78.5V273.5z"
@@ -137,7 +137,7 @@ const HomeIcon = ({ color, size = 20 }: { color: ColorValue; size?: number }) =>
         alignItems: "center",
       }}
     >
-      <View style={{ width: size * 0.25, height: size * 0.25, backgroundColor: "#12110f", borderTopLeftRadius: 1, borderTopRightRadius: 1 }} />
+      <View style={{ width: size * 0.25, height: size * 0.25, backgroundColor: "#0F0F12", borderTopLeftRadius: 1, borderTopRightRadius: 1 }} />
     </View>
   </View>
 );
@@ -414,7 +414,7 @@ export default function TabLayout() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#000000" }}>
+    <View style={{ flex: 1, backgroundColor: "#000" }}>
       {/* Drawer Panel - Hidden behind/side-by-side with lower z-index */}
       <Animated.View
         style={[
@@ -486,7 +486,7 @@ export default function TabLayout() {
                 <View style={styles.menuIconContainer}>
                   <Icon
                     size={20}
-                    color={active ? accentColor : "#6b7280"}
+                    color={active ? accentColor : "#65656E"}
                     strokeWidth={active ? 2.5 : 1.8}
                   />
                 </View>
@@ -517,13 +517,13 @@ export default function TabLayout() {
             <View style={styles.menuIconContainer}>
               <AboutIcon
                 size={18}
-                color={isRouteActive("/about") ? accentColor : "#a1a1aa"}
+                color={isRouteActive("/about") ? accentColor : "#9B9BA4"}
               />
             </View>
             <Text
               style={[
                 styles.aboutFooterText,
-                isRouteActive("/about") ? { color: accentColor } : { color: "#a1a1aa" }
+                isRouteActive("/about") ? { color: accentColor } : { color: "#9B9BA4" }
               ]}
             >
               About Comma
@@ -636,17 +636,17 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: "#12110f",
+    backgroundColor: "#0F0F12",
     borderRightWidth: 0.8,
-    borderRightColor: "#1f1f1f",
+    borderRightColor: "#1E1E23",
     zIndex: 1,
     flexDirection: "column",
   },
   mainContentContainer: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "#000",
     zIndex: 2,
-    shadowColor: "#000000",
+    shadowColor: "#000",
     shadowOffset: { width: -4, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 10,
@@ -660,7 +660,7 @@ const styles = StyleSheet.create({
   drawerBrand: {
     fontSize: 20,
     fontWeight: "900",
-    color: "#ffffff",
+    color: "#F6F6F7",
     letterSpacing: 1,
   },
 
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
   sidebarName: {
     fontSize: 20,
     fontWeight: "800",
-    color: "#ffffff",
+    color: "#F6F6F7",
     letterSpacing: -0.3,
     lineHeight: 26,
     includeFontPadding: false,
@@ -724,15 +724,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuTextActive: {
-    color: "#f4f4f5",
+    color: "#F6F6F7",
   },
   menuTextInactive: {
-    color: "#71717a",
+    color: "#9B9BA4",
   },
   drawerFooter: {
     padding: 16,
     borderTopWidth: 0.8,
-    borderTopColor: "#1f1f1f",
+    borderTopColor: "#1E1E23",
     alignItems: "center",
     width: "100%",
   },
@@ -753,7 +753,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 10,
-    color: "#52525b",
+    color: "#65656E",
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.5,

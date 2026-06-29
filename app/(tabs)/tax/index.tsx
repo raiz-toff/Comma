@@ -286,7 +286,7 @@ export default function TaxScreen() {
         <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8, paddingLeft: 70, height: Math.max(insets.top, 8) + 64 }]}>
           <Text style={S.headerTitle}>Tax · {currentYear}</Text>
         </View>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20, backgroundColor: "#000000" }}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20, backgroundColor: "#000" }}>
           <View style={S.card}>
             <View style={S.emptyIcon}>
               <Calculator size={26} color={accentColor} />
@@ -310,7 +310,7 @@ export default function TaxScreen() {
           <Text style={S.headerSub}>{regionLabel} · {profile?.taxWithholdingPct || 0}% reserve</Text>
         </View>
         <ScalePressable onPress={() => setIsSettingsOpen(true)} style={S.gearBtn}>
-          <Settings size={14} color="#a1a1aa" />
+          <Settings size={14} color="#9B9BA4" />
         </ScalePressable>
       </View>
 
@@ -412,7 +412,7 @@ export default function TaxScreen() {
           {nextInstallment && (
             <Pressable onPress={() => router.push("/tax/center" as any)} style={S.installmentRow}>
               <View style={S.installmentLeft}>
-                <Calendar size={13} color="#71717a" />
+                <Calendar size={13} color="#9B9BA4" />
                 <Text style={S.installmentLabel}>{nextInstallment.label}</Text>
                 <Text style={S.installmentDate}>
                   {nextInstallment.date.toLocaleDateString("en-US", {
@@ -423,7 +423,7 @@ export default function TaxScreen() {
               </View>
               <View style={S.installmentRight}>
                 <Text style={S.installmentDays}>{nextInstallment.daysUntil} days</Text>
-                <ChevronRight size={12} color="#52525b" />
+                <ChevronRight size={12} color="#65656E" />
               </View>
             </Pressable>
           )}
@@ -469,7 +469,7 @@ export default function TaxScreen() {
                   <Text
                     style={[
                       S.toggleBtnText,
-                      profile?.hstRegistered ? { color: accentColorContrast } : { color: "#a1a1aa" },
+                      profile?.hstRegistered ? { color: accentColorContrast } : { color: "#9B9BA4" },
                     ]}
                   >
                     {profile?.hstRegistered ? "Registered" : "No"}
@@ -538,7 +538,7 @@ export default function TaxScreen() {
             <View style={S.overlayHeader}>
               <Text style={S.overlayTitle}>Log Tax Jar Deposit</Text>
               <Pressable onPress={() => setIsJarModalOpen(false)} style={S.overlayClose}>
-                <Text style={{ color: "#a1a1aa", fontSize: 16, fontWeight: "700" }}>×</Text>
+                <Text style={{ color: "#9B9BA4", fontSize: 16, fontWeight: "700" }}>×</Text>
               </Pressable>
             </View>
             <Text style={S.overlayBody}>Amount you're setting aside for taxes.</Text>
@@ -546,7 +546,7 @@ export default function TaxScreen() {
               value={jarDepositInput}
               onChangeText={setJarDepositInput}
               placeholder="0.00"
-              placeholderTextColor="#52525b"
+              placeholderTextColor="#65656E"
               keyboardType="decimal-pad"
               style={S.jarInput}
             />
@@ -557,7 +557,7 @@ export default function TaxScreen() {
                   onPress={() => setJarDepositInput(String(amt))}
                   style={[S.chip, S.chipInactive, { flex: 1, paddingHorizontal: 4 }]}
                 >
-                  <Text style={[S.chipText, { color: "#a1a1aa" }]}>${amt}</Text>
+                  <Text style={[S.chipText, { color: "#9B9BA4" }]}>${amt}</Text>
                 </Pressable>
               ))}
             </View>
@@ -577,7 +577,7 @@ export default function TaxScreen() {
 }
 
 const S = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#000000" },
+  root: { flex: 1, backgroundColor: "#000" },
   loader: { flex: 1, alignItems: "center", justifyContent: "center" },
   scroll: { padding: 16, paddingTop: 8, gap: 10 },
 
@@ -588,27 +588,27 @@ const S = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: "#000000",
+    backgroundColor: "#000",
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: "900",
-    color: "#ffffff",
+    color: "#F6F6F7",
     letterSpacing: -0.4,
   },
   headerSub: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#52525b",
+    color: "#65656E",
     marginTop: 2,
   },
   gearBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -628,16 +628,16 @@ const S = StyleSheet.create({
   alertText: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#a1a1aa",
+    color: "#9B9BA4",
     flex: 1,
     lineHeight: 15,
   },
 
   // Cards
   card: {
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderWidth: 0.8,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     borderRadius: 20,
     padding: 18,
     gap: 12,
@@ -645,7 +645,7 @@ const S = StyleSheet.create({
   cardLabel: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#52525b",
+    color: "#65656E",
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },
@@ -664,12 +664,12 @@ const S = StyleSheet.create({
   mutedValue: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#71717a",
+    color: "#9B9BA4",
     marginTop: 2,
   },
   progressTrack: {
     height: 6,
-    backgroundColor: "#1f1f1f",
+    backgroundColor: "#1E1E23",
     borderRadius: 3,
   },
   progressFill: {
@@ -679,7 +679,7 @@ const S = StyleSheet.create({
   progressLabel: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#52525b",
+    color: "#65656E",
     marginTop: -4,
   },
   jarFooter: {
@@ -691,7 +691,7 @@ const S = StyleSheet.create({
   suggestText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#71717a",
+    color: "#9B9BA4",
   },
   pill: {
     paddingHorizontal: 16,
@@ -710,7 +710,7 @@ const S = StyleSheet.create({
   obligationTotal: {
     fontSize: 36,
     fontWeight: "900",
-    color: "#ffffff",
+    color: "#F6F6F7",
     letterSpacing: -0.6,
   },
   pillRow: {
@@ -720,9 +720,9 @@ const S = StyleSheet.create({
     marginTop: -2,
   },
   pillMuted: {
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -730,7 +730,7 @@ const S = StyleSheet.create({
   pillMutedText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#71717a",
+    color: "#9B9BA4",
   },
   breakdownLink: {
     flexDirection: "row",
@@ -760,12 +760,12 @@ const S = StyleSheet.create({
   installmentLabel: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#71717a",
+    color: "#9B9BA4",
   },
   installmentDate: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#52525b",
+    color: "#65656E",
   },
   installmentRight: {
     flexDirection: "row",
@@ -775,14 +775,14 @@ const S = StyleSheet.create({
   installmentDays: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#52525b",
+    color: "#65656E",
   },
 
   // Disclaimer
   disclaimer: {
     fontSize: 10,
     fontWeight: "500",
-    color: "#3f3f46",
+    color: "#2E2E36",
     textAlign: "center",
     lineHeight: 15,
     paddingHorizontal: 8,
@@ -805,12 +805,12 @@ const S = StyleSheet.create({
   emptyTitle: {
     fontSize: 15,
     fontWeight: "900",
-    color: "#ffffff",
+    color: "#F6F6F7",
     textAlign: "center",
   },
   emptyBody: {
     fontSize: 13,
-    color: "#a1a1aa",
+    color: "#9B9BA4",
     textAlign: "center",
     lineHeight: 18,
   },
@@ -822,11 +822,11 @@ const S = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderTopWidth: 0.8,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     padding: 20,
     gap: 18,
   },
@@ -834,7 +834,7 @@ const S = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#3f3f46",
+    backgroundColor: "#2E2E36",
     alignSelf: "center",
     marginBottom: 4,
   },
@@ -842,19 +842,19 @@ const S = StyleSheet.create({
   sheetTitle: {
     fontSize: 16,
     fontWeight: "900",
-    color: "#ffffff",
+    color: "#F6F6F7",
     letterSpacing: -0.3,
   },
   sheetSub: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#71717a",
+    color: "#9B9BA4",
   },
   settingBlock: { gap: 8 },
   settingBlockLabel: {
     fontSize: 9,
     fontWeight: "800",
-    color: "#71717a",
+    color: "#9B9BA4",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -863,18 +863,18 @@ const S = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     borderTopWidth: 0.5,
-    borderTopColor: "#161615",
+    borderTopColor: "#16161A",
     paddingTop: 14,
   },
   settingRowLabel: {
     fontSize: 13,
     fontWeight: "800",
-    color: "#ffffff",
+    color: "#F6F6F7",
   },
   settingRowDesc: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#52525b",
+    color: "#65656E",
     marginTop: 2,
     lineHeight: 14,
   },
@@ -887,8 +887,8 @@ const S = StyleSheet.create({
     justifyContent: "center",
   },
   chipInactive: {
-    borderColor: "#262522",
-    backgroundColor: "#161615",
+    borderColor: "#1C1C21",
+    backgroundColor: "#16161A",
   },
   chipText: {
     fontSize: 12,
@@ -903,8 +903,8 @@ const S = StyleSheet.create({
     alignItems: "center",
   },
   toggleBtnOff: {
-    borderColor: "#262522",
-    backgroundColor: "#161615",
+    borderColor: "#1C1C21",
+    backgroundColor: "#16161A",
   },
   toggleBtnText: {
     fontSize: 11,
@@ -915,9 +915,9 @@ const S = StyleSheet.create({
   stepper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     borderRadius: 14,
     overflow: "hidden",
   },
@@ -930,7 +930,7 @@ const S = StyleSheet.create({
   stepBtnText: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#a1a1aa",
+    color: "#9B9BA4",
   },
   stepValue: {
     width: 44,
@@ -939,11 +939,11 @@ const S = StyleSheet.create({
   stepValueText: {
     fontSize: 13,
     fontWeight: "800",
-    color: "#ffffff",
+    color: "#F6F6F7",
   },
   historyBlock: {
     borderTopWidth: 0.5,
-    borderTopColor: "#161615",
+    borderTopColor: "#16161A",
     paddingTop: 14,
     gap: 8,
   },
@@ -951,7 +951,7 @@ const S = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -959,12 +959,12 @@ const S = StyleSheet.create({
   historyText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#a1a1aa",
+    color: "#9B9BA4",
   },
   historyDate: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#52525b",
+    color: "#65656E",
   },
 
   // Modals
@@ -978,10 +978,10 @@ const S = StyleSheet.create({
   overlayCard: {
     width: "100%",
     maxWidth: 360,
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderRadius: 24,
     borderWidth: 0.8,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     padding: 20,
     gap: 16,
   },
@@ -991,10 +991,10 @@ const S = StyleSheet.create({
     alignItems: "center",
     paddingBottom: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#1f1f1f",
+    borderBottomColor: "#1E1E23",
   },
   overlayTitle: {
-    color: "#ffffff",
+    color: "#F6F6F7",
     fontSize: 15,
     fontWeight: "900",
     letterSpacing: -0.3,
@@ -1003,14 +1003,14 @@ const S = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     alignItems: "center",
     justifyContent: "center",
   },
   overlayBody: {
-    color: "#a1a1aa",
+    color: "#9B9BA4",
     fontSize: 13,
     lineHeight: 18,
     fontWeight: "500",
@@ -1019,10 +1019,10 @@ const S = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderRadius: 16,
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     padding: 14,
   },
   compCol: {
@@ -1033,19 +1033,19 @@ const S = StyleSheet.create({
   compLabel: {
     fontSize: 9,
     fontWeight: "800",
-    color: "#71717a",
+    color: "#9B9BA4",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   compCode: {
     fontSize: 20,
     fontWeight: "900",
-    color: "#ffffff",
+    color: "#F6F6F7",
   },
   compRate: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#a1a1aa",
+    color: "#9B9BA4",
   },
   overlayActions: {
     flexDirection: "row",
@@ -1055,13 +1055,13 @@ const S = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 14,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     alignItems: "center",
   },
   cancelBtnText: {
-    color: "#a1a1aa",
+    color: "#9B9BA4",
     fontSize: 12,
     fontWeight: "800",
   },
@@ -1076,12 +1076,12 @@ const S = StyleSheet.create({
     fontWeight: "800",
   },
   jarInput: {
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     borderRadius: 14,
     padding: 14,
-    color: "#ffffff",
+    color: "#F6F6F7",
     fontSize: 18,
     fontWeight: "800",
     textAlign: "center",

@@ -174,21 +174,21 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
 
   const accentColor = React.useMemo(() => {
     if (isDoubleSelected) {
-      const c1 = PLATFORMS[doublePlatforms[0] as PlatformKey]?.color ?? "#ffffff";
-      const c2 = PLATFORMS[doublePlatforms[1] as PlatformKey]?.color ?? "#ffffff";
+      const c1 = PLATFORMS[doublePlatforms[0] as PlatformKey]?.color ?? "#F6F6F7";
+      const c2 = PLATFORMS[doublePlatforms[1] as PlatformKey]?.color ?? "#F6F6F7";
       try {
         return blendColors(c1, c2);
       } catch (e) {
         return c1;
       }
     }
-    return activePlatformConfig?.color ?? "#ffffff"; // white when "all"
+    return activePlatformConfig?.color ?? "#F6F6F7"; // white when "all"
   }, [isDoubleSelected, doublePlatforms, activePlatformConfig]);
 
   const borderPillColor = React.useMemo(() => {
     if (isDoubleSelected) {
-      const c1 = PLATFORMS[doublePlatforms[0] as PlatformKey]?.color ?? "#ffffff";
-      const c2 = PLATFORMS[doublePlatforms[1] as PlatformKey]?.color ?? "#ffffff";
+      const c1 = PLATFORMS[doublePlatforms[0] as PlatformKey]?.color ?? "#F6F6F7";
+      const c2 = PLATFORMS[doublePlatforms[1] as PlatformKey]?.color ?? "#F6F6F7";
       try {
         return blendColors(c1, c2) + "66"; // blended border with opacity
       } catch (e) {
@@ -321,7 +321,7 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
           style={styles.hamburgerBtn}
           onPress={onMenuPress}
         >
-          <Menu size={22} color="#94a3b8" strokeWidth={2} />
+          <Menu size={22} color="#9B9BA4" strokeWidth={2} />
         </Pressable>
 
         {/* Centre: collapsed platform switcher trigger (Pill 2) — hidden on tax tab */}
@@ -338,19 +338,19 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
               </View>
 
               {/* Name 1 */}
-              <Text style={{ color: "#e2e8f0", fontSize: 14, fontWeight: "600" }} numberOfLines={1}>
+              <Text style={{ color: "#F6F6F7", fontSize: 14, fontWeight: "600" }} numberOfLines={1}>
                 {PLATFORMS[doublePlatforms[0] as PlatformKey]?.label ||
                   dbPlatforms.find((p) => p.id === doublePlatforms[0])?.label ||
                   doublePlatforms[0]}
               </Text>
 
               {/* Centered Plus */}
-              <Text style={{ color: "#64748b", fontSize: 14, fontWeight: "600", marginHorizontal: 6 }}>
+              <Text style={{ color: "#65656E", fontSize: 14, fontWeight: "600", marginHorizontal: 6 }}>
                 +
               </Text>
 
               {/* Name 2 */}
-              <Text style={{ color: "#e2e8f0", fontSize: 14, fontWeight: "600" }} numberOfLines={1}>
+              <Text style={{ color: "#F6F6F7", fontSize: 14, fontWeight: "600" }} numberOfLines={1}>
                 {PLATFORMS[doublePlatforms[1] as PlatformKey]?.label ||
                   dbPlatforms.find((p) => p.id === doublePlatforms[1])?.label ||
                   doublePlatforms[1]}
@@ -382,8 +382,8 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
 
           {/* Chevron */}
           {isExpanded
-            ? <ChevronUp size={16} color="#94a3b8" strokeWidth={2.5} style={{ marginLeft: 2 }} />
-            : <ChevronDown size={16} color="#94a3b8" strokeWidth={2.5} style={{ marginLeft: 2 }} />
+            ? <ChevronUp size={16} color="#9B9BA4" strokeWidth={2.5} style={{ marginLeft: 2 }} />
+            : <ChevronDown size={16} color="#9B9BA4" strokeWidth={2.5} style={{ marginLeft: 2 }} />
           }
         </Pressable>}
 
@@ -391,7 +391,7 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
         {!isTaxTab && (
           <View style={styles.rightIcons}>
             <Pressable style={styles.iconBtn} onPress={onNotificationsPress || (() => router.push("/notifications"))}>
-              <Bell size={20} color="#ffffff" strokeWidth={2} />
+              <Bell size={20} color="#F6F6F7" strokeWidth={2} />
               {unreadCount > 0 && (
                 <View style={styles.notifBadge}>
                   <Text style={styles.notifBadgeText}>
@@ -446,7 +446,7 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
                    (selectedPlatformsList.length === 1 && activePlatformFilter === "all"));
               const cfg = !isAll ? PLATFORMS[pId as PlatformKey] : null;
               const dbCfg = !isAll && !cfg ? dbPlatforms.find((p) => p.id === pId) : null;
-              const pColor = cfg?.color ?? dbCfg?.color ?? "#ffffff";
+              const pColor = cfg?.color ?? dbCfg?.color ?? "#F6F6F7";
               const pLabel = cfg?.label ?? dbCfg?.label ?? pId;
 
               return (
@@ -464,20 +464,20 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
                     styles.dropdownPillLogo,
                     {
                       backgroundColor: isAll
-                        ? (isSelected ? "#ffffff33" : "#2a2a28")
-                        : isSelected ? pColor + "33" : "#1e1e1c",
+                        ? (isSelected ? "#ffffff33" : "#2E2E36")
+                        : isSelected ? pColor + "33" : "#1E1E23",
                       borderColor: isSelected ? pColor + "44" : "transparent",
                       borderWidth: 1,
                     },
                   ]}>
                     {isAll
-                      ? <Text style={[styles.dropdownPillLogoText, { color: isSelected ? "#ffffff" : "#94a3b8" }]}>∞</Text>
+                      ? <Text style={[styles.dropdownPillLogoText, { color: isSelected ? "#F6F6F7" : "#9B9BA4" }]}>∞</Text>
                       : <PlatformLogo id={pId} size={18} />
                     }
                   </View>
                   <Text style={[
                     styles.dropdownPillLabel,
-                    { color: isSelected ? "#ffffff" : "#a1a1aa", flex: 1 },
+                    { color: isSelected ? "#F6F6F7" : "#9B9BA4", flex: 1 },
                   ]} numberOfLines={1}>
                     {isAll ? "All" : pLabel}
                   </Text>
@@ -496,7 +496,7 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
           <Text style={styles.panelSectionLabel}>VEHICLE</Text>
           <View style={styles.platformGrid}>
             {vehiclesList.length === 0 ? (
-              <Text style={{ color: "#52525b", fontSize: 12, paddingHorizontal: 4 }}>No vehicles set up</Text>
+              <Text style={{ color: "#65656E", fontSize: 12, paddingHorizontal: 4 }}>No vehicles set up</Text>
             ) : (
               vehiclesList.map((v: any) => {
                 const isSelected = (preferredVehicleId || vehiclesList[0]?.id) === v.id;
@@ -512,20 +512,20 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
                     style={[
                       styles.platformGridPill,
                       isSelected
-                        ? { borderColor: "#ffffff", backgroundColor: "#ffffff18" }
+                        ? { borderColor: "#F6F6F7", backgroundColor: "#ffffff18" }
                         : styles.dropdownPillInactive,
                     ]}
                   >
                     <View style={[
                       styles.dropdownPillLogo,
                       {
-                        backgroundColor: isSelected ? "#ffffff33" : "#1e1e1c",
+                        backgroundColor: isSelected ? "#ffffff33" : "#1E1E23",
                         borderColor: isSelected ? "#ffffff44" : "transparent",
                         borderWidth: 1,
                       },
                     ]}>
                       <Svg width={16} height={16} viewBox="0 0 24 24" fill="none"
-                        stroke={isSelected ? "#ffffff" : "#a1a1aa"}
+                        stroke={isSelected ? "#F6F6F7" : "#9B9BA4"}
                         strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                         <Path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2" />
                         <Rect x="7" y="14" width="10" height="6" rx="1" />
@@ -536,12 +536,12 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
                     </View>
                     <Text style={[
                       styles.dropdownPillLabel,
-                      { color: isSelected ? "#ffffff" : "#a1a1aa", flex: 1 },
+                      { color: isSelected ? "#F6F6F7" : "#9B9BA4", flex: 1 },
                     ]} numberOfLines={1}>
                       {year}{label}
                     </Text>
                     {isSelected && (
-                      <View style={[styles.checkDot, { backgroundColor: "#ffffff" }]} />
+                      <View style={[styles.checkDot, { backgroundColor: "#F6F6F7" }]} />
                     )}
                   </Pressable>
                 );
@@ -598,9 +598,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 1,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   avatarText: {
-    color: "#ffffff",
+    color: "#F6F6F7",
     fontSize: 15,
     fontWeight: "bold",
     letterSpacing: 0.5,
@@ -632,7 +632,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 1,
     borderRadius: 22,
     paddingHorizontal: 14,
@@ -650,7 +650,7 @@ const styles = StyleSheet.create({
   },
   filterPillLabel: {
     flex: 1,
-    color: "#e2e8f0",
+    color: "#F6F6F7",
     fontSize: 14,
     fontWeight: "600",
   },
@@ -668,9 +668,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 1,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
@@ -687,23 +687,23 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     paddingHorizontal: 4,
-    backgroundColor: "#ef4444",
+    backgroundColor: "#FF5247",
     borderWidth: 1.5,
-    borderColor: "#161615",
+    borderColor: "#16161A",
     justifyContent: "center",
     alignItems: "center",
   },
   notifBadgeText: {
-    color: "#ffffff",
+    color: "#F6F6F7",
     fontSize: 9,
     fontWeight: "800",
     lineHeight: 11,
   },
 
   dropdownPanel: {
-    backgroundColor: "#111110",
+    backgroundColor: "#0F0F12",
     borderRadius: 16,
-    borderColor: "#2a2a28",
+    borderColor: "#2E2E36",
     borderWidth: 1,
     marginHorizontal: 16,
     shadowColor: "#000",
@@ -716,7 +716,7 @@ const styles = StyleSheet.create({
   panelSectionLabel: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#71717a",
+    color: "#9B9BA4",
     letterSpacing: 1,
     marginTop: 14,
     marginBottom: 8,
@@ -739,12 +739,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     width: "48%", // 2 columns layout
-    backgroundColor: "#161615",
-    borderColor: "#262624",
+    backgroundColor: "#16161A",
+    borderColor: "#1C1C21",
   },
   dropdownPillInactive: {
-    borderColor: "#262624",
-    backgroundColor: "#161615",
+    borderColor: "#1C1C21",
+    backgroundColor: "#16161A",
   },
   dropdownPillLogo: {
     width: 28,
@@ -769,7 +769,7 @@ const styles = StyleSheet.create({
   },
   panelDivider: {
     height: 1,
-    backgroundColor: "#2a2a28",
+    backgroundColor: "#2E2E36",
     marginHorizontal: 16,
     marginTop: 14,
   },
@@ -802,7 +802,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   clearFilterText: {
-    color: "#94a3b8",
+    color: "#9B9BA4",
     fontSize: 12,
     fontWeight: "700",
   },

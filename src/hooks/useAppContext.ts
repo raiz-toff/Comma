@@ -34,7 +34,7 @@ export const GIG_DRIVER_DEFAULTS: Record<FeatureKey, boolean> = {
   tax_workspace: true,
   goals: true,
   schedule: false,
-  gamification: false,
+  gamification: true, // Bulletin Mode — celebrate milestones/streaks (data already computes)
   pdf_reports: false,
   csv_import: false,
   android_widget: false,

@@ -83,7 +83,7 @@ export default function OnboardingWizard() {
 
   // Appearance
   const [theme, setTheme] = useState<"dark" | "light" | "auto">("dark");
-  const [accentColor, setAccentColor] = useState("#10b981");
+  const [accentColor, setAccentColor] = useState("#F6F6F7"); // near-white default preserves the monochrome look
 
   // Preferences
   const [weekStartDay, setWeekStartDay] = useState(1); // Monday
@@ -215,6 +215,7 @@ export default function OnboardingWizard() {
         selectedPlatforms={selectedPlatforms}
         country={country}
         weeklyGoal={weeklyGoal}
+        accentColor={accentColor}
         onEnter={handleEnterDashboard}
       />
     );
@@ -308,7 +309,7 @@ export default function OnboardingWizard() {
     <View
       style={{
         flex: 1,
-        backgroundColor: "#000000",
+        backgroundColor: "#000",
         paddingTop: insets.top,
         paddingBottom: insets.bottom,
       }}
@@ -324,30 +325,20 @@ export default function OnboardingWizard() {
           paddingBottom: 8,
         }}
       >
-        <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+        <View style={{ flexDirection: "row", gap: 6, alignItems: "center", flex: 1 }}>
           {sequence.map((_, i) => (
             <View
               key={i}
               style={{
                 height: 4,
-                width: i === stepIndex ? 20 : 6,
+                flex: i === stepIndex ? 2 : 1,
                 borderRadius: 2,
-                backgroundColor: i <= stepIndex ? "#ffffff" : "#27272a",
+                // Filled segments borrow the chosen accent — theming starts during setup (§09-C).
+                backgroundColor: i <= stepIndex ? (accentColor || "#F6F6F7") : "#1C1C21",
               }}
             />
           ))}
         </View>
-        <Text
-          style={{
-            fontSize: 10,
-            fontWeight: "700",
-            color: "#52525b",
-            letterSpacing: 1,
-            textTransform: "uppercase",
-          }}
-        >
-          {stepIndex + 1} / {sequence.length}
-        </Text>
       </View>
 
       {/* Step content */}
@@ -361,8 +352,8 @@ export default function OnboardingWizard() {
               gap: 12,
             }}
           >
-            <ActivityIndicator size="large" color="#ffffff" />
-            <Text style={{ fontSize: 12, color: "#7a7670" }}>
+            <ActivityIndicator size="large" color="#F6F6F7" />
+            <Text style={{ fontSize: 12, color: "#65656E" }}>
               Setting up your vault…
             </Text>
           </View>
@@ -381,14 +372,14 @@ export default function OnboardingWizard() {
             paddingHorizontal: 24,
             paddingVertical: 16,
             borderTopWidth: 0.8,
-            borderTopColor: "#1f1f1f",
+            borderTopColor: "#1E1E23",
           }}
         >
           <Pressable
             onPress={handleBack}
             style={{ paddingVertical: 12, paddingHorizontal: 4 }}
           >
-            <Text style={{ fontSize: 14, fontWeight: "600", color: "#7a7670" }}>
+            <Text style={{ fontSize: 14, fontWeight: "600", color: "#65656E" }}>
               {isFirst ? "Cancel" : "Back"}
             </Text>
           </Pressable>
@@ -396,14 +387,14 @@ export default function OnboardingWizard() {
           <Pressable
             onPress={handleNext}
             style={{
-              backgroundColor: "#ffffff",
+              backgroundColor: "#F6F6F7",
               paddingVertical: 14,
               paddingHorizontal: 36,
               borderRadius: 14,
             }}
           >
             <Text
-              style={{ fontSize: 15, fontWeight: "800", color: "#000000" }}
+              style={{ fontSize: 15, fontWeight: "800", color: "#000" }}
             >
               {isLast ? "Finish" : "Continue"}
             </Text>

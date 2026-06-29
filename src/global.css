@@ -48,39 +48,61 @@
   }
 
   .dark {
-    /* ── Core Palette (Dark Mode — DEFAULT) ────────────────────── */
-    --background: 0 0% 0%;           /* #000000 */
-    --foreground: 38 17% 94%;          /* #f4f2ed */
+    /*
+     * ── COMMA Design System — cool-neutral ramp (DEFAULT) ──────────
+     * Single cool-neutral scale from true black up. Elevation = surface
+     * steps + hairline borders, never heavy shadow. Hex in comments.
+     */
 
-    --card: 36 8% 10%;                 /* #1c1b18 */
-    --card-foreground: 38 17% 94%;     /* #f4f2ed */
+    /* ── Surfaces ──────────────────────────────────────────────── */
+    --surface-01: 240 9% 4%;           /* #0A0A0C — recessed wells, page sections */
+    --surface-02: 240 9% 6%;           /* #0F0F12 — default card background */
+    --surface-03: 240 8% 9%;           /* #16161A — raised cards, inputs, sheets */
+    --surface-04: 240 8% 12%;          /* #1C1C21 — pressed/hover, segmented bg */
+    --surface-05: 240 7% 16%;          /* #26262C — highest: menus, tooltips */
 
-    --popover: 36 8% 10%;
-    --popover-foreground: 38 17% 94%;
+    /* ── Text & lines ──────────────────────────────────────────── */
+    --text-primary: 240 6% 97%;        /* #F6F6F7 — headlines, money, key values */
+    --text-secondary: 240 5% 63%;      /* #9B9BA4 — body, supporting copy */
+    --text-muted: 240 4% 41%;          /* #65656E — labels, captions, meta */
+    --text-disabled: 240 5% 28%;       /* #45454C — inactive, placeholders */
+    --border-subtle: 240 8% 13%;       /* #1E1E23 — default hairline, 1px */
+    --border-strong: 240 8% 20%;       /* #2E2E36 — inputs, focus rings */
 
-    --primary: 142 71% 45%;            /* #22c55e — stays the same */
+    /* ── Core semantic mappings (consumed by shadcn-style components) */
+    --background: 0 0% 0%;             /* #000000 — Canvas, true black for OLED */
+    --foreground: 240 6% 97%;          /* Text/Primary */
+
+    --card: 240 9% 6%;                 /* Surface/02 */
+    --card-foreground: 240 6% 97%;     /* Text/Primary */
+
+    --popover: 240 7% 16%;             /* Surface/05 */
+    --popover-foreground: 240 6% 97%;
+
+    --primary: 142 71% 45%;            /* #22c55e — semantic green (NOT the accent; accent flows from usePlatformTheme) */
     --primary-foreground: 0 0% 100%;   /* white text on green */
 
-    --secondary: 36 7% 14%;            /* #262522 — surface-raised */
-    --secondary-foreground: 38 17% 94%;
+    --secondary: 240 8% 9%;            /* Surface/03 */
+    --secondary-foreground: 240 6% 97%;
 
-    --muted: 36 7% 14%;                /* #262522 */
-    --muted-foreground: 33 4% 47%;     /* #7a7670 */
+    --muted: 240 8% 9%;                /* Surface/03 */
+    --muted-foreground: 240 4% 41%;    /* Text/Muted */
 
-    --accent: 36 7% 14%;
-    --accent-foreground: 38 17% 94%;
+    --accent: 240 8% 12%;              /* Surface/04 — neutral hover bg ONLY; brand accent comes from the hook */
+    --accent-foreground: 240 6% 97%;
 
-    --destructive: 0 72% 51%;          /* #ef4444 dark variant */
+    /* ── Semantic (fixed — never re-themed by user accent) ─────── */
+    --destructive: 4 100% 64%;         /* #FF5247 — Danger: end shift, destructive */
     --destructive-foreground: 0 0% 100%;
 
-    --success: 142 69% 58%;            /* #4ade80 */
-    --warning: 45 93% 47%;             /* #fbbf24 */
-    --info: 213 94% 68%;               /* #60a5fa */
+    --success: 148 72% 44%;            /* #1FC16B — net positive, goals hit */
+    --warning: 37 91% 55%;             /* #F5A623 — write-offs, reconcile due */
+    --info: 217 91% 60%;               /* #3B82F6 — tips, neutral notices */
 
-    --border: 33 6% 22%;               /* #3d3a35 */
-    --input: 33 6% 22%;
-    --ring: 160 72% 39%;
+    --border: 240 8% 13%;              /* Border/Subtle */
+    --input: 240 8% 20%;               /* Border/Strong */
+    --ring: 240 8% 20%;                /* Border/Strong — focus ring */
 
-    --radius: 0.625rem;
+    --radius: 0.75rem;                 /* 12px — md radius */
   }
 }

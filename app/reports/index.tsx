@@ -29,22 +29,22 @@ import { notifyExport } from "@/src/services/notify";
 const isWeb = Platform.OS === "web";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const BG      = "#000000";
-const SURFACE = "#0d0d0d";
-const PILL    = "#161615";
-const BORDER  = "#1f1f1f";
-const BORDER2 = "#262522";
-const MUTED   = "#71717a";
-const DIM     = "#52525b";
+const BG      = "#000";
+const SURFACE = "#0F0F12";
+const PILL    = "#16161A";
+const BORDER  = "#1E1E23";
+const BORDER2 = "#1C1C21";
+const MUTED   = "#9B9BA4";
+const DIM     = "#65656E";
 
 // ─── Custom Icons ─────────────────────────────────────────────────────────────
-const ChevronLeft = ({ size = 22, color = "#fff" }) => (
+const ChevronLeft = ({ size = 22, color = "#F6F6F7" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
     <Path d="m15 18-6-6 6-6" />
   </Svg>
 );
 
-const ChevronRight = ({ size = 22, color = "#fff" }) => (
+const ChevronRight = ({ size = 22, color = "#F6F6F7" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
     <Path d="m9 18 6-6-6-6" />
   </Svg>
@@ -418,7 +418,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
           onPress={() => onClose ? onClose() : router.back()}
           style={styles.backBtn}
         >
-          <X size={20} color="#ffffff" strokeWidth={2.5} />
+          <X size={20} color="#F6F6F7" strokeWidth={2.5} />
         </TouchableOpacity>
         <Text style={styles.screenTitle}>Reports & Export</Text>
         <View style={{ width: 44 }} />
@@ -432,7 +432,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
             <Text style={styles.periodPillText}>{periodLabel}</Text>
             <View style={{ justifyContent: "center", alignItems: "center", marginLeft: 6 }}>
               <Svg width={10} height={6} viewBox="0 0 10 6" fill="none">
-                <Path d="M1 1L5 5L9 1" stroke="#a1a1aa" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M1 1L5 5L9 1" stroke="#9B9BA4" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </View>
           </Pressable>
@@ -443,7 +443,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
               disabled={arrowsDisabled}
               style={[styles.arrowBtn, arrowsDisabled && styles.arrowBtnDisabled]}
             >
-              <ChevronLeft color={arrowsDisabled ? "#3f3f46" : "#fff"} />
+              <ChevronLeft color={arrowsDisabled ? "#2E2E36" : "#F6F6F7"} />
             </Pressable>
 
             <View style={styles.amountRow}>
@@ -458,7 +458,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
               disabled={arrowsDisabled || isCurrentOrFutureMonth}
               style={[styles.arrowBtn, (arrowsDisabled || isCurrentOrFutureMonth) && styles.arrowBtnDisabled]}
             >
-              <ChevronRight color={(arrowsDisabled || isCurrentOrFutureMonth) ? "#3f3f46" : "#fff"} />
+              <ChevronRight color={(arrowsDisabled || isCurrentOrFutureMonth) ? "#2E2E36" : "#F6F6F7"} />
             </Pressable>
           </View>
         </View>
@@ -527,7 +527,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
               </View>
               <View style={styles.statCard}>
                 <Text style={styles.statLabel}>Net Earnings</Text>
-                <Text style={[styles.statValue, { color: netIncome >= 0 ? "#fff" : "#f87171" }]}>
+                <Text style={[styles.statValue, { color: netIncome >= 0 ? "#F6F6F7" : "#f87171" }]}>
                   {formatCurrency(netIncome)}
                 </Text>
               </View>
@@ -730,11 +730,11 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                             if (e.target.value) setCustomStart(new Date(e.target.value + "T12:00:00"));
                           }}
                           style={{
-                            background: "#161615",
-                            border: "1px solid #262522",
+                            background: "#16161A",
+                            border: "1px solid #1C1C21",
                             borderRadius: 12,
                             padding: "8px 12px",
-                            color: "#ffffff",
+                            color: "#F6F6F7",
                             fontSize: 12,
                             outline: "none",
                             width: "100%",
@@ -764,11 +764,11 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                             if (e.target.value) setCustomEnd(new Date(e.target.value + "T12:00:00"));
                           }}
                           style={{
-                            background: "#161615",
-                            border: "1px solid #262522",
+                            background: "#16161A",
+                            border: "1px solid #1C1C21",
                             borderRadius: 12,
                             padding: "8px 12px",
-                            color: "#ffffff",
+                            color: "#F6F6F7",
                             fontSize: 12,
                             outline: "none",
                             width: "100%",
@@ -869,16 +869,16 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     alignItems: "center",
     justifyContent: "center",
   },
   screenTitle: {
     fontSize: 18,
     fontWeight: "900",
-    color: "#ffffff",
+    color: "#F6F6F7",
     letterSpacing: -0.3,
   },
   scroll: {
@@ -896,19 +896,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     marginBottom: 20,
     alignSelf: "center",
   },
   periodPillText: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#a1a1aa",
+    color: "#9B9BA4",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -922,15 +922,15 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     justifyContent: "center",
     alignItems: "center",
   },
   arrowBtnDisabled: {
     opacity: 0.35,
-    borderColor: "#161615",
+    borderColor: "#16161A",
   },
   amountRow: {
     flexDirection: "row",
@@ -941,7 +941,7 @@ const styles = StyleSheet.create({
   amountSymbol: {
     fontSize: 24,
     fontWeight: "600",
-    color: "#fff",
+    color: "#F6F6F7",
     lineHeight: 30,
     marginTop: 10,
     marginRight: 4,
@@ -950,7 +950,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 40,
     fontWeight: "800",
-    color: "#fff",
+    color: "#F6F6F7",
     letterSpacing: -0.5,
     lineHeight: 48,
     paddingVertical: 2,
@@ -959,10 +959,10 @@ const styles = StyleSheet.create({
 
   // Bar chart
   chartContainer: {
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderRadius: 20,
     borderWidth: 0.8,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     padding: 16,
     marginHorizontal: 16,
     marginBottom: 20,
@@ -985,13 +985,13 @@ const styles = StyleSheet.create({
     borderColor: "rgba(113, 113, 122, 0.25)",
   },
   highBadge: {
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     paddingLeft: 8,
   },
   highBadgeText: {
     fontSize: 9,
     fontWeight: "700",
-    color: "#a1a1aa",
+    color: "#9B9BA4",
     letterSpacing: 0.5,
   },
   chartRow: {
@@ -1010,7 +1010,7 @@ const styles = StyleSheet.create({
   barTrack: {
     width: 14,
     height: 64,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderRadius: 7,
     overflow: "hidden",
     justifyContent: "flex-end",
@@ -1036,16 +1036,16 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderRadius: 20,
     borderWidth: 0.8,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     padding: 16,
   },
   statLabel: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#71717a",
+    color: "#9B9BA4",
     textTransform: "uppercase",
     letterSpacing: 0.8,
     marginBottom: 6,
@@ -1053,7 +1053,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: "800",
-    color: "#fff",
+    color: "#F6F6F7",
   },
 
   // Export section
@@ -1064,15 +1064,15 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 11,
     fontWeight: "800",
-    color: "#71717a",
+    color: "#9B9BA4",
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 2,
   },
   exportRow: {
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderWidth: 0.8,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     borderRadius: 20,
     padding: 16,
     flexDirection: "row",
@@ -1089,20 +1089,20 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     alignItems: "center",
     justifyContent: "center",
   },
   exportRowTitle: {
     fontSize: 14,
     fontWeight: "800",
-    color: "#ffffff",
+    color: "#F6F6F7",
   },
   exportRowSub: {
     fontSize: 11,
-    color: "#71717a",
+    color: "#9B9BA4",
   },
 
   // Modal
@@ -1117,12 +1117,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#1f1f1f",
+    borderBottomColor: "#1E1E23",
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#fff",
+    color: "#F6F6F7",
   },
   closeBtnText: {
     fontSize: 14,
@@ -1139,13 +1139,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    backgroundColor: "#161615",
-    borderColor: "#262522",
+    backgroundColor: "#16161A",
+    borderColor: "#1C1C21",
   },
   presetChipText: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#71717a",
+    color: "#9B9BA4",
   },
   tableHeader: {
     flexDirection: "row",
@@ -1154,19 +1154,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#111",
+    borderBottomColor: "#0F0F12",
   },
   tableHeaderLeft: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#71717a",
+    color: "#9B9BA4",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   tableHeaderRight: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#71717a",
+    color: "#9B9BA4",
     letterSpacing: 0.4,
   },
   modalScroll: {
@@ -1178,8 +1178,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     borderWidth: 0.8,
-    borderColor: "#1f1f1f",
-    backgroundColor: "#0d0d0d",
+    borderColor: "#1E1E23",
+    backgroundColor: "#0F0F12",
     borderRadius: 20,
     marginHorizontal: 16,
     marginVertical: 6,
@@ -1190,12 +1190,12 @@ const styles = StyleSheet.create({
   monthRangeText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#a1a1aa",
+    color: "#9B9BA4",
   },
   monthAmountText: {
     fontSize: 18,
     fontWeight: "900",
-    color: "#fff",
+    color: "#F6F6F7",
     letterSpacing: -0.4,
   },
   miniBarContainer: {
@@ -1205,7 +1205,7 @@ const styles = StyleSheet.create({
   miniBarTrack: {
     width: 8,
     height: 36,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderRadius: 4,
     overflow: "hidden",
     justifyContent: "flex-end",
@@ -1224,20 +1224,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 20,
     borderWidth: 0.8,
-    borderColor: "#262522",
-    backgroundColor: "#161615",
+    borderColor: "#1C1C21",
+    backgroundColor: "#16161A",
   },
   customToggleText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#a1a1aa",
+    color: "#9B9BA4",
   },
   customRangeCard: {
     marginHorizontal: 16,
     marginTop: 8,
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderWidth: 0.8,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     borderRadius: 20,
     padding: 16,
     gap: 12,
@@ -1245,14 +1245,14 @@ const styles = StyleSheet.create({
   customDateLabel: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#52525b",
+    color: "#65656E",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   datePickerBtn: {
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     borderRadius: 12,
     padding: 12,
     flexDirection: "row",
@@ -1260,7 +1260,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   datePickerText: {
-    color: "#ffffff",
+    color: "#F6F6F7",
     fontSize: 12,
     fontWeight: "600",
   },
@@ -1285,16 +1285,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderTopWidth: 0.5,
-    borderTopColor: "#1f1f1f",
+    borderTopColor: "#1E1E23",
     backgroundColor: "#000",
   },
   pageBtn: {
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
   },
   pageBtnDisabled: {
     opacity: 0.35,
@@ -1302,11 +1302,11 @@ const styles = StyleSheet.create({
   pageBtnText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#fff",
+    color: "#F6F6F7",
   },
   pageIndicator: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#71717a",
+    color: "#9B9BA4",
   },
 });

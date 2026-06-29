@@ -56,15 +56,15 @@ export default function RollingTrendWidget({ dailyData }: RollingTrendWidgetProp
   return (
     <View style={{ gap: 8 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-         <Text style={{ fontSize: 13, fontWeight: "600", color: "#a1a1aa" }}>Earnings Trajectory</Text>
+         <Text style={{ fontSize: 13, fontWeight: "600", color: "#9B9BA4" }}>Earnings Trajectory</Text>
          <Text style={{ fontSize: 11, fontWeight: "700", color: "#22c55e", textTransform: "uppercase", letterSpacing: 0.5 }}>Trend</Text>
       </View>
       <Sparkline points={hasData ? dailyData.map((d) => d.total) : [0, 0]} color="#22c55e" />
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
-        <Text style={{ fontSize: 10, fontWeight: "800", color: "#52525b", textTransform: "uppercase", letterSpacing: 0.5 }}>
+        <Text style={{ fontSize: 10, fontWeight: "800", color: "#65656E", textTransform: "uppercase", letterSpacing: 0.5 }}>
           {hasData ? formatDate(dailyData[0]?.date) : ""}
         </Text>
-        <Text style={{ fontSize: 10, fontWeight: "800", color: "#52525b", textTransform: "uppercase", letterSpacing: 0.5 }}>
+        <Text style={{ fontSize: 10, fontWeight: "800", color: "#65656E", textTransform: "uppercase", letterSpacing: 0.5 }}>
           {hasData ? formatDate(dailyData[dailyData.length - 1]?.date) : ""}
         </Text>
       </View>

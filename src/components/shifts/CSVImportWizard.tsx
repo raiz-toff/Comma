@@ -374,7 +374,7 @@ export function CSVImportWizard() {
   return (
     <ScrollView contentContainerClassName="flex flex-col gap-5 pb-8">
       {/* Step progress */}
-      <View className="flex-row items-center justify-between bg-[#0d0d0d] p-4 border border-[#1f1f1f] rounded-2xl">
+      <View className="flex-row items-center justify-between bg-[#0F0F12] p-4 border border-[#1E1E23] rounded-2xl">
         {[1, 2, 3, 4].map((num) => {
           const reached = step >= num;
           return (
@@ -382,19 +382,19 @@ export function CSVImportWizard() {
               <View
                 className="w-7 h-7 rounded-full items-center justify-center border-2"
                 style={{
-                  borderColor: reached ? accentColor : "#27272a",
-                  backgroundColor: step > num ? accentColor : reached ? accentColorDim : "#000000",
+                  borderColor: reached ? accentColor : "#26262C",
+                  backgroundColor: step > num ? accentColor : reached ? accentColorDim : "#000",
                 }}
               >
                 <Text
                   className="text-xs font-bold"
-                  style={{ color: step > num ? accentColorContrast : reached ? accentColor : "#52525b" }}
+                  style={{ color: step > num ? accentColorContrast : reached ? accentColor : "#65656E" }}
                 >
                   {num}
                 </Text>
               </View>
               {num < 4 && (
-                <View className="h-0.5 flex-1 mx-2" style={{ backgroundColor: step > num ? accentColor : "#1f1f1f" }} />
+                <View className="h-0.5 flex-1 mx-2" style={{ backgroundColor: step > num ? accentColor : "#1E1E23" }} />
               )}
             </View>
           );
@@ -409,7 +409,7 @@ export function CSVImportWizard() {
 
       {/* STEP 1: UPLOAD */}
       {step === 1 && (
-        <View className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-2xl p-5 flex flex-col gap-4 items-center justify-center py-10">
+        <View className="bg-[#0F0F12] border border-[#1E1E23] rounded-2xl p-5 flex flex-col gap-4 items-center justify-center py-10">
           <View
             className="w-14 h-14 rounded-2xl items-center justify-center border"
             style={{ backgroundColor: accentColorDim, borderColor: accentColor }}
@@ -437,7 +437,7 @@ export function CSVImportWizard() {
             </TouchableOpacity>
           )}
 
-          <View className="w-full mt-4 bg-[#000000] border border-[#1f1f1f] rounded-xl p-3.5">
+          <View className="w-full mt-4 bg-[#000] border border-[#1E1E23] rounded-xl p-3.5">
             <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-1">Expected columns</Text>
             <Text className="text-zinc-400 text-[11px] font-medium leading-relaxed">
               Platform, Start date/time, End date/time, Gross earnings, Tips, Active distance, Dead distance.
@@ -449,7 +449,7 @@ export function CSVImportWizard() {
 
       {/* STEP 2: COLUMN MAPPING */}
       {step === 2 && (
-        <View className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-2xl p-5 flex flex-col gap-4">
+        <View className="bg-[#0F0F12] border border-[#1E1E23] rounded-2xl p-5 flex flex-col gap-4">
           <View className="flex-col gap-1 mb-1">
             <Text className="text-white font-bold text-sm tracking-tight">Map CSV Columns</Text>
             <Text className="text-zinc-500 text-xs font-medium">
@@ -466,7 +466,7 @@ export function CSVImportWizard() {
           <ColumnSelect label="Dead Distance" headers={csvHeaders} value={mapping.deadMileage} accentColor={accentColor} onChange={(v) => setMapping((m) => ({ ...m, deadMileage: v }))} />
 
           <View className="flex-row gap-3 mt-3">
-            <TouchableOpacity onPress={() => { setErrorMessage(""); setStep(1); }} className="flex-1 py-3.5 bg-[#1f1f1f] border border-[#27272a] rounded-xl items-center">
+            <TouchableOpacity onPress={() => { setErrorMessage(""); setStep(1); }} className="flex-1 py-3.5 bg-[#1E1E23] border border-[#26262C] rounded-xl items-center">
               <Text className="text-zinc-300 text-xs font-bold uppercase tracking-wider">Back</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={processMapping} style={{ backgroundColor: accentColor }} className="flex-1 py-3.5 rounded-xl items-center">
@@ -478,14 +478,14 @@ export function CSVImportWizard() {
 
       {/* STEP 3: PREVIEW */}
       {step === 3 && (
-        <View className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-2xl p-5 flex flex-col gap-4">
+        <View className="bg-[#0F0F12] border border-[#1E1E23] rounded-2xl p-5 flex flex-col gap-4">
           <View className="flex-col gap-1 mb-1">
             <Text className="text-white font-bold text-sm tracking-tight">Data Preview</Text>
             <Text className="text-zinc-500 text-xs font-medium">Review parsed shifts before importing.</Text>
           </View>
 
-          <View className="flex-row justify-between bg-[#000000] p-3 rounded-xl border border-[#1f1f1f]">
-            <View className="items-center flex-1 border-r border-[#1f1f1f]">
+          <View className="flex-row justify-between bg-[#000] p-3 rounded-xl border border-[#1E1E23]">
+            <View className="items-center flex-1 border-r border-[#1E1E23]">
               <Text className="text-base font-extrabold" style={{ color: accentColor }}>{validRows.length}</Text>
               <Text className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">Valid Shifts</Text>
             </View>
@@ -496,7 +496,7 @@ export function CSVImportWizard() {
           </View>
 
           {reasonEntries.length > 0 && (
-            <View className="bg-[#000000] border border-[#1f1f1f] rounded-xl p-3 flex flex-col gap-1.5">
+            <View className="bg-[#000] border border-[#1E1E23] rounded-xl p-3 flex flex-col gap-1.5">
               <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider">Why rows were skipped</Text>
               {reasonEntries.map(([reason, count]) => (
                 <View key={reason} className="flex-row justify-between items-center">
@@ -512,7 +512,7 @@ export function CSVImportWizard() {
               <Text className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1 mt-1">First 5 Sample Records</Text>
               <View className="flex flex-col gap-2">
                 {validRows.slice(0, 5).map((row) => (
-                  <View key={row.id} className="bg-[#000000] border border-[#1f1f1f] p-3 rounded-xl flex-row justify-between items-center">
+                  <View key={row.id} className="bg-[#000] border border-[#1E1E23] p-3 rounded-xl flex-row justify-between items-center">
                     <View className="flex-col gap-1.5 flex-1 pr-2">
                       <PlatformBadge platform={row.platform} size="sm" />
                       <Text className="text-[11px] text-zinc-300 font-medium">
@@ -530,19 +530,19 @@ export function CSVImportWizard() {
           )}
 
           <View className="flex-row gap-3 mt-3">
-            <TouchableOpacity onPress={() => { setErrorMessage(""); setStep(2); }} className="flex-1 py-3.5 bg-[#1f1f1f] border border-[#27272a] rounded-xl items-center">
+            <TouchableOpacity onPress={() => { setErrorMessage(""); setStep(2); }} className="flex-1 py-3.5 bg-[#1E1E23] border border-[#26262C] rounded-xl items-center">
               <Text className="text-zinc-300 text-xs font-bold uppercase tracking-wider">Back</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={executeImport}
               disabled={isImporting || validRows.length === 0}
-              style={{ backgroundColor: validRows.length === 0 ? "#27272a" : accentColor }}
+              style={{ backgroundColor: validRows.length === 0 ? "#26262C" : accentColor }}
               className="flex-1 py-3.5 rounded-xl items-center justify-center"
             >
               {isImporting ? (
                 <ActivityIndicator size="small" color={accentColorContrast} />
               ) : (
-                <Text style={{ color: validRows.length === 0 ? "#71717a" : accentColorContrast }} className="text-xs font-bold uppercase tracking-wider">
+                <Text style={{ color: validRows.length === 0 ? "#9B9BA4" : accentColorContrast }} className="text-xs font-bold uppercase tracking-wider">
                   Import {validRows.length} Shifts
                 </Text>
               )}
@@ -553,7 +553,7 @@ export function CSVImportWizard() {
 
       {/* STEP 4: SUMMARY */}
       {step === 4 && (
-        <View className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-2xl p-5 flex flex-col gap-4 items-center justify-center py-10">
+        <View className="bg-[#0F0F12] border border-[#1E1E23] rounded-2xl p-5 flex flex-col gap-4 items-center justify-center py-10">
           <View
             className="w-14 h-14 rounded-2xl items-center justify-center border"
             style={{ backgroundColor: accentColorDim, borderColor: accentColor }}
@@ -566,11 +566,11 @@ export function CSVImportWizard() {
           </Text>
 
           <View className="w-full flex flex-col gap-2 mt-4">
-            <View className="flex-row justify-between items-center bg-[#000000] px-4 py-3 rounded-xl border border-[#1f1f1f]">
+            <View className="flex-row justify-between items-center bg-[#000] px-4 py-3 rounded-xl border border-[#1E1E23]">
               <Text className="text-xs text-zinc-400 font-bold uppercase tracking-wide">Imported</Text>
               <Text className="text-xs font-extrabold" style={{ color: accentColor }}>{importResult?.success ?? 0} shifts</Text>
             </View>
-            <View className="flex-row justify-between items-center bg-[#000000] px-4 py-3 rounded-xl border border-[#1f1f1f]">
+            <View className="flex-row justify-between items-center bg-[#000] px-4 py-3 rounded-xl border border-[#1E1E23]">
               <Text className="text-xs text-zinc-400 font-bold uppercase tracking-wide">Skipped / invalid</Text>
               <Text className="text-xs font-extrabold text-rose-400">{importResult?.skipped ?? 0} rows</Text>
             </View>
@@ -604,14 +604,14 @@ function ColumnSelect({
   return (
     <View className="flex flex-col gap-1.5">
       <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">{label}</Text>
-      <View className="bg-[#000000] border border-[#1f1f1f] rounded-xl overflow-hidden">
+      <View className="bg-[#000] border border-[#1E1E23] rounded-xl overflow-hidden">
         {Platform.OS === "web" ? (
           <select
             value={value}
             onChange={(e) => onChange(e.target.value)}
             style={{
               background: "transparent",
-              color: "#f4f4f5",
+              color: "#F6F6F7",
               border: "none",
               padding: "12px 16px",
               fontSize: "13px",
@@ -620,9 +620,9 @@ function ColumnSelect({
               outline: "none",
             }}
           >
-            <option value="" style={{ background: "#0d0d0d" }}>— Skip —</option>
+            <option value="" style={{ background: "#0F0F12" }}>— Skip —</option>
             {headers.map((h) => (
-              <option key={h} value={h} style={{ background: "#0d0d0d" }}>{h}</option>
+              <option key={h} value={h} style={{ background: "#0F0F12" }}>{h}</option>
             ))}
           </select>
         ) : (
@@ -639,14 +639,14 @@ function ColumnSelect({
       {Platform.OS !== "web" && (
         <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
           <TouchableOpacity activeOpacity={1} onPress={() => setOpen(false)} className="flex-1 bg-black/70 justify-center px-6">
-            <View className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-2xl overflow-hidden max-h-[70%]">
-              <View className="px-4 py-3.5 border-b border-[#1f1f1f]">
+            <View className="bg-[#0F0F12] border border-[#1E1E23] rounded-2xl overflow-hidden max-h-[70%]">
+              <View className="px-4 py-3.5 border-b border-[#1E1E23]">
                 <Text className="text-white text-sm font-bold tracking-tight">{label}</Text>
               </View>
               <ScrollView>
                 <TouchableOpacity
                   onPress={() => { onChange(""); setOpen(false); }}
-                  className="px-4 py-3.5 border-b border-[#161615] flex-row justify-between items-center"
+                  className="px-4 py-3.5 border-b border-[#16161A] flex-row justify-between items-center"
                 >
                   <Text className="text-zinc-400 text-sm font-medium">— Skip —</Text>
                   {value === "" && <Text style={{ color: accentColor }} className="text-xs font-bold">✓</Text>}
@@ -655,7 +655,7 @@ function ColumnSelect({
                   <TouchableOpacity
                     key={h}
                     onPress={() => { onChange(h); setOpen(false); }}
-                    className="px-4 py-3.5 border-b border-[#161615] flex-row justify-between items-center"
+                    className="px-4 py-3.5 border-b border-[#16161A] flex-row justify-between items-center"
                   >
                     <Text className="text-zinc-200 text-sm font-semibold flex-1 pr-2" numberOfLines={1}>{h}</Text>
                     {value === h && <Text style={{ color: accentColor }} className="text-xs font-bold">✓</Text>}

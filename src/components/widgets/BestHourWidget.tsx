@@ -30,7 +30,7 @@ export default function BestHourWidget({ bestHourData, maxHourAvg }: BestHourWid
   return (
     <View style={{ gap: 12 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-         <Text style={{ fontSize: 13, fontWeight: "600", color: "#a1a1aa" }}>Most Lucrative</Text>
+         <Text style={{ fontSize: 13, fontWeight: "600", color: "#9B9BA4" }}>Most Lucrative</Text>
          <View style={{ backgroundColor: "#f59e0b20", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
            <Text style={{ fontSize: 11, fontWeight: "800", color: "#f59e0b" }}>{formatHour(bestHour?.hour || 0)}</Text>
          </View>
@@ -41,9 +41,9 @@ export default function BestHourWidget({ bestHourData, maxHourAvg }: BestHourWid
         ))}
       </View>
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4, paddingHorizontal: 4 }}>
-        <Text style={{ fontSize: 9, fontWeight: "800", color: "#71717a" }}>12 AM</Text>
-        <Text style={{ fontSize: 9, fontWeight: "800", color: "#71717a" }}>12 PM</Text>
-        <Text style={{ fontSize: 9, fontWeight: "800", color: "#71717a" }}>11 PM</Text>
+        <Text style={{ fontSize: 9, fontWeight: "800", color: "#9B9BA4" }}>12 AM</Text>
+        <Text style={{ fontSize: 9, fontWeight: "800", color: "#9B9BA4" }}>12 PM</Text>
+        <Text style={{ fontSize: 9, fontWeight: "800", color: "#9B9BA4" }}>11 PM</Text>
       </View>
     </View>
   );

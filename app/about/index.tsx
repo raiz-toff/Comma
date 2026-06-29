@@ -12,21 +12,21 @@ import { notify } from "@/src/services/notify";
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
 const DS = {
-  pageBg: "#000000",
-  cardBg: "#0c0c0c",
-  cardBorder: "#1e1e1e",
-  inputBg: "#161616",
-  inputBorder: "#2a2a2a",
-  sep: "#1a1a1a",
+  pageBg: "#000",
+  cardBg: "#0F0F12",
+  cardBorder: "#1E1E23",
+  inputBg: "#16161A",
+  inputBorder: "#2E2E36",
+  sep: "#1E1E23",
 
-  brand: "#ffffff",
+  brand: "#F6F6F7",
   brandSurface: "rgba(255, 255, 255, 0.08)",
   brandBorder: "rgba(255, 255, 255, 0.18)",
-  brandText: "#ffffff",
+  brandText: "#F6F6F7",
 
-  textPrimary: "#e8e7e0",
-  textSecondary: "#6a6963",
-  textMuted: "#38372f",
+  textPrimary: "#F6F6F7",
+  textSecondary: "#65656E",
+  textMuted: "#2E2E36",
   textLabel: "#48473f",
 
   rCard: 18,

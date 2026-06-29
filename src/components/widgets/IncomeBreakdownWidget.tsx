@@ -35,7 +35,7 @@ export default function IncomeBreakdownWidget({
   return (
     <View style={{ gap: 16, paddingTop: 4 }}>
       {/* Stacked Bar */}
-      <View style={{ height: 12, flexDirection: "row", borderRadius: 6, overflow: "hidden", backgroundColor: "#262522" }}>
+      <View style={{ height: 12, flexDirection: "row", borderRadius: 6, overflow: "hidden", backgroundColor: "#1C1C21" }}>
         <View style={{ width: `${netPct}%`, backgroundColor: "#3b82f6" }} />
         <View style={{ width: `${taxPct}%`, backgroundColor: "#0ea5e9" }} />
         <View style={{ width: `${expPct}%`, backgroundColor: "#06b6d4" }} />
@@ -46,25 +46,25 @@ export default function IncomeBreakdownWidget({
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#3b82f6" }} />
-            <Text style={{ fontSize: 13, fontWeight: "600", color: "#a1a1aa" }}>True Net</Text>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "#9B9BA4" }}>True Net</Text>
           </View>
-          <Text style={{ fontSize: 14, fontWeight: "800", color: "#ffffff" }}>{formatCurrency(takeHome)}</Text>
+          <Text style={{ fontSize: 14, fontWeight: "800", color: "#F6F6F7" }}>{formatCurrency(takeHome)}</Text>
         </View>
 
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#0ea5e9" }} />
-            <Text style={{ fontSize: 13, fontWeight: "600", color: "#a1a1aa" }}>Est. Taxes</Text>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "#9B9BA4" }}>Est. Taxes</Text>
           </View>
-          <Text style={{ fontSize: 14, fontWeight: "800", color: "#ffffff" }}>{formatCurrency(taxWithholding)}</Text>
+          <Text style={{ fontSize: 14, fontWeight: "800", color: "#F6F6F7" }}>{formatCurrency(taxWithholding)}</Text>
         </View>
 
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#06b6d4" }} />
-            <Text style={{ fontSize: 13, fontWeight: "600", color: "#a1a1aa" }}>Expenses</Text>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "#9B9BA4" }}>Expenses</Text>
           </View>
-          <Text style={{ fontSize: 14, fontWeight: "800", color: "#ffffff" }}>{formatCurrency(expenseClaim)}</Text>
+          <Text style={{ fontSize: 14, fontWeight: "800", color: "#F6F6F7" }}>{formatCurrency(expenseClaim)}</Text>
         </View>
       </View>
     </View>

@@ -23,9 +23,9 @@ import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 const BG      = "#0c0b09";
 const SURFACE = "#131211";
 const BORDER  = "#222120";
-const MUTED   = "#71717a";
-const DIM     = "#3f3f46";
-const WHITE   = "#f4f4f5";
+const MUTED   = "#9B9BA4";
+const DIM     = "#2E2E36";
+const WHITE   = "#F6F6F7";
 const GREEN   = "#34d399";
 const RED     = "#f87171";
 

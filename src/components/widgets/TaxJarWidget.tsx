@@ -32,10 +32,10 @@ export default function TaxJarWidget({ taxWithholdingPct }: TaxJarWidgetProps) {
             transform={`rotate(-90 ${size/2} ${size/2})`} 
           />
         </Svg>
-        <Text style={{ fontSize: 24, fontWeight: "900", color: "#ffffff" }}>{taxWithholdingPct}%</Text>
+        <Text style={{ fontSize: 24, fontWeight: "900", color: "#F6F6F7" }}>{taxWithholdingPct}%</Text>
       </View>
       
-      <Text style={{ fontSize: 11, fontWeight: "700", color: "#a1a1aa", textTransform: "uppercase", letterSpacing: 1, textAlign: "center" }}>
+      <Text style={{ fontSize: 11, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 1, textAlign: "center" }}>
         Current Target Rate
       </Text>
     </View>

@@ -34,24 +34,24 @@ const isWeb = Platform.OS === "web";
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
 const DS = {
-  pageBg: "#000000",
-  cardBg: "#0c0c0c",
-  cardBorder: "#1e1e1e",
-  inputBg: "#161616",
-  inputBorder: "#2a2a2a",
-  sep: "#1a1a1a",
+  pageBg: "#000",
+  cardBg: "#0F0F12",
+  cardBorder: "#1E1E23",
+  inputBg: "#16161A",
+  inputBorder: "#2E2E36",
+  sep: "#1E1E23",
 
-  brand: "#ffffff",
+  brand: "#F6F6F7",
   brandSurface: "rgba(255, 255, 255, 0.08)",
   brandBorder: "rgba(255, 255, 255, 0.18)",
-  brandText: "#ffffff",
+  brandText: "#F6F6F7",
 
-  textPrimary: "#e8e7e0",
-  textSecondary: "#6a6963",
-  textMuted: "#38372f",
+  textPrimary: "#F6F6F7",
+  textSecondary: "#65656E",
+  textMuted: "#2E2E36",
   textLabel: "#48473f",
 
-  danger: "#f43f5e",
+  danger: "#FF5247",
   dangerSurface: "rgba(244,63,94,0.07)",
   dangerBorder: "rgba(244,63,94,0.22)",
   dangerText: "#fb7185",
@@ -822,7 +822,7 @@ export default function ScheduleScreen() {
                   value={planReminder}
                   onValueChange={setPlanReminder}
                   trackColor={{ false: DS.inputBorder, true: accentColor }}
-                  thumbColor="#fff"
+                  thumbColor="#F6F6F7"
                 />
               </View>
             )}
@@ -1227,7 +1227,7 @@ export default function ScheduleScreen() {
         <View style={s.modalOverlay}>
           <View style={s.modalContent}>
             <View style={s.modalIconContainer}>
-              <Bell size={26} color="#ffffff" />
+              <Bell size={26} color="#F6F6F7" />
             </View>
             <Text style={s.modalTitle}>Enable Shift Reminders</Text>
             <Text style={s.modalText}>
@@ -1382,8 +1382,8 @@ const s = StyleSheet.create({
     fontWeight: "600",
   },
   saveBtn: {
-    backgroundColor: DS.brandText === "#ffffff" ? "#161616" : DS.brand,
-    borderWidth: DS.brandText === "#ffffff" ? 0.5 : 0,
+    backgroundColor: DS.brandText === "#F6F6F7" ? "#16161A" : DS.brand,
+    borderWidth: DS.brandText === "#F6F6F7" ? 0.5 : 0,
     borderColor: DS.brandBorder,
     borderRadius: DS.rInput,
     paddingVertical: 12,
@@ -1392,7 +1392,7 @@ const s = StyleSheet.create({
     marginTop: 6,
   },
   saveBtnText: {
-    color: "#fff",
+    color: "#F6F6F7",
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
@@ -1866,10 +1866,10 @@ const s = StyleSheet.create({
   modalContent: {
     width: "100%",
     maxWidth: 320,
-    backgroundColor: "#0c0c0c",
+    backgroundColor: "#0F0F12",
     borderRadius: 20,
     borderWidth: 0.8,
-    borderColor: "#1e1e1e",
+    borderColor: "#1E1E23",
     padding: 24,
     alignItems: "center",
   },
@@ -1887,13 +1887,13 @@ const s = StyleSheet.create({
   modalTitle: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#ffffff",
+    color: "#F6F6F7",
     marginBottom: 8,
     textAlign: "center",
   },
   modalText: {
     fontSize: 12,
-    color: "#6a6963",
+    color: "#65656E",
     lineHeight: 17,
     textAlign: "center",
     marginBottom: 24,
@@ -1906,12 +1906,12 @@ const s = StyleSheet.create({
     width: "100%",
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#F6F6F7",
     justifyContent: "center",
     alignItems: "center",
   },
   modalPrimaryBtnText: {
-    color: "#000000",
+    color: "#000",
     fontSize: 12,
     fontWeight: "700",
   },
@@ -1920,22 +1920,22 @@ const s = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderWidth: 0.8,
-    borderColor: "#1e1e1e",
+    borderColor: "#1E1E23",
     justifyContent: "center",
     alignItems: "center",
   },
   modalSecondaryBtnText: {
-    color: "#6a6963",
+    color: "#65656E",
     fontSize: 12,
     fontWeight: "600",
   },
   iosPickerContainer: {
     width: "100%",
     maxWidth: 320,
-    backgroundColor: "#0c0c0c",
+    backgroundColor: "#0F0F12",
     borderRadius: 20,
     borderWidth: 0.8,
-    borderColor: "#1e1e1e",
+    borderColor: "#1E1E23",
     padding: 16,
   },
   iosPickerHeader: {
@@ -1948,11 +1948,11 @@ const s = StyleSheet.create({
   iosPickerTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#ffffff",
+    color: "#F6F6F7",
   },
   iosPickerDone: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#ffffff",
+    color: "#F6F6F7",
   },
 });

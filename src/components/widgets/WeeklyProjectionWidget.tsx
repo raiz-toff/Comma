@@ -33,13 +33,13 @@ export default function WeeklyProjectionWidget({ dailyData, country }: WeeklyPro
       </View>
       
       <View style={{ alignItems: "center" }}>
-        <Text style={{ fontSize: 32, fontWeight: "900", color: "#ffffff", letterSpacing: -1 }}>{formatCurrency(projection)}</Text>
-        <Text style={{ fontSize: 11, fontWeight: "700", color: "#a1a1aa", textTransform: "uppercase", letterSpacing: 1, marginTop: 4 }}>Weekly Projection</Text>
+        <Text style={{ fontSize: 32, fontWeight: "900", color: "#F6F6F7", letterSpacing: -1 }}>{formatCurrency(projection)}</Text>
+        <Text style={{ fontSize: 11, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 1, marginTop: 4 }}>Weekly Projection</Text>
       </View>
       
       <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", alignItems: "center", marginTop: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: "500", color: "#71717a" }}>Based on your current daily average of </Text>
-        <Text style={{ fontSize: 13, color: "#ffffff", fontWeight: "700" }}>{formatCurrency(dayAvg)}</Text>
+        <Text style={{ fontSize: 13, fontWeight: "500", color: "#9B9BA4" }}>Based on your current daily average of </Text>
+        <Text style={{ fontSize: 13, color: "#F6F6F7", fontWeight: "700" }}>{formatCurrency(dayAvg)}</Text>
       </View>
     </View>
   );

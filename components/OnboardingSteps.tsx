@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   ScrollView,
@@ -8,8 +8,19 @@ import {
   StyleSheet,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  withRepeat,
+  withSequence,
+  Easing,
+  interpolate,
+} from "react-native-reanimated";
 import { Text } from "../src/components/ui/text";
-import { getPlatformsByCountry, PLATFORMS } from "../src/registry/platforms";
+import { getPlatformsByCountry, PLATFORMS, PLATFORM_REGISTRY } from "../src/registry/platforms";
+import { PlatformLogo } from "../src/components/GlobalTopHeader";
 import { getRegionsByCountry } from "../src/registry/countries/index";
 import { type FeatureKey } from "../src/registry/modules";
 import {
@@ -21,6 +32,7 @@ import {
   Sun,
   Moon,
   Smartphone,
+  ArrowRight,
 } from "lucide-react-native";
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
@@ -60,7 +72,7 @@ function StyledInput({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#7a7670"
+        placeholderTextColor="#65656E"
         keyboardType={keyboardType}
         style={[s.input, { flex: 1 }]}
       />
@@ -83,7 +95,7 @@ export function WelcomeScreen({
     <View
       style={{
         flex: 1,
-        backgroundColor: "#000000",
+        backgroundColor: "#000",
         paddingTop: insets.top,
         paddingBottom: insets.bottom,
       }}
@@ -103,13 +115,13 @@ export function WelcomeScreen({
               width: 60,
               height: 60,
               borderRadius: 18,
-              backgroundColor: "#ffffff",
+              backgroundColor: "#F6F6F7",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
             <Text
-              style={{ fontSize: 30, fontWeight: "900", color: "#000000" }}
+              style={{ fontSize: 30, fontWeight: "900", color: "#000" }}
             >
               C
             </Text>
@@ -118,7 +130,7 @@ export function WelcomeScreen({
             style={{
               fontSize: 10,
               fontWeight: "700",
-              color: "#ffffff",
+              color: "#F6F6F7",
               letterSpacing: 2.5,
               textTransform: "uppercase",
               marginTop: 14,
@@ -134,7 +146,7 @@ export function WelcomeScreen({
             style={{
               fontSize: 38,
               fontWeight: "800",
-              color: "#f4f2ed",
+              color: "#F6F6F7",
               textAlign: "center",
               letterSpacing: -0.5,
               lineHeight: 46,
@@ -145,7 +157,7 @@ export function WelcomeScreen({
           <Text
             style={{
               fontSize: 15,
-              color: "#7a7670",
+              color: "#65656E",
               textAlign: "center",
               lineHeight: 24,
               maxWidth: 260,
@@ -161,7 +173,7 @@ export function WelcomeScreen({
           <Pressable
             onPress={onStart}
             style={{
-              backgroundColor: "#ffffff",
+              backgroundColor: "#F6F6F7",
               borderRadius: 16,
               paddingVertical: 17,
               alignItems: "center",
@@ -171,7 +183,7 @@ export function WelcomeScreen({
               style={{
                 fontSize: 16,
                 fontWeight: "800",
-                color: "#000000",
+                color: "#000",
                 letterSpacing: 0.2,
               }}
             >
@@ -183,7 +195,7 @@ export function WelcomeScreen({
             onPress={onDemo}
             style={{ borderRadius: 16, paddingVertical: 14, alignItems: "center" }}
           >
-            <Text style={{ fontSize: 14, fontWeight: "600", color: "#7a7670" }}>
+            <Text style={{ fontSize: 14, fontWeight: "600", color: "#65656E" }}>
               Try with demo data
             </Text>
           </Pressable>
@@ -191,7 +203,7 @@ export function WelcomeScreen({
           <Text
             style={{
               fontSize: 11,
-              color: "#52525b",
+              color: "#65656E",
               textAlign: "center",
               fontWeight: "600",
               letterSpacing: 0.3,
@@ -266,7 +278,7 @@ export function CountryStep({
                 style={[
                   s.tileTitle,
                   { textAlign: "center" },
-                  selected && { color: "#f4f2ed" },
+                  selected && { color: "#F6F6F7" },
                 ]}
               >
                 {label}
@@ -318,22 +330,22 @@ export function RegionStep({
                   borderRadius: 12,
                   backgroundColor: selected
                     ? "rgba(255,255,255,0.05)"
-                    : "#0d0d0d",
+                    : "#0F0F12",
                   borderWidth: 1,
-                  borderColor: selected ? "#ffffff" : "#1f1f1f",
+                  borderColor: selected ? "#F6F6F7" : "#1E1E23",
                 }}
               >
                 <Text
                   style={{
                     fontSize: 14,
                     fontWeight: "600",
-                    color: selected ? "#f4f2ed" : "#c8c4bb",
+                    color: selected ? "#F6F6F7" : "#9B9BA4",
                   }}
                 >
                   {r.label}
                 </Text>
                 {selected && (
-                  <Check size={14} color="#ffffff" strokeWidth={2.5} />
+                  <Check size={14} color="#F6F6F7" strokeWidth={2.5} />
                 )}
               </Pressable>
             );
@@ -367,6 +379,7 @@ export function PlatformStep({
         <View style={{ gap: 8 }}>
           {platforms.map((p) => {
             const selected = selectedPlatforms.includes(p.id);
+            const hasLogo = !!PLATFORM_REGISTRY[p.id]?.logo;
             return (
               <Pressable
                 key={p.id}
@@ -381,22 +394,39 @@ export function PlatformStep({
                     flex: 1,
                   }}
                 >
-                  <View
-                    style={{
-                      width: 12,
-                      height: 12,
-                      borderRadius: 6,
-                      backgroundColor: p.color,
-                    }}
-                  />
+                  {hasLogo ? (
+                    // Brand logo when one exists — chip tinted with the platform color.
+                    <View
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 8,
+                        backgroundColor: p.color + "1f",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <PlatformLogo id={p.id} size={18} />
+                    </View>
+                  ) : (
+                    // Fallback: the platform's brand color as a dot.
+                    <View
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: 6,
+                        backgroundColor: p.color,
+                      }}
+                    />
+                  )}
                   <Text
-                    style={[s.tileTitle, selected && { color: "#f4f2ed" }]}
+                    style={[s.tileTitle, selected && { color: "#F6F6F7" }]}
                   >
                     {p.label}
                   </Text>
                 </View>
                 {selected && (
-                  <Check size={14} color="#ffffff" strokeWidth={2.5} />
+                  <Check size={14} color="#F6F6F7" strokeWidth={2.5} />
                 )}
               </Pressable>
             );
@@ -470,11 +500,11 @@ export function VehicleStep({
                 >
                   <Icon
                     size={14}
-                    color={selected ? "#ffffff" : "#7a7670"}
+                    color={selected ? "#F6F6F7" : "#65656E"}
                     strokeWidth={2}
                   />
                   <Text
-                    style={[s.chipText, selected && { color: "#ffffff" }]}
+                    style={[s.chipText, selected && { color: "#F6F6F7" }]}
                   >
                     {label}
                   </Text>
@@ -553,7 +583,7 @@ export function GoalStep({
           <View
             style={{
               height: 6,
-              backgroundColor: "#262522",
+              backgroundColor: "#1C1C21",
               borderRadius: 3,
               overflow: "hidden",
             }}
@@ -561,17 +591,17 @@ export function GoalStep({
             <View
               style={{
                 height: 6,
-                backgroundColor: "#ffffff",
+                backgroundColor: "#F6F6F7",
                 borderRadius: 3,
                 width: `${pct}%`,
               }}
             />
           </View>
           <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <Text style={{ fontSize: 10, color: "#52525b", fontWeight: "600" }}>
+            <Text style={{ fontSize: 10, color: "#65656E", fontWeight: "600" }}>
               {currencySymbol}0
             </Text>
-            <Text style={{ fontSize: 10, color: "#52525b", fontWeight: "600" }}>
+            <Text style={{ fontSize: 10, color: "#65656E", fontWeight: "600" }}>
               {currencySymbol}1,000
             </Text>
           </View>
@@ -580,9 +610,9 @@ export function GoalStep({
         {num > 0 && (
           <View
             style={{
-              backgroundColor: "#0d0d0d",
+              backgroundColor: "#0F0F12",
               borderWidth: 1,
-              borderColor: "#1f1f1f",
+              borderColor: "#1E1E23",
               borderRadius: 14,
               padding: 16,
               gap: 4,
@@ -592,7 +622,7 @@ export function GoalStep({
               style={{
                 fontSize: 10,
                 fontWeight: "700",
-                color: "#7a7670",
+                color: "#65656E",
                 textTransform: "uppercase",
                 letterSpacing: 1,
               }}
@@ -600,12 +630,12 @@ export function GoalStep({
               That works out to
             </Text>
             <Text
-              style={{ fontSize: 20, fontWeight: "800", color: "#f4f2ed" }}
+              style={{ fontSize: 20, fontWeight: "800", color: "#F6F6F7" }}
             >
               {currencySymbol}
               {Math.round(num * 4.33).toLocaleString()} / month
             </Text>
-            <Text style={{ fontSize: 13, color: "#7a7670" }}>
+            <Text style={{ fontSize: 13, color: "#65656E" }}>
               {currencySymbol}
               {(num * 52).toLocaleString()} / year
             </Text>
@@ -654,7 +684,7 @@ export function GPSStep({ onNext }: { onNext: () => void }) {
             marginBottom: 28,
           }}
         >
-          <Navigation size={28} color="#ffffff" strokeWidth={1.5} />
+          <Navigation size={28} color="#F6F6F7" strokeWidth={1.5} />
         </View>
         <StepHeading
           title="Automatic mileage tracking"
@@ -681,10 +711,10 @@ export function GPSStep({ onNext }: { onNext: () => void }) {
                   marginTop: 1,
                 }}
               >
-                <Check size={10} color="#ffffff" strokeWidth={3} />
+                <Check size={10} color="#F6F6F7" strokeWidth={3} />
               </View>
               <Text
-                style={{ fontSize: 14, color: "#c8c4bb", flex: 1, lineHeight: 20 }}
+                style={{ fontSize: 14, color: "#9B9BA4", flex: 1, lineHeight: 20 }}
               >
                 {point}
               </Text>
@@ -697,14 +727,14 @@ export function GPSStep({ onNext }: { onNext: () => void }) {
         <Pressable
           onPress={handleRequest}
           style={{
-            backgroundColor: "#ffffff",
+            backgroundColor: "#F6F6F7",
             borderRadius: 16,
             paddingVertical: 17,
             alignItems: "center",
           }}
         >
           <Text
-            style={{ fontSize: 16, fontWeight: "800", color: "#000000" }}
+            style={{ fontSize: 16, fontWeight: "800", color: "#000" }}
           >
             Enable GPS tracking
           </Text>
@@ -713,7 +743,7 @@ export function GPSStep({ onNext }: { onNext: () => void }) {
           onPress={onNext}
           style={{ paddingVertical: 14, alignItems: "center" }}
         >
-          <Text style={{ fontSize: 13, fontWeight: "600", color: "#7a7670" }}>
+          <Text style={{ fontSize: 13, fontWeight: "600", color: "#65656E" }}>
             Skip — I'll enter mileage manually
           </Text>
         </Pressable>
@@ -725,10 +755,11 @@ export function GPSStep({ onNext }: { onNext: () => void }) {
 // ─── Step 6 — Appearance ─────────────────────────────────────────────────────
 
 const ACCENT_COLORS = [
+  { id: "#F6F6F7", label: "Default" }, // near-white — preserves the clean monochrome look
   { id: "#10b981", label: "Emerald" },
   { id: "#3b82f6", label: "Blue" },
   { id: "#f59e0b", label: "Amber" },
-  { id: "#f43f5e", label: "Rose" },
+  { id: "#FF5247", label: "Rose" },
   { id: "#8b5cf6", label: "Violet" },
   { id: "#f97316", label: "Orange" },
 ] as const;
@@ -774,14 +805,14 @@ export function AppearanceStep({
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 14, flex: 1 }}>
                     <View style={[s.iconBox, selected && s.iconBoxSelected]}>
-                      <Icon size={18} color={selected ? "#ffffff" : "#7a7670"} strokeWidth={2} />
+                      <Icon size={18} color={selected ? "#F6F6F7" : "#65656E"} strokeWidth={2} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[s.tileTitle, selected && { color: "#f4f2ed" }]}>{label}</Text>
+                      <Text style={[s.tileTitle, selected && { color: "#F6F6F7" }]}>{label}</Text>
                       <Text style={s.tileSub}>{sub}</Text>
                     </View>
                   </View>
-                  {selected && <Check size={14} color="#ffffff" strokeWidth={2.5} />}
+                  {selected && <Check size={14} color="#F6F6F7" strokeWidth={2.5} />}
                 </Pressable>
               );
             })}
@@ -794,6 +825,9 @@ export function AppearanceStep({
           <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
             {ACCENT_COLORS.map(({ id, label }) => {
               const selected = accentColor === id;
+              // Light swatches (e.g. the near-white default) need a dark check + a
+              // hairline ring so they read against the dark background.
+              const isLight = id === "#F6F6F7";
               return (
                 <Pressable
                   key={id}
@@ -805,12 +839,12 @@ export function AppearanceStep({
                     backgroundColor: id,
                     alignItems: "center",
                     justifyContent: "center",
-                    borderWidth: selected ? 3 : 0,
-                    borderColor: "#ffffff",
+                    borderWidth: selected ? 3 : 1,
+                    borderColor: selected ? (isLight ? "#65656E" : "#F6F6F7") : "#2E2E36",
                   }}
                   accessibilityLabel={label}
                 >
-                  {selected && <Check size={16} color="#ffffff" strokeWidth={3} />}
+                  {selected && <Check size={16} color={isLight ? "#000" : "#F6F6F7"} strokeWidth={3} />}
                 </Pressable>
               );
             })}
@@ -896,7 +930,7 @@ export function PreferencesStep({
                   <Text
                     style={[
                       s.chipText,
-                      selected && { color: "#ffffff" },
+                      selected && { color: "#F6F6F7" },
                       { textAlign: "center" },
                     ]}
                   >
@@ -927,7 +961,7 @@ export function PreferencesStep({
                     { flex: 1, flexDirection: "column", alignItems: "flex-start", gap: 4 },
                   ]}
                 >
-                  <Text style={[s.tileTitle, selected && { color: "#f4f2ed" }]}>{label}</Text>
+                  <Text style={[s.tileTitle, selected && { color: "#F6F6F7" }]}>{label}</Text>
                   <Text style={s.tileSub}>{sub}</Text>
                 </Pressable>
               );
@@ -948,27 +982,27 @@ export function PreferencesStep({
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    backgroundColor: "#0d0d0d",
+                    backgroundColor: "#0F0F12",
                     borderWidth: 1,
-                    borderColor: "#1f1f1f",
+                    borderColor: "#1E1E23",
                     borderRadius: 14,
                     padding: 14,
                     gap: 12,
                   }}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: "600", color: "#c8c4bb" }}>
+                    <Text style={{ fontSize: 14, fontWeight: "600", color: "#9B9BA4" }}>
                       {label}
                     </Text>
-                    <Text style={{ fontSize: 12, color: "#7a7670", marginTop: 2, lineHeight: 16 }}>
+                    <Text style={{ fontSize: 12, color: "#65656E", marginTop: 2, lineHeight: 16 }}>
                       {description}
                     </Text>
                   </View>
                   <Switch
                     value={enabled}
                     onValueChange={() => toggleFeature(key)}
-                    trackColor={{ false: "#27272a", true: "#10b981" }}
-                    thumbColor="#ffffff"
+                    trackColor={{ false: "#26262C", true: "#10b981" }}
+                    thumbColor="#F6F6F7"
                   />
                 </View>
               );
@@ -982,27 +1016,135 @@ export function PreferencesStep({
 
 // ─── Reveal screen ────────────────────────────────────────────────────────────
 
+/** True when a hex color is light enough to need dark text on top. */
+function isLightHex(hex: string): boolean {
+  const h = hex.replace("#", "");
+  if (h.length !== 6) return false;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  // Perceived luminance (sRGB-ish).
+  return 0.299 * r + 0.587 * g + 0.114 * b > 150;
+}
+
+/** One expanding/fading pulse ring radiating from the medallion. */
+function PulseRing({ color, delay, size }: { color: string; delay: number; size: number }) {
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    progress.value = withDelay(
+      delay,
+      withRepeat(withTiming(1, { duration: 2600, easing: Easing.out(Easing.quad) }), -1, false)
+    );
+  }, []);
+  const style = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0, 0.15, 1], [0, 0.45, 0]),
+    transform: [{ scale: interpolate(progress.value, [0, 1], [0.4, 1]) }],
+  }));
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        {
+          position: "absolute",
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: 1.5,
+          borderColor: color,
+        },
+        style,
+      ]}
+    />
+  );
+}
+
+/** A value that fades + slides up into place, staggered by `delay`. */
+function Rise({
+  delay,
+  children,
+  style,
+}: {
+  delay: number;
+  children: React.ReactNode;
+  style?: any;
+}) {
+  const p = useSharedValue(0);
+  useEffect(() => {
+    p.value = withDelay(delay, withTiming(1, { duration: 620, easing: Easing.out(Easing.cubic) }));
+  }, []);
+  const aStyle = useAnimatedStyle(() => ({
+    opacity: p.value,
+    transform: [{ translateY: interpolate(p.value, [0, 1], [18, 0]) }],
+  }));
+  return <Animated.View style={[aStyle, style]}>{children}</Animated.View>;
+}
+
 export function RevealStep({
   displayName,
   selectedPlatforms,
   country,
   weeklyGoal,
+  accentColor = "#F6F6F7",
   onEnter,
 }: {
   displayName: string;
   selectedPlatforms: string[];
   country: string;
   weeklyGoal: string;
+  accentColor?: string;
   onEnter: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const currencySymbol = country === "UK" ? "£" : country === "NP" ? "₨" : "$";
+  const accentLight = isLightHex(accentColor);
+  const onAccent = accentLight ? "#000" : "#F6F6F7";
+
+  // Goal count-up — drives the big north-star number.
+  const goalTarget = Number(weeklyGoal) || 0;
+  const [goalShown, setGoalShown] = useState(0);
+  useEffect(() => {
+    if (goalTarget <= 0) return;
+    let raf = 0;
+    const start = Date.now();
+    const dur = 1100;
+    const begin = 700; // start after the medallion lands
+    const tick = () => {
+      const t = Math.min(1, Math.max(0, (Date.now() - start - begin) / dur));
+      const eased = 1 - Math.pow(1 - t, 3);
+      setGoalShown(Math.round(goalTarget * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [goalTarget]);
+
+  // Medallion entrance (scale + settle).
+  const medScale = useSharedValue(0.5);
+  const medOpacity = useSharedValue(0);
+  const checkScale = useSharedValue(0);
+  useEffect(() => {
+    medOpacity.value = withTiming(1, { duration: 500 });
+    medScale.value = withSequence(
+      withTiming(1.08, { duration: 460, easing: Easing.out(Easing.back(2)) }),
+      withTiming(1, { duration: 220 })
+    );
+    checkScale.value = withDelay(380, withTiming(1, { duration: 380, easing: Easing.out(Easing.back(3)) }));
+  }, []);
+  const medStyle = useAnimatedStyle(() => ({
+    opacity: medOpacity.value,
+    transform: [{ scale: medScale.value }],
+  }));
+  const checkStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: checkScale.value }],
+  }));
+
+  const platforms = selectedPlatforms.slice(0, 5);
 
   return (
     <View
       style={{
         flex: 1,
-        backgroundColor: "#000000",
+        backgroundColor: "#000",
         paddingTop: insets.top,
         paddingBottom: insets.bottom,
       }}
@@ -1012,151 +1154,189 @@ export function RevealStep({
           flex: 1,
           justifyContent: "space-between",
           paddingHorizontal: 24,
-          paddingVertical: 32,
+          paddingTop: 24,
+          paddingBottom: 28,
         }}
       >
-        {/* Success mark */}
-        <View style={{ alignItems: "center", gap: 20 }}>
-          <View
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 20,
-              backgroundColor: "rgba(255,255,255,0.08)",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.20)",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Check size={28} color="#ffffff" strokeWidth={2.5} />
-          </View>
-          <View style={{ alignItems: "center", gap: 6 }}>
-            <Text
+        {/* ── Hero: pulsing aura + medallion ── */}
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 28 }}>
+          <View style={{ width: 200, height: 200, alignItems: "center", justifyContent: "center" }}>
+            {/* Radiating accent pulse rings */}
+            <PulseRing color={accentColor} delay={0} size={200} />
+            <PulseRing color={accentColor} delay={650} size={200} />
+            <PulseRing color={accentColor} delay={1300} size={200} />
+
+            {/* Soft accent glow disc */}
+            <View
               style={{
-                fontSize: 26,
-                fontWeight: "800",
-                color: "#f4f2ed",
-                textAlign: "center",
-                letterSpacing: -0.3,
+                position: "absolute",
+                width: 150,
+                height: 150,
+                borderRadius: 75,
+                backgroundColor: accentColor + "14",
               }}
+            />
+
+            {/* Medallion */}
+            <Animated.View
+              style={[
+                {
+                  width: 104,
+                  height: 104,
+                  borderRadius: 52,
+                  backgroundColor: accentColor,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  shadowColor: accentColor,
+                  shadowOpacity: 0.5,
+                  shadowRadius: 24,
+                  shadowOffset: { width: 0, height: 0 },
+                },
+                medStyle,
+              ]}
             >
-              {displayName ? `You're all set, ${displayName}` : "You're all set"}
+              <Animated.View style={checkStyle}>
+                <Check size={48} color={onAccent} strokeWidth={3} />
+              </Animated.View>
+            </Animated.View>
+          </View>
+
+          {/* Headline + sub */}
+          <Rise delay={520} style={{ alignItems: "center", gap: 10, paddingHorizontal: 8 }}>
+            <Text
+              variant="labelXs"
+              style={{ color: accentColor, letterSpacing: 2 }}
+            >
+              YOU'RE ALL SET
             </Text>
             <Text
-              style={{ fontSize: 14, color: "#7a7670", textAlign: "center" }}
+              variant="display"
+              style={{ color: "#F6F6F7", textAlign: "center", lineHeight: 46 }}
             >
-              Start your first shift to see your numbers come alive.
+              {displayName ? `Let's roll,\n${displayName}.` : "Let's roll."}
             </Text>
-          </View>
+            <Text
+              variant="paragraphM"
+              style={{ color: "#9B9BA4", textAlign: "center", maxWidth: 300, marginTop: 2 }}
+            >
+              Your private earnings tracker is ready. Start a shift and watch the numbers come alive.
+            </Text>
+          </Rise>
         </View>
 
-        {/* Summary card */}
-        <View
-          style={{
-            backgroundColor: "#0d0d0d",
-            borderWidth: 1,
-            borderColor: "#1f1f1f",
-            borderRadius: 20,
-            padding: 20,
-            gap: 16,
-          }}
-        >
-          <Text
+        {/* ── North-star goal + platforms ── */}
+        <Rise delay={760} style={{ gap: 14 }}>
+          {/* Weekly goal — the count-up hero stat */}
+          <View
             style={{
-              fontSize: 10,
-              fontWeight: "700",
-              color: "#7a7670",
-              textTransform: "uppercase",
-              letterSpacing: 1,
+              backgroundColor: "#0F0F12",
+              borderWidth: 1,
+              borderColor: "#1E1E23",
+              borderRadius: 20,
+              paddingVertical: 22,
+              paddingHorizontal: 20,
+              alignItems: "center",
+              gap: 4,
             }}
           >
-            Your setup
-          </Text>
+            <Text variant="labelXs" style={{ color: "#65656E", letterSpacing: 1.5 }}>
+              YOUR WEEKLY TARGET
+            </Text>
+            <Text
+              tabular
+              style={{
+                fontSize: 44,
+                lineHeight: 50,
+                fontWeight: "800",
+                color: "#F6F6F7",
+                letterSpacing: -1,
+              }}
+            >
+              {currencySymbol}
+              {goalShown.toLocaleString()}
+            </Text>
 
-          <View style={{ gap: 12 }}>
-            {selectedPlatforms.length > 0 && (
+            {platforms.length > 0 && (
               <View
                 style={{
                   flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
+                  flexWrap: "wrap",
+                  justifyContent: "center",
+                  gap: 8,
+                  marginTop: 10,
                 }}
               >
-                <Text style={{ fontSize: 13, color: "#7a7670" }}>
-                  Platforms
-                </Text>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    flexWrap: "wrap",
-                    gap: 4,
-                    maxWidth: "60%",
-                    justifyContent: "flex-end",
-                  }}
-                >
-                  {selectedPlatforms.slice(0, 4).map((pid) => {
-                    const p = PLATFORMS[pid as keyof typeof PLATFORMS];
-                    return (
-                      <View
-                        key={pid}
+                {platforms.map((pid) => {
+                  const p = PLATFORMS[pid as keyof typeof PLATFORMS];
+                  const hasLogo = !!PLATFORM_REGISTRY[pid]?.logo;
+                  return (
+                    <View
+                      key={pid}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                        backgroundColor: (p?.color ?? "#26262C") + "1f",
+                        borderWidth: 1,
+                        borderColor: (p?.color ?? "#26262C") + "40",
+                        paddingHorizontal: 10,
+                        paddingVertical: 5,
+                        borderRadius: 999,
+                      }}
+                    >
+                      {hasLogo ? (
+                        <PlatformLogo id={pid} size={14} />
+                      ) : (
+                        <View
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: 4,
+                            backgroundColor: p?.color ?? "#9B9BA4",
+                          }}
+                        />
+                      )}
+                      <Text
                         style={{
-                          backgroundColor: p?.color ?? "#27272a",
-                          paddingHorizontal: 8,
-                          paddingVertical: 3,
-                          borderRadius: 999,
+                          fontSize: 11,
+                          fontWeight: "700",
+                          color: "#F6F6F7",
                         }}
                       >
-                        <Text
-                          style={{
-                            fontSize: 9,
-                            fontWeight: "800",
-                            color: p?.textColor ?? "#fff",
-                            textTransform: "uppercase",
-                            letterSpacing: 0.5,
-                          }}
-                        >
-                          {p?.label ?? pid}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </View>
+                        {p?.label ?? pid}
+                      </Text>
+                    </View>
+                  );
+                })}
               </View>
             )}
-
-            <View
-              style={{ flexDirection: "row", justifyContent: "space-between" }}
-            >
-              <Text style={{ fontSize: 13, color: "#7a7670" }}>
-                Weekly goal
-              </Text>
-              <Text
-                style={{ fontSize: 13, fontWeight: "700", color: "#ffffff" }}
-              >
-                {currencySymbol}
-                {Number(weeklyGoal).toLocaleString()} / week
-              </Text>
-            </View>
           </View>
-        </View>
+        </Rise>
 
-        {/* CTA */}
-        <Pressable
-          onPress={onEnter}
-          style={{
-            backgroundColor: "#ffffff",
-            borderRadius: 16,
-            paddingVertical: 17,
-            alignItems: "center",
-          }}
-        >
-          <Text
-            style={{ fontSize: 16, fontWeight: "800", color: "#000000" }}
+        {/* ── CTA ── */}
+        <Rise delay={980}>
+          <Pressable
+            onPress={onEnter}
+            style={{
+              backgroundColor: accentColor,
+              borderRadius: 16,
+              paddingVertical: 17,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              shadowColor: accentColor,
+              shadowOpacity: 0.35,
+              shadowRadius: 16,
+              shadowOffset: { width: 0, height: 6 },
+            }}
           >
-            Go to my dashboard
-          </Text>
-        </Pressable>
+            <Text style={{ fontSize: 16, fontWeight: "800", color: onAccent }}>
+              Go to my dashboard
+            </Text>
+            <ArrowRight size={18} color={onAccent} strokeWidth={2.8} />
+          </Pressable>
+        </Rise>
       </View>
     </View>
   );
@@ -1168,44 +1348,44 @@ const s = StyleSheet.create({
   heading: {
     fontSize: 26,
     fontWeight: "800",
-    color: "#f4f2ed",
+    color: "#F6F6F7",
     letterSpacing: -0.3,
     lineHeight: 32,
   },
   sub: {
     fontSize: 14,
-    color: "#7a7670",
+    color: "#65656E",
     lineHeight: 20,
   },
   tile: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderWidth: 1,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     borderRadius: 16,
     padding: 16,
   },
   tileSelected: {
-    borderColor: "#ffffff",
+    borderColor: "#F6F6F7",
     backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   tileTitle: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#c8c4bb",
+    color: "#9B9BA4",
   },
   tileSub: {
     fontSize: 12,
-    color: "#7a7670",
+    color: "#65656E",
     marginTop: 2,
   },
   checkBadge: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#F6F6F7",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1213,9 +1393,9 @@ const s = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "#121212",
+    backgroundColor: "#0F0F12",
     borderWidth: 1,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1225,9 +1405,9 @@ const s = StyleSheet.create({
   },
   countryTile: {
     width: "47%",
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderWidth: 1,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     borderRadius: 16,
     padding: 16,
     alignItems: "center",
@@ -1236,16 +1416,16 @@ const s = StyleSheet.create({
   fieldLabel: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#7a7670",
+    color: "#65656E",
     textTransform: "uppercase",
     letterSpacing: 1.2,
   },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderWidth: 1,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 4,
@@ -1254,13 +1434,13 @@ const s = StyleSheet.create({
   input: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#f4f2ed",
+    color: "#F6F6F7",
     paddingVertical: 12,
   },
   inputAffix: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#7a7670",
+    color: "#65656E",
   },
   chip: {
     flexDirection: "row",
@@ -1269,17 +1449,17 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderWidth: 1,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
   },
   chipSelected: {
-    borderColor: "#ffffff",
+    borderColor: "#F6F6F7",
     backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   chipText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#7a7670",
+    color: "#65656E",
   },
 });

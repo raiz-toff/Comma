@@ -207,19 +207,19 @@ const s = StyleSheet.create({
   },
   card: {
     width: "100%", maxWidth: 320,
-    backgroundColor: "#1a1916", borderRadius: 20,
-    borderWidth: 1, borderColor: "#2a2825",
+    backgroundColor: "#16161A", borderRadius: 20,   // Surface/03, radius-xl
+    borderWidth: 1, borderColor: "#1E1E23",          // Border/Subtle
     padding: 20, gap: 16,
   },
-  title: { fontSize: 16, fontWeight: "700", color: "#fff", textAlign: "center" },
+  title: { fontSize: 16, fontWeight: "600", color: "#F6F6F7", textAlign: "center" },   // Heading/S, Text/Primary
   wheelRow: { flexDirection: "row", alignItems: "center", gap: 4, position: "relative" },
-  colon: { fontSize: 24, fontWeight: "800", color: "#71717a" },
+  colon: { fontSize: 24, fontWeight: "800", color: "#65656E" },   // Text/Muted
   ampmCol: { gap: 8, justifyContent: "center" },
   ampmBtn: {
     paddingHorizontal: 12, paddingVertical: 10,
-    borderRadius: 8, backgroundColor: "#262422",
+    borderRadius: 8, backgroundColor: "#1C1C21",   // Surface/04
   },
-  ampmText: { fontSize: 13, fontWeight: "700", color: "#a1a1aa" },
+  ampmText: { fontSize: 13, fontWeight: "700", color: "#9B9BA4" },   // Text/Secondary
   selectionHighlight: {
     position: "absolute", left: 0, right: 0,
     borderRadius: 10, borderTopWidth: 1, borderBottomWidth: 1,
@@ -228,14 +228,14 @@ const s = StyleSheet.create({
   footer: { flexDirection: "row", gap: 10 },
   cancelBtn: {
     flex: 1, paddingVertical: 12, borderRadius: 10,
-    backgroundColor: "#262422", alignItems: "center",
+    backgroundColor: "#1C1C21", alignItems: "center",   // Surface/04
   },
-  cancelText: { color: "#a1a1aa", fontWeight: "600", fontSize: 14 },
+  cancelText: { color: "#9B9BA4", fontWeight: "600", fontSize: 14 },   // Text/Secondary
   doneBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center" },
   doneText: { color: "#000", fontWeight: "800", fontSize: 14 },
 });
 
 const colS = StyleSheet.create({
   item: { height: ITEM_H, justifyContent: "center", alignItems: "center" },
-  itemText: { fontSize: 18, fontWeight: "500", color: "#52525b" },
+  itemText: { fontSize: 18, fontWeight: "500", color: "#65656E" },   // Text/Muted
 });

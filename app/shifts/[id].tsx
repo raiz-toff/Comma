@@ -127,7 +127,7 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
 
   if (!points) {
     return (
-      <View className="py-8 border-b border-[#1f1f1f] items-center justify-center bg-[#0d0d0d]" style={{ height: 200 }}>
+      <View className="py-8 border-b border-[#1E1E23] items-center justify-center bg-[#0F0F12]" style={{ height: 200 }}>
         <Text className="text-zinc-500 text-xs font-medium">No route path was recorded for this shift.</Text>
       </View>
     );
@@ -163,15 +163,15 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
   const renderSvg = (isFull: boolean) => {
     return (
       <Svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`}>
-        <Line x1="0" y1="50" x2={width} y2="50" stroke="#121212" strokeWidth="1" />
-        <Line x1="0" y1="100" x2={width} y2="100" stroke="#121212" strokeWidth="1" />
-        <Line x1="0" y1="150" x2={width} y2="150" stroke="#121212" strokeWidth="1" />
-        <Line x1="80" y1="0" x2="80" y2={height} stroke="#121212" strokeWidth="1" />
-        <Line x1="160" y1="0" x2="160" y2={height} stroke="#121212" strokeWidth="1" />
-        <Line x1="240" y1="0" x2="240" y2={height} stroke="#121212" strokeWidth="1" />
+        <Line x1="0" y1="50" x2={width} y2="50" stroke="#0F0F12" strokeWidth="1" />
+        <Line x1="0" y1="100" x2={width} y2="100" stroke="#0F0F12" strokeWidth="1" />
+        <Line x1="0" y1="150" x2={width} y2="150" stroke="#0F0F12" strokeWidth="1" />
+        <Line x1="80" y1="0" x2="80" y2={height} stroke="#0F0F12" strokeWidth="1" />
+        <Line x1="160" y1="0" x2="160" y2={height} stroke="#0F0F12" strokeWidth="1" />
+        <Line x1="240" y1="0" x2="240" y2={height} stroke="#0F0F12" strokeWidth="1" />
         <Polyline points={svgPoints} fill="none" stroke={strokeColor} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-        <Circle cx={startX} cy={startY} r="6" fill="#22c55e" stroke="#ffffff" strokeWidth="2" />
-        <Circle cx={endX} cy={endY} r="6" fill="#ef4444" stroke="#ffffff" strokeWidth="2" />
+        <Circle cx={startX} cy={startY} r="6" fill="#22c55e" stroke="#F6F6F7" strokeWidth="2" />
+        <Circle cx={endX} cy={endY} r="6" fill="#FF5247" stroke="#F6F6F7" strokeWidth="2" />
       </Svg>
     );
   };
@@ -192,7 +192,7 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
           width: 100%;
           margin: 0;
           padding: 0;
-          background-color: #0d0d0d;
+          background-color: #0F0F12;
         }
       </style>
     </head>
@@ -274,7 +274,7 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
             timelineEvents.forEach(function(ev) {
               var color = '#3b82f6'; // stop
               if (ev.type === 'start') color = '#10b981';
-              else if (ev.type === 'end') color = '#f43f5e';
+              else if (ev.type === 'end') color = '#FF5247';
               else if (ev.type === 'pause') color = '#f59e0b';
               
               var el = document.createElement('div');
@@ -308,7 +308,7 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
       <WebView
         originWhitelist={["*"]}
         source={{ html: htmlContent }}
-        style={{ flex: 1, backgroundColor: "#0d0d0d" }}
+        style={{ flex: 1, backgroundColor: "#0F0F12" }}
         javaScriptEnabled={true}
         domStorageEnabled={true}
         scalesPageToFit={true}
@@ -320,7 +320,7 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
   const useFallback = isWeb || !hasWebViewNativeModule || !WebView || !mapReady || isNavigatingBack;
 
   return (
-    <View className="overflow-hidden bg-[#0d0d0d]" style={{ height: 200, position: "relative" }}>
+    <View className="overflow-hidden bg-[#0F0F12]" style={{ height: 200, position: "relative" }}>
       {useFallback ? renderSvg(false) : renderWebView(false)}
       
       <TouchableOpacity
@@ -337,11 +337,11 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
           zIndex: 999,
         }}
       >
-        <Maximize2 size={16} color="#ffffff" />
+        <Maximize2 size={16} color="#F6F6F7" />
       </TouchableOpacity>
 
       <Modal visible={isFullscreen} animationType="fade" onRequestClose={() => setIsFullscreen(false)}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#0d0d0d" }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#0F0F12" }}>
           <View style={{ flex: 1, position: "relative" }}>
             {useFallback ? renderSvg(true) : renderWebView(true)}
 
@@ -363,8 +363,8 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
                 gap: 6,
               }}
             >
-              <ArrowLeft size={16} color="#ffffff" />
-              <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "600" }}>Back</Text>
+              <ArrowLeft size={16} color="#F6F6F7" />
+              <Text style={{ color: "#F6F6F7", fontSize: 13, fontWeight: "600" }}>Back</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -695,7 +695,7 @@ export default function ShiftDetailScreen() {
 
   if (isLoadingShift) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#000000", alignItems: "center", justifyContent: "center" }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#000", alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator size="large" color={accentColor} />
       </SafeAreaView>
     );
@@ -703,8 +703,8 @@ export default function ShiftDetailScreen() {
 
   if (!shift) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#000000", alignItems: "center", justifyContent: "center", padding: 24 }}>
-        <Text style={{ color: "#71717a", fontSize: 13, textAlign: "center" }}>Shift not found.</Text>
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#000", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <Text style={{ color: "#9B9BA4", fontSize: 13, textAlign: "center" }}>Shift not found.</Text>
         <TouchableOpacity onPress={handleBack} style={{ marginTop: 16 }}>
           <Text style={{ color: accentColor, fontSize: 13, fontWeight: "700" }}>Go Back</Text>
         </TouchableOpacity>
@@ -745,10 +745,10 @@ export default function ShiftDetailScreen() {
   })}`;
 
   return (
-    <SafeAreaView className="flex-1 bg-[#000000]">
+    <SafeAreaView className="flex-1 bg-[#000]">
       {/* Top Header */}
-      <View className="px-4 py-3 border-b border-[#1f1f1f] bg-[#0d0d0d] flex-row items-center justify-between">
-        <TouchableOpacity onPress={handleBack} className="px-3.5 py-2 bg-[#161615] rounded-xl border border-[#262522]">
+      <View className="px-4 py-3 border-b border-[#1E1E23] bg-[#0F0F12] flex-row items-center justify-between">
+        <TouchableOpacity onPress={handleBack} className="px-3.5 py-2 bg-[#16161A] rounded-xl border border-[#1C1C21]">
           <Text className="text-zinc-400 text-xs font-bold">← Back</Text>
         </TouchableOpacity>
         <Text className="text-white font-extrabold text-sm tracking-tight">Shift Details</Text>
@@ -767,7 +767,7 @@ export default function ShiftDetailScreen() {
             }
             router.push({ pathname: "/shift/add", params: { shiftId: shift.id } });
           }}
-          className="px-3.5 py-2 bg-[#161615] rounded-xl border border-[#262522]"
+          className="px-3.5 py-2 bg-[#16161A] rounded-xl border border-[#1C1C21]"
         >
           <Text style={{ color: accentColor, fontSize: 12, fontWeight: "700" }}>Edit</Text>
         </TouchableOpacity>
@@ -775,7 +775,7 @@ export default function ShiftDetailScreen() {
 
       <ScrollView contentContainerClassName="p-4 pb-16 flex flex-col gap-4">
         {/* Combined Map & Details Card */}
-        <View className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-[20px] overflow-hidden">
+        <View className="bg-[#0F0F12] border border-[#1E1E23] rounded-[20px] overflow-hidden">
           {/* Map on the top */}
           <View style={{ height: 200, width: "100%" }}>
             <RouteDetailMap routePathJson={shift.routePath} strokeColor={routeStrokeColor} isNavigatingBack={isNavigatingBack} />
@@ -789,7 +789,7 @@ export default function ShiftDetailScreen() {
                 <Text className="text-white font-extrabold text-base tracking-tight mt-1">{dateStr}</Text>
                 <Text className="text-zinc-400 text-sm font-semibold">{timeStr}</Text>
                 {vehicle && (
-                  <View className="flex-row items-center gap-1.5 mt-2 bg-[#161615] self-start px-2.5 py-1 rounded-lg border border-[#262522]">
+                  <View className="flex-row items-center gap-1.5 mt-2 bg-[#16161A] self-start px-2.5 py-1 rounded-lg border border-[#1C1C21]">
                     <Text className="text-xs text-zinc-400 font-bold">
                       {vehicle.type === "hybrid" || vehicle.type === "car" ? "🚗" : vehicle.type === "scooter" ? "🛵" : "🚲"} {vehicle.name}
                     </Text>
@@ -803,29 +803,29 @@ export default function ShiftDetailScreen() {
             </View>
 
             {/* Quick Stats Grid */}
-            <View className="flex-row border-t border-[#1f1f1f] pt-5 mt-1 gap-3">
-              <View className="flex-1 items-center bg-[#161615] border border-[#262522] rounded-[16px] p-3.5">
+            <View className="flex-row border-t border-[#1E1E23] pt-5 mt-1 gap-3">
+              <View className="flex-1 items-center bg-[#16161A] border border-[#1C1C21] rounded-[16px] p-3.5">
                 <Text className="text-lg font-black text-white">{durationHrs}h</Text>
                 <Text className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">Duration</Text>
               </View>
-              <View className="flex-1 items-center bg-[#161615] border border-[#262522] rounded-[16px] p-3.5">
+              <View className="flex-1 items-center bg-[#16161A] border border-[#1C1C21] rounded-[16px] p-3.5">
                 <CurrencyText amount={hourlyRate} size="lg" className="font-black text-lg text-white" />
                 <Text className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">Hourly Rate</Text>
               </View>
-              <View className="flex-1 items-center bg-[#161615] border border-[#262522] rounded-[16px] p-3.5">
+              <View className="flex-1 items-center bg-[#16161A] border border-[#1C1C21] rounded-[16px] p-3.5">
                 <Text className="text-lg font-black text-white">{totalMiles.toFixed(1)} {profile.distanceUnit}</Text>
                 <Text className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">Total Dist</Text>
               </View>
             </View>
 
             {/* Tips breakdown details */}
-            <View className="flex-row justify-between items-center bg-[#161615]/70 px-4 py-3.5 rounded-[16px] border border-[#262522]">
+            <View className="flex-row justify-between items-center bg-[#16161A]/70 px-4 py-3.5 rounded-[16px] border border-[#1C1C21]">
               <Text className="text-sm text-zinc-300 font-bold">Tips Component</Text>
               <CurrencyText amount={shift.tipsRevenue} size="md" className="font-extrabold text-zinc-100 text-sm" />
             </View>
 
             {shift.notes ? (
-              <View className="bg-[#161615]/70 px-4 py-4 rounded-[16px] border border-[#262522]">
+              <View className="bg-[#16161A]/70 px-4 py-4 rounded-[16px] border border-[#1C1C21]">
                 <Text className="text-[11px] font-extrabold text-zinc-400 uppercase tracking-widest">Shift Notes</Text>
                 <Text className="text-zinc-200 text-sm mt-2 leading-relaxed font-semibold">"{shift.notes}"</Text>
               </View>
@@ -835,7 +835,7 @@ export default function ShiftDetailScreen() {
 
         {/* Platform breakdown card */}
         {shiftPlatformsList && shiftPlatformsList.length > 0 && (
-          <View className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-[20px] p-5 flex flex-col gap-4">
+          <View className="bg-[#0F0F12] border border-[#1E1E23] rounded-[20px] p-5 flex flex-col gap-4">
             <Text className="text-base font-extrabold text-white tracking-tight">Platform Breakdown</Text>
             
             <View className="flex-col gap-4">
@@ -853,8 +853,8 @@ export default function ShiftDetailScreen() {
                 };
 
                 return (
-                  <View key={sp.id} className="bg-[#161615]/70 border border-[#262522] rounded-[16px] p-4 flex flex-col gap-3">
-                    <View className="flex-row justify-between items-center border-b border-[#1f1f1f]/80 pb-2">
+                  <View key={sp.id} className="bg-[#16161A]/70 border border-[#1C1C21] rounded-[16px] p-4 flex flex-col gap-3">
+                    <View className="flex-row justify-between items-center border-b border-[#1E1E23]/80 pb-2">
                       <PlatformBadge platform={sp.platform} size="sm" />
                       <View className="flex-row items-center gap-1">
                         <Text className="text-zinc-400 text-xs font-bold">Total: </Text>
@@ -863,19 +863,19 @@ export default function ShiftDetailScreen() {
                     </View>
 
                     <View className="flex-row flex-wrap gap-2">
-                      <View className="flex-1 min-w-[45%] bg-[#000] border border-[#1f1f1f]/60 rounded-xl p-2.5 items-center">
+                      <View className="flex-1 min-w-[45%] bg-[#000] border border-[#1E1E23]/60 rounded-xl p-2.5 items-center">
                         <Text className="text-sm font-black text-white">{formatOnlineTime(sp.platformOnlineSeconds)}</Text>
                         <Text className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">Online Time</Text>
                       </View>
-                      <View className="flex-1 min-w-[45%] bg-[#000] border border-[#1f1f1f]/60 rounded-xl p-2.5 items-center">
+                      <View className="flex-1 min-w-[45%] bg-[#000] border border-[#1E1E23]/60 rounded-xl p-2.5 items-center">
                         <Text className="text-sm font-black text-white">{sp.tripsCount} trips</Text>
                         <Text className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">Trips</Text>
                       </View>
-                      <View className="flex-1 min-w-[45%] bg-[#000] border border-[#1f1f1f]/60 rounded-xl p-2.5 items-center">
+                      <View className="flex-1 min-w-[45%] bg-[#000] border border-[#1E1E23]/60 rounded-xl p-2.5 items-center">
                         <CurrencyText amount={payPerHour} size="sm" className="font-black text-sm text-white" />
                         <Text className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">Pay / Hour</Text>
                       </View>
-                      <View className="flex-1 min-w-[45%] bg-[#000] border border-[#1f1f1f]/60 rounded-xl p-2.5 items-center">
+                      <View className="flex-1 min-w-[45%] bg-[#000] border border-[#1E1E23]/60 rounded-xl p-2.5 items-center">
                         <CurrencyText amount={payPerTrip} size="sm" className="font-black text-sm text-white" />
                         <Text className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">Pay / Trip</Text>
                       </View>
@@ -893,7 +893,7 @@ export default function ShiftDetailScreen() {
         )}
 
         {/* Mileage breakdown card */}
-        <View className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-[20px] p-5 flex flex-col gap-4">
+        <View className="bg-[#0F0F12] border border-[#1E1E23] rounded-[20px] p-5 flex flex-col gap-4">
           <Text className="text-base font-extrabold text-white tracking-tight">Mileage Breakdown</Text>
           
           <View className="flex-col gap-3">
@@ -906,29 +906,29 @@ export default function ShiftDetailScreen() {
               <Text className="text-zinc-400 font-bold">Dead Distance</Text>
               <Text className="text-zinc-100 font-extrabold">{deadMiles.toFixed(1)} {profile.distanceUnit}</Text>
             </View>
-            <View className="flex-row justify-between text-sm border-t border-[#1f1f1f] pt-3.5 mt-1">
+            <View className="flex-row justify-between text-sm border-t border-[#1E1E23] pt-3.5 mt-1">
               <Text className="text-zinc-400 font-extrabold">Dead Distance Ratio</Text>
               <Text className="text-rose-400 font-black text-base">{deadMilePct.toFixed(0)}%</Text>
             </View>
 
             {/* Split Progress Bar */}
-            <View className="w-full h-3 bg-[#161615] rounded-full overflow-hidden flex-row mt-2">
+            <View className="w-full h-3 bg-[#16161A] rounded-full overflow-hidden flex-row mt-2">
               <View style={{ flex: Math.max(0.01, activeMiles), backgroundColor: accentColor }} />
-              <View style={{ flex: Math.max(0.01, deadMiles), backgroundColor: "#f43f5e" }} />
+              <View style={{ flex: Math.max(0.01, deadMiles), backgroundColor: "#FF5247" }} />
             </View>
           </View>
         </View>
 
         {/* Route Timeline */}
         {timelineEvents && timelineEvents.length >= 2 && (
-          <View className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-[20px] p-5 flex flex-col gap-4">
+          <View className="bg-[#0F0F12] border border-[#1E1E23] rounded-[20px] p-5 flex flex-col gap-4">
             <Text className="text-base font-extrabold text-white tracking-tight">Route Timeline</Text>
             
             <View className="flex flex-col">
               {timelineEvents.map((event, index) => {
-                const color = event.type === "start" ? "#10b981" : event.type === "end" ? "#f43f5e" : event.type === "pause" ? "#f59e0b" : "#3b82f6";
-                const bgLight = event.type === "start" ? "bg-[#10b981]/10" : event.type === "end" ? "bg-[#f43f5e]/10" : event.type === "pause" ? "bg-[#f59e0b]/10" : "bg-[#3b82f6]/10";
-                const borderLight = event.type === "start" ? "border-[#10b981]/20" : event.type === "end" ? "border-[#f43f5e]/20" : event.type === "pause" ? "border-[#f59e0b]/20" : "border-[#3b82f6]/20";
+                const color = event.type === "start" ? "#10b981" : event.type === "end" ? "#FF5247" : event.type === "pause" ? "#f59e0b" : "#3b82f6";
+                const bgLight = event.type === "start" ? "bg-[#10b981]/10" : event.type === "end" ? "bg-[#FF5247]/10" : event.type === "pause" ? "bg-[#f59e0b]/10" : "bg-[#3b82f6]/10";
+                const borderLight = event.type === "start" ? "border-[#10b981]/20" : event.type === "end" ? "border-[#FF5247]/20" : event.type === "pause" ? "border-[#f59e0b]/20" : "border-[#3b82f6]/20";
                 
                 return (
                   <View key={index} className="flex-row items-stretch">
@@ -938,7 +938,7 @@ export default function ShiftDetailScreen() {
                         <MapPinned size={14} color={color} />
                       </View>
                       {index < timelineEvents.length - 1 && (
-                        <View className="w-[2px] bg-[#1f1f1f] flex-grow my-1.5" style={{ minHeight: 30 }} />
+                        <View className="w-[2px] bg-[#1E1E23] flex-grow my-1.5" style={{ minHeight: 30 }} />
                       )}
                     </View>
 
@@ -992,12 +992,12 @@ export default function ShiftDetailScreen() {
         )}
 
         {/* Expenses List Section */}
-        <View className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-[20px] p-5 flex flex-col gap-4">
+        <View className="bg-[#0F0F12] border border-[#1E1E23] rounded-[20px] p-5 flex flex-col gap-4">
           <View className="flex-row justify-between items-center">
             <Text className="text-base font-extrabold text-white tracking-tight">Linked Expenses</Text>
             <TouchableOpacity
               onPress={() => setShowAddExpense((v) => !v)}
-              className="px-3.5 py-2 bg-[#161615] border border-[#262522] rounded-xl"
+              className="px-3.5 py-2 bg-[#16161A] border border-[#1C1C21] rounded-xl"
             >
               <Text className="text-xs text-zinc-300 font-bold uppercase tracking-wider">
                 {showAddExpense ? "Cancel" : "+ Add Expense"}
@@ -1007,7 +1007,7 @@ export default function ShiftDetailScreen() {
 
           {/* Add Expense Form */}
           {showAddExpense && (
-            <View className="bg-[#161615]/50 border border-[#262522]/50 rounded-[16px] p-4 flex flex-col gap-4">
+            <View className="bg-[#16161A]/50 border border-[#1C1C21]/50 rounded-[16px] p-4 flex flex-col gap-4">
               <Text className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Category</Text>
               <View className="flex-row flex-wrap gap-2">
                 {expenseCategories.map((cat) => (
@@ -1018,11 +1018,11 @@ export default function ShiftDetailScreen() {
                       { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 0.8, flexDirection: "row", alignItems: "center", gap: 6 },
                       expenseCategory === cat.id
                         ? { borderColor: accentColor, backgroundColor: accentColor + "18" }
-                        : { borderColor: "#262522", backgroundColor: "#0d0d0d" }
+                        : { borderColor: "#1C1C21", backgroundColor: "#0F0F12" }
                     ]}
                   >
                     <Text style={{ fontSize: 14 }}>{cat.icon}</Text>
-                    <Text style={{ fontSize: 11, fontWeight: "700", color: expenseCategory === cat.id ? accentColor : "#71717a" }}>
+                    <Text style={{ fontSize: 11, fontWeight: "700", color: expenseCategory === cat.id ? accentColor : "#9B9BA4" }}>
                       {cat.label}
                     </Text>
                   </TouchableOpacity>
@@ -1036,8 +1036,8 @@ export default function ShiftDetailScreen() {
                   onChangeText={setExpenseAmount}
                   keyboardType="numeric"
                   placeholder="0.00"
-                  placeholderTextColor="#4b5563"
-                  className="bg-[#0d0d0d] border border-[#262522] rounded-xl px-4 py-3 text-white text-sm font-semibold"
+                  placeholderTextColor="#65656E"
+                  className="bg-[#0F0F12] border border-[#1C1C21] rounded-xl px-4 py-3 text-white text-sm font-semibold"
                 />
               </View>
 
@@ -1047,8 +1047,8 @@ export default function ShiftDetailScreen() {
                   value={expenseNotes}
                   onChangeText={setExpenseNotes}
                   placeholder="Receipt note or details..."
-                  placeholderTextColor="#4b5563"
-                  className="bg-[#0d0d0d] border border-[#262522] rounded-xl px-4 py-3 text-white text-sm font-semibold"
+                  placeholderTextColor="#65656E"
+                  className="bg-[#0F0F12] border border-[#1C1C21] rounded-xl px-4 py-3 text-white text-sm font-semibold"
                 />
               </View>
 
@@ -1070,7 +1070,7 @@ export default function ShiftDetailScreen() {
           {isLoadingExpenses ? (
             <ActivityIndicator size="small" color={accentColor} />
           ) : expensesList.length === 0 ? (
-            <View className="py-6 border border-dashed border-[#262522] rounded-xl items-center justify-center">
+            <View className="py-6 border border-dashed border-[#1C1C21] rounded-xl items-center justify-center">
               <Text className="text-zinc-500 text-xs font-medium">No expenses linked to this shift.</Text>
             </View>
           ) : (
@@ -1080,7 +1080,7 @@ export default function ShiftDetailScreen() {
                 return (
                   <View
                     key={exp.id}
-                    className="flex-row items-center justify-between bg-[#161615]/50 border border-[#262522]/60 rounded-xl p-3.5"
+                    className="flex-row items-center justify-between bg-[#16161A]/50 border border-[#1C1C21]/60 rounded-xl p-3.5"
                   >
                     <View className="flex-row items-center gap-3 flex-1">
                       <Text className="text-xl">{catInfo?.icon || "💵"}</Text>
@@ -1099,8 +1099,8 @@ export default function ShiftDetailScreen() {
                         onPress={() => handleDeleteExpense(exp.id)}
                         className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20"
                       >
-                        <View style={{ width: 10, height: 11, borderWidth: 1.5, borderColor: "#f43f5e", borderTopWidth: 0, borderBottomLeftRadius: 1, borderBottomRightRadius: 1 }}>
-                          <View style={{ width: 10, height: 1.5, backgroundColor: "#f43f5e", position: "absolute", top: -3 }} />
+                        <View style={{ width: 10, height: 11, borderWidth: 1.5, borderColor: "#FF5247", borderTopWidth: 0, borderBottomLeftRadius: 1, borderBottomRightRadius: 1 }}>
+                          <View style={{ width: 10, height: 1.5, backgroundColor: "#FF5247", position: "absolute", top: -3 }} />
                         </View>
                       </TouchableOpacity>
                     </View>

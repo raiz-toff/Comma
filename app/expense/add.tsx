@@ -404,9 +404,9 @@ export default function AddExpenseModal() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#000000]">
+    <SafeAreaView className="flex-1 bg-[#000]">
       <Stack.Screen options={{ presentation: "fullScreenModal", headerShown: false }} />
-      <View className="flex flex-row items-center px-5 py-4 border-b border-[#1f1f1f] bg-[#0d0d0d]">
+      <View className="flex flex-row items-center px-5 py-4 border-b border-[#1E1E23] bg-[#0F0F12]">
         <TouchableOpacity
           onPress={() => {
             if (step > 1) {
@@ -428,7 +428,7 @@ export default function AddExpenseModal() {
       </View>
 
       {/* ── Step Indicator ────────────────────────────────────────────── */}
-      <View className="px-4 py-3 bg-[#0d0d0d] border-b border-[#1f1f1f] flex-row items-center justify-between">
+      <View className="px-4 py-3 bg-[#0F0F12] border-b border-[#1E1E23] flex-row items-center justify-between">
         <View className="flex-row gap-1.5 items-center">
           {[1, 2, 3, 4].map((s) => (
             <View
@@ -437,7 +437,7 @@ export default function AddExpenseModal() {
                 width: 28,
                 height: 4,
                 borderRadius: 2,
-                backgroundColor: step >= s ? accentColor : "#262522",
+                backgroundColor: step >= s ? accentColor : "#1C1C21",
               }}
             />
           ))}
@@ -464,7 +464,7 @@ export default function AddExpenseModal() {
         {step === 1 && (
           <View className="flex flex-col gap-5">
             {/* Amount Input */}
-            <View className="bg-[#161615] border border-[#262522] rounded-2xl py-10 flex flex-col items-center justify-center">
+            <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl py-10 flex flex-col items-center justify-center">
               <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest mb-2">Expense Amount</Text>
               <View className="flex flex-row items-center justify-center">
                 <Text className="text-4xl font-extrabold mr-1.5" style={{ color: accentColor }}>$</Text>
@@ -477,14 +477,14 @@ export default function AddExpenseModal() {
                   }}
                   keyboardType="decimal-pad"
                   placeholder="0.00"
-                  placeholderTextColor="#52525b"
-                  style={{ fontSize: 44, fontWeight: "900", color: "#ffffff", textAlign: "center", minWidth: 160 }}
+                  placeholderTextColor="#65656E"
+                  style={{ fontSize: 44, fontWeight: "900", color: "#F6F6F7", textAlign: "center", minWidth: 160 }}
                 />
               </View>
             </View>
 
             {/* Date Selection */}
-            <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-1.5">
+            <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-1.5">
               <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Expense Date</Text>
               {isWeb ? (
                 <input
@@ -493,13 +493,13 @@ export default function AddExpenseModal() {
                   onChange={(e) => {
                     if (e.target.value) setDate(new Date(e.target.value + "T12:00:00"));
                   }}
-                  className="bg-[#0d0d0d] border border-[#262522] rounded-xl p-3.5 text-white text-sm font-semibold outline-none w-full"
+                  className="bg-[#0F0F12] border border-[#1C1C21] rounded-xl p-3.5 text-white text-sm font-semibold outline-none w-full"
                   style={{ outlineColor: accentColor }}
                 />
               ) : (
                 <TouchableOpacity
                   onPress={() => setShowDatePicker(true)}
-                  className="bg-[#0d0d0d] border border-[#262522] rounded-xl px-4 py-3.5 flex-row justify-between items-center"
+                  className="bg-[#0F0F12] border border-[#1C1C21] rounded-xl px-4 py-3.5 flex-row justify-between items-center"
                 >
                   <Text className="text-white text-sm font-semibold">
                     {date.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
@@ -518,7 +518,7 @@ export default function AddExpenseModal() {
             </View>
 
             {/* Merchant Autocomplete Card */}
-            <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-2" style={{ zIndex: 1000 }}>
+            <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-2" style={{ zIndex: 1000 }}>
               <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Merchant / Vendor</Text>
               <TextInput
                 value={merchant}
@@ -526,9 +526,9 @@ export default function AddExpenseModal() {
                 onFocus={() => setIsMerchantFocused(true)}
                 onBlur={() => setTimeout(() => setIsMerchantFocused(false), 150)}
                 placeholder="e.g. Shell, McDonald's, Chevron"
-                placeholderTextColor="#52525b"
+                placeholderTextColor="#65656E"
                 returnKeyType="done"
-                className="bg-[#0d0d0d] border border-[#262522] rounded-xl px-4 py-3.5 text-white text-sm font-semibold focus:border-zinc-400"
+                className="bg-[#0F0F12] border border-[#1C1C21] rounded-xl px-4 py-3.5 text-white text-sm font-semibold focus:border-zinc-400"
               />
 
               {/* Suggestions: show filtered list when typing, or recent 6 on focus with empty field */}
@@ -543,7 +543,7 @@ export default function AddExpenseModal() {
                 if (!isMerchantFocused || suggestions.length === 0) return null;
 
                 return (
-                  <View className="bg-[#0d0d0d] border border-[#262522] rounded-xl overflow-hidden">
+                  <View className="bg-[#0F0F12] border border-[#1C1C21] rounded-xl overflow-hidden">
                     {q.length === 0 && (
                       <View className="px-4 pt-3 pb-1">
                         <Text className="text-zinc-600 text-[10px] font-bold uppercase tracking-widest">Recent</Text>
@@ -554,7 +554,7 @@ export default function AddExpenseModal() {
                         key={m}
                         onPress={() => { setMerchant(m); setIsMerchantFocused(false); }}
                         className="px-4 py-3 active:bg-zinc-800"
-                        style={i < suggestions.length - 1 ? { borderBottomWidth: 0.5, borderBottomColor: "#262522" } : undefined}
+                        style={i < suggestions.length - 1 ? { borderBottomWidth: 0.5, borderBottomColor: "#1C1C21" } : undefined}
                       >
                         <Text className="text-white text-sm font-semibold">{m}</Text>
                       </TouchableOpacity>
@@ -565,7 +565,7 @@ export default function AddExpenseModal() {
             </View>
 
             {/* Recurring Expense Toggle */}
-            <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-3">
+            <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-3">
               <View className="flex-row justify-between items-center">
                 <View>
                   <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Recurring Expense</Text>
@@ -574,8 +574,8 @@ export default function AddExpenseModal() {
                 <Switch
                   value={isRecurring}
                   onValueChange={setIsRecurring}
-                  trackColor={{ false: "#262522", true: accentColor }}
-                  thumbColor="#ffffff"
+                  trackColor={{ false: "#1C1C21", true: accentColor }}
+                  thumbColor="#F6F6F7"
                 />
               </View>
               {isRecurring && (
@@ -588,14 +588,14 @@ export default function AddExpenseModal() {
                         flex: 1,
                         paddingVertical: 10,
                         borderRadius: 10,
-                        backgroundColor: recurringInterval === interval ? accentColor + "20" : "#0d0d0d",
+                        backgroundColor: recurringInterval === interval ? accentColor + "20" : "#0F0F12",
                         borderWidth: 1,
-                        borderColor: recurringInterval === interval ? accentColor : "#262522",
+                        borderColor: recurringInterval === interval ? accentColor : "#1C1C21",
                         alignItems: "center"
                       }}
                     >
                       <Text style={{
-                        color: recurringInterval === interval ? accentColor : "#a1a1aa",
+                        color: recurringInterval === interval ? accentColor : "#9B9BA4",
                         fontSize: 12,
                         fontWeight: "800",
                         textTransform: "uppercase"
@@ -631,7 +631,7 @@ export default function AddExpenseModal() {
         {step === 2 && (
           <View className="flex flex-col gap-5">
             {/* Category Grid */}
-            <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-2">
+            <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-2">
               <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide mb-2">Category Selection</Text>
               <View className="flex flex-row flex-wrap gap-2 justify-start">
                 {expenseCategories.map((cat) => {
@@ -648,17 +648,17 @@ export default function AddExpenseModal() {
                       onLongPress={() => isCustom && handleLongPressCategory(cat)}
                       style={{
                         width: "31.5%",
-                        borderColor: isSelected ? accentColor : "#262522",
-                        backgroundColor: isSelected ? accentColorDim : "#0d0d0d",
+                        borderColor: isSelected ? accentColor : "#1C1C21",
+                        backgroundColor: isSelected ? accentColorDim : "#0F0F12",
                       }}
                       className="flex-row items-center gap-1.5 px-2.5 py-2.5 rounded-xl border mb-1"
                     >
-                      <ExpenseCategoryIcon id={cat.id} size={18} color={isSelected ? accentColor : "#a1a1aa"} />
+                      <ExpenseCategoryIcon id={cat.id} size={18} color={isSelected ? accentColor : "#9B9BA4"} />
                       <Text
                         numberOfLines={1}
                         className="text-[11px] font-bold flex-1"
                         style={{
-                          color: isSelected ? accentColor : "#a1a1aa",
+                          color: isSelected ? accentColor : "#9B9BA4",
                         }}
                       >
                         {cat.label}
@@ -672,8 +672,8 @@ export default function AddExpenseModal() {
                     onPress={() => setShowCustomModal(true)}
                     style={{
                       width: "31.5%",
-                      borderColor: "#262522",
-                      backgroundColor: "#0d0d0d",
+                      borderColor: "#1C1C21",
+                      backgroundColor: "#0F0F12",
                     }}
                     className="flex-row items-center justify-center gap-1.5 px-2.5 py-2.5 rounded-xl border border-dashed mb-1"
                   >
@@ -690,9 +690,9 @@ export default function AddExpenseModal() {
             </View>
 
             {/* Deductible toggle */}
-            <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-3">
+            <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-3">
               <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Tax Deductible</Text>
-              <View className="flex-row bg-[#0d0d0d] p-1 rounded-xl border border-[#262522]">
+              <View className="flex-row bg-[#0F0F12] p-1 rounded-xl border border-[#1C1C21]">
                 <TouchableOpacity
                   onPress={() => setIsDeductible(true)}
                   style={{
@@ -703,7 +703,7 @@ export default function AddExpenseModal() {
                   className="flex-1 py-3 rounded-lg items-center justify-center"
                 >
                   <Text
-                    style={{ color: isDeductible ? accentColor : "#a1a1aa" }}
+                    style={{ color: isDeductible ? accentColor : "#9B9BA4" }}
                     className="text-xs font-bold"
                   >
                     Yes (Business)
@@ -731,7 +731,7 @@ export default function AddExpenseModal() {
                 ? (parsedAmt * deductiblePct / 100).toFixed(2)
                 : null;
               return (
-                <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-3">
+                <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-3">
                   {/* Tax code hint */}
                   {meta.taxCode && (
                     <View className="flex-row items-center gap-2">
@@ -772,13 +772,13 @@ export default function AddExpenseModal() {
                           flex: 1,
                           paddingVertical: 9,
                           borderRadius: 10,
-                          backgroundColor: deductiblePct === pct ? accentColor + "20" : "#0d0d0d",
+                          backgroundColor: deductiblePct === pct ? accentColor + "20" : "#0F0F12",
                           borderWidth: 1,
-                          borderColor: deductiblePct === pct ? accentColor : "#262522",
+                          borderColor: deductiblePct === pct ? accentColor : "#1C1C21",
                           alignItems: "center",
                         }}
                       >
-                        <Text style={{ color: deductiblePct === pct ? accentColor : "#71717a", fontSize: 12, fontWeight: "800" }}>
+                        <Text style={{ color: deductiblePct === pct ? accentColor : "#9B9BA4", fontSize: 12, fontWeight: "800" }}>
                           {pct}%
                         </Text>
                       </TouchableOpacity>
@@ -795,16 +795,16 @@ export default function AddExpenseModal() {
                     }}
                     keyboardType="number-pad"
                     placeholder="100"
-                    placeholderTextColor="#52525b"
+                    placeholderTextColor="#65656E"
                     maxLength={3}
                     style={{
-                      backgroundColor: "#0d0d0d",
+                      backgroundColor: "#0F0F12",
                       borderWidth: 1,
-                      borderColor: "#262522",
+                      borderColor: "#1C1C21",
                       borderRadius: 12,
                       paddingHorizontal: 16,
                       paddingVertical: 12,
-                      color: "#fff",
+                      color: "#F6F6F7",
                       fontSize: 14,
                       fontWeight: "700",
                       textAlign: "center",
@@ -813,8 +813,8 @@ export default function AddExpenseModal() {
 
                   {/* Deductible amount preview */}
                   {deductibleAmount && (
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#0d0d0d", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: "#262522" }}>
-                      <Text style={{ color: "#71717a", fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 }}>Deductible Amount</Text>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#0F0F12", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: "#1C1C21" }}>
+                      <Text style={{ color: "#9B9BA4", fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 }}>Deductible Amount</Text>
                       <Text style={{ color: "#34d399", fontSize: 13, fontWeight: "800" }}>${deductibleAmount}</Text>
                     </View>
                   )}
@@ -826,7 +826,7 @@ export default function AddExpenseModal() {
             <View className="flex-row gap-3 mt-2">
               <TouchableOpacity
                 onPress={() => setStep(1)}
-                className="flex-1 py-4 bg-[#1f1f1f] border border-[#262522] rounded-xl items-center"
+                className="flex-1 py-4 bg-[#1E1E23] border border-[#1C1C21] rounded-xl items-center"
               >
                 <Text className="text-zinc-400 font-bold text-sm">← Back</Text>
               </TouchableOpacity>
@@ -846,7 +846,7 @@ export default function AddExpenseModal() {
           <View className="flex flex-col gap-5">
             {/* Vehicle Linkage */}
             {vehiclesList.length > 0 && (
-              <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-3">
+              <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-3">
                 <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Vehicle Link</Text>
                 <View className="flex-row flex-wrap gap-2">
                   {/* None option */}
@@ -854,12 +854,12 @@ export default function AddExpenseModal() {
                     onPress={() => setLinkedVehicleId("")}
                     className="px-3.5 py-2.5 rounded-xl border min-w-[65px] items-center justify-center"
                     style={{
-                      borderColor: !linkedVehicleId ? accentColor : "#262522",
-                      backgroundColor: !linkedVehicleId ? accentColorDim : "#0d0d0d",
+                      borderColor: !linkedVehicleId ? accentColor : "#1C1C21",
+                      backgroundColor: !linkedVehicleId ? accentColorDim : "#0F0F12",
                     }}
                   >
                     <Text
-                      style={{ color: !linkedVehicleId ? accentColor : "#a1a1aa" }}
+                      style={{ color: !linkedVehicleId ? accentColor : "#9B9BA4" }}
                       className="text-xs font-bold"
                     >
                       None
@@ -873,11 +873,11 @@ export default function AddExpenseModal() {
                         onPress={() => setLinkedVehicleId(isSelected ? "" : v.id)}
                         className="px-3.5 py-2.5 rounded-xl border flex-row items-center gap-2 justify-center"
                         style={{
-                          borderColor: isSelected ? accentColor : "#262522",
-                          backgroundColor: isSelected ? accentColorDim : "#0d0d0d",
+                          borderColor: isSelected ? accentColor : "#1C1C21",
+                          backgroundColor: isSelected ? accentColorDim : "#0F0F12",
                         }}
                       >
-                        <Text className="text-xs font-bold" style={{ color: isSelected ? accentColor : "#e4e4e7" }}>
+                        <Text className="text-xs font-bold" style={{ color: isSelected ? accentColor : "#F6F6F7" }}>
                           {v.name}
                         </Text>
                         <Text className="text-[9px] text-zinc-500 font-semibold">{v.year} {v.make}</Text>
@@ -889,7 +889,7 @@ export default function AddExpenseModal() {
             )}
 
             {/* Shift Linkage */}
-            <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-3">
+            <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-3">
               <View className="flex-row justify-between items-center mb-0.5">
                 <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Link to Shift (Recommended)</Text>
                 {linkedShiftId ? (
@@ -900,7 +900,7 @@ export default function AddExpenseModal() {
               </View>
 
               {sortedShifts.length === 0 ? (
-                <View className="py-6 border border-dashed border-[#262522] rounded-xl items-center justify-center">
+                <View className="py-6 border border-dashed border-[#1C1C21] rounded-xl items-center justify-center">
                   <Text className="text-zinc-500 text-xs font-medium text-center px-4">
                     No shifts found near this date (+/- 7 days).
                   </Text>
@@ -920,8 +920,8 @@ export default function AddExpenseModal() {
                         style={{
                           width: 210,
                           height: 96,
-                          borderColor: isSelected ? accentColor : "#262522",
-                          backgroundColor: isSelected ? accentColorDim : "#0d0d0d",
+                          borderColor: isSelected ? accentColor : "#1C1C21",
+                          backgroundColor: isSelected ? accentColorDim : "#0F0F12",
                         }}
                         className="p-3.5 rounded-xl border flex flex-col justify-between"
                       >
@@ -948,7 +948,7 @@ export default function AddExpenseModal() {
             <View className="flex-row gap-3 mt-2">
               <TouchableOpacity
                 onPress={() => setStep(2)}
-                className="flex-1 py-4 bg-[#1f1f1f] border border-[#262522] rounded-xl items-center"
+                className="flex-1 py-4 bg-[#1E1E23] border border-[#1C1C21] rounded-xl items-center"
               >
                 <Text className="text-zinc-400 font-bold text-sm">← Back</Text>
               </TouchableOpacity>
@@ -967,7 +967,7 @@ export default function AddExpenseModal() {
         {step === 4 && (
           <View className="flex flex-col gap-5">
             {/* Notes & Receipt Upload */}
-            <View className="bg-[#161615] border border-[#262522] rounded-2xl p-4 flex flex-col gap-5">
+            <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-5">
               <View className="flex flex-col gap-1.5">
                 <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Notes</Text>
                 <TextInput
@@ -976,12 +976,12 @@ export default function AddExpenseModal() {
                   multiline
                   numberOfLines={3}
                   placeholder="Details or notes..."
-                  placeholderTextColor="#52525b"
+                  placeholderTextColor="#65656E"
                   onFocus={() => setIsNotesFocused(true)}
                   onBlur={() => setIsNotesFocused(false)}
-                  className="bg-[#0d0d0d] border rounded-xl px-3.5 py-2.5 text-white text-sm h-[96px] font-semibold text-left align-top leading-relaxed"
+                  className="bg-[#0F0F12] border rounded-xl px-3.5 py-2.5 text-white text-sm h-[96px] font-semibold text-left align-top leading-relaxed"
                   style={{
-                    borderColor: isNotesFocused ? accentColor : "#262522",
+                    borderColor: isNotesFocused ? accentColor : "#1C1C21",
                   }}
                 />
               </View>
@@ -990,7 +990,7 @@ export default function AddExpenseModal() {
                 <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Receipt Picture</Text>
                 {receiptUri ? (
                   <View className="flex flex-col gap-3">
-                    <View className="w-[120px] h-[120px] relative rounded-xl border border-[#262522] overflow-hidden bg-[#0d0d0d]">
+                    <View className="w-[120px] h-[120px] relative rounded-xl border border-[#1C1C21] overflow-hidden bg-[#0F0F12]">
                       <Image source={{ uri: receiptUri }} className="w-full h-full" resizeMode="cover" />
                       <TouchableOpacity
                         onPress={() => setReceiptUri(null)}
@@ -1002,12 +1002,12 @@ export default function AddExpenseModal() {
                     <TouchableOpacity
                       onPress={handleSimulateOCR}
                       disabled={isScanningOCR}
-                      style={{ backgroundColor: isScanningOCR ? "#27272a" : accentColor }}
+                      style={{ backgroundColor: isScanningOCR ? "#26262C" : accentColor }}
                       className="w-full py-3.5 rounded-xl flex-row items-center justify-center gap-2 border border-zinc-800"
                     >
                       {isScanningOCR ? (
                         <>
-                          <ActivityIndicator size="small" color="#fff" />
+                          <ActivityIndicator size="small" color="#F6F6F7" />
                           <Text className="text-zinc-300 text-xs font-bold uppercase tracking-wider">Scanning Receipt...</Text>
                         </>
                       ) : (
@@ -1021,7 +1021,7 @@ export default function AddExpenseModal() {
                 ) : (
                   <TouchableOpacity
                     onPress={handleAddPhoto}
-                    className="w-full py-5 border border-dashed border-[#262522] rounded-xl items-center justify-center bg-[#0d0d0d] flex-row gap-2"
+                    className="w-full py-5 border border-dashed border-[#1C1C21] rounded-xl items-center justify-center bg-[#0F0F12] flex-row gap-2"
                   >
                     <Text className="text-xl">📷</Text>
                     <Text className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Attach Receipt Photo</Text>
@@ -1034,7 +1034,7 @@ export default function AddExpenseModal() {
             <View className="flex-row gap-3 mt-2">
               <TouchableOpacity
                 onPress={() => setStep(3)}
-                className="flex-1 py-4 bg-[#1f1f1f] border border-[#262522] rounded-xl items-center"
+                className="flex-1 py-4 bg-[#1E1E23] border border-[#1C1C21] rounded-xl items-center"
               >
                 <Text className="text-zinc-400 font-bold text-sm">← Back</Text>
               </TouchableOpacity>
@@ -1066,7 +1066,7 @@ export default function AddExpenseModal() {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "flex-end", alignItems: "center" }}
         >
-          <View className="w-full max-w-md bg-[#161615] border-t border-x border-[#262522] rounded-t-3xl p-6 pb-12 flex flex-col gap-5 shadow-2xl">
+          <View className="w-full max-w-md bg-[#16161A] border-t border-x border-[#1C1C21] rounded-t-3xl p-6 pb-12 flex flex-col gap-5 shadow-2xl">
             <View>
               <Text className="text-white font-extrabold text-lg tracking-tight">Create Custom Category</Text>
               <Text className="text-zinc-500 text-xs mt-1">Add a personalized category (up to 3 total).</Text>
@@ -1079,9 +1079,9 @@ export default function AddExpenseModal() {
                   value={customEmoji}
                   onChangeText={setCustomEmoji}
                   placeholder="🏷️"
-                  placeholderTextColor="#52525b"
+                  placeholderTextColor="#65656E"
                   maxLength={5}
-                  className="bg-[#0d0d0d] border border-[#262522] rounded-xl px-4 py-3 text-white text-base font-semibold w-20 text-center"
+                  className="bg-[#0F0F12] border border-[#1C1C21] rounded-xl px-4 py-3 text-white text-base font-semibold w-20 text-center"
                 />
               </View>
 
@@ -1091,8 +1091,8 @@ export default function AddExpenseModal() {
                   value={customName}
                   onChangeText={setCustomName}
                   placeholder="e.g. Car Wash, Detailing"
-                  placeholderTextColor="#52525b"
-                  className="bg-[#0d0d0d] border border-[#262522] rounded-xl px-4 py-3 text-white text-sm font-semibold"
+                  placeholderTextColor="#65656E"
+                  className="bg-[#0F0F12] border border-[#1C1C21] rounded-xl px-4 py-3 text-white text-sm font-semibold"
                 />
               </View>
             </View>
@@ -1100,7 +1100,7 @@ export default function AddExpenseModal() {
             <View className="flex-row gap-3 mt-2">
               <TouchableOpacity
                 onPress={() => setShowCustomModal(false)}
-                className="flex-1 py-3 bg-[#0d0d0d] border border-[#262522] rounded-xl items-center"
+                className="flex-1 py-3 bg-[#0F0F12] border border-[#1C1C21] rounded-xl items-center"
               >
                 <Text className="text-zinc-400 font-bold text-xs">Cancel</Text>
               </TouchableOpacity>

@@ -55,26 +55,26 @@ import { FeedbackDialog, BusyOverlay, type FeedbackVariant } from "@/src/compone
 
 /** Single source of truth for all colours and radii. */
 const DS = {
-  pageBg: "#000000",
-  cardBg: "#0c0c0c",
-  cardBorder: "#1e1e1e",
-  inputBg: "#161616",
-  inputBorder: "#2a2a2a",
-  sep: "#1a1a1a",
+  pageBg: "#000",
+  cardBg: "#0F0F12",
+  cardBorder: "#1E1E23",
+  inputBg: "#16161A",
+  inputBorder: "#2E2E36",
+  sep: "#1E1E23",
 
-  brand: "#ffffff",
+  brand: "#F6F6F7",
   brandSurface: "rgba(255, 255, 255, 0.08)",
   brandBorder: "rgba(255, 255, 255, 0.18)",
-  brandText: "#ffffff",
+  brandText: "#F6F6F7",
 
-  danger: "#f43f5e",
+  danger: "#FF5247",
   dangerSurface: "rgba(244,63,94,0.07)",
   dangerBorder: "rgba(244,63,94,0.22)",
   dangerText: "#fb7185",
 
-  textPrimary: "#e8e7e0",
-  textSecondary: "#6a6963",
-  textMuted: "#38372f",
+  textPrimary: "#F6F6F7",
+  textSecondary: "#65656E",
+  textMuted: "#2E2E36",
   textLabel: "#48473f",   // floating section labels
 
   rCard: 18,
@@ -340,9 +340,9 @@ const WORK_PRESETS = [
 ] as const;
 
 const PRESET_ACCENTS = [
-  "#ffffff", "#22c55e", "#3b82f6", "#8b5cf6",
-  "#f59e0b", "#ef4444", "#f97316", "#14b8a6",
-  "#e11d48", "#ec4899", "#6366f1", "#6b7280",
+  "#F6F6F7", "#22c55e", "#3b82f6", "#8b5cf6",
+  "#f59e0b", "#FF5247", "#f97316", "#14b8a6",
+  "#e11d48", "#ec4899", "#6366f1", "#65656E",
 ];
 
 const PRESET_COLORS = [
@@ -350,12 +350,12 @@ const PRESET_COLORS = [
   "#3b82f6", // Blue
   "#8b5cf6", // Purple
   "#f59e0b", // Amber/Yellow
-  "#ef4444", // Red
+  "#FF5247", // Red
   "#f97316", // Orange
   "#06b6d4", // Cyan
   "#ec4899", // Pink
   "#a855f7", // Indigo/Purple
-  "#71717a", // Gray
+  "#9B9BA4", // Gray
 ];
 
 const PRESET_EMOJIS = [
@@ -384,13 +384,13 @@ function ColorPicker({ selectedColor, onSelectColor }: { selectedColor: string; 
               },
               isSelected && {
                 borderWidth: 2.5,
-                borderColor: "#ffffff",
+                borderColor: "#F6F6F7",
                 transform: [{ scale: 1.1 }],
               }
             ]}
           >
             {isSelected && (
-              <Check size={12} color={c.toLowerCase() === "#ffffff" ? "#000000" : "#ffffff"} strokeWidth={3.5} />
+              <Check size={12} color={c.toLowerCase() === "#F6F6F7" ? "#000" : "#F6F6F7"} strokeWidth={3.5} />
             )}
           </TouchableOpacity>
         );
@@ -420,7 +420,7 @@ function EmojiPicker({ selectedEmoji, onSelectEmoji }: { selectedEmoji: string; 
                 borderColor: DS.inputBorder,
               },
               isSelected && {
-                borderColor: "#ffffff",
+                borderColor: "#F6F6F7",
                 backgroundColor: "rgba(255,255,255,0.08)",
                 transform: [{ scale: 1.1 }],
               }
@@ -520,7 +520,7 @@ export default function SettingsScreen() {
   // ── Tab: Appearance ─────────────────────────────────────────────────────────
   const [theme, setTheme] = useState<"auto" | "light" | "dark">(profile?.theme ?? "dark");
   const [selectedAccent, setSelectedAccent] = useState(
-    (profile?.avatarData && profile?.avatarData.startsWith("#")) ? profile.avatarData : "#ffffff"
+    (profile?.avatarData && profile?.avatarData.startsWith("#")) ? profile.avatarData : "#F6F6F7"
   );
   const [currency, setCurrency] = useState<string>(profile?.locale?.currency ?? "CAD");
   const [dateFormat, setDateFormat] = useState<string>(profile?.locale?.dateFormat ?? "YYYY-MM-DD");
@@ -545,7 +545,7 @@ export default function SettingsScreen() {
     weeklyDigest: false,
     maintenanceDue: true,
     insuranceExpiry: true,
-    backupOverdue: false,
+    backupOverdue: true,
   });
 
   // ── Tab: Data ───────────────────────────────────────────────────────────────
@@ -571,7 +571,7 @@ export default function SettingsScreen() {
   useEffect(() => {
     setTheme(profile?.theme ?? "dark");
     setSelectedAccent(
-      (profile?.avatarData && profile?.avatarData.startsWith("#")) ? profile.avatarData : "#ffffff"
+      (profile?.avatarData && profile?.avatarData.startsWith("#")) ? profile.avatarData : "#F6F6F7"
     );
     if (profile?.locale) {
       if (profile.locale.currency) setCurrency(profile.locale.currency);
@@ -996,7 +996,7 @@ export default function SettingsScreen() {
                         value={active}
                         onValueChange={(val) => updateFeatureOverride(feature.key, val)}
                         trackColor={{ false: DS.inputBorder, true: accentColor }}
-                        thumbColor="#fff"
+                        thumbColor="#F6F6F7"
                       />
                     </View>
                     {idx < arr.length - 1 && <Sep />}
@@ -1027,7 +1027,7 @@ export default function SettingsScreen() {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={s.swatches}>
                     {PRESET_ACCENTS.map((hex) => {
-                      const on = String(selectedAccent || "#ffffff").toLowerCase() === hex;
+                      const on = String(selectedAccent || "#F6F6F7").toLowerCase() === hex;
                       return (
                         <TouchableOpacity
                           key={hex}
@@ -1035,7 +1035,7 @@ export default function SettingsScreen() {
                           style={[
                             s.swatch,
                             { backgroundColor: hex },
-                            on && { borderWidth: 2.5, borderColor: hex === "#ffffff" ? "#52525b" : "#ffffff" }
+                            on && { borderWidth: 2.5, borderColor: hex === "#F6F6F7" ? "#65656E" : "#F6F6F7" }
                           ]}
                         />
                       );
@@ -1084,7 +1084,7 @@ export default function SettingsScreen() {
             const cfg = platformConfigs[pKey] ?? {
               active: false, hourlyRate: "20", mileageRate: getMileagePresetRate(profile.country, profile.taxRegion), priority: "1",
               customLabel: dbPlatform?.label || PLATFORMS[pKey]?.label || pKey,
-              customColor: dbPlatform?.color || PLATFORMS[pKey]?.color || "#71717a",
+              customColor: dbPlatform?.color || PLATFORMS[pKey]?.color || "#9B9BA4",
               customEmoji: dbPlatform?.logoEmoji || "",
             };
             const updateCfg = (patch: Partial<PlatformConfig>) =>
@@ -1132,7 +1132,7 @@ export default function SettingsScreen() {
                         }
                       }}
                       trackColor={{ false: DS.inputBorder, true: accentColor }}
-                      thumbColor="#fff"
+                      thumbColor="#F6F6F7"
                     />
                   </View>
                 </TouchableOpacity>
@@ -1160,7 +1160,7 @@ export default function SettingsScreen() {
                                   onChangeText={(v) => updateCfg({ customColor: v })}
                                   style={{ width: 100 }}
                                 />
-                                <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: cfg.customColor || "#71717a" }} />
+                                <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: cfg.customColor || "#9B9BA4" }} />
                               </View>
                             </View>
                             <ColorPicker
@@ -1343,7 +1343,7 @@ export default function SettingsScreen() {
                                 value={cfg.active}
                                 onValueChange={(v) => updateCfg({ active: v })}
                                 trackColor={{ false: DS.inputBorder, true: accentColor }}
-                                thumbColor="#fff"
+                                thumbColor="#F6F6F7"
                               />
                             </View>
                           );
@@ -1407,7 +1407,7 @@ export default function SettingsScreen() {
                               placeholderTextColor={DS.textMuted}
                               style={[s.inlineInput, { width: 95 }]}
                             />
-                            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: newPlatformColor || "#71717a", borderWidth: 1, borderColor: "rgba(255,255,255,0.15)" }} />
+                            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: newPlatformColor || "#9B9BA4", borderWidth: 1, borderColor: "rgba(255,255,255,0.15)" }} />
                           </View>
                         </View>
                         <ColorPicker
@@ -1465,8 +1465,8 @@ export default function SettingsScreen() {
                             await updateDBPlatform(country, newId, {
                               id: newId,
                               label: newPlatformLabel.trim(),
-                              color: newPlatformColor.trim() || "#71717a",
-                              textColor: "#ffffff",
+                              color: newPlatformColor.trim() || "#9B9BA4",
+                              textColor: "#F6F6F7",
                               country: country,
                               isActive: true,
                               hourlyRate: "20",
@@ -1484,7 +1484,7 @@ export default function SettingsScreen() {
                                 mileageRate: defaultMileage,
                                 priority: "10",
                                 customLabel: newPlatformLabel.trim(),
-                                customColor: newPlatformColor.trim() || "#71717a",
+                                customColor: newPlatformColor.trim() || "#9B9BA4",
                                 customEmoji: newPlatformEmoji.trim() || "",
                               }
                             }));
@@ -1536,7 +1536,7 @@ export default function SettingsScreen() {
                     value={notifs[key]}
                     onValueChange={(v) => setNotifs((p) => ({ ...p, [key]: v }))}
                     trackColor={{ false: DS.inputBorder, true: accentColor }}
-                    thumbColor="#fff"
+                    thumbColor="#F6F6F7"
                   />
                 </Row>
               ))}
@@ -1778,7 +1778,7 @@ const s = StyleSheet.create({
     borderRadius: DS.rInput,
     borderWidth: 0.5,
     borderColor: DS.inputBorder,
-    color: "#ffffff",          // force white — prevents invisible text on Android
+    color: "#F6F6F7",          // force white — prevents invisible text on Android
     fontSize: 14,
     fontWeight: "500" as const,
     paddingHorizontal: 12,
@@ -1791,7 +1791,7 @@ const s = StyleSheet.create({
     borderRadius: DS.rInput,
     borderWidth: 0.5,
     borderColor: DS.inputBorder,
-    color: "#ffffff",          // force white — prevents invisible text on Android
+    color: "#F6F6F7",          // force white — prevents invisible text on Android
     fontSize: 14,
     fontWeight: "500" as const,
     paddingHorizontal: 14,
@@ -1806,7 +1806,7 @@ const s = StyleSheet.create({
   // ── Accent swatches ─────────────────────────────────────────────────────────
   swatches: { flexDirection: "row", gap: 8, paddingVertical: 2 },
   swatch: { width: 26, height: 26, borderRadius: 13 },
-  swatchOn: { borderWidth: 2.5, borderColor: "#fff" },
+  swatchOn: { borderWidth: 2.5, borderColor: "#F6F6F7" },
 
   // ── Widget list (Appearance tab) ─────────────────────────────────────────────
   widgetList: { gap: 6 },

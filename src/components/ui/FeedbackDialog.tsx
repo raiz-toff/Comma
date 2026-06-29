@@ -34,10 +34,11 @@ interface FeedbackDialogProps {
   accentColor?: string;
 }
 
+// Semantic tints (fixed). Success = #1FC16B, Danger = #FF5247. Info falls back to user accent.
 const VARIANT_COLORS: Record<FeedbackVariant, string> = {
-  success: "#10b981",
-  error: "#f43f5e",
-  info: "#10b981",
+  success: "#1FC16B",
+  error: "#FF5247",
+  info: "#1FC16B",
 };
 
 function VariantIcon({ variant, color }: { variant: FeedbackVariant; color: string }) {
@@ -81,13 +82,13 @@ export function FeedbackDialog({
                   onPress={a.onPress}
                   style={[
                     s.stackBtn,
-                    a.variant === "neutral" ? { backgroundColor: "#262422" } : { backgroundColor: tint },
+                    a.variant === "neutral" ? { backgroundColor: "#1C1C21" } : { backgroundColor: tint },
                   ]}
                 >
                   <Text style={a.variant === "neutral" ? s.cancelText : s.confirmText}>{a.label}</Text>
                 </Pressable>
               ))}
-              <Pressable onPress={onClose} style={[s.stackBtn, { backgroundColor: "#262422" }]}>
+              <Pressable onPress={onClose} style={[s.stackBtn, { backgroundColor: "#1C1C21" }]}>
                 <Text style={s.cancelText}>{cancelLabel ?? "Cancel"}</Text>
               </Pressable>
             </View>
@@ -134,10 +135,10 @@ const s = StyleSheet.create({
   card: {
     width: "100%",
     maxWidth: 340,
-    backgroundColor: "#1a1916",
-    borderRadius: 20,
+    backgroundColor: "#16161A",   // Surface/03
+    borderRadius: 20,             // radius-xl (sheets)
     borderWidth: 1,
-    borderColor: "#2a2825",
+    borderColor: "#1E1E23",       // Border/Subtle
     padding: 24,
     gap: 14,
     alignItems: "center",
@@ -150,8 +151,8 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  title: { fontSize: 17, fontWeight: "800", color: "#fff", textAlign: "center" },
-  message: { fontSize: 14, fontWeight: "500", color: "#a1a1aa", textAlign: "center", lineHeight: 20 },
+  title: { fontSize: 16, fontWeight: "600", color: "#F6F6F7", textAlign: "center" },     // Heading/S, Text/Primary
+  message: { fontSize: 14, fontWeight: "400", color: "#9B9BA4", textAlign: "center", lineHeight: 20 }, // Paragraph/M, Text/Secondary
   footer: { flexDirection: "row", gap: 10, marginTop: 4, alignSelf: "stretch" },
   stack: { gap: 10, marginTop: 4, alignSelf: "stretch" },
   stackBtn: { paddingVertical: 13, borderRadius: 12, alignItems: "center" },
@@ -159,10 +160,10 @@ const s = StyleSheet.create({
     flex: 1,
     paddingVertical: 13,
     borderRadius: 12,
-    backgroundColor: "#262422",
+    backgroundColor: "#1C1C21",   // Surface/04
     alignItems: "center",
   },
-  cancelText: { color: "#a1a1aa", fontWeight: "700", fontSize: 14 },
+  cancelText: { color: "#9B9BA4", fontWeight: "600", fontSize: 14 },   // Text/Secondary
   confirmBtn: { flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: "center" },
-  confirmText: { color: "#000", fontWeight: "800", fontSize: 14 },
+  confirmText: { color: "#000", fontWeight: "800", fontSize: 14 },     // dark text on tint (contrast)
 });

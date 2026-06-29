@@ -24,16 +24,16 @@ export function SectionHeader({
         className
       )}
     >
-      <Text className="text-base font-extrabold text-slate-100 tracking-tight">
+      <Text variant="headingL" className="text-content-primary tracking-tight">
         {title}
       </Text>
-      
+
       {action && (
         <Pressable
           onPress={action.onPress}
           className="active:opacity-70 px-2 py-1 -mr-2"
         >
-          <Text className="text-xs font-bold text-primary uppercase tracking-wider">
+          <Text variant="labelXs" className="text-primary">
             {action.label}
           </Text>
         </Pressable>

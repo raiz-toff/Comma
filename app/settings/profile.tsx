@@ -90,7 +90,7 @@ export default function ProfileEditScreen() {
       {/* Header */}
       <View style={s.header}>
         <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={12}>
-          <ChevronLeft size={22} color="#a1a1aa" />
+          <ChevronLeft size={22} color="#9B9BA4" />
         </Pressable>
         <Text style={s.headerTitle}>Edit Profile</Text>
         <Pressable
@@ -114,7 +114,7 @@ export default function ProfileEditScreen() {
             value={name}
             onChangeText={setName}
             placeholder="Your name"
-            placeholderTextColor="#52525b"
+            placeholderTextColor="#65656E"
             style={s.nameInput}
             autoCapitalize="words"
             returnKeyType="done"
@@ -184,7 +184,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 0.5, borderBottomColor: "#1f1e1c",
   },
   backBtn: { padding: 4, width: 40 },
-  headerTitle: { fontSize: 16, fontWeight: "700", color: "#fff" },
+  headerTitle: { fontSize: 16, fontWeight: "700", color: "#F6F6F7" },
   saveBtn: {
     flexDirection: "row", alignItems: "center", gap: 4,
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
@@ -192,33 +192,33 @@ const s = StyleSheet.create({
   saveBtnText: { fontSize: 13, fontWeight: "800", color: "#000" },
   scroll: { padding: 16, gap: 6, paddingBottom: 48 },
   sectionLabel: {
-    fontSize: 11, fontWeight: "700", color: "#71717a",
+    fontSize: 11, fontWeight: "700", color: "#9B9BA4",
     textTransform: "uppercase", letterSpacing: 0.8,
     marginTop: 10, marginBottom: 4, marginLeft: 4,
   },
   card: {
     backgroundColor: "#1a1916", borderRadius: 14,
-    borderWidth: 0.5, borderColor: "#2a2825",
+    borderWidth: 0.5, borderColor: "#2E2E36",
     overflow: "hidden",
   },
   nameInput: {
     paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 15, fontWeight: "600", color: "#fff",
+    fontSize: 15, fontWeight: "600", color: "#F6F6F7",
   },
   optionRow: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 16, paddingVertical: 14,
   },
-  optionRowBorder: { borderBottomWidth: 0.5, borderBottomColor: "#2a2825" },
-  optionText: { fontSize: 15, fontWeight: "500", color: "#d4d4d8" },
+  optionRowBorder: { borderBottomWidth: 0.5, borderBottomColor: "#2E2E36" },
+  optionText: { fontSize: 15, fontWeight: "500", color: "#9B9BA4" },
   chip: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8,
-    backgroundColor: "#262422", borderWidth: 0.5, borderColor: "#3a3835",
+    backgroundColor: "#1C1C21", borderWidth: 0.5, borderColor: "#3a3835",
   },
-  chipText: { fontSize: 13, fontWeight: "600", color: "#a1a1aa" },
-  lockedLabel: { fontSize: 15, fontWeight: "600", color: "#d4d4d8", paddingHorizontal: 16, paddingVertical: 14 },
+  chipText: { fontSize: 13, fontWeight: "600", color: "#9B9BA4" },
+  lockedLabel: { fontSize: 15, fontWeight: "600", color: "#9B9BA4", paddingHorizontal: 16, paddingVertical: 14 },
   lockedBadge: {
-    backgroundColor: "#262422", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, marginRight: 16,
+    backgroundColor: "#1C1C21", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, marginRight: 16,
   },
-  lockedBadgeText: { fontSize: 10, fontWeight: "700", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.4 },
+  lockedBadgeText: { fontSize: 10, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 0.4 },
 });

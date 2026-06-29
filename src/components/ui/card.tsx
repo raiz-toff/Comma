@@ -7,7 +7,8 @@ function Card({ className, ...props }: React.ComponentProps<typeof View> & React
     <TextClassContext.Provider value="text-card-foreground">
       <View
         className={cn(
-          'bg-card border-border flex flex-col gap-6 rounded-xl border py-6 shadow-sm shadow-black/5',
+          // Comma DS: Surface/02 card, hairline border, radius-lg, no shadow (elevation = surface + border).
+          'bg-card border-line-subtle flex flex-col gap-6 rounded-lg border py-6',
           className
         )}
         {...props}
@@ -41,7 +42,7 @@ function CardDescription({
   className,
   ...props
 }: React.ComponentProps<typeof Text> & React.RefAttributes<typeof Text>) {
-  return <Text className={cn('text-muted-foreground text-sm', className)} {...props} />;
+  return <Text className={cn('text-content-muted text-paragraph-s', className)} {...props} />;
 }
 
 function CardContent({ className, ...props }: React.ComponentProps<typeof View> & React.RefAttributes<View>) {

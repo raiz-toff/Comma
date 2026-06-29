@@ -73,7 +73,7 @@ export default function NotificationsScreen() {
     if (item.badgeId) {
       return <BadgeSvg id={item.badgeId} size={24} />;
     }
-    const c = item.read ? "#52504c" : accentColor;
+    const c = item.read ? "#65656E" : accentColor;
     switch (item.iconKey) {
       case "backup":
         return <Upload size={18} color={c} />;
@@ -81,15 +81,15 @@ export default function NotificationsScreen() {
       case "export":
         return <Download size={18} color={c} />;
       case "wipe":
-        return <Trash2 size={18} color={item.read ? "#52504c" : "#ef4444"} />;
+        return <Trash2 size={18} color={item.read ? "#65656E" : "#FF5247"} />;
       case "error":
-        return <XCircle size={18} color={item.read ? "#52504c" : "#ef4444"} />;
+        return <XCircle size={18} color={item.read ? "#65656E" : "#FF5247"} />;
     }
     switch (item.type) {
       case "success":
         return <Trophy size={18} color={c} />;
       case "warning":
-        return <AlertCircle size={18} color={item.read ? "#52504c" : "#f59e0b"} />;
+        return <AlertCircle size={18} color={item.read ? "#65656E" : "#f59e0b"} />;
       default:
         return <Info size={18} color={c} />;
     }
@@ -100,7 +100,7 @@ export default function NotificationsScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top ? insets.top + 12 : 24 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
-          <ArrowLeft size={22} color="#ffffff" />
+          <ArrowLeft size={22} color="#F6F6F7" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
         <View style={{ width: 44 }} />
@@ -113,15 +113,15 @@ export default function NotificationsScreen() {
             style={[
               styles.pill,
               {
-                backgroundColor: unreadCount > 0 ? `${accentColor}22` : "#161615",
-                borderColor: unreadCount > 0 ? `${accentColor}55` : "#262522",
+                backgroundColor: unreadCount > 0 ? `${accentColor}22` : "#16161A",
+                borderColor: unreadCount > 0 ? `${accentColor}55` : "#1C1C21",
               },
             ]}
           >
             <Text
               style={[
                 styles.pillText,
-                { color: unreadCount > 0 ? accentColor : "#71717a" },
+                { color: unreadCount > 0 ? accentColor : "#9B9BA4" },
               ]}
             >
               {unreadCount > 0 ? `${unreadCount} unread` : "All read"}
@@ -136,14 +136,14 @@ export default function NotificationsScreen() {
               <Text
                 style={[
                   styles.actionText,
-                  { color: unreadCount > 0 ? accentColor : "#52504c" },
+                  { color: unreadCount > 0 ? accentColor : "#65656E" },
                 ]}
               >
                 Mark all read
               </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={clearAllNotifications} hitSlop={8}>
-              <Text style={[styles.actionText, { color: "#71717a" }]}>Clear all</Text>
+              <Text style={[styles.actionText, { color: "#9B9BA4" }]}>Clear all</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -178,7 +178,7 @@ export default function NotificationsScreen() {
                       <Text
                         style={[
                           styles.cardTitle,
-                          { color: item.read ? "#71717a" : "#f4f2ed" },
+                          { color: item.read ? "#9B9BA4" : "#F6F6F7" },
                         ]}
                       >
                         {item.title}
@@ -209,7 +209,7 @@ export default function NotificationsScreen() {
                     hitSlop={8}
                     style={styles.dismissBtn}
                   >
-                    <X size={12} color="#71717a" />
+                    <X size={12} color="#9B9BA4" />
                   </TouchableOpacity>
                 </TouchableOpacity>
               ))}
@@ -218,7 +218,7 @@ export default function NotificationsScreen() {
         ) : (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconCircle}>
-              <BellOff size={28} color="#52504c" />
+              <BellOff size={28} color="#65656E" />
             </View>
             <View style={{ alignItems: "center" }}>
               <Text style={styles.emptyTitle}>All caught up!</Text>
@@ -246,9 +246,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     alignItems: "center",
     justifyContent: "center",
     marginLeft: -8,
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 17,
     fontWeight: "900",
-    color: "#ffffff",
+    color: "#F6F6F7",
     letterSpacing: -0.3,
   },
   actionBar: {
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 11,
-    color: "#52504c",
+    color: "#65656E",
     fontWeight: "800",
     textTransform: "uppercase",
     letterSpacing: 0.8,
@@ -297,21 +297,21 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   cardUnread: {
-    backgroundColor: "#0d0d0d",
-    borderColor: "#1f1f1f",
+    backgroundColor: "#0F0F12",
+    borderColor: "#1E1E23",
   },
   cardRead: {
     backgroundColor: "#0a0a0a",
-    borderColor: "#161615",
+    borderColor: "#16161A",
     opacity: 0.7,
   },
   iconBox: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 1,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   },
   cardDesc: {
     fontSize: 12,
-    color: "#a1998f",
+    color: "#9B9BA4",
     lineHeight: 18,
     fontWeight: "500",
     marginTop: 3,
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
   },
   cardTime: {
     fontSize: 10,
-    color: "#52504c",
+    color: "#65656E",
     fontWeight: "700",
   },
   viewDetails: {
@@ -361,9 +361,9 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -377,9 +377,9 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderWidth: 0.8,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
   },
   emptySub: {
     fontSize: 12,
-    color: "#52504c",
+    color: "#65656E",
     textAlign: "center",
     marginTop: 6,
     maxWidth: 260,

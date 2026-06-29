@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { ActivityIndicator, Text, View, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { PortalHost } from "@rn-primitives/portal";
 import { DATABASE_NAME, useDatabaseMigrations, useStudio } from "../src/database/client";
 import { QueryProvider } from "../providers/QueryProvider";
@@ -59,10 +60,12 @@ export default function RootLayout() {
 
   const stackContent = (
     <SafeAreaProvider>
-      <AppErrorBoundary>
-        <ShiftBackgroundServices />
-        <Stack screenOptions={{ headerShown: false }} />
-      </AppErrorBoundary>
+      <BottomSheetModalProvider>
+        <AppErrorBoundary>
+          <ShiftBackgroundServices />
+          <Stack screenOptions={{ headerShown: false }} />
+        </AppErrorBoundary>
+      </BottomSheetModalProvider>
     </SafeAreaProvider>
   );
 

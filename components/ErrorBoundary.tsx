@@ -39,13 +39,13 @@ export class AppErrorBoundary extends React.Component<Props, State> {
             alignItems: "center",
             justifyContent: "center",
             padding: 24,
-            backgroundColor: "#12110f",
+            backgroundColor: "#0F0F12",
           }}
         >
-          <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "700", marginBottom: 8 }}>
+          <Text style={{ color: "#F6F6F7", fontSize: 18, fontWeight: "700", marginBottom: 8 }}>
             Something went wrong
           </Text>
-          <Text style={{ color: "#a1a1aa", textAlign: "center", marginBottom: 20 }}>
+          <Text style={{ color: "#9B9BA4", textAlign: "center", marginBottom: 20 }}>
             The app hit an unexpected error. You can try again.
           </Text>
           <Pressable
@@ -57,7 +57,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
               borderRadius: 12,
             }}
           >
-            <Text style={{ color: "#000000", fontWeight: "700" }}>Try again</Text>
+            <Text style={{ color: "#000", fontWeight: "700" }}>Try again</Text>
           </Pressable>
         </View>
       );

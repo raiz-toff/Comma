@@ -33,7 +33,7 @@ export function BentoCard({
     <CardComponent
       onPress={onPress}
       className={cn(
-        "border border-border bg-card rounded-2xl p-4 flex flex-col justify-between overflow-hidden",
+        "border border-line-subtle bg-card rounded-lg p-4 flex flex-col justify-between overflow-hidden",
         sizeClasses[size],
         className
       )}
@@ -41,7 +41,7 @@ export function BentoCard({
     >
       <View className="flex-1 flex-col">
         {title && (
-          <Text className="text-xs font-bold tracking-wider text-muted-foreground uppercase mb-2">
+          <Text variant="labelXs" className="text-content-muted mb-2">
             {title}
           </Text>
         )}

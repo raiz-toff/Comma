@@ -26,6 +26,7 @@ function buildGrid(year: number, month: number): (number | null)[] {
 }
 
 export function DatePickerModal({ visible, value, onChange, onClose, accentColor = "#10b981" }: Props) {
+  // Note: accentColor is passed by callers from usePlatformTheme(); the literal default is a last-resort fallback only.
   const today = new Date();
   const [displayYear, setDisplayYear] = useState(value.getFullYear());
   const [displayMonth, setDisplayMonth] = useState(value.getMonth());
@@ -72,11 +73,11 @@ export function DatePickerModal({ visible, value, onChange, onClose, accentColor
           {/* Header */}
           <View style={s.header}>
             <Pressable onPress={prevMonth} style={s.navBtn} hitSlop={12}>
-              <ChevronLeft size={20} color="#a1a1aa" />
+              <ChevronLeft size={20} color="#9B9BA4" />
             </Pressable>
             <Text style={s.monthLabel}>{MONTHS[displayMonth]} {displayYear}</Text>
             <Pressable onPress={nextMonth} style={s.navBtn} hitSlop={12}>
-              <ChevronRight size={20} color="#a1a1aa" />
+              <ChevronRight size={20} color="#9B9BA4" />
             </Pressable>
           </View>
 
@@ -133,32 +134,32 @@ const s = StyleSheet.create({
   },
   card: {
     width: "100%", maxWidth: 360,
-    backgroundColor: "#1a1916", borderRadius: 20,
-    borderWidth: 1, borderColor: "#2a2825",
+    backgroundColor: "#16161A", borderRadius: 20,   // Surface/03, radius-xl
+    borderWidth: 1, borderColor: "#1E1E23",          // Border/Subtle
     padding: 20, gap: 12,
   },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
   },
   navBtn: { padding: 4 },
-  monthLabel: { fontSize: 16, fontWeight: "700", color: "#fff" },
+  monthLabel: { fontSize: 16, fontWeight: "600", color: "#F6F6F7" },   // Heading/S, Text/Primary
   weekRow: { flexDirection: "row" },
   dayName: {
     flex: 1, textAlign: "center",
-    fontSize: 11, fontWeight: "700", color: "#52525b", textTransform: "uppercase",
+    fontSize: 11, fontWeight: "700", color: "#65656E", textTransform: "uppercase",   // Text/Muted
   },
   grid: { flexDirection: "row", flexWrap: "wrap" },
   cell: {
     width: `${100 / 7}%`, aspectRatio: 1,
     justifyContent: "center", alignItems: "center",
   },
-  dayNum: { fontSize: 14, fontWeight: "500", color: "#d4d4d8" },
+  dayNum: { fontSize: 14, fontWeight: "500", color: "#9B9BA4" },   // Text/Secondary
   footer: { flexDirection: "row", gap: 10, marginTop: 4 },
   cancelBtn: {
     flex: 1, paddingVertical: 12, borderRadius: 10,
-    backgroundColor: "#262422", alignItems: "center",
+    backgroundColor: "#1C1C21", alignItems: "center",   // Surface/04
   },
-  cancelText: { color: "#a1a1aa", fontWeight: "600", fontSize: 14 },
+  cancelText: { color: "#9B9BA4", fontWeight: "600", fontSize: 14 },   // Text/Secondary
   doneBtn: {
     flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center",
   },

@@ -36,6 +36,9 @@ import {
 } from "../../src/database/queries/analytics";
 import { getShiftsPaginated, getUnreconciledShifts, getGPSOnlyShifts, reconcileOdometerAnchors } from "../../src/database/queries/shifts";
 import { PlatformBadge } from "../../src/components/ui/PlatformBadge";
+import { AppBottomSheet, type AppBottomSheetRef } from "../../src/components/ui/AppBottomSheet";
+import { CelebrationSheet, type CelebrationSheetRef } from "../../src/components/celebration/CelebrationSheet";
+import { useBackupStatus } from "../../hooks/useBackupStatus";
 import Svg, { Path, Circle, Defs, LinearGradient, Stop, Polyline, Line } from "react-native-svg";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
 import { PLATFORMS } from "../../src/registry/platforms";
@@ -100,7 +103,7 @@ const SquareIcon = ({ size = 14, color = "white" }: { size?: number; color?: str
   </Svg>
 );
 
-const RouteIcon = ({ size = 16, color = "#fff" }: { size?: number; color?: string }) => (
+const RouteIcon = ({ size = 16, color = "#F6F6F7" }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
     <Circle cx="5.5" cy="18.5" r="2.5" />
     <Circle cx="18.5" cy="5.5" r="2.5" />
@@ -108,21 +111,21 @@ const RouteIcon = ({ size = 16, color = "#fff" }: { size?: number; color?: strin
   </Svg>
 );
 
-const ClockIcon = ({ size = 16, color = "#fff" }: { size?: number; color?: string }) => (
+const ClockIcon = ({ size = 16, color = "#F6F6F7" }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
     <Circle cx="12" cy="12" r="10" />
     <Path d="M12 6v6l4 2" />
   </Svg>
 );
 
-const TrendIcon = ({ size = 16, color = "#fff" }: { size?: number; color?: string }) => (
+const TrendIcon = ({ size = 16, color = "#F6F6F7" }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
     <Path d="m22 7-8.5 8.5-5-5L2 17" />
     <Path d="M16 7h6v6" />
   </Svg>
 );
 
-const ReceiptIcon = ({ size = 16, color = "#fff" }: { size?: number; color?: string }) => (
+const ReceiptIcon = ({ size = 16, color = "#F6F6F7" }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 1024 1024" fill="none">
     <Path
       d="M731.15 585.97c-100.99 0-182.86 81.87-182.86 182.86s81.87 182.86 182.86 182.86 182.86-81.87 182.86-182.86-81.87-182.86-182.86-182.86z m0 292.57c-60.5 0-109.71-49.22-109.71-109.71s49.22-109.71 109.71-109.71c60.5 0 109.71 49.22 109.71 109.71s-49.21 109.71-109.71 109.71z"
@@ -139,7 +142,7 @@ const ReceiptIcon = ({ size = 16, color = "#fff" }: { size?: number; color?: str
   </Svg>
 );
 
-const BellIcon = ({ size = 18, color = "#fff" }: { size?: number; color?: string }) => (
+const BellIcon = ({ size = 18, color = "#F6F6F7" }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
     <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
     <Path d="M13.73 21a2 2 0 0 1-3.46 0" />
@@ -211,7 +214,7 @@ const RingProgress = ({ pct, color, size = 28 }: { pct: number; color: string; s
 
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Circle cx="12" cy="12" r={r} fill="none" stroke="#1c1c1e" strokeWidth={stroke} />
+      <Circle cx="12" cy="12" r={r} fill="none" stroke="#16161A" strokeWidth={stroke} />
       <Circle
         cx="12"
         cy="12"
@@ -244,17 +247,17 @@ const HomeSkeleton = () => {
 
   return (
     <RNAnimated.View style={{ opacity: pulse, gap: 10, width: "100%" }}>
-      <View style={{ height: 40, width: 140, backgroundColor: "#1e1e1e", borderRadius: 8 }} />
-      <View style={{ height: 160, backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 1, borderColor: "#1e1e1e" }} />
+      <View style={{ height: 40, width: 140, backgroundColor: "#1E1E23", borderRadius: 8 }} />
+      <View style={{ height: 160, backgroundColor: "#0F0F12", borderRadius: 12, borderWidth: 1, borderColor: "#1E1E23" }} />
       <View style={{ flexDirection: "row", gap: 8 }}>
-        <View style={{ height: 100, flex: 1, backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#1e1e1e" }} />
-        <View style={{ height: 100, flex: 1, backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#1e1e1e" }} />
+        <View style={{ height: 100, flex: 1, backgroundColor: "#0F0F12", borderRadius: 12, borderWidth: 0.5, borderColor: "#1E1E23" }} />
+        <View style={{ height: 100, flex: 1, backgroundColor: "#0F0F12", borderRadius: 12, borderWidth: 0.5, borderColor: "#1E1E23" }} />
       </View>
       <View style={{ flexDirection: "row", gap: 8 }}>
-        <View style={{ height: 100, flex: 1, backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#1e1e1e" }} />
-        <View style={{ height: 100, flex: 1, backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#1e1e1e" }} />
+        <View style={{ height: 100, flex: 1, backgroundColor: "#0F0F12", borderRadius: 12, borderWidth: 0.5, borderColor: "#1E1E23" }} />
+        <View style={{ height: 100, flex: 1, backgroundColor: "#0F0F12", borderRadius: 12, borderWidth: 0.5, borderColor: "#1E1E23" }} />
       </View>
-      <View style={{ height: 90, backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#1e1e1e" }} />
+      <View style={{ height: 90, backgroundColor: "#0F0F12", borderRadius: 12, borderWidth: 0.5, borderColor: "#1E1E23" }} />
     </RNAnimated.View>
   );
 };
@@ -303,8 +306,8 @@ const formatTime = (total: number) => {
 const LiveRouteMap = ({ points, strokeColor }: { points: Array<{ latitude: number; longitude: number }>; strokeColor: string }) => {
   if (!points || points.length < 2) {
     return (
-      <View style={{ height: 120, width: "85%", backgroundColor: "#060608", borderRadius: 12, borderWidth: 0.5, borderColor: "#18181b", justifyContent: "center", alignItems: "center", gap: 6, marginVertical: 8 }}>
-        <Text style={{ color: "#52525b", fontSize: 11, fontWeight: "600" }}>Waiting for GPS coordinates...</Text>
+      <View style={{ height: 120, width: "85%", backgroundColor: "#0A0A0C", borderRadius: 12, borderWidth: 0.5, borderColor: "#1E1E23", justifyContent: "center", alignItems: "center", gap: 6, marginVertical: 8 }}>
+        <Text style={{ color: "#65656E", fontSize: 11, fontWeight: "600" }}>Waiting for GPS coordinates...</Text>
       </View>
     );
   }
@@ -340,14 +343,14 @@ const LiveRouteMap = ({ points, strokeColor }: { points: Array<{ latitude: numbe
   const endY = padding + (1 - (endPoint.latitude - minLat) / latRange) * (height - 2 * padding);
 
   return (
-    <View style={{ height: height, width: "85%", backgroundColor: "#060608", borderRadius: 12, borderWidth: 0.5, borderColor: "#18181b", overflow: "hidden", marginVertical: 8 }}>
+    <View style={{ height: height, width: "85%", backgroundColor: "#0A0A0C", borderRadius: 12, borderWidth: 0.5, borderColor: "#1E1E23", overflow: "hidden", marginVertical: 8 }}>
       <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
-        <Line x1="0" y1="30" x2="300" y2="30" stroke="#121215" strokeWidth="0.5" />
-        <Line x1="0" y1="60" x2="300" y2="60" stroke="#121215" strokeWidth="0.5" />
-        <Line x1="0" y1="90" x2="300" y2="90" stroke="#121215" strokeWidth="0.5" />
-        <Line x1="75" y1="0" x2="75" y2="120" stroke="#121215" strokeWidth="0.5" />
-        <Line x1="150" y1="0" x2="150" y2="120" stroke="#121215" strokeWidth="0.5" />
-        <Line x1="225" y1="0" x2="225" y2="120" stroke="#121215" strokeWidth="0.5" />
+        <Line x1="0" y1="30" x2="300" y2="30" stroke="#0F0F12" strokeWidth="0.5" />
+        <Line x1="0" y1="60" x2="300" y2="60" stroke="#0F0F12" strokeWidth="0.5" />
+        <Line x1="0" y1="90" x2="300" y2="90" stroke="#0F0F12" strokeWidth="0.5" />
+        <Line x1="75" y1="0" x2="75" y2="120" stroke="#0F0F12" strokeWidth="0.5" />
+        <Line x1="150" y1="0" x2="150" y2="120" stroke="#0F0F12" strokeWidth="0.5" />
+        <Line x1="225" y1="0" x2="225" y2="120" stroke="#0F0F12" strokeWidth="0.5" />
         
         <Polyline
           points={svgPoints}
@@ -359,7 +362,7 @@ const LiveRouteMap = ({ points, strokeColor }: { points: Array<{ latitude: numbe
         />
 
         <Circle cx={startX} cy={startY} r="4" fill="#22c55e" />
-        <Circle cx={endX} cy={endY} r="5" fill={strokeColor} stroke="#fff" strokeWidth="1" />
+        <Circle cx={endX} cy={endY} r="5" fill={strokeColor} stroke="#F6F6F7" strokeWidth="1" />
       </Svg>
     </View>
   );
@@ -403,12 +406,12 @@ const RouteMinimap = ({ routePathJson, strokeColor }: { routePathJson: string; s
   const endY = padding + (1 - (endPoint.latitude - minLat) / latRange) * (height - 2 * padding);
 
   return (
-    <View style={{ width: 100, height: 60, backgroundColor: "#090909", borderRadius: 8, borderWidth: 0.5, borderColor: "#1e1e1e", overflow: "hidden", marginLeft: 12 }}>
+    <View style={{ width: 100, height: 60, backgroundColor: "#0A0A0C", borderRadius: 8, borderWidth: 0.5, borderColor: "#1E1E23", overflow: "hidden", marginLeft: 12 }}>
       <Svg width={width} height={height}>
-        <Line x1="0" y1="20" x2="100" y2="20" stroke="#121212" strokeWidth="0.5" />
-        <Line x1="0" y1="40" x2="100" y2="40" stroke="#121212" strokeWidth="0.5" />
-        <Line x1="33" y1="0" x2="33" y2="60" stroke="#121212" strokeWidth="0.5" />
-        <Line x1="66" y1="0" x2="66" y2="60" stroke="#121212" strokeWidth="0.5" />
+        <Line x1="0" y1="20" x2="100" y2="20" stroke="#0F0F12" strokeWidth="0.5" />
+        <Line x1="0" y1="40" x2="100" y2="40" stroke="#0F0F12" strokeWidth="0.5" />
+        <Line x1="33" y1="0" x2="33" y2="60" stroke="#0F0F12" strokeWidth="0.5" />
+        <Line x1="66" y1="0" x2="66" y2="60" stroke="#0F0F12" strokeWidth="0.5" />
         
         <Polyline
           points={svgPoints}
@@ -420,7 +423,7 @@ const RouteMinimap = ({ routePathJson, strokeColor }: { routePathJson: string; s
         />
 
         <Circle cx={startX} cy={startY} r="3" fill="#22c55e" />
-        <Circle cx={endX} cy={endY} r="3.5" fill="#ef4444" stroke="#000" strokeWidth="0.8" />
+        <Circle cx={endX} cy={endY} r="3.5" fill="#FF5247" stroke="#000" strokeWidth="0.8" />
       </Svg>
     </View>
   );
@@ -430,7 +433,7 @@ const CircularProgress = ({
   progressPct,
   size = 80,
   strokeWidth = 8,
-  color = "#ffffff",
+  color = "#F6F6F7",
 }: {
   progressPct: number;
   size?: number;
@@ -445,7 +448,7 @@ const CircularProgress = ({
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
       <Svg width={size} height={size}>
         <Circle
-          stroke="#1c1c1e"
+          stroke="#16161A"
           fill="none"
           cx={size / 2}
           cy={size / 2}
@@ -466,7 +469,7 @@ const CircularProgress = ({
         />
       </Svg>
       <View style={{ position: "absolute", alignItems: "center", justifyContent: "center" }}>
-        <Text style={{ fontSize: 16, fontWeight: "900", color: "#ffffff" }}>
+        <Text style={{ fontSize: 16, fontWeight: "900", color: "#F6F6F7" }}>
           {Math.round(progressPct)}%
         </Text>
       </View>
@@ -539,7 +542,7 @@ const sliderStyles = StyleSheet.create({
     position: "absolute",
     width: "100%",
     textAlign: "center",
-    color: "#ef4444",
+    color: "#FF5247",
     fontWeight: "900",
     fontSize: 14,
     letterSpacing: 1.5,
@@ -558,18 +561,18 @@ const sliderStyles = StyleSheet.create({
     width: KNOB_WIDTH,
     height: KNOB_WIDTH,
     borderRadius: KNOB_WIDTH / 2,
-    backgroundColor: "#ef4444",
+    backgroundColor: "#FF5247",
     justifyContent: "center",
     alignItems: "center",
     marginLeft: 4,
     zIndex: 3,
-    shadowColor: "#ef4444",
+    shadowColor: "#FF5247",
     shadowOpacity: 0.5,
     shadowRadius: 10,
     elevation: 6,
   },
   knobText: {
-    color: "#fff",
+    color: "#F6F6F7",
     fontSize: 28,
     fontWeight: "900",
     marginTop: -2,
@@ -609,13 +612,14 @@ export default function HomeScreen() {
   const isGoalsEnabled = useFeatureEnabled("goals");
 
   const platformTextColor = React.useMemo(() => {
-    if (!activePlatformFilter || activePlatformFilter === "all") return "#ffffff";
+    if (!activePlatformFilter || activePlatformFilter === "all") return "#F6F6F7";
     const first = activePlatformFilter.split(",")[0];
     const cfg = PLATFORMS[first as keyof typeof PLATFORMS];
-    return cfg?.textColor ?? "#ffffff";
+    return cfg?.textColor ?? "#F6F6F7";
   }, [activePlatformFilter]);
 
   // Wizard state
+  const wizardSheetRef = useRef<AppBottomSheetRef>(null);
   const [showWizard, setShowWizard] = useState(false);
   const [wizardStep, setWizardStep] = useState<"vehicle" | "platform" | "target">("vehicle");
 
@@ -648,6 +652,14 @@ export default function HomeScreen() {
   // Overlay state
   const [showClockOverlay, setShowClockOverlay] = useState(false);
   const [endedShiftId, setEndedShiftId] = useState<string | null>(null);
+
+  // Bulletin Mode — a badge unlocked this shift, celebrated after the completion modal closes.
+  const [pendingBadgeId, setPendingBadgeId] = useState<string | null>(null);
+  const celebrationRef = useRef<CelebrationSheetRef>(null);
+
+  // Backup reminder — honors the user's "Backup overdue" alert toggle; dismissible for the session.
+  const { data: backupStatus } = useBackupStatus(isOnboardingCompleted);
+  const [backupBannerDismissed, setBackupBannerDismissed] = useState(false);
 
   // Odometer Prompt states
   const [showOdoPrompt, setShowOdoPrompt] = useState(false);
@@ -689,6 +701,17 @@ export default function HomeScreen() {
       transform: [{ translateY: sheetTranslateY.value }],
     };
   });
+
+  // Present the celebration once the "Shift Completed" modal has closed, so the
+  // two moments don't overlap. Small delay lets the modal finish dismissing.
+  useEffect(() => {
+    if (!endedShiftId && pendingBadgeId) {
+      const id = pendingBadgeId;
+      setPendingBadgeId(null);
+      const t = setTimeout(() => celebrationRef.current?.celebrate(id), 350);
+      return () => clearTimeout(t);
+    }
+  }, [endedShiftId, pendingBadgeId]);
 
   // Queries
   const { data: vehicles = [] } = useQuery({
@@ -770,7 +793,7 @@ export default function HomeScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={[S.root, { justifyContent: "center", alignItems: "center" }]}>
-        <ActivityIndicator size="large" color="#fff" />
+        <ActivityIndicator size="large" color="#F6F6F7" />
       </SafeAreaView>
     );
   }
@@ -841,6 +864,7 @@ export default function HomeScreen() {
 
     setWizardStep("platform");
     setShowWizard(true);
+    wizardSheetRef.current?.present();
   };
 
   const handleSimulateGPSMove = () => {
@@ -900,16 +924,22 @@ export default function HomeScreen() {
     reset(); // FORCE FRESH START
     await startShift(finalPlatformValue, vId, finalTargetTimeEpoch);
     setShowWizard(false);
+    wizardSheetRef.current?.dismiss();
     setShowClockOverlay(true);
   };
 
   const handleEndShift = async () => {
     const payload = await endShift();
     reset();
-    await useSettingsStore.getState().evaluateGamification();
+    const newBadges = await useSettingsStore.getState().evaluateGamification();
     queryClient.invalidateQueries({ queryKey: ["analytics"] });
     queryClient.invalidateQueries({ queryKey: ["shifts"] });
     setShowClockOverlay(false);
+
+    // Bulletin Mode — celebrate the first freshly-unlocked badge from this shift.
+    if (newBadges.length > 0) {
+      setPendingBadgeId(newBadges[0]);
+    }
 
     if (payload?.shiftId) {
       setEndedShiftId(payload.shiftId);
@@ -984,11 +1014,53 @@ export default function HomeScreen() {
               <Text style={{ color: "#f59e0b", fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Action Required
               </Text>
-              <Text style={{ color: "#e4e4e7", fontSize: 13, fontWeight: "600", lineHeight: 18 }}>
+              <Text style={{ color: "#F6F6F7", fontSize: 13, fontWeight: "600", lineHeight: 18 }}>
                 You have {unreconciledShifts.length} un-reconciled shift{unreconciledShifts.length > 1 ? "s" : ""} from {new Date(unreconciledShifts[0].startTime).toLocaleDateString([], { weekday: 'long' })}. Tap to enter earnings.
               </Text>
             </View>
             <Text style={{ color: "#f59e0b", fontSize: 16, fontWeight: "800" }}>›</Text>
+          </Pressable>
+        )}
+
+        {/* ── Backup Reminder Banner ───────────────────────────────────── */}
+        {/* Only nudge once there's data worth protecting (at least one shift). */}
+        {!isActive && backupStatus?.isOverdue && !backupBannerDismissed && recentShifts.length > 0 && (
+          <Pressable
+            onPress={() => router.push("/settings/backup")}
+            style={{
+              backgroundColor: "rgba(59, 130, 246, 0.08)",
+              borderWidth: 0.8,
+              borderColor: "rgba(59, 130, 246, 0.3)",
+              borderRadius: 16,
+              padding: 16,
+              marginHorizontal: 16,
+              marginBottom: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={{ color: "#3b82f6", fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Back up your data
+              </Text>
+              <Text style={{ color: "#F6F6F7", fontSize: 13, fontWeight: "600", lineHeight: 18 }}>
+                {backupStatus.daysSince === null
+                  ? "Your data lives only on this device. Tap to back it up to Google Drive."
+                  : `It's been ${backupStatus.daysSince} day${backupStatus.daysSince === 1 ? "" : "s"} since your last backup. Tap to back up to Google Drive.`}
+              </Text>
+            </View>
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation?.();
+                setBackupBannerDismissed(true);
+              }}
+              hitSlop={10}
+              style={{ paddingHorizontal: 4 }}
+            >
+              <Text style={{ color: "#65656E", fontSize: 18, fontWeight: "700" }}>✕</Text>
+            </Pressable>
           </Pressable>
         )}
 
@@ -999,19 +1071,20 @@ export default function HomeScreen() {
         ) : (
           <>
             {/* ── Today's Hero Card ──────────────────────────────────────────── */}
-            <View style={{ backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", paddingVertical: 24, paddingHorizontal: 20, gap: 12 }}>
-              <Text style={{ fontSize: 12, fontWeight: "800", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.8 }}>
+            <View style={{ backgroundColor: "#0F0F12", borderRadius: 20, borderWidth: 0.8, borderColor: "#1E1E23", paddingVertical: 24, paddingHorizontal: 20, gap: 12 }}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: "#65656E", textTransform: "uppercase", letterSpacing: 1 }}>
                 TODAY · NET
               </Text>
               <Text
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.6}
-                style={{ fontSize: 40, fontWeight: "800", color: "#ffffff", letterSpacing: -1, lineHeight: 48 }}
+                tabular
+                style={{ fontSize: 44, fontWeight: "800", color: "#F6F6F7", letterSpacing: -1, lineHeight: 48 }}
               >
                 {fmt(netEarnings)}
               </Text>
-              <Text style={{ fontSize: 13, color: "#71717a", fontWeight: "600" }}>
+              <Text tabular style={{ fontSize: 13, color: "#9B9BA4", fontWeight: "600" }}>
                 {`${fmt(weeklyNet)} this week · ${weeklyShiftsCount} ${weeklyShiftsCount === 1 ? vocab('session') : vocab('session_plural')}`}
               </Text>
             </View>
@@ -1019,29 +1092,29 @@ export default function HomeScreen() {
             {/* ── 3-Column Stats Row ───────────────────────────────────────── */}
             <View style={{ flexDirection: "row", gap: 10, marginVertical: 4 }}>
               {/* Card 1: Time */}
-              <View style={{ flex: 1, backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
-                <Text style={{ fontSize: 20, fontWeight: "800", color: "#ffffff", textAlign: "center" }}>
+              <View style={{ flex: 1, backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 16, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
+                <Text tabular style={{ fontSize: 20, fontWeight: "800", color: "#F6F6F7", textAlign: "center" }}>
                   {(currentStats.duration / 3600).toFixed(1)}h
                 </Text>
-                <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "600", textAlign: "center" }}>
+                <Text style={{ fontSize: 11, color: "#65656E", fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" }}>
                   {vocab('session').charAt(0).toUpperCase() + vocab('session').slice(1) + " time"}
                 </Text>
               </View>
 
               {/* Card 2: Distance */}
-              <View style={{ flex: 1, backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
-                <Text style={{ fontSize: 20, fontWeight: "800", color: "#ffffff", textAlign: "center" }}>
+              <View style={{ flex: 1, backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 16, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
+                <Text tabular style={{ fontSize: 20, fontWeight: "800", color: "#F6F6F7", textAlign: "center" }}>
                   {currentStats.miles.toFixed(1)}{profile?.distanceUnit ?? "km"}
                 </Text>
-                <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "600", textAlign: "center" }}>Driven</Text>
+                <Text style={{ fontSize: 11, color: "#65656E", fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" }}>Driven</Text>
               </View>
 
               {/* Card 3: Hourly rate */}
-              <View style={{ flex: 1, backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
-                <Text style={{ fontSize: 20, fontWeight: "800", color: "#ffffff", textAlign: "center" }}>
+              <View style={{ flex: 1, backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 16, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
+                <Text tabular style={{ fontSize: 20, fontWeight: "800", color: "#F6F6F7", textAlign: "center" }}>
                   {fmt(currentStats.rate)}
                 </Text>
-                <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "600", textAlign: "center" }}>Per hour</Text>
+                <Text style={{ fontSize: 11, color: "#65656E", fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" }}>Per hour</Text>
               </View>
             </View>
 
@@ -1054,17 +1127,17 @@ export default function HomeScreen() {
                 <Pressable
                   key={g.id}
                   onPress={() => router.push("/goals")}
-                  style={{ backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", padding: 16, gap: 12 }}
+                  style={{ backgroundColor: "#0F0F12", borderRadius: 20, borderWidth: 0.8, borderColor: "#1E1E23", padding: 16, gap: 12 }}
                 >
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                     <View style={{ flex: 1, gap: 4 }}>
                       <Text style={{ fontSize: 10, fontWeight: "900", color: accentColor, textTransform: "uppercase", letterSpacing: 1.5 }}>
                         Weekly Thermometer
                       </Text>
-                      <Text style={{ fontSize: 20, fontWeight: "900", color: "#ffffff", letterSpacing: -0.5 }}>
+                      <Text style={{ fontSize: 20, fontWeight: "900", color: "#F6F6F7", letterSpacing: -0.5 }}>
                         {g.label}
                       </Text>
-                      <Text style={{ fontSize: 13, color: "#888", fontWeight: "600", marginTop: 2 }}>
+                      <Text style={{ fontSize: 13, color: "#9B9BA4", fontWeight: "600", marginTop: 2 }}>
                         {g.unit === "currency" ? fmt(current) : `${current.toFixed(1)} hrs`} of {g.unit === "currency" ? fmt(target) : `${target} hrs`}
                       </Text>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 }}>
@@ -1073,7 +1146,7 @@ export default function HomeScreen() {
                           <Text style={{ fontSize: 11, fontWeight: "800", color: "#f97316" }}>{streakDays} DAY STREAK</Text>
                         </View>
                         <View style={{ backgroundColor: percent >= 100 ? accentColor + "26" : "rgba(255, 255, 255, 0.08)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 0.5, borderColor: percent >= 100 ? accentColor + "40" : "rgba(255, 255, 255, 0.12)" }}>
-                          <Text style={{ fontSize: 11, fontWeight: "800", color: percent >= 100 ? accentColor : "#a1a1aa" }}>{percent}% DONE</Text>
+                          <Text style={{ fontSize: 11, fontWeight: "800", color: percent >= 100 ? accentColor : "#9B9BA4" }}>{percent}% DONE</Text>
                         </View>
                       </View>
                     </View>
@@ -1086,7 +1159,7 @@ export default function HomeScreen() {
             {/* ── Recent Sessions ────────────────────────────────────────── */}
             <View style={{ gap: 10, marginTop: 4 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 4 }}>
-                <Text style={{ fontSize: 13, fontWeight: "700", color: "#888", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                <Text style={{ fontSize: 13, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 0.5 }}>
                   Recent {vocab('session_plural')}
                 </Text>
                 {recentShifts && recentShifts.length > 0 && (
@@ -1108,10 +1181,10 @@ export default function HomeScreen() {
                       key={shift.id}
                       onPress={() => router.push({ pathname: "/shifts/[id]", params: { id: shift.id, from: "dashboard" } })}
                       style={{
-                        backgroundColor: "#0c0c0c",
+                        backgroundColor: "#0F0F12",
                         borderRadius: 12,
                         borderWidth: 0.5,
-                        borderColor: "#1e1e1e",
+                        borderColor: "#1E1E23",
                         padding: 14,
                         flexDirection: "row",
                         justifyContent: "space-between",
@@ -1121,10 +1194,10 @@ export default function HomeScreen() {
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1, marginRight: 8 }}>
                         <PlatformBadge platform={shift.platform} size="md" />
                         <View style={{ gap: 2, flex: 1 }}>
-                          <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }} numberOfLines={1}>
+                          <Text style={{ fontSize: 14, fontWeight: "700", color: "#F6F6F7" }} numberOfLines={1}>
                             {PLATFORMS[shift.platform as GigPlatform] ? PLATFORMS[shift.platform as GigPlatform]?.label : (shift.platform || "Trip")}
                           </Text>
-                          <Text style={{ fontSize: 12, color: "#888", fontWeight: "500" }} numberOfLines={1}>
+                          <Text style={{ fontSize: 12, color: "#9B9BA4", fontWeight: "500" }} numberOfLines={1}>
                             {durationHours}h • {totalMiles} {profile?.distanceUnit ?? "mi"}
                           </Text>
                         </View>
@@ -1134,7 +1207,7 @@ export default function HomeScreen() {
                           <Text style={{ fontSize: 15, fontWeight: "800", color: accentColor }}>
                             {new Intl.NumberFormat("en-US", { style: "currency", currency: profile?.locale?.currency || "USD" }).format(totalRevenue)}
                           </Text>
-                          <Text style={{ fontSize: 11, color: "#52525b", fontWeight: "600" }}>
+                          <Text style={{ fontSize: 11, color: "#65656E", fontWeight: "600" }}>
                             {new Intl.NumberFormat("en-US", { style: "currency", currency: profile?.locale?.currency || "USD" }).format(totalRevenue / (shift.durationSeconds / 3600 || 1))}/hr
                           </Text>
                         </View>
@@ -1150,10 +1223,10 @@ export default function HomeScreen() {
                 })
               ) : (
                 <View style={{
-                  backgroundColor: "#0d0d0d",
+                  backgroundColor: "#0F0F12",
                   borderRadius: 16,
                   borderWidth: 0.8,
-                  borderColor: "#1f1f1f",
+                  borderColor: "#1E1E23",
                   padding: 20,
                   alignItems: "center",
                   justifyContent: "center",
@@ -1161,10 +1234,10 @@ export default function HomeScreen() {
                   paddingVertical: 32,
                 }}>
                   <Text style={{ fontSize: 24 }}>📭</Text>
-                  <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff", textAlign: "center" }}>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: "#F6F6F7", textAlign: "center" }}>
                     {vocab('no_sessions_yet')}
                   </Text>
-                  <Text style={{ fontSize: 12, color: "#71717a", textAlign: "center", maxWidth: 220, lineHeight: 18 }}>
+                  <Text style={{ fontSize: 12, color: "#9B9BA4", textAlign: "center", maxWidth: 220, lineHeight: 18 }}>
                     {`Start a new ${vocab('session')} below or log a past drive to see your summary statistics.`}
                   </Text>
                 </View>
@@ -1177,8 +1250,8 @@ export default function HomeScreen() {
             {currentStats.miles > 0 && (
               <View style={S.tipCard}>
                 <Text style={{ fontSize: 13 }}>🚗</Text>
-                <Text style={{ fontSize: 12, color: "#888", flex: 1, lineHeight: 18 }}>
-                  At 67¢/{profile?.distanceUnit ?? "mi"} you've earned a <Text style={{ color: "#f59e0b", fontWeight: "bold" }}>{fmt(writeOff)}</Text> write-off on <Text style={{ fontWeight: "bold", color: "#fff" }}>{currentStats.miles.toFixed(1)}</Text> {profile?.distanceUnit ?? "mi"} today.
+                <Text style={{ fontSize: 12, color: "#9B9BA4", flex: 1, lineHeight: 18 }}>
+                  At 67¢/{profile?.distanceUnit ?? "mi"} you've earned a <Text style={{ color: "#f59e0b", fontWeight: "bold" }}>{fmt(writeOff)}</Text> write-off on <Text style={{ fontWeight: "bold", color: "#F6F6F7" }}>{currentStats.miles.toFixed(1)}</Text> {profile?.distanceUnit ?? "mi"} today.
                 </Text>
               </View>
             )}
@@ -1197,16 +1270,16 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* ── Fixed Bottom Action Bar ────────────────────────────────────────── */}
-      <View style={{ borderTopWidth: 1, borderTopColor: "#1f1f1f", backgroundColor: "#000", paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 }}>
-        <View style={{ flexDirection: "row", backgroundColor: "#0c0c0c", borderRadius: 16, borderWidth: 1, borderColor: "#1f1f1f", padding: 4, gap: 4 }}>
+      <View style={{ borderTopWidth: 1, borderTopColor: "#1E1E23", backgroundColor: "#000", paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 }}>
+        <View style={{ flexDirection: "row", backgroundColor: "#0F0F12", borderRadius: 16, borderWidth: 1, borderColor: "#1E1E23", padding: 4, gap: 4 }}>
           
           {/* Left: Log Expense */}
           <ScalePressable
             onPress={() => router.push("/expense/add")}
             style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: "transparent" }}
           >
-            <ReceiptText color="#a1a1aa" size={13} strokeWidth={2} />
-            <Text style={{ fontSize: 11, fontWeight: "600", color: "#a1a1aa", letterSpacing: 0.1 }}>Expense</Text>
+            <ReceiptText color="#9B9BA4" size={13} strokeWidth={2} />
+            <Text style={{ fontSize: 11, fontWeight: "600", color: "#9B9BA4", letterSpacing: 0.1 }}>Expense</Text>
           </ScalePressable>
 
           {/* Center: Start Shift or Active Shift */}
@@ -1231,10 +1304,10 @@ export default function HomeScreen() {
           ) : (
             <ScalePressable
               onPress={() => setShowClockOverlay(true)}
-              style={{ flex: 1.2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: "#1f1f1e", borderWidth: 1, borderColor: "#1f1f1f" }}
+              style={{ flex: 1.2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: "#1C1C21", borderWidth: 1, borderColor: "#1E1E23" }}
             >
               <View style={[S.pulseDot, { backgroundColor: accentColor }]} />
-              <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 0.1 }}>{formatTime(elapsedSeconds)}</Text>
+              <Text style={{ fontSize: 11, fontWeight: "800", color: "#F6F6F7", letterSpacing: 0.1 }}>{formatTime(elapsedSeconds)}</Text>
             </ScalePressable>
           )}
 
@@ -1243,8 +1316,8 @@ export default function HomeScreen() {
             onPress={() => router.push("/shift/add")}
             style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: "transparent" }}
           >
-            <Calendar color="#a1a1aa" size={13} strokeWidth={2} />
-            <Text style={{ fontSize: 11, fontWeight: "600", color: "#a1a1aa", letterSpacing: 0.1 }}>
+            <Calendar color="#9B9BA4" size={13} strokeWidth={2} />
+            <Text style={{ fontSize: 11, fontWeight: "600", color: "#9B9BA4", letterSpacing: 0.1 }}>
               Log {vocab('session').charAt(0).toUpperCase() + vocab('session').slice(1)}
             </Text>
           </ScalePressable>
@@ -1257,9 +1330,9 @@ export default function HomeScreen() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <SafeAreaView style={S.clockOverlay}>
             <View style={S.clockHeader}>
-              <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>{vocab('session').charAt(0).toUpperCase() + vocab('session').slice(1)} Console</Text>
+              <Text style={{ fontSize: 16, fontWeight: "700", color: "#F6F6F7" }}>{vocab('session').charAt(0).toUpperCase() + vocab('session').slice(1)} Console</Text>
               <ScalePressable onPress={() => setShowClockOverlay(false)} style={S.clockCloseBtn}>
-                <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>Minimize</Text>
+                <Text style={{ color: "#F6F6F7", fontSize: 13, fontWeight: "600" }}>Minimize</Text>
               </ScalePressable>
             </View>
 
@@ -1267,7 +1340,7 @@ export default function HomeScreen() {
               <View style={{ alignItems: "center", gap: 14, paddingVertical: 8 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   {activePlatform && PLATFORMS[activePlatform as GigPlatform] && <PlatformLogo id={activePlatform as string} size={16} />}
-                  <Text style={{ fontSize: 12, color: "#a1a1aa", fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8 }}>
+                  <Text style={{ fontSize: 12, color: "#9B9BA4", fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8 }}>
                     {PLATFORMS[activePlatform as GigPlatform]?.label ?? activePlatform ?? `Active ${vocab('session')}`}
                   </Text>
                 </View>
@@ -1279,16 +1352,16 @@ export default function HomeScreen() {
                 </Text>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: isPaused ? "#f59e0b" : accentColor }} />
-                  <Text style={[S.clockLabel, { color: isPaused ? "#f59e0b" : "#a1a1aa" }]}>{isPaused ? "Paused" : "Tracking"}</Text>
-                  <Text style={{ fontSize: 12, color: "#52525b", fontWeight: "500" }}>
+                  <Text style={[S.clockLabel, { color: isPaused ? "#f59e0b" : "#9B9BA4" }]}>{isPaused ? "Paused" : "Tracking"}</Text>
+                  <Text style={{ fontSize: 12, color: "#65656E", fontWeight: "500" }}>
                     · since {startTime ? new Date(startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: profile?.locale?.timeFormat !== "24h" }) : "—"}
                   </Text>
                 </View>
               </View>
 
-              <View style={{ width: "92%", backgroundColor: "#0c0c0c", borderRadius: 16, borderWidth: 1, borderColor: "#1c1c1e", padding: 16, gap: 14 }}>
+              <View style={{ width: "92%", backgroundColor: "#0F0F12", borderRadius: 16, borderWidth: 1, borderColor: "#16161A", padding: 16, gap: 14 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <Text style={{ fontSize: 11, fontWeight: "800", color: "#6b7280", textTransform: "uppercase" }}>Current Mileage</Text>
+                  <Text style={{ fontSize: 11, fontWeight: "800", color: "#65656E", textTransform: "uppercase" }}>Current Mileage</Text>
                   <View style={{
                     backgroundColor: isFirstOrderReceived ? accentColor + "1a" : "rgba(245,158,11,.1)",
                     borderRadius: 4,
@@ -1305,34 +1378,34 @@ export default function HomeScreen() {
 
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
                   <View>
-                    <Text style={{ fontSize: 28, fontWeight: "bold", color: "#fff", paddingVertical: 2 }}>
+                    <Text style={{ fontSize: 28, fontWeight: "bold", color: "#F6F6F7", paddingVertical: 2 }}>
                       {totalMiles.toFixed(2)}
-                      <Text style={{ fontSize: 14, fontWeight: "500", color: "#a1a1aa" }}> {profile?.distanceUnit ?? "mi"}</Text>
+                      <Text style={{ fontSize: 14, fontWeight: "500", color: "#9B9BA4" }}> {profile?.distanceUnit ?? "mi"}</Text>
                     </Text>
-                    <Text style={{ fontSize: 11, color: "#888", fontWeight: "600", marginTop: 2 }}>
-                      {vocab('active_miles').charAt(0).toUpperCase() + vocab('active_miles').slice(1)}: <Text style={{ color: "#fff", fontWeight: "bold" }}>{activeMileage.toFixed(1)}</Text> | {vocab('dead_miles').charAt(0).toUpperCase() + vocab('dead_miles').slice(1)}: <Text style={{ color: "#fff", fontWeight: "bold" }}>{deadMileage.toFixed(1)}</Text>
+                    <Text style={{ fontSize: 11, color: "#9B9BA4", fontWeight: "600", marginTop: 2 }}>
+                      {vocab('active_miles').charAt(0).toUpperCase() + vocab('active_miles').slice(1)}: <Text style={{ color: "#F6F6F7", fontWeight: "bold" }}>{activeMileage.toFixed(1)}</Text> | {vocab('dead_miles').charAt(0).toUpperCase() + vocab('dead_miles').slice(1)}: <Text style={{ color: "#F6F6F7", fontWeight: "bold" }}>{deadMileage.toFixed(1)}</Text>
                     </Text>
                   </View>
                   <View style={{ alignItems: "flex-end" }}>
-                    <Text style={{ fontSize: 18, fontWeight: "bold", color: "#fff", paddingVertical: 1 }}>{fmt(writeOff)}</Text>
-                    <Text style={{ fontSize: 10, color: "#a1a1aa", fontWeight: "500" }}>write-off value</Text>
+                    <Text style={{ fontSize: 18, fontWeight: "bold", color: "#F6F6F7", paddingVertical: 1 }}>{fmt(writeOff)}</Text>
+                    <Text style={{ fontSize: 10, color: "#9B9BA4", fontWeight: "500" }}>write-off value</Text>
                   </View>
                 </View>
 
                 <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
                   <ScalePressable onPress={() => isPaused ? resumeShift() : pauseShift()} style={[S.clockSecBtn, { flex: 1 }]}>
                     {isPaused
-                      ? <><PlayIcon size={10} color="#fff" /><Text style={S.clockSecBtnText}>Resume</Text></>
+                      ? <><PlayIcon size={10} color="#F6F6F7" /><Text style={S.clockSecBtnText}>Resume</Text></>
                       : <><View style={{ width: 8, height: 8, backgroundColor: "#f59e0b", borderRadius: 1 }} /><Text style={[S.clockSecBtnText, { color: "#f59e0b" }]}>Pause</Text></>
                     }
                   </ScalePressable>
                   
                   {isFirstOrderReceived ? (
                       <View
-                        style={[S.clockSecBtn, { flex: 1, borderColor: "#3f3f46", backgroundColor: "rgba(63, 63, 70, 0.2)", opacity: 0.8 }]}
+                        style={[S.clockSecBtn, { flex: 1, borderColor: "#2E2E36", backgroundColor: "rgba(63, 63, 70, 0.2)", opacity: 0.8 }]}
                       >
                         <Text style={{ color: accentColor, fontSize: 11, fontWeight: "900" }}>✓</Text>
-                        <Text style={[S.clockSecBtnText, { color: "#a1a1aa" }]}>Active Mode On</Text>
+                        <Text style={[S.clockSecBtnText, { color: "#9B9BA4" }]}>Active Mode On</Text>
                       </View>
                     ) : (
                       <ScalePressable
@@ -1351,7 +1424,7 @@ export default function HomeScreen() {
             <View style={{ padding: 14, gap: 10 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 8 }}>
                 <View style={[S.pulseDot, { backgroundColor: accentColor, width: 6, height: 6, borderRadius: 3 }]} />
-                <Text style={{ color: "#a1a1aa", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>GPS is collecting data</Text>
+                <Text style={{ color: "#9B9BA4", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>GPS is collecting data</Text>
               </View>
               <SwipeToEnd key={sessionId || "idle"} onEnd={handleEndShift} />
             </View>
@@ -1367,8 +1440,8 @@ export default function HomeScreen() {
               <SquareIcon size={24} color={accentColor} />
             </View>
             <View style={{ alignItems: "center", gap: 8 }}>
-              <Text style={{ fontSize: 22, fontWeight: "900", color: "#fff", letterSpacing: 0.5 }}>Shift Completed</Text>
-              <Text style={{ fontSize: 13, color: "#a1a1aa", textAlign: "center", paddingHorizontal: 20, lineHeight: 20 }}>
+              <Text style={{ fontSize: 22, fontWeight: "900", color: "#F6F6F7", letterSpacing: 0.5 }}>Shift Completed</Text>
+              <Text style={{ fontSize: 13, color: "#9B9BA4", textAlign: "center", paddingHorizontal: 20, lineHeight: 20 }}>
                 Your GPS tracking data, mileage, and duration have been securely saved to the local database.
               </Text>
             </View>
@@ -1390,7 +1463,7 @@ export default function HomeScreen() {
                 onPress={() => setEndedShiftId(null)}
                 style={[S.secBtn, { width: "100%", marginHorizontal: 0, height: 54, backgroundColor: "transparent", borderWidth: 0 }]}
               >
-                <Text style={[S.secBtnText, { color: "#71717a", fontWeight: "700", fontSize: 15 }]}>Save As Is</Text>
+                <Text style={[S.secBtnText, { color: "#9B9BA4", fontWeight: "700", fontSize: 15 }]}>Save As Is</Text>
               </Pressable>
             </View>
           </View>
@@ -1402,20 +1475,20 @@ export default function HomeScreen() {
         <View style={S.wizardOverlay}>
           <View style={[S.wizardContent, { paddingVertical: 28, gap: 16 }]}>
             <View style={{ alignItems: "center", gap: 6 }}>
-              <Text style={{ fontSize: 18, fontWeight: "900", color: "#fff", letterSpacing: 0.5 }}>Quick Audit Required</Text>
-              <Text style={{ fontSize: 13, color: "#a1a1aa", textAlign: "center", lineHeight: 18 }}>
+              <Text style={{ fontSize: 18, fontWeight: "900", color: "#F6F6F7", letterSpacing: 0.5 }}>Quick Audit Required</Text>
+              <Text style={{ fontSize: 13, color: "#9B9BA4", textAlign: "center", lineHeight: 18 }}>
                 To maintain tax audit compliance, please enter your vehicle's current dashboard odometer reading.
               </Text>
             </View>
 
             {odoError ? (
               <View style={{ backgroundColor: "rgba(239, 68, 68, 0.08)", borderWidth: 0.5, borderColor: "rgba(239, 68, 68, 0.2)", padding: 10, borderRadius: 10 }}>
-                <Text style={{ color: "#ef4444", fontSize: 12, textAlign: "center", fontWeight: "600" }}>{odoError}</Text>
+                <Text style={{ color: "#FF5247", fontSize: 12, textAlign: "center", fontWeight: "600" }}>{odoError}</Text>
               </View>
             ) : null}
 
             <View style={{ gap: 8 }}>
-              <Text style={{ fontSize: 10, fontWeight: "800", color: "#a1a1aa", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <Text style={{ fontSize: 10, fontWeight: "800", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Current Odometer
               </Text>
               <TextInput
@@ -1426,15 +1499,15 @@ export default function HomeScreen() {
                 }}
                 keyboardType="numeric"
                 placeholder="e.g. 45210"
-                placeholderTextColor="#4b5563"
+                placeholderTextColor="#65656E"
                 style={{
-                  backgroundColor: "#0d0d0d",
+                  backgroundColor: "#0F0F12",
                   borderWidth: 0.8,
-                  borderColor: "#1f1f1f",
+                  borderColor: "#1E1E23",
                   borderRadius: 12,
                   paddingVertical: 12,
                   paddingHorizontal: 16,
-                  color: "#ffffff",
+                  color: "#F6F6F7",
                   fontSize: 15,
                   fontWeight: "700",
                   textAlign: "center"
@@ -1477,7 +1550,7 @@ export default function HomeScreen() {
                 }}
                 style={[S.secBtn, { width: "100%", marginHorizontal: 0, height: 44, backgroundColor: "transparent", borderWidth: 0 }]}
               >
-                <Text style={[S.secBtnText, { color: "#71717a", fontWeight: "700", fontSize: 14 }]}>Remind Me Later</Text>
+                <Text style={[S.secBtnText, { color: "#9B9BA4", fontWeight: "700", fontSize: 14 }]}>Remind Me Later</Text>
               </Pressable>
             </View>
           </View>
@@ -1485,13 +1558,13 @@ export default function HomeScreen() {
       </Modal>
 
       {/* ── Start Shift Wizard Modal ──────────────────────────────────── */}
-      <Modal visible={showWizard} transparent animationType="fade">
-        <View style={S.wizardOverlay}>
-          <View style={S.wizardContent}>
-            
+      <AppBottomSheet ref={wizardSheetRef} onDismiss={() => setShowWizard(false)}>
+        {showWizard && (
+          <View style={{ gap: 16 }}>
+
             <View style={S.wizardHeader}>
               <Text style={S.wizardTitle}>Start {vocab('session').charAt(0).toUpperCase() + vocab('session').slice(1)} Wizard</Text>
-              <Pressable onPress={() => setShowWizard(false)} style={S.wizardCloseBtn}>
+              <Pressable onPress={() => wizardSheetRef.current?.dismiss()} style={S.wizardCloseBtn}>
                 <Text style={S.wizardCloseText}>✕</Text>
               </Pressable>
             </View>
@@ -1516,7 +1589,7 @@ export default function HomeScreen() {
                         <Text style={S.wizardRowTitle}>{v.nickname || "Unnamed vehicle"}</Text>
                         <Text style={S.wizardRowSub}>{v.make} {v.model}</Text>
                       </View>
-                      <Text style={{ color: "#52525b" }}>›</Text>
+                      <Text style={{ color: "#65656E" }}>›</Text>
                     </Pressable>
                   );
                 })}
@@ -1533,20 +1606,20 @@ export default function HomeScreen() {
                       setSelectedPlatformIds(allPlats as GigPlatform[]);
                     }}
                     style={{
-                      backgroundColor: selectedPlatformIds.length === (profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).length ? accentColor : "#1c1c1e",
+                      backgroundColor: selectedPlatformIds.length === (profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).length ? accentColor : "#16161A",
                       paddingHorizontal: 12,
                       paddingVertical: 6,
                       borderRadius: 8,
                       borderWidth: 0.5,
-                      borderColor: "#333"
+                      borderColor: "#2E2E36"
                     }}
                   >
-                    <Text style={{ color: selectedPlatformIds.length === (profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).length ? accentColorContrast : "#a1a1aa", fontSize: 11, fontWeight: "800" }}>All</Text>
+                    <Text style={{ color: selectedPlatformIds.length === (profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).length ? accentColorContrast : "#9B9BA4", fontSize: 11, fontWeight: "800" }}>All</Text>
                   </Pressable>
                 </View>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                   {(profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).map((pId: string) => {
-                    const pColor = PLATFORMS[pId as GigPlatform]?.color ?? "#6b7280";
+                    const pColor = PLATFORMS[pId as GigPlatform]?.color ?? "#65656E";
                     const sel = selectedPlatformIds.includes(pId as GigPlatform);
                     return (
                       <Pressable
@@ -1568,7 +1641,7 @@ export default function HomeScreen() {
                         ]}
                       >
                         <PlatformLogo id={pId} size={16} />
-                        <Text style={{ color: sel ? "#fff" : "#888", fontSize: 13, fontWeight: "700" }}>
+                        <Text style={{ color: sel ? "#F6F6F7" : "#9B9BA4", fontSize: 13, fontWeight: "700" }}>
                           {PLATFORMS[pId as GigPlatform]?.label ?? pId}
                         </Text>
                       </Pressable>
@@ -1582,21 +1655,21 @@ export default function HomeScreen() {
               <View style={{ gap: 14 }}>
                 <Text style={S.wizardLabel}>Do you want to set a duration target for this {vocab('session')}?</Text>
                 
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#0e0e0e", padding: 12, borderRadius: 8, borderWidth: 0.5, borderColor: "#222" }}>
-                  <Text style={{ fontSize: 13, fontWeight: "600", color: "#fff" }}>Enable {vocab('session').charAt(0).toUpperCase() + vocab('session').slice(1)} Goal</Text>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#0F0F12", padding: 12, borderRadius: 8, borderWidth: 0.5, borderColor: "#1E1E23" }}>
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: "#F6F6F7" }}>Enable {vocab('session').charAt(0).toUpperCase() + vocab('session').slice(1)} Goal</Text>
                   <Pressable 
                     onPress={() => setTargetMode(!targetMode)}
                     style={{
                       width: 44,
                       height: 24,
                       borderRadius: 12,
-                      backgroundColor: targetMode ? accentColor : "#222",
+                      backgroundColor: targetMode ? accentColor : "#1E1E23",
                       justifyContent: "center",
                       paddingHorizontal: 2,
                       alignItems: targetMode ? "flex-end" : "flex-start"
                     }}
                   >
-                    <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: "#fff" }} />
+                    <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: "#F6F6F7" }} />
                   </Pressable>
                 </View>
 
@@ -1609,9 +1682,9 @@ export default function HomeScreen() {
                         <Pressable 
                           key={h}
                           onPress={() => { setCustomHours(h); setCustomMinutes(0); }}
-                          style={{ flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: customHours === h && customMinutes === 0 ? accentColor : "#333", backgroundColor: customHours === h && customMinutes === 0 ? "rgba(16,185,129,0.1)" : "#111", alignItems: "center" }}
+                          style={{ flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: customHours === h && customMinutes === 0 ? accentColor : "#2E2E36", backgroundColor: customHours === h && customMinutes === 0 ? "rgba(16,185,129,0.1)" : "#0F0F12", alignItems: "center" }}
                         >
-                          <Text style={{ color: customHours === h && customMinutes === 0 ? accentColor : "#888", fontWeight: "700" }}>{h} hrs</Text>
+                          <Text style={{ color: customHours === h && customMinutes === 0 ? accentColor : "#9B9BA4", fontWeight: "700" }}>{h} hrs</Text>
                         </Pressable>
                       ))}
                     </View>
@@ -1624,7 +1697,7 @@ export default function HomeScreen() {
                         style={S.wizardInput}
                         maxLength={2}
                       />
-                      <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>hr</Text>
+                      <Text style={{ color: "#F6F6F7", fontSize: 13, fontWeight: "600" }}>hr</Text>
                       
                       <TextInput
                         keyboardType="number-pad"
@@ -1633,7 +1706,7 @@ export default function HomeScreen() {
                         style={S.wizardInput}
                         maxLength={2}
                       />
-                      <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>min</Text>
+                      <Text style={{ color: "#F6F6F7", fontSize: 13, fontWeight: "600" }}>min</Text>
                     </View>
                   </View>
                 )}
@@ -1643,7 +1716,7 @@ export default function HomeScreen() {
             <View style={S.wizardFooter}>
               {!isFirstWizardStep && (
                 <Pressable onPress={prevStep} style={S.wizardBackBtn}>
-                  <Text style={{ color: "#888", fontSize: 12, fontWeight: "600" }}>Back</Text>
+                  <Text style={{ color: "#9B9BA4", fontSize: 12, fontWeight: "600" }}>Back</Text>
                 </Pressable>
               )}
               <View style={{ flex: 1 }} />
@@ -1658,8 +1731,11 @@ export default function HomeScreen() {
             </View>
 
           </View>
-        </View>
-      </Modal>
+        )}
+      </AppBottomSheet>
+
+      {/* ── Bulletin Mode · Milestone Celebration ─────────────────────── */}
+      <CelebrationSheet ref={celebrationRef} />
 
     </SafeAreaView>
   );
@@ -1670,48 +1746,48 @@ const S = StyleSheet.create({
   scroll: { padding: 14, paddingTop: 76, gap: 10, paddingBottom: 110 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
-  headerTitle: { fontSize: 18, fontWeight: "bold", color: "#fff", letterSpacing: -0.2 },
-  headerSub: { fontSize: 13, color: "#71717a" },
+  headerTitle: { fontSize: 18, fontWeight: "bold", color: "#F6F6F7", letterSpacing: -0.2 },
+  headerSub: { fontSize: 13, color: "#9B9BA4" },
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#1e3a8a", alignItems: "center", justifyContent: "center" },
-  avatarText: { color: "#fff", fontSize: 14, fontWeight: "800" },
-  bellBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#1c1c1e", borderWidth: 0.5, borderColor: "#333", alignItems: "center", justifyContent: "center" },
+  avatarText: { color: "#F6F6F7", fontSize: 14, fontWeight: "800" },
+  bellBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#16161A", borderWidth: 0.5, borderColor: "#2E2E36", alignItems: "center", justifyContent: "center" },
 
-  hero: { backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f" },
-  heroLabel: { fontSize: 12, fontWeight: "800", color: "#a1a1aa", textTransform: "uppercase", letterSpacing: 0.5 },
+  hero: { backgroundColor: "#0F0F12", borderRadius: 20, borderWidth: 0.8, borderColor: "#1E1E23" },
+  heroLabel: { fontSize: 12, fontWeight: "800", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 0.5 },
   heroValueRow: { flexDirection: "row", alignItems: "flex-start", flexWrap: "nowrap" },
-  heroCurrency: { fontSize: 24, fontWeight: "600", color: "#fff", lineHeight: 30, marginTop: 10, marginRight: 4 },
-  heroValue: { flexShrink: 1, fontSize: 40, fontWeight: "800", color: "#fff", letterSpacing: -0.5, lineHeight: 48, includeFontPadding: false },
+  heroCurrency: { fontSize: 24, fontWeight: "600", color: "#F6F6F7", lineHeight: 30, marginTop: 10, marginRight: 4 },
+  heroValue: { flexShrink: 1, fontSize: 40, fontWeight: "800", color: "#F6F6F7", letterSpacing: -0.5, lineHeight: 48, includeFontPadding: false },
   trendBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 14, backgroundColor: "rgba(255, 255, 255, 0.08)" },
-  trendText: { fontSize: 12, fontWeight: "700", color: "#a1a1aa" },
+  trendText: { fontSize: 12, fontWeight: "700", color: "#9B9BA4" },
   heroColumns: { flexDirection: "row", flexWrap: "wrap", gap: 14, marginTop: 10, paddingBottom: 10 },
   heroCol: { gap: 4 },
-  heroColLabel: { fontSize: 12, color: "#71717a", fontWeight: "500" },
-  heroColValue: { fontSize: 14, color: "#fff", fontWeight: "700" },
+  heroColLabel: { fontSize: 12, color: "#9B9BA4", fontWeight: "500" },
+  heroColValue: { fontSize: 14, color: "#F6F6F7", fontWeight: "700" },
 
-  presetRow: { flexDirection: "row", backgroundColor: "#0c0c0c", borderRadius: 12, borderWidth: 0.5, borderColor: "#222", padding: 4, marginVertical: 14, alignItems: "center" },
+  presetRow: { flexDirection: "row", backgroundColor: "#0F0F12", borderRadius: 12, borderWidth: 0.5, borderColor: "#1E1E23", padding: 4, marginVertical: 14, alignItems: "center" },
   presetBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-  presetBtnAct: { backgroundColor: "#27272a" },
-  presetText: { fontSize: 13, fontWeight: "600", color: "#71717a" },
-  presetTextAct: { color: "#fff", fontWeight: "700" },
+  presetBtnAct: { backgroundColor: "#26262C" },
+  presetText: { fontSize: 13, fontWeight: "600", color: "#9B9BA4" },
+  presetTextAct: { color: "#F6F6F7", fontWeight: "700" },
 
   statGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 10 },
-  statCard: { width: "48.5%", backgroundColor: "#0c0c0c", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", padding: 16, gap: 6 },
+  statCard: { width: "48.5%", backgroundColor: "#0F0F12", borderRadius: 20, borderWidth: 0.8, borderColor: "#1E1E23", padding: 16, gap: 6 },
   gridIconBg: { width: 28, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center", marginBottom: 4 },
-  statLabel: { fontSize: 11, fontWeight: "700", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.8, marginTop: 4 },
-  statValue: { fontSize: 20, fontWeight: "800", color: "#fff", marginTop: 2, paddingVertical: 1 },
-  statSub: { fontSize: 12, color: "#52525b", fontWeight: "500", marginTop: 2 },
+  statLabel: { fontSize: 11, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 0.8, marginTop: 4 },
+  statValue: { fontSize: 20, fontWeight: "800", color: "#F6F6F7", marginTop: 2, paddingVertical: 1 },
+  statSub: { fontSize: 12, color: "#65656E", fontWeight: "500", marginTop: 2 },
   statTrend: { fontSize: 12, fontWeight: "600", marginTop: 2 },
 
-  card: { backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", padding: 16, gap: 12 },
-  cardHeader: { fontSize: 14, fontWeight: "700", color: "#fff" },
-  progressBarBg: { height: 6, borderRadius: 3, backgroundColor: "#1c1c1e", overflow: "hidden" },
+  card: { backgroundColor: "#0F0F12", borderRadius: 20, borderWidth: 0.8, borderColor: "#1E1E23", padding: 16, gap: 12 },
+  cardHeader: { fontSize: 14, fontWeight: "700", color: "#F6F6F7" },
+  progressBarBg: { height: 6, borderRadius: 3, backgroundColor: "#16161A", overflow: "hidden" },
   progressBarFill: { height: "100%", borderRadius: 3 },
 
-  tipCard: { flexDirection: "row", gap: 10, backgroundColor: "#070707", borderRadius: 14, borderWidth: 0.8, borderColor: "#1a1a1a", padding: 12, alignItems: "center" },
+  tipCard: { flexDirection: "row", gap: 10, backgroundColor: "#0A0A0C", borderRadius: 14, borderWidth: 0.8, borderColor: "#1E1E23", padding: 12, alignItems: "center" },
 
-  activeBanner: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#0d0d0d", borderRadius: 20, borderWidth: 0.8, borderColor: "#1f1f1f", padding: 16 },
-  activeBannerTitle: { fontSize: 13, fontWeight: "700", color: "#fff" },
-  activeBannerSub: { fontSize: 11, color: "#888" },
+  activeBanner: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#0F0F12", borderRadius: 20, borderWidth: 0.8, borderColor: "#1E1E23", padding: 16 },
+  activeBannerTitle: { fontSize: 13, fontWeight: "700", color: "#F6F6F7" },
+  activeBannerSub: { fontSize: 11, color: "#9B9BA4" },
   pulseDot: { width: 8, height: 8, borderRadius: 4 },
 
   actionBar: {
@@ -1768,7 +1844,7 @@ const S = StyleSheet.create({
     flex: 1,
     height: 46,
     borderRadius: 23,
-    backgroundColor: "#1c1c1e",
+    backgroundColor: "#16161A",
     borderWidth: 0.5,
     borderColor: "rgba(255, 255, 255, 0.12)",
     flexDirection: "row",
@@ -1786,32 +1862,32 @@ const S = StyleSheet.create({
   primBtn: { justifyContent: "center", alignItems: "center" },
   primBtnText: { textAlign: "center" },
   secBtn: { justifyContent: "center", alignItems: "center" },
-  secBtnText: { color: "#888" },
+  secBtnText: { color: "#9B9BA4" },
 
   clockOverlay: { flex: 1, backgroundColor: "#000" },
-  clockHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 18, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#161616" },
-  clockCloseBtn: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, backgroundColor: "#141414", borderWidth: 1, borderColor: "#222" },
+  clockHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 18, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#16161A" },
+  clockCloseBtn: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, backgroundColor: "#16161A", borderWidth: 1, borderColor: "#1E1E23" },
   clockBody: { flex: 1, justifyContent: "center", alignItems: "center", gap: 20 },
-  clockDigits: { fontSize: 52, fontWeight: "bold", color: "#fff", fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace", paddingVertical: 8, textAlign: "center", textAlignVertical: "center", includeFontPadding: false },
-  clockLabel: { fontSize: 12, color: "#888", textTransform: "uppercase", fontWeight: "700", letterSpacing: 1 },
-  clockSecBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 46, borderRadius: 12, backgroundColor: "#0c0c0c", borderWidth: 1, borderColor: "#262626" },
-  clockSecBtnText: { fontSize: 12, fontWeight: "700", color: "#fff" },
+  clockDigits: { fontSize: 52, fontWeight: "bold", color: "#F6F6F7", fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace", paddingVertical: 8, textAlign: "center", textAlignVertical: "center", includeFontPadding: false },
+  clockLabel: { fontSize: 12, color: "#9B9BA4", textTransform: "uppercase", fontWeight: "700", letterSpacing: 1 },
+  clockSecBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 46, borderRadius: 12, backgroundColor: "#0F0F12", borderWidth: 1, borderColor: "#26262C" },
+  clockSecBtnText: { fontSize: 12, fontWeight: "700", color: "#F6F6F7" },
 
   wizardOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "center", padding: 20 },
-  wizardContent: { backgroundColor: "#080808", borderRadius: 20, borderWidth: 1, borderColor: "#1e1e1e", padding: 16, gap: 16 },
-  wizardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 0.5, borderBottomColor: "#1e1e1e", paddingBottom: 10 },
-  wizardTitle: { fontSize: 15, fontWeight: "800", color: "#fff" },
+  wizardContent: { backgroundColor: "#0A0A0C", borderRadius: 20, borderWidth: 1, borderColor: "#1E1E23", padding: 16, gap: 16 },
+  wizardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 0.5, borderBottomColor: "#1E1E23", paddingBottom: 10 },
+  wizardTitle: { fontSize: 15, fontWeight: "800", color: "#F6F6F7" },
   wizardCloseBtn: { padding: 4 },
-  wizardCloseText: { fontSize: 18, color: "#6b7280" },
-  wizardLabel: { fontSize: 14, fontWeight: "700", color: "#fff" },
-  wizardSubLabel: { fontSize: 12, fontWeight: "600", color: "#888" },
-  wizardRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 10, backgroundColor: "#0c0c0c", borderWidth: 0.5, borderColor: "#1e1e1e" },
-  wizardRowSel: { borderColor: "#fff" },
-  wizardRowTitle: { fontSize: 13, fontWeight: "700", color: "#fff" },
-  wizardRowSub: { fontSize: 11, color: "#6b7280" },
-  wizardInput: { flex: 1, height: 40, backgroundColor: "#0c0c0c", borderWidth: 0.5, borderColor: "#1e1e1e", borderRadius: 8, paddingHorizontal: 10, color: "#fff", fontSize: 13, fontWeight: "600" },
-  wizardInputFull: { width: "100%", height: 44, backgroundColor: "#0c0c0c", borderWidth: 0.5, borderColor: "#1e1e1e", borderRadius: 8, paddingHorizontal: 12, color: "#fff", fontSize: 14, fontWeight: "600", marginTop: 6 },
-  wizardFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 0.5, borderTopColor: "#222", paddingTop: 14, marginTop: 2 },
+  wizardCloseText: { fontSize: 18, color: "#65656E" },
+  wizardLabel: { fontSize: 14, fontWeight: "700", color: "#F6F6F7" },
+  wizardSubLabel: { fontSize: 12, fontWeight: "600", color: "#9B9BA4" },
+  wizardRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 10, backgroundColor: "#0F0F12", borderWidth: 0.5, borderColor: "#1E1E23" },
+  wizardRowSel: { borderColor: "#F6F6F7" },
+  wizardRowTitle: { fontSize: 13, fontWeight: "700", color: "#F6F6F7" },
+  wizardRowSub: { fontSize: 11, color: "#65656E" },
+  wizardInput: { flex: 1, height: 40, backgroundColor: "#0F0F12", borderWidth: 0.5, borderColor: "#1E1E23", borderRadius: 8, paddingHorizontal: 10, color: "#F6F6F7", fontSize: 13, fontWeight: "600" },
+  wizardInputFull: { width: "100%", height: 44, backgroundColor: "#0F0F12", borderWidth: 0.5, borderColor: "#1E1E23", borderRadius: 8, paddingHorizontal: 12, color: "#F6F6F7", fontSize: 14, fontWeight: "600", marginTop: 6 },
+  wizardFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 0.5, borderTopColor: "#1E1E23", paddingTop: 14, marginTop: 2 },
   wizardBackBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
   wizardNextBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8 },
   wizardNextBtnText: { fontSize: 12, fontWeight: "700" },

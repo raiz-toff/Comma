@@ -37,11 +37,11 @@ import WeeklyProjectionWidget from "@/src/components/widgets/WeeklyProjectionWid
 import TaxJarWidget from "@/src/components/widgets/TaxJarWidget";
 
 // ─── Constants & Styling ──────────────────────────────────────────────────────
-const BG = "#000000";
-const SURFACE = "#0d0d0d";
-const BORDER = "#262522";
-const TEXT_MUTED = "#71717a";
-const TEXT_DIM = "#52525b";
+const BG = "#000";
+const SURFACE = "#0F0F12";
+const BORDER = "#1C1C21";
+const TEXT_MUTED = "#9B9BA4";
+const TEXT_DIM = "#65656E";
 
 type PeriodType = "week" | "month" | "year";
 type Category = "perf" | "insights" | "stats";
@@ -120,7 +120,7 @@ function PremiumStatCard({ label, value, subtitle, color, Icon, width, flex }: a
         </View>
         <Text style={{ fontSize: 11, fontWeight: "800", color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 0.8 }}>{label}</Text>
       </View>
-      <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
+      <Text style={{ fontSize: 32, fontWeight: "800", color: "#F6F6F7", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
       {subtitle && <Text style={{ fontSize: 12, fontWeight: "500", color: color, marginTop: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{subtitle}</Text>}
     </View>
   );
@@ -142,7 +142,7 @@ function SwitchableStatCard({ label, activeValue, onlineValue, activeSubtitle, o
           <Text style={{ fontSize: 11, fontWeight: "800", color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 0.8 }}>{label}</Text>
         </View>
 
-        <View style={{ flexDirection: "row", backgroundColor: "#1f1f1e", borderRadius: 8, padding: 2, borderWidth: 1, borderColor: BORDER }}>
+        <View style={{ flexDirection: "row", backgroundColor: "#1C1C21", borderRadius: 8, padding: 2, borderWidth: 1, borderColor: BORDER }}>
           <Pressable onPress={() => setTab("active")} style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: tab === "active" ? color + "20" : "transparent" }}>
             <Text style={{ fontSize: 9, fontWeight: "800", color: tab === "active" ? color : TEXT_MUTED }}>ACT</Text>
           </Pressable>
@@ -152,7 +152,7 @@ function SwitchableStatCard({ label, activeValue, onlineValue, activeSubtitle, o
         </View>
       </View>
       
-      <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
+      <Text style={{ fontSize: 32, fontWeight: "800", color: "#F6F6F7", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
       <Text style={{ fontSize: 12, fontWeight: "500", color: color, marginTop: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{subtitle}</Text>
     </View>
   );
@@ -162,7 +162,7 @@ function WidgetCard({ id, children }: { id: string; children: React.ReactNode })
   return (
     <View style={{ backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER, borderRadius: 20, overflow: "hidden", marginBottom: 12 }}>
       <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: BORDER }}>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: "#ffffff" }}>{WIDGET_META[id]?.label ?? id}</Text>
+        <Text style={{ fontSize: 13, fontWeight: "700", color: "#F6F6F7" }}>{WIDGET_META[id]?.label ?? id}</Text>
       </View>
       <View style={{ padding: 16 }}>{children}</View>
     </View>
@@ -273,7 +273,7 @@ export default function AnalyticsScreen() {
         {/* Row 1: Net & Expenses */}
         <View style={{ flexDirection: "row", gap: 12 }}>
           <PremiumStatCard flex={1} label="Net Take-Home" value={formatCurrencyValue(netIncome, country)} subtitle="After Expenses" color="#3b82f6" Icon={Wallet} />
-          <PremiumStatCard flex={1} label="Expenses" value={formatCurrencyValue(expenses, country)} subtitle={`${totalRevenue > 0 ? ((expenses/totalRevenue)*100).toFixed(1) : 0}% Burn Ratio`} color="#ef4444" Icon={TrendingDown} />
+          <PremiumStatCard flex={1} label="Expenses" value={formatCurrencyValue(expenses, country)} subtitle={`${totalRevenue > 0 ? ((expenses/totalRevenue)*100).toFixed(1) : 0}% Burn Ratio`} color="#FF5247" Icon={TrendingDown} />
         </View>
 
         {/* Row 2: Rate & Tax */}
@@ -331,27 +331,27 @@ export default function AnalyticsScreen() {
         
         {/* ── Header & Nav (Similar to Shifts/Expenses) ── */}
         <View style={{ alignItems: "center", marginVertical: 20, gap: 8 }}>
-          <Pressable onPress={() => setIsSelectorOpen(true)} style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#161615", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 0.8, borderColor: "#262522" }}>
-            <Text style={{ fontSize: 12, fontWeight: "800", color: "#a1a1aa", textTransform: "uppercase", letterSpacing: 0.5 }}>
+          <Pressable onPress={() => setIsSelectorOpen(true)} style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#16161A", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 0.8, borderColor: "#1C1C21" }}>
+            <Text style={{ fontSize: 12, fontWeight: "800", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 0.5 }}>
               {getPeriodLabel()}
             </Text>
             <View style={{ justifyContent: "center", alignItems: "center" }}>
               <Svg width={10} height={6} viewBox="0 0 10 6" fill="none">
-                <Path d="M1 1L5 5L9 1" stroke="#a1a1aa" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M1 1L5 5L9 1" stroke="#9B9BA4" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </View>
           </Pressable>
 
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", paddingHorizontal: 24 }}>
-            <Pressable onPress={() => setPeriodOffset(o => o - 1)} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#161615", borderWidth: 0.8, borderColor: "#262522", alignItems: "center", justifyContent: "center" }}>
-              <ChevronLeft color="#fff" />
+            <Pressable onPress={() => setPeriodOffset(o => o - 1)} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#16161A", borderWidth: 0.8, borderColor: "#1C1C21", alignItems: "center", justifyContent: "center" }}>
+              <ChevronLeft color="#F6F6F7" />
             </Pressable>
 
             <View style={{ flexDirection: "row", alignItems: "flex-start", flexShrink: 1, minWidth: 0 }}>
-              <Text style={{ fontSize: 24, fontWeight: "600", color: "#fff", lineHeight: 30, marginTop: 10, marginRight: 4 }}>
+              <Text style={{ fontSize: 24, fontWeight: "600", color: "#F6F6F7", lineHeight: 30, marginTop: 10, marginRight: 4 }}>
                 {formatCurrencyParts(netIncome, country).symbol}
               </Text>
-              <Text style={{ flexShrink: 1, fontSize: 40, fontWeight: "800", color: "#fff", letterSpacing: -0.5, lineHeight: 48, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
+              <Text style={{ flexShrink: 1, fontSize: 40, fontWeight: "800", color: "#F6F6F7", letterSpacing: -0.5, lineHeight: 48, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                 {formatCurrencyParts(netIncome, country).value}
               </Text>
             </View>
@@ -359,9 +359,9 @@ export default function AnalyticsScreen() {
             <Pressable
               onPress={() => setPeriodOffset(o => o + 1)}
               disabled={periodOffset >= 0}
-              style={[{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#161615", borderWidth: 0.8, borderColor: "#262522", alignItems: "center", justifyContent: "center" }, periodOffset >= 0 && { opacity: 0.35, borderColor: "#161615" }]}
+              style={[{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#16161A", borderWidth: 0.8, borderColor: "#1C1C21", alignItems: "center", justifyContent: "center" }, periodOffset >= 0 && { opacity: 0.35, borderColor: "#16161A" }]}
             >
-              <ChevronRight color={periodOffset >= 0 ? "#3f3f46" : "#fff"} />
+              <ChevronRight color={periodOffset >= 0 ? "#2E2E36" : "#F6F6F7"} />
             </Pressable>
           </View>
         </View>
@@ -388,7 +388,7 @@ export default function AnalyticsScreen() {
           {CATEGORY_CONFIG.map(({ key, label, Icon }) => {
             const active = activeCategory === key;
             return (
-              <Pressable key={key} onPress={() => setActiveCategory(key)} style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: active ? "#1f1f1e" : "transparent", borderWidth: active ? 1 : 0, borderColor: BORDER }}>
+              <Pressable key={key} onPress={() => setActiveCategory(key)} style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: active ? "#1C1C21" : "transparent", borderWidth: active ? 1 : 0, borderColor: BORDER }}>
                 <Icon size={13} color={active ? accentColor : TEXT_DIM} strokeWidth={active ? 2.5 : 2} />
                 <Text style={{ fontSize: 11, fontWeight: active ? "800" : "600", color: active ? accentColor : TEXT_DIM, letterSpacing: 0.1 }} numberOfLines={1}>{label}</Text>
               </Pressable>
@@ -400,8 +400,8 @@ export default function AnalyticsScreen() {
       {/* ── Period Selector Modal ── */}
       <Modal visible={isSelectorOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setIsSelectorOpen(false)}>
         <View style={{ flex: 1, backgroundColor: "#000" }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 0.5, borderBottomColor: "#1f1f1f", paddingTop: Platform.OS === 'ios' ? 16 : insets.top + 16 }}>
-            <Text style={{ fontSize: 18, fontWeight: "800", color: "#fff" }}>Time Period</Text>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 0.5, borderBottomColor: "#1E1E23", paddingTop: Platform.OS === 'ios' ? 16 : insets.top + 16 }}>
+            <Text style={{ fontSize: 18, fontWeight: "800", color: "#F6F6F7" }}>Time Period</Text>
             <Pressable onPress={() => setIsSelectorOpen(false)}>
               <Text style={{ fontSize: 14, fontWeight: "600", color: accentColor }}>Done</Text>
             </Pressable>

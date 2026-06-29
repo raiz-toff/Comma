@@ -70,15 +70,15 @@ export function EmptyState({
       )}
     >
       {/* Icon Wrapper */}
-      <View className="w-16 h-16 rounded-2xl bg-secondary border border-border items-center justify-center mb-4">
-        {IconComponent && <IconComponent size={32} color="#64748b" />}
+      <View className="w-16 h-16 rounded-lg bg-surface-03 border border-line-subtle items-center justify-center mb-4">
+        {IconComponent && <IconComponent size={32} color="hsl(240 4% 41%)" />}
       </View>
 
       {/* Copy */}
-      <Text className="text-base font-bold text-foreground text-center tracking-tight">
+      <Text variant="headingS" className="text-content-primary text-center tracking-tight">
         {title}
       </Text>
-      <Text className="text-xs text-muted-foreground text-center mt-1.5 max-w-[280px] leading-relaxed">
+      <Text variant="paragraphS" className="text-content-muted text-center mt-1.5 max-w-[280px] leading-relaxed">
         {message}
       </Text>
 
@@ -87,10 +87,10 @@ export function EmptyState({
         <Button
           variant="outline"
           size="sm"
-          className="mt-6 border-border bg-card active:bg-secondary px-4 py-2.5 rounded-xl"
+          className="mt-6 border-line-subtle bg-card active:bg-surface-03 px-4 py-2.5 rounded-md"
           onPress={onAction}
         >
-          <Text className="text-xs font-semibold text-foreground">
+          <Text variant="labelM" className="text-content-primary">
             {actionLabel}
           </Text>
         </Button>

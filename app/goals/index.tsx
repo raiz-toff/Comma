@@ -118,7 +118,7 @@ function CircularProgress({
   return (
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
       <Svg width={size} height={size}>
-        <Circle stroke="#262522" fill="none" cx={size / 2} cy={size / 2} r={radius} strokeWidth={strokeWidth} />
+        <Circle stroke="#1C1C21" fill="none" cx={size / 2} cy={size / 2} r={radius} strokeWidth={strokeWidth} />
         <Circle
           stroke={color}
           fill="none"
@@ -310,9 +310,9 @@ export default function GoalsScreen() {
       {weeklyEarningsGoal && (
         <View
           style={{
-            backgroundColor: "#0d0d0d",
+            backgroundColor: "#0F0F12",
             borderWidth: 0.8,
-            borderColor: "#1f1f1f",
+            borderColor: "#1E1E23",
             borderRadius: 20,
             padding: 24,
             flexDirection: "row",
@@ -325,18 +325,18 @@ export default function GoalsScreen() {
             <Text style={{ fontSize: 10, fontWeight: "800", color: "#f59e0b", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6 }}>
               Weekly Thermometer
             </Text>
-            <Text style={{ fontSize: 24, fontWeight: "900", color: "#ffffff", letterSpacing: -0.5, lineHeight: 28, marginBottom: 6 }}>
+            <Text style={{ fontSize: 24, fontWeight: "900", color: "#F6F6F7", letterSpacing: -0.5, lineHeight: 28, marginBottom: 6 }}>
               {weeklyEarningsGoal.label}
             </Text>
-            <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "600", marginBottom: 14 }}>
+            <Text style={{ fontSize: 12, color: "#9B9BA4", fontWeight: "600", marginBottom: 14 }}>
               Weekly Target Progress
             </Text>
             <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 4, marginBottom: 18 }}>
-              <Text style={{ fontSize: 22, fontWeight: "600", color: "#ffffff", lineHeight: 28, marginTop: 8 }}>
+              <Text style={{ fontSize: 22, fontWeight: "600", color: "#F6F6F7", lineHeight: 28, marginTop: 8 }}>
                 {formatCurrencyParts(weeklyEarningsGoal.currentValue, profile.country).symbol}
               </Text>
               <Text
-                style={{ flexShrink: 1, fontSize: 38, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 46, includeFontPadding: false }}
+                style={{ flexShrink: 1, fontSize: 38, fontWeight: "800", color: "#F6F6F7", letterSpacing: -0.5, lineHeight: 46, includeFontPadding: false }}
                 numberOfLines={1}
                 adjustsFontSizeToFit
               >
@@ -345,14 +345,14 @@ export default function GoalsScreen() {
             </View>
             <TouchableOpacity
               onPress={() => handleOpenForm(weeklyEarningsGoal)}
-              style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#262522", alignSelf: "flex-start", paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12 }}
+              style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#1C1C21", alignSelf: "flex-start", paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12 }}
             >
-              <Edit2 size={13} color="#ffffff" />
-              <Text style={{ fontSize: 11, fontWeight: "800", color: "#ffffff" }}>EDIT TARGET</Text>
+              <Edit2 size={13} color="#F6F6F7" />
+              <Text style={{ fontSize: 11, fontWeight: "800", color: "#F6F6F7" }}>EDIT TARGET</Text>
             </TouchableOpacity>
           </View>
           <CircularProgress progressPct={weeklyEarningsGoal.progressPct} color="#f59e0b">
-            <Text style={{ fontSize: 28, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 34, includeFontPadding: false }} adjustsFontSizeToFit numberOfLines={1}>
+            <Text style={{ fontSize: 28, fontWeight: "800", color: "#F6F6F7", letterSpacing: -0.5, lineHeight: 34, includeFontPadding: false }} adjustsFontSizeToFit numberOfLines={1}>
               {Math.round(weeklyEarningsGoal.progressPct)}%
             </Text>
           </CircularProgress>
@@ -360,9 +360,9 @@ export default function GoalsScreen() {
       )}
 
       {/* Active goals list */}
-      <View style={{ backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, overflow: "hidden" }}>
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: 0.8, borderBottomColor: "#1f1f1f" }}>
-          <Text style={{ fontSize: 16, fontWeight: "800", color: "#ffffff" }}>
+      <View style={{ backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 20, overflow: "hidden" }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: 0.8, borderBottomColor: "#1E1E23" }}>
+          <Text style={{ fontSize: 16, fontWeight: "800", color: "#F6F6F7" }}>
             {weeklyEarningsGoal ? "Other Active Goals" : "Active Goals"}
           </Text>
           <TouchableOpacity onPress={() => handleOpenForm()} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -373,7 +373,7 @@ export default function GoalsScreen() {
 
         <View style={{ padding: 20, gap: 20 }}>
           {goalsList.filter((g: any) => g.id !== weeklyEarningsGoal?.id).length === 0 ? (
-            <Text style={{ fontSize: 13, color: "#71717a", fontStyle: "italic", textAlign: "center" }}>
+            <Text style={{ fontSize: 13, color: "#9B9BA4", fontStyle: "italic", textAlign: "center" }}>
               No other active goals. Tap Add to create one.
             </Text>
           ) : (
@@ -386,31 +386,31 @@ export default function GoalsScreen() {
                   <View key={goal.id} style={{ gap: 10 }}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                        <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: "#161615", borderWidth: 1, borderColor: "#262522", alignItems: "center", justifyContent: "center" }}>
+                        <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: "#16161A", borderWidth: 1, borderColor: "#1C1C21", alignItems: "center", justifyContent: "center" }}>
                           <Text style={{ fontSize: 16 }}>{unitMeta?.icon}</Text>
                         </View>
                         <View>
-                          <Text style={{ fontSize: 14, fontWeight: "800", color: "#ffffff", textTransform: "capitalize" }}>{goal.label}</Text>
-                          <Text style={{ fontSize: 11, fontWeight: "700", color: "#71717a", textTransform: "uppercase", marginTop: 2 }}>
+                          <Text style={{ fontSize: 14, fontWeight: "800", color: "#F6F6F7", textTransform: "capitalize" }}>{goal.label}</Text>
+                          <Text style={{ fontSize: 11, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", marginTop: 2 }}>
                             {goal.period} · {unitMeta?.label}
                           </Text>
                         </View>
                       </View>
                       <View style={{ alignItems: "flex-end", gap: 6 }}>
-                        <Text style={{ fontSize: 14, fontWeight: "900", color: "#ffffff" }}>
+                        <Text style={{ fontSize: 14, fontWeight: "900", color: "#F6F6F7" }}>
                           {goal.unit === "currency" ? formatCurrency(goal.targetValue, profile.country) : goal.targetValue}
                         </Text>
                         <View style={{ flexDirection: "row", gap: 8 }}>
                           <TouchableOpacity onPress={() => handleOpenForm(goal)} hitSlop={10}>
-                            <Edit2 size={14} color="#a1a1aa" />
+                            <Edit2 size={14} color="#9B9BA4" />
                           </TouchableOpacity>
                           <TouchableOpacity onPress={() => handleDeleteGoal(goal.id)} hitSlop={10}>
-                            <Trash2 size={14} color="#f43f5e" />
+                            <Trash2 size={14} color="#FF5247" />
                           </TouchableOpacity>
                         </View>
                       </View>
                     </View>
-                    <View style={{ height: 5, backgroundColor: "#1a1a1a", borderRadius: 3, overflow: "hidden" }}>
+                    <View style={{ height: 5, backgroundColor: "#1E1E23", borderRadius: 3, overflow: "hidden" }}>
                       <View style={{ height: "100%", width: `${Math.min(100, pct)}%`, backgroundColor: pct >= 100 ? "#22c55e" : accentColor }} />
                     </View>
                   </View>
@@ -425,35 +425,35 @@ export default function GoalsScreen() {
   const ProgressTab = (
     <>
       {/* XP & Level card */}
-      <View style={{ backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, padding: 20 }}>
+      <View style={{ backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 20, padding: 20 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Award size={16} color="#3b82f6" />
-            <Text style={{ fontSize: 12, fontWeight: "800", color: "#71717a", textTransform: "uppercase" }}>Driver XP</Text>
+            <Text style={{ fontSize: 12, fontWeight: "800", color: "#9B9BA4", textTransform: "uppercase" }}>Driver XP</Text>
           </View>
           <View style={{ backgroundColor: "#1e3a8a22", borderWidth: 1, borderColor: "#3b82f640", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
             <Text style={{ fontSize: 11, fontWeight: "900", color: "#3b82f6" }}>LVL {xpLevel}</Text>
           </View>
         </View>
 
-        <Text style={{ fontSize: 34, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 40, includeFontPadding: false, marginBottom: 4 }} adjustsFontSizeToFit numberOfLines={1}>
-          {xpTotal.toLocaleString()} <Text style={{ fontSize: 16, color: "#52525b", fontWeight: "600" }}>XP</Text>
+        <Text style={{ fontSize: 34, fontWeight: "800", color: "#F6F6F7", letterSpacing: -0.5, lineHeight: 40, includeFontPadding: false, marginBottom: 4 }} adjustsFontSizeToFit numberOfLines={1}>
+          {xpTotal.toLocaleString()} <Text style={{ fontSize: 16, color: "#65656E", fontWeight: "600" }}>XP</Text>
         </Text>
 
-        <View style={{ height: 5, backgroundColor: "#1a1a1a", borderRadius: 3, marginVertical: 10, overflow: "hidden" }}>
+        <View style={{ height: 5, backgroundColor: "#1E1E23", borderRadius: 3, marginVertical: 10, overflow: "hidden" }}>
           <View style={{ height: "100%", width: `${xpTotal % 100}%`, backgroundColor: "#3b82f6", borderRadius: 3 }} />
         </View>
-        <Text style={{ fontSize: 11, fontWeight: "700", color: "#52525b" }}>{100 - (xpTotal % 100)} XP to Level {xpLevel + 1}</Text>
+        <Text style={{ fontSize: 11, fontWeight: "700", color: "#65656E" }}>{100 - (xpTotal % 100)} XP to Level {xpLevel + 1}</Text>
 
         {/* Recent XP events */}
         {recentXpNotifications.length > 0 && (
-          <View style={{ marginTop: 16, gap: 10, borderTopWidth: 0.8, borderTopColor: "#1f1f1f", paddingTop: 14 }}>
+          <View style={{ marginTop: 16, gap: 10, borderTopWidth: 0.8, borderTopColor: "#1E1E23", paddingTop: 14 }}>
             {recentXpNotifications.map((n) => (
               <View key={n.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <Text style={{ fontSize: 12, color: "#a1a1aa", flex: 1 }} numberOfLines={1}>{n.title}</Text>
+                <Text style={{ fontSize: 12, color: "#9B9BA4", flex: 1 }} numberOfLines={1}>{n.title}</Text>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                   <Text style={{ fontSize: 11, fontWeight: "800", color: "#3b82f6" }}>{getXpFromNotificationTitle(n.title)}</Text>
-                  <Text style={{ fontSize: 10, color: "#52525b" }}>{timeAgo(n.createdAt)}</Text>
+                  <Text style={{ fontSize: 10, color: "#65656E" }}>{timeAgo(n.createdAt)}</Text>
                 </View>
               </View>
             ))}
@@ -462,22 +462,22 @@ export default function GoalsScreen() {
       </View>
 
       {/* Streak card */}
-      <View style={{ backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, padding: 20 }}>
+      <View style={{ backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 20, padding: 20 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 20 }}>
-          <Flame size={16} color="#ef4444" />
-          <Text style={{ fontSize: 12, fontWeight: "800", color: "#71717a", textTransform: "uppercase" }}>Day Streak</Text>
+          <Flame size={16} color="#FF5247" />
+          <Text style={{ fontSize: 12, fontWeight: "800", color: "#9B9BA4", textTransform: "uppercase" }}>Day Streak</Text>
         </View>
 
         <View style={{ flexDirection: "row", alignItems: "center", gap: 20 }}>
-          <CircularProgress progressPct={streakPct} size={110} strokeWidth={8} color="#ef4444">
-            <Text style={{ fontSize: 26, fontWeight: "800", color: "#ffffff", lineHeight: 32, includeFontPadding: false }}>{streakDays}</Text>
-            <Text style={{ fontSize: 10, fontWeight: "700", color: "#71717a" }}>days</Text>
+          <CircularProgress progressPct={streakPct} size={110} strokeWidth={8} color="#FF5247">
+            <Text style={{ fontSize: 26, fontWeight: "800", color: "#F6F6F7", lineHeight: 32, includeFontPadding: false }}>{streakDays}</Text>
+            <Text style={{ fontSize: 10, fontWeight: "700", color: "#9B9BA4" }}>days</Text>
           </CircularProgress>
 
           <View style={{ flex: 1, gap: 12 }}>
             <View>
-              <Text style={{ fontSize: 10, fontWeight: "800", color: "#52525b", textTransform: "uppercase", marginBottom: 4 }}>Next milestone</Text>
-              <Text style={{ fontSize: 13, fontWeight: "800", color: "#ffffff" }}>
+              <Text style={{ fontSize: 10, fontWeight: "800", color: "#65656E", textTransform: "uppercase", marginBottom: 4 }}>Next milestone</Text>
+              <Text style={{ fontSize: 13, fontWeight: "800", color: "#F6F6F7" }}>
                 {streakDays >= 100 ? "Legend 🏆" : `${streakMilestone.target - streakDays} days to ${streakMilestone.label}`}
               </Text>
             </View>
@@ -488,7 +488,7 @@ export default function GoalsScreen() {
                 <Shield key={i} size={18} color="#6366f1" fill="#6366f130" />
               ))}
               {Array.from({ length: Math.max(0, 3 - streakFrozenCount) }).map((_, i) => (
-                <Shield key={`empty-${i}`} size={18} color="#2a2a2a" />
+                <Shield key={`empty-${i}`} size={18} color="#2E2E36" />
               ))}
               <Text style={{ fontSize: 11, fontWeight: "700", color: "#6366f1", marginLeft: 2 }}>
                 {streakFrozenCount}/3 shields
@@ -499,8 +499,8 @@ export default function GoalsScreen() {
       </View>
 
       {/* Challenges section */}
-      <View style={{ backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, padding: 20 }}>
-        <Text style={{ fontSize: 16, fontWeight: "800", color: "#ffffff", marginBottom: 18 }}>Weekly Challenges</Text>
+      <View style={{ backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 20, padding: 20 }}>
+        <Text style={{ fontSize: 16, fontWeight: "800", color: "#F6F6F7", marginBottom: 18 }}>Weekly Challenges</Text>
         <View style={{ gap: 16 }}>
           {challenges && challenges.length > 0 ? (
             challenges.map((c) => {
@@ -515,9 +515,9 @@ export default function GoalsScreen() {
                         width: 40,
                         height: 40,
                         borderRadius: 20,
-                        backgroundColor: isCompleted ? "#052e1640" : "#0d0d0d",
+                        backgroundColor: isCompleted ? "#052e1640" : "#0F0F12",
                         borderWidth: 1,
-                        borderColor: isCompleted ? "#22c55e40" : "#262522",
+                        borderColor: isCompleted ? "#22c55e40" : "#1C1C21",
                         alignItems: "center",
                         justifyContent: "center",
                       }}
@@ -526,37 +526,37 @@ export default function GoalsScreen() {
                     </View>
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 3 }}>
-                        <Text style={{ fontSize: 13, fontWeight: "800", color: "#ffffff" }}>{c.name}</Text>
+                        <Text style={{ fontSize: 13, fontWeight: "800", color: "#F6F6F7" }}>{c.name}</Text>
                         <Text style={{ fontSize: 12, fontWeight: "900", color: isCompleted ? "#22c55e" : "#ec4899" }}>
                           {isCompleted ? "✓ Done" : `${pct}%`}
                         </Text>
                       </View>
-                      <Text style={{ fontSize: 11, color: "#71717a" }}>{c.description}</Text>
+                      <Text style={{ fontSize: 11, color: "#9B9BA4" }}>{c.description}</Text>
                     </View>
                   </View>
-                  <View style={{ height: 4, backgroundColor: "#1a1a1a", borderRadius: 2, overflow: "hidden", marginBottom: 6 }}>
+                  <View style={{ height: 4, backgroundColor: "#1E1E23", borderRadius: 2, overflow: "hidden", marginBottom: 6 }}>
                     <View style={{ height: "100%", width: `${pct}%`, backgroundColor: isCompleted ? "#22c55e" : "#ec4899", borderRadius: 2 }} />
                   </View>
-                  <Text style={{ fontSize: 10, fontWeight: "700", color: "#52525b" }}>
+                  <Text style={{ fontSize: 10, fontWeight: "700", color: "#65656E" }}>
                     {isCompleted ? `Resets in ${resetDays} day${resetDays === 1 ? "" : "s"}` : `${resetDays} day${resetDays === 1 ? "" : "s"} remaining`}
                   </Text>
                 </View>
               );
             })
           ) : (
-            <Text style={{ fontSize: 13, color: "#71717a", fontStyle: "italic" }}>No active challenges.</Text>
+            <Text style={{ fontSize: 13, color: "#9B9BA4", fontStyle: "italic" }}>No active challenges.</Text>
           )}
         </View>
       </View>
 
       {/* Badges grid */}
-      <View style={{ backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, padding: 20 }}>
+      <View style={{ backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 20, padding: 20 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Star size={16} color="#8b5cf6" />
-            <Text style={{ fontSize: 16, fontWeight: "800", color: "#ffffff" }}>Driver Badges</Text>
+            <Text style={{ fontSize: 16, fontWeight: "800", color: "#F6F6F7" }}>Driver Badges</Text>
           </View>
-          <Text style={{ fontSize: 12, fontWeight: "700", color: "#71717a" }}>{badgesUnlocked} / {badgesTotal}</Text>
+          <Text style={{ fontSize: 12, fontWeight: "700", color: "#9B9BA4" }}>{badgesUnlocked} / {badgesTotal}</Text>
         </View>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
@@ -572,7 +572,7 @@ export default function GoalsScreen() {
                     justifyContent: "center",
                     backgroundColor: isUnlocked ? "#ffffff08" : "#0a0a0a",
                     borderWidth: 1,
-                    borderColor: isUnlocked ? "#ffffff18" : "#1a1a1a",
+                    borderColor: isUnlocked ? "#ffffff18" : "#1E1E23",
                     borderRadius: 14,
                   }}
                 >
@@ -583,7 +583,7 @@ export default function GoalsScreen() {
           })}
         </View>
 
-        <Text style={{ fontSize: 11, color: "#52525b", textAlign: "center", marginTop: 14, fontStyle: "italic" }}>
+        <Text style={{ fontSize: 11, color: "#65656E", textAlign: "center", marginTop: 14, fontStyle: "italic" }}>
           Tap a badge to see details
         </Text>
       </View>
@@ -596,18 +596,18 @@ export default function GoalsScreen() {
           }
         }}
         activeOpacity={0.7}
-        style={{ backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, padding: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+        style={{ backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 20, padding: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <TrendingUp size={18} color={accentColor} />
           <View>
-            <Text style={{ fontSize: 11, fontWeight: "800", color: "#71717a", textTransform: "uppercase" }}>Best Shift — All Time</Text>
-            <Text style={{ fontSize: 22, fontWeight: "900", color: "#ffffff", letterSpacing: -0.5, marginTop: 2, includeFontPadding: false } as any}>
+            <Text style={{ fontSize: 11, fontWeight: "800", color: "#9B9BA4", textTransform: "uppercase" }}>Best Shift — All Time</Text>
+            <Text style={{ fontSize: 22, fontWeight: "900", color: "#F6F6F7", letterSpacing: -0.5, marginTop: 2, includeFontPadding: false } as any}>
               {formatCurrency(bestShift?.grossRevenue ?? 0, profile.country)}
             </Text>
           </View>
         </View>
-        <Text style={{ fontSize: 18, color: "#52525b" }}>›</Text>
+        <Text style={{ fontSize: 18, color: "#65656E" }}>›</Text>
       </TouchableOpacity>
     </>
   );
@@ -619,16 +619,16 @@ export default function GoalsScreen() {
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingBottom: 16 }}>
           <TouchableOpacity
             onPress={() => router.back()}
-            style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#161615", borderWidth: 0.8, borderColor: "#262522", alignItems: "center", justifyContent: "center", marginLeft: -8 }}
+            style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#16161A", borderWidth: 0.8, borderColor: "#1C1C21", alignItems: "center", justifyContent: "center", marginLeft: -8 }}
           >
-            <X size={22} color="#ffffff" />
+            <X size={22} color="#F6F6F7" />
           </TouchableOpacity>
-          <Text style={{ fontSize: 17, fontWeight: "900", color: "#ffffff", letterSpacing: -0.3 }}>Goals & Progress</Text>
+          <Text style={{ fontSize: 17, fontWeight: "900", color: "#F6F6F7", letterSpacing: -0.3 }}>Goals & Progress</Text>
           <View style={{ width: 44 }} />
         </View>
 
         {/* Tab switcher */}
-        <View style={{ flexDirection: "row", marginHorizontal: 16, marginBottom: 20, backgroundColor: "#161615", borderRadius: 14, padding: 4, borderWidth: 0.8, borderColor: "#262522" }}>
+        <View style={{ flexDirection: "row", marginHorizontal: 16, marginBottom: 20, backgroundColor: "#16161A", borderRadius: 14, padding: 4, borderWidth: 0.8, borderColor: "#1C1C21" }}>
           {(["Goals", "Progress"] as const).map((tab, i) => (
             <Pressable
               key={tab}
@@ -637,11 +637,11 @@ export default function GoalsScreen() {
                 flex: 1,
                 paddingVertical: 10,
                 alignItems: "center",
-                backgroundColor: activeTab === i ? "#262522" : "transparent",
+                backgroundColor: activeTab === i ? "#1C1C21" : "transparent",
                 borderRadius: 10,
               }}
             >
-              <Text style={{ fontSize: 13, fontWeight: "800", color: activeTab === i ? "#ffffff" : "#71717a" }}>{tab}</Text>
+              <Text style={{ fontSize: 13, fontWeight: "800", color: activeTab === i ? "#F6F6F7" : "#9B9BA4" }}>{tab}</Text>
             </Pressable>
           ))}
         </View>
@@ -661,50 +661,50 @@ export default function GoalsScreen() {
       {/* ── Goal Edit Modal ── */}
       <Modal visible={isAdding} transparent animationType="slide">
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "flex-end" }}>
-          <View style={{ backgroundColor: "#161615", borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: insets.bottom + 24 }}>
+          <View style={{ backgroundColor: "#16161A", borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: insets.bottom + 24 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-              <Text style={{ fontSize: 20, fontWeight: "900", color: "#ffffff" }}>
+              <Text style={{ fontSize: 20, fontWeight: "900", color: "#F6F6F7" }}>
                 {editingGoal ? "Edit Goal" : "Create Goal"}
               </Text>
-              <TouchableOpacity onPress={() => setIsAdding(false)} style={{ padding: 8, backgroundColor: "#0d0d0d", borderRadius: 20 }}>
-                <X size={16} color="#a1a1aa" />
+              <TouchableOpacity onPress={() => setIsAdding(false)} style={{ padding: 8, backgroundColor: "#0F0F12", borderRadius: 20 }}>
+                <X size={16} color="#9B9BA4" />
               </TouchableOpacity>
             </View>
 
             <View style={{ gap: 20 }}>
               <View>
-                <Text style={{ fontSize: 10, fontWeight: "800", color: "#71717a", textTransform: "uppercase", marginBottom: 8, marginLeft: 4 }}>Goal Name</Text>
+                <Text style={{ fontSize: 10, fontWeight: "800", color: "#9B9BA4", textTransform: "uppercase", marginBottom: 8, marginLeft: 4 }}>Goal Name</Text>
                 <TextInput
                   value={label}
                   onChangeText={setLabel}
                   placeholder="e.g. Weekly Revenue Target"
-                  placeholderTextColor="#52525b"
-                  style={{ backgroundColor: "#0d0d0d", borderWidth: 1, borderColor: "#262522", borderRadius: 16, padding: 16, fontSize: 14, fontWeight: "600", color: "#ffffff" }}
+                  placeholderTextColor="#65656E"
+                  style={{ backgroundColor: "#0F0F12", borderWidth: 1, borderColor: "#1C1C21", borderRadius: 16, padding: 16, fontSize: 14, fontWeight: "600", color: "#F6F6F7" }}
                 />
               </View>
 
               <View style={{ flexDirection: "row", gap: 12 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 10, fontWeight: "800", color: "#71717a", textTransform: "uppercase", marginBottom: 8, marginLeft: 4 }}>Target Value</Text>
+                  <Text style={{ fontSize: 10, fontWeight: "800", color: "#9B9BA4", textTransform: "uppercase", marginBottom: 8, marginLeft: 4 }}>Target Value</Text>
                   <TextInput
                     value={targetValue}
                     onChangeText={setTargetValue}
                     keyboardType="numeric"
                     placeholder="0.00"
-                    placeholderTextColor="#52525b"
-                    style={{ backgroundColor: "#0d0d0d", borderWidth: 1, borderColor: "#262522", borderRadius: 16, padding: 16, fontSize: 16, fontWeight: "900", color: accentColor }}
+                    placeholderTextColor="#65656E"
+                    style={{ backgroundColor: "#0F0F12", borderWidth: 1, borderColor: "#1C1C21", borderRadius: 16, padding: 16, fontSize: 16, fontWeight: "900", color: accentColor }}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 10, fontWeight: "800", color: "#71717a", textTransform: "uppercase", marginBottom: 8, marginLeft: 4 }}>Period</Text>
-                  <View style={{ backgroundColor: "#0d0d0d", borderWidth: 1, borderColor: "#262522", borderRadius: 16, padding: 4, flexDirection: "row", height: 56 }}>
+                  <Text style={{ fontSize: 10, fontWeight: "800", color: "#9B9BA4", textTransform: "uppercase", marginBottom: 8, marginLeft: 4 }}>Period</Text>
+                  <View style={{ backgroundColor: "#0F0F12", borderWidth: 1, borderColor: "#1C1C21", borderRadius: 16, padding: 4, flexDirection: "row", height: 56 }}>
                     {GOAL_PERIODS.map((p) => (
                       <TouchableOpacity
                         key={p.id}
                         onPress={() => setPeriod(p.id)}
-                        style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: period === p.id ? "#262522" : "transparent", borderRadius: 12 }}
+                        style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: period === p.id ? "#1C1C21" : "transparent", borderRadius: 12 }}
                       >
-                        <Text style={{ fontSize: 10, fontWeight: "800", color: period === p.id ? "#ffffff" : "#71717a", textTransform: "uppercase" }}>
+                        <Text style={{ fontSize: 10, fontWeight: "800", color: period === p.id ? "#F6F6F7" : "#9B9BA4", textTransform: "uppercase" }}>
                           {p.label.slice(0, 3)}
                         </Text>
                       </TouchableOpacity>
@@ -714,16 +714,16 @@ export default function GoalsScreen() {
               </View>
 
               <View>
-                <Text style={{ fontSize: 10, fontWeight: "800", color: "#71717a", textTransform: "uppercase", marginBottom: 8, marginLeft: 4 }}>Metric Type</Text>
+                <Text style={{ fontSize: 10, fontWeight: "800", color: "#9B9BA4", textTransform: "uppercase", marginBottom: 8, marginLeft: 4 }}>Metric Type</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                   {GOAL_UNITS.map((u) => (
                     <TouchableOpacity
                       key={u.id}
                       onPress={() => setUnit(u.id)}
-                      style={{ flex: 1, minWidth: "45%", flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: unit === u.id ? accentColor + "20" : "#0d0d0d", borderWidth: 1, borderColor: unit === u.id ? accentColor : "#262522", borderRadius: 16, padding: 16 }}
+                      style={{ flex: 1, minWidth: "45%", flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: unit === u.id ? accentColor + "20" : "#0F0F12", borderWidth: 1, borderColor: unit === u.id ? accentColor : "#1C1C21", borderRadius: 16, padding: 16 }}
                     >
                       <Text style={{ fontSize: 16 }}>{u.icon}</Text>
-                      <Text style={{ fontSize: 12, fontWeight: "800", color: unit === u.id ? accentColor : "#a1a1aa" }}>{u.label}</Text>
+                      <Text style={{ fontSize: 12, fontWeight: "800", color: unit === u.id ? accentColor : "#9B9BA4" }}>{u.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -751,7 +751,7 @@ export default function GoalsScreen() {
       <Modal visible={!!selectedBadge} transparent animationType="fade">
         <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "center", alignItems: "center", paddingHorizontal: 24 }} onPress={() => setSelectedBadge(null)}>
           <Pressable onPress={(e) => e.stopPropagation()}>
-            <View style={{ backgroundColor: "#161615", borderRadius: 24, padding: 32, alignItems: "center", gap: 12, borderWidth: 0.8, borderColor: "#262522", minWidth: 280 }}>
+            <View style={{ backgroundColor: "#16161A", borderRadius: 24, padding: 32, alignItems: "center", gap: 12, borderWidth: 0.8, borderColor: "#1C1C21", minWidth: 280 }}>
               {selectedBadge && (
                 <BadgeSvg
                   id={selectedBadge.id}
@@ -759,21 +759,21 @@ export default function GoalsScreen() {
                   locked={!unlockedBadgeIds.includes(selectedBadge.id)}
                 />
               )}
-              <Text style={{ fontSize: 20, fontWeight: "900", color: "#ffffff", textAlign: "center" }}>{selectedBadge?.name}</Text>
-              <Text style={{ fontSize: 13, color: "#a1a1aa", textAlign: "center", lineHeight: 20 }}>{selectedBadge?.description}</Text>
+              <Text style={{ fontSize: 20, fontWeight: "900", color: "#F6F6F7", textAlign: "center" }}>{selectedBadge?.name}</Text>
+              <Text style={{ fontSize: 13, color: "#9B9BA4", textAlign: "center", lineHeight: 20 }}>{selectedBadge?.description}</Text>
 
               {selectedBadge && unlockedBadgeIds.includes(selectedBadge.id) ? (
                 <View style={{ backgroundColor: "#052e1640", borderWidth: 1, borderColor: "#22c55e40", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 6, marginTop: 4 }}>
                   <Text style={{ fontSize: 12, fontWeight: "800", color: "#22c55e" }}>✓ UNLOCKED</Text>
                 </View>
               ) : (
-                <View style={{ backgroundColor: "#161615", borderWidth: 1, borderColor: "#262522", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 6, marginTop: 4 }}>
-                  <Text style={{ fontSize: 12, fontWeight: "800", color: "#71717a" }}>LOCKED</Text>
+                <View style={{ backgroundColor: "#16161A", borderWidth: 1, borderColor: "#1C1C21", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 6, marginTop: 4 }}>
+                  <Text style={{ fontSize: 12, fontWeight: "800", color: "#9B9BA4" }}>LOCKED</Text>
                 </View>
               )}
 
-              <TouchableOpacity onPress={() => setSelectedBadge(null)} style={{ marginTop: 8, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: "#262522", borderRadius: 14 }}>
-                <Text style={{ fontSize: 13, fontWeight: "800", color: "#ffffff" }}>Close</Text>
+              <TouchableOpacity onPress={() => setSelectedBadge(null)} style={{ marginTop: 8, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: "#1C1C21", borderRadius: 14 }}>
+                <Text style={{ fontSize: 13, fontWeight: "800", color: "#F6F6F7" }}>Close</Text>
               </TouchableOpacity>
             </View>
           </Pressable>
@@ -783,19 +783,19 @@ export default function GoalsScreen() {
       {/* ── Shield Tooltip Modal ── */}
       <Modal visible={showShieldTooltip} transparent animationType="fade">
         <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.8)", justifyContent: "center", alignItems: "center", paddingHorizontal: 32 }} onPress={() => setShowShieldTooltip(false)}>
-          <View style={{ backgroundColor: "#161615", borderRadius: 20, padding: 24, gap: 10, borderWidth: 0.8, borderColor: "#262522" }}>
+          <View style={{ backgroundColor: "#16161A", borderRadius: 20, padding: 24, gap: 10, borderWidth: 0.8, borderColor: "#1C1C21" }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
               <Shield size={20} color="#6366f1" />
-              <Text style={{ fontSize: 16, fontWeight: "900", color: "#ffffff" }}>Streak Shields</Text>
+              <Text style={{ fontSize: 16, fontWeight: "900", color: "#F6F6F7" }}>Streak Shields</Text>
             </View>
-            <Text style={{ fontSize: 13, color: "#a1a1aa", lineHeight: 20 }}>
+            <Text style={{ fontSize: 13, color: "#9B9BA4", lineHeight: 20 }}>
               A shield lets you skip one day without breaking your streak. You earn 1 shield per level-up and 1 per calendar month, up to a maximum of 3.
             </Text>
-            <Text style={{ fontSize: 13, color: "#a1a1aa", lineHeight: 20 }}>
+            <Text style={{ fontSize: 13, color: "#9B9BA4", lineHeight: 20 }}>
               You currently have <Text style={{ color: "#6366f1", fontWeight: "800" }}>{streakFrozenCount} shield{streakFrozenCount !== 1 ? "s" : ""}</Text> remaining.
             </Text>
-            <TouchableOpacity onPress={() => setShowShieldTooltip(false)} style={{ marginTop: 8, paddingVertical: 12, backgroundColor: "#262522", borderRadius: 14, alignItems: "center" }}>
-              <Text style={{ fontSize: 13, fontWeight: "800", color: "#ffffff" }}>Got it</Text>
+            <TouchableOpacity onPress={() => setShowShieldTooltip(false)} style={{ marginTop: 8, paddingVertical: 12, backgroundColor: "#1C1C21", borderRadius: 14, alignItems: "center" }}>
+              <Text style={{ fontSize: 13, fontWeight: "800", color: "#F6F6F7" }}>Got it</Text>
             </TouchableOpacity>
           </View>
         </Pressable>

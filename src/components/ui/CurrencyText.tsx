@@ -46,23 +46,25 @@ export function CurrencyText({
     }
   }, [amount, currency, locale, showSign]);
 
-  const colorClass = amount > 0 
-    ? "text-emerald-500" 
-    : amount < 0 
-    ? "text-rose-500" 
-    : "text-slate-500";
+  // Comma DS semantic money colors: Success when positive, Danger when negative, muted at zero.
+  const colorClass = amount > 0
+    ? "text-success"
+    : amount < 0
+    ? "text-destructive"
+    : "text-content-muted";
 
   const sizeClasses = {
-    sm: "text-xs",
-    md: "text-sm",
-    lg: "text-lg font-semibold",
-    xl: "text-2xl font-bold",
+    sm: "text-label-m",
+    md: "text-paragraph-m font-semibold",
+    lg: "text-heading-s font-semibold",
+    xl: "text-heading-l font-bold",
   };
 
   return (
     <Text
       className={cn(colorClass, sizeClasses[size], className)}
       variant={variant}
+      tabular
       {...props}
     >
       {formatted}

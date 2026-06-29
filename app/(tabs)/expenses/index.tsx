@@ -37,13 +37,13 @@ export type ExpenseCategoryId = string;
 const isWeb = Platform.OS === "web";
 
 // ─── Custom Icons ────────────────────────────────────────────────────────────
-const ChevronLeft = ({ size = 22, color = "#fff" }) => (
+const ChevronLeft = ({ size = 22, color = "#F6F6F7" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
     <Path d="m15 18-6-6 6-6" />
   </Svg>
 );
 
-const ChevronRight = ({ size = 22, color = "#fff" }) => (
+const ChevronRight = ({ size = 22, color = "#F6F6F7" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
     <Path d="m9 18 6-6-6-6" />
   </Svg>
@@ -117,9 +117,9 @@ function ExpenseRow({
         flexDirection: "row",
         alignItems: "center",
         gap: 14,
-        backgroundColor: "#0d0d0d",
+        backgroundColor: "#0F0F12",
         borderWidth: 0.8,
-        borderColor: "#1f1f1f",
+        borderColor: "#1E1E23",
         borderRadius: 20,
         paddingHorizontal: 16,
         paddingVertical: 14,
@@ -130,20 +130,20 @@ function ExpenseRow({
         style={{
           width: 46,
           height: 46,
-          backgroundColor: "#161615",
+          backgroundColor: "#16161A",
           borderWidth: 1,
-          borderColor: "#262522",
+          borderColor: "#1C1C21",
           borderRadius: 14,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <ExpenseCategoryIcon id={expense.category} size={20} color="#a1a1aa" />
+        <ExpenseCategoryIcon id={expense.category} size={20} color="#9B9BA4" />
       </View>
 
       <View style={{ flex: 1, gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <Text style={{ fontSize: 14, fontWeight: "700", color: "#ffffff" }}>
+          <Text style={{ fontSize: 14, fontWeight: "700", color: "#F6F6F7" }}>
             {cat.label}
           </Text>
           {expense.isDeductible && (
@@ -163,7 +163,7 @@ function ExpenseRow({
             </View>
           )}
         </View>
-        <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "500" }}>
+        <Text style={{ fontSize: 12, color: "#9B9BA4", fontWeight: "500" }}>
           {dateLabel}
           {expense.notes ? ` · ${expense.notes}` : ""}
         </Text>
@@ -400,8 +400,8 @@ export default function ExpensesScreen() {
         {/* ── Screen header ── */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 }}>
           <View>
-            <Text style={{ fontSize: 24, fontWeight: "900", color: "#ffffff", letterSpacing: -0.5 }}>Expenses</Text>
-            <Text style={{ fontSize: 12, color: "#71717a", fontWeight: "500", marginTop: 2 }}>Track deductible costs</Text>
+            <Text style={{ fontSize: 24, fontWeight: "900", color: "#F6F6F7", letterSpacing: -0.5 }}>Expenses</Text>
+            <Text style={{ fontSize: 12, color: "#9B9BA4", fontWeight: "500", marginTop: 2 }}>Track deductible costs</Text>
           </View>
           <TouchableOpacity
             onPress={() => router.push("/expense/add")}
@@ -420,14 +420,14 @@ export default function ExpensesScreen() {
             </Text>
             <View style={{ justifyContent: "center", alignItems: "center", marginLeft: 6 }}>
               <Svg width={10} height={6} viewBox="0 0 10 6" fill="none">
-                <Path d="M1 1L5 5L9 1" stroke="#a1a1aa" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M1 1L5 5L9 1" stroke="#9B9BA4" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </View>
           </Pressable>
 
           <View style={styles.navigationRow}>
             <Pressable onPress={handlePrevMonth} style={styles.arrowBtn}>
-              <ChevronLeft color="#fff" />
+              <ChevronLeft color="#F6F6F7" />
             </Pressable>
 
             <View style={styles.amountRow}>
@@ -442,7 +442,7 @@ export default function ExpensesScreen() {
               disabled={isCurrentOrFutureMonth}
               style={[styles.arrowBtn, isCurrentOrFutureMonth && { opacity: 0.35 }]}
             >
-              <ChevronRight color={isCurrentOrFutureMonth ? "#3f3f46" : "#fff"} />
+              <ChevronRight color={isCurrentOrFutureMonth ? "#2E2E36" : "#F6F6F7"} />
             </Pressable>
           </View>
         </View>
@@ -477,7 +477,7 @@ export default function ExpensesScreen() {
                     />
                   </View>
                   <Text style={[styles.chartDayLabel, {
-                    color: isSelected ? accentColor : "#71717a",
+                    color: isSelected ? accentColor : "#9B9BA4",
                     fontWeight: isSelected ? "800" : "600",
                   }]}>W{idx + 1}</Text>
                 </Pressable>
@@ -489,25 +489,25 @@ export default function ExpensesScreen() {
         {/* ── YTD summary Bento ── */}
         <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
           <View style={{ flexDirection: "row", gap: 12 }}>
-            <View style={{ flex: 1, backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, padding: 16 }}>
+            <View style={{ flex: 1, backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 20, padding: 16 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
                 <View style={{ backgroundColor: "#052e16", padding: 4, borderRadius: 8 }}>
                   <ArrowDownRight size={14} color="#4ade80" />
                 </View>
-                <Text style={{ fontSize: 10, fontWeight: "800", color: "#71717a", textTransform: "uppercase", letterSpacing: 1 }}>Deductible YTD</Text>
+                <Text style={{ fontSize: 10, fontWeight: "800", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 1 }}>Deductible YTD</Text>
               </View>
-              <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
+              <Text style={{ fontSize: 32, fontWeight: "800", color: "#F6F6F7", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                 {formatCurrency(ytdSummary?.deductible ?? 0, country)}
               </Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: "#0d0d0d", borderWidth: 0.8, borderColor: "#1f1f1f", borderRadius: 20, padding: 16 }}>
+            <View style={{ flex: 1, backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 20, padding: 16 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
                 <View style={{ backgroundColor: "#2e0f0f", padding: 4, borderRadius: 8 }}>
                   <ArrowUpRight size={14} color="#f87171" />
                 </View>
-                <Text style={{ fontSize: 10, fontWeight: "800", color: "#71717a", textTransform: "uppercase", letterSpacing: 1 }}>Standard YTD</Text>
+                <Text style={{ fontSize: 10, fontWeight: "800", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 1 }}>Standard YTD</Text>
               </View>
-              <Text style={{ fontSize: 32, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
+              <Text style={{ fontSize: 32, fontWeight: "800", color: "#F6F6F7", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                 {formatCurrency(ytdSummary?.nonDeductible ?? 0, country)}
               </Text>
             </View>
@@ -516,12 +516,12 @@ export default function ExpensesScreen() {
 
         {/* ── Transactions Header & Filter Toggle ── */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, marginBottom: 12 }}>
-          <Text style={{ fontSize: 18, fontWeight: "800", color: "#ffffff", letterSpacing: -0.5 }}>Transactions</Text>
+          <Text style={{ fontSize: 18, fontWeight: "800", color: "#F6F6F7", letterSpacing: -0.5 }}>Transactions</Text>
           <TouchableOpacity
             onPress={() => setIsFiltersVisible(!isFiltersVisible)}
-            style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: "#161615", borderWidth: 1, borderColor: isFiltersVisible ? accentColor : "#262522" }}
+            style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: "#16161A", borderWidth: 1, borderColor: isFiltersVisible ? accentColor : "#1C1C21" }}
           >
-            <Text style={{ fontSize: 11, fontWeight: "800", color: isFiltersVisible ? accentColor : "#71717a", textTransform: "uppercase" }}>Filters</Text>
+            <Text style={{ fontSize: 11, fontWeight: "800", color: isFiltersVisible ? accentColor : "#9B9BA4", textTransform: "uppercase" }}>Filters</Text>
           </TouchableOpacity>
         </View>
 
@@ -531,9 +531,9 @@ export default function ExpensesScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingBottom: 8 }}>
             <TouchableOpacity
               onPress={() => setFilterCategory("")}
-              style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, backgroundColor: !filterCategory ? accentColor + "20" : "#161615", borderColor: !filterCategory ? accentColor : "#262522" }}
+              style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, backgroundColor: !filterCategory ? accentColor + "20" : "#16161A", borderColor: !filterCategory ? accentColor : "#1C1C21" }}
             >
-              <Text style={{ fontSize: 12, fontWeight: "800", color: !filterCategory ? accentColor : "#71717a" }}>All Categories</Text>
+              <Text style={{ fontSize: 12, fontWeight: "800", color: !filterCategory ? accentColor : "#9B9BA4" }}>All Categories</Text>
             </TouchableOpacity>
             {expenseCategories.map((cat) => {
               const active = filterCategory === cat.id;
@@ -541,10 +541,10 @@ export default function ExpensesScreen() {
                 <TouchableOpacity
                   key={cat.id}
                   onPress={() => setFilterCategory(active ? "" : cat.id)}
-                  style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, backgroundColor: active ? accentColor + "20" : "#161615", borderColor: active ? accentColor : "#262522" }}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, backgroundColor: active ? accentColor + "20" : "#16161A", borderColor: active ? accentColor : "#1C1C21" }}
                 >
-                  <ExpenseCategoryIcon id={cat.id} size={14} color={active ? accentColor : "#71717a"} />
-                  <Text style={{ fontSize: 12, fontWeight: "800", color: active ? accentColor : "#71717a" }}>{cat.label}</Text>
+                  <ExpenseCategoryIcon id={cat.id} size={14} color={active ? accentColor : "#9B9BA4"} />
+                  <Text style={{ fontSize: 12, fontWeight: "800", color: active ? accentColor : "#9B9BA4" }}>{cat.label}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -556,9 +556,9 @@ export default function ExpensesScreen() {
                 <TouchableOpacity
                   key={key}
                   onPress={() => setFilterDeductible(key)}
-                  style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, backgroundColor: active ? (key === "yes" ? "#052e16" : key === "no" ? "#2e0f0f" : "#262522") : "#161615", borderColor: active ? (key === "yes" ? "#166534" : key === "no" ? "#451a1a" : "#3f3f46") : "#262522" }}
+                  style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, backgroundColor: active ? (key === "yes" ? "#052e16" : key === "no" ? "#2e0f0f" : "#1C1C21") : "#16161A", borderColor: active ? (key === "yes" ? "#166534" : key === "no" ? "#451a1a" : "#2E2E36") : "#1C1C21" }}
                 >
-                  <Text style={{ fontSize: 10, fontWeight: "800", textTransform: "uppercase", color: active ? (key === "yes" ? "#4ade80" : key === "no" ? "#f87171" : "#ffffff") : "#52525b" }}>{label}</Text>
+                  <Text style={{ fontSize: 10, fontWeight: "800", textTransform: "uppercase", color: active ? (key === "yes" ? "#4ade80" : key === "no" ? "#f87171" : "#F6F6F7") : "#65656E" }}>{label}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -682,19 +682,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     marginBottom: 20,
     alignSelf: "center",
   },
   weekLabel: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#a1a1aa",
+    color: "#9B9BA4",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -708,9 +708,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderWidth: 0.8,
-    borderColor: "#262522",
+    borderColor: "#1C1C21",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -732,17 +732,17 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 40,
     fontWeight: "800",
-    color: "#fff",
+    color: "#F6F6F7",
     letterSpacing: -0.5,
     lineHeight: 48,
     paddingVertical: 2,
     includeFontPadding: false,
   },
   chartContainer: {
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     borderRadius: 20,
     borderWidth: 0.8,
-    borderColor: "#1f1f1f",
+    borderColor: "#1E1E23",
     padding: 16,
     marginHorizontal: 16,
     marginBottom: 20,
@@ -765,13 +765,13 @@ const styles = StyleSheet.create({
     borderColor: "rgba(113, 113, 122, 0.25)",
   },
   highBadge: {
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#0F0F12",
     paddingLeft: 8,
   },
   highBadgeText: {
     fontSize: 9,
     fontWeight: "700",
-    color: "#a1a1aa",
+    color: "#9B9BA4",
     letterSpacing: 0.5,
   },
   chartRow: {
@@ -790,7 +790,7 @@ const styles = StyleSheet.create({
   barTrack: {
     width: 14,
     height: 64,
-    backgroundColor: "#161615",
+    backgroundColor: "#16161A",
     borderRadius: 7,
     overflow: "hidden",
     justifyContent: "flex-end",
@@ -802,28 +802,28 @@ const styles = StyleSheet.create({
   chartDayLabel: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#71717a",
+    color: "#9B9BA4",
   },
   modalRoot: { flex: 1, backgroundColor: "#000" },
-  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 0.5, borderBottomColor: "#1f1f1f" },
-  modalTitle: { fontSize: 18, fontWeight: "800", color: "#fff" },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 0.5, borderBottomColor: "#1E1E23" },
+  modalTitle: { fontSize: 18, fontWeight: "800", color: "#F6F6F7" },
   closeBtnText: { fontSize: 14, fontWeight: "600" },
-  tableHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 22, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: "#111" },
-  tableHeaderLeft: { fontSize: 11, fontWeight: "700", color: "#71717a", textTransform: "uppercase", letterSpacing: 0.5 },
-  tableHeaderRight: { fontSize: 10, fontWeight: "800", color: "#71717a", letterSpacing: 0.4 },
+  tableHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 22, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: "#0F0F12" },
+  tableHeaderLeft: { fontSize: 11, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 0.5 },
+  tableHeaderRight: { fontSize: 10, fontWeight: "800", color: "#9B9BA4", letterSpacing: 0.4 },
   modalScroll: { paddingVertical: 8 },
-  weekCard: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderWidth: 0.8, borderColor: "#1f1f1f", backgroundColor: "#0d0d0d", borderRadius: 20, marginHorizontal: 16, marginVertical: 6 },
+  weekCard: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderWidth: 0.8, borderColor: "#1E1E23", backgroundColor: "#0F0F12", borderRadius: 20, marginHorizontal: 16, marginVertical: 6 },
   weekInfo: { gap: 4 },
-  weekRangeText: { fontSize: 12, fontWeight: "600", color: "#a1a1aa" },
-  weekAmountText: { fontSize: 18, fontWeight: "900", color: "#fff", letterSpacing: -0.4 },
+  weekRangeText: { fontSize: 12, fontWeight: "600", color: "#9B9BA4" },
+  weekAmountText: { fontSize: 18, fontWeight: "900", color: "#F6F6F7", letterSpacing: -0.4 },
   miniGraph: { flexDirection: "row", alignItems: "flex-end", gap: 4 },
   miniGraphCol: { alignItems: "center", gap: 4 },
-  miniBarTrack: { width: 8, height: 32, backgroundColor: "#161615", borderRadius: 4, overflow: "hidden", justifyContent: "flex-end" },
+  miniBarTrack: { width: 8, height: 32, backgroundColor: "#16161A", borderRadius: 4, overflow: "hidden", justifyContent: "flex-end" },
   miniBarFill: { width: "100%", borderRadius: 4 },
-  miniDateText: { fontSize: 8, fontWeight: "700", color: "#71717a" },
-  modalFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 0.5, borderTopColor: "#1f1f1f", backgroundColor: "#000" },
-  pageBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#161615", borderWidth: 0.8, borderColor: "#262522" },
+  miniDateText: { fontSize: 8, fontWeight: "700", color: "#9B9BA4" },
+  modalFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 0.5, borderTopColor: "#1E1E23", backgroundColor: "#000" },
+  pageBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#16161A", borderWidth: 0.8, borderColor: "#1C1C21" },
   pageBtnDisabled: { opacity: 0.35 },
-  pageBtnText: { fontSize: 12, fontWeight: "700", color: "#fff" },
-  pageIndicator: { fontSize: 12, fontWeight: "600", color: "#71717a" },
+  pageBtnText: { fontSize: 12, fontWeight: "700", color: "#F6F6F7" },
+  pageIndicator: { fontSize: 12, fontWeight: "600", color: "#9B9BA4" },
 });

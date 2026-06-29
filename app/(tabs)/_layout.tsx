@@ -571,21 +571,34 @@ export default function TabLayout() {
                 style={[
                   styles.menuItem,
                   active
-                    ? [styles.menuItemActive, { backgroundColor: "rgba(255, 255, 255, 0.03)", borderColor: "#1f1f1f", borderWidth: 0.8 }]
+                    ? { backgroundColor: accentColor + "1A", borderWidth: 0.8, borderColor: accentColor + "40" }
                     : styles.menuItemInactive,
                 ]}
               >
+                {active && (
+                  <View
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: "20%",
+                      bottom: "20%",
+                      width: 3,
+                      backgroundColor: accentColor,
+                      borderRadius: 2,
+                    }}
+                  />
+                )}
                 <View style={styles.menuIconContainer}>
                   <Icon
                     size={20}
-                    color={active ? accentColor : "#64748b"}
-                    strokeWidth={active ? 2.5 : 2}
+                    color={active ? accentColor : "#6b7280"}
+                    strokeWidth={active ? 2.5 : 1.8}
                   />
                 </View>
                 <Text
                   style={[
                     styles.menuText,
-                    active ? [styles.menuTextActive, { color: "#ffffff" }] : styles.menuTextInactive,
+                    active ? styles.menuTextActive : styles.menuTextInactive,
                   ]}
                 >
                   {item.label}
@@ -822,7 +835,7 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: "#000000",
+    backgroundColor: "#12110f",
     borderRightWidth: 0.8,
     borderRightColor: "#1f1f1f",
     zIndex: 1,
@@ -872,16 +885,16 @@ const styles = StyleSheet.create({
 
   profileSectionContainer: {
     paddingHorizontal: 16,
-    paddingTop: 20,
-    paddingBottom: 12,
-    gap: 10,
+    paddingTop: 12,
+    paddingBottom: 10,
+    gap: 8,
   },
   sidebarName: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: "800",
     color: "#ffffff",
-    letterSpacing: -0.5,
-    lineHeight: 36,
+    letterSpacing: -0.3,
+    lineHeight: 26,
     includeFontPadding: false,
   },
   sidebarPlatformRow: {
@@ -915,9 +928,6 @@ const styles = StyleSheet.create({
     gap: 12,
     position: "relative",
   },
-  menuItemActive: {
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-  },
   menuItemInactive: {
     backgroundColor: "transparent",
   },
@@ -933,10 +943,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuTextActive: {
-    color: "#ffffff",
+    color: "#f4f4f5",
   },
   menuTextInactive: {
-    color: "#64748b",
+    color: "#71717a",
   },
   drawerFooter: {
     padding: 16,

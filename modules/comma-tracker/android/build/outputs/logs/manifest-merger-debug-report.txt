@@ -1,25 +1,51 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:1:1-10:12
-INJECTED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:1:1-10:12
+ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:1:1-27:12
+INJECTED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:1:1-27:12
 	package
 		INJECTED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml
 	xmlns:android
 		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:1:11-69
-application
-ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:2:3-9:17
-service#expo.modules.commatracker.LocationTrackingService
-ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:3:5-8:50
-	android:enabled
-		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:5:7-29
-	android:exported
-		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:6:7-31
-	android:stopWithTask
-		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:7:7-35
-	android:foregroundServiceType
-		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:8:7-47
+uses-permission#android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:4:3-93
 	android:name
-		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:4:7-71
+		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:4:20-90
+uses-permission#android.permission.SCHEDULE_EXACT_ALARM
+ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:6:3-77
+	android:name
+		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:6:20-74
+application
+ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:8:3-26:17
+service#expo.modules.commatracker.LocationTrackingService
+ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:9:5-14:50
+	android:enabled
+		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:11:7-29
+	android:exported
+		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:12:7-31
+	android:stopWithTask
+		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:13:7-35
+	android:foregroundServiceType
+		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:14:7-47
+	android:name
+		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:10:7-71
+receiver#expo.modules.commatracker.BootReceiver
+ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:17:5-25:16
+	android:enabled
+		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:19:7-29
+	android:exported
+		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:20:7-30
+	android:name
+		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:18:7-60
+intent-filter#action:name:android.intent.action.BOOT_COMPLETED+action:name:android.intent.action.QUICKBOOT_POWERON
+ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:21:7-24:23
+action#android.intent.action.BOOT_COMPLETED
+ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:22:9-71
+	android:name
+		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:22:17-68
+action#android.intent.action.QUICKBOOT_POWERON
+ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:23:9-74
+	android:name
+		ADDED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:23:17-71
 uses-sdk
 INJECTED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml

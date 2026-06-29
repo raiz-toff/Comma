@@ -3,21 +3,52 @@
 3    package="expo.modules.commatracker" >
 4
 5    <uses-sdk android:minSdkVersion="24" />
-6
-7    <application>
-7-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:2:3-9:17
-8        <service
-8-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:3:5-8:50
-9            android:name="expo.modules.commatracker.LocationTrackingService"
-9-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:4:7-71
-10            android:enabled="true"
-10-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:5:7-29
-11            android:exported="false"
-11-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:6:7-31
-12            android:foregroundServiceType="location"
-12-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:8:7-47
-13            android:stopWithTask="false" />
-13-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:7:7-35
-14    </application>
-15
-16</manifest>
+6    <!--
+7       Exempts the app from battery optimization so OEM killers (Samsung, Xiaomi, etc.)
+8       don't kill the foreground service when the app is swiped from recents.
+9    -->
+10    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+10-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:4:3-93
+10-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:4:20-90
+11    <!-- Allows setExactAndAllowWhileIdle() to fire reliably through Doze mode (API 31+). -->
+12    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+12-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:6:3-77
+12-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:6:20-74
+13
+14    <application>
+14-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:8:3-26:17
+15        <service
+15-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:9:5-14:50
+16            android:name="expo.modules.commatracker.LocationTrackingService"
+16-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:10:7-71
+17            android:enabled="true"
+17-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:11:7-29
+18            android:exported="false"
+18-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:12:7-31
+19            android:foregroundServiceType="location"
+19-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:14:7-47
+20            android:stopWithTask="false" />
+20-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:13:7-35
+21
+22        <!-- Restarts the tracking service after the device reboots mid-shift. -->
+23        <receiver
+23-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:17:5-25:16
+24            android:name="expo.modules.commatracker.BootReceiver"
+24-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:18:7-60
+25            android:enabled="true"
+25-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:19:7-29
+26            android:exported="true" >
+26-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:20:7-30
+27            <intent-filter>
+27-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:21:7-24:23
+28                <action android:name="android.intent.action.BOOT_COMPLETED" />
+28-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:22:9-71
+28-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:22:17-68
+29                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+29-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:23:9-74
+29-->/home/coder/Production/commaApp/modules/comma-tracker/android/src/main/AndroidManifest.xml:23:17-71
+30            </intent-filter>
+31        </receiver>
+32    </application>
+33
+34</manifest>

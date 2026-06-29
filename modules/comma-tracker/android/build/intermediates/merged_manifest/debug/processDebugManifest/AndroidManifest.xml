@@ -3,6 +3,13 @@
     package="expo.modules.commatracker" >
 
     <uses-sdk android:minSdkVersion="24" />
+    <!--
+       Exempts the app from battery optimization so OEM killers (Samsung, Xiaomi, etc.)
+       don't kill the foreground service when the app is swiped from recents.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Allows setExactAndAllowWhileIdle() to fire reliably through Doze mode (API 31+). -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application>
         <service
@@ -11,6 +18,17 @@
             android:exported="false"
             android:foregroundServiceType="location"
             android:stopWithTask="false" />
+
+        <!-- Restarts the tracking service after the device reboots mid-shift. -->
+        <receiver
+            android:name="expo.modules.commatracker.BootReceiver"
+            android:enabled="true"
+            android:exported="true" >
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

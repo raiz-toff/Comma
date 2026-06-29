@@ -14,6 +14,9 @@ class CommaTrackerModule : Module() {
       val context = appContext.reactContext
       if (context != null) {
         Log.d("CommaTrackerModule", "startTracking called, launching foreground service")
+        // Write flag BEFORE starting the service so onStartCommand sees it
+        val prefs = context.getSharedPreferences("CommaTracker", android.content.Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("tracking_active", true).apply()
         val intent = Intent(context, LocationTrackingService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
           context.startForegroundService(intent)
@@ -27,6 +30,9 @@ class CommaTrackerModule : Module() {
       val context = appContext.reactContext
       if (context != null) {
         Log.d("CommaTrackerModule", "stopTracking called, stopping service")
+        // Clear flag BEFORE stopping so onDestroy does not schedule a restart
+        val prefs = context.getSharedPreferences("CommaTracker", android.content.Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("tracking_active", false).apply()
         val intent = Intent(context, LocationTrackingService::class.java)
         context.stopService(intent)
       }

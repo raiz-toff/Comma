@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="expo.modules.commatracker" >
+
+    <uses-sdk android:minSdkVersion="24" />
+
+    <application>
+        <service
+            android:name="expo.modules.commatracker.LocationTrackingService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="location"
+            android:stopWithTask="false" />
+    </application>
+
+</manifest>

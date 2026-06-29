@@ -1,10 +1,10 @@
 import { useEffect } from "react";
 import { Platform } from "react-native";
 import * as Location from "expo-location";
-import * as TaskManager from "expo-task-manager";
+import * as Notifications from "expo-notifications";
 import { useActiveShift } from "../store/useActiveShift";
+import CommaTracker from "../modules/comma-tracker";
 
-const LOCATION_TASK_NAME = "COMMA_BACKGROUND_LOCATION_TASK";
 const isWeb = Platform.OS === "web";
 
 
@@ -27,21 +27,23 @@ export function useGPSTracking() {
         return;
       }
 
-      await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-        accuracy: Location.Accuracy.High,
-        timeInterval: 5000,
-        distanceInterval: 10,
-        deferredUpdatesInterval: 10000,
-        deferredUpdatesDistance: 50,
-        showsBackgroundLocationIndicator: true,
-        activityType: Location.ActivityType.AutomotiveNavigation,
-        foregroundService: {
-          notificationTitle: "Comma GPS Tracking",
-          notificationBody: "Tracking delivery miles in background.",
-          notificationColor: "#10b981",
-        },
-        pausesUpdatesAutomatically: false,
-      });
+      // Android 13+ suppresses the foreground-service notification unless
+      // POST_NOTIFICATIONS is granted. Request it so the "Recording mileage"
+      // notification is actually visible. Non-blocking — tracking proceeds regardless.
+      try {
+        const { status: notifStatus } = await Notifications.getPermissionsAsync();
+        if (notifStatus !== "granted") {
+          await Notifications.requestPermissionsAsync();
+        }
+      } catch (notifErr) {
+        console.warn("Notification permission request failed:", notifErr);
+      }
+
+      // Launch the native foreground service (CommaTrackerModule.kt →
+      // LocationTrackingService.kt). It shows the ongoing notification and
+      // writes GPS points into the temp_native_points table, which endShift() reads.
+      console.log("[useGPSTracking] Permissions granted — starting native CommaTracker service.");
+      CommaTracker.startTracking();
     } catch (err) {
       console.error("Failed to start location updates:", err);
     }
@@ -51,15 +53,10 @@ export function useGPSTracking() {
     if (isWeb) return;
 
     try {
-      const isRegistered = await TaskManager.isTaskRegisteredAsync(LOCATION_TASK_NAME);
-      if (isRegistered) {
-        const hasStarted = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
-        if (hasStarted) {
-          await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
-        }
-      }
+      console.log("[useGPSTracking] Stopping native CommaTracker service.");
+      CommaTracker.stopTracking();
     } catch (err) {
-      // Silence no-op task exceptions
+      // Silence no-op exceptions when the service was never running
     }
   };
 

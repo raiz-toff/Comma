@@ -37,6 +37,7 @@ export function useGoogleDriveSync() {
   const [isRestoring, setIsRestoring] = useState(false);
   const [backups, setBackups] = useState<DriveBackupFile[]>([]);
   const [lastBackup, setLastBackup] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const discovery = {
     authorizationEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
@@ -61,6 +62,12 @@ export function useGoogleDriveSync() {
     setIsAuthenticated(!!tokens);
     if (tokens) {
       loadBackupsList();
+      if (!isWeb && GoogleSignin) {
+        try {
+          const current = await GoogleSignin.getCurrentUser();
+          setUserEmail(current?.user?.email ?? current?.data?.user?.email ?? null);
+        } catch {}
+      }
     }
   };
 
@@ -110,7 +117,8 @@ export function useGoogleDriveSync() {
       }
       try {
         await GoogleSignin.hasPlayServices();
-        await GoogleSignin.signIn();
+        const userInfo = await GoogleSignin.signIn();
+        setUserEmail(userInfo?.data?.user?.email ?? userInfo?.user?.email ?? null);
         const tokens = await GoogleSignin.getTokens();
         
         const expiryTime = Date.now() + 3600 * 1000; // estimate 1 hour
@@ -141,6 +149,7 @@ export function useGoogleDriveSync() {
     }
     setIsAuthenticated(false);
     setBackups([]);
+    setUserEmail(null);
   };
 
   const loadBackupsList = async () => {
@@ -184,6 +193,7 @@ export function useGoogleDriveSync() {
 
   return {
     isAuthenticated,
+    userEmail,
     isBackingUp,
     isRestoring,
     backups,

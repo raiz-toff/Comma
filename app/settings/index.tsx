@@ -46,7 +46,6 @@ import { getDBPlatforms, updateDBPlatform } from "@/src/database/queries/platfor
 import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
 import { db } from "@/src/database/client";
 import { settings, shifts, expenses } from "@/src/database/schema";
-import { useGoogleDriveSync } from "@/hooks/useGoogleDriveSync";
 import { generateShiftsCSV, generateExpensesCSV } from "@/utils/reportGenerator";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { notify } from "@/src/services/notify";
@@ -561,12 +560,6 @@ export default function SettingsScreen() {
   const [exportBusy, setExportBusy] = useState(false);
   const [exportDialog, setExportDialog] = useState<{ variant: FeedbackVariant; title: string; message?: string } | null>(null);
 
-  // Google Drive sync hook — swap with your actual implementation
-  const {
-    isAuthenticated, isBackingUp, isRestoring,
-    backups, login, logout, triggerBackup, triggerRestore,
-  } = useGoogleDriveSync();
-  const [backupPassword, setBackupPassword] = useState("");
 
   // ── Navigate to tab from route param ────────────────────────────────────────
   useEffect(() => {
@@ -1564,78 +1557,12 @@ export default function SettingsScreen() {
             <GroupLabel text="Cloud Backup" />
             <Card>
               <Row
-                label="Google Drive"
-                hint={isAuthenticated ? "Connected — sync active" : "Link your Drive to enable backups"}
-                last={!isAuthenticated}
+                label="Google Drive Backup"
+                hint="Connect, set a password, and back up or restore your data — all in one guided place."
+                last
               >
-                <Btn
-                  label={isAuthenticated ? "Disconnect" : "Connect"}
-                  variant={isAuthenticated ? "danger" : "primary"}
-                  onPress={isAuthenticated ? logout : login}
-                />
+                <Btn label="Open" variant="primary" onPress={() => router.push("/settings/backup")} />
               </Row>
-              {isAuthenticated && (
-                <>
-                  <Row
-                    label="Backup password"
-                    hint="Encrypts your backup. You'll need this exact password to restore — even on a new phone. If you forget it, the backup can't be recovered."
-                    last={false}
-                  >
-                    <InlineInput
-                      value={backupPassword}
-                      onChangeText={setBackupPassword}
-                      secureTextEntry
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      placeholder="Choose a password"
-                    />
-                  </Row>
-                  <Row
-                    label="Backup now"
-                    hint={backupPassword.length < 6 ? "Password must be at least 6 characters." : undefined}
-                    last={backups.length === 0}
-                  >
-                    <Btn
-                      label={isBackingUp ? "Backing up…" : "Run backup"}
-                      variant="primary"
-                      disabled={isBackingUp || isRestoring || backupPassword.length < 6}
-                      onPress={() => triggerBackup(backupPassword).catch((e) => Alert.alert("Backup failed", e.message))}
-                    />
-                  </Row>
-                  {backups.length > 0 && (
-                    <>
-                      <Sep />
-                      {backups.map((b, i) => (
-                        <Row
-                          key={b.id}
-                          label={b.name}
-                          hint={new Date(b.createdTime).toLocaleString()}
-                          last={i === backups.length - 1}
-                        >
-                          <Btn
-                            label="Restore"
-                            variant="ghost"
-                            disabled={isBackingUp || isRestoring}
-                            onPress={() =>
-                              Alert.alert("Restore backup", "This will overwrite all local data.", [
-                                { text: "Cancel", style: "cancel" },
-                                {
-                                  text: "Restore",
-                                  style: "destructive",
-                                  onPress: () =>
-                                    triggerRestore(b.id, backupPassword).catch((e) =>
-                                      Alert.alert("Restore failed", e.message),
-                                    ),
-                                },
-                              ])
-                            }
-                          />
-                        </Row>
-                      ))}
-                    </>
-                  )}
-                </>
-              )}
             </Card>
 
             <GroupLabel text="Import / Export" />

@@ -1,8 +1,21 @@
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { db } from "../database/client";
-import { vehicles, shifts, expenses, goals, settings } from "../database/schema";
-import { getOrCreateEncryptionKey, encrypt, decrypt } from "./cryptoHelper";
+import {
+  vehicles,
+  maintenanceLogs,
+  shifts,
+  expenses,
+  goals,
+  settings,
+  taxHistory,
+  platforms,
+  shiftPlatforms,
+  merchants,
+  vehicleTaxProfiles,
+} from "../database/schema";
+import { encryptBackup, decryptBackup } from "./cryptoHelper";
+import { GOOGLE_WEB_CLIENT_ID } from "../config/google";
 
 let GoogleSignin: any = null;
 try {
@@ -45,7 +58,7 @@ export async function refreshGoogleToken(refreshToken: string): Promise<string> 
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `client_id=YOUR_CLIENT_ID&refresh_token=${refreshToken}&grant_type=refresh_token`,
+    body: `client_id=${GOOGLE_WEB_CLIENT_ID}&refresh_token=${refreshToken}&grant_type=refresh_token`,
   });
 
   if (!response.ok) {
@@ -85,75 +98,138 @@ export async function getValidAccessToken(): Promise<string> {
   return tokens.accessToken;
 }
 
+// ─── Backup payload tables ───────────────────────────────────────────────────
+
+/**
+ * Tables included in a backup, ordered parents → children so that inserts on
+ * restore satisfy foreign-key references. Restore deletes in reverse order.
+ *
+ * Intentionally excluded: `locationPoints` and `tempNativePoints` — raw GPS
+ * breadcrumbs that are bulky and reconstructable. Each shift already stores its
+ * aggregated mileage plus an encoded `routePath`, so the meaningful route data
+ * survives a restore without bloating every backup with thousands of points.
+ */
+const BACKUP_TABLES = [
+  { name: "vehicles", table: vehicles },
+  { name: "platforms", table: platforms },
+  { name: "merchants", table: merchants },
+  { name: "goals", table: goals },
+  { name: "settings", table: settings },
+  { name: "taxHistory", table: taxHistory },
+  { name: "shifts", table: shifts },
+  { name: "maintenanceLogs", table: maintenanceLogs },
+  { name: "expenses", table: expenses },
+  { name: "shiftPlatforms", table: shiftPlatforms },
+  { name: "vehicleTaxProfiles", table: vehicleTaxProfiles },
+] as const;
+
+/**
+ * Drizzle `{ mode: 'timestamp' }` columns surface as `Date`, which JSON serializes
+ * to an ISO string. On restore those strings must be turned back into `Date` before
+ * insert, or Drizzle's timestamp mapper throws. Keep this in sync with the schema.
+ */
+const TIMESTAMP_FIELDS: Record<string, readonly string[]> = {
+  vehicles: ["createdAt"],
+  goals: ["createdAt"],
+  taxHistory: ["changedAt"],
+  shifts: ["startTime", "endTime"],
+  maintenanceLogs: ["date"],
+  expenses: ["date"],
+};
+
+/** Minimum backup password length. The password is the ONLY thing protecting the
+ *  backup (the key derives from it alone), so reject trivially short ones. */
+export const MIN_PASSPHRASE_LENGTH = 6;
+
+/** Bumped from the original v1 (5 tables, device-bound key) to v2 (all user-data
+ *  tables, password-only key that restores on any device). */
+export const BACKUP_SCHEMA_VERSION = 2;
+
+interface BackupPayload {
+  version: number;
+  app: "comma";
+  createdAt: string;
+  tables: Record<string, Record<string, unknown>[]>;
+}
+
+function reviveTimestamps(
+  tableName: string,
+  row: Record<string, unknown>
+): Record<string, unknown> {
+  const fields = TIMESTAMP_FIELDS[tableName];
+  if (!fields) return row;
+  const out: Record<string, unknown> = { ...row };
+  for (const f of fields) {
+    if (out[f] != null) out[f] = new Date(out[f] as string | number);
+  }
+  return out;
+}
+
 // ─── Backup Flow ─────────────────────────────────────────────────────────────
 
-export async function backupToDrive(pin: string = "1234"): Promise<void> {
-  let vehiclesList: any[] = [];
-  let shiftsList: any[] = [];
-  let expensesList: any[] = [];
-  let goalsList: any[] = [];
-  let settingsList: any[] = [];
-
-  if (isWeb) {
-    const v = localStorage.getItem("comma_vehicles");
-    const s = localStorage.getItem("comma_shifts");
-    const e = localStorage.getItem("comma_expenses");
-    const g = localStorage.getItem("comma_goals");
-    const st = localStorage.getItem("comma_settings");
-    vehiclesList = v ? JSON.parse(v) : [];
-    shiftsList = s ? JSON.parse(s) : [];
-    expensesList = e ? JSON.parse(e) : [];
-    goalsList = g ? JSON.parse(g) : [];
-    settingsList = st ? JSON.parse(st) : [];
-  } else {
-    vehiclesList = await db.select().from(vehicles);
-    shiftsList = await db.select().from(shifts);
-    expensesList = await db.select().from(expenses);
-    goalsList = await db.select().from(goals);
-    settingsList = await db.select().from(settings);
+export async function backupToDrive(passphrase: string): Promise<void> {
+  if (!passphrase || passphrase.length < MIN_PASSPHRASE_LENGTH) {
+    throw new Error(`Backup password must be at least ${MIN_PASSPHRASE_LENGTH} characters.`);
   }
 
-  const exportPayload = {
-    version: 1,
-    vehicles: vehiclesList,
-    shifts: shiftsList,
-    expenses: expensesList,
-    goals: goalsList,
-    settings: settingsList,
+  const tables: Record<string, Record<string, unknown>[]> = {};
+  if (isWeb) {
+    for (const { name } of BACKUP_TABLES) {
+      const raw = localStorage.getItem(`comma_${name}`);
+      tables[name] = raw ? JSON.parse(raw) : [];
+    }
+  } else {
+    for (const { name, table } of BACKUP_TABLES) {
+      tables[name] = await db.select().from(table);
+    }
+  }
+
+  const payload: BackupPayload = {
+    version: BACKUP_SCHEMA_VERSION,
+    app: "comma",
+    createdAt: new Date().toISOString(),
+    tables,
   };
 
-  const serialized = JSON.stringify(exportPayload);
-  const key = await getOrCreateEncryptionKey(pin);
-  const encrypted = await encrypt(serialized, key);
+  const envelope = await encryptBackup(JSON.stringify(payload), passphrase);
 
-  // Upload to GDrive appDataFolder
+  // Upload to the Drive appDataFolder via a multipart/related request. We build the
+  // body as a plain string rather than FormData + Blob: React Native's FormData does
+  // not reliably serialize Blob parts, whereas a manual multipart body always works,
+  // and both of our parts (metadata + encrypted envelope) are text anyway.
   const accessToken = await getValidAccessToken();
   const metadata = {
-    name: `comma-backup-${new Date().toISOString().split("T")[0]}.comdb`,
+    // Full timestamp (": " and "." are not filename-safe) so multiple backups in one
+    // day don't collide.
+    name: `comma-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.comdb`,
     parents: ["appDataFolder"],
   };
 
-  const form = new FormData();
-  form.append(
-    "metadata",
-    new Blob([JSON.stringify(metadata)], { type: "application/json" })
-  );
-  form.append(
-    "file",
-    new Blob([encrypted], { type: "application/octet-stream" })
-  );
+  const boundary = "comma_backup_boundary";
+  const body =
+    `--${boundary}\r\n` +
+    `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+    `${JSON.stringify(metadata)}\r\n` +
+    `--${boundary}\r\n` +
+    `Content-Type: application/octet-stream\r\n\r\n` +
+    `${envelope}\r\n` +
+    `--${boundary}--`;
 
   const response = await fetch(
     "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
     {
       method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}` },
-      body: form,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": `multipart/related; boundary=${boundary}`,
+      },
+      body,
     }
   );
 
   if (!response.ok) {
-    throw new Error("Google Drive file upload failed.");
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Google Drive upload failed (${response.status}). ${detail}`.trim());
   }
 
   // Update last backup timestamp
@@ -196,7 +272,9 @@ export async function listBackups(): Promise<DriveBackupFile[]> {
   return data.files || [];
 }
 
-export async function restoreFromDrive(fileId: string, pin: string = "1234"): Promise<void> {
+export async function restoreFromDrive(fileId: string, passphrase: string): Promise<void> {
+  if (!passphrase) throw new Error("Enter the backup password to restore.");
+
   const accessToken = await getValidAccessToken();
   const response = await fetch(
     `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
@@ -209,38 +287,44 @@ export async function restoreFromDrive(fileId: string, pin: string = "1234"): Pr
     throw new Error("Failed to download backup file.");
   }
 
-  const encryptedText = await response.text();
-  const key = await getOrCreateEncryptionKey(pin);
-  const decryptedText = await decrypt(encryptedText, key);
-  const payload = JSON.parse(decryptedText);
+  const envelope = await response.text();
+  const decryptedText = await decryptBackup(envelope, passphrase);
 
-  // Validate Schema
-  if (!payload || payload.version !== 1 || !Array.isArray(payload.vehicles)) {
-    throw new Error("Invalid backup file schema.");
+  let payload: BackupPayload;
+  try {
+    payload = JSON.parse(decryptedText) as BackupPayload;
+  } catch {
+    throw new Error("Backup contents are corrupted.");
+  }
+  if (!payload || !payload.tables || typeof payload.tables !== "object") {
+    throw new Error("Invalid backup file structure.");
   }
 
   if (isWeb) {
-    localStorage.setItem("comma_vehicles", JSON.stringify(payload.vehicles));
-    localStorage.setItem("comma_shifts", JSON.stringify(payload.shifts || []));
-    localStorage.setItem("comma_expenses", JSON.stringify(payload.expenses || []));
-    localStorage.setItem("comma_goals", JSON.stringify(payload.goals || []));
-    localStorage.setItem("comma_settings", JSON.stringify(payload.settings || []));
-  } else {
-    // Perform SQLite restore inside transaction
-    await db.transaction(async (tx: any) => {
-      // Wipe Tables
-      await tx.delete(vehicles);
-      await tx.delete(shifts);
-      await tx.delete(expenses);
-      await tx.delete(goals);
-      await tx.delete(settings);
-
-      // Populate
-      for (const row of payload.vehicles) await tx.insert(vehicles).values(row);
-      for (const row of payload.shifts || []) await tx.insert(shifts).values(row);
-      for (const row of payload.expenses || []) await tx.insert(expenses).values(row);
-      for (const row of payload.goals || []) await tx.insert(goals).values(row);
-      for (const row of payload.settings || []) await tx.insert(settings).values(row);
-    });
+    for (const { name } of BACKUP_TABLES) {
+      if (payload.tables[name]) {
+        localStorage.setItem(`comma_${name}`, JSON.stringify(payload.tables[name]));
+      }
+    }
+    return;
   }
+
+  // Native: restore inside a single transaction so a failure can't leave a
+  // half-wiped database.
+  await db.transaction(async (tx: any) => {
+    // Delete children → parents, but only for tables actually present in this
+    // backup — so an older/partial backup never wipes data it doesn't contain.
+    for (let i = BACKUP_TABLES.length - 1; i >= 0; i--) {
+      const { name, table } = BACKUP_TABLES[i];
+      if (payload.tables[name]) await tx.delete(table);
+    }
+    // Insert parents → children.
+    for (const { name, table } of BACKUP_TABLES) {
+      const rows = payload.tables[name];
+      if (!rows || !rows.length) continue;
+      for (const row of rows) {
+        await tx.insert(table).values(reviveTimestamps(name, row));
+      }
+    }
+  });
 }

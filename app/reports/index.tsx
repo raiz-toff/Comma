@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   Pressable,
   ActivityIndicator,
-  Alert,
   Platform,
   Modal,
   StyleSheet,
@@ -16,6 +15,7 @@ import { router } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { DatePickerModal } from "@/src/components/ui/DatePickerModal";
+import { FeedbackDialog, BusyOverlay, type FeedbackVariant } from "@/src/components/ui/FeedbackDialog";
 import { X, FileText, Table, BarChart2, Download, CalendarDays, Settings } from "lucide-react-native";
 import Svg, { Path } from "react-native-svg";
 import { Text } from "@/src/components/ui/text";
@@ -24,6 +24,7 @@ import { generateShiftsCSV, generateExpensesCSV, generatePDFSummary } from "@/ut
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
+import { notifyExport } from "@/src/services/notify";
 
 const isWeb = Platform.OS === "web";
 
@@ -107,6 +108,14 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
   const [periodMode, setPeriodMode] = useState<PeriodMode>("month");
   const [selectedMonth, setSelectedMonth] = useState<Date>(() => startOfMonth(new Date()));
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // ── Export feedback state ──────────────────────────────────────────────────
+  const [busyExport, setBusyExport] = useState<null | "shifts" | "expenses" | "pdf">(null);
+  const [dialog, setDialog] = useState<{ variant: FeedbackVariant; title: string; message?: string } | null>(null);
+  const showDialog = useCallback(
+    (variant: FeedbackVariant, title: string, message?: string) => setDialog({ variant, title, message }),
+    [],
+  );
   const [selectorYear, setSelectorYear] = useState(() => new Date().getFullYear());
   const [customStart, setCustomStart] = useState<Date>(() => {
     const d = new Date();
@@ -276,68 +285,107 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
   const barMaxTotal = Math.max(...barData.map((b) => b.total), 0);
   const isLoading = loadingStats || loadingNet;
 
-  // ── Export handlers (unchanged logic) ─────────────────────────────────────
+  // ── Export handlers ────────────────────────────────────────────────────────
+  // A CSV with no data rows is just an empty string (Papa.unparse([]) === "").
+  const dateTag = (d: Date) => d.toISOString().split("T")[0];
+
+  // Deliver a CSV string: browser download on web, share sheet on native.
+  // Returns true if a share/download was actually initiated.
+  const deliverCsv = async (csv: string, filename: string, dialogTitle: string): Promise<boolean> => {
+    if (isWeb) {
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return true;
+    }
+    if (!(await Sharing.isAvailableAsync())) {
+      showDialog("error", "Sharing Unavailable", "This device can't open a share sheet. Try exporting from a different device.");
+      return false;
+    }
+    const fileUri = FileSystem.cacheDirectory + filename;
+    await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
+    await Sharing.shareAsync(fileUri, { mimeType: "text/csv", dialogTitle });
+    return true;
+  };
+
   const handleExportShifts = async () => {
+    if (busyExport) return;
+    setBusyExport("shifts");
     try {
       const csv = await generateShiftsCSV(start, end);
-      const filename = `shifts_${start.toISOString().split("T")[0]}_to_${end.toISOString().split("T")[0]}.csv`;
-      if (isWeb) {
-        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", filename);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        const fileUri = FileSystem.cacheDirectory + filename;
-        await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
-        await Sharing.shareAsync(fileUri, { mimeType: "text/csv", dialogTitle: "Export Shifts CSV" });
+      if (!csv.trim()) {
+        showDialog("info", "Nothing to Export", "There are no shifts in the selected period.");
+        return;
+      }
+      const ok = await deliverCsv(csv, `shifts_${dateTag(start)}_to_${dateTag(end)}.csv`, "Export Shifts CSV");
+      if (ok) {
+        showDialog("success", "Shifts Exported", "Your shifts CSV is ready to save or share.");
+        notifyExport("Shifts CSV", true);
       }
     } catch (err: any) {
-      Alert.alert("Export Failed", err.message || "An error occurred exporting CSV.");
+      showDialog("error", "Export Failed", err?.message || "An error occurred exporting the shifts CSV.");
+      notifyExport("Shifts CSV", false, err?.message);
+    } finally {
+      setBusyExport(null);
     }
   };
 
   const handleExportExpenses = async () => {
+    if (busyExport) return;
+    setBusyExport("expenses");
     try {
       const csv = await generateExpensesCSV(start, end);
-      const filename = `expenses_${start.toISOString().split("T")[0]}_to_${end.toISOString().split("T")[0]}.csv`;
-      if (isWeb) {
-        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", filename);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        const fileUri = FileSystem.cacheDirectory + filename;
-        await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
-        await Sharing.shareAsync(fileUri, { mimeType: "text/csv", dialogTitle: "Export Expenses CSV" });
+      if (!csv.trim()) {
+        showDialog("info", "Nothing to Export", "There are no expenses in the selected period.");
+        return;
+      }
+      const ok = await deliverCsv(csv, `expenses_${dateTag(start)}_to_${dateTag(end)}.csv`, "Export Expenses CSV");
+      if (ok) {
+        showDialog("success", "Expenses Exported", "Your expenses CSV is ready to save or share.");
+        notifyExport("Expenses CSV", true);
       }
     } catch (err: any) {
-      Alert.alert("Export Failed", err.message || "An error occurred exporting CSV.");
+      showDialog("error", "Export Failed", err?.message || "An error occurred exporting the expenses CSV.");
+      notifyExport("Expenses CSV", false, err?.message);
+    } finally {
+      setBusyExport(null);
     }
   };
 
   const handleExportPDF = async () => {
+    if (busyExport) return;
+    setBusyExport("pdf");
     try {
       const result = await generatePDFSummary(start, end);
       if (isWeb) {
         const printWindow = window.open("", "_blank");
-        if (printWindow) {
-          printWindow.document.write(result);
-          printWindow.document.close();
-          printWindow.print();
+        if (!printWindow) {
+          showDialog("error", "Pop-up Blocked", "Allow pop-ups for this site to open the printable summary.");
+          return;
         }
-      } else {
-        await Sharing.shareAsync(result, { mimeType: "application/pdf", dialogTitle: "Export PDF Summary" });
+        printWindow.document.write(result);
+        printWindow.document.close();
+        printWindow.print();
+        return;
       }
+      if (!(await Sharing.isAvailableAsync())) {
+        showDialog("error", "Sharing Unavailable", "This device can't open a share sheet to save the PDF.");
+        return;
+      }
+      await Sharing.shareAsync(result, { mimeType: "application/pdf", dialogTitle: "Export PDF Summary" });
+      showDialog("success", "PDF Ready", "Your tax summary PDF is ready to save or share.");
+      notifyExport("PDF Summary", true);
     } catch (err: any) {
-      Alert.alert("Export Failed", err.message || "An error occurred generating PDF.");
+      showDialog("error", "Export Failed", err?.message || "An error occurred generating the PDF.");
+      notifyExport("PDF Summary", false, err?.message);
+    } finally {
+      setBusyExport(null);
     }
   };
 
@@ -503,7 +551,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
         <View style={styles.exportSection}>
           <Text style={styles.sectionLabel}>Export Actions</Text>
 
-          <TouchableOpacity onPress={handleExportShifts} style={styles.exportRow}>
+          <TouchableOpacity onPress={handleExportShifts} disabled={!!busyExport} style={[styles.exportRow, !!busyExport && { opacity: 0.6 }]}>
             <View style={styles.exportRowLeft}>
               <View style={styles.exportIconWrap}>
                 <Table size={20} color={accentColor} />
@@ -513,10 +561,10 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                 <Text style={styles.exportRowSub}>Platform earnings, tips, dates and mileage</Text>
               </View>
             </View>
-            <Download size={16} color={MUTED} />
+            {busyExport === "shifts" ? <ActivityIndicator size="small" color={accentColor} /> : <Download size={16} color={MUTED} />}
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={handleExportExpenses} style={styles.exportRow}>
+          <TouchableOpacity onPress={handleExportExpenses} disabled={!!busyExport} style={[styles.exportRow, !!busyExport && { opacity: 0.6 }]}>
             <View style={styles.exportRowLeft}>
               <View style={styles.exportIconWrap}>
                 <BarChart2 size={20} color={accentColor} />
@@ -526,10 +574,11 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                 <Text style={styles.exportRowSub}>Expense log, deductible markings and notes</Text>
               </View>
             </View>
-            <Download size={16} color={MUTED} />
+            {busyExport === "expenses" ? <ActivityIndicator size="small" color={accentColor} /> : <Download size={16} color={MUTED} />}
           </TouchableOpacity>
 
           <TouchableOpacity
+            disabled={!!busyExport}
             onPress={() => {
               if (!isPdfEnabled) {
                 router.push("/settings");
@@ -540,6 +589,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
             style={[
               styles.exportRow,
               isPdfEnabled && { backgroundColor: accentColor, borderWidth: 0, borderColor: "transparent" },
+              !!busyExport && { opacity: 0.6 },
             ]}
           >
             <View style={styles.exportRowLeft}>
@@ -558,9 +608,11 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                 </Text>
               </View>
             </View>
-            {isPdfEnabled
-              ? <Download size={16} color={accentColorContrast} />
-              : <Settings size={16} color={accentColor} />
+            {busyExport === "pdf"
+              ? <ActivityIndicator size="small" color={accentColorContrast} />
+              : isPdfEnabled
+                ? <Download size={16} color={accentColorContrast} />
+                : <Settings size={16} color={accentColor} />
             }
           </TouchableOpacity>
         </View>
@@ -785,6 +837,21 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
           </SafeAreaView>
         </Modal>
       )}
+
+      {/* ── Export feedback ── */}
+      <BusyOverlay
+        visible={!!busyExport}
+        label={busyExport === "pdf" ? "Generating PDF…" : "Preparing export…"}
+        accentColor={accentColor}
+      />
+      <FeedbackDialog
+        visible={!!dialog}
+        variant={dialog?.variant ?? "info"}
+        title={dialog?.title ?? ""}
+        message={dialog?.message}
+        accentColor={accentColor}
+        onClose={() => setDialog(null)}
+      />
     </SafeAreaView>
   );
 }

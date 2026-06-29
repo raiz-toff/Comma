@@ -25,8 +25,8 @@ import {
   ActivityIndicator,
   StyleSheet,
   Platform,
-  Share,
 } from "react-native";
+import * as Sharing from "expo-sharing";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
@@ -49,6 +49,8 @@ import { settings, shifts, expenses } from "@/src/database/schema";
 import { useGoogleDriveSync } from "@/hooks/useGoogleDriveSync";
 import { generateShiftsCSV, generateExpensesCSV } from "@/utils/reportGenerator";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { notify } from "@/src/services/notify";
+import { FeedbackDialog, BusyOverlay, type FeedbackVariant } from "@/src/components/ui/FeedbackDialog";
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
 
@@ -554,12 +556,17 @@ export default function SettingsScreen() {
   const [resetPlatformTarget, setResetPlatformTarget] = useState("");
   const [exportedThisSession, setExportedThisSession] = useState(false);
 
+  // ── Export CSV dialog state ──────────────────────────────────────────────────
+  const [exportChooserOpen, setExportChooserOpen] = useState(false);
+  const [exportBusy, setExportBusy] = useState(false);
+  const [exportDialog, setExportDialog] = useState<{ variant: FeedbackVariant; title: string; message?: string } | null>(null);
+
   // Google Drive sync hook — swap with your actual implementation
   const {
     isAuthenticated, isBackingUp, isRestoring,
     backups, login, logout, triggerBackup, triggerRestore,
   } = useGoogleDriveSync();
-  const [backupPin, setBackupPin] = useState("1234");
+  const [backupPassword, setBackupPassword] = useState("");
 
   // ── Navigate to tab from route param ────────────────────────────────────────
   useEffect(() => {
@@ -729,6 +736,13 @@ export default function SettingsScreen() {
             await db.delete(shifts).where(eq(shifts.platform, resetPlatformTarget));
             queryClient.invalidateQueries();
             Alert.alert("Done", `${resetPlatformTarget} data wiped.`);
+            notify({
+              title: "Platform data cleared",
+              description: `All shift records for ${resetPlatformTarget} were deleted.`,
+              type: "warning",
+              iconKey: "wipe",
+              dedupeKey: `wipe_${resetPlatformTarget}`,
+            });
           },
         },
       ],
@@ -736,13 +750,22 @@ export default function SettingsScreen() {
   };
 
   // ── Export CSV ───────────────────────────────────────────────────────────────
-  const handleExportCSV = () => {
-    const doExport = async (type: "shifts" | "expenses") => {
+  const doExport = async (type: "shifts" | "expenses") => {
+    setExportChooserOpen(false);
+    setExportBusy(true);
+    try {
       const start = new Date(0);
       const end = new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000);
       const csv = type === "shifts"
         ? await generateShiftsCSV(start, end)
         : await generateExpensesCSV(start, end);
+
+      // An empty CSV string means there were no rows to export.
+      if (!csv.trim()) {
+        setExportDialog({ variant: "info", title: "Nothing to Export", message: `You have no ${type} recorded yet.` });
+        return;
+      }
+
       const fname = `comma_${type}_${new Date().toISOString().slice(0, 10)}.csv`;
 
       if (isWeb) {
@@ -752,19 +775,30 @@ export default function SettingsScreen() {
         a.click();
         URL.revokeObjectURL(a.href);
       } else {
+        // expo-sharing handles file URIs on both iOS and Android.
+        // (RN's Share.share({url}) silently ignores `url` on Android.)
+        if (!(await Sharing.isAvailableAsync())) {
+          setExportDialog({ variant: "error", title: "Sharing Unavailable", message: "This device can't open a share sheet to save the file." });
+          return;
+        }
         const uri = FileSystem.cacheDirectory + fname;
         await FileSystem.writeAsStringAsync(uri, csv, { encoding: FileSystem.EncodingType.UTF8 });
-        await Share.share({ url: uri });
+        await Sharing.shareAsync(uri, { mimeType: "text/csv", dialogTitle: `Export ${type === "shifts" ? "Shifts" : "Expenses"} CSV` });
       }
       setExportedThisSession(true);
-    };
-
-    Alert.alert("Export CSV", "Which data?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Shifts", onPress: () => doExport("shifts") },
-      { text: "Expenses", onPress: () => doExport("expenses") },
-    ]);
+      setExportDialog({
+        variant: "success",
+        title: "Export Ready",
+        message: `Your ${type} CSV is ready to save or share.`,
+      });
+    } catch (err: any) {
+      setExportDialog({ variant: "error", title: "Export Failed", message: err?.message || "An error occurred exporting the CSV." });
+    } finally {
+      setExportBusy(false);
+    }
   };
+
+  const handleExportCSV = () => setExportChooserOpen(true);
 
   // ── Integrity check ─────────────────────────────────────────────────────────
   const runIntegrityCheck = async () => {
@@ -1542,21 +1576,30 @@ export default function SettingsScreen() {
               </Row>
               {isAuthenticated && (
                 <>
-                  <Row label="Backup PIN" hint="4-digit PIN used to encrypt the backup file" last={false}>
+                  <Row
+                    label="Backup password"
+                    hint="Encrypts your backup. You'll need this exact password to restore — even on a new phone. If you forget it, the backup can't be recovered."
+                    last={false}
+                  >
                     <InlineInput
-                      value={backupPin}
-                      onChangeText={(v) => setBackupPin(v.replace(/\D/g, "").slice(0, 4))}
-                      keyboardType="number-pad"
+                      value={backupPassword}
+                      onChangeText={setBackupPassword}
                       secureTextEntry
-                      placeholder="1234"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      placeholder="Choose a password"
                     />
                   </Row>
-                  <Row label="Backup now" last={backups.length === 0}>
+                  <Row
+                    label="Backup now"
+                    hint={backupPassword.length < 6 ? "Password must be at least 6 characters." : undefined}
+                    last={backups.length === 0}
+                  >
                     <Btn
                       label={isBackingUp ? "Backing up…" : "Run backup"}
                       variant="primary"
-                      disabled={isBackingUp || isRestoring}
-                      onPress={() => triggerBackup(backupPin).catch((e) => Alert.alert("Backup failed", e.message))}
+                      disabled={isBackingUp || isRestoring || backupPassword.length < 6}
+                      onPress={() => triggerBackup(backupPassword).catch((e) => Alert.alert("Backup failed", e.message))}
                     />
                   </Row>
                   {backups.length > 0 && (
@@ -1580,7 +1623,7 @@ export default function SettingsScreen() {
                                   text: "Restore",
                                   style: "destructive",
                                   onPress: () =>
-                                    triggerRestore(b.id, backupPin).catch((e) =>
+                                    triggerRestore(b.id, backupPassword).catch((e) =>
                                       Alert.alert("Restore failed", e.message),
                                     ),
                                 },
@@ -1713,6 +1756,29 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </Modal>
 
+      {/* ── Export CSV: themed chooser + feedback ── */}
+      <FeedbackDialog
+        visible={exportChooserOpen}
+        variant="info"
+        title="Export CSV"
+        message="Which data would you like to export?"
+        accentColor={accentColor}
+        cancelLabel="Cancel"
+        actions={[
+          { label: "Shifts", onPress: () => doExport("shifts") },
+          { label: "Expenses", onPress: () => doExport("expenses"), variant: "neutral" },
+        ]}
+        onClose={() => setExportChooserOpen(false)}
+      />
+      <BusyOverlay visible={exportBusy} label="Preparing export…" accentColor={accentColor} />
+      <FeedbackDialog
+        visible={!!exportDialog}
+        variant={exportDialog?.variant ?? "info"}
+        title={exportDialog?.title ?? ""}
+        message={exportDialog?.message}
+        accentColor={accentColor}
+        onClose={() => setExportDialog(null)}
+      />
     </SafeAreaView>
   );
 }

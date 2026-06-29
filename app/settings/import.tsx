@@ -9,11 +9,11 @@ export default function CSVImportScreen() {
   return (
     <SafeAreaView className="dark flex-1 bg-[#000000]">
       {/* Header */}
-      <View className="px-4 pt-3 pb-3 border-b border-slate-800/80 bg-slate-900/40 flex-row items-center justify-between">
-        <TouchableOpacity onPress={() => router.back()} className="px-3 py-2 bg-slate-800/40 rounded-lg border border-slate-700/30">
-          <Text className="text-slate-300 text-xs font-semibold">← Cancel</Text>
+      <View className="px-4 pt-3 pb-3 border-b border-[#1f1f1f] bg-[#0d0d0d] flex-row items-center justify-between">
+        <TouchableOpacity onPress={() => router.back()} className="px-3 py-2 bg-[#1f1f1f] rounded-lg border border-[#27272a]">
+          <Text className="text-zinc-300 text-xs font-semibold">← Cancel</Text>
         </TouchableOpacity>
-        <Text className="text-slate-100 font-extrabold text-sm tracking-tight">CSV Import Wizard</Text>
+        <Text className="text-white font-bold text-sm tracking-tight">CSV Import Wizard</Text>
         <View style={{ width: 60 }} /> {/* Spacer */}
       </View>
 

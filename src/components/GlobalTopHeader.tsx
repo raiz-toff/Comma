@@ -53,6 +53,7 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
     isHeaderVisible,
     dbPlatforms,
   } = useSettingsStore();
+  const unreadCount = useSettingsStore((s) => s.notifications.filter((n) => !n.read).length);
 
   const headerVisibleAnim = React.useRef(new Animated.Value(1)).current;
 
@@ -391,6 +392,13 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
           <View style={styles.rightIcons}>
             <Pressable style={styles.iconBtn} onPress={onNotificationsPress || (() => router.push("/notifications"))}>
               <Bell size={20} color="#ffffff" strokeWidth={2} />
+              {unreadCount > 0 && (
+                <View style={styles.notifBadge}>
+                  <Text style={styles.notifBadgeText}>
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           </View>
         )}
@@ -670,6 +678,26 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 3,
     elevation: 4,
+  },
+  notifBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    backgroundColor: "#ef4444",
+    borderWidth: 1.5,
+    borderColor: "#161615",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  notifBadgeText: {
+    color: "#ffffff",
+    fontSize: 9,
+    fontWeight: "800",
+    lineHeight: 11,
   },
 
   dropdownPanel: {

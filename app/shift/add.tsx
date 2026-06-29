@@ -801,12 +801,14 @@ export default function AddShiftModal() {
               <TimePickerModal
                 visible={showStartTimePicker}
                 value={startTime}
+                is24Hour={profile?.locale?.timeFormat === "24h"}
                 onChange={setStartTime}
                 onClose={() => setShowStartTimePicker(false)}
               />
               <TimePickerModal
                 visible={showEndTimePicker}
                 value={endTime}
+                is24Hour={profile?.locale?.timeFormat === "24h"}
                 onChange={setEndTime}
                 onClose={() => setShowEndTimePicker(false)}
               />

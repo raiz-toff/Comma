@@ -1,113 +1,111 @@
-const ENCRYPTION_KEY_STORE_KEY = "COMMA_BACKUP_ENCRYPTION_KEY";
+/**
+ * Cross-device backup encryption (web).
+ *
+ * Mirrors cryptoHelper.native.ts using the Web Crypto API. The AES key is derived
+ * from the backup password ALONE (PBKDF2) with a per-file random salt stored in the
+ * envelope, so backups are portable across devices/browsers. The output envelope
+ * format is byte-compatible with the native helper. Lose the password = unrecoverable.
+ */
 
-async function pbkdf2(password: string, salt: string): Promise<string> {
-  if (typeof window === "undefined" || !window.crypto || !window.crypto.subtle) {
-    return password;
-  }
-  const encoder = new TextEncoder();
-  const passwordKey = await window.crypto.subtle.importKey(
+const KDF_ITERATIONS = 210_000; // OWASP 2023 floor for PBKDF2-HMAC-SHA256
+const SALT_BYTES = 16;
+const IV_BYTES = 12;
+
+export interface BackupEnvelope {
+  v: 2;
+  kdf: "PBKDF2";
+  hash: "SHA-256";
+  iter: number;
+  salt: string; // hex
+  iv: string; // hex
+  content: string; // hex ciphertext
+  tag: string; // hex GCM auth tag
+}
+
+const toHex = (arr: Uint8Array): string =>
+  Array.from(arr)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+const fromHex = (hex: string) =>
+  new Uint8Array(hex.match(/.{1,2}/g)!.map((b) => parseInt(b, 16)));
+
+async function deriveKey(passphrase: string, salt: BufferSource, iterations: number): Promise<CryptoKey> {
+  const enc = new TextEncoder();
+  const baseKey = await window.crypto.subtle.importKey(
     "raw",
-    encoder.encode(password),
+    enc.encode(passphrase),
     { name: "PBKDF2" },
     false,
-    ["deriveKey", "deriveBits"]
+    ["deriveKey"]
   );
-  const derivedBits = await window.crypto.subtle.deriveBits(
-    {
-      name: "PBKDF2",
-      salt: encoder.encode(salt),
-      iterations: 1000,
-      hash: "SHA-256"
-    },
-    passwordKey,
-    256 // 32 bytes
-  );
-  return Array.from(new Uint8Array(derivedBits))
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-export async function getOrCreateEncryptionKey(pin: string = "1234"): Promise<string> {
-  if (typeof window === "undefined" || !window.crypto) {
-    return "mock_key";
-  }
-  let key = localStorage.getItem(ENCRYPTION_KEY_STORE_KEY);
-  if (!key) {
-    const randomBytes = window.crypto.getRandomValues(new Uint8Array(32));
-    key = Array.from(randomBytes).map(b => b.toString(16).padStart(2, "0")).join("");
-    localStorage.setItem(ENCRYPTION_KEY_STORE_KEY, key);
-  }
-  return await pbkdf2(key, pin);
-}
-
-export async function encrypt(data: string, keyHex: string): Promise<string> {
-  if (typeof window === "undefined" || !window.crypto || !window.crypto.subtle) {
-    return JSON.stringify({ iv: "0", content: data, tag: "0" });
-  }
-
-  const encoder = new TextEncoder();
-  const dataBytes = encoder.encode(data);
-  const keyBytes = new Uint8Array(keyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-  
-  const cryptoKey = await window.crypto.subtle.importKey(
-    "raw",
-    keyBytes,
-    { name: "AES-GCM" },
+  return window.crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
+    baseKey,
+    { name: "AES-GCM", length: 256 },
     false,
-    ["encrypt"]
+    ["encrypt", "decrypt"]
   );
-  
-  const iv = window.crypto.getRandomValues(new Uint8Array(12));
-  const encryptedBytes = await window.crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    cryptoKey,
-    dataBytes
+}
+
+export async function encryptBackup(plaintext: string, passphrase: string): Promise<string> {
+  if (!passphrase) throw new Error("A backup password is required.");
+
+  const enc = new TextEncoder();
+  const salt = window.crypto.getRandomValues(new Uint8Array(SALT_BYTES));
+  const iv = window.crypto.getRandomValues(new Uint8Array(IV_BYTES));
+  const key = await deriveKey(passphrase, salt, KDF_ITERATIONS);
+
+  const encrypted = new Uint8Array(
+    await window.crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(plaintext))
   );
-  
-  const encryptedArr = new Uint8Array(encryptedBytes);
-  const ciphertextBytes = encryptedArr.slice(0, encryptedArr.length - 16);
-  const tagBytes = encryptedArr.slice(encryptedArr.length - 16);
-  
-  const toHex = (arr: Uint8Array) => Array.from(arr).map(b => b.toString(16).padStart(2, "0")).join("");
-  
-  return JSON.stringify({
+  // Web Crypto appends the 16-byte GCM tag to the ciphertext; split it out so the
+  // envelope matches the native (node-style) {content, tag} shape.
+  const content = encrypted.slice(0, encrypted.length - 16);
+  const tag = encrypted.slice(encrypted.length - 16);
+
+  const envelope: BackupEnvelope = {
+    v: 2,
+    kdf: "PBKDF2",
+    hash: "SHA-256",
+    iter: KDF_ITERATIONS,
+    salt: toHex(salt),
     iv: toHex(iv),
-    content: toHex(ciphertextBytes),
-    tag: toHex(tagBytes),
-  });
+    content: toHex(content),
+    tag: toHex(tag),
+  };
+  return JSON.stringify(envelope);
 }
 
-export async function decrypt(encryptedJson: string, keyHex: string): Promise<string> {
-  if (typeof window === "undefined" || !window.crypto || !window.crypto.subtle) {
-    const parsed = JSON.parse(encryptedJson);
-    return parsed.content;
+export async function decryptBackup(envelopeJson: string, passphrase: string): Promise<string> {
+  if (!passphrase) throw new Error("A backup password is required.");
+
+  let env: BackupEnvelope;
+  try {
+    env = JSON.parse(envelopeJson) as BackupEnvelope;
+  } catch {
+    throw new Error("This file isn't a valid Comma backup.");
+  }
+  if (!env || env.v !== 2 || !env.salt || !env.iv || !env.content || !env.tag) {
+    throw new Error("Unrecognized backup format.");
   }
 
-  const { iv, content, tag } = JSON.parse(encryptedJson);
-  const ivBytes = new Uint8Array(iv.match(/.{1,2}/g)!.map((b: string) => parseInt(b, 16)));
-  const contentBytes = new Uint8Array(content.match(/.{1,2}/g)!.map((b: string) => parseInt(b, 16)));
-  const tagBytes = new Uint8Array(tag.match(/.{1,2}/g)!.map((b: string) => parseInt(b, 16)));
-  const keyBytes = new Uint8Array(keyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+  const key = await deriveKey(passphrase, fromHex(env.salt), env.iter || KDF_ITERATIONS);
+  const ct = fromHex(env.content);
+  const tag = fromHex(env.tag);
+  const concat = new Uint8Array(ct.length + tag.length);
+  concat.set(ct);
+  concat.set(tag, ct.length);
 
-  const cryptoKey = await window.crypto.subtle.importKey(
-    "raw",
-    keyBytes,
-    { name: "AES-GCM" },
-    false,
-    ["decrypt"]
-  );
-
-  // Concat content + tag to match Web Crypto AES-GCM input format
-  const concatBytes = new Uint8Array(contentBytes.length + tagBytes.length);
-  concatBytes.set(contentBytes);
-  concatBytes.set(tagBytes, contentBytes.length);
-
-  const decryptedBytes = await window.crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: ivBytes },
-    cryptoKey,
-    concatBytes
-  );
-
-  const decoder = new TextDecoder();
-  return decoder.decode(decryptedBytes);
+  try {
+    const decrypted = await window.crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: fromHex(env.iv) },
+      key,
+      concat
+    );
+    return new TextDecoder().decode(decrypted);
+  } catch {
+    // GCM tag mismatch — almost always the wrong password.
+    throw new Error("Wrong backup password, or the file is corrupted.");
+  }
 }

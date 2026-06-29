@@ -12,6 +12,8 @@ import {
   restoreFromDrive,
   type DriveBackupFile,
 } from "../src/services/googleDrive";
+import { notifyBackup, notifyRestore } from "../src/services/notify";
+import { GOOGLE_WEB_CLIENT_ID, GOOGLE_DRIVE_SCOPES } from "../src/config/google";
 
 let GoogleSignin: any = null;
 try {
@@ -45,8 +47,8 @@ export function useGoogleDriveSync() {
   // oauth configuration
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
-      clientId: "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com", // client id will be injected by user credentials
-      scopes: ["https://www.googleapis.com/auth/drive.appdata"],
+      clientId: GOOGLE_WEB_CLIENT_ID,
+      scopes: GOOGLE_DRIVE_SCOPES,
       redirectUri: REDIRECT_URI,
       responseType: "token",
     },
@@ -66,7 +68,9 @@ export function useGoogleDriveSync() {
     if (!isWeb && GoogleSignin) {
       try {
         GoogleSignin.configure({
-          scopes: ["https://www.googleapis.com/auth/drive.appdata"],
+          webClientId: GOOGLE_WEB_CLIENT_ID,
+          scopes: GOOGLE_DRIVE_SCOPES,
+          offlineAccess: true,
         });
       } catch (err) {
         console.warn("Failed to configure GoogleSignin:", err);
@@ -148,26 +152,30 @@ export function useGoogleDriveSync() {
     }
   };
 
-  const triggerBackup = async (pin?: string) => {
+  const triggerBackup = async (passphrase: string) => {
     setIsBackingUp(true);
     try {
-      await backupToDrive(pin);
+      await backupToDrive(passphrase);
       await loadBackupsList();
       setLastBackup(new Date().toISOString());
+      notifyBackup(true);
     } catch (err: any) {
+      notifyBackup(false, err?.message);
       throw err;
     } finally {
       setIsBackingUp(false);
     }
   };
 
-  const triggerRestore = async (fileId: string, pin?: string) => {
+  const triggerRestore = async (fileId: string, passphrase: string) => {
     setIsRestoring(true);
     try {
-      await restoreFromDrive(fileId, pin);
+      await restoreFromDrive(fileId, passphrase);
       // Invalidate all react query queries to reload UI with the restored database!
       queryClient.invalidateQueries();
+      notifyRestore(true);
     } catch (err: any) {
+      notifyRestore(false, err?.message);
       throw err;
     } finally {
       setIsRestoring(false);

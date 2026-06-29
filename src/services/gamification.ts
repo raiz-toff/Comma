@@ -32,6 +32,10 @@ export interface NotificationItem {
   read: boolean;
   createdAt: string;
   actionUrl?: string;
+  /** When set, the panel renders <BadgeSvg id={badgeId} /> instead of the generic type icon. */
+  badgeId?: string;
+  /** Optional glyph selector for operational events: "backup"|"restore"|"export"|"wipe"|"import"|"error". */
+  iconKey?: string;
 }
 
 const triggerNativeNotification = async (title: string, body: string) => {
@@ -483,16 +487,17 @@ export const GamificationService = {
         state.unlockedBadgeIds.push(def.id);
         newlyUnlockedBadges.push(def.id);
         
-        // Add notification
+        // Add notification — badgeId drives the badge SVG render in the panel
         state.notifications.unshift({
           id: `badge_unlock_${def.id}_${Date.now()}`,
           title: `New Badge Unlocked: ${def.name}!`,
-          description: `${def.icon} ${def.description} +40 XP awarded.`,
+          description: `${def.description} +40 XP awarded.`,
           time: "Just now",
           type: "success",
           read: false,
           createdAt: new Date().toISOString(),
           actionUrl: "/goals",
+          badgeId: def.id,
         });
         triggerNativeNotification(`New Badge Unlocked: ${def.name}!`, `${def.icon} ${def.description}`);
       }

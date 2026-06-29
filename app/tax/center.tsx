@@ -16,6 +16,7 @@ import { ArrowLeft, Calculator, Clock, Download } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { notifyExport } from "@/src/services/notify";
 import { db } from "@/src/database/client";
 import { shifts, expenses, settings } from "@/src/database/schema";
 import { and, gte, lte, eq } from "drizzle-orm";
@@ -373,14 +374,17 @@ export default function TaxCenterScreen() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      notifyExport(`Tax ${format.toUpperCase()}`, true);
     } else {
       try {
         await Share.share({
           title: `Tax ${format.toUpperCase()}`,
           message: exportText,
         });
+        notifyExport(`Tax ${format.toUpperCase()}`, true);
       } catch (err: any) {
         Alert.alert("Export Failed", err.message || "Could not share file.");
+        notifyExport(`Tax ${format.toUpperCase()}`, false, err?.message);
       }
     }
   };

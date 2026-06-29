@@ -1259,7 +1259,7 @@ export default function ScheduleScreen() {
       <TimePickerModal
         visible={!!showPickerType}
         value={showPickerType === "start" ? parseStringToDate(planStart, 17) : parseStringToDate(planEnd, 21)}
-        is24Hour={profile?.locale?.timeFormat !== "12h"}
+        is24Hour={profile?.locale?.timeFormat === "24h"}
         onChange={(d) => {
           const h = d.getHours();
           const m = d.getMinutes();

@@ -18,8 +18,33 @@ import {
   type PersonalRecords,
   type GamificationState,
 } from "../src/services/gamification";
+import { type AddNotificationInput } from "../src/services/notify";
 
 const isWeb = Platform.OS === "web";
+
+/**
+ * Serializes read-modify-write access to the persisted gamification state blob
+ * (XP/streaks/badges/notifications all share one SQLite row). Without this,
+ * a notification write firing during evaluateGamification can clobber awarded XP/badges.
+ */
+let gamificationStateLock: Promise<unknown> = Promise.resolve();
+
+function runGamificationStateMutation(
+  mutate: (state: GamificationState) => GamificationState | Promise<GamificationState>
+): Promise<GamificationState> {
+  const run = gamificationStateLock.then(async () => {
+    const state = await GamificationService.loadState();
+    const next = await mutate(state);
+    await GamificationService.saveState(next);
+    return next;
+  });
+  // Keep the chain alive even if one mutation throws.
+  gamificationStateLock = run.then(
+    () => {},
+    () => {}
+  );
+  return run;
+}
 
 
 type VehicleType = 'car' | 'scooter' | 'ebike';
@@ -52,6 +77,7 @@ export interface DriverProfile {
   hstRegistered: boolean;
   distanceUnit: "km" | "mi";
   theme: "light" | "dark" | "auto";
+  accentColor?: string;
   operationalModelId?: OperationalModelId; // set during onboarding, default 'delivery_fixed'
   customCategories?: ExpenseCategory[];
   bentoLayout?: string;
@@ -125,6 +151,7 @@ interface SettingsState {
 
   // Gamification Actions
   evaluateGamification: () => Promise<void>;
+  addNotification: (input: AddNotificationInput) => Promise<void>;
   dismissNotification: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
   clearAllNotifications: () => Promise<void>;
@@ -1183,28 +1210,73 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
 
   evaluateGamification: async () => {
-    const updated = await GamificationService.evaluateAll();
+    // Serialize against notification writes so neither clobbers the shared state blob.
+    const run = gamificationStateLock.then(() => GamificationService.evaluateAll());
+    gamificationStateLock = run.then(
+      () => {},
+      () => {}
+    );
+    const updated = await run;
     set({ ...updated });
   },
 
+  addNotification: async (input: AddNotificationInput) => {
+    const now = new Date();
+    const next = await runGamificationStateMutation((state) => {
+      // Throttle: skip if the newest notification shares the title within 5s.
+      if (input.dedupeKey) {
+        const newest = state.notifications[0];
+        if (
+          newest &&
+          newest.title === input.title &&
+          now.getTime() - new Date(newest.createdAt).getTime() < 5000
+        ) {
+          return state;
+        }
+      }
+      state.notifications.unshift({
+        id: `notif_${input.iconKey ?? input.type ?? "info"}_${now.getTime()}_${Math.random()
+          .toString(36)
+          .slice(2, 7)}`,
+        title: input.title,
+        description: input.description,
+        time: "Just now",
+        type: input.type ?? "info",
+        read: false,
+        createdAt: now.toISOString(),
+        actionUrl: input.actionUrl,
+        iconKey: input.iconKey,
+        badgeId: input.badgeId,
+      });
+      if (state.notifications.length > 100) {
+        state.notifications = state.notifications.slice(0, 100);
+      }
+      return state;
+    });
+    set({ notifications: next.notifications });
+  },
+
   dismissNotification: async (id: string) => {
-    const state = await GamificationService.loadState();
-    state.notifications = state.notifications.filter((n) => n.id !== id);
-    await GamificationService.saveState(state);
-    set({ notifications: state.notifications });
+    const next = await runGamificationStateMutation((state) => {
+      state.notifications = state.notifications.filter((n) => n.id !== id);
+      return state;
+    });
+    set({ notifications: next.notifications });
   },
 
   markAllNotificationsRead: async () => {
-    const state = await GamificationService.loadState();
-    state.notifications = state.notifications.map((n) => ({ ...n, read: true }));
-    await GamificationService.saveState(state);
-    set({ notifications: state.notifications });
+    const next = await runGamificationStateMutation((state) => {
+      state.notifications = state.notifications.map((n) => ({ ...n, read: true }));
+      return state;
+    });
+    set({ notifications: next.notifications });
   },
 
   clearAllNotifications: async () => {
-    const state = await GamificationService.loadState();
-    state.notifications = [];
-    await GamificationService.saveState(state);
-    set({ notifications: [] });
+    const next = await runGamificationStateMutation((state) => {
+      state.notifications = [];
+      return state;
+    });
+    set({ notifications: next.notifications });
   },
 }));

@@ -1,7 +1,7 @@
 import React from "react";
 import { Tabs, usePathname, useRouter } from "expo-router";
 import ReportsScreen from "../reports/index";
-import { View, Platform, ColorValue, Animated, Pressable, ScrollView, StyleSheet, BackHandler, useWindowDimensions, TouchableOpacity, PanResponder } from "react-native";
+import { View, Platform, ColorValue, Animated, Pressable, ScrollView, StyleSheet, BackHandler, useWindowDimensions, PanResponder } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
@@ -17,12 +17,6 @@ import {
   Calendar,
   Car,
   Settings as SettingsIcon,
-  Info,
-  Trophy,
-  AlertCircle,
-  BellOff,
-  Check,
-  Bell,
 } from "lucide-react-native";
 import { Text } from "../../src/components/ui/text";
 import { PLATFORMS, PLATFORM_REGISTRY, type PlatformKey } from "@/src/registry/platforms";
@@ -245,50 +239,6 @@ const DotsIcon = ({ color, size = 20 }: { color: ColorValue; size?: number }) =>
   </View>
 );
 
-interface NotificationItem {
-  id: string;
-  title: string;
-  description: string;
-  time: string;
-  type: "info" | "success" | "warning";
-  read: boolean;
-}
-
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: "1",
-    title: "Weekly Earnings Goal Achieved!",
-    description: "Congratulations! You reached 100% of your weekly earnings target across all active platforms.",
-    time: "2 hours ago",
-    type: "success",
-    read: false,
-  },
-  {
-    id: "2",
-    title: "Tax season reminder",
-    description: "Your estimated quarterly tax withholding report is ready. View it in the Tax page.",
-    time: "1 day ago",
-    type: "warning",
-    read: false,
-  },
-  {
-    id: "3",
-    title: "Shift Logged Successfully",
-    description: "Your 6h 15m Uber Eats shift has been added to your dashboard history.",
-    time: "2 days ago",
-    type: "info",
-    read: true,
-  },
-  {
-    id: "4",
-    title: "Welcome to COMMA!",
-    description: "Your local database has been initialized. You are ready to start tracking your gig mileage and earnings with absolute privacy.",
-    time: "3 days ago",
-    type: "info",
-    read: true,
-  },
-];
-
 export default function TabLayout() {
   const { isOnboardingCompleted, profile, activePlatformFilter, xpLevel, unlockedBadgeIds, xpTotal } = useSettingsStore();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
@@ -303,23 +253,16 @@ export default function TabLayout() {
   const isAnalyticsEnabled = useFeatureEnabled("analytics_advanced");
 
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
-  const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false);
   const [isReportsOpen, setIsReportsOpen] = React.useState(false);
 
   const slideAnim = React.useRef(new Animated.Value(0)).current;
-  const notificationsAnim = React.useRef(new Animated.Value(0)).current;
   const reportsAnim = React.useRef(new Animated.Value(0)).current;
 
   const isDrawerOpenRef = React.useRef(isDrawerOpen);
-  const isNotificationsOpenRef = React.useRef(isNotificationsOpen);
 
   React.useEffect(() => {
     isDrawerOpenRef.current = isDrawerOpen;
   }, [isDrawerOpen]);
-
-  React.useEffect(() => {
-    isNotificationsOpenRef.current = isNotificationsOpen;
-  }, [isNotificationsOpen]);
 
   const panResponder = React.useRef(
     PanResponder.create({
@@ -331,7 +274,6 @@ export default function TabLayout() {
 
         // If drawer is closed: capture left-to-right swipe starting near the left edge
         if (!isDrawerOpenRef.current) {
-          if (isNotificationsOpenRef.current) return false;
           // Capture if start X is within the left 50 pixels of the screen
           return gestureState.x0 < 50 && gestureState.dx > 10;
         }
@@ -353,28 +295,6 @@ export default function TabLayout() {
     })
   ).current;
 
-  const [notifications, setNotifications] = React.useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
-
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
-
-  const clearAll = () => {
-    setNotifications([]);
-  };
-
-  const getNotificationIcon = (type: string, read: boolean) => {
-    const color = read ? "#64748b" : accentColor;
-    switch (type) {
-      case "success":
-        return <Trophy size={18} color={read ? "#64748b" : "#eab308"} />;
-      case "warning":
-        return <AlertCircle size={18} color={read ? "#64748b" : "#f59e0b"} />;
-      default:
-        return <Info size={18} color={color} />;
-    }
-  };
-
   React.useEffect(() => {
     Animated.spring(slideAnim, {
       toValue: isDrawerOpen ? 1 : 0,
@@ -383,15 +303,6 @@ export default function TabLayout() {
       useNativeDriver: true,
     }).start();
   }, [isDrawerOpen]);
-
-  React.useEffect(() => {
-    Animated.spring(notificationsAnim, {
-      toValue: isNotificationsOpen ? 1 : 0,
-      tension: 60,
-      friction: 10,
-      useNativeDriver: true,
-    }).start();
-  }, [isNotificationsOpen]);
 
   React.useEffect(() => {
     Animated.spring(reportsAnim, {
@@ -408,10 +319,6 @@ export default function TabLayout() {
         setIsReportsOpen(false);
         return true;
       }
-      if (isNotificationsOpen) {
-        setIsNotificationsOpen(false);
-        return true;
-      }
       if (isDrawerOpen) {
         setIsDrawerOpen(false);
         return true;
@@ -425,30 +332,18 @@ export default function TabLayout() {
     );
 
     return () => backHandler.remove();
-  }, [isDrawerOpen, isNotificationsOpen, isReportsOpen]);
+  }, [isDrawerOpen, isReportsOpen]);
 
   const drawerWidth = Math.min(screenWidth * 0.8, 320);
-  const notificationsWidth = Math.min(screenWidth, 400);
 
-  const mainContentTranslateX = Animated.add(
-    slideAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, drawerWidth],
-    }),
-    notificationsAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, -notificationsWidth],
-    })
-  );
+  const mainContentTranslateX = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, drawerWidth],
+  });
 
   const drawerTranslateX = slideAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [-drawerWidth * 0.3, 0],
-  });
-
-  const notificationsTranslateX = notificationsAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [screenWidth, screenWidth - notificationsWidth],
   });
 
   const reportsTranslateX = reportsAnim.interpolate({
@@ -638,98 +533,6 @@ export default function TabLayout() {
         </View>
       </Animated.View>
 
-      {/* Notifications Panel - Hidden on the right with z-index 1 */}
-      <Animated.View
-        style={[
-          styles.notificationsDrawer,
-          {
-            width: notificationsWidth,
-            paddingTop: Math.max(insets.top, 16),
-            paddingBottom: Math.max(insets.bottom, 16),
-            transform: [{ translateX: notificationsTranslateX }],
-          },
-        ]}
-      >
-        {/* Notifications Header */}
-        <View style={styles.drawerHeader}>
-          <TouchableOpacity
-            onPress={() => setIsNotificationsOpen(false)}
-            style={styles.backBtn}
-          >
-            <Text style={styles.backBtnText}>Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.notificationsTitle}>Notifications</Text>
-          <View style={{ width: 48 }} />
-        </View>
-
-        {/* Notifications List */}
-        <ScrollView
-          style={styles.drawerScroll}
-          contentContainerStyle={styles.notificationsContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {notifications.length > 0 ? (
-            <>
-              <View style={styles.notifActionsRow}>
-                <Text style={styles.notifCountText}>
-                  Recent Alerts ({notifications.filter((n) => !n.read).length} unread)
-                </Text>
-                <View style={{ flexDirection: "row", gap: 16 }}>
-                  <TouchableOpacity onPress={markAllAsRead}>
-                    <Text style={[styles.actionTextGreen, { color: accentColor }]}>Mark all read</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={clearAll}>
-                    <Text style={styles.actionTextGray}>Clear all</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={{ flexDirection: "column", gap: 12 }}>
-                {notifications.map((item) => (
-                  <View
-                    key={item.id}
-                    style={[
-                      styles.notifCard,
-                      item.read ? styles.notifCardRead : styles.notifCardUnread,
-                    ]}
-                  >
-                    <View style={{ marginTop: 2 }}>
-                      {getNotificationIcon(item.type, item.read)}
-                    </View>
-                    <View style={{ flex: 1, flexDirection: "column" }}>
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-                        <Text style={[styles.notifCardTitle, item.read ? styles.notifTextRead : styles.notifTextUnread]}>
-                          {item.title}
-                        </Text>
-                        {!item.read && (
-                          <View style={[styles.unreadDot, { backgroundColor: accentColor }]} />
-                        )}
-                      </View>
-                      <Text style={styles.notifCardDesc}>
-                        {item.description}
-                      </Text>
-                      <Text style={styles.notifCardTime}>
-                        {item.time}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </>
-          ) : (
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
-                <BellOff size={28} color="#64748b" />
-              </View>
-              <Text style={styles.emptyTitle}>All caught up!</Text>
-              <Text style={styles.emptySub}>
-                You have no new notifications. We'll alert you here when goals are reached or reports are compiled.
-              </Text>
-            </View>
-          )}
-        </ScrollView>
-      </Animated.View>
-
       {/* Reports Drawer - slides in from the right as a full-screen overlay */}
       <Animated.View
         style={{
@@ -759,7 +562,6 @@ export default function TabLayout() {
         {isOnboardingCompleted && (
           <GlobalTopHeader
             onMenuPress={toggleDrawer}
-            onNotificationsPress={() => setIsNotificationsOpen(true)}
           />
         )}
         
@@ -809,13 +611,12 @@ export default function TabLayout() {
           />
         </Tabs>
 
-        {/* Transparent click catcher over the remaining page area when drawer or notifications are open */}
-        {(isDrawerOpen || isNotificationsOpen) && (
+        {/* Transparent click catcher over the remaining page area when the drawer is open */}
+        {isDrawerOpen && (
           <Pressable
             style={styles.mainContentOverlay}
             onPress={() => {
               setIsDrawerOpen(false);
-              setIsNotificationsOpen(false);
             }}
           />
         )}
@@ -841,17 +642,6 @@ const styles = StyleSheet.create({
     zIndex: 1,
     flexDirection: "column",
   },
-  notificationsDrawer: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: "#000000",
-    borderLeftWidth: 0.8,
-    borderLeftColor: "#1f1f1f",
-    zIndex: 1,
-    flexDirection: "column",
-  },
   mainContentContainer: {
     flex: 1,
     backgroundColor: "#000000",
@@ -866,15 +656,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0, 0, 0, 0.35)",
     zIndex: 9999,
-  },
-  drawerHeader: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#1a1a19",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
   },
   drawerBrand: {
     fontSize: 20,
@@ -976,129 +757,5 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.5,
-  },
-  backBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: "rgba(30, 41, 59, 0.4)",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "rgba(51, 65, 85, 0.3)",
-  },
-  backBtnText: {
-    color: "#cbd5e1",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  notificationsTitle: {
-    color: "#f8fafc",
-    fontSize: 16,
-    fontWeight: "800",
-    letterSpacing: -0.3,
-  },
-  notificationsContent: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-  },
-  notifActionsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  notifCountText: {
-    fontSize: 11,
-    color: "#94a3b8",
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  actionTextGreen: {
-    fontSize: 12,
-    color: "#ffffff",
-    fontWeight: "700",
-  },
-  actionTextGray: {
-    fontSize: 12,
-    color: "#64748b",
-    fontWeight: "700",
-  },
-  notifCard: {
-    borderWidth: 0.8,
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: "row",
-    gap: 12,
-  },
-  notifCardUnread: {
-    backgroundColor: "#0d0d0d",
-    borderColor: "#1f1f1f",
-  },
-  notifCardRead: {
-    backgroundColor: "transparent",
-    borderColor: "#161615",
-    opacity: 0.5,
-  },
-  notifCardTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    flex: 1,
-    paddingRight: 8,
-  },
-  notifTextUnread: {
-    color: "#f8fafc",
-  },
-  notifTextRead: {
-    color: "#94a3b8",
-  },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginTop: 4,
-  },
-  notifCardDesc: {
-    fontSize: 12,
-    color: "#94a3b8",
-    lineHeight: 18,
-    fontWeight: "500",
-    marginTop: 4,
-  },
-  notifCardTime: {
-    fontSize: 10,
-    color: "#64748b",
-    fontWeight: "700",
-    marginTop: 8,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 80,
-    flexDirection: "column",
-    gap: 16,
-  },
-  emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#0d0d0d",
-    borderWidth: 0.8,
-    borderColor: "#1f1f1f",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#cbd5e1",
-  },
-  emptySub: {
-    fontSize: 12,
-    color: "#64748b",
-    textAlign: "center",
-    marginTop: 4,
-    maxWidth: 240,
-    lineHeight: 18,
   },
 });

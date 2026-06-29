@@ -712,9 +712,12 @@ export default function HomeScreen() {
   });
 
   const { data: recentShifts = [] } = useQuery({
-    queryKey: ["shifts", "recent"],
+    queryKey: ["shifts", "recent", activePlatformFilter],
     queryFn: async () => {
-      const data = await getShiftsPaginated(1);
+      const filters = activePlatformFilter && activePlatformFilter !== "all"
+        ? { platforms: activePlatformFilter.split(",") }
+        : undefined;
+      const data = await getShiftsPaginated(1, filters);
       return data.slice(0, 3);
     },
     enabled: isOnboardingCompleted,

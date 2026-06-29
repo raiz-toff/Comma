@@ -1,5 +1,14 @@
-import React, { useRef, useEffect, useState } from "react";
-import { Modal, View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
+import React, { useRef, useState } from "react";
+import {
+  Modal,
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+} from "react-native";
 
 const ITEM_H = 48;
 const VISIBLE = 5; // rows visible, selection is the center one
@@ -28,19 +37,19 @@ export function TimePickerModal({ visible, value, onChange, onClose, is24Hour = 
   const hours = Array.from({ length: hourCount }, (_, i) => is24Hour ? i : i + 1);
   const minutes = Array.from({ length: 60 }, (_, i) => i);
 
-  const hourRef = useRef<ScrollView>(null);
-  const minRef = useRef<ScrollView>(null);
+  // Re-mount the wheels whenever the modal opens so they reset to the
+  // incoming `value` and re-run their initial scroll positioning.
+  const [openKey, setOpenKey] = useState(0);
+  const wasVisible = useRef(visible);
+  if (visible && !wasVisible.current) {
+    setHour(initHour);
+    setMinute(initMinute);
+    setAmpm(initAmpm);
+    setOpenKey(k => k + 1);
+  }
+  wasVisible.current = visible;
 
-  // Scroll to initial values when modal opens
-  useEffect(() => {
-    if (!visible) return;
-    const hi = is24Hour ? initHour : initHour - 1;
-    const mi = initMinute;
-    setTimeout(() => {
-      hourRef.current?.scrollTo({ y: hi * ITEM_H, animated: false });
-      minRef.current?.scrollTo({ y: mi * ITEM_H, animated: false });
-    }, 50);
-  }, [visible]);
+  const hourInitIdx = is24Hour ? initHour : initHour - 1;
 
   const handleDone = () => {
     const next = new Date(value);
@@ -55,31 +64,30 @@ export function TimePickerModal({ visible, value, onChange, onClose, is24Hour = 
     onClose();
   };
 
-  const onHourScroll = (y: number) => {
-    const idx = Math.round(y / ITEM_H);
-    setHour(hours[Math.max(0, Math.min(idx, hours.length - 1))]);
-  };
-  const onMinScroll = (y: number) => {
-    const idx = Math.round(y / ITEM_H);
-    setMinute(minutes[Math.max(0, Math.min(idx, 59))]);
-  };
-
   const containerH = ITEM_H * VISIBLE;
   const padding = ITEM_H * Math.floor(VISIBLE / 2);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={s.overlay} onPress={onClose}>
-        <Pressable style={s.card} onPress={() => {}}>
+      <View style={s.overlay}>
+        {/* Backdrop is a sibling, not an ancestor — so it can't intercept the
+            wheel scroll gesture (a Pressable wrapping the ScrollView would). */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={s.card}>
           <Text style={s.title}>Select Time</Text>
 
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            {/* Hours */}
-            <Column
-              items={hours}
-              selected={is24Hour ? hour : (hour === 0 ? 12 : hour)}
-              ref={hourRef}
-              onScroll={onHourScroll}
+          <View style={[s.wheelRow, { height: containerH }]}>
+            {/* Selection highlight — anchored to the wheel row, always centered */}
+            <View
+              pointerEvents="none"
+              style={[s.selectionHighlight, { top: padding, height: ITEM_H, borderColor: accentColor + "55" }]}
+            />
+
+            <WheelColumn
+              key={`h-${openKey}`}
+              data={hours}
+              initialIndex={hourInitIdx}
+              onSelect={i => setHour(hours[i])}
               containerH={containerH}
               padding={padding}
               accentColor={accentColor}
@@ -88,19 +96,17 @@ export function TimePickerModal({ visible, value, onChange, onClose, is24Hour = 
 
             <Text style={s.colon}>:</Text>
 
-            {/* Minutes */}
-            <Column
-              items={minutes}
-              selected={minute}
-              ref={minRef}
-              onScroll={onMinScroll}
+            <WheelColumn
+              key={`m-${openKey}`}
+              data={minutes}
+              initialIndex={initMinute}
+              onSelect={i => setMinute(minutes[i])}
               containerH={containerH}
               padding={padding}
               accentColor={accentColor}
               format={pad}
             />
 
-            {/* AM/PM */}
             {!is24Hour && (
               <View style={s.ampmCol}>
                 {["AM", "PM"].map((label, i) => (
@@ -116,9 +122,6 @@ export function TimePickerModal({ visible, value, onChange, onClose, is24Hour = 
             )}
           </View>
 
-          {/* Selection highlight overlay (pointer-events none) */}
-          <View pointerEvents="none" style={[s.selectionHighlight, { top: (containerH - ITEM_H) / 2 + 44, borderColor: accentColor + "40" }]} />
-
           <View style={s.footer}>
             <Pressable onPress={onClose} style={s.cancelBtn}>
               <Text style={s.cancelText}>Cancel</Text>
@@ -127,44 +130,75 @@ export function TimePickerModal({ visible, value, onChange, onClose, is24Hour = 
               <Text style={s.doneText}>Done</Text>
             </Pressable>
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
 
-const Column = React.forwardRef<ScrollView, {
-  items: number[];
-  selected: number;
-  onScroll: (y: number) => void;
+interface WheelProps {
+  data: number[];
+  initialIndex: number;
+  onSelect: (index: number) => void;
   containerH: number;
   padding: number;
   accentColor: string;
   format: (n: number) => string;
-}>(({ items, selected, onScroll, containerH, padding, accentColor, format }, ref) => (
-  <View style={{ flex: 1, height: containerH, overflow: "hidden" }}>
-    <ScrollView
-      ref={ref}
-      showsVerticalScrollIndicator={false}
-      snapToInterval={ITEM_H}
-      decelerationRate="fast"
-      onMomentumScrollEnd={e => onScroll(e.nativeEvent.contentOffset.y)}
-      onScrollEndDrag={e => onScroll(e.nativeEvent.contentOffset.y)}
-      contentContainerStyle={{ paddingVertical: padding }}
-    >
-      {items.map((item) => {
-        const sel = item === selected;
-        return (
-          <View key={item} style={[colS.item]}>
-            <Text style={[colS.itemText, sel && { color: accentColor, fontWeight: "800", fontSize: 22 }]}>
-              {format(item)}
-            </Text>
-          </View>
-        );
-      })}
-    </ScrollView>
-  </View>
-));
+}
+
+function WheelColumn({ data, initialIndex, onSelect, containerH, padding, accentColor, format }: WheelProps) {
+  const scrollRef = useRef<ScrollView>(null);
+  const didInit = useRef(false);
+  const [active, setActive] = useState(initialIndex);
+
+  const indexFromOffset = (y: number) =>
+    Math.max(0, Math.min(Math.round(y / ITEM_H), data.length - 1));
+
+  // Live highlight while the wheel moves.
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    setActive(indexFromOffset(e.nativeEvent.contentOffset.y));
+  };
+
+  // Commit the value once the wheel settles.
+  const onSettle = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const idx = indexFromOffset(e.nativeEvent.contentOffset.y);
+    setActive(idx);
+    onSelect(idx);
+  };
+
+  return (
+    <View style={{ flex: 1, height: containerH, overflow: "hidden" }}>
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        nestedScrollEnabled
+        scrollEventThrottle={16}
+        onScroll={onScroll}
+        onMomentumScrollEnd={onSettle}
+        onScrollEndDrag={onSettle}
+        onContentSizeChange={() => {
+          if (didInit.current) return;
+          didInit.current = true;
+          scrollRef.current?.scrollTo({ y: initialIndex * ITEM_H, animated: false });
+        }}
+        contentContainerStyle={{ paddingVertical: padding }}
+      >
+        {data.map((item, i) => {
+          const sel = i === active;
+          return (
+            <View key={item} style={colS.item}>
+              <Text style={[colS.itemText, sel && { color: accentColor, fontWeight: "800", fontSize: 22 }]}>
+                {format(item)}
+              </Text>
+            </View>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
 
 const s = StyleSheet.create({
   overlay: {
@@ -178,7 +212,8 @@ const s = StyleSheet.create({
     padding: 20, gap: 16,
   },
   title: { fontSize: 16, fontWeight: "700", color: "#fff", textAlign: "center" },
-  colon: { fontSize: 24, fontWeight: "800", color: "#71717a", marginBottom: 4 },
+  wheelRow: { flexDirection: "row", alignItems: "center", gap: 4, position: "relative" },
+  colon: { fontSize: 24, fontWeight: "800", color: "#71717a" },
   ampmCol: { gap: 8, justifyContent: "center" },
   ampmBtn: {
     paddingHorizontal: 12, paddingVertical: 10,
@@ -186,8 +221,9 @@ const s = StyleSheet.create({
   },
   ampmText: { fontSize: 13, fontWeight: "700", color: "#a1a1aa" },
   selectionHighlight: {
-    position: "absolute", left: 20, right: 20, height: ITEM_H,
-    borderRadius: 10, borderWidth: 1, backgroundColor: "rgba(255,255,255,0.03)",
+    position: "absolute", left: 0, right: 0,
+    borderRadius: 10, borderTopWidth: 1, borderBottomWidth: 1,
+    backgroundColor: "rgba(255,255,255,0.04)",
   },
   footer: { flexDirection: "row", gap: 10 },
   cancelBtn: {

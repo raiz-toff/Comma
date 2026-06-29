@@ -1,5 +1,6 @@
 package expo.modules.commatracker
 
+import android.app.ActivityManager
 import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
@@ -22,6 +23,21 @@ class LocationTrackingService : Service() {
     private lateinit var locationCallback: LocationCallback
     private var lastInsertedLocation: android.location.Location? = null
     private var isLocationUpdateActive = false
+    private var activityPendingIntent: PendingIntent? = null
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val pauseGpsRunnable = Runnable {
+        Log.d(TAG, "Still for ${STILL_TIMEOUT_MS}ms — pausing GPS to save battery.")
+        stopLocationUpdates()
+    }
+
+    private var overlay: ShiftOverlay? = null
+    private var activeDistanceMeters = 0.0
+    private val overlayTicker = object : Runnable {
+        override fun run() {
+            tickOverlay()
+            mainHandler.postDelayed(this, 1000L)
+        }
+    }
 
     companion object {
         private const val CHANNEL_ID = "comma_tracker_channel"
@@ -30,6 +46,12 @@ class LocationTrackingService : Service() {
         private const val PREFS_NAME = "CommaTracker"
         private const val KEY_TRACKING_ACTIVE = "tracking_active"
         private const val RESTART_DELAY_MS = 2000L
+        // Commands delivered by ActivityTransitionReceiver when movement state changes.
+        const val ACTION_MOVEMENT = "expo.modules.commatracker.ACTION_MOVEMENT"
+        const val ACTION_STILL = "expo.modules.commatracker.ACTION_STILL"
+        // Battery-first: pause GPS only after this long of confirmed stillness (so short stops —
+        // red lights, brief waits — keep GPS on and don't shred the route).
+        private const val STILL_TIMEOUT_MS = 150_000L // 2.5 min
     }
 
     override fun onCreate() {
@@ -80,10 +102,24 @@ class LocationTrackingService : Service() {
             return START_NOT_STICKY
         }
 
-        if (!isLocationUpdateActive) {
-            startLocationUpdates()
-        } else {
-            Log.d(TAG, "Location updates already active, skipping duplicate registration.")
+        // Movement-gated GPS (battery-first): the foreground service stays up for the whole
+        // shift, but the GPS radio only runs while the user is actually moving. Movement/still
+        // is detected by the Activity Transition API (cheap, runs on the sensor hub).
+        when (intent?.action) {
+            ACTION_MOVEMENT -> {
+                cancelPauseGps()
+                if (!isLocationUpdateActive) startLocationUpdates()
+            }
+            ACTION_STILL -> {
+                schedulePauseGps()
+            }
+            else -> {
+                // Initial start (or START_STICKY re-create): begin GPS now so we never miss an
+                // in-progress drive, and register movement detection so we can sleep GPS while still.
+                if (!isLocationUpdateActive) startLocationUpdates()
+                registerActivityTransitions()
+                startOverlay()
+            }
         }
 
         return START_STICKY
@@ -99,6 +135,11 @@ class LocationTrackingService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        cancelPauseGps()
+        mainHandler.removeCallbacks(overlayTicker)
+        overlay?.hide()
+        overlay = null
+        unregisterActivityTransitions()
         fusedLocationClient.removeLocationUpdates(locationCallback)
         isLocationUpdateActive = false
         Log.d(TAG, "LocationTrackingService destroyed.")
@@ -173,6 +214,124 @@ class LocationTrackingService : Service() {
         }
     }
 
+    private fun stopLocationUpdates() {
+        if (!isLocationUpdateActive) return
+        fusedLocationClient.removeLocationUpdates(locationCallback)
+        isLocationUpdateActive = false
+        Log.d(TAG, "GPS paused (user still).")
+    }
+
+    private fun schedulePauseGps() {
+        mainHandler.removeCallbacks(pauseGpsRunnable)
+        mainHandler.postDelayed(pauseGpsRunnable, STILL_TIMEOUT_MS)
+    }
+
+    private fun cancelPauseGps() {
+        mainHandler.removeCallbacks(pauseGpsRunnable)
+    }
+
+    // ─── Movement detection (Activity Transition API) ───────────────────────────
+    private fun registerActivityTransitions() {
+        if (activityPendingIntent != null) return // already registered
+
+        val activityTypes = intArrayOf(
+            DetectedActivity.IN_VEHICLE,
+            DetectedActivity.ON_BICYCLE,
+            DetectedActivity.WALKING,
+            DetectedActivity.RUNNING,
+            DetectedActivity.STILL
+        )
+        val transitions = ArrayList<ActivityTransition>()
+        for (type in activityTypes) {
+            transitions.add(
+                ActivityTransition.Builder()
+                    .setActivityType(type)
+                    .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_ENTER)
+                    .build()
+            )
+        }
+        val request = ActivityTransitionRequest(transitions)
+
+        val broadcast = Intent(this, ActivityTransitionReceiver::class.java)
+        val piFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        val pi = PendingIntent.getBroadcast(this, 2, broadcast, piFlags)
+        activityPendingIntent = pi
+
+        try {
+            ActivityRecognition.getClient(this)
+                .requestActivityTransitionUpdates(request, pi)
+                .addOnSuccessListener { Log.d(TAG, "Activity transitions registered (movement-gated GPS active).") }
+                .addOnFailureListener { e -> Log.e(TAG, "Activity transition registration failed; GPS stays on. $e") }
+        } catch (e: SecurityException) {
+            // ACTIVITY_RECOGNITION not granted → degrade gracefully: GPS just stays on for the
+            // whole shift (the prior behavior). No crash, no battery gating.
+            Log.e(TAG, "ACTIVITY_RECOGNITION not granted; movement gating disabled.", e)
+            activityPendingIntent = null
+        }
+    }
+
+    private fun unregisterActivityTransitions() {
+        val pi = activityPendingIntent ?: return
+        try {
+            ActivityRecognition.getClient(this).removeActivityTransitionUpdates(pi)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to unregister activity transitions", e)
+        }
+        activityPendingIntent = null
+    }
+
+    // ─── Floating "live shift" overlay ──────────────────────────────────────────
+    private fun startOverlay() {
+        if (overlay == null) overlay = ShiftOverlay(this)
+        mainHandler.removeCallbacks(overlayTicker)
+        mainHandler.post(overlayTicker)
+    }
+
+    /** Runs every second: show the floating pill ONLY when Comma is backgrounded (so it never
+     *  covers Comma's own UI or steals taps from the in-app shift controls). */
+    private fun tickOverlay() {
+        val o = overlay ?: return
+        if (!android.provider.Settings.canDrawOverlays(this) || isAppInForeground()) {
+            o.hide()
+            return
+        }
+        o.show() // over another app — no-op if already shown
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val startedAt = prefs.getLong("tracking_started_at", System.currentTimeMillis())
+        val elapsedSec = ((System.currentTimeMillis() - startedAt) / 1000L).coerceAtLeast(0L)
+        val unit = prefs.getString("distance_unit", "mi") ?: "mi"
+        val factor = if (unit == "km") 1000.0 else 1609.344
+        val dist = activeDistanceMeters / factor
+        o.update(formatElapsed(elapsedSec), String.format(java.util.Locale.US, "%.1f %s", dist, unit))
+    }
+
+    /** True when Comma's own UI is on screen (its process is at FOREGROUND importance). While a
+     *  shift runs in the background, the process sits at FOREGROUND_SERVICE importance instead. */
+    private fun isAppInForeground(): Boolean {
+        return try {
+            val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            val procs = am.runningAppProcesses ?: return false
+            procs.any {
+                it.processName == packageName &&
+                    it.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun formatElapsed(totalSec: Long): String {
+        val h = totalSec / 3600
+        val m = (totalSec % 3600) / 60
+        val s = totalSec % 60
+        return if (h > 0) String.format(java.util.Locale.US, "%d:%02d:%02d", h, m, s)
+        else String.format(java.util.Locale.US, "%d:%02d", m, s)
+    }
+
     private fun processLocation(loc: android.location.Location) {
         val lastLoc = lastInsertedLocation
         if (lastLoc != null) {
@@ -185,6 +344,7 @@ class LocationTrackingService : Service() {
                 Log.d(TAG, "Location filtered: speed=$speed m/s, distance=$distance m")
                 return
             }
+            activeDistanceMeters += distance
         }
         saveLocationToDatabase(loc)
     }

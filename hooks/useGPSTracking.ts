@@ -1,8 +1,9 @@
 import { useEffect } from "react";
-import { Platform, Alert, Linking } from "react-native";
+import { Platform, Alert, Linking, PermissionsAndroid } from "react-native";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import { useActiveShift } from "../store/useActiveShift";
+import { useSettingsStore } from "../store/useSettingsStore";
 import CommaTracker from "../modules/comma-tracker";
 
 const isWeb = Platform.OS === "web";
@@ -46,6 +47,30 @@ export function useGPSTracking() {
         return;
       }
 
+      // Floating "live shift" overlay (shown over OTHER apps while you drive). Set the unit, and
+      // if the "display over other apps" permission isn't granted yet, offer it FIRST — before the
+      // battery/background settings deep-links below, which would otherwise background the app and
+      // hide this prompt. Awaited so it reliably appears.
+      try {
+        const unit = useSettingsStore.getState().profile?.distanceUnit ?? "mi";
+        CommaTracker.setDistanceUnit(unit);
+        if (CommaTracker.hasOverlayPermission() === false) {
+          await new Promise<void>((resolve) => {
+            Alert.alert(
+              "Show your shift on top?",
+              "Let Comma float your live time + miles over other apps like Maps and your delivery app, so you can glance at your shift without switching back.",
+              [
+                { text: "Not now", style: "cancel", onPress: () => resolve() },
+                { text: "Enable", onPress: () => { CommaTracker.requestOverlayPermission(); resolve(); } },
+              ],
+              { cancelable: false }
+            );
+          });
+        }
+      } catch (overlayErr) {
+        console.warn("[useGPSTracking] Overlay setup failed:", overlayErr);
+      }
+
       // 3. Background permission is requested but NOT required: a foreground service with the
       //    ongoing notification can collect location with while-in-use permission. Never
       //    hard-gate tracking on it (on Android 11+ this can only deep-link to Settings, so
@@ -65,6 +90,17 @@ export function useGPSTracking() {
         }
       } catch (notifErr) {
         console.warn("Notification permission request failed:", notifErr);
+      }
+
+      // Activity Recognition (Android 10+/API 29+) powers battery-first movement-gated GPS:
+      // the native service pauses the GPS radio while the user is still. Non-blocking — if
+      // denied, the service falls back to GPS-on for the whole shift.
+      if (Platform.OS === "android" && typeof Platform.Version === "number" && Platform.Version >= 29) {
+        try {
+          await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION);
+        } catch (arErr) {
+          console.warn("[useGPSTracking] Activity recognition permission request failed:", arErr);
+        }
       }
 
       // Request battery optimization exemption so OEM killers (Samsung, Xiaomi, etc.)

@@ -89,5 +89,35 @@ class CommaTrackerModule : Module() {
         }
       }
     }
+
+    // ─── Floating "live shift" overlay (draw over other apps) ─────────────────
+    Function("hasOverlayPermission") {
+      val context = appContext.reactContext ?: return@Function false
+      Settings.canDrawOverlays(context)
+    }
+
+    Function("requestOverlayPermission") {
+      val context = appContext.reactContext
+      if (context != null && !Settings.canDrawOverlays(context)) {
+        val intent = Intent(
+          Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+          Uri.parse("package:${context.packageName}")
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+          context.startActivity(intent)
+        } catch (e: Exception) {
+          Log.e("CommaTrackerModule", "Failed to open overlay permission settings", e)
+        }
+      }
+    }
+
+    // The native overlay renders miles in the user's distance unit; JS pushes it here.
+    Function("setDistanceUnit") { unit: String ->
+      val context = appContext.reactContext
+      if (context != null) {
+        context.getSharedPreferences("CommaTracker", android.content.Context.MODE_PRIVATE)
+          .edit().putString("distance_unit", unit).apply()
+      }
+    }
   }
 }

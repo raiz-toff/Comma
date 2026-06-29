@@ -9,9 +9,10 @@ const { withAndroidManifest } = require("expo/config-plugins");
  * We add an explicit `tools:node="remove"` directive so the manifest merger drops every
  * library-supplied copy regardless of merge order.
  */
+// Note: SYSTEM_ALERT_WINDOW is intentionally NOT removed — it powers the floating
+// "live shift" overlay (draw-over-other-apps), so it's a justified, used permission.
 const BLOCKED_PERMISSIONS = [
   "android.permission.RECORD_AUDIO",
-  "android.permission.SYSTEM_ALERT_WINDOW",
 ];
 
 module.exports = function withRemovedAndroidPermissions(config) {

@@ -5,6 +5,12 @@ class CommaTrackerModule extends NativeModule {
     return false;
   }
   stopTracking() {}
+  requestBatteryOptimizationExemption() {}
+  hasOverlayPermission() {
+    return false;
+  }
+  requestOverlayPermission() {}
+  setDistanceUnit(_unit: string) {}
 }
 
 export default registerWebModule(CommaTrackerModule, 'CommaTrackerModule');

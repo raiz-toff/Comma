@@ -7,6 +7,7 @@ import {
   Switch,
   StyleSheet,
 } from "react-native";
+import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   useSharedValue,
@@ -110,22 +111,11 @@ export function WelcomeScreen({
       >
         {/* Logo */}
         <View style={{ alignItems: "center" }}>
-          <View
-            style={{
-              width: 60,
-              height: 60,
-              borderRadius: 18,
-              backgroundColor: "#F6F6F7",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Text
-              style={{ fontSize: 30, fontWeight: "900", color: "#000" }}
-            >
-              C
-            </Text>
-          </View>
+          <Image
+            source={require("../assets/logo-mascot.png")}
+            style={{ width: 110, height: 110 }}
+            contentFit="contain"
+          />
           <Text
             style={{
               fontSize: 10,
@@ -133,7 +123,7 @@ export function WelcomeScreen({
               color: "#F6F6F7",
               letterSpacing: 2.5,
               textTransform: "uppercase",
-              marginTop: 14,
+              marginTop: 10,
             }}
           >
             COMMA

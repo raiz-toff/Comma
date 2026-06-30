@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   View,
+  ScrollView,
   TouchableOpacity,
   Share,
   Linking,
@@ -15,6 +16,7 @@ import Constants from "expo-constants";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { Text } from "@/src/components/ui/text";
+import { Image } from "expo-image";
 import { ChevronLeft, Heart, Share2, Terminal, Globe, Coffee } from "lucide-react-native";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { notify } from "@/src/services/notify";
@@ -107,66 +109,75 @@ export default function AboutScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Hero */}
-      <Animated.View style={[s.hero, heroStyle]}>
-        <TouchableOpacity onPress={handleVersionTap} activeOpacity={0.8}>
-          <Text style={s.appName}>COMMA</Text>
-        </TouchableOpacity>
-        <Text style={s.tagline}>Gig earnings tracker.{"\n"}Local-first. Open source.</Text>
-        <View style={s.versionPill}>
-          <Text style={s.versionText}>v{appVersion}</Text>
+      <ScrollView
+        contentContainerStyle={s.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hero */}
+        <Animated.View style={[s.hero, heroStyle]}>
+          <TouchableOpacity onPress={handleVersionTap} activeOpacity={0.8}>
+            <Image
+              source={require("../../assets/logo-with-text.png")}
+              style={s.logoImage}
+              contentFit="contain"
+            />
+          </TouchableOpacity>
+          <Text style={s.tagline}>Gig earnings tracker.{"\n"}Local-first. Open source.</Text>
+          <View style={s.versionPill}>
+            <Text style={s.versionText}>v{appVersion}</Text>
+          </View>
+        </Animated.View>
+
+        {/* Creator */}
+        <View style={s.creatorBlock}>
+          <Text style={s.creatorLabel}>BUILT BY</Text>
+          <Text style={s.creatorName}>Rajkumar Neupane</Text>
         </View>
-      </Animated.View>
 
-      {/* Creator */}
-      <View style={s.creatorBlock}>
-        <Text style={s.creatorLabel}>BUILT BY</Text>
-        <Text style={s.creatorName}>Rajkumar Neupane</Text>
-      </View>
+        {/* Divider */}
+        <View style={s.divider} />
 
-      {/* Divider */}
-      <View style={s.divider} />
+        {/* Links */}
+        <View style={s.links}>
+          <LinkRow
+            icon={<Globe size={18} color={accentColor} />}
+            label="Portfolio"
+            sub="rajkumarneupane.com"
+            onPress={() => Linking.openURL("https://www.rajkumarneupane.com")}
+          />
+          <View style={s.linkSep} />
+          <LinkRow
+            icon={<Coffee size={18} color={accentColor} />}
+            label="Buy Me a Coffee"
+            sub="Support the project"
+            onPress={() => Linking.openURL("https://buymeacoffee.com/raiztuffy")}
+          />
+          <View style={s.linkSep} />
+          <LinkRow
+            icon={<Share2 size={18} color={accentColor} />}
+            label="Share Comma"
+            sub="Tell another driver"
+            onPress={() => Share.share({ message: "Track gig earnings with COMMA — local-first, no cloud needed." })}
+          />
+          <View style={s.linkSep} />
+          <LinkRow
+            icon={isExporting
+              ? <ActivityIndicator size="small" color={accentColor} />
+              : <Terminal size={18} color={accentColor} />}
+            label="Export Diagnostics"
+            sub="System change log"
+            onPress={handleExportDiagnostics}
+            disabled={isExporting}
+          />
+        </View>
 
-      {/* Links */}
-      <View style={s.links}>
-        <LinkRow
-          icon={<Globe size={18} color={accentColor} />}
-          label="Portfolio"
-          sub="rajkumarneupane.com"
-          onPress={() => Linking.openURL("https://www.rajkumarneupane.com")}
-        />
-        <View style={s.linkSep} />
-        <LinkRow
-          icon={<Coffee size={18} color={accentColor} />}
-          label="Buy Me a Coffee"
-          sub="Support the project"
-          onPress={() => Linking.openURL("https://buymeacoffee.com/raiztuffy")}
-        />
-        <View style={s.linkSep} />
-        <LinkRow
-          icon={<Share2 size={18} color={accentColor} />}
-          label="Share Comma"
-          sub="Tell another driver"
-          onPress={() => Share.share({ message: "Track gig earnings with COMMA — local-first, no cloud needed." })}
-        />
-        <View style={s.linkSep} />
-        <LinkRow
-          icon={isExporting
-            ? <ActivityIndicator size="small" color={accentColor} />
-            : <Terminal size={18} color={accentColor} />}
-          label="Export Diagnostics"
-          sub="System change log"
-          onPress={handleExportDiagnostics}
-          disabled={isExporting}
-        />
-      </View>
-
-      {/* Footer */}
-      <View style={s.footer}>
-        <Text style={s.footerText}>Made with </Text>
-        <Heart size={11} color={accentColor} fill={accentColor} />
-        <Text style={s.footerText}> by a gig driver, for gig drivers</Text>
-      </View>
+        {/* Footer */}
+        <View style={s.footer}>
+          <Text style={s.footerText}>Made with </Text>
+          <Heart size={11} color={accentColor} fill={accentColor} />
+          <Text style={s.footerText}> by a gig driver, for gig drivers</Text>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -198,6 +209,7 @@ function LinkRow({
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: DS.pageBg },
+  scrollContent: { paddingBottom: 32 },
 
   header: {
     paddingHorizontal: DS.pagePad,
@@ -212,16 +224,13 @@ const s = StyleSheet.create({
 
   hero: {
     alignItems: "center",
-    paddingTop: 40,
-    paddingBottom: 36,
+    paddingTop: 20,
+    paddingBottom: 24,
     gap: 10,
   },
-  appName: {
-    fontSize: 64,
-    fontWeight: "900",
-    color: DS.textPrimary,
-    letterSpacing: -2,
-    lineHeight: 68,
+  logoImage: {
+    width: 260,
+    height: 260,
   },
   tagline: {
     fontSize: 15,
@@ -302,9 +311,8 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: "auto",
     paddingBottom: 24,
-    paddingTop: 20,
+    paddingTop: 28,
   },
   footerText: {
     fontSize: 11, color: DS.textSecondary,

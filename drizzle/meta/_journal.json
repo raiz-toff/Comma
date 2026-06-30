@@ -120,6 +120,20 @@
       "when": 1782687867094,
       "tag": "0016_first_lord_tyger",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1782794734601,
+      "tag": "0017_tough_lester",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1782797840419,
+      "tag": "0018_mean_black_cat",
+      "breakpoints": true
     }
   ]
 }

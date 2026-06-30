@@ -270,22 +270,28 @@ function Chips<T extends string>({
 
 /** Right-aligned inline text input — narrow, for use inside Row inline mode. */
 function InlineInput(props: React.ComponentProps<typeof TextInput>) {
+  const { style, ...restProps } = props;
   return (
     <TextInput
       placeholderTextColor={DS.textMuted}
-      style={[s.inlineInput, props.style]}
-      {...props}
+      selectionColor={DS.textPrimary}
+      cursorColor={DS.textPrimary}
+      style={[s.inlineInput, style, { color: "#FFFFFF" }]}
+      {...restProps}
     />
   );
 }
 
 /** Full-width text input — for use in block rows or standalone. */
 function FullInput(props: React.ComponentProps<typeof TextInput>) {
+  const { style, ...restProps } = props;
   return (
     <TextInput
       placeholderTextColor={DS.textMuted}
-      style={[s.fullInput, props.style]}
-      {...props}
+      selectionColor={DS.textPrimary}
+      cursorColor={DS.textPrimary}
+      style={[s.fullInput, style, { color: "#FFFFFF" }]}
+      {...restProps}
     />
   );
 }
@@ -1529,7 +1535,7 @@ export default function SettingsScreen() {
                 { key: "weeklyDigest", label: "Weekly digest", hint: "Summary stats delivered each week" },
                 { key: "maintenanceDue", label: "Vehicle maintenance", hint: "Alert when odometer triggers a service window" },
                 { key: "insuranceExpiry", label: "Insurance expiry", hint: "30-day warning before policy renewal" },
-                { key: "backupOverdue", label: "Backup overdue", hint: "Notify if vault hasn't been archived recently" },
+                { key: "backupOverdue", label: "Sync reminder", hint: "Notify if your data hasn't synced to the cloud recently" },
               ] as const).map(({ key, label, hint }, i, arr) => (
                 <Row key={key} label={label} hint={hint} last={i === arr.length - 1}>
                   <Switch
@@ -1554,11 +1560,11 @@ export default function SettingsScreen() {
         {/* ═══════════════════ TAB: DATA ═══════════════════ */}
         {activeTab === "data" && (
           <>
-            <GroupLabel text="Cloud Backup" />
+            <GroupLabel text="Cloud Sync" />
             <Card>
               <Row
-                label="Google Drive Backup"
-                hint="Connect, set a password, and back up or restore your data — all in one guided place."
+                label="Cloud Sync"
+                hint="Connect Google Drive once. On one device it's your automatic backup; on another, your data stays in sync. Free."
                 last
               >
                 <Btn label="Open" variant="primary" onPress={() => router.push("/settings/backup")} />
@@ -1760,8 +1766,8 @@ const s = StyleSheet.create({
   segmented: { flexDirection: "row", backgroundColor: DS.inputBg, borderRadius: DS.rInput, borderWidth: 0.5, borderColor: DS.inputBorder, padding: 3, minWidth: 140 },
   segBtn: { flex: 1, paddingVertical: 5, borderRadius: DS.rInput - 2, alignItems: "center" },
   segBtnOn: { backgroundColor: DS.cardBg, borderWidth: 0.5, borderColor: DS.cardBorder },
-  segText: { fontSize: 11, fontWeight: "600", color: DS.textSecondary },
-  segTextOn: { color: DS.textPrimary },
+  segText: { fontSize: 11, fontWeight: "600", color: "#FFFFFF" },
+  segTextOn: { color: "#FFFFFF" },
 
   // ── Chips ────────────────────────────────────────────────────────────────────
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
@@ -1778,7 +1784,7 @@ const s = StyleSheet.create({
     borderRadius: DS.rInput,
     borderWidth: 0.5,
     borderColor: DS.inputBorder,
-    color: "#F6F6F7",          // force white — prevents invisible text on Android
+    color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "500" as const,
     paddingHorizontal: 12,
@@ -1791,7 +1797,7 @@ const s = StyleSheet.create({
     borderRadius: DS.rInput,
     borderWidth: 0.5,
     borderColor: DS.inputBorder,
-    color: "#F6F6F7",          // force white — prevents invisible text on Android
+    color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "500" as const,
     paddingHorizontal: 14,

@@ -3,6 +3,7 @@ import { platforms } from "../schema";
 import { eq, and } from "drizzle-orm";
 import { Platform } from "react-native";
 import { getPlatformsByCountry, getMileagePresetRate } from "@/src/registry/index";
+import { stampInsert, stampUpdate, notDeleted, isNotDeleted } from "../syncedWrites";
 
 const isWeb = Platform.OS === "web";
 
@@ -22,10 +23,14 @@ export type DBPlatform = {
 export async function getDBPlatforms(country: string): Promise<DBPlatform[]> {
   if (isWeb) {
     const raw = localStorage.getItem(`comma_db_platforms_${country}`);
-    if (raw) return JSON.parse(raw);
+    if (raw) return JSON.parse(raw).filter(isNotDeleted);
     return [];
   }
-  const results = await db.select().from(platforms).where(eq(platforms.country, country)).execute();
+  const results = await db
+    .select()
+    .from(platforms)
+    .where(and(eq(platforms.country, country), notDeleted(platforms.syncDeletedAt)))
+    .execute();
   return results.map((r: any) => ({
     id: r.id,
     label: r.label,
@@ -46,9 +51,9 @@ export async function updateDBPlatform(country: string, platformId: string, patc
     const idx = existing.findIndex(p => p.id === platformId);
     let updated;
     if (idx >= 0) {
-      updated = existing.map((p) => (p.id === platformId ? { ...p, ...patch } : p));
+      updated = existing.map((p) => (p.id === platformId ? { ...p, ...stampUpdate(patch) } : p));
     } else {
-      updated = [...existing, {
+      updated = [...existing, stampInsert({
         id: platformId,
         label: patch.label || "Custom Gig",
         color: patch.color || "#71717a",
@@ -59,7 +64,7 @@ export async function updateDBPlatform(country: string, platformId: string, patc
         mileageRate: patch.mileageRate || "0.62",
         sortPriority: patch.sortPriority || 1,
         logoEmoji: patch.logoEmoji || null,
-      }];
+      })];
     }
     localStorage.setItem(`comma_db_platforms_${country}`, JSON.stringify(updated));
     return;
@@ -72,7 +77,7 @@ export async function updateDBPlatform(country: string, platformId: string, patc
     .execute();
 
   if (rows.length === 0) {
-    await db.insert(platforms).values({
+    await db.insert(platforms).values(stampInsert({
       id: platformId,
       label: patch.label || "Custom Gig",
       color: patch.color || "#71717a",
@@ -83,11 +88,11 @@ export async function updateDBPlatform(country: string, platformId: string, patc
       mileageRate: patch.mileageRate || "0.62",
       sortPriority: patch.sortPriority || 1,
       logoEmoji: patch.logoEmoji || null,
-    }).execute();
+    })).execute();
   } else {
     await db
       .update(platforms)
-      .set({
+      .set(stampUpdate({
         isActive: patch.isActive !== undefined ? patch.isActive : undefined,
         hourlyRate: patch.hourlyRate !== undefined ? patch.hourlyRate : undefined,
         mileageRate: patch.mileageRate !== undefined ? patch.mileageRate : undefined,
@@ -96,7 +101,7 @@ export async function updateDBPlatform(country: string, platformId: string, patc
         color: patch.color !== undefined ? patch.color : undefined,
         textColor: patch.textColor !== undefined ? patch.textColor : undefined,
         logoEmoji: patch.logoEmoji !== undefined ? patch.logoEmoji : undefined,
-      })
+      }))
       .where(and(eq(platforms.country, country), eq(platforms.id, platformId)))
       .execute();
   }
@@ -104,14 +109,61 @@ export async function updateDBPlatform(country: string, platformId: string, patc
 
 export async function seedDBPlatforms(country: string, defaultSelectedIds: string[] = []): Promise<void> {
   const staticPlatforms = getPlatformsByCountry(country);
-  const existing = await getDBPlatforms(country);
-  const existingMap = new Map(existing.map(p => [p.id, p]));
 
-  const listToInsert = [];
-  for (const sp of staticPlatforms) {
-    if (!existingMap.has(sp.id)) {
+  // Read the RAW (tombstone-inclusive) rows for this country so we can tell apart three
+  // states: live row (skip), tombstoned default (revive in place), absent (insert fresh).
+  // We deliberately do NOT use getDBPlatforms here — it hides tombstones, which would make
+  // a soft-deleted default look "absent" and trigger a PK-colliding re-insert.
+  if (isWeb) {
+    const raw = localStorage.getItem(`comma_db_platforms_${country}`);
+    const existing: any[] = raw ? JSON.parse(raw) : [];
+    const existingMap = new Map(existing.map(p => [p.id, p]));
+
+    const listToInsert: any[] = [];
+    for (const sp of staticPlatforms) {
+      const current = existingMap.get(sp.id);
       const defaultMileage = getMileagePresetRate(country, country === "CA" ? "ON" : country === "US" ? "NY" : "ENG");
-      listToInsert.push({
+      if (!current) {
+        // Absent → insert a fresh default row.
+        listToInsert.push(stampInsert({
+          id: sp.id,
+          label: sp.label,
+          color: sp.color,
+          textColor: sp.textColor,
+          country: country,
+          isActive: defaultSelectedIds.includes(sp.id),
+          hourlyRate: "20",
+          mileageRate: defaultMileage,
+          sortPriority: 1,
+          logoEmoji: null,
+        }));
+      } else if (!isNotDeleted(current)) {
+        // Tombstoned default → revive in place: clear the tombstone and bump the LWW clock.
+        const idx = existing.findIndex(p => p.id === sp.id);
+        existing[idx] = { ...current, ...stampUpdate({ syncDeletedAt: null }) };
+      }
+      // else: live row → leave untouched.
+    }
+
+    if (listToInsert.length > 0 || existing.some(p => existingMap.has(p.id))) {
+      const newList = [...existing, ...listToInsert];
+      localStorage.setItem(`comma_db_platforms_${country}`, JSON.stringify(newList));
+    }
+    return;
+  }
+
+  const existing = await db.select().from(platforms).where(eq(platforms.country, country)).execute();
+  const existingMap = new Map<string, typeof platforms.$inferSelect>(
+    existing.map((p: typeof platforms.$inferSelect) => [p.id, p])
+  );
+
+  const listToInsert: any[] = [];
+  for (const sp of staticPlatforms) {
+    const current = existingMap.get(sp.id);
+    const defaultMileage = getMileagePresetRate(country, country === "CA" ? "ON" : country === "US" ? "NY" : "ENG");
+    if (!current) {
+      // Absent → insert a fresh default row.
+      listToInsert.push(stampInsert({
         id: sp.id,
         label: sp.label,
         color: sp.color,
@@ -122,16 +174,19 @@ export async function seedDBPlatforms(country: string, defaultSelectedIds: strin
         mileageRate: defaultMileage,
         sortPriority: 1,
         logoEmoji: null,
-      });
+      }));
+    } else if (current.syncDeletedAt != null) {
+      // Tombstoned default → revive in place instead of re-inserting (avoids PK collision).
+      await db
+        .update(platforms)
+        .set(stampUpdate({ syncDeletedAt: null }))
+        .where(and(eq(platforms.country, country), eq(platforms.id, sp.id)))
+        .execute();
     }
+    // else: live row → leave untouched.
   }
 
   if (listToInsert.length > 0) {
-    if (isWeb) {
-      const newList = [...existing, ...listToInsert];
-      localStorage.setItem(`comma_db_platforms_${country}`, JSON.stringify(newList));
-    } else {
-      await db.insert(platforms).values(listToInsert).execute();
-    }
+    await db.insert(platforms).values(listToInsert).execute();
   }
 }

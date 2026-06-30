@@ -32,7 +32,7 @@ const ENCRYPTION_KEY_STORE_KEY = "COMMA_BACKUP_ENCRYPTION_KEY";
  * forever (e.g. the "Backing up…" overlay never resolves). Aborts after `timeoutMs` and maps
  * the abort to a clear, user-facing message.
  */
-async function fetchWithTimeout(
+export async function fetchWithTimeout(
   input: string,
   init: RequestInit = {},
   timeoutMs = 60000
@@ -317,6 +317,20 @@ export async function listBackups(): Promise<DriveBackupFile[]> {
 
   const data = await response.json();
   return data.files || [];
+}
+
+/**
+ * Delete a file from Drive by id. Used by sync compaction (P5) to remove change-logs
+ * once their data is captured in a snapshot. Returns true on success; a 404 (already
+ * gone) counts as success — the goal state is "file absent".
+ */
+export async function deleteDriveFile(fileId: string): Promise<boolean> {
+  const accessToken = await getValidAccessToken();
+  const response = await fetchWithTimeout(
+    `https://www.googleapis.com/drive/v3/files/${fileId}`,
+    { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  return response.ok || response.status === 404;
 }
 
 export async function restoreFromDrive(fileId: string, passphrase: string): Promise<void> {

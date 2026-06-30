@@ -12,6 +12,7 @@ import { QueryProvider } from "../providers/QueryProvider";
 import { useGPSTracking } from "../hooks/useGPSTracking";
 import { useWakeLock } from "../hooks/useWakeLock";
 import { useNotificationRouting } from "../hooks/useNotificationRouting";
+import { useAutoSync } from "../hooks/useAutoSync";
 import { AppErrorBoundary } from "../components/ErrorBoundary";
 import { installGlobalErrorHandler } from "../src/lib/installGlobalErrorHandler";
 import * as Notifications from "expo-notifications";
@@ -32,6 +33,7 @@ function ShiftBackgroundServices() {
   useGPSTracking();
   useWakeLock();
   useNotificationRouting();
+  useAutoSync();
   return null;
 }
 

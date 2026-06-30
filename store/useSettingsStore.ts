@@ -1,8 +1,9 @@
 import { create } from "zustand";
 import { Platform } from "react-native";
 import { db } from "../src/database/client";
-import { settings, vehicles, shifts, expenses, goals, platforms } from "../src/database/schema";
+import { settings, vehicles, shifts, expenses, goals, platforms, shiftPlatforms, maintenanceLogs, vehicleTaxProfiles, taxHistory, merchants, syncOverwriteLog } from "../src/database/schema";
 import { eq } from "drizzle-orm";
+import { resetSyncStateForReset, applyPostResetSyncStateWeb, applyPostResetSyncStateNative } from "../src/database/syncState";
 import { DEMO_ROUTES } from './demoRoutes';
 import { getDBPlatforms, updateDBPlatform, seedDBPlatforms, type DBPlatform } from "../src/database/queries/platforms";
 import { getPlatformsByCountry } from "../src/registry/platforms";
@@ -788,10 +789,21 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
 
   resetSettings: async () => {
-
     set({ isLoading: true });
+
+    // Reset App = wipe THIS DEVICE only; the cloud copy is never touched (see
+    // app/docs/sync-design.md §4a). Sync is turned OFF *before* the wipe and the
+    // device id is RE-MINTED so:
+    //   - the next sync won't run and silently refill the now-empty phone, and
+    //   - if the user later re-enables sync, the re-minted id makes the cloud's
+    //     existing change-logs read as "not mine" → they pull back down cleanly.
+    // This is a LOCAL HARD wipe, NOT a soft-delete: we must not push tombstones,
+    // or every other device would be wiped too.
+    const freshDeviceId = resetSyncStateForReset();
+
     if (isWeb) {
       localStorage.clear();
+      applyPostResetSyncStateWeb(freshDeviceId);
       set({
         isOnboardingCompleted: false,
         profile: DEFAULT_PROFILE,
@@ -803,13 +815,25 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
 
     try {
-      // Delete all settings rows
-      await db.delete(settings);
-      // Delete all vehicles, shifts, expenses, goals (Hard Reset)
-      await db.delete(vehicles);
-      await db.delete(shifts);
+      // Hard-wipe all synced record tables + settings (true clean slate). Children
+      // before parents to satisfy FK references.
+      await db.delete(shiftPlatforms);
       await db.delete(expenses);
+      await db.delete(maintenanceLogs);
+      await db.delete(vehicleTaxProfiles);
+      await db.delete(shifts);
+      await db.delete(taxHistory);
       await db.delete(goals);
+      await db.delete(merchants);
+      await db.delete(vehicles);
+      await db.delete(platforms);
+      await db.delete(syncOverwriteLog); // local sync audit log — clean slate
+      await db.delete(settings);
+
+      // Re-establish the post-reset sync state in the (now-empty) settings KV:
+      // sync OFF, cursors cleared, device id re-minted. Written AFTER the settings
+      // wipe so these keys survive.
+      await applyPostResetSyncStateNative(freshDeviceId);
 
       set({
         isOnboardingCompleted: false,

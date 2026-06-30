@@ -1043,12 +1043,12 @@ export default function HomeScreen() {
           >
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={{ color: "#3b82f6", fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5 }}>
-                Back up your data
+                Protect your data
               </Text>
               <Text style={{ color: "#F6F6F7", fontSize: 13, fontWeight: "600", lineHeight: 18 }}>
                 {backupStatus.daysSince === null
-                  ? "Your data lives only on this device. Tap to back it up to Google Drive."
-                  : `It's been ${backupStatus.daysSince} day${backupStatus.daysSince === 1 ? "" : "s"} since your last backup. Tap to back up to Google Drive.`}
+                  ? "Your data lives only on this device. Turn on Cloud Sync to keep it safe on Google Drive."
+                  : `It's been ${backupStatus.daysSince} day${backupStatus.daysSince === 1 ? "" : "s"} since your data synced. Tap to open Cloud Sync.`}
               </Text>
             </View>
             <Pressable

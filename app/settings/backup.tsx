@@ -23,19 +23,30 @@ import {
   ChevronLeft,
   Check,
   KeyRound,
-  UploadCloud,
-  RotateCcw,
   Lock,
+  RefreshCw,
 } from "lucide-react-native";
 
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useGoogleDriveSync } from "@/hooks/useGoogleDriveSync";
+import { useSyncNow } from "@/hooks/useSyncNow";
+import {
+  isSyncEnabled,
+  setSyncEnabled as persistSyncEnabled,
+  getSyncSchedule,
+  setSyncSchedule as persistSyncSchedule,
+} from "@/src/database/syncState";
+import {
+  SYNC_SCHEDULES,
+  SCHEDULE_LABELS,
+  DEFAULT_SCHEDULE,
+  type SyncSchedule,
+} from "@/src/services/sync/schedule";
 import {
   getBackupPassword,
   setBackupPassword,
   hasBackupPassword,
 } from "@/src/services/backupPassword";
-import type { DriveBackupFile } from "@/src/services/googleDrive";
 import { FeedbackDialog, BusyOverlay, type FeedbackVariant } from "@/src/components/ui/FeedbackDialog";
 import { GoogleDriveLogo } from "@/src/components/logos/GoogleDriveLogo";
 
@@ -55,23 +66,6 @@ const DS = {
 } as const;
 
 const MIN_PW = 6;
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function timeAgo(iso?: string): string {
-  if (!iso) return "";
-  const then = new Date(iso).getTime();
-  if (isNaN(then)) return "";
-  const sec = Math.max(0, Math.floor((Date.now() - then) / 1000));
-  if (sec < 60) return "just now";
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min} min ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr} hr${hr > 1 ? "s" : ""} ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 30) return `${day} day${day > 1 ? "s" : ""} ago`;
-  return new Date(iso).toLocaleDateString();
-}
 
 // ─── Password prompt modal ────────────────────────────────────────────────────
 
@@ -257,23 +251,15 @@ function PillBtn({
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-export default function BackupScreen() {
+export default function SyncScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
-  const {
-    isAuthenticated,
-    userEmail,
-    isBackingUp,
-    isRestoring,
-    backups,
-    backupsError,
-    login,
-    logout,
-    triggerBackup,
-    triggerRestore,
-  } = useGoogleDriveSync();
+  const { isAuthenticated, userEmail, login, logout } = useGoogleDriveSync();
 
+  const { isSyncing, triggerSync } = useSyncNow();
+  const [syncEnabled, setSyncEnabledState] = useState(false);
+  const [schedule, setScheduleState] = useState<SyncSchedule>(DEFAULT_SCHEDULE);
   const [passwordSet, setPasswordSet] = useState(false);
   const [pwPrompt, setPwPrompt] = useState<null | { mode: "set" | "enter"; onSubmit: (pw: string) => void }>(null);
   const [dialog, setDialog] = useState<null | {
@@ -286,11 +272,23 @@ export default function BackupScreen() {
   }>(null);
 
   useEffect(() => {
-    (async () => setPasswordSet(await hasBackupPassword()))();
+    (async () => {
+      setPasswordSet(await hasBackupPassword());
+      setSyncEnabledState(await isSyncEnabled());
+      setScheduleState(await getSyncSchedule());
+    })();
   }, []);
 
   const ready = isAuthenticated && passwordSet;
-  const lastBackupTime = backups[0]?.createdTime;
+
+  // "Connect then done": once Drive is connected AND a password is set, Cloud Sync turns
+  // itself on — no extra switch to flip. Sync is free for everyone (no paywall).
+  useEffect(() => {
+    if (ready && !syncEnabled) {
+      setSyncEnabledState(true);
+      persistSyncEnabled(true).catch(() => setSyncEnabledState(false));
+    }
+  }, [ready, syncEnabled]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
   const openSetPassword = () =>
@@ -303,78 +301,59 @@ export default function BackupScreen() {
         setDialog({
           variant: "success",
           title: "Password saved",
-          message: "Use this same password to restore on another device.",
+          message: "Keep this safe — you'll need the same password to unlock your data on another device.",
         });
-      },
-    });
-
-  const doBackup = async () => {
-    const pw = await getBackupPassword();
-    if (!pw) {
-      openSetPassword();
-      return;
-    }
-    try {
-      await triggerBackup(pw);
-      // Clear the Dashboard "back up your data" reminder immediately.
-      queryClient.invalidateQueries({ queryKey: ["backup", "status"] });
-      setDialog({ variant: "success", title: "Backup complete", message: "Your data is safely backed up to Google Drive." });
-    } catch (e: any) {
-      setDialog({ variant: "error", title: "Backup failed", message: e?.message ?? "Something went wrong." });
-    }
-  };
-
-  const runRestore = async (file: DriveBackupFile, pw: string) => {
-    try {
-      await triggerRestore(file.id, pw);
-      await setBackupPassword(pw); // remember on this device for next time
-      setPasswordSet(true);
-      setDialog({ variant: "success", title: "Restore complete", message: "Your data was restored from this backup." });
-    } catch (e: any) {
-      setDialog({
-        variant: "error",
-        title: "Restore failed",
-        message: e?.message ?? "Couldn't restore — check your backup password.",
-      });
-    }
-  };
-
-  const onRestorePress = (file: DriveBackupFile) =>
-    setDialog({
-      variant: "info",
-      title: "Restore this backup?",
-      message: "This replaces all data on this device with the contents of this backup. It can't be undone.",
-      confirmLabel: "Restore",
-      cancelLabel: "Cancel",
-      onConfirm: async () => {
-        setDialog(null);
-        const pw = await getBackupPassword();
-        if (pw) {
-          runRestore(file, pw);
-        } else {
-          setPwPrompt({
-            mode: "enter",
-            onSubmit: (entered) => {
-              setPwPrompt(null);
-              runRestore(file, entered);
-            },
-          });
-        }
       },
     });
 
   const onDisconnect = () =>
     setDialog({
       variant: "info",
-      title: "Disconnect Google Drive?",
-      message: "You can reconnect any time. Your existing backups stay safe in your Drive.",
-      confirmLabel: "Disconnect",
+      title: "Turn off Cloud Sync?",
+      message: "Sync stops and Google Drive disconnects on this device. Your synced data stays safe in your Drive — reconnect any time to pull it back.",
+      confirmLabel: "Turn off",
       cancelLabel: "Cancel",
       onConfirm: async () => {
         setDialog(null);
+        setSyncEnabledState(false);
+        await persistSyncEnabled(false);
         await logout();
       },
     });
+
+  const onPickSchedule = async (next: SyncSchedule) => {
+    const prev = schedule;
+    setScheduleState(next); // optimistic
+    try {
+      await persistSyncSchedule(next);
+    } catch {
+      setScheduleState(prev); // revert on failure
+    }
+  };
+
+  const doSyncNow = async () => {
+    const pw = await getBackupPassword();
+    if (!pw) {
+      openSetPassword();
+      return;
+    }
+    try {
+      const res = await triggerSync(pw);
+      queryClient.invalidateQueries({ queryKey: ["backup", "status"] });
+      const plural = (n: number) => (n === 1 ? "" : "s");
+      setDialog({
+        variant: "success",
+        title: "Synced",
+        message:
+          `Pulled ${res.pulledLogs} update${plural(res.pulledLogs)} · ` +
+          `applied ${res.appliedRows}` +
+          (res.auditedRows > 0 ? ` · ${res.auditedRows} money change${plural(res.auditedRows)} logged` : "") +
+          `. ${res.pushed ? `Backed up ${res.pushedRows} row${plural(res.pushedRows)}.` : "Already up to date."}`,
+      });
+    } catch (e: any) {
+      setDialog({ variant: "error", title: "Sync failed", message: e?.message ?? "Something went wrong." });
+    }
+  };
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -385,8 +364,8 @@ export default function BackupScreen() {
           <ChevronLeft color={DS.textPrimary} size={20} />
         </TouchableOpacity>
         <View>
-          <Text style={s.headerTitle}>Back up &amp; Restore</Text>
-          <Text style={s.headerSub}>Encrypted backups on your Google Drive</Text>
+          <Text style={s.headerTitle}>Cloud Sync</Text>
+          <Text style={s.headerSub}>Free · encrypted on your Google Drive</Text>
         </View>
       </View>
 
@@ -396,10 +375,10 @@ export default function BackupScreen() {
           <View style={[s.introIcon, { backgroundColor: "#16161A", borderColor: "#1E1E23" }]}>
             <GoogleDriveLogo size={26} />
           </View>
-          <Text style={s.introTitle}>Keep your data safe</Text>
+          <Text style={s.introTitle}>One feature. Backup and sync.</Text>
           <Text style={s.introText}>
-            Your shifts, expenses, vehicles and settings — encrypted with your password and saved to your own
-            Google Drive. Only you can read them.
+            Connect Google Drive and you're done. On a single device your data is safely backed up; sign in on
+            another and everything stays in sync — automatically, encrypted, only readable by you.
           </Text>
         </View>
 
@@ -409,13 +388,13 @@ export default function BackupScreen() {
           index={1}
           done={isAuthenticated}
           title={isAuthenticated ? "Google Drive connected" : "Connect Google Drive"}
-          subtitle={isAuthenticated ? userEmail ?? "Signed in" : "Sign in to store your backups"}
+          subtitle={isAuthenticated ? userEmail ?? "Signed in" : "Sign in to store your data"}
           accentColor={accentColor}
           accentColorDim={accentColorDim}
           accentColorMid={accentColorMid}
           right={
             isAuthenticated ? (
-              <PillBtn label="Disconnect" variant="danger" onPress={onDisconnect}
+              <PillBtn label="Turn off" variant="danger" onPress={onDisconnect}
                 accent={accentColor} accentDim={accentColorDim} accentMid={accentColorMid} accentContrast={accentColorContrast} />
             ) : (
               <PillBtn label="Connect" variant="primary" onPress={login}
@@ -429,8 +408,8 @@ export default function BackupScreen() {
         <Step
           index={2}
           done={passwordSet}
-          title="Backup password"
-          subtitle={passwordSet ? "Set — required to restore" : "Encrypts your backup; needed to restore"}
+          title="Sync password"
+          subtitle={passwordSet ? "Set — unlocks your data on a new device" : "Encrypts your data; needed to unlock it on another device"}
           accentColor={accentColor}
           accentColorDim={accentColorDim}
           accentColorMid={accentColorMid}
@@ -440,74 +419,69 @@ export default function BackupScreen() {
           }
         />
 
-        {/* Step 3 — Back up */}
-        <Text style={s.groupLabel}>STEP 3</Text>
-        <Step
-          index={3}
-          done={false}
-          locked={!ready}
-          title="Back up now"
-          subtitle={
-            !isAuthenticated
-              ? "Connect Google Drive first"
-              : !passwordSet
-              ? "Set a backup password first"
-              : lastBackupTime
-              ? `Last backup ${timeAgo(lastBackupTime)}`
-              : "No backups yet"
-          }
-          accentColor={accentColor}
-          accentColorDim={accentColorDim}
-          accentColorMid={accentColorMid}
-          right={
+        {/* Cloud Sync status + controls (auto-on once steps 1 & 2 are done) */}
+        <Text style={s.groupLabel}>CLOUD SYNC</Text>
+        <View style={s.card}>
+          <View style={s.stepRow}>
+            <View style={[s.badge, { backgroundColor: DS.inputBg, borderColor: DS.inputBorder }]}>
+              <RefreshCw size={15} color={ready && syncEnabled ? accentColor : DS.textSecondary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.stepTitle}>
+                {ready && syncEnabled ? "Cloud Sync is on" : "Cloud Sync is off"}
+              </Text>
+              <Text style={s.stepSub}>
+                {!isAuthenticated
+                  ? "Connect Google Drive to turn it on."
+                  : !passwordSet
+                  ? "Set a sync password to turn it on."
+                  : "Pulls updates when you open the app and backs up on your schedule."}
+              </Text>
+            </View>
+          </View>
+
+          {/* Auto-back-up cadence (WhatsApp-style). Pull always happens on app open. */}
+          <View style={[s.syncSchedRow, { borderTopColor: DS.sep }]}>
+            <Text style={s.stepSub}>Auto-back up</Text>
+            <View style={s.segment}>
+              {SYNC_SCHEDULES.map((opt) => {
+                const active = schedule === opt;
+                return (
+                  <TouchableOpacity
+                    key={opt}
+                    onPress={() => onPickSchedule(opt)}
+                    disabled={!ready || !syncEnabled}
+                    style={[
+                      s.segmentBtn,
+                      active && { backgroundColor: accentColorDim, borderColor: accentColorMid },
+                      (!ready || !syncEnabled) && { opacity: 0.4 },
+                    ]}
+                  >
+                    <Text style={[s.segmentText, { color: active ? accentColor : DS.textSecondary }]}>
+                      {SCHEDULE_LABELS[opt]}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={[s.syncActionRow, { borderTopColor: DS.sep }]}>
+            <Text style={s.stepSub}>
+              {ready && syncEnabled ? "Sync right now" : "Finish steps 1 & 2 first"}
+            </Text>
             <PillBtn
-              label={isBackingUp ? "Backing up…" : "Back up"}
+              label={isSyncing ? "Syncing…" : "Sync now"}
               variant="primary"
-              disabled={!ready || isBackingUp || isRestoring}
-              onPress={doBackup}
+              disabled={!ready || !syncEnabled || isSyncing}
+              onPress={doSyncNow}
               accent={accentColor}
               accentDim={accentColorDim}
               accentMid={accentColorMid}
               accentContrast={accentColorContrast}
             />
-          }
-        />
-
-        {/* Backups list */}
-        {isAuthenticated ? (
-          <>
-            <Text style={s.groupLabel}>YOUR BACKUPS</Text>
-            <View style={s.card}>
-              {backups.length === 0 ? (
-                <View style={s.emptyWrap}>
-                  <UploadCloud size={22} color={DS.textSecondary} />
-                  <Text style={s.emptyText}>
-                    {backupsError
-                      ? `Couldn't load your backups: ${backupsError}`
-                      : "No backups yet. Run your first backup above."}
-                  </Text>
-                </View>
-              ) : (
-                backups.map((b, i) => (
-                  <View key={b.id} style={[s.backupRow, i < backups.length - 1 && s.rowDivider]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.backupDate}>{new Date(b.createdTime).toLocaleString()}</Text>
-                      <Text style={s.backupAgo}>{timeAgo(b.createdTime)}</Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => onRestorePress(b)}
-                      disabled={isBackingUp || isRestoring}
-                      style={[s.restoreBtn, { opacity: isBackingUp || isRestoring ? 0.4 : 1 }]}
-                    >
-                      <RotateCcw size={14} color={DS.textSecondary} />
-                      <Text style={s.restoreText}>Restore</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))
-              )}
-            </View>
-          </>
-        ) : null}
+          </View>
+        </View>
 
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -536,8 +510,8 @@ export default function BackupScreen() {
       />
 
       <BusyOverlay
-        visible={isBackingUp || isRestoring}
-        label={isBackingUp ? "Backing up…" : "Restoring…"}
+        visible={isSyncing}
+        label="Syncing…"
         accentColor={accentColor}
       />
     </SafeAreaView>
@@ -623,6 +597,35 @@ const s = StyleSheet.create({
   rowDivider: { borderBottomWidth: 0.5, borderBottomColor: DS.sep },
   backupDate: { color: DS.textPrimary, fontSize: 13, fontWeight: "600" },
   backupAgo: { color: DS.textSecondary, fontSize: 11, marginTop: 2 },
+
+  syncSchedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 0.5,
+  },
+  segment: { flexDirection: "row", gap: 6 },
+  segmentBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 9,
+    borderWidth: 1,
+    backgroundColor: DS.inputBg,
+    borderColor: DS.inputBorder,
+  },
+  segmentText: { fontSize: 12, fontWeight: "700" },
+  syncActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 0.5,
+  },
   restoreBtn: {
     flexDirection: "row",
     alignItems: "center",

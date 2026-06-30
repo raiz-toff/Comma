@@ -4,6 +4,7 @@ import * as schema from "../schema";
 import { eq, and, or, gte, lte, desc, sql } from "drizzle-orm";
 import type { ExpoSQLiteDatabase } from "drizzle-orm/expo-sqlite";
 import { Platform } from "react-native";
+import { stampInsert, stampUpdate, softDeletePatch, notDeleted, isNotDeleted } from "../syncedWrites";
 
 // Transaction handle type derived from the drizzle expo-sqlite db (the runtime `db` export is
 // typed `any` for the web fallback, so we recover a precise tx type for transaction callbacks).
@@ -15,11 +16,11 @@ export async function insertShift(payload: typeof shifts.$inferInsert): Promise<
   if (isWeb) {
     const existing = localStorage.getItem("comma_shifts");
     const list = existing ? JSON.parse(existing) : [];
-    list.push(payload);
+    list.push(stampInsert(payload));
     localStorage.setItem("comma_shifts", JSON.stringify(list));
     return;
   }
-  await db.insert(shifts).values(payload);
+  await db.insert(shifts).values(stampInsert(payload));
 }
 
 export async function insertLocationPoint(payload: typeof locationPoints.$inferInsert): Promise<void> {
@@ -87,13 +88,13 @@ export async function updateShift(id: string, payload: Partial<typeof shifts.$in
       const list = JSON.parse(existing);
       const index = list.findIndex((s: any) => s.id === id);
       if (index !== -1) {
-        list[index] = { ...list[index], ...payload };
+        list[index] = { ...list[index], ...stampUpdate(payload) };
         localStorage.setItem("comma_shifts", JSON.stringify(list));
       }
     }
     return;
   }
-  await db.update(shifts).set(payload).where(eq(shifts.id, id));
+  await db.update(shifts).set(stampUpdate(payload)).where(eq(shifts.id, id));
 }
 
 export async function getShiftById(id: string): Promise<any | null> {
@@ -101,9 +102,14 @@ export async function getShiftById(id: string): Promise<any | null> {
     const existing = localStorage.getItem("comma_shifts");
     if (!existing) return null;
     const list = JSON.parse(existing);
-    return list.find((s: any) => s.id === id) || null;
+    const found = list.find((s: any) => s.id === id);
+    return found && isNotDeleted(found) ? found : null;
   }
-  const result = await db.select().from(shifts).where(eq(shifts.id, id)).limit(1);
+  const result = await db
+    .select()
+    .from(shifts)
+    .where(and(eq(shifts.id, id), notDeleted(shifts.syncDeletedAt)))
+    .limit(1);
   return result[0] || null;
 }
 
@@ -115,7 +121,7 @@ export async function getShiftsPaginated(
   if (isWeb) {
     const existing = localStorage.getItem("comma_shifts");
     if (!existing) return [];
-    let list = JSON.parse(existing);
+    let list = JSON.parse(existing).filter(isNotDeleted);
 
     // Apply filters
     if (filters?.startDate) {
@@ -140,7 +146,8 @@ export async function getShiftsPaginated(
   const limit = limitParam ?? 20;
   const offset = (page - 1) * limit;
 
-  const queryConditions = [];
+  // Always exclude tombstoned (soft-deleted) shifts from the list view.
+  const queryConditions = [notDeleted(shifts.syncDeletedAt)];
   if (filters?.startDate) {
     queryConditions.push(gte(shifts.startTime, filters.startDate));
   }
@@ -171,23 +178,38 @@ export async function getShiftsPaginated(
     .offset(offset);
 }
 
+/**
+ * User-initiated delete of a shift — SOFT delete (sync tombstone), NOT a hard DELETE,
+ * so the deletion propagates to other devices. The shift's linked shiftPlatforms rows
+ * are also soft-deleted (cascade) so their removal syncs too. (No expenses are touched
+ * in this file; if a future cascade adds them, soft-delete those as well since expenses
+ * is a synced table.)
+ */
 export async function deleteShift(id: string): Promise<void> {
   if (isWeb) {
     const existing = localStorage.getItem("comma_shifts");
     if (existing) {
       const list = JSON.parse(existing);
-      const filtered = list.filter((s: any) => s.id !== id);
-      localStorage.setItem("comma_shifts", JSON.stringify(filtered));
+      const index = list.findIndex((s: any) => s.id === id);
+      if (index !== -1) {
+        list[index] = { ...list[index], ...softDeletePatch() };
+        localStorage.setItem("comma_shifts", JSON.stringify(list));
+      }
     }
     const spExisting = localStorage.getItem("comma_shift_platforms");
     if (spExisting) {
       const spList = JSON.parse(spExisting);
-      const spFiltered = spList.filter((sp: any) => sp.shiftId !== id);
-      localStorage.setItem("comma_shift_platforms", JSON.stringify(spFiltered));
+      for (let i = 0; i < spList.length; i++) {
+        if (spList[i].shiftId === id) {
+          spList[i] = { ...spList[i], ...softDeletePatch() };
+        }
+      }
+      localStorage.setItem("comma_shift_platforms", JSON.stringify(spList));
     }
     return;
   }
-  await db.delete(shifts).where(eq(shifts.id, id));
+  await db.update(shifts).set(softDeletePatch()).where(eq(shifts.id, id));
+  await db.update(shiftPlatforms).set(softDeletePatch()).where(eq(shiftPlatforms.shiftId, id));
 }
 
 export async function getShiftPlatforms(shiftId: string): Promise<any[]> {
@@ -195,25 +217,32 @@ export async function getShiftPlatforms(shiftId: string): Promise<any[]> {
     const existing = localStorage.getItem("comma_shift_platforms");
     if (!existing) return [];
     const list = JSON.parse(existing);
-    return list.filter((sp: any) => sp.shiftId === shiftId);
+    return list.filter((sp: any) => sp.shiftId === shiftId && isNotDeleted(sp));
   }
   return db
     .select()
     .from(shiftPlatforms)
-    .where(eq(shiftPlatforms.shiftId, shiftId));
+    .where(and(eq(shiftPlatforms.shiftId, shiftId), notDeleted(shiftPlatforms.syncDeletedAt)));
 }
 
 export async function insertShiftPlatform(payload: typeof shiftPlatforms.$inferInsert): Promise<void> {
   if (isWeb) {
     const existing = localStorage.getItem("comma_shift_platforms");
     const list = existing ? JSON.parse(existing) : [];
-    list.push(payload);
+    list.push(stampInsert(payload));
     localStorage.setItem("comma_shift_platforms", JSON.stringify(list));
     return;
   }
-  await db.insert(shiftPlatforms).values(payload);
+  await db.insert(shiftPlatforms).values(stampInsert(payload));
 }
 
+/**
+ * HARD delete — intentional. This is only used as the "clear" half of the
+ * delete-then-reinsert REPLACE pattern in saveShiftWithPlatforms (its sole call site),
+ * not a user-initiated delete. Soft-deleting here would tombstone rows whose ids are
+ * immediately reinserted, causing conflicts and accumulating dead tombstones, so it
+ * stays a hard delete.
+ */
 export async function deleteShiftPlatforms(shiftId: string): Promise<void> {
   if (isWeb) {
     const existing = localStorage.getItem("comma_shift_platforms");
@@ -257,14 +286,17 @@ export async function saveShiftWithPlatforms(
 
   await db.transaction(async (tx: Tx) => {
     if (isEdit) {
-      await tx.update(shifts).set(shiftPayload).where(eq(shifts.id, shiftId));
+      await tx.update(shifts).set(stampUpdate(shiftPayload)).where(eq(shifts.id, shiftId));
     } else {
-      await tx.insert(shifts).values(shiftPayload);
+      await tx.insert(shifts).values(stampInsert(shiftPayload));
     }
+    // HARD delete — intentional: this is the "clear" half of the delete-then-reinsert
+    // REPLACE of this shift's platform ledger, not a user delete. The same ids are
+    // reinserted immediately below, so soft-deleting would conflict and pile up tombstones.
     await tx.delete(shiftPlatforms).where(eq(shiftPlatforms.shiftId, shiftId));
     let i = 0;
     for (const entry of platformEntries) {
-      await tx.insert(shiftPlatforms).values({ id: `sp_${shiftId}_${i++}`, shiftId, ...entry });
+      await tx.insert(shiftPlatforms).values(stampInsert({ id: `sp_${shiftId}_${i++}`, shiftId, ...entry }));
     }
   });
 }
@@ -274,13 +306,13 @@ export async function getUnreconciledShifts(): Promise<any[]> {
     const existing = localStorage.getItem("comma_shifts");
     if (!existing) return [];
     const list = JSON.parse(existing);
-    return list.filter((s: any) => s.reconciliationStatus === "pending_reconciliation")
+    return list.filter((s: any) => s.reconciliationStatus === "pending_reconciliation" && isNotDeleted(s))
                .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   }
   return db
     .select()
     .from(shifts)
-    .where(eq(shifts.reconciliationStatus, "pending_reconciliation"))
+    .where(and(eq(shifts.reconciliationStatus, "pending_reconciliation"), notDeleted(shifts.syncDeletedAt)))
     .orderBy(desc(shifts.startTime));
 }
 
@@ -289,13 +321,13 @@ export async function getGPSOnlyShifts(): Promise<any[]> {
     const existing = localStorage.getItem("comma_shifts");
     if (!existing) return [];
     const list = JSON.parse(existing);
-    return list.filter((s: any) => s.distanceSource === "gps_only")
+    return list.filter((s: any) => s.distanceSource === "gps_only" && isNotDeleted(s))
                .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   }
   return db
     .select()
     .from(shifts)
-    .where(eq(shifts.distanceSource, "gps_only"))
+    .where(and(eq(shifts.distanceSource, "gps_only"), notDeleted(shifts.syncDeletedAt)))
     .orderBy(shifts.startTime);
 }
 
@@ -306,7 +338,7 @@ export async function insertManyShifts(
   if (isWeb) {
     const existing = localStorage.getItem("comma_shifts");
     const list = existing ? JSON.parse(existing) : [];
-    list.push(...rows);
+    list.push(...rows.map((r) => stampInsert(r)));
     localStorage.setItem("comma_shifts", JSON.stringify(list));
     return { successCount: rows.length, skippedCount: 0 };
   }
@@ -321,7 +353,7 @@ export async function insertManyShifts(
   await db.transaction(async (tx: Tx) => {
     for (const row of rows) {
       try {
-        await tx.insert(shifts).values(row);
+        await tx.insert(shifts).values(stampInsert(row));
         successCount++;
       } catch (e) {
         skippedCount++;
@@ -349,7 +381,7 @@ export async function reconcileOdometerAnchors(vehicleId: string, newOdometer: n
     if (vehicleResult.length > 0) {
       previousOdometer = vehicleResult[0].currentOdometer || 0;
     }
-    await db.update(vehicles).set({ currentOdometer: newOdometer }).where(eq(vehicles.id, vehicleId));
+    await db.update(vehicles).set(stampUpdate({ currentOdometer: newOdometer })).where(eq(vehicles.id, vehicleId));
   }
 
   // Fetch un-reconciled shifts for this vehicle sorted by startTime
@@ -358,13 +390,13 @@ export async function reconcileOdometerAnchors(vehicleId: string, newOdometer: n
     const sStr = localStorage.getItem("comma_shifts");
     const sList = sStr ? JSON.parse(sStr) : [];
     unrecShifts = sList
-      .filter((s: any) => s.vehicleId === vehicleId && s.distanceSource === "gps_only")
+      .filter((s: any) => s.vehicleId === vehicleId && s.distanceSource === "gps_only" && isNotDeleted(s))
       .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   } else {
     unrecShifts = await db
       .select()
       .from(shifts)
-      .where(and(eq(shifts.vehicleId, vehicleId), eq(shifts.distanceSource, "gps_only")))
+      .where(and(eq(shifts.vehicleId, vehicleId), eq(shifts.distanceSource, "gps_only"), notDeleted(shifts.syncDeletedAt)))
       .orderBy(shifts.startTime);
   }
 
@@ -422,7 +454,7 @@ export async function reconcileOdometerAnchors(vehicleId: string, newOdometer: n
       updatedShifts.forEach((updated: any) => {
         const idx = sList.findIndex((s: any) => s.id === updated.id);
         if (idx !== -1) {
-          sList[idx] = updated;
+          sList[idx] = { ...updated, ...stampUpdate({}) };
         }
       });
       localStorage.setItem("comma_shifts", JSON.stringify(sList));
@@ -431,14 +463,14 @@ export async function reconcileOdometerAnchors(vehicleId: string, newOdometer: n
     for (const updated of updatedShifts) {
       await db
         .update(shifts)
-        .set({
+        .set(stampUpdate({
           activeMileage: updated.activeMileage,
           deadMileage: updated.deadMileage,
           trackedMileage: updated.trackedMileage,
           startOdometer: updated.startOdometer,
           endOdometer: updated.endOdometer,
           distanceSource: updated.distanceSource,
-        })
+        }))
         .where(eq(shifts.id, updated.id));
     }
   }

@@ -2,6 +2,7 @@ import { db } from "../client";
 import { shifts, expenses, taxHistory, settings } from "../schema";
 import { sql, eq, and, gte, lte, desc } from "drizzle-orm";
 import { Platform } from "react-native";
+import { stampInsert, notDeleted, isNotDeleted } from "../syncedWrites";
 
 const isWeb = Platform.OS === "web";
 
@@ -19,7 +20,8 @@ export async function getTaxYearSummary(
     .where(
       and(
         gte(shifts.startTime, startOfYear),
-        lte(shifts.startTime, endOfYear)
+        lte(shifts.startTime, endOfYear),
+        notDeleted(shifts.syncDeletedAt)
       )
     );
 
@@ -35,7 +37,8 @@ export async function getTaxYearSummary(
       and(
         eq(expenses.isDeductible, true),
         gte(expenses.date, startOfYear),
-        lte(expenses.date, endOfYear)
+        lte(expenses.date, endOfYear),
+        notDeleted(expenses.syncDeletedAt)
       )
     );
 
@@ -60,12 +63,16 @@ export async function getTaxHistory(): Promise<TaxHistoryEntry[]> {
     const existing = localStorage.getItem("comma_tax_history");
     if (!existing) return [];
     const list = JSON.parse(existing);
-    return list.map((item: any) => ({
+    return list.filter(isNotDeleted).map((item: any) => ({
       ...item,
       changedAt: new Date(item.changedAt),
     })).sort((a: any, b: any) => b.changedAt.getTime() - a.changedAt.getTime());
   }
-  const results = await db.select().from(taxHistory).orderBy(desc(taxHistory.changedAt));
+  const results = await db
+    .select()
+    .from(taxHistory)
+    .where(notDeleted(taxHistory.syncDeletedAt))
+    .orderBy(desc(taxHistory.changedAt));
   return results.map((r: any) => ({
     id: r.id,
     oldRegion: r.oldRegion,
@@ -129,13 +136,13 @@ export async function insertTaxHistory(payload: {
   if (isWeb) {
     const existing = localStorage.getItem("comma_tax_history");
     const list = existing ? JSON.parse(existing) : [];
-    list.push({
+    list.push(stampInsert({
       ...entry,
       changedAt: entry.changedAt.toISOString(),
-    });
+    }));
     localStorage.setItem("comma_tax_history", JSON.stringify(list));
     return;
   }
 
-  await db.insert(taxHistory).values(entry);
+  await db.insert(taxHistory).values(stampInsert(entry));
 }

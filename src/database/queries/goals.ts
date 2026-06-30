@@ -2,6 +2,7 @@ import { db } from "../client";
 import { goals, shifts, settings } from "../schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { Platform } from "react-native";
+import { stampInsert, softDeletePatch, notDeleted, isNotDeleted } from "../syncedWrites";
 
 const isWeb = Platform.OS === "web";
 
@@ -55,10 +56,12 @@ export async function getGoalsWithProgress(): Promise<any[]> {
     
     const existingGoals = localStorage.getItem("comma_goals");
     if (!existingGoals) return [];
-    const goalsList = JSON.parse(existingGoals).filter((g: any) => g.isActive);
+    const goalsList = JSON.parse(existingGoals)
+      .filter(isNotDeleted)
+      .filter((g: any) => g.isActive);
 
     const existingShifts = localStorage.getItem("comma_shifts");
-    const shiftsList = existingShifts ? JSON.parse(existingShifts) : [];
+    const shiftsList = existingShifts ? JSON.parse(existingShifts).filter(isNotDeleted) : [];
 
     const results = [];
     for (const goal of goalsList) {
@@ -107,7 +110,10 @@ export async function getGoalsWithProgress(): Promise<any[]> {
     console.warn("Failed to load settings profile for weekStartDay in getGoalsWithProgress:", e);
   }
 
-  const activeGoals = await db.select().from(goals).where(eq(goals.isActive, true));
+  const activeGoals = await db
+    .select()
+    .from(goals)
+    .where(and(eq(goals.isActive, true), notDeleted(goals.syncDeletedAt)));
   const results = [];
 
   for (const goal of activeGoals) {
@@ -118,25 +124,25 @@ export async function getGoalsWithProgress(): Promise<any[]> {
       const agg = await db
         .select({ value: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue}), 0)` })
         .from(shifts)
-        .where(and(gte(shifts.startTime, start), lte(shifts.startTime, end)));
+        .where(and(gte(shifts.startTime, start), lte(shifts.startTime, end), notDeleted(shifts.syncDeletedAt)));
       currentValue = agg[0]?.value || 0;
     } else if (goal.unit === "hours") {
       const agg = await db
         .select({ value: sql<number>`COALESCE(SUM(${shifts.durationSeconds}), 0)` })
         .from(shifts)
-        .where(and(gte(shifts.startTime, start), lte(shifts.startTime, end)));
+        .where(and(gte(shifts.startTime, start), lte(shifts.startTime, end), notDeleted(shifts.syncDeletedAt)));
       currentValue = (agg[0]?.value || 0) / 3600.0;
     } else if (goal.unit === "shifts") {
       const agg = await db
         .select({ value: sql<number>`COUNT(${shifts.id})` })
         .from(shifts)
-        .where(and(gte(shifts.startTime, start), lte(shifts.startTime, end)));
+        .where(and(gte(shifts.startTime, start), lte(shifts.startTime, end), notDeleted(shifts.syncDeletedAt)));
       currentValue = agg[0]?.value || 0;
     } else if (goal.unit === "mileage") {
       const agg = await db
         .select({ value: sql<number>`COALESCE(SUM(${shifts.activeMileage}), 0)` })
         .from(shifts)
-        .where(and(gte(shifts.startTime, start), lte(shifts.startTime, end)));
+        .where(and(gte(shifts.startTime, start), lte(shifts.startTime, end), notDeleted(shifts.syncDeletedAt)));
       currentValue = agg[0]?.value || 0;
     }
 
@@ -154,22 +160,29 @@ export async function insertGoal(payload: typeof goals.$inferInsert): Promise<vo
   if (isWeb) {
     const existing = localStorage.getItem("comma_goals");
     const list = existing ? JSON.parse(existing) : [];
-    list.push(payload);
+    list.push(stampInsert(payload));
     localStorage.setItem("comma_goals", JSON.stringify(list));
     return;
   }
-  await db.insert(goals).values(payload);
+  await db.insert(goals).values(stampInsert(payload));
 }
 
+/**
+ * Soft-delete (sync tombstone) — NOT a hard DELETE. Sets syncDeletedAt so the deletion
+ * propagates to other devices; reads filter it out via notDeleted/isNotDeleted.
+ */
 export async function deleteGoal(id: string): Promise<void> {
   if (isWeb) {
     const existing = localStorage.getItem("comma_goals");
     if (existing) {
       const list = JSON.parse(existing);
-      const filtered = list.filter((g: any) => g.id !== id);
-      localStorage.setItem("comma_goals", JSON.stringify(filtered));
+      const index = list.findIndex((g: any) => g.id === id);
+      if (index !== -1) {
+        list[index] = { ...list[index], ...softDeletePatch() };
+        localStorage.setItem("comma_goals", JSON.stringify(list));
+      }
     }
     return;
   }
-  await db.delete(goals).where(eq(goals.id, id));
+  await db.update(goals).set(softDeletePatch()).where(eq(goals.id, id));
 }

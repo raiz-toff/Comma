@@ -1,8 +1,9 @@
 import { db } from "../client";
 import { shifts, vehicles, settings, goals, expenses } from "../schema";
-import { and, gte, lte, eq, sql, inArray, like, or } from "drizzle-orm";
+import { and, gte, lte, eq, sql, inArray, like, or, type SQL } from "drizzle-orm";
 import { Platform } from "react-native";
 import { getGoalsWithProgress } from "./goals";
+import { notDeleted } from "../syncedWrites";
 
 function matchesPlatformWeb(platformField: string | null | undefined, filterPlatform: string): boolean {
   if (!platformField) return false;
@@ -10,10 +11,13 @@ function matchesPlatformWeb(platformField: string | null | undefined, filterPlat
   return parts.some((p) => platformField.includes(p));
 }
 
-function getPlatformConditions(platform: string) {
+// Always called with a non-empty platform string (call sites guard `platform && platform !== "all"`),
+// so the result is always a defined SQL fragment. The `!` narrows `or()`'s `SQL | undefined` return
+// so the conditions arrays stay `SQL[]` and compose cleanly into `and(...)`.
+function getPlatformConditions(platform: string): SQL {
   const parts = platform.split(",");
   if (parts.length > 1) {
-    return or(...parts.map((p) => like(shifts.platform, `%${p}%`)));
+    return or(...parts.map((p) => like(shifts.platform, `%${p}%`)))!;
   }
   return like(shifts.platform, `%${platform}%`);
 }
@@ -86,7 +90,7 @@ export async function getTodayStats(platform?: string): Promise<{ gross: number;
   }
 
   const { start, end } = getPeriodDates("daily");
-  const conditions = [gte(shifts.startTime, start), lte(shifts.startTime, end)];
+  const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, start), lte(shifts.startTime, end)];
   if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
@@ -162,7 +166,7 @@ export async function getWeekStats(platform?: string): Promise<{ gross: number; 
   } catch {}
 
   const { start, end } = getPeriodDates("weekly", weekStartDay);
-  const conditions = [gte(shifts.startTime, start), lte(shifts.startTime, end)];
+  const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, start), lte(shifts.startTime, end)];
   if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
@@ -199,7 +203,7 @@ export async function getActiveVehicle(): Promise<any> {
     const fallbackActiveRow = await db
       .select()
       .from(vehicles)
-      .where(eq(vehicles.isActive, true))
+      .where(and(notDeleted(vehicles.syncDeletedAt), eq(vehicles.isActive, true)))
       .limit(1);
     return fallbackActiveRow[0] || null;
   }
@@ -207,7 +211,7 @@ export async function getActiveVehicle(): Promise<any> {
   const vehicleRow = await db
     .select()
     .from(vehicles)
-    .where(eq(vehicles.id, vehicleId))
+    .where(and(notDeleted(vehicles.syncDeletedAt), eq(vehicles.id, vehicleId)))
     .limit(1);
 
   return vehicleRow[0] || null;
@@ -253,7 +257,7 @@ export async function getEarningsByPlatform(
     }));
   }
 
-  const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
+  const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
@@ -305,7 +309,7 @@ export async function getEarningsByDay(
       total: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue}), 0)`,
     })
     .from(shifts)
-    .where(gte(shifts.startTime, startDate))
+    .where(and(notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate)))
     .groupBy(sql`strftime('%Y-%m-%d', datetime(${shifts.startTime}, 'unixepoch', 'localtime'))`)
     .orderBy(sql`1 ASC`);
 
@@ -358,7 +362,7 @@ export async function getEarningsByDayRange(
       });
     }
   } else {
-    const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
+    const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
     if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
@@ -403,7 +407,7 @@ export async function getHourlyRate(startDate: Date, endDate: Date, platform?: s
     return totalSecs > 0 ? totalEarnings / (totalSecs / 3600) : 0;
   }
 
-  const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
+  const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
@@ -450,7 +454,7 @@ export async function getBestDayOfWeek(
     }));
   }
 
-  const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
+  const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
@@ -497,7 +501,7 @@ export async function getBestHourOfDay(
     }));
   }
 
-  const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
+  const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
@@ -526,7 +530,7 @@ export async function getMileageSplit(
     return { active: 0, dead: 0, ratio: 0 };
   }
 
-  const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
+  const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
@@ -547,7 +551,7 @@ export async function getMileageSplit(
 export async function getNetIncome(startDate: Date, endDate: Date, platform?: string | null): Promise<number> {
   if (isWeb) return 0;
 
-  const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
+  const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
@@ -572,6 +576,8 @@ export async function getNetIncome(startDate: Date, endDate: Date, platform?: st
       .innerJoin(shifts, eq(expenses.shiftId, shifts.id))
       .where(
         and(
+          notDeleted(expenses.syncDeletedAt),
+          notDeleted(shifts.syncDeletedAt),
           eq(expenses.isDeductible, true),
           gte(expenses.date, startDate),
           lte(expenses.date, endDate),
@@ -586,6 +592,7 @@ export async function getNetIncome(startDate: Date, endDate: Date, platform?: st
       .from(expenses)
       .where(
         and(
+          notDeleted(expenses.syncDeletedAt),
           eq(expenses.isDeductible, true),
           gte(expenses.date, startDate),
           lte(expenses.date, endDate)
@@ -627,7 +634,7 @@ export async function getPeriodStats(
     }
   }
 
-  const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
+  const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
@@ -694,7 +701,7 @@ export async function getFinancialOverviewForRange(
       }
     } catch {}
   } else {
-    const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
+    const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
     if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
@@ -746,6 +753,8 @@ export async function getFinancialOverviewForRange(
         .innerJoin(shifts, eq(expenses.shiftId, shifts.id))
         .where(
           and(
+            notDeleted(expenses.syncDeletedAt),
+            notDeleted(shifts.syncDeletedAt),
             eq(expenses.isDeductible, true),
             gte(expenses.date, startDate),
             lte(expenses.date, endDate),
@@ -758,6 +767,7 @@ export async function getFinancialOverviewForRange(
         .from(expenses)
         .where(
           and(
+            notDeleted(expenses.syncDeletedAt),
             eq(expenses.isDeductible, true),
             gte(expenses.date, startDate),
             lte(expenses.date, endDate)
@@ -831,6 +841,8 @@ export async function getFinancialOverviewForRange(
         .innerJoin(shifts, eq(expenses.shiftId, shifts.id))
         .where(
           and(
+            notDeleted(expenses.syncDeletedAt),
+            notDeleted(shifts.syncDeletedAt),
             eq(expenses.isDeductible, true),
             gte(expenses.date, wStart),
             lte(expenses.date, wEnd),
@@ -843,6 +855,7 @@ export async function getFinancialOverviewForRange(
           .from(expenses)
           .where(
             and(
+              notDeleted(expenses.syncDeletedAt),
               eq(expenses.isDeductible, true),
               gte(expenses.date, wStart),
               lte(expenses.date, wEnd)
@@ -920,7 +933,7 @@ export async function getFinancialMonthlyBreakdown(
       }
     } catch {}
   } else {
-    const conditions = [gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
+    const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
     if (platform && platform !== "all") {
       conditions.push(eq(shifts.platform, platform));
     }
@@ -951,6 +964,8 @@ export async function getFinancialMonthlyBreakdown(
         .innerJoin(shifts, eq(expenses.shiftId, shifts.id))
         .where(
           and(
+            notDeleted(expenses.syncDeletedAt),
+            notDeleted(shifts.syncDeletedAt),
             gte(expenses.date, startDate),
             lte(expenses.date, endDate),
             platformCond
@@ -962,6 +977,7 @@ export async function getFinancialMonthlyBreakdown(
         .from(expenses)
         .where(
           and(
+            notDeleted(expenses.syncDeletedAt),
             gte(expenses.date, startDate),
             lte(expenses.date, endDate)
           )
@@ -1089,7 +1105,7 @@ export async function getMonthlyStatsForYear(
       count: sql<number>`COUNT(${shifts.id})`,
     })
     .from(shifts)
-    .where(and(gte(shifts.startTime, yearStart), lte(shifts.startTime, yearEnd)))
+    .where(and(notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, yearStart), lte(shifts.startTime, yearEnd)))
     .groupBy(sql`strftime('%m', datetime(${shifts.startTime}, 'unixepoch', 'localtime'))`);
 
   return rows;
@@ -1123,7 +1139,7 @@ export async function getRolling30DayTrend(platform?: string): Promise<any> {
       }
     } catch {}
   } else {
-    const conditions = [gte(shifts.startTime, start), lte(shifts.startTime, today)];
+    const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, start), lte(shifts.startTime, today)];
     if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }

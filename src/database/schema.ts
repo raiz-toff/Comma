@@ -1,9 +1,27 @@
 import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
 
+/**
+ * Sync columns (cloud-sync P1 — see app/docs/sync-design.md).
+ *
+ * Spread into every SYNCED record table (the 11 in BACKUP_TABLES). Intentionally
+ * NOT on settings (split into profile vs device-local later), locationPoints, or
+ * tempNativePoints (local GPS scratch, never synced).
+ *
+ *  - syncUpdatedAt: epoch ms of the last LOCAL mutation. The Last-Write-Wins clock.
+ *      Default 0 so pre-sync rows already in the DB are treated as "oldest" and any
+ *      incoming change wins until the row is next touched locally.
+ *  - syncDeletedAt: epoch ms when soft-deleted, else null. Tombstone so a deletion
+ *      on one device propagates to the others. Reads must filter `IS NULL`.
+ */
+const syncColumns = {
+  syncUpdatedAt: integer('sync_updated_at').default(0).notNull(),
+  syncDeletedAt: integer('sync_deleted_at'),
+};
+
 export const vehicles = sqliteTable('vehicles', {
-  id: text('id').primaryKey(), 
-  name: text('name').notNull(), 
-  type: text('type').notNull(), 
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  type: text('type').notNull(),
   isActive: integer('is_active', { mode: 'boolean' }).default(true).notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   make: text('make'),
@@ -12,6 +30,7 @@ export const vehicles = sqliteTable('vehicles', {
   fuelType: text('fuel_type'),   // 'gas' | 'electric' | 'hybrid' | 'other'
   licensePlate: text('license_plate'),
   currentOdometer: integer('current_odometer').default(0).notNull(),
+  ...syncColumns,
 });
 
 export const maintenanceLogs = sqliteTable('maintenance_logs', {
@@ -22,6 +41,7 @@ export const maintenanceLogs = sqliteTable('maintenance_logs', {
   odometer:   real('odometer'),       // reading at time of service
   date:       integer('date', { mode: 'timestamp' }).notNull(),
   notes:      text('notes'),
+  ...syncColumns,
 });
 
 export const shifts = sqliteTable('shifts', {
@@ -49,6 +69,7 @@ export const shifts = sqliteTable('shifts', {
   startOdometer: integer('start_odometer'),
   endOdometer: integer('end_odometer'),
   distanceSource: text('distance_source').default('gps_only').notNull(),
+  ...syncColumns,
 });
 
 export const locationPoints = sqliteTable('location_points', {
@@ -80,6 +101,7 @@ export const expenses = sqliteTable('expenses', {
   recurringInterval: text('recurring_interval'), // 'weekly'|'monthly'|'yearly'
   merchant: text('merchant').default("").notNull(),
   merchantNormalized: text('merchant_normalized').default("").notNull(),
+  ...syncColumns,
 });
 
 export const goals = sqliteTable('goals', {
@@ -90,6 +112,7 @@ export const goals = sqliteTable('goals', {
   period:      text('period').notNull(),  // 'daily'|'weekly'|'monthly'|'yearly'
   isActive:    integer('is_active', { mode: 'boolean' }).default(true).notNull(),
   createdAt:   integer('created_at', { mode: 'timestamp' }).notNull(),
+  ...syncColumns,
 });
 
 export const settings = sqliteTable('settings', {
@@ -104,6 +127,7 @@ export const taxHistory = sqliteTable('tax_history', {
   newRegion: text('new_region').notNull(),
   newRate: real('new_rate').notNull(),
   changedAt: integer('changed_at', { mode: 'timestamp' }).notNull(),
+  ...syncColumns,
 });
 
 export const platforms = sqliteTable('platforms', {
@@ -117,6 +141,7 @@ export const platforms = sqliteTable('platforms', {
   mileageRate: text('mileage_rate').default('0.62').notNull(),
   sortPriority: integer('sort_priority').default(1).notNull(),
   logoEmoji: text('logo_emoji'),
+  ...syncColumns,
 });
 
 export const tempNativePoints = sqliteTable('temp_native_points', {
@@ -134,12 +159,14 @@ export const shiftPlatforms = sqliteTable('shift_platforms', {
   grossRevenue: real('gross_revenue').default(0).notNull(),
   tipsRevenue: real('tips_revenue').default(0).notNull(),
   tripsCount: integer('trips_count').default(0).notNull(),
+  ...syncColumns,
 });
 
 export const merchants = sqliteTable('merchants', {
   id: text('id').primaryKey(),
   name: text('name').notNull().unique(),
   normalizedName: text('normalized_name').notNull(),
+  ...syncColumns,
 });
 
 export const vehicleTaxProfiles = sqliteTable('vehicle_tax_profiles', {
@@ -153,6 +180,25 @@ export const vehicleTaxProfiles = sqliteTable('vehicle_tax_profiles', {
   rateThreshold: real('rate_threshold'),
   beginningYearOdometer: integer('beginning_year_odometer'),
   endingYearOdometer: integer('ending_year_odometer'),
+  ...syncColumns,
+});
+
+/**
+ * Append-only audit trail for the cloud-sync merge engine (sync-design.md §5).
+ *
+ * When a Last-Write-Wins merge OVERWRITES a financial row (expenses / taxHistory /
+ * shifts / shiftPlatforms) that had real local edits, the superseded version is recorded
+ * here BEFORE the overwrite — so a number changed on another device is never silently
+ * lost and stays recoverable. DEVICE-LOCAL: deliberately has NO sync columns and is NOT
+ * in SYNCED_TABLES / BACKUP_TABLES — it's a per-device recovery log, not synced data.
+ */
+export const syncOverwriteLog = sqliteTable('sync_overwrite_log', {
+  id:            text('id').primaryKey(),
+  tableName:     text('table_name').notNull(),
+  rowId:         text('row_id').notNull(),
+  supersededRow: text('superseded_row').notNull(), // JSON of the local row that lost
+  winnerRow:     text('winner_row').notNull(),      // JSON of the incoming row that won
+  mergedAt:      integer('merged_at').notNull(),     // epoch ms of the merge
 });
 
 

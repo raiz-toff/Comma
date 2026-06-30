@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "logo-creator": {
+      "source": "resciencelab/opc-skills",
+      "sourceType": "github",
+      "skillPath": "skills/logo-creator/SKILL.md",
+      "computedHash": "baac641dd2fb8b6e1aa658e8372c5e83672479e35553247d5ece4dd7917fa48c"
+    },
     "mobile-android-design": {
       "source": "wshobson/agents",
       "sourceType": "github",

@@ -274,6 +274,7 @@
   <com.google.android.libraries.play.games/>
   <com.google.android.libraries.sdkcoroutines/>
   <com.google.android.libraries.searchinapps/>
+  <com.google.android.libraries.verifier/>
   <com.google.android.livesharing/>
   <com.google.android.material/>
   <com.google.android.mdoc/>

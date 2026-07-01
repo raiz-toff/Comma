@@ -667,6 +667,7 @@ export default function HomeScreen() {
   const [odoInput, setOdoInput] = useState("");
   const [odoError, setOdoError] = useState("");
   const [heroTab, setHeroTab] = useState<"T" | "W">("W");
+  const heroTabAnim = useRef(new RNAnimated.Value(34)).current; // 34 = W position (30px tab + 4px gap)
 
   const sheetTranslateY = useSharedValue(SCREEN_HEIGHT);
   
@@ -799,6 +800,15 @@ export default function HomeScreen() {
     loadSettings();
     setHeaderVisible(true);
   }, []);
+
+  useEffect(() => {
+    RNAnimated.spring(heroTabAnim, {
+      toValue: heroTab === "T" ? 0 : 34,
+      useNativeDriver: true,
+      tension: 320,
+      friction: 22,
+    }).start();
+  }, [heroTab]);
 
 
 
@@ -1115,27 +1125,30 @@ export default function HomeScreen() {
               {/* Right: T / W vertical tab strip inside a pill container */}
               <View style={{ justifyContent: "center" }}>
                 <View style={{ backgroundColor: "#0A0A0C", borderRadius: 14, borderWidth: 0.8, borderColor: "#1E1E23", padding: 4, gap: 4 }}>
-                  {(["T", "W"] as const).map((tab) => {
-                    const active = heroTab === tab;
-                    return (
-                      <Pressable
-                        key={tab}
-                        onPress={() => setHeroTab(tab)}
-                        style={{
-                          width: 30,
-                          height: 30,
-                          borderRadius: 10,
-                          alignItems: "center",
-                          justifyContent: "center",
-                          backgroundColor: active ? accentColor : "transparent",
-                        }}
-                      >
-                        <Text style={{ fontSize: 12, fontWeight: "800", color: active ? accentColorContrast : "#65656E" }}>
-                          {tab}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+                  {/* Sliding active indicator */}
+                  <RNAnimated.View
+                    style={{
+                      position: "absolute",
+                      top: 4,
+                      left: 4,
+                      width: 30,
+                      height: 30,
+                      borderRadius: 10,
+                      backgroundColor: accentColor,
+                      transform: [{ translateY: heroTabAnim }],
+                    }}
+                  />
+                  {(["T", "W"] as const).map((tab) => (
+                    <Pressable
+                      key={tab}
+                      onPress={() => setHeroTab(tab)}
+                      style={{ width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center" }}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: "800", color: heroTab === tab ? accentColorContrast : "#65656E" }}>
+                        {tab}
+                      </Text>
+                    </Pressable>
+                  ))}
                 </View>
               </View>
             </View>

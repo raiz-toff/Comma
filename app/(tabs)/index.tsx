@@ -1112,31 +1112,31 @@ export default function HomeScreen() {
                 </Text>
               </View>
 
-              {/* Right: T / W vertical tab strip */}
-              <View style={{ justifyContent: "center", gap: 6 }}>
-                {(["T", "W"] as const).map((tab) => {
-                  const active = heroTab === tab;
-                  return (
-                    <Pressable
-                      key={tab}
-                      onPress={() => setHeroTab(tab)}
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 8,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        backgroundColor: active ? accentColor : "#1A1A1F",
-                        borderWidth: 0.8,
-                        borderColor: active ? accentColor : "#2A2A30",
-                      }}
-                    >
-                      <Text style={{ fontSize: 12, fontWeight: "800", color: active ? accentColorContrast : "#65656E" }}>
-                        {tab}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+              {/* Right: T / W vertical tab strip inside a pill container */}
+              <View style={{ justifyContent: "center" }}>
+                <View style={{ backgroundColor: "#0A0A0C", borderRadius: 14, borderWidth: 0.8, borderColor: "#1E1E23", padding: 4, gap: 4 }}>
+                  {(["T", "W"] as const).map((tab) => {
+                    const active = heroTab === tab;
+                    return (
+                      <Pressable
+                        key={tab}
+                        onPress={() => setHeroTab(tab)}
+                        style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: 10,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: active ? accentColor : "transparent",
+                        }}
+                      >
+                        <Text style={{ fontSize: 12, fontWeight: "800", color: active ? accentColorContrast : "#65656E" }}>
+                          {tab}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
             </View>
 

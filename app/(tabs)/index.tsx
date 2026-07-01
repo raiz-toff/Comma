@@ -666,7 +666,7 @@ export default function HomeScreen() {
   const [odoPromptVehicleId, setOdoPromptVehicleId] = useState<string | null>(null);
   const [odoInput, setOdoInput] = useState("");
   const [odoError, setOdoError] = useState("");
-  const [heroTab, setHeroTab] = useState<"T" | "W">("T");
+  const [heroTab, setHeroTab] = useState<"T" | "W">("W");
 
   const sheetTranslateY = useSharedValue(SCREEN_HEIGHT);
   

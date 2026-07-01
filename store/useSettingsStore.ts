@@ -1145,8 +1145,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       });
 
       await get().loadSettings();
+      // Set isDemoMode before evaluateGamification so triggerNativeNotification suppresses OS pushes
+      set({ isDemoMode: true });
       await get().evaluateGamification();
-      set({ isDemoMode: true, isLoading: false });
+      set({ isLoading: false });
       // Bust the query cache so the dashboard re-fetches immediately with demo data
       queryClient.invalidateQueries();
     } catch (error) {
@@ -1243,7 +1245,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const prevUnlocked = new Set(get().unlockedBadgeIds ?? []);
 
     // Serialize against notification writes so neither clobbers the shared state blob.
-    const run = gamificationStateLock.then(() => GamificationService.evaluateAll());
+    const run = gamificationStateLock.then(() => GamificationService.evaluateAll(get().isDemoMode));
     gamificationStateLock = run.then(
       () => {},
       () => {}

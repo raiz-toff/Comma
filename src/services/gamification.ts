@@ -38,8 +38,9 @@ export interface NotificationItem {
   iconKey?: string;
 }
 
-const triggerNativeNotification = async (title: string, body: string, url: string = "/goals") => {
+const triggerNativeNotification = async (title: string, body: string, url: string = "/goals", isDemoMode = false) => {
   if (Platform.OS === "web") return;
+  if (isDemoMode) return; // demo mode: in-app notifications still recorded, but skip OS push
   try {
     const perm = await Notifications.getPermissionsAsync();
     let status = perm.status;
@@ -218,7 +219,7 @@ export const GamificationService = {
     }
   },
 
-  async evaluateAll(): Promise<GamificationState> {
+  async evaluateAll(isDemoMode = false): Promise<GamificationState> {
     // 1. Fetch current stored gamification state
     const state = await this.loadState();
     
@@ -280,7 +281,9 @@ export const GamificationService = {
         });
         triggerNativeNotification(
           "Monthly Streak Freeze Granted!",
-          `A new month has started. You've been granted ${monthsDiff} Streak Freeze(s) (Capped at 3).`
+          `A new month has started. You've been granted ${monthsDiff} Streak Freeze(s) (Capped at 3).`,
+          "/goals",
+          isDemoMode
         );
       }
     }
@@ -506,7 +509,7 @@ export const GamificationService = {
           actionUrl: "/goals",
           badgeId: def.id,
         });
-        triggerNativeNotification(`New Badge Unlocked: ${def.name}!`, `${def.icon} ${def.description}`);
+        triggerNativeNotification(`New Badge Unlocked: ${def.name}!`, `${def.icon} ${def.description}`, "/goals", isDemoMode);
       }
     }
     
@@ -542,7 +545,7 @@ export const GamificationService = {
           createdAt: new Date().toISOString(),
           actionUrl: "/goals",
         });
-        triggerNativeNotification(`Challenge Complete: ${challenge1.name}!`, `You reached your target and earned +60 XP.`);
+        triggerNativeNotification(`Challenge Complete: ${challenge1.name}!`, `You reached your target and earned +60 XP.`, "/goals", isDemoMode);
       }
     }
     
@@ -573,7 +576,7 @@ export const GamificationService = {
           createdAt: new Date().toISOString(),
           actionUrl: "/goals",
         });
-        triggerNativeNotification(`Challenge Complete: ${challenge2.name}!`, `Completed ${deliveries} deliveries. +60 XP awarded.`);
+        triggerNativeNotification(`Challenge Complete: ${challenge2.name}!`, `Completed ${deliveries} deliveries. +60 XP awarded.`, "/goals", isDemoMode);
       }
     }
     
@@ -593,7 +596,7 @@ export const GamificationService = {
           createdAt: new Date().toISOString(),
           actionUrl: "/goals",
         });
-        triggerNativeNotification(`Challenge Complete: ${challenge3.name}!`, `Logged shifts on 5 consecutive days. +60 XP awarded.`);
+        triggerNativeNotification(`Challenge Complete: ${challenge3.name}!`, `Logged shifts on 5 consecutive days. +60 XP awarded.`, "/goals", isDemoMode);
       }
     }
     
@@ -658,7 +661,7 @@ export const GamificationService = {
         read: false,
         createdAt: new Date().toISOString(),
       });
-      triggerNativeNotification(`Level Up! Level ${newLevel}`, `Congratulations! You reached Level ${newLevel} and earned Streak Freeze(s).`);
+      triggerNativeNotification(`Level Up! Level ${newLevel}`, `Congratulations! You reached Level ${newLevel} and earned Streak Freeze(s).`, "/goals", isDemoMode);
     }
     
     // 6. Evaluate Smart Notifications (Throttled/Daily alert logic)
@@ -679,7 +682,7 @@ export const GamificationService = {
           read: false,
           createdAt: new Date().toISOString(),
         });
-        triggerNativeNotification("Day Streak at Risk!", `You are on a ${streakCount}-day streak. Log a shift today to keep it active!`);
+        triggerNativeNotification("Day Streak at Risk!", `You are on a ${streakCount}-day streak. Log a shift today to keep it active!`, "/goals", isDemoMode);
       }
     }
     
@@ -706,7 +709,7 @@ export const GamificationService = {
             createdAt: new Date().toISOString(),
             actionUrl: "/(tabs)/tax",
           });
-          triggerNativeNotification("Tax Installment Due Soon", `Estimated quarterly tax deadline is approaching in ${diffDays} days.`, "/tax");
+          triggerNativeNotification("Tax Installment Due Soon", `Estimated quarterly tax deadline is approaching in ${diffDays} days.`, "/tax", isDemoMode);
         }
       }
     }

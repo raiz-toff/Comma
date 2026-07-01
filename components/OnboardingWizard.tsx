@@ -60,6 +60,7 @@ export default function OnboardingWizard() {
   const [showWelcome, setShowWelcome] = useState(true);
   const [showReveal, setShowReveal] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
 
   // Name
   const [displayName, setDisplayName] = useState("");
@@ -169,6 +170,7 @@ export default function OnboardingWizard() {
   };
 
   const handleDemoMode = async () => {
+    setIsDemoLoading(true);
     const profile: DriverProfile = {
       displayName: "Jane Doe",
       country: "CA",
@@ -204,6 +206,7 @@ export default function OnboardingWizard() {
       <WelcomeScreen
         onStart={() => setShowWelcome(false)}
         onDemo={handleDemoMode}
+        demoLoading={isDemoLoading}
       />
     );
   }

@@ -6,6 +6,7 @@ import {
   Pressable,
   Switch,
   StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -87,9 +88,11 @@ function StyledInput({
 export function WelcomeScreen({
   onStart,
   onDemo,
+  demoLoading = false,
 }: {
   onStart: () => void;
   onDemo: () => void;
+  demoLoading?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   return (
@@ -162,8 +165,9 @@ export function WelcomeScreen({
         <View style={{ gap: 10 }}>
           <Pressable
             onPress={onStart}
+            disabled={demoLoading}
             style={{
-              backgroundColor: "#F6F6F7",
+              backgroundColor: demoLoading ? "#333" : "#F6F6F7",
               borderRadius: 16,
               paddingVertical: 17,
               alignItems: "center",
@@ -173,7 +177,7 @@ export function WelcomeScreen({
               style={{
                 fontSize: 16,
                 fontWeight: "800",
-                color: "#000",
+                color: demoLoading ? "#65656E" : "#000",
                 letterSpacing: 0.2,
               }}
             >
@@ -182,12 +186,16 @@ export function WelcomeScreen({
           </Pressable>
 
           <Pressable
-            onPress={onDemo}
-            style={{ borderRadius: 16, paddingVertical: 14, alignItems: "center" }}
+            onPress={demoLoading ? undefined : onDemo}
+            style={{ borderRadius: 16, paddingVertical: 14, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 }}
           >
-            <Text style={{ fontSize: 14, fontWeight: "600", color: "#65656E" }}>
-              Try with demo data
-            </Text>
+            {demoLoading
+              ? <>
+                  <ActivityIndicator size="small" color="#9B9BA4" />
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#9B9BA4" }}>Setting up demo...</Text>
+                </>
+              : <Text style={{ fontSize: 14, fontWeight: "600", color: "#65656E" }}>Try with demo data</Text>
+            }
           </Pressable>
 
           <Text

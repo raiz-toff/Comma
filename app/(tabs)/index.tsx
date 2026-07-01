@@ -667,10 +667,15 @@ export default function HomeScreen() {
   const [odoInput, setOdoInput] = useState("");
   const [odoError, setOdoError] = useState("");
   const [heroTab, setHeroTab] = useState<"T" | "W">("W");
+  const [deadMilesAtFirstOrder, setDeadMilesAtFirstOrder] = useState(0);
   const heroTabAnim = useRef(new RNAnimated.Value(34)).current; // 34 = W position (30px tab + 4px gap)
 
   const sheetTranslateY = useSharedValue(SCREEN_HEIGHT);
   
+  useEffect(() => {
+    if (!isActive) setDeadMilesAtFirstOrder(0);
+  }, [isActive]);
+
   useEffect(() => {
     // Instant show/hide — no slow slide animation.
     sheetTranslateY.value = showClockOverlay ? 0 : SCREEN_HEIGHT;
@@ -1447,7 +1452,7 @@ export default function HomeScreen() {
                       <Text style={{ fontSize: 14, fontWeight: "500", color: "#9B9BA4" }}> {profile?.distanceUnit ?? "mi"}</Text>
                     </Text>
                     <Text style={{ fontSize: 11, color: "#9B9BA4", fontWeight: "600", marginTop: 2 }}>
-                      {vocab('active_miles').charAt(0).toUpperCase() + vocab('active_miles').slice(1)}: <Text style={{ color: "#F6F6F7", fontWeight: "bold" }}>{activeMileage.toFixed(1)}</Text> | {vocab('dead_miles').charAt(0).toUpperCase() + vocab('dead_miles').slice(1)}: <Text style={{ color: "#F6F6F7", fontWeight: "bold" }}>{deadMileage.toFixed(1)}</Text>
+                      {vocab('active_miles').charAt(0).toUpperCase() + vocab('active_miles').slice(1)}: <Text style={{ color: "#F6F6F7", fontWeight: "bold" }}>{(activeMileage - deadMilesAtFirstOrder).toFixed(1)}</Text> | {vocab('dead_miles').charAt(0).toUpperCase() + vocab('dead_miles').slice(1)}: <Text style={{ color: "#F6F6F7", fontWeight: "bold" }}>{deadMilesAtFirstOrder.toFixed(1)}</Text>
                     </Text>
                   </View>
                   <View style={{ alignItems: "flex-end" }}>
@@ -1466,14 +1471,21 @@ export default function HomeScreen() {
                   
                   {isFirstOrderReceived ? (
                       <View
-                        style={[S.clockSecBtn, { flex: 1, borderColor: "#2E2E36", backgroundColor: "rgba(63, 63, 70, 0.2)", opacity: 0.8 }]}
+                        style={[S.clockSecBtn, { flex: 1, borderColor: "#2E2E36", backgroundColor: "rgba(63, 63, 70, 0.2)", opacity: 0.8, flexDirection: "column", gap: 2 }]}
                       >
-                        <Text style={{ color: accentColor, fontSize: 11, fontWeight: "900" }}>✓</Text>
-                        <Text style={[S.clockSecBtnText, { color: "#9B9BA4" }]}>Active Mode On</Text>
+                        <Text style={{ color: accentColor, fontSize: 11, fontWeight: "900" }}>✓ Active Mode On</Text>
+                        {deadMilesAtFirstOrder > 0 && (
+                          <Text style={{ fontSize: 10, color: "#9B9BA4", fontWeight: "600" }}>
+                            {deadMilesAtFirstOrder.toFixed(1)} {profile?.distanceUnit ?? "mi"} dead
+                          </Text>
+                        )}
                       </View>
                     ) : (
                       <ScalePressable
-                        onPress={() => markFirstOrderReceived()}
+                        onPress={() => {
+                          setDeadMilesAtFirstOrder(activeMileage);
+                          markFirstOrderReceived();
+                        }}
                         style={[S.clockSecBtn, { flex: 1, borderColor: accentColor, backgroundColor: accentColor + "0d" }]}
                       >
                         <View style={{ width: 8, height: 8, backgroundColor: accentColor, borderRadius: 4 }} />

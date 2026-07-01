@@ -836,6 +836,13 @@ export default function HomeScreen() {
   const weeklyWriteOff = weeklyMiles * 0.67;
   const weeklyNet = weeklyGross + weeklyTips - weeklyWriteOff;
   const weeklyShiftsCount = weekStats?.count ?? 0;
+  const weeklyDuration = weekStats?.durationSeconds ?? 0;
+  const weeklyRate = weeklyDuration > 0 ? (weeklyGross + weeklyTips) / (weeklyDuration / 3600) : 0;
+
+  // Cards below the hero card follow the selected T/W tab
+  const displayStats = heroTab === "T"
+    ? { duration: currentStats.duration, miles: currentStats.miles, rate: currentStats.rate }
+    : { duration: weeklyDuration, miles: weeklyMiles, rate: weeklyRate };
 
   // Sparkline calculation
   const sparkPoints = [
@@ -1138,7 +1145,7 @@ export default function HomeScreen() {
               {/* Card 1: Time */}
               <View style={{ flex: 1, backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 16, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
                 <Text tabular style={{ fontSize: 20, fontWeight: "800", color: "#F6F6F7", textAlign: "center" }}>
-                  {(currentStats.duration / 3600).toFixed(1)}h
+                  {(displayStats.duration / 3600).toFixed(1)}h
                 </Text>
                 <Text style={{ fontSize: 11, color: "#65656E", fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" }}>
                   {vocab('session').charAt(0).toUpperCase() + vocab('session').slice(1) + " time"}
@@ -1148,7 +1155,7 @@ export default function HomeScreen() {
               {/* Card 2: Distance */}
               <View style={{ flex: 1, backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 16, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
                 <Text tabular style={{ fontSize: 20, fontWeight: "800", color: "#F6F6F7", textAlign: "center" }}>
-                  {currentStats.miles.toFixed(1)}{profile?.distanceUnit ?? "km"}
+                  {displayStats.miles.toFixed(1)}{profile?.distanceUnit ?? "km"}
                 </Text>
                 <Text style={{ fontSize: 11, color: "#65656E", fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" }}>Driven</Text>
               </View>
@@ -1156,7 +1163,7 @@ export default function HomeScreen() {
               {/* Card 3: Hourly rate */}
               <View style={{ flex: 1, backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 16, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
                 <Text tabular style={{ fontSize: 20, fontWeight: "800", color: "#F6F6F7", textAlign: "center" }}>
-                  {fmt(currentStats.rate)}
+                  {fmt(displayStats.rate)}
                 </Text>
                 <Text style={{ fontSize: 11, color: "#65656E", fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" }}>Per hour</Text>
               </View>

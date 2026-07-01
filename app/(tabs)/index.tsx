@@ -741,13 +741,24 @@ export default function HomeScreen() {
 
   const { data: rangeStats, isLoading: isRangeLoading } = useQuery({
     queryKey: ["analytics", "todayRange", activePlatformFilter, todayStr],
-    queryFn: () => getPeriodStats(new Date(todayStr), new Date(todayStr + "T23:59:59"), activePlatformFilter),
+    queryFn: () => {
+      // Build local-midnight boundaries — new Date("YYYY-MM-DD") parses as UTC
+      // midnight, which lands hours into the day in non-UTC timezones and silently
+      // excludes shifts logged earlier that day.
+      const start = new Date(); start.setHours(0, 0, 0, 0);
+      const end = new Date(); end.setHours(23, 59, 59, 999);
+      return getPeriodStats(start, end, activePlatformFilter);
+    },
     enabled: isOnboardingCompleted,
   });
 
   const { data: financialOverview } = useQuery({
     queryKey: ["analytics", "financial", activePlatformFilter, todayStr],
-    queryFn: () => getFinancialOverviewForRange(new Date(todayStr), new Date(todayStr + "T23:59:59"), activePlatformFilter, 0),
+    queryFn: () => {
+      const start = new Date(); start.setHours(0, 0, 0, 0);
+      const end = new Date(); end.setHours(23, 59, 59, 999);
+      return getFinancialOverviewForRange(start, end, activePlatformFilter, 0);
+    },
     enabled: isOnboardingCompleted,
   });
 

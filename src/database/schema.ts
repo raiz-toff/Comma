@@ -156,6 +156,7 @@ export const shiftPlatforms = sqliteTable('shift_platforms', {
   shiftId: text('shift_id').notNull().references(() => shifts.id, { onDelete: 'cascade' }),
   platform: text('platform').notNull(),
   platformOnlineSeconds: integer('platform_online_seconds').default(0).notNull(),
+  platformActiveSeconds: integer('platform_active_seconds').default(0).notNull(),
   grossRevenue: real('gross_revenue').default(0).notNull(),
   tipsRevenue: real('tips_revenue').default(0).notNull(),
   tripsCount: integer('trips_count').default(0).notNull(),

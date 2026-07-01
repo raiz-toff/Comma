@@ -249,6 +249,8 @@ export default function AddShiftModal() {
     tripsCount: string;
     onlineHours: string;
     onlineMinutes: string;
+    activeHours: string;
+    activeMinutes: string;
   }>>({});
   
   const [activeMileage, setActiveMileage] = useState<string>("");
@@ -333,27 +335,31 @@ export default function AddShiftModal() {
       const initialForms: Record<string, any> = {};
       if (dbPlatformsList && dbPlatformsList.length > 0) {
         dbPlatformsList.forEach((sp: any) => {
-          const hours = Math.floor((sp.platformOnlineSeconds || 0) / 3600);
-          const minutes = Math.floor(((sp.platformOnlineSeconds || 0) % 3600) / 60);
+          const onlineH = Math.floor((sp.platformOnlineSeconds || 0) / 3600);
+          const onlineM = Math.floor(((sp.platformOnlineSeconds || 0) % 3600) / 60);
+          const activeH = Math.floor((sp.platformActiveSeconds || 0) / 3600);
+          const activeM = Math.floor(((sp.platformActiveSeconds || 0) % 3600) / 60);
           initialForms[sp.platform] = {
             grossRevenue: String(sp.grossRevenue || ""),
             tipsRevenue: String(sp.tipsRevenue || ""),
             tripsCount: String(sp.tripsCount || ""),
-            onlineHours: hours > 0 ? String(hours) : "",
-            onlineMinutes: minutes > 0 ? String(minutes) : "",
+            onlineHours: onlineH > 0 ? String(onlineH) : "",
+            onlineMinutes: onlineM > 0 ? String(onlineM) : "",
+            activeHours: activeH > 0 ? String(activeH) : "",
+            activeMinutes: activeM > 0 ? String(activeM) : "",
           };
         });
       } else {
         // Legacy single platform fallback
         parts.forEach((pKey: string) => {
-          const hours = Math.floor((existingShift.durationSeconds || 0) / 3600);
-          const minutes = Math.floor(((existingShift.durationSeconds || 0) % 3600) / 60);
           initialForms[pKey] = {
             grossRevenue: String(existingShift.grossRevenue || ""),
             tipsRevenue: String(existingShift.tipsRevenue || ""),
             tripsCount: "",
-            onlineHours: String(hours),
-            onlineMinutes: String(minutes),
+            onlineHours: "",
+            onlineMinutes: "",
+            activeHours: "",
+            activeMinutes: "",
           };
         });
       }
@@ -401,6 +407,8 @@ export default function AddShiftModal() {
           tripsCount: "",
           onlineHours: "",
           onlineMinutes: "",
+          activeHours: "",
+          activeMinutes: "",
         }
       }));
     }
@@ -474,13 +482,17 @@ export default function AddShiftModal() {
       let totalTips = 0;
       
       const platformEntries = selectedPlatformsList.map((pKey) => {
-        const form = platformForms[pKey] || { grossRevenue: "", tipsRevenue: "", tripsCount: "", onlineHours: "", onlineMinutes: "" };
+        const form = platformForms[pKey] || { grossRevenue: "", tipsRevenue: "", tripsCount: "", onlineHours: "", onlineMinutes: "", activeHours: "", activeMinutes: "" };
         const gross = parseFloat(form.grossRevenue) || 0.0;
         const tips = parseFloat(form.tipsRevenue) || 0.0;
         const trips = parseInt(form.tripsCount, 10) || 0;
-        const hrs = parseInt(form.onlineHours, 10) || 0;
-        const mins = parseInt(form.onlineMinutes, 10) || 0;
-        const onlineSecs = (hrs * 3600) + (mins * 60);
+
+        // Single platform: online time = shift duration (no separate input shown)
+        const onlineSecs = selectedPlatformsList.length === 1
+          ? durationSeconds
+          : (parseInt(form.onlineHours, 10) || 0) * 3600 + (parseInt(form.onlineMinutes, 10) || 0) * 60;
+
+        const activeSecs = (parseInt(form.activeHours, 10) || 0) * 3600 + (parseInt(form.activeMinutes, 10) || 0) * 60;
 
         totalGross += gross;
         totalTips += tips;
@@ -488,6 +500,7 @@ export default function AddShiftModal() {
         return {
           platform: pKey,
           platformOnlineSeconds: onlineSecs,
+          platformActiveSeconds: activeSecs,
           grossRevenue: gross,
           tipsRevenue: tips,
           tripsCount: trips,
@@ -815,13 +828,13 @@ export default function AddShiftModal() {
           {currentStep.type === "platform" && (() => {
             const pKey = currentStep.platform!;
             const pCtx = getPlatformContext(pKey);
-            const form = platformForms[pKey] || { grossRevenue: "", tipsRevenue: "", tripsCount: "", onlineHours: "", onlineMinutes: "" };
-            
+            const form = platformForms[pKey] || { grossRevenue: "", tipsRevenue: "", tripsCount: "", onlineHours: "", onlineMinutes: "", activeHours: "", activeMinutes: "" };
+
             const updateForm = (fieldKey: string, val: string) => {
               setPlatformForms((prev) => ({
                 ...prev,
                 [pKey]: {
-                  ...(prev[pKey] || { grossRevenue: "", tipsRevenue: "", tripsCount: "", onlineHours: "", onlineMinutes: "" }),
+                  ...(prev[pKey] || { grossRevenue: "", tipsRevenue: "", tripsCount: "", onlineHours: "", onlineMinutes: "", activeHours: "", activeMinutes: "" }),
                   [fieldKey]: val,
                 }
               }));
@@ -834,14 +847,45 @@ export default function AddShiftModal() {
                   <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider">Platform Ledger</Text>
                 </View>
 
-                {/* Platform Online Time */}
+                {/* Online Duration — only needed when splitting time across multiple platforms */}
+                {selectedPlatformsList.length > 1 && (
+                  <View className="flex flex-col gap-1.5">
+                    <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Online Duration</Text>
+                    <View className="flex-row gap-3">
+                      <View className="flex-1 flex flex-row items-center bg-[#000] border border-[#1E1E23] rounded-xl px-3">
+                        <TextInput
+                          value={form.onlineHours}
+                          onChangeText={(val) => updateForm("onlineHours", val.replace(/[^0-9]/g, ""))}
+                          keyboardType="numeric"
+                          placeholder="0"
+                          placeholderTextColor="#65656E"
+                          className="flex-1 text-white text-sm py-3 font-semibold"
+                        />
+                        <Text className="text-zinc-500 text-xs font-bold ml-1">hrs</Text>
+                      </View>
+                      <View className="flex-1 flex flex-row items-center bg-[#000] border border-[#1E1E23] rounded-xl px-3">
+                        <TextInput
+                          value={form.onlineMinutes}
+                          onChangeText={(val) => updateForm("onlineMinutes", val.replace(/[^0-9]/g, ""))}
+                          keyboardType="numeric"
+                          placeholder="0"
+                          placeholderTextColor="#65656E"
+                          className="flex-1 text-white text-sm py-3 font-semibold"
+                        />
+                        <Text className="text-zinc-500 text-xs font-bold ml-1">min</Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                {/* Active Duration — time spent on active deliveries (always shown) */}
                 <View className="flex flex-col gap-1.5">
-                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Online Duration</Text>
+                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Active Duration</Text>
                   <View className="flex-row gap-3">
                     <View className="flex-1 flex flex-row items-center bg-[#000] border border-[#1E1E23] rounded-xl px-3">
                       <TextInput
-                        value={form.onlineHours}
-                        onChangeText={(val) => updateForm("onlineHours", val.replace(/[^0-9]/g, ""))}
+                        value={form.activeHours}
+                        onChangeText={(val) => updateForm("activeHours", val.replace(/[^0-9]/g, ""))}
                         keyboardType="numeric"
                         placeholder="0"
                         placeholderTextColor="#65656E"
@@ -851,8 +895,8 @@ export default function AddShiftModal() {
                     </View>
                     <View className="flex-1 flex flex-row items-center bg-[#000] border border-[#1E1E23] rounded-xl px-3">
                       <TextInput
-                        value={form.onlineMinutes}
-                        onChangeText={(val) => updateForm("onlineMinutes", val.replace(/[^0-9]/g, ""))}
+                        value={form.activeMinutes}
+                        onChangeText={(val) => updateForm("activeMinutes", val.replace(/[^0-9]/g, ""))}
                         keyboardType="numeric"
                         placeholder="0"
                         placeholderTextColor="#65656E"

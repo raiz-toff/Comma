@@ -134,6 +134,13 @@
       "when": 1782797840419,
       "tag": "0018_mean_black_cat",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1782900000000,
+      "tag": "0019_active_seconds",
+      "breakpoints": true
     }
   ]
 }

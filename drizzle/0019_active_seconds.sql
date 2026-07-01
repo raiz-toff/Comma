@@ -1,0 +1,1 @@
+ALTER TABLE `shift_platforms` ADD `platform_active_seconds` integer NOT NULL DEFAULT 0;

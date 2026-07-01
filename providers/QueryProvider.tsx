@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-qu
 // This app's queries hit a local SQLite DB, not the network, so the default 3× retry just
 // delays surfacing a genuine failure. A QueryCache.onError gives one place to observe errors
 // (swap console.error for Sentry/Crashlytics later).
-const queryClient = new QueryClient({
+export const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error, query) => {
       console.error("[QueryError]", query.queryKey, error);

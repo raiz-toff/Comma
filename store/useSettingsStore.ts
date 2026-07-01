@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { Platform } from "react-native";
 import { db } from "../src/database/client";
+import { queryClient } from "../providers/QueryProvider";
 import { settings, vehicles, shifts, expenses, goals, platforms, shiftPlatforms, maintenanceLogs, vehicleTaxProfiles, taxHistory, merchants, syncOverwriteLog } from "../src/database/schema";
 import { eq } from "drizzle-orm";
 import { resetSyncStateForReset, applyPostResetSyncStateWeb, applyPostResetSyncStateNative } from "../src/database/syncState";
@@ -1131,23 +1132,23 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         }
       }
 
-      for (const s of demoShifts) {
-        await db.insert(shifts).values(s);
-      }
-      for (const e of demoExpenses) {
-        await db.insert(expenses).values(e);
-      }
-
-      await db.delete(goals);
-      await db.insert(goals).values([
-        { id: "goal_weekly", label: "Weekly Revenue Goal", targetValue: 500, unit: "currency", period: "weekly", isActive: true, createdAt: new Date() },
-        { id: "goal_monthly", label: "Monthly Revenue Goal", targetValue: 2165, unit: "currency", period: "monthly", isActive: true, createdAt: new Date() },
-        { id: "goal_yearly", label: "Yearly Revenue Goal", targetValue: 26000, unit: "currency", period: "yearly", isActive: true, createdAt: new Date() },
-      ]);
+      // Batch all inserts in one transaction — avoids N serial JS→native bridge round-trips
+      await db.transaction(async (tx) => {
+        if (demoShifts.length > 0) await tx.insert(shifts).values(demoShifts);
+        if (demoExpenses.length > 0) await tx.insert(expenses).values(demoExpenses);
+        await tx.delete(goals);
+        await tx.insert(goals).values([
+          { id: "goal_weekly", label: "Weekly Revenue Goal", targetValue: 500, unit: "currency", period: "weekly", isActive: true, createdAt: new Date() },
+          { id: "goal_monthly", label: "Monthly Revenue Goal", targetValue: 2165, unit: "currency", period: "monthly", isActive: true, createdAt: new Date() },
+          { id: "goal_yearly", label: "Yearly Revenue Goal", targetValue: 26000, unit: "currency", period: "yearly", isActive: true, createdAt: new Date() },
+        ]);
+      });
 
       await get().loadSettings();
       await get().evaluateGamification();
       set({ isDemoMode: true, isLoading: false });
+      // Bust the query cache so the dashboard re-fetches immediately with demo data
+      queryClient.invalidateQueries();
     } catch (error) {
       console.error("Failed to load sample data:", error);
       set({ isLoading: false });
@@ -1230,6 +1231,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         isLoading: false,
         ...defaultState,
       });
+      queryClient.invalidateQueries();
     } catch (error) {
       console.error("Failed to clear sample data:", error);
       set({ isLoading: false });

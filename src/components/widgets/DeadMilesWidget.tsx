@@ -4,9 +4,10 @@ import { Text } from "../ui/text";
 
 interface DeadMilesWidgetProps {
   mileage: { active: number; dead: number; ratio: number } | undefined;
+  distanceUnit?: string;
 }
 
-export default function DeadMilesWidget({ mileage }: DeadMilesWidgetProps) {
+export default function DeadMilesWidget({ mileage, distanceUnit = "mi" }: DeadMilesWidgetProps) {
   const activeVal = mileage?.active || 0;
   const deadVal = mileage?.dead || 0;
   const ratioVal = mileage?.ratio || 0;
@@ -22,17 +23,17 @@ export default function DeadMilesWidget({ mileage }: DeadMilesWidgetProps) {
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#22c55e" }} />
-            <Text style={{ fontSize: 13, fontWeight: "600", color: "#9B9BA4" }}>Active Miles</Text>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "#9B9BA4" }}>Active {distanceUnit}</Text>
           </View>
-          <Text style={{ fontSize: 14, fontWeight: "800", color: "#F6F6F7" }}>{activeVal.toFixed(1)} <Text style={{ fontSize: 10, color: "#9B9BA4" }}>mi</Text></Text>
+          <Text style={{ fontSize: 14, fontWeight: "800", color: "#F6F6F7" }}>{activeVal.toFixed(1)} <Text style={{ fontSize: 10, color: "#9B9BA4" }}>{distanceUnit}</Text></Text>
         </View>
 
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#FF5247" }} />
-            <Text style={{ fontSize: 13, fontWeight: "600", color: "#9B9BA4" }}>Dead Miles</Text>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "#9B9BA4" }}>Dead {distanceUnit}</Text>
           </View>
-          <Text style={{ fontSize: 14, fontWeight: "800", color: "#F6F6F7" }}>{deadVal.toFixed(1)} <Text style={{ fontSize: 10, color: "#9B9BA4" }}>mi</Text></Text>
+          <Text style={{ fontSize: 14, fontWeight: "800", color: "#F6F6F7" }}>{deadVal.toFixed(1)} <Text style={{ fontSize: 10, color: "#9B9BA4" }}>{distanceUnit}</Text></Text>
         </View>
 
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#1C1C21" }}>

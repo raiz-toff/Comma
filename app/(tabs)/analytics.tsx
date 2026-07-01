@@ -243,7 +243,7 @@ export default function AnalyticsScreen() {
     switch (id) {
       case "bestDay":           return <BestDayWidget bestDayData={bestDayData} maxDayAvg={maxDayAvg} />;
       case "bestHour":          return <BestHourWidget bestHourData={bestHourData} maxHourAvg={maxHourAvg} />;
-      case "deadMiles":         return <DeadMilesWidget mileage={mileage} />;
+      case "deadMiles":         return <DeadMilesWidget mileage={mileage} distanceUnit={profile?.distanceUnit ?? "mi"} />;
       case "streak":            return <StreakWidget streak={streak} />;
       case "platformActivity":  return <PlatformActivityWidget platformData={platformData} />;
       case "incomeBreakdown":   return <IncomeBreakdownWidget totalRevenue={totalRevenue} netIncome={netIncome} taxWithholdingPct={profile.taxWithholdingPct} country={country} />;

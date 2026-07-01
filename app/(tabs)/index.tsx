@@ -666,6 +666,7 @@ export default function HomeScreen() {
   const [odoPromptVehicleId, setOdoPromptVehicleId] = useState<string | null>(null);
   const [odoInput, setOdoInput] = useState("");
   const [odoError, setOdoError] = useState("");
+  const [heroTab, setHeroTab] = useState<"T" | "W">("T");
 
   const sheetTranslateY = useSharedValue(SCREEN_HEIGHT);
   
@@ -1081,23 +1082,55 @@ export default function HomeScreen() {
           <HomeSkeleton />
         ) : (
           <>
-            {/* ── Today's Hero Card ──────────────────────────────────────────── */}
-            <View style={{ backgroundColor: "#0F0F12", borderRadius: 20, borderWidth: 0.8, borderColor: "#1E1E23", paddingVertical: 24, paddingHorizontal: 20, gap: 12 }}>
-              <Text style={{ fontSize: 11, fontWeight: "700", color: "#65656E", textTransform: "uppercase", letterSpacing: 1 }}>
-                TODAY · NET
-              </Text>
-              <Text
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.6}
-                tabular
-                style={{ fontSize: 44, fontWeight: "800", color: "#F6F6F7", letterSpacing: -1, lineHeight: 48 }}
-              >
-                {fmt(netEarnings)}
-              </Text>
-              <Text tabular style={{ fontSize: 13, color: "#9B9BA4", fontWeight: "600" }}>
-                {`${fmt(weeklyNet)} this week · ${weeklyShiftsCount} ${weeklyShiftsCount === 1 ? vocab('session') : vocab('session_plural')}`}
-              </Text>
+            {/* ── Today / Week Hero Card ─────────────────────────────────────── */}
+            <View style={{ backgroundColor: "#0F0F12", borderRadius: 20, borderWidth: 0.8, borderColor: "#1E1E23", paddingVertical: 24, paddingHorizontal: 20, flexDirection: "row", alignItems: "stretch", gap: 16 }}>
+              {/* Left: content */}
+              <View style={{ flex: 1, gap: 12 }}>
+                <Text style={{ fontSize: 11, fontWeight: "700", color: "#65656E", textTransform: "uppercase", letterSpacing: 1 }}>
+                  {heroTab === "T" ? "TODAY · NET" : "THIS WEEK · NET"}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.6}
+                  tabular
+                  style={{ fontSize: 44, fontWeight: "800", color: "#F6F6F7", letterSpacing: -1, lineHeight: 48 }}
+                >
+                  {heroTab === "T" ? fmt(netEarnings) : fmt(weeklyNet)}
+                </Text>
+                <Text tabular style={{ fontSize: 13, color: "#9B9BA4", fontWeight: "600" }}>
+                  {heroTab === "T"
+                    ? `${fmt(weeklyNet)} this week · ${weeklyShiftsCount} ${weeklyShiftsCount === 1 ? vocab('session') : vocab('session_plural')}`
+                    : `${fmt(netEarnings)} today · ${weeklyShiftsCount} ${weeklyShiftsCount === 1 ? vocab('session') : vocab('session_plural')}`}
+                </Text>
+              </View>
+
+              {/* Right: T / W vertical tab strip */}
+              <View style={{ justifyContent: "center", gap: 6 }}>
+                {(["T", "W"] as const).map((tab) => {
+                  const active = heroTab === tab;
+                  return (
+                    <Pressable
+                      key={tab}
+                      onPress={() => setHeroTab(tab)}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: active ? accentColor : "#1A1A1F",
+                        borderWidth: 0.8,
+                        borderColor: active ? accentColor : "#2A2A30",
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: "800", color: active ? accentColorContrast : "#65656E" }}>
+                        {tab}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
 
             {/* ── 3-Column Stats Row ───────────────────────────────────────── */}

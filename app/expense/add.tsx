@@ -467,7 +467,7 @@ export default function AddExpenseModal() {
             <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl py-10 flex flex-col items-center justify-center">
               <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest mb-2">Expense Amount</Text>
               <View className="flex flex-row items-center justify-center">
-                <Text className="text-4xl font-extrabold mr-1.5" style={{ color: accentColor }}>$</Text>
+                <Text style={{ fontSize: 44, fontWeight: "800", color: accentColor, marginRight: 6, lineHeight: 52, includeFontPadding: false }}>$</Text>
                 <TextInput
                   value={amount}
                   onChangeText={(text) => {

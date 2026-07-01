@@ -1,0 +1,115 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 13% 97%;
+    --foreground: 44 8% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 44 8% 10%;
+    --primary: 142 71% 45%;
+    --primary-foreground: 44 8% 10%;
+    --secondary: 40 8% 93%;
+    --secondary-foreground: 44 8% 10%;
+    --muted: 40 8% 93%;
+    --muted-foreground: 40 5% 40%;
+    --accent: 40 8% 93%;
+    --accent-foreground: 44 8% 10%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 38 13% 88%;
+    --input: 38 13% 88%;
+    --ring: 160 72% 39%;
+    --surface-01: 40 8% 95%;
+    --surface-02: 40 8% 92%;
+    --surface-03: 40 8% 88%;
+    --surface-04: 40 8% 84%;
+    --surface-05: 40 8% 80%;
+    --text-primary: 44 8% 10%;
+    --text-secondary: 44 6% 35%;
+    --text-muted: 44 4% 55%;
+    --text-disabled: 44 4% 72%;
+    --border-subtle: 38 13% 88%;
+    --border-strong: 38 10% 78%;
+  }
+
+  /* Dark theme — matches the comma web app warm dark palette */
+  .dark {
+    --surface-01: 35 9% 8%;
+    --surface-02: 35 8% 11%;
+    --surface-03: 35 7% 15%;
+    --surface-04: 35 7% 18%;
+    --surface-05: 35 6% 22%;
+    --text-primary: 37 19% 96%;
+    --text-secondary: 37 7% 70%;
+    --text-muted: 35 5% 47%;
+    --text-disabled: 35 5% 32%;
+    --border-subtle: 35 8% 22%;
+    --border-strong: 35 7% 30%;
+    --background: 36 12% 7%;
+    --foreground: 37 19% 96%;
+    --card: 35 8% 11%;
+    --card-foreground: 37 19% 96%;
+    --primary: 160 72% 39%;
+    --primary-foreground: 35 9% 8%;
+    --secondary: 35 7% 15%;
+    --secondary-foreground: 37 19% 96%;
+    --muted: 35 7% 15%;
+    --muted-foreground: 35 5% 47%;
+    --accent: 35 7% 18%;
+    --accent-foreground: 37 19% 96%;
+    --destructive: 4 100% 70%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 35 8% 22%;
+    --input: 35 7% 22%;
+    --ring: 160 72% 39%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-dm-sans, 'DM Sans'), -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Keyboard focus ring */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* Scrollbar hide utility */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Custom scrollbar for dark mode */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--surface-01));
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border-strong));
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--text-muted));
+  }
+}
+
+/* Desktop: override the mobile bottom-nav clearance so the main area uses
+   full height without extra padding below the last content row.         */
+@media (min-width: 1024px) {
+  main {
+    padding-bottom: 1.75rem !important;
+  }
+}

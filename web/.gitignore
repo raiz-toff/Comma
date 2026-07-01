@@ -1,0 +1,15 @@
+# Next.js
+.next/
+out/
+node_modules/
+
+# Build
+*.tsbuildinfo
+next-env.d.ts
+
+# SQLite WASM (copied by postinstall)
+public/sql-wasm.wasm
+
+# Env
+.env.local
+.env*.local

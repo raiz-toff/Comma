@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ActivityIndicator,
   ScrollView,
-  Platform,
   Modal,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,9 +16,6 @@ import { parseRoutePath } from "@/utils/polyline";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { getShiftsPaginated } from "@/src/database/queries/shifts";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
-import { db } from "@/src/database/client";
-import { settings } from "@/src/database/schema";
-import { eq } from "drizzle-orm";
 import Svg, { Path, Polyline, Circle, Line, Rect } from "react-native-svg";
 
 // ─── Custom Icons ────────────────────────────────────────────────────────────
@@ -248,19 +244,7 @@ export default function ShiftsScreen() {
     setHeaderVisible(true);
   }, []);
 
-  // Fetch week start setting
-  const { data: weekStartDaySetting = "0" } = useQuery({
-    queryKey: ["settings", "week_start_day"],
-    queryFn: async () => {
-      if (Platform.OS === "web") {
-        return localStorage.getItem("comma_setting_week_start_day") || "0";
-      }
-      const row = await db.select().from(settings).where(eq(settings.key, "week_start_day")).limit(1);
-      return row[0]?.value || "0";
-    },
-  });
-
-  const startDay = parseInt(weekStartDaySetting, 10);
+  const startDay = profile?.locale?.weekStartDay ?? 0;
   const weekStart = getStartOfWeek(selectedDate, startDay);
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);

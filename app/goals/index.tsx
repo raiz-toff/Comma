@@ -15,7 +15,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Award, Flame, Star, TrendingUp, Plus, Edit2, Trash2, X, Target, Shield } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
-import { getGoalsWithProgress, insertGoal, deleteGoal } from "@/src/database/queries/goals";
+import { getGoalsWithProgress, insertGoal, updateGoal, deleteGoal } from "@/src/database/queries/goals";
 import { getEarningsByDay } from "@/src/database/queries/analytics";
 import { db } from "@/src/database/client";
 import { shifts } from "@/src/database/schema";
@@ -261,16 +261,25 @@ export default function GoalsScreen() {
     }
     setIsSaving(true);
     try {
-      if (editingGoal) await deleteGoal(editingGoal.id);
-      await insertGoal({
-        id: editingGoal ? editingGoal.id : `goal_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        label: label.trim(),
-        targetValue: parsedTarget,
-        unit,
-        period,
-        isActive: true,
-        createdAt: editingGoal ? editingGoal.createdAt : new Date(),
-      });
+      if (editingGoal) {
+        await updateGoal(editingGoal.id, {
+          label: label.trim(),
+          targetValue: parsedTarget,
+          unit,
+          period,
+          isActive: true,
+        });
+      } else {
+        await insertGoal({
+          id: `goal_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          label: label.trim(),
+          targetValue: parsedTarget,
+          unit,
+          period,
+          isActive: true,
+          createdAt: new Date(),
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["goals"] });
       setIsAdding(false);
     } catch {

@@ -2,7 +2,7 @@ import { db } from "../client";
 import { goals, shifts, settings } from "../schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { Platform } from "react-native";
-import { stampInsert, softDeletePatch, notDeleted, isNotDeleted } from "../syncedWrites";
+import { stampInsert, stampUpdate, softDeletePatch, notDeleted, isNotDeleted } from "../syncedWrites";
 
 const isWeb = Platform.OS === "web";
 
@@ -165,6 +165,22 @@ export async function insertGoal(payload: typeof goals.$inferInsert): Promise<vo
     return;
   }
   await db.insert(goals).values(stampInsert(payload));
+}
+
+export async function updateGoal(id: string, patch: Partial<typeof goals.$inferInsert>): Promise<void> {
+  if (isWeb) {
+    const existing = localStorage.getItem("comma_goals");
+    if (existing) {
+      const list = JSON.parse(existing);
+      const index = list.findIndex((g: any) => g.id === id);
+      if (index !== -1) {
+        list[index] = { ...list[index], ...patch, syncUpdatedAt: Date.now() };
+        localStorage.setItem("comma_goals", JSON.stringify(list));
+      }
+    }
+    return;
+  }
+  await db.update(goals).set(stampUpdate(patch)).where(eq(goals.id, id));
 }
 
 /**

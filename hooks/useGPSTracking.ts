@@ -6,6 +6,8 @@ import { useActiveShift } from "../store/useActiveShift";
 import { useSettingsStore } from "../store/useSettingsStore";
 import CommaTracker from "../modules/comma-tracker";
 
+const GPS_POLL_INTERVAL_MS = 10_000;
+
 const isWeb = Platform.OS === "web";
 
 
@@ -169,6 +171,28 @@ export function useGPSTracking() {
       console.warn("[useGPSTracking] setShiftTiming failed:", err);
     }
   }, [isActive, startTime, isPaused]);
+
+  // Poll the native service every 10s and sync live GPS distance into the Zustand store
+  // so the shift console shows real mileage rather than 0.
+  // The final active/dead split is computed from raw points at endShift(); this just feeds
+  // the live total as activeMileage so the display isn't always zero.
+  useEffect(() => {
+    if (isWeb || !isActive) return;
+    const poll = () => {
+      try {
+        const meters = CommaTracker.getActiveDistanceMeters();
+        if (meters > 0) {
+          const unit = useSettingsStore.getState().profile?.distanceUnit ?? "mi";
+          const factor = unit === "km" ? 1000.0 : 1609.344;
+          const dist = Number((meters / factor).toFixed(2));
+          useActiveShift.getState().hydrateShift({ activeMileage: dist });
+        }
+      } catch {}
+    };
+    poll(); // immediate first read when shift starts
+    const interval = setInterval(poll, GPS_POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [isActive]);
 
   return { startTracking, stopTracking };
 }

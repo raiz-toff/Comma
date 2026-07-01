@@ -359,6 +359,9 @@ class LocationTrackingService : Service() {
                 return
             }
             activeDistanceMeters += distance
+            // Write running total to SharedPreferences so JS can poll it via getActiveDistanceMeters()
+            getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putFloat("active_distance_meters", activeDistanceMeters.toFloat()).apply()
         }
         saveLocationToDatabase(loc)
     }

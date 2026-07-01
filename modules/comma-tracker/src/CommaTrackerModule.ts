@@ -12,6 +12,8 @@ declare class CommaTrackerModule extends NativeModule {
   setDistanceUnit(unit: string): void;
   /** Push the live shift timing so the overlay clock mirrors the in-app timer (pause-aware). */
   setShiftTiming(startTimeMs: number, pausedSeconds: number, isPaused: boolean, frozenElapsed: number): void;
+  /** Total GPS distance accumulated by the native tracking service this session, in metres. */
+  getActiveDistanceMeters(): number;
   /** True (once) if the user tapped the floating pill to open the shift console. */
   consumeOpenConsole(): boolean;
 }

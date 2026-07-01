@@ -41,6 +41,7 @@ class CommaTrackerModule : Module() {
       prefs.edit()
         .putBoolean("tracking_active", true)
         .putLong("tracking_started_at", System.currentTimeMillis())
+        .putFloat("active_distance_meters", 0f)
         .apply()
       val intent = Intent(context, LocationTrackingService::class.java)
       return@Function try {
@@ -132,6 +133,14 @@ class CommaTrackerModule : Module() {
       val pending = prefs.getBoolean("open_console_pending", false)
       if (pending) prefs.edit().putBoolean("open_console_pending", false).apply()
       pending
+    }
+
+    // Returns the total GPS distance accumulated by the tracking service this session, in metres.
+    // Written by LocationTrackingService on every GPS update; JS polls it to show live mileage.
+    Function("getActiveDistanceMeters") {
+      val context = appContext.reactContext ?: return@Function 0.0
+      val prefs = context.getSharedPreferences("CommaTracker", android.content.Context.MODE_PRIVATE)
+      prefs.getFloat("active_distance_meters", 0f).toDouble()
     }
 
     // The native overlay renders miles in the user's distance unit; JS pushes it here.

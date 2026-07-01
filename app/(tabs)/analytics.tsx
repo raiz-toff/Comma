@@ -30,7 +30,6 @@ import { router } from "expo-router";
 import BestDayWidget from "@/src/components/widgets/BestDayWidget";
 import BestHourWidget from "@/src/components/widgets/BestHourWidget";
 import DeadMilesWidget from "@/src/components/widgets/DeadMilesWidget";
-import StreakWidget from "@/src/components/widgets/StreakWidget";
 import PlatformActivityWidget from "@/src/components/widgets/PlatformActivityWidget";
 import IncomeBreakdownWidget from "@/src/components/widgets/IncomeBreakdownWidget";
 import WeeklyProjectionWidget from "@/src/components/widgets/WeeklyProjectionWidget";
@@ -56,7 +55,6 @@ const WIDGET_META: Record<string, { label: string; category: Category }> = {
   bestDay:          { label: "Best Day of Week",         category: "perf" },
   bestHour:         { label: "Best Hour of Day",         category: "perf" },
   deadMiles:        { label: "Dead Mileage Split",       category: "perf" },
-  streak:           { label: "Active Streak",            category: "perf" },
   platformActivity: { label: "Platform Breakdown",       category: "insights" },
   incomeBreakdown:  { label: "Income Breakdown",         category: "insights" },
   weeklyProjection: { label: "Weekly Projection",        category: "insights" },
@@ -172,7 +170,7 @@ function WidgetCard({ id, children }: { id: string; children: React.ReactNode })
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AnalyticsScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, isOnboardingCompleted, activePlatformFilter, setHeaderVisible, streakDays, bestStreak } = useSettingsStore();
+  const { profile, isOnboardingCompleted, activePlatformFilter, setHeaderVisible } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
   const isAnalyticsEnabled = useFeatureEnabled("analytics_advanced");
 
@@ -233,9 +231,6 @@ export default function AnalyticsScreen() {
   const maxDayAvg     = Math.max(1, ...bestDayData.map((d) => d.avgEarnings));
   const maxHourAvg    = Math.max(1, ...bestHourData.map((h) => h.avgEarnings));
 
-  const streak = useMemo(() => {
-    return { current: streakDays, best: bestStreak ?? 0 };
-  }, [streakDays, bestStreak]);
 
   const country = profile.country;
 
@@ -244,14 +239,13 @@ export default function AnalyticsScreen() {
       case "bestDay":           return <BestDayWidget bestDayData={bestDayData} maxDayAvg={maxDayAvg} />;
       case "bestHour":          return <BestHourWidget bestHourData={bestHourData} maxHourAvg={maxHourAvg} />;
       case "deadMiles":         return <DeadMilesWidget mileage={mileage} distanceUnit={profile?.distanceUnit ?? "mi"} />;
-      case "streak":            return <StreakWidget streak={streak} />;
       case "platformActivity":  return <PlatformActivityWidget platformData={platformData} />;
       case "incomeBreakdown":   return <IncomeBreakdownWidget totalRevenue={totalRevenue} netIncome={netIncome} taxWithholdingPct={profile.taxWithholdingPct} country={country} />;
       case "weeklyProjection":  return <WeeklyProjectionWidget dailyData={dailyData} country={country} />;
       case "taxJar":            return <TaxJarWidget taxWithholdingPct={profile.taxWithholdingPct} />;
       default: return null;
     }
-  }, [dailyData, bestDayData, maxDayAvg, bestHourData, maxHourAvg, mileage, streak, platformData, totalRevenue, netIncome, profile, country, durationHrs, hourlyRate, periodStats]);
+  }, [dailyData, bestDayData, maxDayAvg, bestHourData, maxHourAvg, mileage, platformData, totalRevenue, netIncome, profile, country, durationHrs, hourlyRate, periodStats]);
 
   const activeWidgets = Object.keys(WIDGET_META).filter(id => WIDGET_META[id].category === activeCategory);
 

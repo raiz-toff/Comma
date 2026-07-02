@@ -1000,6 +1000,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         isDemoMode: true,
         isLoading: false,
       });
+      queryClient.invalidateQueries();
       return;
     }
 
@@ -1168,6 +1169,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         isDemoMode: false,
         isLoading: false,
       });
+      queryClient.invalidateQueries();
       return;
     }
 

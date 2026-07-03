@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard, Clock, Receipt, BarChart3,
-  Target, FileText, Settings, MoreHorizontal, X, ChevronRight,
+  Target, FileText, Settings, MoreHorizontal, X, ChevronRight, Car,
 } from "lucide-react";
 
 const PRIMARY = [
@@ -15,9 +15,10 @@ const PRIMARY = [
 ];
 
 const MORE = [
-  { label: "Goals",    href: "/goals",    icon: Target },
-  { label: "Reports",  href: "/reports",  icon: FileText },
-  { label: "Settings", href: "/settings", icon: Settings },
+  { label: "Goals",     href: "/goals",     icon: Target },
+  { label: "Vehicles",  href: "/vehicles",  icon: Car },
+  { label: "Reports",   href: "/reports",   icon: FileText },
+  { label: "Settings",  href: "/settings",  icon: Settings },
 ];
 
 export function BottomNav() {

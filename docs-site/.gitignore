@@ -1,0 +1,8 @@
+/node_modules
+/.next
+/out
+next-env.d.ts
+*.tsbuildinfo
+
+# Generated from ../docs by scripts/sync-docs.mjs — do not edit here
+/pages

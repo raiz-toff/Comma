@@ -6,17 +6,18 @@ import { useAppStore } from "@/store/useAppStore";
 import { startGoogleAuth, getTokens } from "@/lib/auth";
 import { listBackups, restoreFromDrive, type DriveBackupFile } from "@/lib/drive";
 import { getDb } from "@/lib/db/index";
+import { seedDemoData } from "@/lib/db/seed-demo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { formatDate } from "@/lib/utils";
-import { CloudDownload, LogIn, HardDrive, AlertCircle, CheckCircle2 } from "lucide-react";
+import { CloudDownload, LogIn, HardDrive, AlertCircle, CheckCircle2, Play } from "lucide-react";
 
 type Step = "sign-in" | "load-backups" | "select-backup" | "enter-passphrase" | "restoring" | "done";
 
 export default function ConnectPage() {
   const router = useRouter();
-  const { tokens, isAuthenticated, hasLocalData, setTokens, setDbReady, setHasLocalData, loadProfile } = useAppStore();
+  const { tokens, isAuthenticated, hasLocalData, setTokens, setDbReady, setHasLocalData, setDemo, loadProfile } = useAppStore();
   const [step, setStep] = useState<Step>(isAuthenticated ? "load-backups" : "sign-in");
 
   // Already have local data — no need to restore again
@@ -77,6 +78,22 @@ export default function ConnectPage() {
     router.replace("/dashboard");
   }
 
+  async function handleDemo() {
+    setLoading(true);
+    setError(null);
+    try {
+      await seedDemoData();
+      setDbReady(true);
+      setHasLocalData(true);
+      setDemo(true);
+      await loadProfile();
+      router.replace("/dashboard");
+    } catch (e: Error | any) {
+      setError(e?.message ?? "Could not load the demo.");
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -105,6 +122,20 @@ export default function ConnectPage() {
               </svg>
               Continue with Google
             </Button>
+
+            {/* Portfolio / first-look path — explore realistic data without signing in */}
+            <div className="my-4 flex items-center gap-3">
+              <div className="h-px flex-1 bg-line-subtle" />
+              <span className="text-[11px] font-medium uppercase tracking-wide text-content-disabled">or</span>
+              <div className="h-px flex-1 bg-line-subtle" />
+            </div>
+            <Button variant="ghost" className="w-full" size="lg" onClick={handleDemo} disabled={loading}>
+              {loading ? <Spinner size="sm" /> : <Play size={16} />}
+              Explore the demo — no sign-in
+            </Button>
+            <p className="mt-2 text-center text-[11px] text-content-disabled">
+              Loads two weeks of sample shifts, expenses &amp; goals. Nothing leaves your browser.
+            </p>
           </div>
         )}
 

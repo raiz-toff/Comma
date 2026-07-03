@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useAppStore } from "@/store/useAppStore";
 import { getShiftsPaginated, insertShift, type Shift } from "@/lib/db/queries/shifts";
+import { getVehicles, type Vehicle } from "@/lib/db/queries/vehicles";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -71,7 +72,7 @@ function shiftNet(s: Shift) {
 function newShiftDefaults() {
   const now = new Date();
   const oneHourAgo = new Date(now.getTime() - 3600000);
-  return { platform: "doordash", startTime: oneHourAgo.toISOString().slice(0, 16), endTime: now.toISOString().slice(0, 16), grossRevenue: "", tipsRevenue: "", activeMileage: "", notes: "" };
+  return { platform: "doordash", startTime: oneHourAgo.toISOString().slice(0, 16), endTime: now.toISOString().slice(0, 16), grossRevenue: "", tipsRevenue: "", activeMileage: "", notes: "", vehicleId: "" };
 }
 
 const PLATFORMS = ["doordash", "ubereats", "skip", "instacart", "amazonflex", "foodora", "lyft", "other"];
@@ -79,7 +80,7 @@ const PLATFORMS = ["doordash", "ubereats", "skip", "instacart", "amazonflex", "f
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ShiftsPage() {
-  const { isDbReady } = useAppStore();
+  const { isDbReady, activePlatformId } = useAppStore();
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [selectedDayIdx, setSelectedDayIdx] = useState<number | null>(null);
   const [weeklyShifts, setWeeklyShifts] = useState<Shift[]>([]);
@@ -92,6 +93,7 @@ export default function ShiftsPage() {
   const [selectorShifts, setSelectorShifts] = useState<Shift[]>([]);
   const [selectorLoading, setSelectorLoading] = useState(false);
   const [selectorPage, setSelectorPage] = useState(0);
+  const [vehicleList, setVehicleList] = useState<Vehicle[]>([]);
 
   const weekStart = useMemo(() => getStartOfWeek(selectedDate), [selectedDate]);
   const weekEnd = useMemo(() => {
@@ -106,23 +108,30 @@ export default function ShiftsPage() {
   const loadWeek = useCallback(async () => {
     if (!isDbReady) return;
     setLoading(true);
-    const rows = await getShiftsPaginated(500, 0, { startDate: weekStart, endDate: weekEnd });
+    const pid = activePlatformId !== "all" ? activePlatformId : undefined;
+    const rows = await getShiftsPaginated(500, 0, { startDate: weekStart, endDate: weekEnd, platform: pid });
     setWeeklyShifts(rows);
     setLoading(false);
-  }, [isDbReady, weekStart, weekEnd]);
+  }, [isDbReady, weekStart, weekEnd, activePlatformId]);
 
   useEffect(() => { loadWeek(); }, [loadWeek]);
+
+  useEffect(() => {
+    if (!isDbReady) return;
+    getVehicles().then(setVehicleList);
+  }, [isDbReady]);
 
   useEffect(() => {
     if (!selectorOpen || !isDbReady) return;
     const load = async () => {
       setSelectorLoading(true);
-      const rows = await getShiftsPaginated(2000, 0, { startDate: new Date(selectorYear, 0, 1), endDate: new Date(selectorYear, 11, 31, 23, 59, 59, 999) });
+      const pid = activePlatformId !== "all" ? activePlatformId : undefined;
+      const rows = await getShiftsPaginated(2000, 0, { startDate: new Date(selectorYear, 0, 1), endDate: new Date(selectorYear, 11, 31, 23, 59, 59, 999), platform: pid });
       setSelectorShifts(rows);
       setSelectorLoading(false);
     };
     load();
-  }, [selectorOpen, selectorYear, isDbReady]);
+  }, [selectorOpen, selectorYear, isDbReady, activePlatformId]);
 
   const shiftsByDay = useMemo(() => Array.from({ length: 7 }, (_, i) => {
     const day = new Date(weekStart);
@@ -182,7 +191,7 @@ export default function ShiftsPage() {
     setSaving(true);
     const start = new Date(form.startTime);
     const end = new Date(form.endTime);
-    await insertShift({ id: crypto.randomUUID(), platform: form.platform, startTime: start, endTime: end, grossRevenue: parseFloat(form.grossRevenue) || 0, tipsRevenue: parseFloat(form.tipsRevenue) || 0, activeMileage: parseFloat(form.activeMileage) || 0, deadMileage: 0, trackedMileage: 0, durationSeconds: Math.max(0, Math.round((end.getTime() - start.getTime()) / 1000)), pausedSeconds: 0, notes: form.notes || null, reconciliationStatus: "reconciled", distanceSource: "manual", syncUpdatedAt: Date.now() });
+    await insertShift({ id: crypto.randomUUID(), platform: form.platform, vehicleId: form.vehicleId || null, startTime: start, endTime: end, grossRevenue: parseFloat(form.grossRevenue) || 0, tipsRevenue: parseFloat(form.tipsRevenue) || 0, activeMileage: parseFloat(form.activeMileage) || 0, deadMileage: 0, trackedMileage: 0, durationSeconds: Math.max(0, Math.round((end.getTime() - start.getTime()) / 1000)), pausedSeconds: 0, notes: form.notes || null, reconciliationStatus: "reconciled", distanceSource: "manual", syncUpdatedAt: Date.now() });
     setAddOpen(false);
     setForm(newShiftDefaults());
     setSaving(false);
@@ -380,6 +389,12 @@ export default function ShiftsPage() {
             <Input label="Tips ($)" type="number" min="0" step="0.01" placeholder="0.00" value={form.tipsRevenue} onChange={(e) => setForm({ ...form, tipsRevenue: e.target.value })} />
           </div>
           <Input label="Mileage" type="number" min="0" step="0.1" placeholder="0.0" value={form.activeMileage} onChange={(e) => setForm({ ...form, activeMileage: e.target.value })} />
+          {vehicleList.length > 0 && (
+            <Select label="Vehicle (optional)" value={form.vehicleId} onChange={(e) => setForm({ ...form, vehicleId: e.target.value })}>
+              <option value="">None</option>
+              {vehicleList.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </Select>
+          )}
           <Input label="Notes (optional)" placeholder="Any notes…" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <div className="flex gap-2 pt-1">
             <Button variant="ghost" className="flex-1" onClick={() => setAddOpen(false)}>Cancel</Button>

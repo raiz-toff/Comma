@@ -3,13 +3,14 @@ import { useEffect, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { getDb } from "@/lib/db/index";
 import { loadDbFromIDB } from "@/lib/db/persist";
+import { isDemoMode } from "@/lib/db/seed-demo";
 import { Spinner } from "@/components/ui/spinner";
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const {
     initAuth,
     isHydrating, setHydrating,
-    setHasLocalData,
+    setHasLocalData, setDemo,
     isDbReady, isDbLoading, dbError,
     setDbReady, setDbError, loadProfile,
   } = useAppStore();
@@ -34,6 +35,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
           await getDb();           // mounts the saved DB into sql.js
           setDbReady(true);
           await loadProfile();
+          setDemo(await isDemoMode());
         }
       } catch (e: any) {
         setDbError(e?.message ?? "Failed to load database.");

@@ -44,7 +44,7 @@ function StatCard({ label, value, sub, icon, accentColor }: { label: string; val
 }
 
 export default function AnalyticsPage() {
-  const { isDbReady } = useAppStore();
+  const { isDbReady, activePlatformId } = useAppStore();
   const [period, setPeriod] = useState<Period>("month");
   const [stats, setStats] = useState<PeriodStats | null>(null);
   const [chart, setChart] = useState<DailyEarnings[]>([]);
@@ -52,12 +52,13 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     if (!isDbReady) return;
+    const pid = activePlatformId !== "all" ? activePlatformId : undefined;
     const { start, end } = getPeriodRange(period);
     setLoading(true);
-    Promise.all([getStatsForRange(start, end), getDailyEarnings(start, end)])
+    Promise.all([getStatsForRange(start, end, pid), getDailyEarnings(start, end, pid)])
       .then(([s, c]) => { setStats(s); setChart(c); })
       .finally(() => setLoading(false));
-  }, [isDbReady, period]);
+  }, [isDbReady, period, activePlatformId]);
 
   const primaryColor = "hsl(var(--primary))";
   const gridColor = "hsl(var(--border))";

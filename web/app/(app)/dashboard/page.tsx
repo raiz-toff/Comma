@@ -177,7 +177,7 @@ const PRESETS: { key: Preset; label: string }[] = [
 ];
 
 export default function DashboardPage() {
-  const { isDbReady, profile } = useAppStore();
+  const { isDbReady, profile, activePlatformId } = useAppStore();
   const [preset, setPreset] = useState<Preset>("month");
   const [stats, setStats]       = useState<PeriodStats | null>(null);
   const [prevStats, setPrevStats] = useState<PeriodStats | null>(null);
@@ -189,15 +189,16 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!isDbReady) return;
     setLoading(true);
+    const pid = activePlatformId !== "all" ? activePlatformId : undefined;
     const { start, end }         = getRange(preset);
     const { start: ps, end: pe } = getPrevRange(preset);
     Promise.all([
-      getStatsForRange(start, end),
-      getStatsForRange(ps, pe),
-      getDailyEarnings(start, end),   // sparklines = same window as KPI numbers
+      getStatsForRange(start, end, pid),
+      getStatsForRange(ps, pe, pid),
+      getDailyEarnings(start, end, pid),
     ]).then(([s, p, d]) => { setStats(s); setPrevStats(p); setDaily(d); })
       .finally(() => setLoading(false));
-  }, [isDbReady, preset]);
+  }, [isDbReady, preset, activePlatformId]);
 
   if (!isDbReady || loading || !stats) {
     return <div className="flex h-48 items-center justify-center"><Spinner size="lg" /></div>;

@@ -1,4 +1,4 @@
-import { and, gte, lte, isNull, sql } from "drizzle-orm";
+import { and, eq, gte, lte, isNull, sql } from "drizzle-orm";
 import { getDb } from "../index";
 import { shifts, expenses } from "../schema";
 
@@ -14,26 +14,33 @@ export interface PeriodStats {
   avgHourlyRate: number;
 }
 
-export async function getStatsForRange(startDate: Date, endDate: Date): Promise<PeriodStats> {
+export async function getStatsForRange(
+  startDate: Date,
+  endDate: Date,
+  platformId?: string,
+): Promise<PeriodStats> {
   const db = await getDb();
+
+  const shiftConds = [
+    isNull(shifts.syncDeletedAt),
+    gte(shifts.startTime, startDate),
+    lte(shifts.startTime, endDate),
+    ...(platformId && platformId !== "all" ? [eq(shifts.platform, platformId)] : []),
+  ];
 
   const shiftRows = await db
     .select({
       grossRevenue: sql<number>`COALESCE(SUM(gross_revenue), 0)`,
-      tipsRevenue: sql<number>`COALESCE(SUM(tips_revenue), 0)`,
+      tipsRevenue:  sql<number>`COALESCE(SUM(tips_revenue), 0)`,
       totalSeconds: sql<number>`COALESCE(SUM(duration_seconds - paused_seconds), 0)`,
       totalMileage: sql<number>`COALESCE(SUM(active_mileage + dead_mileage), 0)`,
-      count: sql<number>`COUNT(*)`,
+      count:        sql<number>`COUNT(*)`,
     })
     .from(shifts)
-    .where(
-      and(
-        isNull(shifts.syncDeletedAt),
-        gte(shifts.startTime, startDate),
-        lte(shifts.startTime, endDate)
-      )
-    );
+    .where(and(...shiftConds));
 
+  // Expenses are not tagged by platform in the mobile schema,
+  // so we always show the full expense total for the period.
   const expenseRows = await db
     .select({ total: sql<number>`COALESCE(SUM(amount), 0)` })
     .from(expenses)
@@ -41,15 +48,15 @@ export async function getStatsForRange(startDate: Date, endDate: Date): Promise<
       and(
         isNull(expenses.syncDeletedAt),
         gte(expenses.date, startDate),
-        lte(expenses.date, endDate)
-      )
+        lte(expenses.date, endDate),
+      ),
     );
 
-  const gross = shiftRows[0]?.grossRevenue ?? 0;
-  const tips = shiftRows[0]?.tipsRevenue ?? 0;
+  const gross       = shiftRows[0]?.grossRevenue ?? 0;
+  const tips        = shiftRows[0]?.tipsRevenue ?? 0;
   const totalEarnings = gross + tips;
   const totalExpenses = expenseRows[0]?.total ?? 0;
-  const totalHours = (shiftRows[0]?.totalSeconds ?? 0) / 3600;
+  const totalHours  = (shiftRows[0]?.totalSeconds ?? 0) / 3600;
 
   return {
     grossRevenue: gross,
@@ -70,11 +77,22 @@ export interface DailyEarnings {
   expenses: number;
   net: number;
   hours: number;
-  rate: number;  // gross / hours, 0 if no hours
+  rate: number;
 }
 
-export async function getDailyEarnings(startDate: Date, endDate: Date): Promise<DailyEarnings[]> {
+export async function getDailyEarnings(
+  startDate: Date,
+  endDate: Date,
+  platformId?: string,
+): Promise<DailyEarnings[]> {
   const db = await getDb();
+
+  const shiftConds = [
+    isNull(shifts.syncDeletedAt),
+    gte(shifts.startTime, startDate),
+    lte(shifts.startTime, endDate),
+    ...(platformId && platformId !== "all" ? [eq(shifts.platform, platformId)] : []),
+  ];
 
   const [shiftRows, expenseRows] = await Promise.all([
     db.select({
@@ -83,7 +101,7 @@ export async function getDailyEarnings(startDate: Date, endDate: Date): Promise<
       seconds: sql<number>`COALESCE(SUM(duration_seconds - paused_seconds), 0)`,
     })
     .from(shifts)
-    .where(and(isNull(shifts.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)))
+    .where(and(...shiftConds))
     .groupBy(sql`date(start_time / 1000, 'unixepoch')`)
     .orderBy(sql`date(start_time / 1000, 'unixepoch')`),
 
@@ -116,14 +134,14 @@ export async function getDailyEarnings(startDate: Date, endDate: Date): Promise<
 export async function getTodayStats(): Promise<PeriodStats> {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const end   = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   return getStatsForRange(start, end);
 }
 
 export async function getWeekStats(): Promise<PeriodStats> {
-  const now = new Date();
+  const now       = new Date();
   const dayOfWeek = now.getDay();
-  const start = new Date(now);
+  const start     = new Date(now);
   start.setDate(now.getDate() - dayOfWeek);
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);
@@ -132,8 +150,8 @@ export async function getWeekStats(): Promise<PeriodStats> {
 }
 
 export async function getMonthStats(): Promise<PeriodStats> {
-  const now = new Date();
+  const now   = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const end   = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   return getStatsForRange(start, end);
 }

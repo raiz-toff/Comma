@@ -28,6 +28,8 @@ interface AppState {
   isHydrating: boolean;
   // true if IndexedDB had a saved DB on startup (skip connect page)
   hasLocalData: boolean;
+  // true when the loaded DB is seeded sample data (not a real Drive backup)
+  isDemo: boolean;
 
   // Profile
   profile: Profile | null;
@@ -44,6 +46,7 @@ interface AppState {
   setDbError: (error: string | null) => void;
   setHydrating: (v: boolean) => void;
   setHasLocalData: (v: boolean) => void;
+  setDemo: (v: boolean) => void;
   setActivePlatformId: (id: string) => void;
   loadProfile: () => Promise<void>;
   reset: () => void;
@@ -57,6 +60,7 @@ export const useAppStore = create<AppState>((set) => ({
   dbError: null,
   isHydrating: true,
   hasLocalData: false,
+  isDemo: false,
   profile: null,
   lastBackupAt: null,
   activePlatformId: "all",
@@ -83,6 +87,8 @@ export const useAppStore = create<AppState>((set) => ({
 
   setHasLocalData: (v) => set({ hasLocalData: v }),
 
+  setDemo: (v) => set({ isDemo: v }),
+
   setActivePlatformId: (id) => set({ activePlatformId: id }),
 
   loadProfile: async () => {
@@ -104,6 +110,7 @@ export const useAppStore = create<AppState>((set) => ({
       isDbLoading: false,
       dbError: null,
       hasLocalData: false,
+      isDemo: false,
       profile: null,
       lastBackupAt: null,
       activePlatformId: "all",

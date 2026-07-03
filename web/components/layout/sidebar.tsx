@@ -4,13 +4,14 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Clock, Receipt, BarChart3, Target,
-  FileText, Settings,
+  FileText, Settings, Car,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Shifts",    href: "/shifts",    icon: Clock },
   { label: "Expenses",  href: "/expenses",  icon: Receipt },
+  { label: "Vehicles",  href: "/vehicles",  icon: Car },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { label: "Goals",     href: "/goals",     icon: Target },
   { label: "Reports",   href: "/reports",   icon: FileText },

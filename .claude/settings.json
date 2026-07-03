@@ -1,4 +1,10 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git commit -m 'fix: goal edit fails with '\\\\''saving failed'\\\\'' due to primary key conflict *)",
+      "Bash(git commit -m 'fix: invalidate query cache on demo load/clear for Expo web too *)"
+    ]
+  },
   "enabledPlugins": {
     "expo@claude-plugins-official": true
   }

@@ -22,7 +22,10 @@ installGlobalErrorHandler();
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
-    shouldPlaySound: true,
+    // Don't replay sound for notifications that arrive while the app is open —
+    // the in-app panel already surfaces them visually. OS plays sound normally
+    // when the app is backgrounded (this handler is never called then).
+    shouldPlaySound: false,
     shouldSetBadge: false,
     shouldShowBanner: true,
     shouldShowList: true,

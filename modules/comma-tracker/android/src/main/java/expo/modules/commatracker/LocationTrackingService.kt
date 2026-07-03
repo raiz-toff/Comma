@@ -40,7 +40,9 @@ class LocationTrackingService : Service() {
     }
 
     companion object {
-        private const val CHANNEL_ID = "comma_tracker_channel"
+        // v2: changed channel importance from DEFAULT→LOW so the ongoing tracking
+        // notification never plays sound on repeated startForeground calls.
+        private const val CHANNEL_ID = "comma_tracker_channel_v2"
         private const val NOTIFICATION_ID = 9876
         private const val TAG = "LocationTrackingService"
         private const val PREFS_NAME = "CommaTracker"
@@ -405,7 +407,10 @@ class LocationTrackingService : Service() {
             .setContentText("Recording your mileage in the background.")
             .setSmallIcon(android.R.drawable.ic_menu_compass)
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            // Prevent repeated sounds when startForeground() is called again on each
+            // ActivityTransitionReceiver delivery (ACTION_MOVEMENT / ACTION_STILL).
+            .setOnlyAlertOnce(true)
 
         // Tapping the ongoing notification reopens the app — without a content intent it does
         // nothing, which is the main way a user returns to a tracking app.
@@ -429,7 +434,7 @@ class LocationTrackingService : Service() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Shift Tracking",
-                NotificationManager.IMPORTANCE_DEFAULT
+                NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Shows while Comma is recording mileage during an active shift."
             }

@@ -669,8 +669,10 @@ export const GamificationService = {
     if (streakCount > 0) {
       const todayStr = toYmdString(now);
       const workedToday = uniqueDays.includes(todayStr);
+      // Compare against the ID (which embeds the local date) — createdAt is a UTC ISO
+      // string so createdAt.startsWith(todayStr) fails in any UTC+ timezone.
       const alreadyNotified = state.notifications.some(
-        (n) => n.id.startsWith("streak_risk_") && n.createdAt.startsWith(todayStr)
+        (n) => n.id.startsWith(`streak_risk_${todayStr}`)
       );
       if (!workedToday && !alreadyNotified) {
         state.notifications.unshift({

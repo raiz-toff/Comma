@@ -19,6 +19,8 @@ interface FeedbackDialogProps {
   message?: string;
   /** Primary button label. Defaults to "OK". Ignored when `actions` is provided. */
   confirmLabel?: string;
+  /** Render the primary button as a destructive (red) action — e.g. "Turn off", "Delete". */
+  confirmDanger?: boolean;
   /** When provided, a secondary (cancel) button is shown. */
   cancelLabel?: string;
   /** Fired when the primary button is pressed. Falls back to onClose. */
@@ -53,6 +55,7 @@ export function FeedbackDialog({
   title,
   message,
   confirmLabel = "OK",
+  confirmDanger = false,
   cancelLabel,
   onConfirm,
   actions,
@@ -60,6 +63,7 @@ export function FeedbackDialog({
   accentColor,
 }: FeedbackDialogProps) {
   const tint = variant === "info" ? accentColor || VARIANT_COLORS.info : VARIANT_COLORS[variant];
+  const confirmTint = confirmDanger ? VARIANT_COLORS.error : tint;
   const handleConfirm = onConfirm ?? onClose;
 
   return (
@@ -96,11 +100,11 @@ export function FeedbackDialog({
             <View style={s.footer}>
               {cancelLabel ? (
                 <Pressable onPress={onClose} style={s.cancelBtn}>
-                  <Text style={s.cancelText}>{cancelLabel}</Text>
+                  <Text style={s.cancelText} numberOfLines={1}>{cancelLabel}</Text>
                 </Pressable>
               ) : null}
-              <Pressable onPress={handleConfirm} style={[s.confirmBtn, { backgroundColor: tint }]}>
-                <Text style={s.confirmText}>{confirmLabel}</Text>
+              <Pressable onPress={handleConfirm} style={[s.confirmBtn, { backgroundColor: confirmTint }]}>
+                <Text style={[s.confirmText, confirmDanger && { color: "#fff" }]} numberOfLines={1}>{confirmLabel}</Text>
               </Pressable>
             </View>
           )}

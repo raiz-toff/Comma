@@ -267,6 +267,7 @@ export default function SyncScreen() {
     title: string;
     message?: string;
     confirmLabel?: string;
+    confirmDanger?: boolean;
     cancelLabel?: string;
     onConfirm?: () => void;
   }>(null);
@@ -312,6 +313,7 @@ export default function SyncScreen() {
       title: "Turn off Cloud Sync?",
       message: "Sync stops and Google Drive disconnects on this device. Your synced data stays safe in your Drive — reconnect any time to pull it back.",
       confirmLabel: "Turn off",
+      confirmDanger: true,
       cancelLabel: "Cancel",
       onConfirm: async () => {
         setDialog(null);
@@ -503,6 +505,7 @@ export default function SyncScreen() {
         title={dialog?.title ?? ""}
         message={dialog?.message}
         confirmLabel={dialog?.confirmLabel}
+        confirmDanger={dialog?.confirmDanger}
         cancelLabel={dialog?.cancelLabel}
         onConfirm={dialog?.onConfirm}
         onClose={() => setDialog(null)}

@@ -321,7 +321,7 @@ export default function ShiftsScreen() {
       });
       
       const wTotal = wShifts.reduce((sum, s) => {
-        const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0);
+        const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0);
         const miles = (s.activeMileage || 0) + (s.deadMileage || 0);
         const writeOff = miles * 0.67;
         return sum + (gross - writeOff);
@@ -338,7 +338,7 @@ export default function ShiftsScreen() {
         });
         
         const dayTotal = dayShifts.reduce((sum, s) => {
-          const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0);
+          const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0);
           const miles = (s.activeMileage || 0) + (s.deadMileage || 0);
           const writeOff = miles * 0.67;
           return sum + (gross - writeOff);
@@ -427,7 +427,7 @@ export default function ShiftsScreen() {
       });
 
       const dayTotal = dayShifts.reduce((sum, s) => {
-        const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0);
+        const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0);
         const miles = (s.activeMileage || 0) + (s.deadMileage || 0);
         const writeOff = miles * 0.67;
         return sum + (gross - writeOff);
@@ -446,7 +446,7 @@ export default function ShiftsScreen() {
   const weeklyTotal = useMemo(
     () =>
       weeklyShifts.reduce((sum, s) => {
-        const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0);
+        const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0);
         const miles = (s.activeMileage || 0) + (s.deadMileage || 0);
         const writeOff = miles * 0.67;
         return sum + (gross - writeOff);
@@ -647,7 +647,7 @@ export default function ShiftsScreen() {
               {displayedShifts.map((shift) => {
                 const shiftMiles = (shift.activeMileage || 0) + (shift.deadMileage || 0);
                 const shiftWriteOff = shiftMiles * 0.67;
-                const totalShiftEarnings = (shift.grossRevenue || 0) + (shift.tipsRevenue || 0) - shiftWriteOff;
+                const totalShiftEarnings = (shift.grossRevenue || 0) + (shift.tipsRevenue || 0) + (shift.bonusAmount || 0) - shiftWriteOff;
                 const durationHrs = (shift.durationSeconds || 0) / 3600;
                 return (
                   <Pressable
@@ -676,6 +676,11 @@ export default function ShiftsScreen() {
                           {shift.activeMileage !== undefined && (
                             <Text style={styles.metaText}>
                               Mileage: {shift.activeMileage} {profile?.distanceUnit || "mi"}
+                            </Text>
+                          )}
+                          {!!shift.bonusAmount && (
+                            <Text style={styles.metaText}>
+                              • Bonus: {formatCurrency(shift.bonusAmount)}
                             </Text>
                           )}
                           {shift.vehicleId && VEHICLE_LOOKUP[shift.vehicleId] && (

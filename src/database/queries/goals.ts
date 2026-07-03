@@ -73,7 +73,7 @@ export async function getGoalsWithProgress(): Promise<any[]> {
       let currentValue = 0;
       if (goal.unit === "currency") {
         currentValue = filteredShifts.reduce(
-          (sum: number, s: any) => sum + (s.grossRevenue || 0) + (s.tipsRevenue || 0),
+          (sum: number, s: any) => sum + (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0),
           0
         );
       } else if (goal.unit === "hours") {
@@ -122,7 +122,7 @@ export async function getGoalsWithProgress(): Promise<any[]> {
 
     if (goal.unit === "currency") {
       const agg = await db
-        .select({ value: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue}), 0)` })
+        .select({ value: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue} + ${shifts.bonusAmount}), 0)` })
         .from(shifts)
         .where(and(gte(shifts.startTime, start), lte(shifts.startTime, end), notDeleted(shifts.syncDeletedAt)));
       currentValue = agg[0]?.value || 0;

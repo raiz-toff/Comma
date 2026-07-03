@@ -43,7 +43,7 @@ export async function generateShiftsCSV(startDate: Date, endDate: Date): Promise
 
   const taxYear = startDate.getFullYear();
   const csvRows = list.map((s: any) => {
-    const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0);
+    const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0);
     const miles = (s.activeMileage || 0) + (s.deadMileage || 0);
     const writeOff =
       profile?.country === "CA"
@@ -51,15 +51,16 @@ export async function generateShiftsCSV(startDate: Date, endDate: Date): Promise
         : profile?.country === "UK"
         ? calculateHMRCMileageDeduction(miles, taxYear)
         : calculateIRSMileageDeduction(miles, taxYear);
-    // "Net after mileage write-off" = gross+tips minus the mileage tax deduction (a write-off,
-    // not a cash outflow). It deliberately does NOT subtract actual expenses — those live in the
-    // expenses CSV — so it's named explicitly to avoid being read as a true cash net.
+    // "Net after mileage write-off" = gross+tips+bonus minus the mileage tax deduction (a
+    // write-off, not a cash outflow). It deliberately does NOT subtract actual expenses — those
+    // live in the expenses CSV — so it's named explicitly to avoid being read as a true cash net.
     const netAfterMileage = gross - writeOff;
     return {
       date: new Date(s.startTime).toLocaleDateString(),
       platform: s.platform,
       grossRevenue: s.grossRevenue,
       tips: s.tipsRevenue || 0,
+      bonus: s.bonusAmount || 0,
       totalGrossWithTips: gross,
       [`activeDistance_${distUnit}`]: s.activeMileage || 0,
       [`deadDistance_${distUnit}`]: s.deadMileage || 0,
@@ -166,7 +167,8 @@ export async function generatePDFSummary(startDate: Date, endDate: Date): Promis
 
   const totalGross = shiftList.reduce((sum, s) => sum + (s.grossRevenue || 0), 0);
   const totalTips = shiftList.reduce((sum, s) => sum + (s.tipsRevenue || 0), 0);
-  const totalRevenue = totalGross + totalTips;
+  const totalBonus = shiftList.reduce((sum, s) => sum + (s.bonusAmount || 0), 0);
+  const totalRevenue = totalGross + totalTips + totalBonus;
   const totalDeductibleExpenses = expenseList
     .filter((e) => e.isDeductible)
     .reduce((sum, e) => sum + (e.amount || 0) * ((e.deductiblePct ?? 100) / 100), 0);

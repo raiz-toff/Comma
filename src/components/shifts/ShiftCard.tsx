@@ -14,6 +14,7 @@ interface ShiftCardProps {
     endTime: string | Date;
     grossRevenue: number;
     tipsRevenue: number;
+    bonusAmount?: number;
     activeMileage: number;
     deadMileage: number;
     durationSeconds: number;
@@ -23,7 +24,7 @@ interface ShiftCardProps {
 }
 
 export function ShiftCard({ shift, distanceUnit }: ShiftCardProps) {
-  const totalEarnings = shift.grossRevenue + shift.tipsRevenue;
+  const totalEarnings = shift.grossRevenue + shift.tipsRevenue + (shift.bonusAmount || 0);
   const durationHrs = (shift.durationSeconds / 3600).toFixed(1);
   
   const dateObj = new Date(shift.startTime);
@@ -73,6 +74,11 @@ export function ShiftCard({ shift, distanceUnit }: ShiftCardProps) {
         {shift.tipsRevenue > 0 ? (
           <Text className="text-[9px] text-emerald-400 font-bold uppercase tracking-wide bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
             +${shift.tipsRevenue.toFixed(2)} tips
+          </Text>
+        ) : null}
+        {shift.bonusAmount ? (
+          <Text className="text-[9px] text-amber-400 font-bold uppercase tracking-wide bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
+            +${shift.bonusAmount.toFixed(2)} bonus
           </Text>
         ) : null}
       </View>

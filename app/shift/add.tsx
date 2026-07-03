@@ -255,6 +255,8 @@ export default function AddShiftModal() {
   
   const [activeMileage, setActiveMileage] = useState<string>("");
   const [deadMileage, setDeadMileage] = useState<string>("");
+  // Shift-level bonus (not split per-platform — mirrors bonusAmount on the shifts table)
+  const [bonusAmount, setBonusAmount] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [shiftTargetSeconds, setShiftTargetSeconds] = useState<number | null>(null);
 
@@ -367,6 +369,7 @@ export default function AddShiftModal() {
       
       setActiveMileage(String(existingShift.activeMileage || ""));
       setDeadMileage(String(existingShift.deadMileage || ""));
+      setBonusAmount(String(existingShift.bonusAmount || ""));
       
       let rawNotes = existingShift.notes || "";
       const match = rawNotes.match(/\[ShiftTarget:\s*(\d+)\]/);
@@ -524,6 +527,7 @@ export default function AddShiftModal() {
         endTime: finalEndDate,
         grossRevenue: totalGross,
         tipsRevenue: totalTips,
+        bonusAmount: parseFloat(bonusAmount) || 0.0,
         trackedMileage: parseFloat(activeMileage) || 0.0,
         activeMileage: parseFloat(activeMileage) || 0.0,
         deadMileage: parseFloat(deadMileage) || 0.0,
@@ -929,6 +933,27 @@ export default function AddShiftModal() {
                     />
                   </View>
                 ))}
+
+                {/* Bonus — shift-level (not split per-platform), shown once on the first platform */}
+                {pKey === selectedPlatformsList[0] && (
+                  <View className="flex flex-col gap-1.5">
+                    <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">
+                      Bonus ({profile.locale?.currency || "$"})
+                    </Text>
+                    <TextInput
+                      value={bonusAmount}
+                      onChangeText={(text) => {
+                        const sanitized = text.replace(/[^0-9.]/g, "");
+                        const parts = sanitized.split(".");
+                        setBonusAmount(parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized);
+                      }}
+                      keyboardType="numeric"
+                      placeholder="0.00"
+                      placeholderTextColor="#65656E"
+                      className="bg-[#000] border border-[#1E1E23] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
+                    />
+                  </View>
+                )}
 
                 {/* Trips Count */}
                 <View className="flex flex-col gap-1.5">

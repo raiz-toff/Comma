@@ -720,7 +720,7 @@ export default function ShiftDetailScreen() {
   const durationHrs = (shift.durationSeconds / 3600).toFixed(1);
   const expenseTotal = expensesList.reduce((sum, exp: any) => sum + (Number(exp.amount) || 0), 0);
   const writeOff = totalMiles * 0.67;
-  const netEarnings = (shift.grossRevenue || 0) + (shift.tipsRevenue || 0) - writeOff - expenseTotal;
+  const netEarnings = (shift.grossRevenue || 0) + (shift.tipsRevenue || 0) + (shift.bonusAmount || 0) - writeOff - expenseTotal;
   const hourlyRate = shift.durationSeconds > 0 ? (netEarnings / (shift.durationSeconds / 3600)) : 0;
   const routeStrokeColor = PLATFORMS[shift.platform as PlatformKey]?.color || accentColor;
   const gpsPointCount = localPoints.length;
@@ -823,6 +823,14 @@ export default function ShiftDetailScreen() {
               <Text className="text-sm text-zinc-300 font-bold">Tips Component</Text>
               <CurrencyText amount={shift.tipsRevenue} size="md" className="font-extrabold text-zinc-100 text-sm" />
             </View>
+
+            {/* Bonus breakdown details — only shown when a bonus was logged */}
+            {!!shift.bonusAmount && (
+              <View className="flex-row justify-between items-center bg-[#16161A]/70 px-4 py-3.5 rounded-[16px] border border-[#1C1C21]">
+                <Text className="text-sm text-zinc-300 font-bold">Bonus Component</Text>
+                <CurrencyText amount={shift.bonusAmount} size="md" className="font-extrabold text-zinc-100 text-sm" />
+              </View>
+            )}
 
             {shift.notes ? (
               <View className="bg-[#16161A]/70 px-4 py-4 rounded-[16px] border border-[#1C1C21]">

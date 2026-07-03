@@ -213,7 +213,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
         const results = await Promise.all(weekBuckets.map((b) => getPeriodStats(b.start, b.end)));
         return weekBuckets.map((b, i) => ({
           label: b.label,
-          total: results[i].gross + results[i].tips,
+          total: results[i].gross + results[i].tips + results[i].bonus,
         }));
       }
       if (periodMode === "quarter") {
@@ -225,7 +225,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
           end: new Date(yr, q * 3 + i + 1, 0, 23, 59, 59, 999),
         }));
         const results = await Promise.all(months.map((m) => getPeriodStats(m.start, m.end)));
-        return months.map((m, i) => ({ label: m.label, total: results[i].gross + results[i].tips }));
+        return months.map((m, i) => ({ label: m.label, total: results[i].gross + results[i].tips + results[i].bonus }));
       }
       if (periodMode === "year") {
         const yr = start.getFullYear();
@@ -233,7 +233,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
         const LETTERS = "JFMAMJJASOND";
         return Array.from({ length: 12 }, (_, i) => {
           const found = monthly.find((m) => m.monthIndex === i);
-          return { label: LETTERS[i], total: found ? found.gross + found.tips : 0 };
+          return { label: LETTERS[i], total: found ? found.gross + found.tips + found.bonus : 0 };
         });
       }
       // custom: 4 equal chunks
@@ -245,7 +245,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
         end: new Date(start.getTime() + (i + 1) * chunkMs - 1),
       }));
       const results = await Promise.all(chunks.map((c) => getPeriodStats(c.start, c.end)));
-      return chunks.map((c, i) => ({ label: c.label, total: results[i].gross + results[i].tips }));
+      return chunks.map((c, i) => ({ label: c.label, total: results[i].gross + results[i].tips + results[i].bonus }));
     },
     enabled: isOnboardingCompleted,
   });
@@ -262,13 +262,13 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
     const currentYear = currentDate.getFullYear();
     const currentMonth = currentDate.getMonth();
     const maxMonth = selectorYear === currentYear ? currentMonth : 11;
-    const maxTotal = Math.max(...yearMonthlyStats.map((m) => m.gross + m.tips), 1);
+    const maxTotal = Math.max(...yearMonthlyStats.map((m) => m.gross + m.tips + m.bonus), 1);
 
     return Array.from({ length: maxMonth + 1 }, (_, i) => {
       const monthIndex = maxMonth - i;
       const mDate = new Date(selectorYear, monthIndex, 1);
       const mData = yearMonthlyStats.find((m) => m.monthIndex === monthIndex);
-      const total = mData ? mData.gross + mData.tips : 0;
+      const total = mData ? mData.gross + mData.tips + mData.bonus : 0;
       return {
         date: mDate,
         monthIndex,
@@ -280,7 +280,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
   }, [selectorYear, yearMonthlyStats]);
 
   // ── Derived display values ─────────────────────────────────────────────────
-  const grossRevenue = (stats?.gross ?? 0) + (stats?.tips ?? 0);
+  const grossRevenue = (stats?.gross ?? 0) + (stats?.tips ?? 0) + (stats?.bonus ?? 0);
   const totalMileage = (stats?.activeMileage ?? 0) + (stats?.deadMileage ?? 0);
   const barMaxTotal = Math.max(...barData.map((b) => b.total), 0);
   const isLoading = loadingStats || loadingNet;

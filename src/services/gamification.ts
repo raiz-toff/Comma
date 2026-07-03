@@ -367,7 +367,7 @@ export const GamificationService = {
     // 3. Evaluate Personal Records
     let recordsChanged = { changedGross: false, changedNetHourly: false };
     for (const s of sortedShifts) {
-      const gross = s.grossRevenue + s.tipsRevenue;
+      const gross = s.grossRevenue + s.tipsRevenue + (s.bonusAmount || 0);
       if (gross > state.personalRecords.bestShiftGross) {
         state.personalRecords.bestShiftGross = gross;
         recordsChanged.changedGross = true;
@@ -396,7 +396,7 @@ export const GamificationService = {
 
     for (const s of sortedShifts) {
       const time = safeDate(s.startTime).getTime();
-      const gross = s.grossRevenue + s.tipsRevenue;
+      const gross = s.grossRevenue + s.tipsRevenue + (s.bonusAmount || 0);
       const hours = (s.durationSeconds || 0) / 3600;
       const mileage = s.activeMileage || 0;
       const pid = String((s as any).platform || "other");
@@ -443,7 +443,7 @@ export const GamificationService = {
       // Shift evaluation
       if (!shouldUnlock && def.checkFromShift && sortedShifts.length > 0) {
         for (const s of sortedShifts) {
-          const gross = s.grossRevenue + s.tipsRevenue;
+          const gross = s.grossRevenue + s.tipsRevenue + (s.bonusAmount || 0);
           const shiftCtx: BadgeContext = {
             shift: s,
             gross,
@@ -480,7 +480,7 @@ export const GamificationService = {
           } else if (g.period === "daily") {
             const todayStr = toYmdString(now);
             const todayShifts = sortedShifts.filter(s => toYmdString(safeDate(s.startTime)) === todayStr);
-            if (g.unit === "currency") currentVal = todayShifts.reduce((sum, s) => sum + s.grossRevenue + s.tipsRevenue, 0);
+            if (g.unit === "currency") currentVal = todayShifts.reduce((sum, s) => sum + s.grossRevenue + s.tipsRevenue + (s.bonusAmount || 0), 0);
             else if (g.unit === "hours") currentVal = todayShifts.reduce((sum, s) => sum + (s.durationSeconds || 0), 0) / 3600;
             else if (g.unit === "shifts") currentVal = todayShifts.length;
             else if (g.unit === "mileage") currentVal = todayShifts.reduce((sum, s) => sum + (s.activeMileage || 0), 0);
@@ -617,7 +617,7 @@ export const GamificationService = {
       } else if (g.period === "daily") {
         const todayStr = toYmdString(now);
         const todayShifts = sortedShifts.filter(s => toYmdString(safeDate(s.startTime)) === todayStr);
-        if (g.unit === "currency") currentVal = todayShifts.reduce((sum, s) => sum + s.grossRevenue + s.tipsRevenue, 0);
+        if (g.unit === "currency") currentVal = todayShifts.reduce((sum, s) => sum + s.grossRevenue + s.tipsRevenue + (s.bonusAmount || 0), 0);
         else if (g.unit === "hours") currentVal = todayShifts.reduce((sum, s) => sum + (s.durationSeconds || 0), 0) / 3600;
         else if (g.unit === "shifts") currentVal = todayShifts.length;
         else if (g.unit === "mileage") currentVal = todayShifts.reduce((sum, s) => sum + (s.activeMileage || 0), 0);
@@ -630,7 +630,7 @@ export const GamificationService = {
 
     // Dynamic XP Accumulation
     let xpTotal = 0;
-    const totalEarnings = sortedShifts.reduce((sum, s) => sum + (s.grossRevenue || 0) + (s.tipsRevenue || 0), 0);
+    const totalEarnings = sortedShifts.reduce((sum, s) => sum + (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0), 0);
 
     xpTotal += sortedShifts.length * 10;
     xpTotal += Math.floor(totalEarnings / 10);

@@ -59,14 +59,14 @@ function getPeriodDates(period: string, weekStartDay: number = 0): { start: Date
   return { start, end };
 }
 
-export async function getTodayStats(platform?: string): Promise<{ gross: number; tips: number; count: number; activeMileage: number; deadMileage: number }> {
+export async function getTodayStats(platform?: string): Promise<{ gross: number; tips: number; bonus: number; count: number; activeMileage: number; deadMileage: number }> {
   if (isWeb) {
     try {
       const existing = localStorage.getItem("comma_shifts");
-      if (!existing) return { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0 };
+      if (!existing) return { gross: 0, tips: 0, bonus: 0, count: 0, activeMileage: 0, deadMileage: 0 };
       let list = JSON.parse(existing);
       const { start, end } = getPeriodDates("daily");
-      
+
       list = list.filter((s: any) => {
         const d = new Date(s.startTime);
         return d >= start && d <= end;
@@ -76,16 +76,17 @@ export async function getTodayStats(platform?: string): Promise<{ gross: number;
         list = list.filter((s: any) => matchesPlatformWeb(s.platform, platform));
       }
 
-      let gross = 0, tips = 0, activeMileage = 0, deadMileage = 0;
+      let gross = 0, tips = 0, bonus = 0, activeMileage = 0, deadMileage = 0;
       list.forEach((s: any) => {
         gross += Number(s.grossRevenue || 0);
         tips += Number(s.tipsRevenue || 0);
+        bonus += Number(s.bonusAmount || 0);
         activeMileage += Number(s.activeMileage || 0);
         deadMileage += Number(s.deadMileage || 0);
       });
-      return { gross, tips, count: list.length, activeMileage, deadMileage };
+      return { gross, tips, bonus, count: list.length, activeMileage, deadMileage };
     } catch {
-      return { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0 };
+      return { gross: 0, tips: 0, bonus: 0, count: 0, activeMileage: 0, deadMileage: 0 };
     }
   }
 
@@ -99,6 +100,7 @@ export async function getTodayStats(platform?: string): Promise<{ gross: number;
     .select({
       gross: sql<number>`COALESCE(SUM(${shifts.grossRevenue}), 0)`,
       tips: sql<number>`COALESCE(SUM(${shifts.tipsRevenue}), 0)`,
+      bonus: sql<number>`COALESCE(SUM(${shifts.bonusAmount}), 0)`,
       count: sql<number>`COUNT(${shifts.id})`,
       activeMileage: sql<number>`COALESCE(SUM(${shifts.activeMileage}), 0)`,
       deadMileage: sql<number>`COALESCE(SUM(${shifts.deadMileage}), 0)`,
@@ -106,10 +108,10 @@ export async function getTodayStats(platform?: string): Promise<{ gross: number;
     .from(shifts)
     .where(and(...conditions));
 
-  return result[0] || { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0 };
+  return result[0] || { gross: 0, tips: 0, bonus: 0, count: 0, activeMileage: 0, deadMileage: 0 };
 }
 
-export async function getWeekStats(platform?: string): Promise<{ gross: number; tips: number; count: number; activeMileage: number; deadMileage: number; durationSeconds: number }> {
+export async function getWeekStats(platform?: string): Promise<{ gross: number; tips: number; bonus: number; count: number; activeMileage: number; deadMileage: number; durationSeconds: number }> {
   let weekStartDay = 0;
   if (isWeb) {
     try {
@@ -124,10 +126,10 @@ export async function getWeekStats(platform?: string): Promise<{ gross: number; 
 
     try {
       const existing = localStorage.getItem("comma_shifts");
-      if (!existing) return { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0 };
+      if (!existing) return { gross: 0, tips: 0, bonus: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0 };
       let list = JSON.parse(existing);
       const { start, end } = getPeriodDates("weekly", weekStartDay);
-      
+
       list = list.filter((s: any) => {
         const d = new Date(s.startTime);
         return d >= start && d <= end;
@@ -137,17 +139,18 @@ export async function getWeekStats(platform?: string): Promise<{ gross: number; 
         list = list.filter((s: any) => matchesPlatformWeb(s.platform, platform));
       }
 
-      let gross = 0, tips = 0, activeMileage = 0, deadMileage = 0, durationSeconds = 0;
+      let gross = 0, tips = 0, bonus = 0, activeMileage = 0, deadMileage = 0, durationSeconds = 0;
       list.forEach((s: any) => {
         gross += Number(s.grossRevenue || 0);
         tips += Number(s.tipsRevenue || 0);
+        bonus += Number(s.bonusAmount || 0);
         activeMileage += Number(s.activeMileage || 0);
         deadMileage += Number(s.deadMileage || 0);
         durationSeconds += Number(s.durationSeconds || 0);
       });
-      return { gross, tips, count: list.length, activeMileage, deadMileage, durationSeconds };
+      return { gross, tips, bonus, count: list.length, activeMileage, deadMileage, durationSeconds };
     } catch {
-      return { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0 };
+      return { gross: 0, tips: 0, bonus: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0 };
     }
   }
 
@@ -175,6 +178,7 @@ export async function getWeekStats(platform?: string): Promise<{ gross: number; 
     .select({
       gross: sql<number>`COALESCE(SUM(${shifts.grossRevenue}), 0)`,
       tips: sql<number>`COALESCE(SUM(${shifts.tipsRevenue}), 0)`,
+      bonus: sql<number>`COALESCE(SUM(${shifts.bonusAmount}), 0)`,
       count: sql<number>`COUNT(${shifts.id})`,
       activeMileage: sql<number>`COALESCE(SUM(${shifts.activeMileage}), 0)`,
       deadMileage: sql<number>`COALESCE(SUM(${shifts.deadMileage}), 0)`,
@@ -183,7 +187,7 @@ export async function getWeekStats(platform?: string): Promise<{ gross: number; 
     .from(shifts)
     .where(and(...conditions));
 
-  return result[0] || { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0 };
+  return result[0] || { gross: 0, tips: 0, bonus: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0 };
 }
 
 export async function getActiveVehicle(): Promise<any> {
@@ -246,7 +250,7 @@ export async function getEarningsByPlatform(
     const map: Record<string, { total: number; count: number }> = {};
     list.forEach((s: any) => {
       if (!map[s.platform]) map[s.platform] = { total: 0, count: 0 };
-      map[s.platform].total += (s.grossRevenue || 0) + (s.tipsRevenue || 0);
+      map[s.platform].total += (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0);
       map[s.platform].count++;
     });
     const grandTotal = Object.values(map).reduce((sum, v) => sum + v.total, 0);
@@ -265,7 +269,7 @@ export async function getEarningsByPlatform(
   const rows = await db
     .select({
       platform: shifts.platform,
-      total: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue}), 0)`,
+      total: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue} + ${shifts.bonusAmount}), 0)`,
       count: sql<number>`COUNT(${shifts.id})`,
     })
     .from(shifts)
@@ -296,7 +300,7 @@ export async function getEarningsByDay(
     const map: Record<string, number> = {};
     list.forEach((s: any) => {
       const dateKey = new Date(s.startTime).toISOString().substring(0, 10);
-      map[dateKey] = (map[dateKey] || 0) + (s.grossRevenue || 0) + (s.tipsRevenue || 0);
+      map[dateKey] = (map[dateKey] || 0) + (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0);
     });
     return Object.entries(map)
       .map(([date, total]) => ({ date, total }))
@@ -306,7 +310,7 @@ export async function getEarningsByDay(
   const rows = await db
     .select({
       date: sql<string>`strftime('%Y-%m-%d', datetime(${shifts.startTime}, 'unixepoch', 'localtime'))`,
-      total: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue}), 0)`,
+      total: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue} + ${shifts.bonusAmount}), 0)`,
     })
     .from(shifts)
     .where(and(notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate)))
@@ -357,7 +361,7 @@ export async function getEarningsByDayRange(
         const dateKey = `${yyyy}-${mm}-${dd}`;
         
         if (dateMap.has(dateKey)) {
-          dateMap.set(dateKey, dateMap.get(dateKey)! + (s.grossRevenue || 0) + (s.tipsRevenue || 0));
+          dateMap.set(dateKey, dateMap.get(dateKey)! + (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0));
         }
       });
     }
@@ -370,7 +374,7 @@ export async function getEarningsByDayRange(
     const rows = await db
       .select({
         date: sql<string>`strftime('%Y-%m-%d', datetime(${shifts.startTime}, 'unixepoch', 'localtime'))`,
-        total: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue}), 0)`,
+        total: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue} + ${shifts.bonusAmount}), 0)`,
       })
       .from(shifts)
       .where(and(...conditions))
@@ -402,7 +406,7 @@ export async function getHourlyRate(startDate: Date, endDate: Date, platform?: s
     if (platform && platform !== "all") {
         list = list.filter((s: any) => matchesPlatformWeb(s.platform, platform));
       }
-    const totalEarnings = list.reduce((sum: number, s: any) => sum + (s.grossRevenue || 0) + (s.tipsRevenue || 0), 0);
+    const totalEarnings = list.reduce((sum: number, s: any) => sum + (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0), 0);
     const totalSecs = list.reduce((sum: number, s: any) => sum + (s.durationSeconds || 0), 0);
     return totalSecs > 0 ? totalEarnings / (totalSecs / 3600) : 0;
   }
@@ -414,7 +418,7 @@ export async function getHourlyRate(startDate: Date, endDate: Date, platform?: s
 
   const result = await db
     .select({
-      totalEarnings: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue}), 0)`,
+      totalEarnings: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue} + ${shifts.bonusAmount}), 0)`,
       totalSecs: sql<number>`COALESCE(SUM(${shifts.durationSeconds}), 0)`,
     })
     .from(shifts)
@@ -444,7 +448,7 @@ export async function getBestDayOfWeek(
     list.forEach((s: any) => {
       const dow = new Date(s.startTime).getDay();
       if (!map[dow]) map[dow] = { total: 0, count: 0 };
-      map[dow].total += (s.grossRevenue || 0) + (s.tipsRevenue || 0);
+      map[dow].total += (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0);
       map[dow].count++;
     });
     return DAY_LABELS.map((label, day) => ({
@@ -462,7 +466,7 @@ export async function getBestDayOfWeek(
   const rows = await db
     .select({
       day: sql<number>`CAST(strftime('%w', datetime(${shifts.startTime}, 'unixepoch', 'localtime')) AS INTEGER)`,
-      avgEarnings: sql<number>`AVG(${shifts.grossRevenue} + ${shifts.tipsRevenue})`,
+      avgEarnings: sql<number>`AVG(${shifts.grossRevenue} + ${shifts.tipsRevenue} + ${shifts.bonusAmount})`,
     })
     .from(shifts)
     .where(and(...conditions))
@@ -492,7 +496,7 @@ export async function getBestHourOfDay(
     list.forEach((s: any) => {
       const hour = new Date(s.startTime).getHours();
       if (!map[hour]) map[hour] = { total: 0, count: 0 };
-      map[hour].total += (s.grossRevenue || 0) + (s.tipsRevenue || 0);
+      map[hour].total += (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0);
       map[hour].count++;
     });
     return Array.from({ length: 24 }, (_, h) => ({
@@ -509,7 +513,7 @@ export async function getBestHourOfDay(
   const rows = await db
     .select({
       hour: sql<number>`CAST(strftime('%H', datetime(${shifts.startTime}, 'unixepoch', 'localtime')) AS INTEGER)`,
-      avgEarnings: sql<number>`AVG(${shifts.grossRevenue} + ${shifts.tipsRevenue})`,
+      avgEarnings: sql<number>`AVG(${shifts.grossRevenue} + ${shifts.tipsRevenue} + ${shifts.bonusAmount})`,
     })
     .from(shifts)
     .where(and(...conditions))
@@ -558,7 +562,7 @@ export async function getNetIncome(startDate: Date, endDate: Date, platform?: st
 
   const earningsResult = await db
     .select({
-      total: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue}), 0)`,
+      total: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue} + ${shifts.bonusAmount}), 0)`,
     })
     .from(shifts)
     .where(and(...conditions));
@@ -607,11 +611,11 @@ export async function getPeriodStats(
   startDate: Date,
   endDate: Date,
   platform?: string
-): Promise<{ gross: number; tips: number; count: number; activeMileage: number; deadMileage: number; durationSeconds: number; pausedSeconds: number }> {
+): Promise<{ gross: number; tips: number; bonus: number; count: number; activeMileage: number; deadMileage: number; durationSeconds: number; pausedSeconds: number }> {
   if (isWeb) {
     try {
       const existing = localStorage.getItem("comma_shifts");
-      if (!existing) return { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0, pausedSeconds: 0 };
+      if (!existing) return { gross: 0, tips: 0, bonus: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0, pausedSeconds: 0 };
       let list = JSON.parse(existing).filter((s: any) => {
         const d = new Date(s.startTime);
         return d >= startDate && d <= endDate;
@@ -619,18 +623,19 @@ export async function getPeriodStats(
       if (platform && platform !== "all") {
         list = list.filter((s: any) => matchesPlatformWeb(s.platform, platform));
       }
-      let gross = 0, tips = 0, activeMileage = 0, deadMileage = 0, durationSeconds = 0, pausedSeconds = 0;
+      let gross = 0, tips = 0, bonus = 0, activeMileage = 0, deadMileage = 0, durationSeconds = 0, pausedSeconds = 0;
       list.forEach((s: any) => {
         gross += Number(s.grossRevenue || 0);
         tips += Number(s.tipsRevenue || 0);
+        bonus += Number(s.bonusAmount || 0);
         activeMileage += Number(s.activeMileage || 0);
         deadMileage += Number(s.deadMileage || 0);
         durationSeconds += Number(s.durationSeconds || 0);
         pausedSeconds += Number(s.pausedSeconds || 0);
       });
-      return { gross, tips, count: list.length, activeMileage, deadMileage, durationSeconds, pausedSeconds };
+      return { gross, tips, bonus, count: list.length, activeMileage, deadMileage, durationSeconds, pausedSeconds };
     } catch {
-      return { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0, pausedSeconds: 0 };
+      return { gross: 0, tips: 0, bonus: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0, pausedSeconds: 0 };
     }
   }
 
@@ -643,6 +648,7 @@ export async function getPeriodStats(
     .select({
       gross: sql<number>`COALESCE(SUM(${shifts.grossRevenue}), 0)`,
       tips: sql<number>`COALESCE(SUM(${shifts.tipsRevenue}), 0)`,
+      bonus: sql<number>`COALESCE(SUM(${shifts.bonusAmount}), 0)`,
       count: sql<number>`COUNT(${shifts.id})`,
       activeMileage: sql<number>`COALESCE(SUM(${shifts.activeMileage}), 0)`,
       deadMileage: sql<number>`COALESCE(SUM(${shifts.deadMileage}), 0)`,
@@ -652,7 +658,7 @@ export async function getPeriodStats(
     .from(shifts)
     .where(and(...conditions));
 
-  return result[0] || { gross: 0, tips: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0, pausedSeconds: 0 };
+  return result[0] || { gross: 0, tips: 0, bonus: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0, pausedSeconds: 0 };
 }
 
 export async function getFinancialOverviewForRange(
@@ -712,6 +718,7 @@ export async function getFinancialOverviewForRange(
 
   let gross = 0;
   let tips = 0;
+  let bonus = 0;
   let durationSeconds = 0;
   let pausedSeconds = 0;
   let activeMileage = 0;
@@ -720,6 +727,7 @@ export async function getFinancialOverviewForRange(
   shiftList.forEach((s) => {
     gross += Number(s.grossRevenue || 0);
     tips += Number(s.tipsRevenue || 0);
+    bonus += Number(s.bonusAmount || 0);
     durationSeconds += Number(s.durationSeconds || 0);
     pausedSeconds += Number(s.pausedSeconds || 0);
     activeMileage += Number(s.activeMileage || 0);
@@ -777,7 +785,7 @@ export async function getFinancialOverviewForRange(
     expense = expList.reduce((sum, e) => sum + Number(e.amount || 0) * Number(e.deductiblePct ?? e.pct ?? 100) / 100, 0);
   }
 
-  const totalEarnings = gross + tips;
+  const totalEarnings = gross + tips + bonus;
   const netIncome = totalEarnings - expense;
   const hours = durationSeconds / 3600;
   const activeHours = Math.max(0, durationSeconds - pausedSeconds) / 3600;
@@ -788,22 +796,23 @@ export async function getFinancialOverviewForRange(
   const onlineAvgRateHr = onlineHours > 0 ? totalEarnings / onlineHours : 0;
   const effectivePerHr = hours > 0 ? netIncome / hours : 0;
 
-  const weeksMap: Record<string, { gross: number; tips: number; expense: number; shifts: any[] }> = {};
-  
+  const weeksMap: Record<string, { gross: number; tips: number; bonus: number; expense: number; shifts: any[] }> = {};
+
   shiftList.forEach((s) => {
     const d = new Date(s.startTime);
     const startOfWeek = new Date(d);
     const day = startOfWeek.getDay();
-    const diff = startOfWeek.getDate() - day + (day === 0 && weekStartDay === 1 ? -6 : weekStartDay); 
+    const diff = startOfWeek.getDate() - day + (day === 0 && weekStartDay === 1 ? -6 : weekStartDay);
     startOfWeek.setDate(diff);
     startOfWeek.setHours(0, 0, 0, 0);
     const weekKey = startOfWeek.toISOString().substring(0, 10);
-    
+
     if (!weeksMap[weekKey]) {
-      weeksMap[weekKey] = { gross: 0, tips: 0, expense: 0, shifts: [] };
+      weeksMap[weekKey] = { gross: 0, tips: 0, bonus: 0, expense: 0, shifts: [] };
     }
     weeksMap[weekKey].gross += Number(s.grossRevenue || 0);
     weeksMap[weekKey].tips += Number(s.tipsRevenue || 0);
+    weeksMap[weekKey].bonus += Number(s.bonusAmount || 0);
     weeksMap[weekKey].shifts.push(s);
   });
 
@@ -872,13 +881,13 @@ export async function getFinancialOverviewForRange(
 
   weekKeys.forEach((weekKey) => {
     const info = weeksMap[weekKey];
-    const net = (info.gross + info.tips) - info.expense;
+    const net = (info.gross + info.tips + info.bonus) - info.expense;
     const start = weekKey;
     const wEnd = new Date(weekKey);
     wEnd.setDate(wEnd.getDate() + 6);
     const end = wEnd.toISOString().substring(0, 10);
 
-    const weekItem = { start, end, net, gross: info.gross + info.tips };
+    const weekItem = { start, end, net, gross: info.gross + info.tips + info.bonus };
     if (!bestWeek || net > bestWeek.net) bestWeek = weekItem;
     if (!worstWeek || net < worstWeek.net) worstWeek = weekItem;
   });
@@ -887,6 +896,7 @@ export async function getFinancialOverviewForRange(
     count: shiftList.length,
     gross,
     tips,
+    bonus,
     activeMileage,
     deadMileage,
     durationSeconds,
@@ -999,7 +1009,7 @@ export async function getFinancialMonthlyBreakdown(
     const d = new Date(s.startTime);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     if (monthMap[key]) {
-      monthMap[key].earnings += Number(s.grossRevenue || 0) + Number(s.tipsRevenue || 0);
+      monthMap[key].earnings += Number(s.grossRevenue || 0) + Number(s.tipsRevenue || 0) + Number(s.bonusAmount || 0);
       monthMap[key].hours += Number(s.durationSeconds || 0) / 3600;
       monthMap[key].count++;
     }
@@ -1068,7 +1078,7 @@ export async function getFinancialMonthlyBreakdown(
 
 export async function getMonthlyStatsForYear(
   year: number
-): Promise<{ monthIndex: number; gross: number; tips: number; count: number }[]> {
+): Promise<{ monthIndex: number; gross: number; tips: number; bonus: number; count: number }[]> {
   if (isWeb) {
     try {
       const existing = localStorage.getItem("comma_shifts");
@@ -1077,12 +1087,13 @@ export async function getMonthlyStatsForYear(
         const d = new Date(s.startTime);
         return d.getFullYear() === year;
       });
-      const map: Record<number, { gross: number; tips: number; count: number }> = {};
+      const map: Record<number, { gross: number; tips: number; bonus: number; count: number }> = {};
       list.forEach((s: any) => {
         const m = new Date(s.startTime).getMonth();
-        if (!map[m]) map[m] = { gross: 0, tips: 0, count: 0 };
+        if (!map[m]) map[m] = { gross: 0, tips: 0, bonus: 0, count: 0 };
         map[m].gross += Number(s.grossRevenue || 0);
         map[m].tips += Number(s.tipsRevenue || 0);
+        map[m].bonus += Number(s.bonusAmount || 0);
         map[m].count++;
       });
       return Object.entries(map).map(([monthIndex, v]) => ({
@@ -1102,6 +1113,7 @@ export async function getMonthlyStatsForYear(
       monthIndex: sql<number>`CAST(strftime('%m', datetime(${shifts.startTime}, 'unixepoch', 'localtime')) AS INTEGER) - 1`,
       gross: sql<number>`COALESCE(SUM(${shifts.grossRevenue}), 0)`,
       tips: sql<number>`COALESCE(SUM(${shifts.tipsRevenue}), 0)`,
+      bonus: sql<number>`COALESCE(SUM(${shifts.bonusAmount}), 0)`,
       count: sql<number>`COUNT(${shifts.id})`,
     })
     .from(shifts)
@@ -1158,7 +1170,7 @@ export async function getRolling30DayTrend(platform?: string): Promise<any> {
     const d = new Date(s.startTime);
     const key = d.toISOString().substring(0, 10);
     if (dailyData[key]) {
-      dailyData[key].gross += Number(s.grossRevenue || 0) + Number(s.tipsRevenue || 0);
+      dailyData[key].gross += Number(s.grossRevenue || 0) + Number(s.tipsRevenue || 0) + Number(s.bonusAmount || 0);
       dailyData[key].totalSeconds += Number(s.durationSeconds || 0);
       dailyData[key].activeSeconds += Math.max(0, Number(s.durationSeconds || 0) - Number(s.pausedSeconds || 0));
     }
@@ -1204,4 +1216,121 @@ export async function getRolling30DayTrend(platform?: string): Promise<any> {
     activeHoursPoints,
     onlineHoursPoints,
   };
+}
+
+// ─── Workstream 6 (mobile widget parity) ───────────────────────────────────
+
+/**
+ * One {hours, gross} point per shift in range — feeds the "Earnings vs Hours" scatter
+ * widget's regression/correlation math (computed client-side in the widget component).
+ */
+export async function getEarningsVsHoursScatter(
+  startDate: Date,
+  endDate: Date,
+  platform?: string
+): Promise<{ x: number; y: number }[]> {
+  if (isWeb) {
+    try {
+      const existing = localStorage.getItem("comma_shifts");
+      if (!existing) return [];
+      let list = JSON.parse(existing).filter((s: any) => {
+        const d = new Date(s.startTime);
+        return d >= startDate && d <= endDate;
+      });
+      if (platform && platform !== "all") {
+        list = list.filter((s: any) => matchesPlatformWeb(s.platform, platform));
+      }
+      return list.map((s: any) => ({
+        x: Number(s.durationSeconds || 0) / 3600,
+        y: Number(s.grossRevenue || 0) + Number(s.tipsRevenue || 0) + Number(s.bonusAmount || 0),
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
+  if (platform && platform !== "all") {
+    conditions.push(getPlatformConditions(platform));
+  }
+
+  const rows = await db
+    .select({
+      durationSeconds: shifts.durationSeconds,
+      grossRevenue: shifts.grossRevenue,
+      tipsRevenue: shifts.tipsRevenue,
+      bonusAmount: shifts.bonusAmount,
+    })
+    .from(shifts)
+    .where(and(...conditions));
+
+  return rows.map((r: any) => ({
+    x: Number(r.durationSeconds || 0) / 3600,
+    y: Number(r.grossRevenue || 0) + Number(r.tipsRevenue || 0) + Number(r.bonusAmount || 0),
+  }));
+}
+
+function getMondayWeekKey(date: Date): string {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().substring(0, 10);
+}
+
+/**
+ * Income stability score (0-100) from the coefficient of variation of weekly gross
+ * earnings across ALL shifts ever recorded (not scoped to the screen's selected period).
+ */
+export async function getIncomeStabilityScore(
+  platform?: string
+): Promise<{ weeklyGross: number[]; stabilityScore: number }> {
+  let shiftList: any[] = [];
+
+  if (isWeb) {
+    try {
+      const existing = localStorage.getItem("comma_shifts");
+      if (existing) {
+        shiftList = JSON.parse(existing);
+        if (platform && platform !== "all") {
+          shiftList = shiftList.filter((s: any) => matchesPlatformWeb(s.platform, platform));
+        }
+      }
+    } catch {
+      shiftList = [];
+    }
+  } else {
+    const conditions = [notDeleted(shifts.syncDeletedAt)];
+    if (platform && platform !== "all") {
+      conditions.push(getPlatformConditions(platform));
+    }
+    shiftList = await db
+      .select({ startTime: shifts.startTime, grossRevenue: shifts.grossRevenue, tipsRevenue: shifts.tipsRevenue, bonusAmount: shifts.bonusAmount })
+      .from(shifts)
+      .where(and(...conditions));
+  }
+
+  const weekMap = new Map<string, number>();
+  shiftList.forEach((s) => {
+    const key = getMondayWeekKey(new Date(s.startTime));
+    const total = Number(s.grossRevenue || 0) + Number(s.tipsRevenue || 0) + Number(s.bonusAmount || 0);
+    weekMap.set(key, (weekMap.get(key) || 0) + total);
+  });
+
+  const weeklyGross = Array.from(weekMap.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([, total]) => total);
+
+  if (weeklyGross.length === 0) {
+    return { weeklyGross: [], stabilityScore: 0 };
+  }
+
+  const avg = weeklyGross.reduce((sum, v) => sum + v, 0) / weeklyGross.length;
+  const variance = weeklyGross.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / weeklyGross.length;
+  const sd = Math.sqrt(variance);
+  const cv = avg > 0 ? sd / avg : 1;
+  const stabilityScore = Math.max(0, Math.min(100, (1 - cv) * 100));
+
+  return { weeklyGross, stabilityScore };
 }

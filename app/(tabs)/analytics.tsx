@@ -21,7 +21,11 @@ import {
   getMileageSplit,
   getNetIncome,
   getHourlyRate,
+  getEarningsVsHoursScatter,
+  getIncomeStabilityScore,
+  getFinancialMonthlyBreakdown,
 } from "@/src/database/queries/analytics";
+import { getShiftsPaginated } from "@/src/database/queries/shifts";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
@@ -34,6 +38,22 @@ import PlatformActivityWidget from "@/src/components/widgets/PlatformActivityWid
 import IncomeBreakdownWidget from "@/src/components/widgets/IncomeBreakdownWidget";
 import WeeklyProjectionWidget from "@/src/components/widgets/WeeklyProjectionWidget";
 import TaxJarWidget from "@/src/components/widgets/TaxJarWidget";
+import StreakWidget from "@/src/components/widgets/StreakWidget";
+import RollingTrendWidget from "@/src/components/widgets/RollingTrendWidget";
+import ScatterWidget from "@/src/components/widgets/ScatterWidget";
+import WeekCompareWidget from "@/src/components/widgets/WeekCompareWidget";
+import HoursCompareWidget from "@/src/components/widgets/HoursCompareWidget";
+import StabilityScoreWidget from "@/src/components/widgets/StabilityScoreWidget";
+import RecentShiftsWidget from "@/src/components/widgets/RecentShiftsWidget";
+import ScheduleWidget from "@/src/components/widgets/ScheduleWidget";
+import EffectiveRateWidget from "@/src/components/widgets/EffectiveRateWidget";
+import DeliveriesWidget from "@/src/components/widgets/DeliveriesWidget";
+import PerDeliveryWidget from "@/src/components/widgets/PerDeliveryWidget";
+import TipsTotalWidget from "@/src/components/widgets/TipsTotalWidget";
+import MonthOrdersWidget from "@/src/components/widgets/MonthOrdersWidget";
+import MonthHourlyWidget from "@/src/components/widgets/MonthHourlyWidget";
+import ZeroDaysWidget from "@/src/components/widgets/ZeroDaysWidget";
+import OutOfPocketWidget from "@/src/components/widgets/OutOfPocketWidget";
 
 // ─── Constants & Styling ──────────────────────────────────────────────────────
 const BG = "#000";
@@ -55,11 +75,27 @@ const WIDGET_META: Record<string, { label: string; category: Category }> = {
   bestDay:          { label: "Best Day of Week",         category: "perf" },
   bestHour:         { label: "Best Hour of Day",         category: "perf" },
   deadMiles:        { label: "Dead Mileage Split",       category: "perf" },
+  streak:           { label: "Active Streak",            category: "perf" },
+  rollingTrend:     { label: "Earnings Trajectory",      category: "perf" },
+  scatter:          { label: "Earnings vs Hours",        category: "perf" },
+  weekCompare:      { label: "Week over Week",           category: "perf" },
+  hoursCompare:     { label: "Active vs Total Hours",    category: "perf" },
   platformActivity: { label: "Platform Breakdown",       category: "insights" },
   incomeBreakdown:  { label: "Income Breakdown",         category: "insights" },
   weeklyProjection: { label: "Weekly Projection",        category: "insights" },
   taxJar:           { label: "Tax Jar Withholding",      category: "insights" },
-  // Stat cards are now custom rendered
+  stabilityScore:   { label: "Income Stability",         category: "insights" },
+  recentShifts:     { label: "Recent Activity",          category: "insights" },
+  schedule:         { label: "Schedule",                 category: "insights" },
+  // Stat cards are now custom rendered, plus these granular stat widgets appended below them
+  effectiveRate:    { label: "Effective $/hr",           category: "stats" },
+  deliveries:       { label: "Deliveries",                category: "stats" },
+  perDelivery:      { label: "Per Delivery",              category: "stats" },
+  tipsTotal:        { label: "Tips Total",                category: "stats" },
+  monthOrders:      { label: "Monthly Orders",            category: "stats" },
+  monthHourly:      { label: "Monthly $/hr",              category: "stats" },
+  zeroDays:         { label: "Zero-Earning Days",         category: "stats" },
+  outOfPocket:      { label: "Out of Pocket",              category: "stats" },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -170,7 +206,7 @@ function WidgetCard({ id, children }: { id: string; children: React.ReactNode })
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AnalyticsScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, isOnboardingCompleted, activePlatformFilter, setHeaderVisible } = useSettingsStore();
+  const { profile, isOnboardingCompleted, activePlatformFilter, setHeaderVisible, streakDays, bestStreak } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
   const isAnalyticsEnabled = useFeatureEnabled("analytics_advanced");
 
@@ -209,7 +245,10 @@ export default function AnalyticsScreen() {
 
   const weekStartDay = profile?.locale?.weekStartDay ?? 0;
   const { start, end } = useMemo(() => getPeriodDates(periodType, periodOffset, weekStartDay), [periodType, periodOffset, weekStartDay]);
-  
+  const { start: thisWeekStart, end: thisWeekEnd } = useMemo(() => getPeriodDates("week", 0, weekStartDay), [weekStartDay]);
+  const { start: lastWeekStart, end: lastWeekEnd } = useMemo(() => getPeriodDates("week", -1, weekStartDay), [weekStartDay]);
+  const { start: monthStart, end: monthEnd } = useMemo(() => getPeriodDates("month", 0, weekStartDay), [weekStartDay]);
+
   // dailyData widget fetches rolling weeks relative to the viewed start date to generate the trend
   const diffTime = Math.abs(new Date().getTime() - start.getTime());
   const diffWeeksOffset = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
@@ -225,11 +264,28 @@ export default function AnalyticsScreen() {
   const { data: mileage } = useQuery({ queryKey: ["analytics", "mileage", start.toISOString(), end.toISOString()], queryFn: () => getMileageSplit(start, end), enabled });
   const { data: netIncome = 0 } = useQuery({ queryKey: ["analytics", "net-income", start.toISOString(), end.toISOString()], queryFn: () => getNetIncome(start, end), enabled });
   const { data: hourlyRate = 0 } = useQuery({ queryKey: ["analytics", "hourly-rate", start.toISOString(), end.toISOString()], queryFn: () => getHourlyRate(start, end), enabled });
+  const { data: scatterData = [] } = useQuery({ queryKey: ["analytics", "scatter", start.toISOString(), end.toISOString(), activePlatformFilter], queryFn: () => getEarningsVsHoursScatter(start, end, activePlatformFilter), enabled });
+  const { data: thisWeekStats } = useQuery({ queryKey: ["analytics", "week-stats", "this", thisWeekStart.toISOString(), thisWeekEnd.toISOString(), activePlatformFilter], queryFn: () => getPeriodStats(thisWeekStart, thisWeekEnd, activePlatformFilter), enabled });
+  const { data: lastWeekStats } = useQuery({ queryKey: ["analytics", "week-stats", "last", lastWeekStart.toISOString(), lastWeekEnd.toISOString(), activePlatformFilter], queryFn: () => getPeriodStats(lastWeekStart, lastWeekEnd, activePlatformFilter), enabled });
+  const { data: stabilityData } = useQuery({ queryKey: ["analytics", "stability-score", activePlatformFilter], queryFn: () => getIncomeStabilityScore(activePlatformFilter), enabled });
+  const { data: recentShiftsData = [] } = useQuery({ queryKey: ["analytics", "recent-shifts"], queryFn: () => getShiftsPaginated(1, {}, 4), enabled });
+  const { data: monthStats } = useQuery({ queryKey: ["analytics", "month-stats", monthStart.toISOString(), monthEnd.toISOString(), activePlatformFilter], queryFn: () => getPeriodStats(monthStart, monthEnd, activePlatformFilter), enabled });
+  const { data: monthHourlyRate = 0 } = useQuery({ queryKey: ["analytics", "month-hourly-rate", monthStart.toISOString(), monthEnd.toISOString(), activePlatformFilter], queryFn: () => getHourlyRate(monthStart, monthEnd, activePlatformFilter), enabled });
+  const { data: monthlyBreakdown } = useQuery({ queryKey: ["analytics", "monthly-breakdown", start.toISOString(), end.toISOString(), activePlatformFilter], queryFn: () => getFinancialMonthlyBreakdown(start, end, activePlatformFilter), enabled });
 
-  const totalRevenue  = (periodStats?.gross ?? 0) + (periodStats?.tips ?? 0);
+  const totalRevenue  = (periodStats?.gross ?? 0) + (periodStats?.tips ?? 0) + (periodStats?.bonus ?? 0);
   const durationHrs   = (periodStats?.durationSeconds ?? 0) / 3600;
+  const activeHrs      = Math.max(0, (periodStats?.durationSeconds ?? 0) - (periodStats?.pausedSeconds ?? 0)) / 3600;
+  const onlineRate     = durationHrs > 0 ? totalRevenue / durationHrs : 0;
+  const activeRate     = activeHrs > 0 ? totalRevenue / activeHrs : 0;
+  const effectivePerHr = durationHrs > 0 ? netIncome / durationHrs : 0;
   const maxDayAvg     = Math.max(1, ...bestDayData.map((d) => d.avgEarnings));
   const maxHourAvg    = Math.max(1, ...bestHourData.map((h) => h.avgEarnings));
+  const thisWeekTotal = (thisWeekStats?.gross ?? 0) + (thisWeekStats?.tips ?? 0) + (thisWeekStats?.bonus ?? 0);
+  const lastWeekTotal = (lastWeekStats?.gross ?? 0) + (lastWeekStats?.tips ?? 0) + (lastWeekStats?.bonus ?? 0);
+  const zeroDaysCount = dailyData.filter((d) => d.total === 0).length;
+  const perDeliveryVal = (periodStats?.count ?? 0) > 0 ? totalRevenue / (periodStats?.count ?? 1) : 0;
+  const outOfPocketVal = monthlyBreakdown?.totals?.outOfPocket ?? 0;
 
 
   const country = profile.country;
@@ -239,13 +295,29 @@ export default function AnalyticsScreen() {
       case "bestDay":           return <BestDayWidget bestDayData={bestDayData} maxDayAvg={maxDayAvg} />;
       case "bestHour":          return <BestHourWidget bestHourData={bestHourData} maxHourAvg={maxHourAvg} />;
       case "deadMiles":         return <DeadMilesWidget mileage={mileage} distanceUnit={profile?.distanceUnit ?? "mi"} />;
+      case "streak":            return <StreakWidget streak={{ current: streakDays, best: bestStreak }} />;
+      case "rollingTrend":      return <RollingTrendWidget dailyData={dailyData} />;
+      case "scatter":           return <ScatterWidget data={scatterData} />;
+      case "weekCompare":       return <WeekCompareWidget thisWeek={thisWeekTotal} lastWeek={lastWeekTotal} country={country} />;
+      case "hoursCompare":      return <HoursCompareWidget activeHrs={activeHrs} onlineHrs={durationHrs} />;
       case "platformActivity":  return <PlatformActivityWidget platformData={platformData} />;
       case "incomeBreakdown":   return <IncomeBreakdownWidget totalRevenue={totalRevenue} netIncome={netIncome} taxWithholdingPct={profile.taxWithholdingPct} country={country} />;
       case "weeklyProjection":  return <WeeklyProjectionWidget dailyData={dailyData} country={country} />;
       case "taxJar":            return <TaxJarWidget taxWithholdingPct={profile.taxWithholdingPct} />;
+      case "stabilityScore":    return <StabilityScoreWidget score={stabilityData?.stabilityScore ?? 0} weeklyGross={stabilityData?.weeklyGross ?? []} />;
+      case "recentShifts":      return <RecentShiftsWidget shifts={recentShiftsData} country={country} />;
+      case "schedule":          return <ScheduleWidget />;
+      case "effectiveRate":     return <EffectiveRateWidget effectiveRate={effectivePerHr} avgRate={onlineRate} country={country} />;
+      case "deliveries":        return <DeliveriesWidget count={periodStats?.count ?? 0} />;
+      case "perDelivery":       return <PerDeliveryWidget perDelivery={perDeliveryVal} count={periodStats?.count ?? 0} country={country} />;
+      case "tipsTotal":         return <TipsTotalWidget tips={periodStats?.tips ?? 0} gross={periodStats?.gross ?? 0} country={country} />;
+      case "monthOrders":       return <MonthOrdersWidget count={monthStats?.count ?? 0} />;
+      case "monthHourly":       return <MonthHourlyWidget hourlyRate={monthHourlyRate} country={country} />;
+      case "zeroDays":          return <ZeroDaysWidget zeroDays={zeroDaysCount} totalDays={dailyData.length} />;
+      case "outOfPocket":       return <OutOfPocketWidget outOfPocket={outOfPocketVal} gross={totalRevenue} country={country} />;
       default: return null;
     }
-  }, [dailyData, bestDayData, maxDayAvg, bestHourData, maxHourAvg, mileage, platformData, totalRevenue, netIncome, profile, country, durationHrs, hourlyRate, periodStats]);
+  }, [dailyData, bestDayData, maxDayAvg, bestHourData, maxHourAvg, mileage, platformData, totalRevenue, netIncome, profile, country, durationHrs, hourlyRate, periodStats, streakDays, bestStreak, scatterData, thisWeekTotal, lastWeekTotal, activeHrs, stabilityData, recentShiftsData, effectivePerHr, onlineRate, perDeliveryVal, monthStats, monthHourlyRate, zeroDaysCount, outOfPocketVal]);
 
   const activeWidgets = Object.keys(WIDGET_META).filter(id => WIDGET_META[id].category === activeCategory);
 
@@ -367,7 +439,18 @@ export default function AnalyticsScreen() {
           </View>
         ) : (
           <View style={{ paddingHorizontal: 16 }}>
-            {activeCategory === "stats" ? renderStatCards() : activeWidgets.map((id) => (
+            {activeCategory === "stats" ? (
+              <>
+                {renderStatCards()}
+                <View style={{ marginTop: 12 }}>
+                  {activeWidgets.map((id) => (
+                    <WidgetCard key={id} id={id}>
+                      {renderWidgetContent(id)}
+                    </WidgetCard>
+                  ))}
+                </View>
+              </>
+            ) : activeWidgets.map((id) => (
               <WidgetCard key={id} id={id}>
                 {renderWidgetContent(id)}
               </WidgetCard>

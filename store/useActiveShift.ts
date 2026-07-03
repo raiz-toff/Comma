@@ -234,6 +234,7 @@ export const useActiveShift = create<ActiveShiftState>((set, get) => ({
       endTime: new Date(endTime),
       grossRevenue: 0.0,
       tipsRevenue: 0.0,
+      bonusAmount: 0.0,
       trackedMileage: calculatedActiveMileage + calculatedDeadMileage,
       activeMileage: calculatedActiveMileage,
       deadMileage: calculatedDeadMileage,

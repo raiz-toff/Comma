@@ -14,7 +14,7 @@ export async function getTaxYearSummary(
 
   const shiftsRes = await db
     .select({
-      gross: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue}), 0)`,
+      gross: sql<number>`COALESCE(SUM(${shifts.grossRevenue} + ${shifts.tipsRevenue} + ${shifts.bonusAmount}), 0)`,
     })
     .from(shifts)
     .where(

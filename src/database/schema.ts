@@ -52,6 +52,7 @@ export const shifts = sqliteTable('shifts', {
   endTime: integer('end_time', { mode: 'timestamp' }).notNull(),
   grossRevenue: real('gross_revenue').default(0).notNull(),
   tipsRevenue: real('tips_revenue').default(0).notNull(),
+  bonusAmount: real('bonus_amount').default(0).notNull(),
   /** @deprecated Replaced by activeMileage going forward, kept for backward compatibility */
   trackedMileage: real('tracked_mileage').default(0).notNull(),
   deadMileage: real('dead_mileage').default(0).notNull(),

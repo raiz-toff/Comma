@@ -910,7 +910,7 @@ export default function AddExpenseModal() {
                   {sortedShifts.slice(0, 8).map((s) => {
                     const isSelected = linkedShiftId === s.id;
                     const durationHours = (s.durationSeconds / 3600).toFixed(1);
-                    const totalRevenue = s.grossRevenue + s.tipsRevenue;
+                    const totalRevenue = s.grossRevenue + s.tipsRevenue + (s.bonusAmount || 0);
                     const totalMiles = ((s.activeMileage || 0) + (s.deadMileage || 0)).toFixed(0);
 
                     return (

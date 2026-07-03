@@ -336,7 +336,7 @@ export default function ScheduleScreen() {
   const selectedDateKey = selectedDate.toISOString().split("T")[0];
   const selectedDayShifts = shiftsByDay[selectedDateKey] || [];
   const selectedDayEarnings = selectedDayShifts.reduce(
-    (sum, s) => sum + (s.grossRevenue || 0) + (s.tipsRevenue || 0),
+    (sum, s) => sum + (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0),
     0
   );
 
@@ -843,7 +843,7 @@ export default function ScheduleScreen() {
               const key = day.toISOString().split("T")[0];
               const dayShifts = shiftsByDay[key] || [];
               const dayEarnings = dayShifts.reduce(
-                (sum, s) => sum + (s.grossRevenue || 0) + (s.tipsRevenue || 0),
+                (sum, s) => sum + (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0),
                 0
               );
               const isSelected = selectedDate.toDateString() === day.toDateString();
@@ -1052,7 +1052,7 @@ export default function ScheduleScreen() {
                 const startT = new Date(sItem.startTime);
                 const endT = new Date(sItem.endTime);
                 const durHrs = Math.max(0.1, (endT.getTime() - startT.getTime()) / 3600000);
-                const hourlyRate = ((sItem.grossRevenue || 0) + (sItem.tipsRevenue || 0)) / durHrs;
+                const hourlyRate = ((sItem.grossRevenue || 0) + (sItem.tipsRevenue || 0) + (sItem.bonusAmount || 0)) / durHrs;
 
                 return (
                   <View key={sItem.id} style={s.shiftItem}>
@@ -1076,7 +1076,7 @@ export default function ScheduleScreen() {
                         </View>
                       </View>
                       <CurrencyText
-                        amount={(sItem.grossRevenue || 0) + (sItem.tipsRevenue || 0)}
+                        amount={(sItem.grossRevenue || 0) + (sItem.tipsRevenue || 0) + (sItem.bonusAmount || 0)}
                         size="sm"
                         className="font-extrabold text-slate-100"
                       />
@@ -1102,6 +1102,14 @@ export default function ScheduleScreen() {
                               ${(sItem.tipsRevenue || 0).toFixed(2)}
                             </Text>
                           </View>
+                          {!!sItem.bonusAmount && (
+                            <View style={s.overviewCell}>
+                              <Text style={s.overviewLabel}>Bonus</Text>
+                              <Text style={s.overviewValueSuccess}>
+                                ${(sItem.bonusAmount || 0).toFixed(2)}
+                              </Text>
+                            </View>
+                          )}
                           <View style={s.overviewCell}>
                             <Text style={s.overviewLabel}>Deliveries</Text>
                             <Text style={s.overviewValue}>{sItem.deliveriesCount || 0}</Text>

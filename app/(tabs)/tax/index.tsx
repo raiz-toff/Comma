@@ -119,7 +119,7 @@ export default function TaxScreen() {
     enabled: isOnboardingCompleted,
   });
 
-  const grossRevenue = (ytdStats?.gross || 0) + (ytdStats?.tips || 0);
+  const grossRevenue = (ytdStats?.gross || 0) + (ytdStats?.tips || 0) + (ytdStats?.bonus || 0);
   const deductibleExpenses = ytdExpenses?.deductible || 0;
   const netIncome = Math.max(0, grossRevenue - deductibleExpenses);
   const totalMileage = (ytdStats?.activeMileage || 0) + (ytdStats?.deadMileage || 0);

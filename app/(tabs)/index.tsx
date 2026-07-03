@@ -833,26 +833,28 @@ export default function HomeScreen() {
   const currentStats = {
     gross: rangeStats?.gross ?? 0,
     tips: rangeStats?.tips ?? 0,
+    bonus: rangeStats?.bonus ?? 0,
     miles: (rangeStats?.activeMileage ?? 0) + (rangeStats?.deadMileage ?? 0),
     duration: rangeStats?.durationSeconds ?? 0,
     count: rangeStats?.count ?? 0,
-    rate: (rangeStats && rangeStats.durationSeconds > 0) ? ((rangeStats.gross + rangeStats.tips) / (rangeStats.durationSeconds / 3600)) : 0,
+    rate: (rangeStats && rangeStats.durationSeconds > 0) ? ((rangeStats.gross + rangeStats.tips + rangeStats.bonus) / (rangeStats.durationSeconds / 3600)) : 0,
     expenses: financialOverview?.expense ?? 0,
   };
 
   const writeOff    = currentStats.miles * 0.67;
-  const netEarnings = currentStats.gross + currentStats.tips - writeOff;
+  const netEarnings = currentStats.gross + currentStats.tips + currentStats.bonus - writeOff;
   const totalMiles  = activeMileage + deadMileage;
 
   // Derive weekly summary metrics dynamically (avoiding any hardcoding)
   const weeklyGross = weekStats?.gross ?? 0;
   const weeklyTips = weekStats?.tips ?? 0;
+  const weeklyBonus = weekStats?.bonus ?? 0;
   const weeklyMiles = (weekStats?.activeMileage ?? 0) + (weekStats?.deadMileage ?? 0);
   const weeklyWriteOff = weeklyMiles * 0.67;
-  const weeklyNet = weeklyGross + weeklyTips - weeklyWriteOff;
+  const weeklyNet = weeklyGross + weeklyTips + weeklyBonus - weeklyWriteOff;
   const weeklyShiftsCount = weekStats?.count ?? 0;
   const weeklyDuration = weekStats?.durationSeconds ?? 0;
-  const weeklyRate = weeklyDuration > 0 ? (weeklyGross + weeklyTips) / (weeklyDuration / 3600) : 0;
+  const weeklyRate = weeklyDuration > 0 ? (weeklyGross + weeklyTips + weeklyBonus) / (weeklyDuration / 3600) : 0;
 
   // Cards below the hero card follow the selected T/W tab
   const displayStats = heroTab === "T"
@@ -1242,7 +1244,7 @@ export default function HomeScreen() {
                   const durationHours = (shift.durationSeconds / 3600).toFixed(1);
                   const shiftMiles = (shift.activeMileage || 0) + (shift.deadMileage || 0);
                   const shiftWriteOff = shiftMiles * 0.67;
-                  const totalRevenue = shift.grossRevenue + shift.tipsRevenue - shiftWriteOff;
+                  const totalRevenue = shift.grossRevenue + shift.tipsRevenue + (shift.bonusAmount || 0) - shiftWriteOff;
                   const totalMiles = shiftMiles.toFixed(0);
                   
                   return (

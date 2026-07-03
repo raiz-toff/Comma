@@ -144,6 +144,7 @@ async function fetchTaxSummary(
 
   let gross = 0;
   let tips = 0;
+  let bonus = 0;
   let distanceKm = 0;
   let activeMileage = 0;
   let deadMileage = 0;
@@ -151,6 +152,7 @@ async function fetchTaxSummary(
   rawShifts.forEach((s: any) => {
     gross += Number(s.grossRevenue || 0);
     tips += Number(s.tipsRevenue || 0);
+    bonus += Number(s.bonusAmount || 0);
     const active = Number(s.activeMileage || s.trackedMileage || 0);
     const dead = Number(s.deadMileage || 0);
     distanceKm += active + dead;
@@ -164,7 +166,7 @@ async function fetchTaxSummary(
     if (e.isDeductible) totalExpenses += Number(e.amount || 0) * Number(e.deductiblePct ?? 100) / 100;
   });
 
-  const totalGross = gross + tips;
+  const totalGross = gross + tips + bonus;
   const netIncome = Math.max(0, totalGross - totalExpenses);
 
   let hstCollected = 0;
@@ -610,7 +612,7 @@ export default function TaxCenterScreen() {
             <Text style={[S.medAmount, { marginTop: 8 }]}>
               {fmt(summary?.gross || 0)}
             </Text>
-            <Text style={S.miniNote}>Revenue + tips</Text>
+            <Text style={S.miniNote}>Revenue + tips + bonus</Text>
           </View>
           <View style={[S.card, { flex: 1 }]}>
             <Text style={S.cardLabel}>DEDUCTIBLE</Text>

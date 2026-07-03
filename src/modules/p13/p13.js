@@ -1,4 +1,5 @@
 import { db, getAppState, setAppState } from '../../core/db.js';
+import { newId } from '../../core/id.js';
 import { getDefaultSamplePlatformId } from '../../registry/platforms/index.js';
 import { isVaultActive } from '../../core/vault-gate.js';
 import { showModal, showToast } from '../../ui/components.js';
@@ -123,7 +124,7 @@ async function maybeShowWellbeingToasts() {
   }
 
   const shiftRows = await db.shifts.where('date').equals(today).filter((s) => s.deletedAt == null).toArray();
-  const totalKm = shiftRows.reduce((sum, row) => sum + asNumber(row.distanceKm), 0);
+  const totalKm = shiftRows.reduce((sum, row) => sum + asNumber(row.activeMileage), 0);
   const mileageWarnDate = await getAppState('p13_mileage_warn_date');
   if (totalKm >= DAILY_MILEAGE_WARN_KM && mileageWarnDate !== today) {
     showToast({
@@ -164,16 +165,27 @@ async function generateSyntheticData() {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
+    const dateStr = `${y}-${m}-${day}`;
+    const durationSeconds = (210 + i * 5) * 60;
+    // Fix 1 (interop plan) — startTime/endTime are real epoch-ms timestamps; this dev-tool
+    // generator builds rows manually (bypassing normalizeShiftInput), so derive them itself:
+    // noon local time + the row's own duration.
+    const startMs = new Date(`${dateStr}T12:00:00`).getTime();
     rows.push({
-      date: `${y}-${m}-${day}`,
+      id: newId('shift'),
+      date: dateStr,
       platformId: getDefaultSamplePlatformId(),
-      gross: 90 + i * 8,
-      tips: 16 + i * 2,
-      bonus: i % 2 === 0 ? 5 : 0,
-      distanceKm: 42 + i * 3,
-      durationMinutes: 210 + i * 5,
+      startTime: startMs,
+      endTime: startMs + durationSeconds * 1000,
+      grossRevenue: 90 + i * 8,
+      tipsRevenue: 16 + i * 2,
+      customFields: { bonusAmount: i % 2 === 0 ? 5 : 0 },
+      activeMileage: 42 + i * 3,
+      durationSeconds,
       deliveryCount: 11 + i,
       deletedAt: null,
+      syncUpdatedAt: Date.now(),
+      syncDeletedAt: null,
     });
   }
   await db.shifts.bulkAdd(rows);

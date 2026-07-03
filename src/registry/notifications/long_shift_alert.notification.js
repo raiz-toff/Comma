@@ -20,12 +20,12 @@ export default {
 
     const longShift = ctx.todayShifts.find((s) => {
       if (s.deletedAt != null) return false;
-      const duration = num(s.durationMinutes || s.activeMinutes || s.onlineMinutes);
+      const duration = num(Math.round((s.durationSeconds || 0) / 60) || s.activeMinutes || s.onlineMinutes);
       return duration > thresholdMinutes;
     });
 
     if (longShift) {
-      const actualDuration = num(longShift.durationMinutes || longShift.activeMinutes || longShift.onlineMinutes);
+      const actualDuration = num(Math.round((longShift.durationSeconds || 0) / 60) || longShift.activeMinutes || longShift.onlineMinutes);
       const hoursStr = (actualDuration / 60).toFixed(1);
       await createNotification(
         NOTIFICATION_IDS.longShiftAlert,

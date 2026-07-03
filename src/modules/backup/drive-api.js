@@ -19,7 +19,8 @@ export async function listAppDataFiles() {
 
   const url = new URL(DRIVE_API_URL);
   url.searchParams.set('spaces', 'appDataFolder');
-  url.searchParams.set('fields', 'files(id, name, modifiedTime, size)');
+  url.searchParams.set('fields', 'files(id, name, modifiedTime, createdTime, size)');
+  url.searchParams.set('pageSize', '1000');
 
   const response = await fetch(url.toString(), {
     headers: {
@@ -99,6 +100,22 @@ export async function uploadFile(name, blob, existingFileId = null) {
 
   const data = await response.json();
   return data.id;
+}
+
+/**
+ * Upload a text envelope (a `.cmlog`/`.cmsnap` sync file body) to the appDataFolder under
+ * `filename`, ALWAYS as a new file (never updates an existing one — every push/compaction writes
+ * a fresh, uniquely-timestamped filename by construction, see `services/sync/changeLog.js`).
+ * Interop plan Workstream 3 — mirrors mobile's `driveIO.ts` `uploadSyncFile`; delegates to the
+ * existing `uploadFile` multipart helper (web's FormData-based upload is already reliable, so
+ * there's no need for mobile's manual multipart-string workaround for React Native's fetch).
+ * @param {string} filename
+ * @param {string} envelope
+ * @returns {Promise<string>} the new file's Drive id
+ */
+export async function uploadSyncFile(filename, envelope) {
+  const blob = new Blob([envelope], { type: 'application/octet-stream' });
+  return uploadFile(filename, blob);
 }
 
 /**

@@ -21,7 +21,7 @@ export default {
     for (const s of ctx.weekShifts) {
       const pid = String(s.platformId || '');
       if (!pid) continue;
-      const gross = Math.max(0, num(s.gross ?? s.grossEarnings));
+      const gross = Math.max(0, num(s.grossRevenue));
       const minutes = Math.max(0, num(s.activeMinutes) || num(s.onlineMinutes));
       if (minutes <= 0 || gross <= 0) continue;
       const rec = map.get(pid) || { gross: 0, minutes: 0 };

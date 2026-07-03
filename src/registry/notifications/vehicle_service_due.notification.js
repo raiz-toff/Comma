@@ -14,9 +14,9 @@ export default {
   condition: async () => false,
   /** @param {{ user: Record<string, unknown> }} ctx */
   evaluate: async (ctx) => {
-    // Sum cumulative distanceKm across all non-deleted shifts
+    // Sum cumulative activeMileage across all non-deleted shifts
     const shifts = await db.shifts.filter((s) => s.deletedAt == null).toArray();
-    const totalKm = shifts.reduce((sum, s) => sum + (Number(s.distanceKm) || 0), 0);
+    const totalKm = shifts.reduce((sum, s) => sum + (Number(s.activeMileage) || 0), 0);
 
     const milestoneInterval = 5000;
     const currentMilestone = Math.floor(totalKm / milestoneInterval) * milestoneInterval;

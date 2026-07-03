@@ -18,6 +18,7 @@ import {
   restoreShiftTimerFromLocalStorage,
   saveAsTemplate,
   saveShift,
+  shiftRowToFormTimeFields,
   startShiftTimer,
   stopShiftTimer,
   updateShift,
@@ -156,7 +157,9 @@ function filterAndSortShifts(list, start, end, sortDir) {
   });
   out.sort((a, b) => {
     let cmp = String(a.date).localeCompare(String(b.date));
-    if (cmp === 0) cmp = Number(a.id || 0) - Number(b.id || 0);
+    // ids are opaque client-generated strings (Fix 2 — interop plan), not sortable numbers —
+    // fall back to createdAt (ISO string) for a stable same-date tiebreak.
+    if (cmp === 0) cmp = String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
     return sortDir === 'desc' ? -cmp : cmp;
   });
   return out;
@@ -166,6 +169,53 @@ async function loadAllShiftsForPlatform() {
   const platform = String(store.get('activePlatformId') ?? 'all');
   const rows = await db.shifts.toArray();
   return rows.filter((s) => s.deletedAt == null).filter((s) => platform === 'all' || String(s.platformId) === platform);
+}
+
+/**
+ * Bulk-fetch `shiftPlatforms` rows for a set of shift ids, grouped by shiftId (interop plan
+ * Workstream 4 — multi-platform shift breakdown display).
+ * @param {Array<string>} shiftIds
+ * @param {{ includeDeleted?: boolean }} [opts] `includeDeleted`: trash view still wants the
+ *   breakdown for a soft-deleted shift, whose own `shiftPlatforms` rows are tombstoned in lockstep
+ *   (see `deleteShift`) — the active shift list should NOT show tombstoned rows.
+ * @returns {Promise<Map<string, Array<Record<string, unknown>>>>}
+ */
+async function loadShiftPlatformsMap(shiftIds, opts = {}) {
+  // shift ids are opaque client-generated strings (Fix 2 — interop plan), not numbers.
+  const ids = shiftIds.filter((id) => typeof id === 'string' && id);
+  /** @type {Map<string, Array<Record<string, unknown>>>} */
+  const map = new Map();
+  if (!ids.length) return map;
+  const rows = await db.shiftPlatforms.where('shiftId').anyOf(ids).toArray();
+  for (const row of rows) {
+    if (!opts.includeDeleted && row.syncDeletedAt != null) continue;
+    const key = String(row.shiftId);
+    const list = map.get(key) || [];
+    list.push(row);
+    map.set(key, list);
+  }
+  return map;
+}
+
+/**
+ * Platform breakdown chips for a multi-platform shift (interop plan Workstream 4). Only meant to
+ * be called when `platformRows.length > 1` — single-platform shifts keep the plain `.shift-badge`.
+ * @param {Array<Record<string, unknown>>} platformRows
+ */
+function platformBreakdownChipsHtml(platformRows) {
+  const user = store.get('user');
+  const sym = user && user.locale && typeof user.locale.currencySymbol === 'string' ? user.locale.currencySymbol : '$';
+  return platformRows
+    .map((r) => {
+      const pid = String(r.platform || 'other');
+      const pl = getPlatformConfig(pid);
+      const amount = Number(r.grossRevenue || 0) + Number(r.tipsRevenue || 0);
+      return `<span class="shift-breakdown-chip" data-platform-id="${escapeAttr(pid)}">
+        <span>${escapeHtml(pl.name || pid)}</span>
+        <span class="shift-breakdown-chip-amount">${escapeHtml(sym)}${amount.toFixed(2)}</span>
+      </span>`;
+    })
+    .join('');
 }
 
 function shiftCardMetricsHtml(s) {
@@ -187,10 +237,251 @@ function shiftCardMetricsHtml(s) {
     .join('');
 }
 
-function shiftCardHtml(s) {
+/* ============================================================================================
+ * Workstream 5 (interop plan — GPS route + odometer, read-only in web)
+ *
+ * Read-only display of the `routePath` / `startOdometer` / `endOdometer` / `distanceSource` /
+ * `reconciliationStatus` fields a future sync will populate from mobile (mobile's schema:
+ * `commaApp/src/database/schema.ts`). No editing, no "reconcile" action — see the interop plan's
+ * decisions table ("GPS route / odometer reconciliation" row): the reconciliation *editing*
+ * workflow stays mobile-only, web only stores + displays what it's given.
+ *
+ * Kept as a self-contained block (own helpers, one call site in `shiftCardHtml`) so it merges
+ * cleanly against any other in-flight edits to this file.
+ * ========================================================================================== */
+
+/**
+ * Google-encoded-polyline decoder — fallback shape for `routePath` alongside the JSON-array
+ * shape below. Mirrors mobile's `decodePolyline` (`commaApp/utils/polyline.ts`) byte-for-byte.
+ * @param {string} encoded
+ * @returns {{lat: number, lng: number}[]}
+ */
+function decodeGooglePolyline(encoded) {
+  const points = [];
+  let index = 0;
+  const len = encoded.length;
+  let lat = 0;
+  let lng = 0;
+  while (index < len) {
+    let b;
+    let shift = 0;
+    let result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlat = result & 1 ? ~(result >> 1) : result >> 1;
+    lat += dlat;
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlng = result & 1 ? ~(result >> 1) : result >> 1;
+    lng += dlng;
+    points.push({ lat: lat / 1e5, lng: lng / 1e5 });
+  }
+  return points;
+}
+
+/**
+ * Parses a shift's `routePath` field into a normalized list of `{lat, lng}` points.
+ * Canonical shape (matches mobile's `parseRoutePath`, `commaApp/utils/polyline.ts`): a JSON
+ * array of point objects accepting `{latitude,longitude}`, `{lat,lng}`, or `{lat,lon}` —
+ * whichever a given writer used — with a Google-encoded-polyline string as a fallback shape.
+ * Returns `null` if there's nothing renderable (fewer than 2 valid points).
+ * @param {unknown} routePath
+ * @returns {{lat: number, lng: number}[] | null}
+ */
+function parseShiftRoutePath(routePath) {
+  if (typeof routePath !== 'string' || !routePath.trim()) return null;
+  const trimmed = routePath.trim();
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        const pts = parsed
+          .map((p) => {
+            if (!p || typeof p !== 'object') return null;
+            const lat = p.latitude ?? p.lat;
+            const lng = p.longitude ?? p.lng ?? p.lon;
+            const latN = Number(lat);
+            const lngN = Number(lng);
+            if (!Number.isFinite(latN) || !Number.isFinite(lngN)) return null;
+            return { lat: latN, lng: lngN };
+          })
+          .filter(Boolean);
+        return pts.length >= 2 ? pts : null;
+      }
+    } catch {
+      /* not JSON — fall through to polyline decode below */
+    }
+    return null;
+  }
+  try {
+    const decoded = decodeGooglePolyline(trimmed);
+    return decoded.length >= 2 ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Builds a small static inline-SVG polyline mini-map from normalized route points.
+ * Visual concept matches mobile's `RouteMinimap` (`commaApp/app/(tabs)/shifts/index.tsx`) —
+ * min/max-normalized points in a small viewBox, light gridlines, green start dot, accent end
+ * dot — re-themed with web's CSS custom properties (widget SVG convention, see
+ * `src/registry/widgets/*.widget.js`) instead of mobile's hardcoded dark-mode hex colors.
+ * @param {{lat: number, lng: number}[]} points
+ */
+function shiftRouteMinimapSvg(points) {
+  const W = 220;
+  const H = 120;
+  const PAD = 12;
+  const lats = points.map((p) => p.lat);
+  const lngs = points.map((p) => p.lng);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const latRange = maxLat - minLat || 0.0005;
+  const lngRange = maxLng - minLng || 0.0005;
+
+  const toXY = (p) => ({
+    x: PAD + ((p.lng - minLng) / lngRange) * (W - 2 * PAD),
+    y: PAD + (1 - (p.lat - minLat) / latRange) * (H - 2 * PAD),
+  });
+
+  const svgPoints = points
+    .map((p) => {
+      const { x, y } = toXY(p);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+
+  const start = toXY(points[0]);
+  const end = toXY(points[points.length - 1]);
+  const mapAriaLabel = t('shifts.route.mapAria') || 'Shift route map';
+
+  return `
+    <svg class="shift-route-minimap-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escapeAttr(mapAriaLabel)}">
+      <line x1="0" y1="${(H / 3).toFixed(1)}" x2="${W}" y2="${(H / 3).toFixed(1)}" class="shift-route-minimap-grid"></line>
+      <line x1="0" y1="${((H / 3) * 2).toFixed(1)}" x2="${W}" y2="${((H / 3) * 2).toFixed(1)}" class="shift-route-minimap-grid"></line>
+      <line x1="${(W / 3).toFixed(1)}" y1="0" x2="${(W / 3).toFixed(1)}" y2="${H}" class="shift-route-minimap-grid"></line>
+      <line x1="${((W / 3) * 2).toFixed(1)}" y1="0" x2="${((W / 3) * 2).toFixed(1)}" y2="${H}" class="shift-route-minimap-grid"></line>
+      <polyline points="${svgPoints}" class="shift-route-minimap-line"></polyline>
+      <circle cx="${start.x.toFixed(1)}" cy="${start.y.toFixed(1)}" r="4" class="shift-route-minimap-start"></circle>
+      <circle cx="${end.x.toFixed(1)}" cy="${end.y.toFixed(1)}" r="4.5" class="shift-route-minimap-end"></circle>
+    </svg>
+  `;
+}
+
+/** Known `distanceSource` values (mobile default: `gps_only`) → display label i18n keys. */
+const DISTANCE_SOURCE_LABEL_KEYS = {
+  gps_only: 'shifts.route.sourceGps',
+  manual: 'shifts.route.sourceManual',
+  odometer_only: 'shifts.route.sourceOdometer',
+  gps_and_odometer: 'shifts.route.sourceGpsOdometer',
+  odometer_reconciled: 'shifts.route.sourceOdometerReconciled',
+};
+
+/** Known `reconciliationStatus` values (mobile default: `reconciled`) → i18n key + badge tone. */
+const RECONCILIATION_STATUS_META = {
+  tracking: { key: 'shifts.route.statusTracking', tone: 'info' },
+  pending_reconciliation: { key: 'shifts.route.statusPending', tone: 'warning' },
+  reconciled: { key: 'shifts.route.statusReconciled', tone: 'success' },
+};
+
+/** Title-cases an unrecognized snake_case enum value so new mobile values degrade gracefully. */
+function humanizeEnumFallback(value) {
+  return String(value)
+    .split('_')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+/** @param {number} n */
+function formatOdometerReading(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return '';
+  return Math.round(v).toLocaleString();
+}
+
+/**
+ * Read-only route mini-map + odometer/reconciliation badges for one shift's card. Returns ''
+ * when the shift has none of `routePath`/`startOdometer`/`endOdometer`/`distanceSource`/
+ * `reconciliationStatus` set — true for the overwhelming majority of manually-entered web shifts,
+ * so this section stays invisible until real GPS/odometer data arrives (web's own GPS-tracked
+ * shifts, or a future sync pull from mobile).
+ * @param {Record<string, unknown>} s
+ */
+function shiftRouteAndOdometerHtml(s) {
+  const points = parseShiftRoutePath(s.routePath);
+
+  const hasStartOdo = s.startOdometer != null && s.startOdometer !== '';
+  const hasEndOdo = s.endOdometer != null && s.endOdometer !== '';
+  const hasSource = typeof s.distanceSource === 'string' && s.distanceSource.trim() !== '';
+  const hasStatus = typeof s.reconciliationStatus === 'string' && s.reconciliationStatus.trim() !== '';
+
+  if (!points && !hasStartOdo && !hasEndOdo && !hasSource && !hasStatus) return '';
+
+  const mapHtml = points
+    ? `<div class="shift-route-minimap">${shiftRouteMinimapSvg(points)}</div>`
+    : '';
+
+  const badges = [];
+  if (hasStartOdo) {
+    badges.push(
+      `<span class="shift-route-badge"><span class="shift-route-badge-label">${escapeHtml(t('shifts.route.startOdometer'))}</span><span class="shift-route-badge-value">${escapeHtml(formatOdometerReading(s.startOdometer))}</span></span>`,
+    );
+  }
+  if (hasEndOdo) {
+    badges.push(
+      `<span class="shift-route-badge"><span class="shift-route-badge-label">${escapeHtml(t('shifts.route.endOdometer'))}</span><span class="shift-route-badge-value">${escapeHtml(formatOdometerReading(s.endOdometer))}</span></span>`,
+    );
+  }
+  if (hasSource) {
+    const key = DISTANCE_SOURCE_LABEL_KEYS[s.distanceSource];
+    const label = key ? t(key) : humanizeEnumFallback(s.distanceSource);
+    badges.push(
+      `<span class="shift-route-badge"><span class="shift-route-badge-label">${escapeHtml(t('shifts.route.sourceLabel'))}</span><span class="shift-route-badge-value">${escapeHtml(label)}</span></span>`,
+    );
+  }
+  if (hasStatus) {
+    const meta = RECONCILIATION_STATUS_META[s.reconciliationStatus];
+    const label = meta ? t(meta.key) : humanizeEnumFallback(s.reconciliationStatus);
+    const tone = meta ? meta.tone : 'info';
+    badges.push(
+      `<span class="shift-route-badge shift-route-status shift-route-status--${escapeAttr(tone)}"><span class="shift-route-badge-label">${escapeHtml(t('shifts.route.statusLabel'))}</span><span class="shift-route-badge-value">${escapeHtml(label)}</span></span>`,
+    );
+  }
+
+  return `
+    <div class="shift-route-section">
+      ${mapHtml}
+      ${badges.length ? `<div class="shift-route-badges">${badges.join('')}</div>` : ''}
+    </div>
+  `;
+}
+/* ============================================================================ end Workstream 5 */
+
+/**
+ * @param {Record<string, unknown>} s
+ * @param {Array<Record<string, unknown>>} [platformRows] Non-deleted `shiftPlatforms` rows for
+ *   this shift (interop plan Workstream 4). When there's more than one, a per-platform breakdown
+ *   is shown instead of the plain single-platform badge; 0 or 1 rows keeps today's display as-is.
+ */
+function shiftCardHtml(s, platformRows = []) {
   const pid = String(s.platformId || 'other');
   const pl = getPlatformConfig(pid);
-  const badge = `<span class="shift-badge" data-platform-id="${escapeAttr(pid)}">${escapeHtml(pl.name || pid)}</span>`;
+  const badge =
+    platformRows.length > 1
+      ? `<span class="shift-card-platform-breakdown">${platformBreakdownChipsHtml(platformRows)}</span>`
+      : `<span class="shift-badge" data-platform-id="${escapeAttr(pid)}">${escapeHtml(pl.name || pid)}</span>`;
   return `
     <article class="shift-card" data-shift-id="${escapeAttr(String(s.id))}">
       <div class="shift-card-top">
@@ -200,6 +491,7 @@ function shiftCardHtml(s) {
       <div class="shift-card-main">
         ${shiftCardMetricsHtml(s)}
       </div>
+      ${shiftRouteAndOdometerHtml(s)}
       <div class="shift-card-actions">
         <button type="button" class="btn btn-ghost btn-sm" data-action="edit">${escapeHtml(t('common.edit'))}</button>
         <button type="button" class="btn btn-ghost btn-sm" data-action="duplicate">${escapeHtml(t('shifts.duplicateShift'))}</button>
@@ -259,14 +551,33 @@ async function submitShiftFromForm(formApi, onSaved) {
 
 async function openShiftFormModal({ initial, onSaved, title, mode = 'full', submitLabel }) {
   const editingId =
-    initial && typeof initial === 'object' && 'id' in initial ? Number(/** @type {{ id?: unknown }} */ (initial).id) : NaN;
+    initial && typeof initial === 'object' && typeof /** @type {{ id?: unknown }} */ (initial).id === 'string'
+      ? /** @type {{ id?: string }} */ (initial).id
+      : null;
 
-  if (Number.isFinite(editingId)) {
+  if (editingId) {
     const oopExpense = await db.expenses
-      .filter((e) => e.deletedAt == null && Number(e.shiftId) === editingId && e.category === 'out_of_pocket')
+      .filter((e) => e.deletedAt == null && e.shiftId === editingId && e.category === 'out_of_pocket')
       .first();
     if (oopExpense && oopExpense.amount != null) {
-      initial.outOfPocketExpense = oopExpense.amount / 100;
+      initial.outOfPocketExpense = oopExpense.amount;
+    }
+    // Multi-platform breakdown (interop plan Workstream 4) — feed the existing shiftPlatforms
+    // rows back into the form so row 1 + any additional platform rows re-populate on edit.
+    const platformRows = await db.shiftPlatforms
+      .where('shiftId')
+      .equals(editingId)
+      .filter((r) => r.syncDeletedAt == null)
+      .toArray();
+    if (platformRows.length) {
+      initial.shiftPlatforms = platformRows.map((r) => ({
+        platform: r.platform,
+        grossRevenue: r.grossRevenue,
+        tipsRevenue: r.tipsRevenue,
+        tripsCount: r.tripsCount,
+        platformOnlineSeconds: r.platformOnlineSeconds,
+        platformActiveSeconds: r.platformActiveSeconds,
+      }));
     }
   }
 
@@ -542,7 +853,8 @@ export async function render(root, ctx) {
     }
 
     const slice = filtered.slice(pageIdx * SHIFTS_PER_PAGE, pageIdx * SHIFTS_PER_PAGE + SHIFTS_PER_PAGE);
-    listSlot.innerHTML = slice.map((s) => shiftCardHtml(s)).join('');
+    const mpMap = await loadShiftPlatformsMap(slice.map((s) => s.id));
+    listSlot.innerHTML = slice.map((s) => shiftCardHtml(s, mpMap.get(s.id) || [])).join('');
 
     if (total <= SHIFTS_PER_PAGE) {
       pagerSlot.innerHTML = '';
@@ -697,7 +1009,7 @@ export async function render(root, ctx) {
     }
 
     const card = /** @type {HTMLElement | null} */ (tEl.closest('[data-shift-id]'));
-    const id = card ? Number(card.getAttribute('data-shift-id')) : null;
+    const id = card ? card.getAttribute('data-shift-id') : null;
     if (!id) return;
 
     if (action === 'edit') {
@@ -705,7 +1017,9 @@ export async function render(root, ctx) {
       if (!row) return;
       await openShiftFormModal({
         title: t('shifts.editShift'),
-        initial: row,
+        // Fix 1 (interop plan) — the stored row's startTime/endTime are epoch-ms timestamps;
+        // convert back to the date/HH:mm-string shape shift-form.js's `initial` expects.
+        initial: shiftRowToFormTimeFields(row),
         submitLabel: t('common.save'),
         onSaved: async (val) => {
           await updateShift(id, val);
@@ -807,19 +1121,21 @@ async function openTrashManager() {
       return;
     }
 
+    const mpMap = await loadShiftPlatformsMap(deleted.map((s) => s.id), { includeDeleted: true });
     listContainer.innerHTML = deleted.map((s) => {
       const pid = String(s.platformId || 'other');
       const pl = getPlatformConfig(pid);
-      const grossFormatted = s.grossEarnings != null 
-        ? `$${(s.grossEarnings / 100).toFixed(2)}`
-        : s.gross != null 
-          ? `$${Number(s.gross).toFixed(2)}`
-          : '$0.00';
+      const grossFormatted = `$${Number(s.grossRevenue || 0).toFixed(2)}`;
+      const platformRows = mpMap.get(s.id) || [];
+      const platformDisplay =
+        platformRows.length > 1
+          ? `<span class="trash-row-platform-breakdown">${platformBreakdownChipsHtml(platformRows)}</span>`
+          : `<span class="trash-row-platform badge" data-platform-id="${escapeAttr(pid)}" style="background-color: var(--color-${pid}, var(--color-other)); color: #fff; margin-left: var(--space-2);">${escapeHtml(pl.name || pid)}</span>`;
       return `
         <div class="trash-row" data-shift-id="${escapeAttr(String(s.id))}">
           <div class="trash-row-info">
             <span class="trash-row-date">${escapeHtml(s.date || '')}</span>
-            <span class="trash-row-platform badge" data-platform-id="${escapeAttr(pid)}" style="background-color: var(--color-${pid}, var(--color-other)); color: #fff; margin-left: var(--space-2);">${escapeHtml(pl.name || pid)}</span>
+            ${platformDisplay}
             <span class="trash-row-gross" style="margin-left: var(--space-2); font-weight: 600;">${grossFormatted}</span>
           </div>
           <button type="button" class="btn btn-secondary btn-sm" data-action="restore-trash">${escapeHtml(t('shifts.restore'))}</button>
@@ -865,7 +1181,7 @@ async function openTrashManager() {
     }
     if (action === 'restore-trash') {
       const row = /** @type {HTMLElement | null} */ (el.closest('[data-shift-id]'));
-      const id = row ? Number(row.getAttribute('data-shift-id')) : null;
+      const id = row ? row.getAttribute('data-shift-id') : null;
       if (id) {
         await restoreShift(id);
         showToast({ type: 'success', message: t('shifts.restoredToast'), duration: 1600 });

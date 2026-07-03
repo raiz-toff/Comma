@@ -11,12 +11,7 @@ function renderPrintPlatformBreakdown(report) {
   if (!shifts.length) return '<p>No shifts logged in this period.</p>';
 
   const map = new Map();
-  const getDollars = (cents) => {
-    if (cents == null) return 0;
-    const n = Number(cents);
-    return Number.isFinite(n) ? n / 100 : 0;
-  };
-  
+
   for (const s of shifts) {
     const pId = s.platformId || 'unknown';
     if (!map.has(pId)) {
@@ -31,12 +26,13 @@ function renderPrintPlatformBreakdown(report) {
       });
     }
     const data = map.get(pId);
-    data.gross += s.grossEarnings != null ? getDollars(s.grossEarnings) : Number(s.gross || 0);
-    data.tips += s.tips != null ? getDollars(s.tips) : Number(s.tips || 0);
-    data.bonus += s.bonusEarnings != null ? getDollars(s.bonusEarnings) : Number(s.bonus || 0);
-    data.clockMinutes += Number(s.durationMinutes ?? s.onlineMinutes ?? s.activeMinutes ?? 0);
-    data.activeMinutes += Number(s.activeMinutes ?? s.durationMinutes ?? s.onlineMinutes ?? 0);
-    data.orders += Number(s.deliveryCount ?? s.orders ?? 0);
+    const durationMin = s.durationSeconds != null ? Math.round(Number(s.durationSeconds) / 60) : undefined;
+    data.gross += Number(s.grossRevenue || 0);
+    data.tips += Number(s.tipsRevenue || 0);
+    data.bonus += Number(s.customFields?.bonusAmount) || 0;
+    data.clockMinutes += Number(durationMin ?? s.onlineMinutes ?? s.activeMinutes ?? 0);
+    data.activeMinutes += Number(s.activeMinutes ?? durationMin ?? s.onlineMinutes ?? 0);
+    data.orders += Number(s.deliveryCount ?? 0);
   }
 
   let html = `

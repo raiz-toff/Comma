@@ -416,7 +416,8 @@ export async function render(root, ctx) {
   // Edit Goal (from list)
   root.querySelectorAll('[data-action="edit-goal"]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const id = Number(btn.dataset.id);
+      // goals.id is a client-generated string (Fix 2 — interop plan) — no numeric coercion.
+      const id = btn.dataset.id;
       const goal = activeGoals.find(g => g.id === id);
       if (goal) openGoalEditModal(goal);
     });
@@ -425,7 +426,7 @@ export async function render(root, ctx) {
   // Delete Goal
   root.querySelectorAll('[data-action="delete-goal"]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const id = Number(btn.dataset.id);
+      const id = btn.dataset.id;
       showConfirm({
         title: 'Delete Goal',
         message: 'Are you sure you want to remove this goal?',

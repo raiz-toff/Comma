@@ -22,7 +22,7 @@ export default {
   evaluate: async (ctx) => {
     const weekGross = sumGross(ctx.weekShifts);
     const expenseTotal = ctx.weekExpenses.reduce(
-      (sum, e) => sum + Math.max(0, num(e.amount)) * (Math.max(0, Math.min(100, num(e.businessPct, 100))) / 100),
+      (sum, e) => sum + Math.max(0, num(e.amount)) * (Math.max(0, Math.min(100, num(e.deductiblePct, 100))) / 100),
       0,
     );
     if (weekGross > 0) {

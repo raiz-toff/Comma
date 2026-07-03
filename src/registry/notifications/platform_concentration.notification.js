@@ -27,8 +27,7 @@ export default {
     const byPlatform = {};
     for (const s of last30DaysShifts) {
       const pid = String(s.platformId || 'other');
-      const raw = s.grossEarnings ?? s.gross;
-      const dollars = s.grossEarnings != null ? Math.max(0, Number(raw)) / 100 : Math.max(0, Number(raw));
+      const dollars = Math.max(0, Number(s.grossRevenue) || 0);
       byPlatform[pid] = (byPlatform[pid] || 0) + dollars;
     }
 

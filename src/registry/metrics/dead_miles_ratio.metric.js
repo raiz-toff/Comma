@@ -14,9 +14,9 @@ export default {
   messageKey: 'analytics.deadMilesRatio',
   /** @param {unknown} shift @param {unknown} [_vehicle] */
   calcPerShift: (shift, _vehicle) => {
-    const s = /** @type {{ deadMilesKm?: unknown; distanceKm?: unknown }} */ (shift);
-    const dead = num(s.deadMilesKm);
-    const biz = num(s.distanceKm);
+    const s = /** @type {{ deadMileage?: unknown; activeMileage?: unknown }} */ (shift);
+    const dead = num(s.deadMileage);
+    const biz = num(s.activeMileage);
     const total = dead + biz;
     if (total <= 0) return null;
     return (dead / total) * 100;

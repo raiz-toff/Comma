@@ -50,6 +50,17 @@ function num(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function normStrLocal(v) {
+  return typeof v === 'string' ? v.trim() : '';
+}
+
+/** Schema-alignment pass: shift money fields are plain dollars now, not cents — just stringify. */
+function moneyStr(v) {
+  if (v == null || v === '') return '';
+  const n = Number(v);
+  return Number.isFinite(n) ? String(n) : '';
+}
+
 function minutesFromTimes(date, startHm, endHm) {
   if (!date || !startHm || !endHm) return 0;
   const start = new Date(`${date}T${startHm}:00`);
@@ -191,6 +202,15 @@ export function renderShiftForm(opts = {}) {
             <button type="button" class="btn btn-ghost" data-keypad="gross">${escapeHtml(t('ui.keypad.open'))}</button>
           </div>
         </label>
+
+        <div class="shifts-multiplatform field--span2" data-mp-section>
+          <div class="shifts-mp-header">
+            <span class="field-label">${escapeHtml(t('shifts.platformsWorkedLabel'))}</span>
+            <button type="button" class="btn btn-ghost btn-sm" data-action="add-platform">${escapeHtml(t('shifts.addPlatformBtn'))}</button>
+          </div>
+          <p class="field-hint is-hidden" data-mp-hint>${escapeHtml(t('shifts.platformsWorkedHint'))}</p>
+          <div class="shifts-mp-list" data-mp-list></div>
+        </div>
 
         <div class="shifts-form-toggle">
           <button type="button" class="btn btn-ghost" data-action="toggle-advanced" aria-expanded="false">${escapeHtml(t('shifts.advancedToggle'))}</button>
@@ -336,12 +356,125 @@ export function renderShiftForm(opts = {}) {
   const psWrap = /** @type {HTMLElement | null} */ (wrapper.querySelector('[data-ps-wrap]'));
   const psFields = /** @type {HTMLElement | null} */ (wrapper.querySelector('[data-ps-fields]'));
   const psObjHint = /** @type {HTMLElement | null} */ (wrapper.querySelector('[data-ps-object-hint]'));
+  const mpList = /** @type {HTMLElement | null} */ (wrapper.querySelector('[data-mp-list]'));
+  const mpHint = /** @type {HTMLElement | null} */ (wrapper.querySelector('[data-mp-hint]'));
 
   let psDraft = cloneJsonObject(
     initial.platformSpecific && typeof initial.platformSpecific === 'object'
       ? /** @type {Record<string, unknown>} */ (initial.platformSpecific)
       : {},
   );
+
+  /**
+   * Multi-platform shift split (interop plan Workstream 4 — mirrors mobile's `shiftPlatforms`
+   * table). The top-level platformId/gross/tips/orders/onlineMinutes/activeMinutes fields above
+   * ALWAYS represent "platform row 1" (the primary platform) — single-platform shifts never see
+   * any of this UI beyond the small "add another platform" button, so today's flow is unchanged.
+   * Rows 2+ are entered here and combined with row 1 into a `shiftPlatforms` array by `getValue()`;
+   * `shifts.js` sums the array into the shift's own aggregate grossRevenue/tipsRevenue/deliveryCount.
+   * @typedef {{ platform: string, grossRevenue: string, tipsRevenue: string, tripsCount: string, onlineMinutes: string }} MpRow
+   */
+  const initialPlatformRows = Array.isArray(initial.shiftPlatforms)
+    ? /** @type {Record<string, unknown>[]} */ (initial.shiftPlatforms).filter((r) => r && typeof r === 'object')
+    : [];
+  /** Row 1 override — when editing a shift that already has a shiftPlatforms breakdown, row 1's
+   * fields come from shiftPlatforms[0] (that platform's own numbers), not the shift's aggregate
+   * grossRevenue/tipsRevenue/deliveryCount (which is a SUM across all platforms once this
+   * breakdown exists — see shifts.js normalizeShiftInput). */
+  const row1Source =
+    initialPlatformRows.length >= 1
+      ? {
+          grossRevenue: initialPlatformRows[0].grossRevenue,
+          tipsRevenue: initialPlatformRows[0].tipsRevenue,
+          deliveryCount: initialPlatformRows[0].tripsCount,
+          onlineMinutes:
+            initialPlatformRows[0].platformOnlineSeconds != null
+              ? Math.round(Number(initialPlatformRows[0].platformOnlineSeconds) / 60)
+              : undefined,
+          activeMinutes:
+            initialPlatformRows[0].platformActiveSeconds != null
+              ? Math.round(Number(initialPlatformRows[0].platformActiveSeconds) / 60)
+              : undefined,
+        }
+      : null;
+  /** @type {MpRow[]} */
+  let extraPlatformRows =
+    initialPlatformRows.length > 1
+      ? initialPlatformRows.slice(1).map((r) => ({
+          platform: typeof r.platform === 'string' ? r.platform : '',
+          grossRevenue: moneyStr(r.grossRevenue),
+          tipsRevenue: moneyStr(r.tipsRevenue),
+          tripsCount: r.tripsCount != null ? String(r.tripsCount) : '',
+          onlineMinutes:
+            r.platformOnlineSeconds != null ? String(Math.round(Number(r.platformOnlineSeconds) / 60)) : '',
+        }))
+      : [];
+
+  function blankMpRow() {
+    return { platform: '', grossRevenue: '', tipsRevenue: '', tripsCount: '', onlineMinutes: '' };
+  }
+
+  function mpPlatformOptionsHtml(selected) {
+    return displayPlatforms
+      .map((p) => {
+        const id = String(p.id);
+        const label = typeof p.name === 'string' && p.name ? p.name : id;
+        const sel = id === selected ? ' selected' : '';
+        return `<option value="${escapeAttr(id)}"${sel}>${escapeHtml(label)}</option>`;
+      })
+      .join('');
+  }
+
+  function renderMpRows() {
+    if (!mpList) return;
+    if (mpHint) mpHint.classList.toggle('is-hidden', extraPlatformRows.length === 0);
+    mpList.innerHTML = extraPlatformRows
+      .map(
+        (row, i) => `
+      <div class="shifts-mp-row" data-mp-row data-mp-index="${i}">
+        <label class="field">
+          <span class="field-label">${escapeHtml(t('shifts.platform'))}</span>
+          <select class="input" data-mp-field="platform" data-mp-index="${i}">
+            <option value="">${escapeHtml(t('common.optional'))}</option>
+            ${mpPlatformOptionsHtml(row.platform)}
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">${escapeHtml(t('shifts.gross'))}</span>
+          <input class="input" data-mp-field="grossRevenue" data-mp-index="${i}" inputmode="decimal" placeholder="0.00" value="${escapeAttr(row.grossRevenue)}" />
+        </label>
+        <label class="field">
+          <span class="field-label">${escapeHtml(t('shifts.tips'))}</span>
+          <input class="input" data-mp-field="tipsRevenue" data-mp-index="${i}" inputmode="decimal" placeholder="0.00" value="${escapeAttr(row.tipsRevenue)}" />
+        </label>
+        <label class="field">
+          <span class="field-label">${escapeHtml(t('shifts.platformTripsLabel'))}</span>
+          <input class="input" data-mp-field="tripsCount" data-mp-index="${i}" inputmode="numeric" placeholder="0" value="${escapeAttr(row.tripsCount)}" />
+        </label>
+        <label class="field">
+          <span class="field-label">${escapeHtml(t('shifts.onlineMinutes'))}</span>
+          <input class="input" data-mp-field="onlineMinutes" data-mp-index="${i}" inputmode="numeric" placeholder="0" value="${escapeAttr(row.onlineMinutes)}" />
+        </label>
+        <button type="button" class="btn btn-ghost btn-sm shifts-mp-remove" data-action="remove-platform" data-mp-index="${i}">${escapeHtml(t('shifts.removePlatformBtn'))}</button>
+      </div>
+    `,
+      )
+      .join('');
+
+    mpList.querySelectorAll('[data-mp-field]').forEach((el) => {
+      const handler = () => {
+        const target = /** @type {HTMLInputElement | HTMLSelectElement} */ (el);
+        const idx = Number(target.getAttribute('data-mp-index'));
+        const field = target.getAttribute('data-mp-field');
+        if (Number.isFinite(idx) && field && extraPlatformRows[idx]) {
+          extraPlatformRows[idx][field] = target.value;
+        }
+        recomputeLive();
+      };
+      el.addEventListener('input', handler);
+      el.addEventListener('change', handler);
+    });
+  }
 
   const liveDuration = /** @type {HTMLElement | null} */ (wrapper.querySelector('[data-live-duration]'));
   const liveHourly = /** @type {HTMLElement | null} */ (wrapper.querySelector('[data-live-hourly]'));
@@ -577,6 +710,20 @@ export function renderShiftForm(opts = {}) {
       applyAdvanced();
       return;
     }
+    if (action === 'add-platform') {
+      e.preventDefault();
+      extraPlatformRows.push(blankMpRow());
+      renderMpRows();
+      return;
+    }
+    if (action === 'remove-platform') {
+      e.preventDefault();
+      const idx = Number(target.getAttribute('data-mp-index'));
+      if (Number.isFinite(idx)) extraPlatformRows.splice(idx, 1);
+      renderMpRows();
+      recomputeLive();
+      return;
+    }
     const mood = target.getAttribute('data-mood');
     if (mood != null) {
       e.preventDefault();
@@ -600,46 +747,44 @@ export function renderShiftForm(opts = {}) {
     if (!el) return;
     if (typeof val === 'string' || typeof val === 'number') el.value = String(val);
   };
-  const ge = initial.grossEarnings;
-  const gLegacy = initial.gross;
-  let grossDollars = '';
-  if (ge != null && Number.isFinite(Number(ge))) grossDollars = String(Number(ge) / 100);
-  else if (gLegacy != null && Number.isFinite(Number(gLegacy))) grossDollars = String(Number(gLegacy));
-
-  let tipsDollars = '';
-  if (ge != null && initial.tips != null && Number.isFinite(Number(initial.tips)))
-    tipsDollars = String(Number(initial.tips) / 100);
-  else if (initial.tips != null && Number.isFinite(Number(initial.tips))) tipsDollars = String(Number(initial.tips));
-
-  let bonusDollars = '';
-  if (ge != null && (initial.bonusEarnings != null || initial.bonus != null)) {
-    const b = Number(initial.bonusEarnings ?? initial.bonus ?? 0);
-    if (Number.isFinite(b)) bonusDollars = String(b / 100);
-  } else if (initial.bonus != null && Number.isFinite(Number(initial.bonus))) bonusDollars = String(Number(initial.bonus));
+  // Schema-alignment pass (interop plan Workstream 1): shift rows now store grossRevenue/
+  // tipsRevenue as plain dollars (mobile parity) with bonus folded into customFields.bonusAmount
+  // (mobile has no top-level bonus column). Legacy `gross`/`tips`/`bonus` are still accepted as a
+  // read-side fallback (e.g. shift templates saved before this pass, or callers passing the old
+  // loose draft shape straight through).
+  const grossDollars = moneyStr(row1Source?.grossRevenue ?? initial.grossRevenue ?? initial.gross);
+  const tipsDollars = moneyStr(row1Source?.tipsRevenue ?? initial.tipsRevenue ?? initial.tips);
+  const bonusFromCustomFields =
+    initial.customFields && typeof initial.customFields === 'object'
+      ? /** @type {any} */ (initial.customFields).bonusAmount
+      : undefined;
+  const bonusDollars = moneyStr(bonusFromCustomFields ?? initial.bonusEarnings ?? initial.bonus);
 
   seed('gross', grossDollars);
   seed('tips', tipsDollars);
   seed('bonus', bonusDollars);
-  seed('orders', initial.deliveryCount ?? initial.orders ?? '');
+  seed('orders', row1Source?.deliveryCount ?? initial.deliveryCount ?? initial.orders ?? '');
   let distanceVal = '';
-  if (initial.distanceKm != null && Number.isFinite(Number(initial.distanceKm))) {
-    const km = Number(initial.distanceKm);
+  const activeMileageVal = initial.activeMileage ?? initial.distanceKm;
+  if (activeMileageVal != null && Number.isFinite(Number(activeMileageVal))) {
+    const km = Number(activeMileageVal);
     distanceVal = String(unit === 'mi' ? parseFloat((km / 1.60934).toFixed(2)) : parseFloat(km.toFixed(2)));
   } else if (initial.distance != null) {
     distanceVal = String(initial.distance);
   }
 
   let deadMilesVal = '';
-  if (initial.deadMilesKm != null && Number.isFinite(Number(initial.deadMilesKm))) {
-    const km = Number(initial.deadMilesKm);
+  const deadMileageVal = initial.deadMileage ?? initial.deadMilesKm;
+  if (deadMileageVal != null && Number.isFinite(Number(deadMileageVal))) {
+    const km = Number(deadMileageVal);
     deadMilesVal = String(unit === 'mi' ? parseFloat((km / 1.60934).toFixed(2)) : parseFloat(km.toFixed(2)));
   } else if (initial.deadMiles != null) {
     deadMilesVal = String(initial.deadMiles);
   }
 
   seed('distance', distanceVal);
-  seed('onlineMinutes', initial.onlineMinutes ?? '');
-  seed('activeMinutes', initial.activeMinutes ?? '');
+  seed('onlineMinutes', row1Source?.onlineMinutes ?? initial.onlineMinutes ?? '');
+  seed('activeMinutes', row1Source?.activeMinutes ?? initial.activeMinutes ?? '');
   seed('weather', initial.weather ?? '');
   seed('deadMilesKm', deadMilesVal);
   seed('outOfPocketExpense', initial.outOfPocketExpense ?? '');
@@ -650,6 +795,7 @@ export function renderShiftForm(opts = {}) {
   seed('platformId', defaultPlatformId);
 
   renderPlatformSpecificFields(String(platformSel?.value || defaultPlatformId));
+  renderMpRows();
 
   recomputeLive();
 
@@ -668,7 +814,8 @@ export function renderShiftForm(opts = {}) {
     const distanceKm = distRaw ? parseDistanceToKm(distRaw) : null;
     const onlineMinutes = onlineEl?.value ? Math.floor(num(onlineEl.value)) : null;
     const activeMinutes = activeEl?.value ? Math.floor(num(activeEl.value)) : null;
-    const vehicleId = vehicleSel?.value ? Number(vehicleSel.value) : null;
+    // vehicles.id is a client-generated string (Fix 2 — interop plan); no numeric coercion.
+    const vehicleId = vehicleSel?.value ? String(vehicleSel.value) : null;
     const weather = weatherSel?.value ? String(weatherSel.value) : null;
     const deadRaw = deadMilesEl?.value ? Math.max(0, num(deadMilesEl.value)) : 0;
     const deadMilesKm =
@@ -704,6 +851,33 @@ export function renderShiftForm(opts = {}) {
       }
     }
 
+    // Multi-platform breakdown (interop plan Workstream 4): row 1 mirrors the top-level fields
+    // above exactly, so a single-platform shift produces a `shiftPlatforms` array of length 1 whose
+    // sole entry equals what the shift-level fields already say — shifts.js's sum-from-breakdown
+    // logic is then a no-op for single-platform shifts (identical to pre-multi-platform behavior).
+    const mpRow1 = {
+      platform: platformId,
+      grossRevenue: gross ?? 0,
+      tipsRevenue: tips ?? 0,
+      tripsCount: orders ?? 0,
+      platformOnlineSeconds: Math.max(0, Math.round((onlineMinutes ?? 0) * 60)),
+      platformActiveSeconds: Math.max(0, Math.round((activeMinutes ?? onlineMinutes ?? 0) * 60)),
+    };
+    const mpExtra = extraPlatformRows
+      .filter((r) => normStrLocal(r.platform))
+      .map((r) => {
+        const onlineSec = r.onlineMinutes ? Math.max(0, Math.round(num(r.onlineMinutes) * 60)) : 0;
+        return {
+          platform: normStrLocal(r.platform),
+          grossRevenue: r.grossRevenue ? Math.max(0, num(r.grossRevenue)) : 0,
+          tipsRevenue: r.tipsRevenue ? Math.max(0, num(r.tipsRevenue)) : 0,
+          tripsCount: r.tripsCount ? Math.max(0, Math.floor(num(r.tripsCount))) : 0,
+          platformOnlineSeconds: onlineSec,
+          platformActiveSeconds: onlineSec,
+        };
+      });
+    const shiftPlatforms = [mpRow1, ...mpExtra];
+
     return {
       platformId,
       date,
@@ -723,6 +897,7 @@ export function renderShiftForm(opts = {}) {
       mood,
       notes,
       platformSpecific,
+      shiftPlatforms,
     };
   };
 

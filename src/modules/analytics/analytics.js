@@ -22,18 +22,13 @@ function num(v, fallback = 0) {
 
 /**
  * Returns total earnings for a shift in CENTS.
- * Handles both new schema (grossEarnings / tips / bonusEarnings in cents)
- * and legacy schema (gross / tips / bonus in dollars).
+ * Shift rows store grossRevenue/tipsRevenue in dollars and bonus as
+ * customFields.bonusAmount (dollars); this converts to cents for the
+ * internal cents-based aggregation used throughout this file.
  */
 function grossCents(shift) {
-  const isNew = shift.grossEarnings !== undefined;
-  if (isNew) {
-    return num(shift.grossEarnings) + num(shift.tips) + num(shift.bonusEarnings ?? 0);
-  }
-  // Legacy: all values are in dollars — convert to cents
-  return Math.round(
-    (num(shift.gross) + num(shift.tips) + num(shift.bonus)) * 100
-  );
+  const bonus = Number(shift.customFields?.bonusAmount) || 0;
+  return Math.round((num(shift.grossRevenue) + num(shift.tipsRevenue) + bonus) * 100);
 }
 
 function ymd(d) {
@@ -121,8 +116,12 @@ export async function getStreakCountForActiveFilter(activePlatformId = 'all') {
   return streak;
 }
 
+function shiftDurationMinutesFromSeconds(shift) {
+  return shift.durationSeconds != null ? Math.round(num(shift.durationSeconds) / 60) : 0;
+}
+
 function getDurationMinutes(shift) {
-  return num(shift.durationMinutes || shift.activeMinutes || shift.onlineMinutes);
+  return num(shiftDurationMinutesFromSeconds(shift) || shift.activeMinutes || shift.onlineMinutes);
 }
 
 function parseDate(dateStr) {
@@ -155,11 +154,10 @@ function quarterBuckets(values) {
   return { q1: at(0.25), q2: at(0.5), q3: at(0.75) };
 }
 
+// Fix 1 (interop plan) — shift.startTime is a real epoch-ms timestamp now, not an HH:mm string.
 function shiftStartHour(shift) {
-  const startTime = String(shift.startTime || '');
-  const hour = Number(startTime.slice(0, 2));
-  if (Number.isFinite(hour) && hour >= 0 && hour <= 23) return hour;
-  return null;
+  if (typeof shift.startTime !== 'number' || !Number.isFinite(shift.startTime)) return null;
+  return new Date(shift.startTime).getHours();
 }
 
 function dayPartForHour(hour) {
@@ -193,13 +191,11 @@ async function hydrateDerived(shifts) {
       const gc = grossCents(shift);
       const gross = gc / 100;
       const durationMinutes = getDurationMinutes(shift);
-      const isNew = shift.grossEarnings !== undefined;
-      const tips  = isNew ? num(shift.tips) / 100 : num(shift.tips);
-      const bonus = isNew ? num(shift.bonusEarnings ?? 0) / 100 : num(shift.bonus);
-      const orders = num(shift.deliveryCount ?? shift.orders);
-      const distanceKm = num(shift.distanceKm);
-      const expenseCents = await getTotalExpensesForPeriod(shift.date, shift.date, shift.platformId || undefined);
-      const expense = expenseCents / 100;
+      const tips = num(shift.tipsRevenue);
+      const bonus = Number(shift.customFields?.bonusAmount) || 0;
+      const orders = num(shift.deliveryCount);
+      const distanceKm = num(shift.activeMileage);
+      const expense = await getTotalExpensesForPeriod(shift.date, shift.date, shift.platformId || undefined);
       return {
         ...shift,
         gross,
@@ -264,20 +260,15 @@ function aggregateShiftsLight(shifts) {
   let activeMinutes = 0;
   let onlineMinutes = 0;
   for (const s of shifts) {
-    const isNew = s.grossEarnings !== undefined;
     // grossCents() already includes tips+bonus; pull individual breakdowns separately
     gross += grossCents(s) / 100;
-    if (isNew) {
-      tips  += num(s.tips) / 100;
-      bonus += num(s.bonusEarnings ?? 0) / 100;
-    } else {
-      tips  += num(s.tips);
-      bonus += num(s.bonus);
-    }
-    orders  += num(s.deliveryCount ?? s.orders);
+    tips  += num(s.tipsRevenue);
+    bonus += Number(s.customFields?.bonusAmount) || 0;
+    orders  += num(s.deliveryCount);
     minutes += getDurationMinutes(s);
-    activeMinutes += num(s.activeMinutes || s.durationMinutes || s.onlineMinutes);
-    onlineMinutes += num(s.onlineMinutes || s.durationMinutes || s.activeMinutes);
+    const durMin = shiftDurationMinutesFromSeconds(s);
+    activeMinutes += num(s.activeMinutes || durMin || s.onlineMinutes);
+    onlineMinutes += num(s.onlineMinutes || durMin || s.activeMinutes);
   }
   const hourlyRate = calcHourlyRate(gross, minutes);
   const activeHourlyRate = calcHourlyRate(gross, activeMinutes);
@@ -355,12 +346,10 @@ export async function getFinancialOverviewForRange(startDate, endDate, activePla
   const shifts = filterShiftsByActivePlatform(await listShiftsBetween(startDate, endDate), activePlatformId);
   const s = aggregateShiftsLight(shifts);
   const pid = String(activePlatformId ?? 'all') === 'all' ? undefined : String(activePlatformId);
-  const [expenseCents, oopCents] = await Promise.all([
+  const [expense, outOfPocket] = await Promise.all([
     getTotalExpensesForPeriod(startDate, endDate, pid),
     getOutOfPocketExpensesForPeriod(startDate, endDate, pid),
   ]);
-  const expense = expenseCents / 100;
-  const outOfPocket = oopCents / 100;
   const netIncome = s.gross - expense;
   const hours = s.minutes / 60;
   const activeHours = s.activeMinutes / 60;
@@ -385,7 +374,7 @@ export async function getFinancialOverviewForRange(startDate, endDate, activePla
     const segShifts = filterShiftsByActivePlatform(await listShiftsBetween(effStart, effEnd), activePlatformId);
     const seg = aggregateShiftsLight(segShifts);
     const expC = await getTotalExpensesForPeriod(effStart, effEnd, pid);
-    const net = seg.gross - expC / 100;
+    const net = seg.gross - expC;
     weekIdx += 1;
     weekNets.push({ index: weekIdx, net, start: effStart, end: effEnd, gross: seg.gross });
     segmentStart = addDaysToYmd(effEnd, 1);
@@ -458,7 +447,7 @@ export async function getFinancialMonthlyBreakdown(startDate, endDate, activePla
     if (d.length < 7) continue;
     const key = d.slice(0, 7);
     const amt = num(e.amount);
-    const bp = num(e.businessPct, 100);
+    const bp = num(e.deductiblePct, 100);
     const cur = expenseByMonth.get(key) || { biz: 0, oop: 0 };
     cur.biz += amt * (bp / 100);
     cur.oop += amt * ((100 - bp) / 100);
@@ -487,8 +476,8 @@ export async function getFinancialMonthlyBreakdown(startDate, endDate, activePla
     const seg = aggregateShiftsLight(shiftsByMonth.get(period) || []);
     const ex = expenseByMonth.get(period) || { biz: 0, oop: 0 };
     const earnings = seg.gross;
-    const expenses = ex.biz / 100;
-    const outOfPocket = ex.oop / 100;
+    const expenses = ex.biz;
+    const outOfPocket = ex.oop;
     const net = earnings - expenses;
     const hours = seg.minutes / 60;
     const efficiency = hours > 0 ? net / hours : 0;
@@ -577,8 +566,9 @@ export async function getRolling30DayTrend(activePlatformId = 'all', options = {
   for (const s of shifts) {
     const d = s.date;
     const gross = grossCents(s) / 100;
-    const actM = num(s.activeMinutes || s.durationMinutes || s.onlineMinutes);
-    const onlM = num(s.onlineMinutes || s.durationMinutes || s.activeMinutes);
+    const durMin = shiftDurationMinutesFromSeconds(s);
+    const actM = num(s.activeMinutes || durMin || s.onlineMinutes);
+    const onlM = num(s.onlineMinutes || durMin || s.activeMinutes);
 
     byDayGross.set(d, (byDayGross.get(d) || 0) + gross);
     byDayActiveM.set(d, (byDayActiveM.get(d) || 0) + actM);
@@ -667,9 +657,9 @@ export async function getBestTimeOfDay(startDate, endDate, activePlatformId = 'a
   );
   const buckets = new Map();
   for (const s of shifts) {
-    const startTime = String(s.startTime || '');
-    const hour = Number(startTime.slice(0, 2));
-    if (!Number.isFinite(hour)) continue;
+    // Fix 1 (interop plan) — s.startTime is a real epoch-ms timestamp now.
+    if (typeof s.startTime !== 'number' || !Number.isFinite(s.startTime)) continue;
+    const hour = new Date(s.startTime).getHours();
     buckets.set(hour, (buckets.get(hour) || 0) + grossCents(s));
   }
   if (buckets.size === 0) return { hour: -1, gross: 0 };
@@ -693,8 +683,8 @@ export async function getDeadMilesSummary(startDate, endDate, activePlatformId =
   let deadKm = 0;
   let businessKm = 0;
   for (const s of shifts) {
-    deadKm += num(s.deadMilesKm);
-    businessKm += num(s.distanceKm);
+    deadKm += num(s.deadMileage);
+    businessKm += num(s.activeMileage);
   }
   const total = deadKm + businessKm;
   const ratio = total > 0 ? deadKm / total : 0;
@@ -744,8 +734,8 @@ export async function getIncomeSourceBreakdown(activePlatformId = 'all') {
   let bonusCents = 0;
   for (const s of shifts) {
     const g = grossCents(s);
-    const t = num(s.tips);
-    const b = num(s.bonusEarnings ?? s.bonus);
+    const t = Math.round(num(s.tipsRevenue) * 100);
+    const b = Math.round((Number(s.customFields?.bonusAmount) || 0) * 100);
     tipsCents += t;
     bonusCents += b;
     baseCents += Math.max(0, g - t - b);
@@ -758,7 +748,7 @@ export async function getPersonalRecords() {
   const normalized = shifts.map((s) => ({
     gross: grossCents(s) / 100,
     durationMinutes: getDurationMinutes(s),
-    orders: num(s.deliveryCount ?? s.orders),
+    orders: num(s.deliveryCount),
   }));
   return calcPersonalRecords(normalized);
 }
@@ -784,7 +774,7 @@ export async function getZerodays(startDate, endDate, activePlatformId = 'all') 
 export async function getEarningsPerKm(startDate, endDate) {
   const shifts = await listShiftsBetween(startDate, endDate);
   const gross = shifts.reduce((sum, s) => sum + grossCents(s), 0);
-  const distance = shifts.reduce((sum, s) => sum + num(s.distanceKm), 0);
+  const distance = shifts.reduce((sum, s) => sum + num(s.activeMileage), 0);
   return calcEarningsPerKm(gross / 100, distance);
 }
 
@@ -802,7 +792,8 @@ export async function getWeeklyProjection(activePlatformId = 'all', options = {}
   const end = endOfWeek(today, 1);
   const shifts = filterShiftsByActivePlatform(await listShiftsBetween(ymd(start), ymd(end)), activePlatformId);
   const points = shifts.map((s) => ({
-    startAt: `${s.date}T${String(s.startTime || '00:00')}:00`,
+    // Fix 1 (interop plan) — s.startTime is a real epoch-ms timestamp now.
+    startAt: typeof s.startTime === 'number' ? new Date(s.startTime).toISOString() : `${s.date}T00:00:00`,
     gross: grossCents(s) / 100,
   }));
   return projectWeekEarnings(points, today);
@@ -913,7 +904,7 @@ export async function getRecentActivity(limit = 8, activePlatformId = 'all') {
       date: s.date,
       platformId: s.platformId,
       gross: grossCents(s) / 100,
-      orders: num(s.deliveryCount ?? s.orders),
+      orders: num(s.deliveryCount),
     }));
 }
 
@@ -968,7 +959,8 @@ export async function getDiminishingReturnsByShiftPosition() {
   }
   const buckets = new Map();
   for (const rows of byDate.values()) {
-    rows.sort((a, b) => String(a.startTime || '').localeCompare(String(b.startTime || '')));
+    // Fix 1 (interop plan) — startTime is a real epoch-ms timestamp now; sort numerically.
+    rows.sort((a, b) => (Number(a.startTime) || 0) - (Number(b.startTime) || 0));
     rows.forEach((s, idx) => {
       const position = idx + 1;
       const hourly = getDurationMinutes(s) > 0 ? calcHourlyRate(grossCents(s) / 100, getDurationMinutes(s)) : 0;
@@ -1079,7 +1071,7 @@ export async function getOrdersPerHour(startDate, endDate) {
   let orders = 0;
   let minutes = 0;
   for (const s of shifts) {
-    orders += num(s.deliveryCount ?? s.orders);
+    orders += num(s.deliveryCount);
     minutes += getDurationMinutes(s);
   }
   const hours = minutes / 60;
@@ -1144,7 +1136,7 @@ export async function getNetWorthContribution(startDate, endDate) {
   const dates = shifts.map((s) => String(s.date)).sort();
   const rangeStart = startDate || dates[0];
   const rangeEnd = endDate || dates[dates.length - 1];
-  const gross = shifts.reduce((sum, s) => sum + grossCents(s), 0);
+  const gross = shifts.reduce((sum, s) => sum + grossCents(s), 0) / 100;
   const expenses = await getTotalExpensesForPeriod(rangeStart, rangeEnd);
   const net = gross - expenses;
   return {

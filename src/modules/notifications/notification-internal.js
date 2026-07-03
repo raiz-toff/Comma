@@ -276,22 +276,14 @@ export async function getWeeklyGoal(user, weekStart, weekEnd) {
     .where('date').between(weekStart, weekEnd, true, true)
     .filter((s) => s.deletedAt == null)
     .toArray();
-  return history.reduce((sum, s) => {
-    const raw = s.grossEarnings ?? s.gross;
-    const dollars = s.grossEarnings != null ? Math.max(0, num(raw)) / 100 : Math.max(0, num(raw));
-    return sum + dollars;
-  }, 0);
+  return sumGross(history);
 }
 
 /**
  * @param {Array<Record<string, unknown>>} shifts
  */
 export function sumGross(shifts) {
-  return shifts.reduce((sum, s) => {
-    const raw = s.grossEarnings ?? s.gross;
-    const dollars = s.grossEarnings != null ? Math.max(0, num(raw)) / 100 : Math.max(0, num(raw));
-    return sum + dollars;
-  }, 0);
+  return shifts.reduce((sum, s) => sum + Math.max(0, num(s.grossRevenue)), 0);
 }
 
 /**

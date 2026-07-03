@@ -13,7 +13,7 @@ export default {
   condition: () => false,
   checkFromShift: async (ctx) => {
     const shift = ctx.shift;
-    const gross = num(shift?.gross ?? shift?.grossEarnings, 0);
-    return ((s) => num(s.shift.activeMinutes ?? s.shift.durationMinutes, 0) >= 8 * 60)({ shift, gross, weekGross: ctx.weekGross, monthGross: ctx.monthGross });
+    const gross = num(shift?.grossRevenue, 0);
+    return ((s) => num(s.shift.activeMinutes ?? Math.round((s.shift.durationSeconds || 0) / 60), 0) >= 8 * 60)({ shift, gross, weekGross: ctx.weekGross, monthGross: ctx.monthGross });
   },
 };

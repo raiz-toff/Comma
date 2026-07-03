@@ -231,7 +231,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     try {
-      await runOnOpenNotificationCheck();
+      // Proactive notification detectors disabled — mobile parity not built yet,
+      // see comma/../now-as-the-app-cozy-gray.md Workstream 7.
+      // await runOnOpenNotificationCheck();
       await runRecurringExpensePromptOnce();
       await purgeOldDeleted('shifts', 30);
       await purgeOldDeleted('expenses', 30);

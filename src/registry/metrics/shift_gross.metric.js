@@ -10,9 +10,9 @@ export default {
   /** @param {unknown} shift @param {unknown} [_vehicle] */
   calcPerShift: (shift, _vehicle) => {
     const s = /** @type {any} */ (shift);
-    const base = Number(s?.grossEarnings ?? s?.gross ?? 0);
-    const tips = Number(s?.tips ?? 0);
-    const bonus = Number(s?.bonusEarnings ?? s?.bonus ?? 0);
-    return (base + tips + bonus) / 100;
+    const base = Number(s?.grossRevenue ?? 0);
+    const tips = Number(s?.tipsRevenue ?? 0);
+    const bonus = Number(s?.customFields?.bonusAmount) || 0;
+    return base + tips + bonus;
   },
 };

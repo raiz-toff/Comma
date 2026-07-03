@@ -1,4 +1,3 @@
-import SortableMod from '../../libs/sortable.min.js';
 import { db, getUser, saveUser, getAppState, setAppState, purgeOldDeleted } from '../../core/db.js';
 import { store } from '../../core/store.js';
 import { bus, THEME_CHANGED, PLATFORM_CHANGED, GOAL_UPDATED } from '../../core/events.js';
@@ -15,13 +14,7 @@ import { formatShortcutOverlayListItems } from './keyboard-shortcuts.js';
 import { normalizeAccentHex } from './settings-utils.js';
 import { updateAccentColor } from '../../core/adaptive-theme.js';
 import { pwaCapabilities, toggleFullscreen } from '../pwa/pwa.js';
-import {
-  getOrderedDashboardWidgetIds,
-  getAllSelectableWidgetIds,
-  WidgetRegistry,
-} from '../../registry/widgets/index.js';
 
-const Sortable = /** @type {any} */ (SortableMod).default || SortableMod;
 const DEBUG_TAP_WINDOW_MS = 5500;
 const PRESET_ACCENTS = [
   '#10B981',
@@ -37,7 +30,6 @@ const PRESET_ACCENTS = [
   '#D97706',
   '#6B7280',
 ];
-const WIDGET_CHOICES = getAllSelectableWidgetIds();
 const SETTINGS_EXPANDED_KEY = 'comma-settings-expanded-v1';
 
 function loadSettingsExpanded() {
@@ -210,7 +202,7 @@ async function dbStats() {
       if (!minDate || s.date < minDate) minDate = s.date;
       if (!maxDate || s.date > maxDate) maxDate = s.date;
     }
-    totalKm += Number(s.distanceKm) || 0;
+    totalKm += Number(s.activeMileage) || 0;
   }
   return { count, minDate, maxDate, totalKm };
 }
@@ -281,7 +273,6 @@ export async function mountSettings(root, ctx = {}) {
   root.textContent = '';
   const user = (await getUser()) || {};
   const notificationPrefs = defaultNotificationPrefs(user.notificationPrefs);
-  const widgets = user.dashboardWidgets == null ? getOrderedDashboardWidgetIds(user) : (Array.isArray(user.dashboardWidgets) ? [...user.dashboardWidgets] : []);
   let debugTapCount = 0;
   let debugTapStartedAt = 0;
   let exportedThisSession = false;
@@ -604,44 +595,7 @@ export async function mountSettings(root, ctx = {}) {
         </div>
       </section>
 
-      <section class="settings-view-section card card-raised settings-collapsible ${isOpen('dashboard') ? 'is-expanded' : ''}" data-settings-collapsible="dashboard">
-        <header class="settings-collapsible-header" data-settings-toggle="dashboard">
-          <div class="settings-collapsible-title-wrap">
-            <h2 class="settings-section-title">${esc(t('settings.dashboardSectionTitle'))}</h2>
-            <p class="settings-collapsible-summary">${widgets.length} widgets active</p>
-          </div>
-          <span class="settings-collapsible-icon">${getIcon('chevron-down', 20)}</span>
-        </header>
-        <div class="settings-collapsible-body">
-          <p class="text-secondary settings-section-lead">${esc(t('settings.dashboardSectionLead'))}</p>
-          <ul class="settings-sortable-list" data-widget-sort>
-            ${widgets
-              .map((wObj) => {
-                const id = typeof wObj === 'string' ? wObj : wObj?.id;
-                const def = WidgetRegistry.getById(id);
-                const size = (typeof wObj === 'string' ? null : wObj?.size) || def?.defaultSize || '1x1';
-                const label = def ? def.label : id;
-                return `<li class="settings-sortable-item" data-widget-id="${esc(id)}" data-widget-size="${esc(size)}">
-                  <span class="settings-widget-label">${esc(label)} <small style="opacity:0.5">(${esc(size)})</small></span>
-                  <button type="button" class="btn btn-ghost btn-xs settings-widget-remove" data-remove-widget="${esc(id)}" aria-label="Remove ${esc(label)}">✕</button>
-                </li>`;
-              })
-              .join('')}
-          </ul>
-
-          <label class="input-group">
-            <span class="input-label">Bento layout preset</span>
-            <select class="input" data-setting-bento>
-              <option value="balanced" ${user.bentoLayout === 'balanced' ? 'selected' : ''}>Balanced</option>
-              <option value="focus" ${user.bentoLayout === 'focus' ? 'selected' : ''}>Focus</option>
-              <option value="dense" ${user.bentoLayout === 'dense' ? 'selected' : ''}>Dense</option>
-            </select>
-          </label>
-          <div class="settings-actions">
-            <button type="button" class="btn btn-primary btn-sm" data-save-dashboard>${esc(t('common.save'))}</button>
-          </div>
-        </div>
-      </section>`;
+`;
       })()}
     </div>
     <div class="settings-tabpanel" id="settings-panel-platforms" role="tabpanel" aria-labelledby="settings-tab-platforms" data-settings-panel="platforms" ${th('platforms')}>
@@ -792,19 +746,6 @@ export async function mountSettings(root, ctx = {}) {
     bus.on('drive:disconnected', () => renderBackupStatus(backupHost));
     bus.on('backup:success', () => renderBackupStatus(backupHost));
     bus.on('backup:failed', () => renderBackupStatus(backupHost));
-  }
-
-  const widgetSort = /** @type {HTMLElement | null} */ (root.querySelector('[data-widget-sort]'));
-  if (widgetSort) {
-    Sortable.create(widgetSort, { animation: 150, ghostClass: 'sortable-ghost' });
-    widgetSort.addEventListener('click', (ev) => {
-      const btn = ev.target instanceof Element ? ev.target.closest('[data-remove-widget]') : null;
-      if (btn) {
-        ev.preventDefault();
-        btn.closest('.settings-sortable-item')?.remove();
-        showToast({ type: 'info', message: 'Widget removed. Save to apply.', duration: 2000 });
-      }
-    });
   }
 
   function replaceSettingsTabHash(tab) {
@@ -1004,20 +945,6 @@ export async function mountSettings(root, ctx = {}) {
       });
     }
   }
-
-  root.querySelector('[data-save-dashboard]')?.addEventListener('click', async () => {
-    const order = [...root.querySelectorAll('[data-widget-sort] [data-widget-id]')].map((el) => ({
-      id: String(el.getAttribute('data-widget-id')),
-      size: String(el.getAttribute('data-widget-size') || '1x1'),
-      visible: true
-    }));
-
-    const bentoLayout = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-bento]'))?.value || 'balanced';
-    await saveUser({ dashboardWidgets: order, bentoLayout });
-    await store.refresh('user');
-    bus.emit('dashboard:updated');
-    showToast({ type: 'success', message: 'Dashboard personalization saved.' });
-  });
 
   root.addEventListener('click', (ev) => {
     const toggle = ev.target instanceof Element ? ev.target.closest('[data-settings-toggle]') : null;

@@ -13,7 +13,7 @@ export default {
   condition: () => false,
   checkFromShift: async (ctx) => {
     const shift = ctx.shift;
-    const gross = num(shift?.gross ?? shift?.grossEarnings, 0);
-    return ((s) => num(s.shift.tips, 0) > 0 && s.gross > 0 && num(s.shift.tips, 0) / s.gross >= 0.25)({ shift, gross, weekGross: ctx.weekGross, monthGross: ctx.monthGross });
+    const gross = num(shift?.grossRevenue, 0);
+    return ((s) => num(s.shift.tipsRevenue, 0) > 0 && s.gross > 0 && num(s.shift.tipsRevenue, 0) / s.gross >= 0.25)({ shift, gross, weekGross: ctx.weekGross, monthGross: ctx.monthGross });
   },
 };

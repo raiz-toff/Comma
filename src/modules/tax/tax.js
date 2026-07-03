@@ -129,13 +129,14 @@ async function loadTaxSummary(year) {
     .filter((row) => row.deletedAt == null)
     .toArray();
 
-  const grossCents = shifts.reduce((sum, s) => sum + num(s.grossEarnings ?? s.gross) + num(s.tips) + num(s.bonusEarnings ?? s.bonus), 0);
-  const gross = grossCents / 100;
-  const businessExpensesCents = expenses.reduce(
-    (sum, e) => sum + num(e.amount) * (num(e.businessPct, 100) / 100),
+  const gross = shifts.reduce(
+    (sum, s) => sum + num(s.grossRevenue) + num(s.tipsRevenue) + (Number(s.customFields?.bonusAmount) || 0),
     0,
   );
-  const businessExpenses = businessExpensesCents / 100;
+  const businessExpenses = expenses.reduce(
+    (sum, e) => sum + num(e.amount) * (num(e.deductiblePct, 100) / 100),
+    0,
+  );
   const netIncome = Math.max(0, gross - businessExpenses);
   const taxRatePct = num(user?.taxWithholdingPct, taxProfile.defaultWithholdingPct);
   const taxSetAside = calcTaxSetAside(gross, taxRatePct);
@@ -156,11 +157,10 @@ async function loadTaxSummary(year) {
 
   const hstRate = taxProfile.hstRateWhenRegistered || 0;
   const hstCollected = user?.hstRegistered ? gross * hstRate : 0;
-  const itcTotalCents = expenses.reduce((sum, e) => sum + num(e.hstPaid ?? e.hstItcAmount), 0);
-  const itcTotal = itcTotalCents / 100;
+  const itcTotal = expenses.reduce((sum, e) => sum + num(e.hstPaid ?? e.hstItcAmount), 0);
   const hstRemittable = calcHSTRemittable(hstCollected, itcTotal);
 
-  const distanceKm = shifts.reduce((sum, s) => sum + num(s.distanceKm), 0);
+  const distanceKm = shifts.reduce((sum, s) => sum + num(s.activeMileage), 0);
   const totalMiles = distanceKm * 0.621371192;
   const actualCostDeduction = businessExpenses;
 

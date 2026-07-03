@@ -126,7 +126,7 @@ export default {
           </div>
           <div style="display:flex;align-items:center;gap:6px;">
             <span style="font-size:0.65rem;color:var(--color-text-muted);font-weight:700;">${pct}%</span>
-            <span class="pa-val">${formatCurrency(p.gross / 100, country, { currency })}</span>
+            <span class="pa-val">${formatCurrency(p.gross, country, { currency })}</span>
           </div>
         </div>
       `;

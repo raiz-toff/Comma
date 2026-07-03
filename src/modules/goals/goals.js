@@ -1,4 +1,5 @@
 import { db, getAppState, setAppState } from '../../core/db.js';
+import { newId } from '../../core/id.js';
 import { BadgeRegistry } from '../../registry/badges/index.js';
 import { GoalScopeRegistry, GoalTypeRegistry } from '../../registry/goal-types/index.js';
 import {
@@ -108,21 +109,21 @@ async function sumShiftMetric(startDate, endDate, metric) {
   let total = 0;
   for (const shift of shifts) {
     if (metric === 'earnings') {
-      const base = shift.grossEarnings != null ? num(shift.grossEarnings) / 100 : num(shift.gross, 0);
-      const tips = shift.grossEarnings != null ? num(shift.tips ?? 0) / 100 : num(shift.tips, 0);
-      const bonus = shift.grossEarnings != null ? num(shift.bonusEarnings ?? shift.bonus ?? 0) / 100 : num(shift.bonus, 0);
+      const base = num(shift.grossRevenue);
+      const tips = num(shift.tipsRevenue);
+      const bonus = Number(shift.customFields?.bonusAmount) || 0;
       total += (base + tips + bonus);
     }
     else if (metric === 'tips') {
-      total += shift.grossEarnings != null ? num(shift.tips ?? 0) / 100 : num(shift.tips, 0);
+      total += num(shift.tipsRevenue);
     }
-    else if (metric === 'deliveries') total += num(shift.deliveryCount ?? shift.orders, 0);
-    else if (metric === 'hours') total += num(shift.activeMinutes ?? shift.durationMinutes, 0) / 60;
-    else if (metric === 'distance') total += num(shift.distanceKm, 0);
+    else if (metric === 'deliveries') total += num(shift.deliveryCount, 0);
+    else if (metric === 'hours') total += num(shift.activeMinutes ?? Math.round(num(shift.durationSeconds) / 60), 0) / 60;
+    else if (metric === 'distance') total += num(shift.activeMileage, 0);
     else if (metric === 'net_profit') {
-      const g = shift.grossEarnings != null ? num(shift.grossEarnings ?? 0) / 100 : num(shift.gross, 0);
-      const tips = shift.grossEarnings != null ? num(shift.tips ?? 0) / 100 : num(shift.tips, 0);
-      const bonus = shift.grossEarnings != null ? num(shift.bonusEarnings ?? shift.bonus ?? 0) / 100 : num(shift.bonus, 0);
+      const g = num(shift.grossRevenue);
+      const tips = num(shift.tipsRevenue);
+      const bonus = Number(shift.customFields?.bonusAmount) || 0;
       total += Math.max(0, g - tips - bonus);
     }
   }
@@ -289,9 +290,9 @@ export async function checkPersonalRecords(newShift) {
   let changed = false;
   let changedGross = false;
   let changedNetHourly = false;
-  const base = newShift?.grossEarnings != null ? num(newShift.grossEarnings) / 100 : num(newShift?.gross ?? newShift?.grossEarnings, 0);
-  const tips = newShift?.grossEarnings != null ? num(newShift.tips ?? 0) / 100 : num(newShift?.tips, 0);
-  const bonus = newShift?.grossEarnings != null ? num(newShift.bonusEarnings ?? newShift.bonus ?? 0) / 100 : num(newShift?.bonus, 0);
+  const base = num(newShift?.grossRevenue);
+  const tips = num(newShift?.tipsRevenue);
+  const bonus = Number(newShift?.customFields?.bonusAmount) || 0;
   const gross = base + tips + bonus;
   if (gross > records.bestShiftGross) {
     records.bestShiftGross = gross;
@@ -299,7 +300,7 @@ export async function checkPersonalRecords(newShift) {
     changedGross = true;
   }
 
-  const minutes = num(newShift?.activeMinutes ?? newShift?.durationMinutes, 0);
+  const minutes = num(newShift?.activeMinutes ?? Math.round(num(newShift?.durationSeconds) / 60), 0);
   const netHourly = minutes > 0 ? (gross / minutes) * 60 : 0;
   if (netHourly > records.bestNetHourly) {
     records.bestNetHourly = netHourly;
@@ -364,7 +365,8 @@ export async function checkAllBadges() {
 }
 
 async function handleShiftSaved(payload) {
-  const shiftId = payload && Number.isFinite(Number(payload.id)) ? Number(payload.id) : null;
+  // shifts.id is a client-generated string (Fix 2 — interop plan), not a number.
+  const shiftId = payload && typeof payload.id === 'string' && payload.id ? payload.id : null;
   if (!shiftId) return;
   const shift = await db.shifts.get(shiftId);
   if (!shift || shift.deletedAt != null) return;
@@ -374,9 +376,9 @@ async function handleShiftSaved(payload) {
   await checkPersonalRecords(shift);
   await checkAllBadges();
 
-  const base = shift.grossEarnings != null ? num(shift.grossEarnings) / 100 : num(shift.gross ?? shift.grossEarnings, 0);
-  const tips = shift.grossEarnings != null ? num(shift.tips ?? 0) / 100 : num(shift.tips, 0);
-  const bonus = shift.grossEarnings != null ? num(shift.bonusEarnings ?? shift.bonus ?? 0) / 100 : num(shift.bonus, 0);
+  const base = num(shift.grossRevenue);
+  const tips = num(shift.tipsRevenue);
+  const bonus = Number(shift.customFields?.bonusAmount) || 0;
   const gross = base + tips + bonus;
   const weekGross = await sumShiftMetric(startOfWeek(new Date()), endOfWeek(new Date()), 'earnings');
   const monthGross = await sumShiftMetric(startOfMonth(new Date()), endOfMonth(new Date()), 'earnings');
@@ -387,7 +389,7 @@ async function handleShiftSaved(payload) {
     if (await b.checkFromShift(shiftCtx)) await maybeUnlockBadge(b.id);
   }
 
-  const deliveries = num(shift.deliveryCount ?? shift.orders, 0);
+  const deliveries = num(shift.deliveryCount, 0);
   await refreshChallengeProgress({ earnings: weekGross, deliveries, streak });
   await evaluateGoalHistory();
   bus.emit(GOAL_UPDATED, { source: 'shift_saved', shiftId });
@@ -417,10 +419,11 @@ export async function ensureGoalScaffold() {
   const goals = await db.goals.toArray();
   if (goals.length === 0) {
     const t = nowIso();
+    const syncNow = Date.now();
     await db.goals.bulkAdd([
-      { type: 'earnings', scope: 'daily', platformId: null, target: 80, active: true, createdAt: t },
-      { type: 'earnings', scope: 'weekly', platformId: null, target: 500, active: true, createdAt: t },
-      { type: 'earnings', scope: 'monthly', platformId: null, target: 2000, active: true, createdAt: t },
+      { id: newId('goal'), type: 'earnings', scope: 'daily', platformId: null, target: 80, active: true, createdAt: t, syncUpdatedAt: syncNow, syncDeletedAt: null },
+      { id: newId('goal'), type: 'earnings', scope: 'weekly', platformId: null, target: 500, active: true, createdAt: t, syncUpdatedAt: syncNow, syncDeletedAt: null },
+      { id: newId('goal'), type: 'earnings', scope: 'monthly', platformId: null, target: 2000, active: true, createdAt: t, syncUpdatedAt: syncNow, syncDeletedAt: null },
     ]);
   }
   await ensureChallengeSeeds();
@@ -446,17 +449,24 @@ export async function upsertGoal(goal) {
   const type = String(goal.type || '').toLowerCase();
   if (!GOAL_SCOPES.has(scope)) throw new Error('goal:scope:invalid');
   if (!GOAL_TYPES.has(type)) throw new Error('goal:type:invalid');
+  // Fix 2 (interop plan) — goals.id is a client-generated string (see core/id.js). The previous
+  // `Number(goal.id)` coercion was also a real bug independent of that: for a string id, `NaN`
+  // is falsy, so `if (row.id)` below always failed and every edit fell through to `add()`,
+  // silently creating a duplicate goal instead of updating the existing one.
+  const isNew = !(typeof goal.id === 'string' && goal.id);
   const row = {
-    id: goal.id ? Number(goal.id) : undefined,
+    id: isNew ? newId('goal') : goal.id,
     type,
     scope,
     platformId: goal.platformId ?? null,
     target: Math.max(0, num(goal.target, 0)),
     active: goal.active !== false,
     createdAt: goal.createdAt || nowIso(),
+    syncUpdatedAt: Date.now(),
+    syncDeletedAt: goal.syncDeletedAt ?? null,
   };
-  if (row.id) await db.goals.put(row);
-  else row.id = await db.goals.add(row);
+  if (isNew) await db.goals.add(row);
+  else await db.goals.put(row);
   bus.emit(GOAL_UPDATED, { source: 'upsert_goal', goalId: row.id });
   return row;
 }

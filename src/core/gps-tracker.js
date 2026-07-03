@@ -10,6 +10,16 @@ const LS_WATCH_ID_KEY = 'comma_active_gps_watch_id';
 const LS_FIRST_ORDER_KEY = 'comma_active_gps_first_order';
 const LS_DEAD_DIST_KEY = 'comma_active_gps_dead_distance';
 const LS_ACTIVE_DIST_KEY = 'comma_active_gps_active_distance';
+/**
+ * Raw route point log for the active shift (interop plan Workstream 5 — GPS route display).
+ * JSON array of `{latitude, longitude, timestamp}`, the same point shape mobile's
+ * `parseRoutePath` accepts (`commaApp/utils/polyline.ts`). Only accepted (non-jitter) position
+ * updates are appended — same gate as the distance accumulator below — so the path lines up with
+ * the reported distance. Capped at MAX_ROUTE_POINTS so a very long shift can't grow this without
+ * bound (~150KB of localStorage at the cap).
+ */
+const LS_ROUTE_POINTS_KEY = 'comma_active_gps_route_points';
+const MAX_ROUTE_POINTS = 2000;
 
 let activeWatchId = null;
 
@@ -25,6 +35,20 @@ function calculateHaversineDistance(c1, c2) {
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+
+/** @param {{lat: number, lon: number, time: number}} coord */
+function appendRoutePoint(coord) {
+  try {
+    const raw = localStorage.getItem(LS_ROUTE_POINTS_KEY);
+    const points = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(points)) throw new Error('corrupt route point log');
+    points.push({ latitude: coord.lat, longitude: coord.lon, timestamp: coord.time });
+    if (points.length > MAX_ROUTE_POINTS) points.splice(0, points.length - MAX_ROUTE_POINTS);
+    localStorage.setItem(LS_ROUTE_POINTS_KEY, JSON.stringify(points));
+  } catch (e) {
+    console.warn('[GPSTracker] Failed to append route point', e);
+  }
 }
 
 export const GPSTracker = {
@@ -46,6 +70,7 @@ export const GPSTracker = {
       localStorage.setItem(LS_FIRST_ORDER_KEY, 'false');
       localStorage.setItem(LS_DEAD_DIST_KEY, '0');
       localStorage.setItem(LS_ACTIVE_DIST_KEY, '0');
+      localStorage.setItem(LS_ROUTE_POINTS_KEY, '[]');
     }
     localStorage.removeItem(LS_LAST_COORD_KEY);
 
@@ -112,12 +137,19 @@ export const GPSTracker = {
             }
 
             console.log(`[GPSTracker] Distance update: +${d.toFixed(3)} km (Total: ${distance.toFixed(3)} km, Dead: ${deadDist.toFixed(3)} km, Active: ${activeDist.toFixed(3)} km)`);
+            // Route point log (Workstream 5) — same acceptance gate as the distance accumulator
+            // above, so the polyline doesn't record stationary jitter either.
+            appendRoutePoint(current);
           } else {
             console.log('[GPSTracker] Movement ignored (jitter filter or invalid speed)', { d, speed });
           }
         } catch (e) {
           console.warn('[GPSTracker] Failed to compute distance delta', e);
         }
+      } else {
+        // First accepted position of a new tracking leg (shift start, or resume after a pause) —
+        // always record it as a route anchor so the mini-map doesn't drop the segment's start.
+        appendRoutePoint(current);
       }
 
       localStorage.setItem(LS_LAST_COORD_KEY, JSON.stringify(current));
@@ -174,22 +206,38 @@ export const GPSTracker = {
   },
 
   /**
-   * Stop tracking completely and return the final distance splits.
-   * @returns {{ total: number, dead: number, active: number }}
+   * Stop tracking completely and return the final distance splits plus the recorded route.
+   * @returns {{ total: number, dead: number, active: number, routePoints: Array<{latitude: number, longitude: number, timestamp: number}> }}
    */
   stop() {
     this.pause();
     const total = parseFloat(localStorage.getItem(LS_DISTANCE_KEY) || '0');
     const dead = parseFloat(localStorage.getItem(LS_DEAD_DIST_KEY) || '0');
     const active = parseFloat(localStorage.getItem(LS_ACTIVE_DIST_KEY) || '0');
+    const routePoints = this.getRoutePoints();
 
     localStorage.removeItem(LS_DISTANCE_KEY);
     localStorage.removeItem(LS_FIRST_ORDER_KEY);
     localStorage.removeItem(LS_DEAD_DIST_KEY);
     localStorage.removeItem(LS_ACTIVE_DIST_KEY);
+    localStorage.removeItem(LS_ROUTE_POINTS_KEY);
 
-    console.log('[GPSTracker] Geolocation watch stopped. Final splits:', { total, dead, active });
-    return { total, dead, active };
+    console.log('[GPSTracker] Geolocation watch stopped. Final splits:', { total, dead, active, points: routePoints.length });
+    return { total, dead, active, routePoints };
+  },
+
+  /**
+   * Get the raw route points recorded so far for the active shift (Workstream 5).
+   * @returns {Array<{latitude: number, longitude: number, timestamp: number}>}
+   */
+  getRoutePoints() {
+    try {
+      const raw = localStorage.getItem(LS_ROUTE_POINTS_KEY);
+      const points = raw ? JSON.parse(raw) : [];
+      return Array.isArray(points) ? points : [];
+    } catch {
+      return [];
+    }
   },
 
   /**

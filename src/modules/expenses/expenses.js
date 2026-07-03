@@ -1,4 +1,5 @@
 import { db, softDelete } from '../../core/db.js';
+import { newId } from '../../core/id.js';
 import { bus, EXPENSE_SAVED, SHIFT_SAVED, XP_EARNED } from '../../core/events.js';
 import { store } from '../../core/store.js';
 import { calcEVCost, calcFuelCost } from '../../utils/calculations.js';
@@ -33,7 +34,7 @@ function formatChartMonthLabel(ym, locale = 'en') {
 function expenseRowMatchesSearch(row, q) {
   if (!q) return true;
   const s = q.toLowerCase();
-  const blob = [row.date, row.category, row.notes, row.customCategory, row.platformId]
+  const blob = [row.date, row.category, row.notes, row.customCategory, row.platformId, row.merchant]
     .map((x) => String(x ?? '').toLowerCase())
     .join(' ');
   return blob.includes(s);
@@ -110,13 +111,6 @@ function esc(v) {
     .replace(/"/g, '&quot;');
 }
 
-function dollarsToCents(v) {
-  if (v == null || v === '') return 0;
-  const n = Number(v);
-  if (!Number.isFinite(n) || n < 0) return 0;
-  return Math.round(n * 100);
-}
-
 function resolveExpenseProvinceId(input) {
   if (typeof input.provinceId === 'string' && input.provinceId.trim()) return input.provinceId.trim().toUpperCase();
   const user = /** @type {{ provinceId?: string } | null} */ (store.get('user'));
@@ -129,31 +123,44 @@ export function normalizeExpenseInput(input) {
   const date = typeof input.date === 'string' && input.date ? input.date : ymd(new Date());
   const category = String(input.category || 'other');
   const recurring = Boolean(input.isRecurring);
-  const amountRaw = input.amount != null ? input.amount : input.amountCents;
-  const amount =
-    input.amountCents != null && Number.isFinite(Number(input.amountCents))
-      ? Math.max(0, Math.round(Number(input.amountCents)))
-      : dollarsToCents(amountRaw);
+  // amount is real dollars (Dexie v5 — see db.js STORES_V4 doc). Legacy `amountCents` alias (if a
+  // caller still supplies it) is treated as cents and converted for backward compat.
+  const amountRaw = input.amount != null ? input.amount : input.amountCents != null ? num(input.amountCents) / 100 : 0;
+  const amount = Math.max(0, num(amountRaw));
   const catDef = ExpenseCategoryRegistry.getById(category);
   const isDeductible = catDef ? catDef.deductible !== false : true;
-  const businessPct = isDeductible ? Math.max(0, Math.min(100, num(input.businessPct, 100))) : 0;
+  // `businessPct` renamed to `deductiblePct` (mobile field name); accept legacy input.businessPct too.
+  const deductiblePct = isDeductible
+    ? Math.max(0, Math.min(100, num(input.deductiblePct ?? input.businessPct, 100)))
+    : 0;
   const provinceId = resolveExpenseProvinceId(input);
   const hstPaidRaw = input.hstPaid != null ? input.hstPaid : input.hstItcAmount;
-  const hstPaid = Math.max(0, dollarsToCents(hstPaidRaw));
+  const hstPaid = Math.max(0, num(hstPaidRaw));
   const confirmedPaid =
     input.confirmedPaid != null ? Boolean(input.confirmedPaid) : !recurring;
+  const merchant = typeof input.merchant === 'string' ? input.merchant.trim() : '';
+  const receiptData = typeof input.receiptData === 'string' ? input.receiptData : null;
 
   /** @type {Record<string, unknown>} */
   const row = {
+    // Fix 2 (interop plan) — client-generated string primary key (see core/id.js). Preserve an
+    // incoming string id (updateExpense re-normalizes an existing row) rather than minting a new
+    // one.
+    id: typeof input.id === 'string' && input.id ? input.id : newId('exp'),
     category,
     customCategory: String(input.customCategory || ''),
     amount,
-    businessPct,
+    deductiblePct,
     date,
     provinceId,
     platformId: input.platformId == null || input.platformId === 'all' ? null : String(input.platformId),
     notes: String(input.notes || ''),
-    receiptData: typeof input.receiptData === 'string' ? input.receiptData : null,
+    receiptData,
+    merchant,
+    merchantNormalized: merchant.toLowerCase(),
+    // receiptUri mirrors receiptData's value for schema parity with mobile (web has no real
+    // filesystem URI — the base64 data URL remains web's actual local storage mechanism).
+    receiptUri: receiptData,
     isRecurring: recurring,
     recurringInterval: recurring ? String(input.recurringInterval || 'monthly') : null,
     recurringNextDate: recurring ? String(input.recurringNextDate || date) : null,
@@ -163,7 +170,10 @@ export function normalizeExpenseInput(input) {
     createdAt: input.createdAt || now,
     updatedAt: now,
     source: typeof input.source === 'string' ? input.source : 'manual',
-    shiftId: input.shiftId == null ? null : Number(input.shiftId),
+    // shifts.id is a client-generated string (Fix 2) — no numeric coercion.
+    shiftId: input.shiftId == null || input.shiftId === '' ? null : String(input.shiftId),
+    syncUpdatedAt: Date.now(),
+    syncDeletedAt: null,
   };
   if ('recurringSnoozeUntil' in input) {
     row.recurringSnoozeUntil =
@@ -186,7 +196,7 @@ function addInterval(dateStr, interval) {
 function fmtMoney(v) {
   const user = store.get('user');
   const sym = user?.locale?.currencySymbol || '$';
-  return `${sym}${(num(v) / 100).toFixed(2)}`;
+  return `${sym}${num(v).toFixed(2)}`;
 }
 
 function categoryLabel(row) {
@@ -198,14 +208,45 @@ function categoryLabel(row) {
 }
 
 /**
+ * Upsert a `db.merchants` row for schema parity with mobile (merchants table added in Dexie v5).
+ * Best-effort — a failure here must never block the expense save.
+ * @param {string} name
+ */
+async function upsertMerchant(name) {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) return;
+  const normalizedName = trimmed.toLowerCase();
+  try {
+    const existing = await db.merchants.filter((m) => m.normalizedName === normalizedName).first();
+    if (existing) {
+      await db.merchants.update(existing.id, { syncUpdatedAt: Date.now() });
+    } else {
+      await db.merchants.add({
+        id: newId('mer'),
+        name: trimmed,
+        normalizedName,
+        syncUpdatedAt: Date.now(),
+        syncDeletedAt: null,
+      });
+    }
+  } catch (err) {
+    console.warn('[comma expenses] merchant upsert failed', err);
+  }
+}
+
+/**
  * Save multiple expenses in a single transaction (Bulk Import).
  * @param {Array<import('./expenses.js').Expense>} expenses
  */
 export async function saveExpensesBulk(expenses) {
   if (!expenses || expenses.length === 0) return;
-  return db.transaction('rw', db.expenses, async () => {
+  await db.transaction('rw', db.expenses, async () => {
     await db.expenses.bulkPut(expenses);
   });
+  for (const row of expenses) {
+    const merchant = typeof row?.merchant === 'string' ? row.merchant.trim() : '';
+    if (merchant) void upsertMerchant(merchant);
+  }
 }
 
 /**
@@ -214,6 +255,7 @@ export async function saveExpensesBulk(expenses) {
 export async function saveExpense(expenseData) {
   const row = normalizeExpenseInput(expenseData);
   const id = await db.expenses.add(row);
+  if (row.merchant) void upsertMerchant(/** @type {string} */ (row.merchant));
   bus.emit(EXPENSE_SAVED, { id });
   bus.emit(XP_EARNED, { action: 'expense_saved', xp: 3 });
   return id;
@@ -228,6 +270,7 @@ export async function updateExpense(id, patch) {
   if (!prev) throw new Error('expense:not_found');
   const next = normalizeExpenseInput({ ...prev, ...patch, createdAt: prev.createdAt });
   await db.expenses.put({ ...prev, ...next, id });
+  if (next.merchant) void upsertMerchant(/** @type {string} */ (next.merchant));
   bus.emit(EXPENSE_SAVED, { id });
   return id;
 }
@@ -278,6 +321,7 @@ export async function createRecurringOccurrenceAndAdvance(template, overrides = 
     .first();
   if (!existing) {
     await db.expenses.add(normalized);
+    if (normalized.merchant) void upsertMerchant(/** @type {string} */ (normalized.merchant));
   }
   const updatedNext = addInterval(nextDate, String(template.recurringInterval || 'monthly'));
   await db.expenses.update(template.id, {
@@ -368,17 +412,17 @@ export async function runRecurringExpensePromptOnce() {
 }
 
 export async function calcAutoFuelCost(vehicleId, distanceKm) {
-  const vehicle = await db.vehicles.get(Number(vehicleId));
+  const vehicle = await db.vehicles.get(vehicleId);
   if (!vehicle) return 0;
   const dollars = calcFuelCost(distanceKm, vehicle.fuelEfficiency, vehicle.currentFuelPrice);
-  return Math.round(num(dollars) * 100);
+  return Math.max(0, num(dollars));
 }
 
 export async function calcAutoEVCost(vehicleId, distanceKm) {
-  const vehicle = await db.vehicles.get(Number(vehicleId));
+  const vehicle = await db.vehicles.get(vehicleId);
   if (!vehicle) return 0;
   const dollars = calcEVCost(distanceKm, vehicle.kwPer100km, vehicle.electricityRate);
-  return Math.round(num(dollars) * 100);
+  return Math.max(0, num(dollars));
 }
 
 export async function getMonthlyExpenseByCategory(month, year) {
@@ -389,7 +433,7 @@ export async function getMonthlyExpenseByCategory(month, year) {
   const out = {};
   for (const row of rows) {
     const key = String(row.category || 'other');
-    out[key] = (out[key] || 0) + num(row.amount) * (num(row.businessPct, 100) / 100);
+    out[key] = (out[key] || 0) + num(row.amount) * (num(row.deductiblePct, 100) / 100);
   }
   return out;
 }
@@ -404,11 +448,11 @@ export async function getTotalExpensesForPeriod(startDate, endDate, platformId) 
         (platformId ? String(e.platformId || '') === String(platformId) : true),
     )
     .toArray();
-  return rows.reduce((sum, row) => sum + num(row.amount) * (num(row.businessPct, 100) / 100), 0);
+  return rows.reduce((sum, row) => sum + num(row.amount) * (num(row.deductiblePct, 100) / 100), 0);
 }
 
 /**
- * Personal (non‑business) portion of expenses in the period, in cents.
+ * Personal (non‑business) portion of expenses in the period, in dollars.
  * @param {string} startDate YYYY-MM-DD
  * @param {string} endDate YYYY-MM-DD
  * @param {string} [platformId] When set, only expenses tagged with this platform id.
@@ -426,33 +470,33 @@ export async function getOutOfPocketExpensesForPeriod(startDate, endDate, platfo
     .toArray();
   return rows.reduce((sum, row) => {
     const amt = num(row.amount);
-    const bp = num(row.businessPct, 100);
+    const bp = num(row.deductiblePct, 100);
     return sum + amt * ((100 - bp) / 100);
   }, 0);
 }
 
 export async function getExpenseRatio(startDate, endDate) {
+  // expenseTotal is dollars (getTotalExpensesForPeriod); shifts.grossRevenue is likewise real
+  // dollars (Dexie v5 — see db.js STORES_V4 doc / shifts.js), so both sides of the ratio are the
+  // same unit with no cents conversion needed.
   const expenseTotal = await getTotalExpensesForPeriod(startDate, endDate);
   const shifts = await db.shifts
     .filter((s) => s.deletedAt == null && String(s.date || '') >= startDate && String(s.date || '') <= endDate)
     .toArray();
-  const gross = shifts.reduce((sum, s) => {
-    const raw = s.grossEarnings ?? s.gross;
-    return sum + (s.grossEarnings != null ? num(raw) : Math.round(num(raw) * 100));
-  }, 0);
+  const gross = shifts.reduce((sum, s) => sum + num(s.grossRevenue), 0);
   if (gross <= 0) return 0;
   return (expenseTotal / gross) * 100;
 }
 
 export async function updateFuelPrice(vehicleId, price) {
   const row = {
-    vehicleId: Number(vehicleId),
+    vehicleId: String(vehicleId),
     price: Math.max(0, num(price)),
     date: nowIso(),
     notes: '',
   };
   await db.fuelPrices.add(row);
-  await db.vehicles.update(Number(vehicleId), { currentFuelPrice: row.price, updatedAt: nowIso() });
+  await db.vehicles.update(vehicleId, { currentFuelPrice: row.price, updatedAt: nowIso() });
 }
 
 export async function getAllCategories() {
@@ -524,30 +568,30 @@ export async function addCustomCategory(name, emoji) {
 async function openAutoExpenseFromShiftModal(shiftId) {
   const shift = await db.shifts.get(shiftId);
   if (!shift || shift.deletedAt != null) return;
-  if (!shift.vehicleId || !num(shift.distanceKm)) return;
+  if (!shift.vehicleId || !num(shift.activeMileage)) return;
 
-  const vehicle = await db.vehicles.get(Number(shift.vehicleId));
+  const vehicle = await db.vehicles.get(shift.vehicleId);
   if (!vehicle || vehicle.active === false) return;
 
   const prior = await db.expenses
-    .filter((e) => e.deletedAt == null && Number(e.shiftId) === Number(shiftId) && AUTO_EXPENSE_SOURCES.has(String(e.source || '')))
+    .filter((e) => e.deletedAt == null && e.shiftId === shiftId && AUTO_EXPENSE_SOURCES.has(String(e.source || '')))
     .first();
   if (prior) return;
 
   const isEv = String(vehicle.type || '').toLowerCase() === 'ev';
-  const amountCents = isEv
-    ? await calcAutoEVCost(vehicle.id, num(shift.distanceKm))
-    : await calcAutoFuelCost(vehicle.id, num(shift.distanceKm));
-  if (amountCents <= 0) return;
+  const amountDollars = isEv
+    ? await calcAutoEVCost(vehicle.id, num(shift.activeMileage))
+    : await calcAutoFuelCost(vehicle.id, num(shift.activeMileage));
+  if (amountDollars <= 0) return;
 
   const categories = await getAllCategories();
   const formApi = renderExpenseForm({
     initial: {
       category: 'fuel',
-      amount: amountCents,
+      amount: amountDollars,
       date: shift.date,
       platformId: shift.platformId,
-      businessPct: 100,
+      deductiblePct: 100,
       notes: t('expenses.autoExpenseNote').replace('{shiftId}', String(shiftId)),
     },
     categories,
@@ -579,23 +623,23 @@ async function openAutoExpenseFromShiftModal(shiftId) {
 async function suggestShiftFuelExpenseToast(shiftId) {
   const shift = await db.shifts.get(shiftId);
   if (!shift || shift.deletedAt != null) return;
-  if (!shift.vehicleId || !num(shift.distanceKm)) return;
+  if (!shift.vehicleId || !num(shift.activeMileage)) return;
 
-  const vehicle = await db.vehicles.get(Number(shift.vehicleId));
+  const vehicle = await db.vehicles.get(shift.vehicleId);
   if (!vehicle || vehicle.active === false) return;
 
   const prior = await db.expenses
-    .filter((e) => e.deletedAt == null && Number(e.shiftId) === Number(shiftId) && AUTO_EXPENSE_SOURCES.has(String(e.source || '')))
+    .filter((e) => e.deletedAt == null && e.shiftId === shiftId && AUTO_EXPENSE_SOURCES.has(String(e.source || '')))
     .first();
   if (prior) return;
 
   const isEv = String(vehicle.type || '').toLowerCase() === 'ev';
-  const amountCents = isEv
-    ? await calcAutoEVCost(vehicle.id, num(shift.distanceKm))
-    : await calcAutoFuelCost(vehicle.id, num(shift.distanceKm));
-  if (amountCents <= 0) return;
+  const amountDollars = isEv
+    ? await calcAutoEVCost(vehicle.id, num(shift.activeMileage))
+    : await calcAutoFuelCost(vehicle.id, num(shift.activeMileage));
+  if (amountDollars <= 0) return;
 
-  const amountLabel = fmtMoney(amountCents);
+  const amountLabel = fmtMoney(amountDollars);
   const msg = isEv
     ? t('expenses.fuelExpenseToastEv').replace('{amount}', amountLabel)
     : t('expenses.fuelExpenseToast').replace('{amount}', amountLabel);
@@ -615,8 +659,8 @@ export function initExpensesModule() {
   if (autoWired) return;
   autoWired = true;
   bus.on(SHIFT_SAVED, (data) => {
-    const id = Number(data?.id);
-    if (!Number.isFinite(id) || id <= 0) return;
+    const id = data?.id;
+    if (!id) return;
     void suggestShiftFuelExpenseToast(id);
   });
 }
@@ -626,8 +670,8 @@ async function listExpenses(filters = {}, sort = { key: 'date', dir: 'desc' }) {
   const filtered = rows.filter((e) => {
     if (filters.category && String(e.category) !== String(filters.category)) return false;
     if (filters.platformId && String(e.platformId || '') !== String(filters.platformId || '')) return false;
-    if (filters.minAmount != null && num(e.amount) < num(filters.minAmount) * 100) return false;
-    if (filters.maxAmount != null && num(e.amount) > num(filters.maxAmount) * 100) return false;
+    if (filters.minAmount != null && num(e.amount) < num(filters.minAmount)) return false;
+    if (filters.maxAmount != null && num(e.amount) > num(filters.maxAmount)) return false;
     if (filters.receiptOnly && !e.receiptData) return false;
     if (filters.startDate && String(e.date || '') < String(filters.startDate)) return false;
     if (filters.endDate && String(e.date || '') > String(filters.endDate)) return false;
@@ -970,18 +1014,18 @@ export async function renderExpensesView(root, ctx = {}) {
   }
 
   function paintKpiAndCharts(rows) {
-    const totalCents = rows.reduce((acc, r) => {
+    const totalDollars = rows.reduce((acc, r) => {
       const cat = ExpenseCategoryRegistry.getById(r.category);
       const ded = cat ? cat.deductible !== false : true;
-      return acc + (ded ? num(r.amount) * (num(r.businessPct, 100) / 100) : 0);
+      return acc + (ded ? num(r.amount) * (num(r.deductiblePct, 100) / 100) : 0);
     }, 0);
     const kTotal = root.querySelector('[data-kpi="total"]');
     const kCount = root.querySelector('[data-kpi="count"]');
     const kAvg = root.querySelector('[data-kpi="avg"]');
     const kCats = root.querySelector('[data-kpi="categories"]');
-    if (kTotal) kTotal.textContent = fmtMoney(totalCents);
+    if (kTotal) kTotal.textContent = fmtMoney(totalDollars);
     if (kCount) kCount.textContent = String(rows.length);
-    if (kAvg) kAvg.textContent = rows.length ? fmtMoney(totalCents / rows.length) : fmtMoney(0);
+    if (kAvg) kAvg.textContent = rows.length ? fmtMoney(totalDollars / rows.length) : fmtMoney(0);
     if (kCats) kCats.textContent = String(new Set(rows.map((r) => String(r.category || 'other'))).size);
 
     const catCanvas = /** @type {HTMLCanvasElement | null} */ (root.querySelector('[data-chart="by-category"]'));
@@ -995,13 +1039,13 @@ export async function renderExpensesView(root, ctx = {}) {
       const id = String(row.category || 'other');
       const cat = ExpenseCategoryRegistry.getById(id);
       const ded = cat ? cat.deductible !== false : true;
-      const amt = ded ? num(row.amount) * (num(row.businessPct, 100) / 100) : num(row.amount);
+      const amt = ded ? num(row.amount) * (num(row.deductiblePct, 100) / 100) : num(row.amount);
       byCat.set(id, (byCat.get(id) || 0) + amt);
     }
     const entries = [...byCat.entries()].sort((a, b) => b[1] - a[1]);
     if (entries.length && catCanvas) {
       const labels = entries.map(([id]) => categoryLabel({ category: id }));
-      const dataVals = entries.map(([, cents]) => Math.round(cents) / 100);
+      const dataVals = entries.map(([, dollars]) => Math.round(dollars * 100) / 100);
       const colors = entries.map((_, i) => EXPENSE_CHART_COLORS[i % EXPENSE_CHART_COLORS.length]);
       renderDonutChart(
         catCanvas,
@@ -1019,14 +1063,14 @@ export async function renderExpensesView(root, ctx = {}) {
       if (ym.length !== 7) continue;
       const cat = ExpenseCategoryRegistry.getById(row.category);
       const ded = cat ? cat.deductible !== false : true;
-      const amt = ded ? num(row.amount) * (num(row.businessPct, 100) / 100) : num(row.amount);
+      const amt = ded ? num(row.amount) * (num(row.deductiblePct, 100) / 100) : num(row.amount);
       byMonth.set(ym, (byMonth.get(ym) || 0) + amt);
     }
     const monthKeys = [...byMonth.keys()].sort();
     const lastKeys = monthKeys.slice(-12);
     if (lastKeys.length && moCanvas) {
       const labels = lastKeys.map((k) => formatChartMonthLabel(k, loc));
-      const data = lastKeys.map((k) => Math.round(byMonth.get(k) || 0) / 100);
+      const data = lastKeys.map((k) => Math.round((byMonth.get(k) || 0) * 100) / 100);
       renderBarChart(
         moCanvas,
         {
@@ -1099,16 +1143,16 @@ export async function renderExpensesView(root, ctx = {}) {
       return;
     }
 
-    const totalsCents = searched.reduce((acc, r) => {
+    const totalsDollars = searched.reduce((acc, r) => {
       const cat = ExpenseCategoryRegistry.getById(r.category);
       const ded = cat ? cat.deductible !== false : true;
-      return acc + (ded ? num(r.amount) * (num(r.businessPct, 100) / 100) : 0);
+      return acc + (ded ? num(r.amount) * (num(r.deductiblePct, 100) / 100) : 0);
     }, 0);
     const rowsHtml = slice
       .map((row) => {
         const cat = ExpenseCategoryRegistry.getById(row.category);
         const ded = cat ? cat.deductible !== false : true;
-        const amt = ded ? num(row.amount) * (num(row.businessPct, 100) / 100) : num(row.amount);
+        const amt = ded ? num(row.amount) * (num(row.deductiblePct, 100) / 100) : num(row.amount);
         const tone = categoryPillTone(row.category);
         const desc = expenseDescriptionCell(row);
         const notes = expenseNotesCell(row);
@@ -1128,7 +1172,7 @@ export async function renderExpensesView(root, ctx = {}) {
       .join('');
     const totalsRow = `<tr class="expenses-totals-row">
       <td colspan="3"><strong>${esc(t('expenses.totalsLabel'))}</strong></td>
-      <td><strong>${esc(fmtMoney(totalsCents))}</strong></td>
+      <td><strong>${esc(fmtMoney(totalsDollars))}</strong></td>
       <td colspan="2">${esc(t('expenses.totalsExpensesCount').replace('{n}', String(total)))}</td>
       <td></td>
     </tr>`;
@@ -1144,7 +1188,7 @@ export async function renderExpensesView(root, ctx = {}) {
       const key = String(row.category || 'other');
       const cat = ExpenseCategoryRegistry.getById(key);
       const ded = cat ? cat.deductible !== false : true;
-      const amt = ded ? num(row.amount) * (num(row.businessPct, 100) / 100) : num(row.amount);
+      const amt = ded ? num(row.amount) * (num(row.deductiblePct, 100) / 100) : num(row.amount);
       totals.set(key, (totals.get(key) || 0) + amt);
     }
     const entries = [...totals.entries()].sort((a, b) => b[1] - a[1]);
@@ -1156,11 +1200,11 @@ export async function renderExpensesView(root, ctx = {}) {
       return;
     }
     categoryRowsSlot.innerHTML = entries
-      .map(([catId, cents]) => {
+      .map(([catId, dollars]) => {
         const labelRow = { category: catId };
         return `<tr>
           <td>${esc(categoryLabel(labelRow))}</td>
-          <td>${esc(fmtMoney(cents))}</td>
+          <td>${esc(fmtMoney(dollars))}</td>
         </tr>`;
       })
       .join('');
@@ -1395,8 +1439,8 @@ export async function renderExpensesView(root, ctx = {}) {
       }
 
       const rowEl = target.closest('[data-expense-id]');
-      const id = Number(rowEl?.getAttribute('data-expense-id'));
-      if (!Number.isFinite(id) || id <= 0) return;
+      const id = rowEl?.getAttribute('data-expense-id');
+      if (!id) return;
       if (action === 'edit') {
         // Open modal IMMEDIATELY with a loading state to provide instant feedback
         const handle = showModal({
@@ -1479,9 +1523,10 @@ async function openRecurringOccurrenceEditor({ template, categories, platformRow
       amount: num(template.amount),
       date: nextDate,
       platformId: template.platformId,
-      businessPct: num(template.businessPct, 100),
+      deductiblePct: num(template.deductiblePct, 100),
       notes: String(template.notes || ''),
       receiptData: template.receiptData,
+      merchant: template.merchant,
       isRecurring: false,
       hstPaid: template.hstPaid,
       confirmedPaid: true,

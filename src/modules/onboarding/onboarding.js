@@ -3,6 +3,7 @@
  */
 
 import { db, saveUser, getUser, getAppState, setAppState } from '../../core/db.js';
+import { newId } from '../../core/id.js';
 import { store } from '../../core/store.js';
 import { Router } from '../../core/router.js';
 import {
@@ -301,18 +302,24 @@ export async function loadSampleData() {
       const seed = weekdayShiftCount * 13 + dow;
       const grossDollars = 68 + (seed % 42) + (weekdayShiftCount % 3) * 5.5;
       const tipsDollars = 9 + (seed % 8) + (weekdayShiftCount % 4) * 1.25;
+      const bonusDollars = 3 + (seed % 5);
+      // Fix 1 (interop plan) — startTime/endTime are real epoch-ms timestamps in the stored row
+      // (mobile parity); this demo-seed path builds shift rows manually (bypassing
+      // normalizeShiftInput), so it derives them itself the same way.
+      const demoStartMs = new Date(`${dateStr}T10:30:00`).getTime();
+      const demoEndMs = new Date(`${dateStr}T15:00:00`).getTime();
       shiftRows.push({
+        id: newId('shift'),
         platformId,
         date: dateStr,
-        startTime: '10:30',
-        endTime: '15:00',
-        durationMinutes: 240 + (seed % 90),
-        grossEarnings: Math.round(grossDollars * 100),
-        tips: Math.round(tipsDollars * 100),
-        bonusEarnings: Math.round((3 + (seed % 5)) * 100),
+        startTime: demoStartMs,
+        endTime: demoEndMs,
+        durationSeconds: (240 + (seed % 90)) * 60,
+        grossRevenue: Math.round(grossDollars * 100) / 100,
+        tipsRevenue: Math.round(tipsDollars * 100) / 100,
         deliveryCount: 6 + (seed % 7),
-        distanceKm: 28 + (seed % 55),
-        deadMilesKm: seed % 4,
+        activeMileage: 28 + (seed % 55),
+        deadMileage: seed % 4,
         provinceId: sampleProvinceId,
         onlineMinutes: 220 + (seed % 80),
         activeMinutes: 170 + (seed % 70),
@@ -325,24 +332,31 @@ export async function loadSampleData() {
         isPlaceholder: true,
         isMultiApp: false,
         multiAppSplit: {},
+        customFields: { bonusAmount: bonusDollars },
         deletedAt: null,
         createdAt: t0,
         updatedAt: t0,
+        syncUpdatedAt: Date.now(),
+        syncDeletedAt: null,
       });
       weekdayShiftCount += 1;
     }
 
     if (dow === 1) {
       expenseRows.push({
+        id: newId('exp'),
         category: 'fuel',
         customCategory: '',
-        amount: Math.round(3200 + (dayOfYear % 38) * 95),
-        businessPct: 100,
+        amount: Math.round(3200 + (dayOfYear % 38) * 95) / 100,
+        deductiblePct: 100,
         date: dateStr,
         provinceId: sampleProvinceId,
         platformId: DEMO_SAMPLE_PLATFORM_IDS[dayOfYear % 3],
         notes: `${SAMPLE_NOTE} Demo fuel.`,
+        merchant: '',
+        merchantNormalized: '',
         receiptData: null,
+        receiptUri: null,
         isRecurring: false,
         recurringInterval: null,
         recurringNextDate: null,
@@ -353,6 +367,8 @@ export async function loadSampleData() {
         updatedAt: t0,
         source: 'manual',
         shiftId: null,
+        syncUpdatedAt: Date.now(),
+        syncDeletedAt: null,
       });
     } else if (dow === 3) {
       const cats = ['parking', 'phone', 'supplies', 'meals'];
@@ -360,15 +376,19 @@ export async function loadSampleData() {
       const baseByCat = { parking: 1400, phone: 8999, supplies: 2899, meals: 2199 };
       const base = baseByCat[cat] ?? 1500;
       expenseRows.push({
+        id: newId('exp'),
         category: cat,
         customCategory: '',
-        amount: Math.round(base + (dayOfYear % 17) * 55),
-        businessPct: cat === 'meals' ? 50 : 100,
+        amount: Math.round(base + (dayOfYear % 17) * 55) / 100,
+        deductiblePct: cat === 'meals' ? 50 : 100,
         date: dateStr,
         provinceId: sampleProvinceId,
         platformId: DEMO_SAMPLE_PLATFORM_IDS[(dayOfYear + 1) % 3],
         notes: `${SAMPLE_NOTE} Demo ${cat}.`,
+        merchant: '',
+        merchantNormalized: '',
         receiptData: null,
+        receiptUri: null,
         isRecurring: false,
         recurringInterval: null,
         recurringNextDate: null,
@@ -379,6 +399,8 @@ export async function loadSampleData() {
         updatedAt: t0,
         source: 'manual',
         shiftId: null,
+        syncUpdatedAt: Date.now(),
+        syncDeletedAt: null,
       });
     }
   }
@@ -523,12 +545,16 @@ async function persistVehicles(draft) {
   for (const v of toSave) {
     const yearNum = v.year === '' || v.year == null ? null : Number(v.year);
     await db.vehicles.add({
+      id: newId('veh'),
       nickname: v.nickname.trim(),
       type: /** @type {'gas'} */ (v.type) || 'gas',
       make: v.make || '',
       model: v.model || '',
       year: Number.isFinite(yearNum) ? yearNum : null,
       color: '',
+      fuelType: null,
+      licensePlate: '',
+      currentOdometer: 0,
       fuelEfficiency: null,
       currentFuelPrice: null,
       kwPer100km: null,
@@ -540,6 +566,8 @@ async function persistVehicles(draft) {
       active: true,
       createdAt: ts,
       updatedAt: ts,
+      syncUpdatedAt: Date.now(),
+      syncDeletedAt: null,
     });
   }
 }
@@ -553,6 +581,7 @@ async function persistWeeklyGoalRow(draft) {
     await db.goals.update(row.id, {
       target: Math.max(0, Number(draft.weeklyGoal) || 0),
       active: true,
+      syncUpdatedAt: Date.now(),
     });
   }
   bus.emit(GOAL_UPDATED, { source: 'onboarding' });
@@ -998,7 +1027,9 @@ export async function mountOnboarding(root) {
           await store.refresh('currentWeekGoal');
           bus.emit(ONBOARDING_COMPLETE, { displayName, demo: true });
           showToast({ type: 'info', message: t('onboarding.demoEnabled'), duration: 5000 });
-          await runOnOpenNotificationCheck();
+          // Proactive notification detectors disabled — mobile parity not built yet,
+          // see comma/../now-as-the-app-cozy-gray.md Workstream 7.
+          // await runOnOpenNotificationCheck();
           Router.navigate('#/dashboard');
         } catch (e) {
           console.error(e);
@@ -1073,7 +1104,9 @@ export async function mountOnboarding(root) {
     await store.refresh('platforms');
     bus.emit(ONBOARDING_COMPLETE, { displayName: draft.displayName });
     showToast({ type: 'celebration', message: t('onboarding.completeToast'), duration: 4500 });
-    await runOnOpenNotificationCheck();
+    // Proactive notification detectors disabled — mobile parity not built yet,
+    // see comma/../now-as-the-app-cozy-gray.md Workstream 7.
+    // await runOnOpenNotificationCheck();
     Router.navigate('#/dashboard');
   }
 

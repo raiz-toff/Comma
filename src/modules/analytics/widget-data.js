@@ -5,6 +5,8 @@
  */
 
 import { store } from '../../core/store.js';
+import { getCountryTaxProfile } from '../../registry/countries/index.js';
+import { calcTaxSetAside } from '../../utils/calculations.js';
 import {
   getFinancialOverviewForRange,
   getMonthlySummary,
@@ -71,10 +73,20 @@ export async function buildWidgetDataContext(range, platformFilter, weekStartDay
   ]);
 
 
+  // Real configured tax withholding rate (same source dashboard.js uses for its
+  // Tax Set-Aside KPI card), exposed here so widgets (e.g. taxJar) can match it
+  // instead of using a hardcoded guess.
+  const localeCountryForTax = user?.locale?.country || user?.country || 'US';
+  const taxProfile = getCountryTaxProfile(localeCountryForTax);
+  const taxRatePct = Number.isFinite(Number(user?.taxWithholdingPct))
+    ? Number(user.taxWithholdingPct)
+    : Number(taxProfile?.defaultWithholdingPct) || 0;
+
   return {
     user,
     localeCountry: user?.country || 'US',
     currency: user?.currency || 'USD',
+    taxRatePct,
     data: {
       financial,
       monthSummary,

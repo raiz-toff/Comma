@@ -1,6 +1,7 @@
 import { formatCurrency } from '../../utils/formatters.js';
 import { t } from '../../utils/strings.js';
 import { esc } from './esc.js';
+import { calcTaxSetAside } from '../../utils/calculations.js';
 
 const _IC_JAR = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v5"></path><path d="M5 12a7 7 0 0 0 14 0"></path><path d="M12 7v5"></path><rect x="8" y="2" width="8" height="3" rx="1"></rect></svg>`;
 
@@ -13,15 +14,16 @@ export default {
 
   /** @param {unknown} ctx */
   render: async (ctx) => {
-    const c = /** @type {{ data?: { financial?: { gross?: number, expense?: number }; localeCountry?: string; currency?: string } }} */ (ctx);
-    
+    const c = /** @type {{ data?: { financial?: { gross?: number, expense?: number } }; taxRatePct?: number; localeCountry?: string; currency?: string }} */ (ctx);
+
     const gross = Number(c?.data?.financial?.gross || 0);
     const expense = Number(c?.data?.financial?.expense || 0);
     const net = Math.max(0, gross - expense);
-    
-    // Estimation: 25% of net income
-    const taxRate = 0.25;
-    const estimatedTax = net * taxRate;
+
+    // Real configured withholding rate (same source the Dashboard's Tax
+    // Set-Aside KPI card uses) rather than a hardcoded guess.
+    const taxRate = Number(c?.taxRatePct) || 0;
+    const estimatedTax = calcTaxSetAside(gross, taxRate);
     const postTax = net - estimatedTax;
 
     const country = String(c?.localeCountry || 'US');
@@ -131,7 +133,7 @@ export default {
 
         <div class="tj-body">
           <div class="tj-val">${esc(fmtTax)}</div>
-          <div class="tj-label">Estimated Set-Aside (25%)</div>
+          <div class="tj-label">Estimated Set-Aside (${esc(String(taxRate))}%)</div>
         </div>
 
         <div class="tj-viz">

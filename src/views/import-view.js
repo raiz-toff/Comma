@@ -4,6 +4,18 @@ import { t } from '../utils/strings.js';
 import { showToast, showModal } from '../ui/components.js';
 import { db } from '../core/db.js';
 import { saveShift, checkConflict, normalizeShiftInput } from '../modules/shifts/shifts.js';
+
+/**
+ * Format an epoch-ms shift startTime/endTime (Fix 1 — interop plan) as HH:mm for display —
+ * `item.obj.startTime`/`endTime` are real timestamps post-`normalizeShiftInput`, not the HH:mm
+ * strings the CSV column originally supplied.
+ * @param {unknown} ms
+ */
+function fmtHm(ms) {
+  if (typeof ms !== 'number' || !Number.isFinite(ms)) return '—';
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
 import { saveExpense, normalizeExpenseInput } from '../modules/expenses/expenses.js';
 import '../css/views/import.css';
 
@@ -28,7 +40,7 @@ export function render(root, ctx) {
     hasHeader: true,
     headerRowIndex: 0,
     lastRowIndex: 0,
-    mappings: {},        // Model property -> CSV Column Index (e.g. gross -> 4)
+    mappings: {},        // Model property -> CSV Column Index (e.g. grossRevenue -> 4)
     
     // Step 5 Preview Stats
     parsedObjects: [],
@@ -255,15 +267,15 @@ export function render(root, ctx) {
           
           <div class="import-sidebar-fields">
             <div class="import-field-group">
-              <label>Gross Earnings (Required)</label>
-              <select class="import-upload-select" data-map="gross">
-                ${renderColumnOptions(state.mappings.gross, 'gross')}
+              <label>Gross Revenue (Required)</label>
+              <select class="import-upload-select" data-map="grossRevenue">
+                ${renderColumnOptions(state.mappings.grossRevenue, 'grossRevenue')}
               </select>
             </div>
             <div class="import-field-group">
               <label>Tips Amount</label>
-              <select class="import-upload-select" data-map="tips">
-                ${renderColumnOptions(state.mappings.tips, 'tips')}
+              <select class="import-upload-select" data-map="tipsRevenue">
+                ${renderColumnOptions(state.mappings.tipsRevenue, 'tipsRevenue')}
               </select>
             </div>
             <div class="import-field-group">
@@ -295,7 +307,7 @@ export function render(root, ctx) {
           </div>
         `;
       }
-      renderSpreadsheetGrid(gridViewer, ['gross', 'tips', 'bonus', 'amount', 'hstPaid']);
+      renderSpreadsheetGrid(gridViewer, ['grossRevenue', 'tipsRevenue', 'bonus', 'amount', 'hstPaid']);
 
     } else if (state.step === 3) {
       // ── STEP 3: MAPPING DATE ───────────────────────────────────────────
@@ -348,8 +360,8 @@ export function render(root, ctx) {
             </div>
             <div class="import-field-group">
               <label>Distance Traveled (km)</label>
-              <select class="import-upload-select" data-map="distanceKm">
-                ${renderColumnOptions(state.mappings.distanceKm, 'distanceKm')}
+              <select class="import-upload-select" data-map="activeMileage">
+                ${renderColumnOptions(state.mappings.activeMileage, 'activeMileage')}
               </select>
             </div>
             <div class="import-field-group">
@@ -386,8 +398,8 @@ export function render(root, ctx) {
             </div>
             <div class="import-field-group">
               <label>Business Allocation %</label>
-              <select class="import-upload-select" data-map="businessPct">
-                ${renderColumnOptions(state.mappings.businessPct, 'businessPct')}
+              <select class="import-upload-select" data-map="deductiblePct">
+                ${renderColumnOptions(state.mappings.deductiblePct, 'deductiblePct')}
               </select>
             </div>
             <div class="import-field-group">
@@ -426,7 +438,7 @@ export function render(root, ctx) {
           </div>
         `;
       }
-      renderSpreadsheetGrid(gridViewer, ['startTime', 'endTime', 'platformId', 'orders', 'distanceKm', 'outOfPocketExpense', 'notes', 'category', 'businessPct']);
+      renderSpreadsheetGrid(gridViewer, ['startTime', 'endTime', 'platformId', 'orders', 'activeMileage', 'outOfPocketExpense', 'notes', 'category', 'deductiblePct']);
 
     } else if (state.step === 5) {
       // ── STEP 5: SMART PREVIEW & STRICTION VALIDATION ───────────────────
@@ -470,7 +482,7 @@ export function render(root, ctx) {
 
       state.parsedObjects.forEach((item) => {
         const obj = item.obj;
-        const val = Number(obj.gross || obj.amount || 0);
+        const val = Number(obj.grossRevenue ?? obj.amount ?? 0);
         totalAmount += val;
         if (obj.date) {
           if (!minDate || obj.date < minDate) minDate = obj.date;
@@ -552,8 +564,8 @@ export function render(root, ctx) {
                     `
                         : `
                       <td style="text-transform:capitalize;">${esc(item.obj.platformId || 'other')}</td>
-                      <td class="text-brand">${formatMoney(item.obj.gross)}</td>
-                      <td>${item.obj.startTime ? `${esc(item.obj.startTime)} — ${esc(item.obj.endTime)}` : '—'}</td>
+                      <td class="text-brand">${formatMoney(item.obj.grossRevenue)}</td>
+                      <td>${item.obj.startTime != null ? `${esc(fmtHm(item.obj.startTime))} — ${esc(fmtHm(item.obj.endTime))}` : '—'}</td>
                     `
                     }
                     <td><span style="font-size:11px; color:var(--color-text-secondary); white-space:nowrap; max-width:200px; display:block; overflow:hidden; text-overflow:ellipsis;" title="${esc(item.obj.notes)}">${esc(item.obj.notes)}</span></td>
@@ -710,19 +722,19 @@ export function render(root, ctx) {
         state.rawRows[0].forEach((col, idx) => {
           const norm = String(col).toLowerCase().trim();
           if (norm.includes('date')) state.mappings.date = idx;
-          if (norm.includes('gross') || norm.includes('earning')) state.mappings.gross = idx;
+          if (norm.includes('gross') || norm.includes('earning')) state.mappings.grossRevenue = idx;
           if (norm.includes('amount')) state.mappings.amount = idx;
-          if (norm.includes('tip')) state.mappings.tips = idx;
+          if (norm.includes('tip')) state.mappings.tipsRevenue = idx;
           if (norm.includes('bonus')) state.mappings.bonus = idx;
           if (norm === 'start' || norm === 'start time' || norm === 'starttime' || norm.startsWith('start_')) state.mappings.startTime = idx;
           if (norm.includes('end')) state.mappings.endTime = idx;
           if (norm.includes('platform') || norm.includes('app')) state.mappings.platformId = idx;
           if (norm.includes('order') || norm.includes('deliver')) state.mappings.orders = idx;
-          if (norm.includes('distance') || norm.includes('km') || norm.includes('mile')) state.mappings.distanceKm = idx;
+          if (norm.includes('distance') || norm.includes('km') || norm.includes('mile')) state.mappings.activeMileage = idx;
           if (norm.includes('out of pocket') || norm.includes('pocket') || norm.includes('oop')) state.mappings.outOfPocketExpense = idx;
           if (norm.includes('note')) state.mappings.notes = idx;
           if (norm.includes('category')) state.mappings.category = idx;
-          if (norm.includes('business')) state.mappings.businessPct = idx;
+          if (norm.includes('business') || norm.includes('deductible')) state.mappings.deductiblePct = idx;
           if (norm.includes('tax') || norm.includes('hst')) state.mappings.hstPaid = idx;
         });
       }
@@ -808,8 +820,8 @@ export function render(root, ctx) {
           showToast({ type: 'warning', message: 'Please map the Expense Amount column.' });
           return;
         }
-        if (state.importType !== 'expenses' && state.mappings.gross === undefined) {
-          showToast({ type: 'warning', message: 'Please map the Gross Earnings column.' });
+        if (state.importType !== 'expenses' && state.mappings.grossRevenue === undefined) {
+          showToast({ type: 'warning', message: 'Please map the Gross Revenue column.' });
           return;
         }
       }
@@ -945,19 +957,19 @@ export function render(root, ctx) {
       };
 
       const dateVal = getVal('date');
-      const grossVal = getValOrNull('gross') ?? getValOrNull('amount') ?? null;
-      const tipsVal = getValOrNull('tips') ?? '0';
+      const grossVal = getValOrNull('grossRevenue') ?? getValOrNull('amount') ?? null;
+      const tipsVal = getValOrNull('tipsRevenue') ?? '0';
       const bonusVal = getValOrNull('bonus') ?? '0';
       const startVal = getVal('startTime');
       const endVal = getVal('endTime');
       const platformVal = getVal('platformId') || 'other';
       const ordersVal = getVal('orders');
-      const distanceVal = getVal('distanceKm');
+      const distanceVal = getVal('activeMileage');
       const outOfPocketExpenseVal = getValOrNull('outOfPocketExpense') ?? '0';
       const notesVal = getVal('notes') || '';
-      
+
       const categoryVal = getVal('category') || 'other';
-      const businessVal = getValOrNull('businessPct') ?? '100';
+      const businessVal = getValOrNull('deductiblePct') ?? '100';
       const hstVal = getValOrNull('hstPaid') ?? '0';
 
       // 1. Verify Date column is populated & valid
@@ -1027,7 +1039,7 @@ export function render(root, ctx) {
           category: categoryVal,
           platformId: platformVal !== 'other' ? platformVal : null,
           notes: notesVal || 'Imported via Wizard',
-          businessPct: Number(businessVal) || 100,
+          deductiblePct: Number(businessVal) || 100,
           hstPaid: Number(hstVal) || 0,
           source: 'import',
         };
@@ -1040,30 +1052,31 @@ export function render(root, ctx) {
         }
       } else {
         const isIncome = state.importType === 'incomes';
+        const bonusNum = Number(bonusVal) || 0;
         const inputObj = {
           date: dateVal,
           platformId: platformVal,
-          gross: Number(grossVal),
-          tips: Number(tipsVal) || 0,
-          bonus: Number(bonusVal) || 0,
+          grossRevenue: Number(grossVal),
+          tipsRevenue: Number(tipsVal) || 0,
+          // Mobile's shifts table has no top-level bonus column — fold it into customFields
+          // rather than inventing a field the new schema doesn't have (see shifts.js normalizeShiftInput).
+          customFields: { bonusAmount: bonusNum },
           startTime: startVal ? startVal : null,
           endTime: endVal ? endVal : null,
-          orders: ordersVal !== undefined && ordersVal !== '' ? Number(ordersVal) : null,
-          distanceKm: distanceVal !== undefined && distanceVal !== '' ? Number(distanceVal) : null,
+          deliveryCount: ordersVal !== undefined && ordersVal !== '' ? Number(ordersVal) : null,
+          activeMileage: distanceVal !== undefined && distanceVal !== '' ? Number(distanceVal) : null,
           notes: notesVal || (isIncome ? 'Imported via Platform Statement' : 'Imported via Wizard'),
         };
 
         try {
           const rowObj = normalizeShiftInput(inputObj);
 
-          // Local time order check (validateTimeWindow)
-          if (rowObj.startTime && rowObj.endTime) {
-            const startMin = Number(rowObj.startTime.split(':')[0]) * 60 + Number(rowObj.startTime.split(':')[1]);
-            let endMin = Number(rowObj.endTime.split(':')[0]) * 60 + Number(rowObj.endTime.split(':')[1]);
-            if (endMin < startMin) {
-              endMin += 1440; // Allow midnight crossing shifts up to 24 hours!
-            }
-            if (endMin - startMin > 1440) {
+          // Local time order check (validateTimeWindow). rowObj.startTime/endTime are now
+          // epoch-ms timestamps (Fix 1 — interop plan); normalizeShiftInput's own overnight
+          // rollover already guarantees endTime >= startTime, so only the "too long" bound
+          // needs checking here (mirrors the old HH:mm-based 1440-minute check).
+          if (typeof rowObj.startTime === 'number' && typeof rowObj.endTime === 'number') {
+            if (rowObj.endTime - rowObj.startTime > 24 * 60 * 60 * 1000) {
               throw new Error('shift:time:invalid');
             }
           }
@@ -1099,7 +1112,7 @@ export function render(root, ctx) {
               } else {
                 const existingShift = await db.shifts
                   .where({ date: item.obj.date, platformId: item.obj.platformId })
-                  .filter((s) => s.grossEarnings === item.obj.grossEarnings && s.deletedAt == null)
+                  .filter((s) => s.grossRevenue === item.obj.grossRevenue && s.deletedAt == null)
                   .first();
                 if (existingShift) {
                   state.conflictErrors.push(`Row ${item.lineNum}: Possible duplicate — a shift with the same date, platform, and gross already exists`);
@@ -1111,7 +1124,7 @@ export function render(root, ctx) {
                 if (item.obj.startTime && item.obj.endTime) {
                   const hasConflict = await checkConflict(item.obj.date, item.obj.startTime, item.obj.endTime, { platformId: item.obj.platformId });
                   if (hasConflict) {
-                    state.conflictErrors.push(`Row ${item.lineNum}: Shift overlaps with another shift on ${item.obj.date} (${item.obj.startTime} — ${item.obj.endTime})`);
+                    state.conflictErrors.push(`Row ${item.lineNum}: Shift overlaps with another shift on ${item.obj.date} (${fmtHm(item.obj.startTime)} — ${fmtHm(item.obj.endTime)})`);
                     state.conflictingObjects.push({ lineNum: item.lineNum, type: item.type, obj: item.obj, outOfPocketExpense: item.outOfPocketExpense });
                     continue;
                   }

@@ -36,10 +36,10 @@ export default {
 
     const latest = sortedAsc[sortedAsc.length - 1];
     if (!latest) return;
-    const latestGross = num(latest.gross ?? latest.grossEarnings);
+    const latestGross = num(latest.grossRevenue);
 
     // Compute previous best of all shifts except the latest
-    const prevBest = sortedAsc.slice(0, -1).reduce((max, s) => Math.max(max, num(s.gross ?? s.grossEarnings)), 0);
+    const prevBest = sortedAsc.slice(0, -1).reduce((max, s) => Math.max(max, num(s.grossRevenue)), 0);
 
     if (latestGross > 0 && latestGross > prevBest) {
       await createNotification(

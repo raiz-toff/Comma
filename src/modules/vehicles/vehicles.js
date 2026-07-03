@@ -5,6 +5,7 @@ import { calcDepreciation, calcVehicleCostPerKm } from '../../utils/calculations
 import { t } from '../../utils/strings.js';
 import { renderEmptyState, showModal, showToast } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
+import { newId } from '../../core/id.js';
 
 const APP_STATE_ODOMETER_KEY = 'vehicle_odometer_logs';
 
@@ -64,6 +65,9 @@ function normalizeVehicleInput(input) {
   const ts = nowIso();
   const type = String(input.type || 'gas').toLowerCase();
   return {
+    // Fix 2 (interop plan) — client-generated string primary key (see core/id.js). Preserve an
+    // incoming string id (editing an existing vehicle) rather than minting a new one.
+    id: typeof input.id === 'string' && input.id ? input.id : newId('veh'),
     nickname: String(input.nickname || '').trim() || 'Vehicle',
     type,
     make: String(input.make || '').trim(),
@@ -89,6 +93,11 @@ function normalizeVehicleInput(input) {
     tireTreadMm: Math.max(0, num(input.tireTreadMm, 7)),
     tireTreadMinMm: Math.max(0, num(input.tireTreadMinMm, 3)),
     totalKmLogged: Math.max(0, num(input.totalKmLogged, 0)),
+    fuelType: input.fuelType != null && String(input.fuelType).trim() !== '' ? String(input.fuelType).trim() : null,
+    licensePlate: String(input.licensePlate || '').trim(),
+    currentOdometer: Math.max(0, num(input.currentOdometer, 0)),
+    syncUpdatedAt: Date.now(),
+    syncDeletedAt: input.syncDeletedAt ?? null,
   };
 }
 
@@ -118,21 +127,25 @@ async function putOdometerLog(items) {
 
 function calcVehicleStats(vehicle, expenses, maintenanceRows, shifts) {
   const annualExpenses =
-    expenses.reduce((sum, e) => sum + num(e.amount) * (num(e.businessPct, 100) / 100), 0) +
+    expenses.reduce((sum, e) => sum + num(e.amount) * (num(e.deductiblePct, 100) / 100), 0) +
     maintenanceRows.reduce((sum, m) => sum + num(m.cost), 0);
   const costPerKm = calcVehicleCostPerKm(
     { estimatedAnnualKm: Math.max(1, num(vehicle.estimatedAnnualKm, vehicle.totalKmLogged || 1)) },
     { totalAnnual: annualExpenses },
   );
   const depreciation = calcDepreciation(vehicle.purchasePrice, vehicle.expectedLifespanKm, vehicle.totalKmLogged);
-  const shiftKm = shifts.reduce((sum, s) => sum + num(s.distanceKm), 0);
+  const shiftKm = shifts.reduce((sum, s) => sum + num(s.activeMileage), 0);
   const shiftCount = shifts.length;
   return { annualExpenses, costPerKm, depreciation, shiftKm, shiftCount };
 }
 
 async function listVehicles() {
   const rows = await db.vehicles.toArray();
-  return rows.filter((v) => v.active !== false).sort((a, b) => Number(a.id) - Number(b.id));
+  // ids are opaque client-generated strings (Fix 2 — interop plan), not sortable numbers —
+  // sort by createdAt (ISO string) instead, preserving insertion order.
+  return rows
+    .filter((v) => v.active !== false)
+    .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
 }
 
 async function syncRecurringExpense(vehicleId, kind, date, amount) {
@@ -145,15 +158,16 @@ async function syncRecurringExpense(vehicleId, kind, date, amount) {
         e.source === `vehicle_${kind}` &&
         String(e.date || '') === date &&
         String(e.category || '') === cat &&
-        Number(e.vehicleId || 0) === Number(vehicleId),
+        String(e.vehicleId || '') === String(vehicleId),
     )
     .first();
   if (existing) return;
   await db.expenses.add({
+    id: newId('exp'),
     category: cat,
     customCategory: '',
     amount: Math.max(0, num(amount)),
-    businessPct: 100,
+    deductiblePct: 100,
     date,
     platformId: null,
     notes: `Auto-created from vehicle ${kind} renewal`,
@@ -168,7 +182,9 @@ async function syncRecurringExpense(vehicleId, kind, date, amount) {
     updatedAt: nowIso(),
     source: `vehicle_${kind}`,
     shiftId: null,
-    vehicleId: Number(vehicleId),
+    vehicleId: String(vehicleId),
+    syncUpdatedAt: Date.now(),
+    syncDeletedAt: null,
   });
   bus.emit(EXPENSE_SAVED, { source: `vehicle_${kind}` });
 }
@@ -189,6 +205,18 @@ async function openVehicleEditor(initial = {}) {
       <label class="field"><span class="field-label">Make</span><input class="input" name="make" value="${esc(initial.make || '')}" /></label>
       <label class="field"><span class="field-label">Model</span><input class="input" name="model" value="${esc(initial.model || '')}" /></label>
       <label class="field"><span class="field-label">Year</span><input class="input" type="number" min="1990" max="2100" name="year" value="${esc(initial.year || '')}" /></label>
+      <label class="field"><span class="field-label">Fuel Type</span>
+        <select class="select" name="fuelType">
+          <option value="" ${!initial.fuelType ? 'selected' : ''}>Not set</option>
+          <option value="gas" ${String(initial.fuelType || '') === 'gas' ? 'selected' : ''}>Gas</option>
+          <option value="diesel" ${String(initial.fuelType || '') === 'diesel' ? 'selected' : ''}>Diesel</option>
+          <option value="electric" ${String(initial.fuelType || '') === 'electric' ? 'selected' : ''}>Electric</option>
+          <option value="hybrid" ${String(initial.fuelType || '') === 'hybrid' ? 'selected' : ''}>Hybrid</option>
+          <option value="other" ${String(initial.fuelType || '') === 'other' ? 'selected' : ''}>Other</option>
+        </select>
+      </label>
+      <label class="field"><span class="field-label">License Plate</span><input class="input" name="licensePlate" value="${esc(initial.licensePlate || '')}" /></label>
+      <label class="field"><span class="field-label">Current Odometer (km)</span><input class="input" type="number" min="0" step="1" name="currentOdometer" value="${esc(initial.currentOdometer || 0)}" /></label>
       <label class="field"><span class="field-label">Fuel L/100km</span><input class="input" type="number" min="0" step="0.1" name="fuelEfficiency" value="${esc(initial.fuelEfficiency || '')}" /></label>
       <label class="field"><span class="field-label">kWh/100km</span><input class="input" type="number" min="0" step="0.1" name="kwPer100km" value="${esc(initial.kwPer100km || '')}" /></label>
       <label class="field"><span class="field-label">Fuel or charge price</span><input class="input" type="number" min="0" step="0.01" name="currentFuelPrice" value="${esc(initial.currentFuelPrice || '')}" /></label>
@@ -235,9 +263,9 @@ async function addMaintenanceLog(vehicleId, defaults = {}) {
   wrap.innerHTML = `
     <form>
       <label class="field"><span class="field-label">Date</span><input class="input" type="date" name="date" value="${esc(defaults.date || ymd())}" required /></label>
-      <label class="field"><span class="field-label">Service</span><input class="input" name="serviceType" value="${esc(defaults.serviceType || '')}" required /></label>
+      <label class="field"><span class="field-label">Service</span><input class="input" name="type" value="${esc(defaults.type || '')}" required /></label>
       <label class="field"><span class="field-label">Cost</span><input class="input" type="number" min="0" step="0.01" name="cost" value="${esc(defaults.cost || '')}" /></label>
-      <label class="field"><span class="field-label">Odometer (km)</span><input class="input" type="number" min="0" step="1" name="odometerKm" value="${esc(defaults.odometerKm || '')}" /></label>
+      <label class="field"><span class="field-label">Odometer (km)</span><input class="input" type="number" min="0" step="1" name="odometer" value="${esc(defaults.odometer || '')}" /></label>
       <label class="field"><span class="field-label">Notes</span><textarea class="input" name="notes">${esc(defaults.notes || '')}</textarea></label>
     </form>
   `;
@@ -255,14 +283,17 @@ async function addMaintenanceLog(vehicleId, defaults = {}) {
           onClick: async () => {
             const fd = new FormData(form);
             await db.vehicleMaintenanceLogs.add({
-              vehicleId: Number(vehicleId),
+              id: newId('mnt'),
+              vehicleId: String(vehicleId),
               date: String(fd.get('date') || ymd()),
-              serviceType: String(fd.get('serviceType') || ''),
+              type: String(fd.get('type') || ''),
               cost: Math.max(0, num(fd.get('cost'), 0)),
-              odometerKm: Math.max(0, num(fd.get('odometerKm'), 0)),
+              odometer: Math.max(0, num(fd.get('odometer'), 0)),
               notes: String(fd.get('notes') || ''),
               createdAt: nowIso(),
               updatedAt: nowIso(),
+              syncUpdatedAt: Date.now(),
+              syncDeletedAt: null,
             });
             resolve(true);
           },
@@ -304,9 +335,9 @@ async function addOdometerEntry(vehicleId) {
             const fd = new FormData(form);
             const km = Math.max(0, num(fd.get('km')));
             const all = await getOdometerLog();
-            all.push({ vehicleId: Number(vehicleId), km, date: ymd(), createdAt: nowIso() });
+            all.push({ vehicleId: String(vehicleId), km, date: ymd(), createdAt: nowIso() });
             await putOdometerLog(all.slice(-1000));
-            await db.vehicles.update(Number(vehicleId), { totalKmLogged: km, updatedAt: nowIso() });
+            await db.vehicles.update(vehicleId, { totalKmLogged: km, updatedAt: nowIso() });
             resolve(true);
           },
         },
@@ -365,9 +396,9 @@ export async function renderVehiclesView(root) {
     cardsSlot.innerHTML = (
       await Promise.all(
         vehicles.map(async (v) => {
-          const vMaintenance = maintenance.filter((m) => Number(m.vehicleId) === Number(v.id));
-          const vExpenses = expenses.filter((e) => Number(e.vehicleId || 0) === Number(v.id));
-          const vShifts = shifts.filter((s) => Number(s.vehicleId || 0) === Number(v.id));
+          const vMaintenance = maintenance.filter((m) => String(m.vehicleId) === String(v.id));
+          const vExpenses = expenses.filter((e) => String(e.vehicleId || '') === String(v.id));
+          const vShifts = shifts.filter((s) => String(s.vehicleId || '') === String(v.id));
           const stats = calcVehicleStats(v, vExpenses, vMaintenance, vShifts);
           statsRows.push({ id: v.id, label: vehicleLabel(v), ...stats });
 
@@ -430,7 +461,7 @@ export async function renderVehiclesView(root) {
                 ${maintenanceRecent.length > 0 
                   ? maintenanceRecent.map(m => `
                       <div class="vehicle-maintenance-row">
-                        <span class="vehicle-maintenance-service">${esc(m.serviceType)}</span>
+                        <span class="vehicle-maintenance-service">${esc(m.type)}</span>
                         <span class="vehicle-maintenance-date">${esc(m.date)}</span>
                       </div>
                     `).join('')
@@ -506,8 +537,8 @@ export async function renderVehiclesView(root) {
     }
 
     const card = el.closest('[data-vehicle-id]');
-    const id = Number(card?.getAttribute('data-vehicle-id'));
-    if (!Number.isFinite(id) || id <= 0) return;
+    const id = card?.getAttribute('data-vehicle-id') || null;
+    if (!id) return;
     const row = await db.vehicles.get(id);
     if (!row) return;
 

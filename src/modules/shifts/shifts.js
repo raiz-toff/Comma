@@ -14,6 +14,7 @@ import { acquireWakeLock, releaseWakeLock } from '../pwa/pwa.js';
 import { extractShiftPlatformSpecific } from '../platforms/platform-specific.js';
 import { saveExpense, updateExpense, deleteExpense } from '../expenses/expenses.js';
 import { GPSTracker } from '../../core/gps-tracker.js';
+import { newId } from '../../core/id.js';
 
 const LS_TIMER_KEY = 'comma_active_shift_timer';
 const APP_STATE_TIMER_KEY = 'active_shift_start';
@@ -42,22 +43,16 @@ function resolveProvinceId(input) {
   return 'ON';
 }
 
-/** User-entered currency → integer cents (plan v3). */
-function dollarsToCents(v) {
+/**
+ * User-entered currency → a plain non-negative dollar number, or null if absent/invalid.
+ * (Schema-alignment pass, interop plan Workstream 1: shift money fields are real dollars now,
+ * matching mobile's `grossRevenue`/`tipsRevenue` — no more cents storage.)
+ */
+function moneyToNumber(v) {
   if (v == null || v === '') return null;
   const n = Number(v);
   if (!Number.isFinite(n) || n < 0) return null;
-  return Math.round(n * 100);
-}
-
-function centsFromInput(input, keys) {
-  for (const k of keys) {
-    if (input[k] != null && input[k] !== '') {
-      const n = Number(input[k]);
-      if (Number.isFinite(n) && n >= 0) return Math.round(n);
-    }
-  }
-  return null;
+  return n;
 }
 
 function ymdFromDate(d) {
@@ -88,6 +83,126 @@ function minutesBetween(ymd, startHm, endHm) {
   return min;
 }
 
+/**
+ * Fix 1 (interop plan Workstream 3 prerequisite) — combine a YYYY-MM-DD date + HH:mm
+ * time-of-day strings into real epoch-ms start/end timestamps, mirroring mobile's
+ * `shifts.startTime`/`endTime` (`integer({mode:'timestamp'})`, NOT NULL — see schema.ts).
+ * Applies the same overnight-rollover rule `minutesBetween`/`checkConflict` already used
+ * (end-of-day < start-of-day ⇒ shift crossed midnight, add 24h to end). Missing/invalid HH:mm
+ * inputs fall back to local midnight on `date` for the start, and `start + durationSecondsHint`
+ * for the end, so mobile's NOT NULL constraint is always satisfiable even for a web "quick
+ * entry" that only records a duration, not exact clock times.
+ * @param {string} ymd
+ * @param {string|null} startHm
+ * @param {string|null} endHm
+ * @param {number} [durationSecondsHint]
+ * @returns {{ startMs: number, endMs: number }}
+ */
+function deriveShiftTimestamps(ymd, startHm, endHm, durationSecondsHint = 0) {
+  const day = isYmd(ymd) ? ymd : ymdFromDate(new Date());
+  const startMs = isHm(startHm) ? new Date(`${day}T${startHm}:00`).getTime() : new Date(`${day}T00:00:00`).getTime();
+  let endMs;
+  if (isHm(endHm)) {
+    endMs = new Date(`${day}T${endHm}:00`).getTime();
+    if (endMs < startMs) endMs += 24 * 60 * 60 * 1000;
+  } else {
+    endMs = startMs + Math.max(0, Math.round(Number(durationSecondsHint) || 0)) * 1000;
+  }
+  return { startMs, endMs };
+}
+
+/** HH:mm (local time-of-day) from an epoch-ms timestamp, or null if not a finite number. */
+function hmFromMs(ms) {
+  if (typeof ms !== 'number' || !Number.isFinite(ms)) return null;
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/** YYYY-MM-DD (local calendar date) from an epoch-ms timestamp, or null if not a finite number. */
+function ymdFromMs(ms) {
+  if (typeof ms !== 'number' || !Number.isFinite(ms)) return null;
+  return ymdFromDate(new Date(ms));
+}
+
+/**
+ * Convert a stored shift row's epoch-ms `startTime`/`endTime` (Fix 1) back into the
+ * date/HH:mm-string shape `shift-form.js` expects for its `initial` prefill — used wherever a
+ * DB row (or a row-shaped payload) is handed to the form for editing/duplicating, so the form
+ * itself needs zero changes for this schema shift. Non-shift fields pass through untouched.
+ * @param {Record<string, unknown>} row
+ * @returns {Record<string, unknown>}
+ */
+export function shiftRowToFormTimeFields(row) {
+  if (!row || typeof row !== 'object') return row;
+  const out = { ...row };
+  if (typeof out.startTime === 'number') out.startTime = hmFromMs(out.startTime);
+  if (typeof out.endTime === 'number') out.endTime = hmFromMs(out.endTime);
+  return out;
+}
+
+/**
+ * Normalize the `shiftPlatforms` breakdown passed from the shift form (interop plan Workstream 4
+ * — multi-platform shift UI). Mirrors mobile's `shiftPlatforms` table shape field-for-field
+ * (`platform`, `platformOnlineSeconds`, `platformActiveSeconds`, `grossRevenue`, `tipsRevenue`,
+ * `tripsCount` — see `commaApp/src/database/schema.ts`). Rows without a platform are dropped.
+ * @param {unknown} raw
+ * @returns {Array<{ platform: string, grossRevenue: number, tipsRevenue: number, tripsCount: number, platformOnlineSeconds: number, platformActiveSeconds: number }>}
+ */
+function normalizeShiftPlatformRows(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((r) => r && typeof r === 'object' && normStr(/** @type {any} */ (r).platform))
+    .map((r) => {
+      const row = /** @type {Record<string, unknown>} */ (r);
+      return {
+        platform: normStr(row.platform),
+        grossRevenue: Math.max(0, moneyToNumber(row.grossRevenue) ?? 0),
+        tipsRevenue: Math.max(0, moneyToNumber(row.tipsRevenue) ?? 0),
+        tripsCount: Math.max(0, Math.round(Number(row.tripsCount) || 0)),
+        platformOnlineSeconds: Math.max(0, Math.round(Number(row.platformOnlineSeconds) || 0)),
+        platformActiveSeconds: Math.max(0, Math.round(Number(row.platformActiveSeconds) || 0)),
+      };
+    });
+}
+
+/**
+ * Replace a shift's `shiftPlatforms` rows (delete-and-recreate — simplest correct approach for a
+ * per-shift line-item breakdown; see interop plan Workstream 4). Existing rows are soft-deleted
+ * (tombstoned via `syncDeletedAt`, matching every other synced table's convention) rather than
+ * hard-deleted, so a future sync engine sees the change instead of silently losing it. No-op when
+ * `platformRowsInput` is not an array (callers that don't touch the breakdown, e.g. programmatic
+ * patches, leave existing shiftPlatforms rows untouched).
+ * @param {number} shiftId
+ * @param {unknown} platformRowsInput
+ */
+async function syncShiftPlatformRows(shiftId, platformRowsInput) {
+  if (!Array.isArray(platformRowsInput)) return;
+  const rows = normalizeShiftPlatformRows(platformRowsInput);
+  const syncNow = Date.now();
+  await db.transaction('rw', db.shiftPlatforms, async () => {
+    const existing = await db.shiftPlatforms.where('shiftId').equals(shiftId).toArray();
+    for (const ex of existing) {
+      if (ex.syncDeletedAt == null) {
+        await db.shiftPlatforms.update(ex.id, { syncDeletedAt: syncNow, syncUpdatedAt: syncNow });
+      }
+    }
+    for (const row of rows) {
+      await db.shiftPlatforms.add({
+        id: newId('sp'),
+        shiftId,
+        platform: row.platform,
+        platformOnlineSeconds: row.platformOnlineSeconds,
+        platformActiveSeconds: row.platformActiveSeconds,
+        grossRevenue: row.grossRevenue,
+        tipsRevenue: row.tipsRevenue,
+        tripsCount: row.tripsCount,
+        syncUpdatedAt: syncNow,
+        syncDeletedAt: null,
+      });
+    }
+  });
+}
+
 function safeJsonParse(raw, fallback) {
   if (typeof raw !== 'string' || !raw) return fallback;
   try {
@@ -99,31 +214,41 @@ function safeJsonParse(raw, fallback) {
 
 /**
  * @typedef {Object} ShiftRow
- * @property {number} [id]
- * @property {string} date YYYY-MM-DD
- * @property {string} platformId
+ * @property {string} id client-generated string (Fix 2 — interop plan; see core/id.js)
+ * @property {string} date YYYY-MM-DD — derived from `startTime`, kept as a web-only convenience
+ *   column (mobile has no separate date field — see db.js STORES_V5 doc); not required for
+ *   mobile interop, just left off what mobile understands (same as `customFields`)
+ * @property {string} platformId mobile: `platform` — single/primary platform, kept for backward-compat display
  * @property {string} provinceId
- * @property {string|null} startTime HH:mm
- * @property {string|null} endTime HH:mm
- * @property {number|null} durationMinutes
- * @property {number|null} grossEarnings cents
- * @property {number|null} tips cents
- * @property {number|null} bonusEarnings cents
- * @property {number|null} deliveryCount
- * @property {number|null} distanceKm
- * @property {number|null} deadMilesKm
- * @property {number|null} onlineMinutes
- * @property {number|null} activeMinutes
+ * @property {number} startTime epoch ms (Fix 1 — interop plan; mobile parity, NOT NULL there)
+ * @property {number} endTime epoch ms
+ * @property {number} durationSeconds mobile: total elapsed shift time in seconds
+ * @property {number} pausedSeconds mobile: paused time; net active = durationSeconds - pausedSeconds
+ * @property {number} grossRevenue dollars (mobile: real, not cents)
+ * @property {number} tipsRevenue dollars
+ * @property {number|null} deliveryCount backward-compat display aggregate (mobile has no shift-level trip count)
+ * @property {number} activeMileage mobile: GPS-tracked delivery miles (web stores in km, see db.js doc)
+ * @property {number} deadMileage mobile: commute/waiting miles not on a delivery
+ * @property {number|null} startOdometer
+ * @property {number|null} endOdometer
+ * @property {string} distanceSource 'manual' | 'gps_only' | 'odometer_reconciled'
+ * @property {string} reconciliationStatus 'tracking' | 'pending_reconciliation' | 'reconciled'
+ * @property {string|null} routePath
+ * @property {number|null} onlineMinutes web-only
+ * @property {number|null} activeMinutes web-only
  * @property {number|null} vehicleId
- * @property {string|null} weather
- * @property {string|null} mood
+ * @property {string|null} weather web-only
+ * @property {string|null} mood web-only
  * @property {string} notes
- * @property {boolean} isMultiApp
- * @property {string[]} multiAppPlatformIds
- * @property {Record<string, unknown>} customFields
+ * @property {boolean} isMultiApp web-only
+ * @property {string[]} multiAppPlatformIds web-only
+ * @property {Record<string, unknown>} customFields web-only bag (peakPay, bonusAmount, platform extras —
+ *   mobile has no bonus field on shifts, so a web-entered "bonus" is folded in here, not into grossRevenue)
  * @property {string|null} deletedAt
  * @property {string} createdAt
  * @property {string} updatedAt
+ * @property {number} syncUpdatedAt epoch ms — mirrors mobile's LWW sync clock
+ * @property {number|null} syncDeletedAt epoch ms tombstone — mirrors mobile's sync soft-delete
  */
 
 /**
@@ -148,25 +273,72 @@ export function normalizeShiftInput(input) {
 
   const provinceId = resolveProvinceId(input);
 
-  const startTime = isHm(input.startTime) ? String(input.startTime) : null;
-  const endTime = isHm(input.endTime) ? String(input.endTime) : null;
+  // Fix 1 (interop plan): startTime/endTime are real epoch-ms timestamps in the stored row
+  // (mobile parity — see deriveShiftTimestamps doc above). Two input shapes are accepted here:
+  // HH:mm time-of-day strings (fresh input from shift-form.js / CSV column mapping, combined
+  // with `date` below), or already-resolved epoch-ms numbers (idempotent re-normalization — e.g.
+  // CSV import validates a row via normalizeShiftInput once during its dry-run pass and again
+  // via saveShift() at commit time). Numbers pass straight through so re-normalizing never loses
+  // the precise instant already computed on a prior pass.
+  const startAlreadyMs = typeof input.startTime === 'number' && Number.isFinite(input.startTime);
+  const endAlreadyMs = typeof input.endTime === 'number' && Number.isFinite(input.endTime);
+  const startHm = !startAlreadyMs && isHm(input.startTime) ? String(input.startTime) : null;
+  const endHm = !endAlreadyMs && isHm(input.endTime) ? String(input.endTime) : null;
 
-  let durationMinutes = clampNum(input.durationMinutes, { min: 0 });
-  if (durationMinutes == null && date && startTime && endTime) {
-    durationMinutes = minutesBetween(date, startTime, endTime);
+  let durationMinutesLocal = clampNum(input.durationMinutes, { min: 0 });
+  if (durationMinutesLocal == null && date && startHm && endHm) {
+    durationMinutesLocal = minutesBetween(date, startHm, endHm);
+  }
+  const durationSeconds =
+    input.durationSeconds != null
+      ? Math.max(0, Math.round(Number(input.durationSeconds) || 0))
+      : Math.max(0, Math.round((durationMinutesLocal || 0) * 60));
+  const pausedSeconds = Math.max(0, Math.round(Number(input.pausedSeconds) || 0));
+
+  let startTime;
+  let endTime;
+  if (startAlreadyMs) {
+    startTime = input.startTime;
+    endTime = endAlreadyMs ? input.endTime : startTime + durationSeconds * 1000;
+  } else {
+    const derived = deriveShiftTimestamps(date, startHm, endHm, durationSeconds);
+    startTime = derived.startMs;
+    endTime = derived.endMs;
   }
 
-  const grossEarnings = input.grossEarnings !== undefined ? Number(input.grossEarnings) : (dollarsToCents(input.gross) ?? 0);
-  const tips = input.grossEarnings !== undefined ? Number(input.tips ?? 0) : (dollarsToCents(input.tips) ?? 0);
-  const bonusEarnings = input.grossEarnings !== undefined ? Number(input.bonusEarnings ?? 0) : (dollarsToCents(input.bonus) ?? 0);
+  // Multi-platform breakdown (interop plan Workstream 4): when the form supplies a
+  // `shiftPlatforms` split, the shift's own aggregate grossRevenue/tipsRevenue/deliveryCount are
+  // the SUM across every platform row rather than a directly-entered number — this keeps every
+  // existing reader of these top-level fields (dashboard, analytics, reports) correct without
+  // having to learn about `shiftPlatforms`. For a single-platform shift the array has exactly one
+  // row, so the sum equals that row's own values — identical to pre-multi-platform behavior.
+  const platformRows = normalizeShiftPlatformRows(input.shiftPlatforms);
+  const grossRevenue = platformRows.length
+    ? Math.max(0, platformRows.reduce((sum, r) => sum + r.grossRevenue, 0))
+    : Math.max(0, moneyToNumber(input.grossRevenue ?? input.gross) ?? 0);
+  const tipsRevenue = platformRows.length
+    ? Math.max(0, platformRows.reduce((sum, r) => sum + r.tipsRevenue, 0))
+    : Math.max(0, moneyToNumber(input.tipsRevenue ?? input.tips) ?? 0);
+  const bonusAmount = moneyToNumber(input.bonusEarnings ?? input.bonus);
 
-  const deliveryCount = clampNum(input.deliveryCount ?? input.orders, { min: 0 });
-  const distanceKm = clampNum(input.distanceKm, { min: 0 });
-  const dm = clampNum(input.deadMilesKm, { min: 0 });
-  const deadMilesKm = dm == null ? 0 : dm;
+  const deliveryCount = platformRows.length
+    ? platformRows.reduce((sum, r) => sum + r.tripsCount, 0)
+    : clampNum(input.deliveryCount ?? input.orders, { min: 0 });
+  const activeMileage = clampNum(input.activeMileage ?? input.distanceKm, { min: 0 }) ?? 0;
+  const dm = clampNum(input.deadMileage ?? input.deadMilesKm, { min: 0 });
+  const deadMileage = dm == null ? 0 : dm;
   const onlineMinutes = clampNum(input.onlineMinutes, { min: 0 });
   const activeMinutes = clampNum(input.activeMinutes, { min: 0 });
-  const vehicleId = input.vehicleId == null ? null : clampNum(input.vehicleId, { min: 0 });
+  // vehicles.id is a client-generated string (Fix 2 — interop plan) — no numeric coercion.
+  const vehicleId = input.vehicleId == null || input.vehicleId === '' ? null : String(input.vehicleId);
+  const startOdometer = input.startOdometer == null || input.startOdometer === '' ? null : clampNum(input.startOdometer, { min: 0 });
+  const endOdometer = input.endOdometer == null || input.endOdometer === '' ? null : clampNum(input.endOdometer, { min: 0 });
+  const distanceSource = typeof input.distanceSource === 'string' && input.distanceSource ? input.distanceSource : 'manual';
+  const reconciliationStatus =
+    typeof input.reconciliationStatus === 'string' && input.reconciliationStatus
+      ? input.reconciliationStatus
+      : 'reconciled';
+  const routePath = typeof input.routePath === 'string' ? input.routePath : null;
 
   const weatherRaw = normStr(input.weather);
   const weather = weatherRaw ? weatherRaw : null;
@@ -180,21 +352,44 @@ export function normalizeShiftInput(input) {
     ...platformExtra.platformSpecific,
   };
   if (platformExtra.peakPay != null) customFields.peakPay = platformExtra.peakPay;
+  // Mobile's shifts table has no separate bonus/peak-pay column (interop plan Workstream 1) — a
+  // web-entered "bonus" folds into customFields rather than corrupting grossRevenue or inventing
+  // a top-level field mobile doesn't have.
+  if (bonusAmount != null) {
+    customFields.bonusAmount = bonusAmount;
+  } else if (
+    input.customFields &&
+    typeof input.customFields === 'object' &&
+    /** @type {any} */ (input.customFields).bonusAmount != null
+  ) {
+    customFields.bonusAmount = Number(/** @type {any} */ (input.customFields).bonusAmount) || 0;
+  }
 
   const t = nowIso();
+  const syncNow = Date.now();
+  // Fix 2 (interop plan) — client-generated string primary key. Preserve an incoming string id
+  // (idempotent re-normalization, e.g. CSV import's dry-run pass then saveShift() at commit)
+  // rather than minting a second, different one.
+  const id = typeof input.id === 'string' && input.id ? input.id : newId('shift');
   return {
+    id,
     date,
     platformId,
     provinceId,
     startTime,
     endTime,
-    durationMinutes,
-    grossEarnings,
-    tips,
-    bonusEarnings,
+    durationSeconds,
+    pausedSeconds,
+    grossRevenue,
+    tipsRevenue,
     deliveryCount,
-    distanceKm,
-    deadMilesKm,
+    activeMileage,
+    deadMileage,
+    startOdometer,
+    endOdometer,
+    distanceSource,
+    reconciliationStatus,
+    routePath,
     onlineMinutes,
     activeMinutes,
     vehicleId,
@@ -207,25 +402,24 @@ export function normalizeShiftInput(input) {
     deletedAt: null,
     createdAt: t,
     updatedAt: t,
+    syncUpdatedAt: syncNow,
+    syncDeletedAt: null,
   };
 }
 
 /**
- * Validate start/end time ordering when both present.
- * Allows end == start (0 minutes) for quick entries.
- * @param {string} date
- * @param {string|null} startTime
- * @param {string|null} endTime
+ * Validate start/end epoch-ms ordering (Fix 1 — startTime/endTime are timestamps now).
+ * Allows end == start (0 duration) for quick entries.
+ * @param {number|null} startTime epoch ms
+ * @param {number|null} endTime epoch ms
  */
-function validateTimeWindow(date, startTime, endTime) {
-  if (!startTime || !endTime) return;
-  const mins = minutesBetween(date, startTime, endTime);
-  if (mins == null) return;
-  if (mins < 0) throw new Error('shift:time:invalid');
+function validateTimeWindow(startTime, endTime) {
+  if (typeof startTime !== 'number' || typeof endTime !== 'number') return;
+  if (endTime < startTime) throw new Error('shift:time:invalid');
 }
 
 /**
- * @param {number} id
+ * @param {string} id
  * @returns {Promise<ShiftRow | undefined>}
  */
 export async function getShift(id) {
@@ -234,19 +428,20 @@ export async function getShift(id) {
 
 /**
  * Feature 54 — check overlaps on same day for non-deleted shifts.
- * @param {string} date YYYY-MM-DD
- * @param {string|null} startTime HH:mm
- * @param {string|null} endTime HH:mm
- * @param {{ excludeId?: number, platformId?: string }} [opts]
+ * @param {string} date YYYY-MM-DD (still used to scope the same-day candidate query — `date` is
+ *   kept as a derived, indexed convenience column, see db.js STORES_V5 doc)
+ * @param {number|null} startTime epoch ms (Fix 1)
+ * @param {number|null} endTime epoch ms
+ * @param {{ excludeId?: string, platformId?: string }} [opts]
  */
 export async function checkConflict(date, startTime, endTime, opts = {}) {
-  if (!isYmd(date) || !isHm(startTime) || !isHm(endTime)) return null;
-  const excludeId = typeof opts.excludeId === 'number' ? opts.excludeId : null;
+  if (!isYmd(date) || typeof startTime !== 'number' || typeof endTime !== 'number') return null;
+  const excludeId = typeof opts.excludeId === 'string' ? opts.excludeId : null;
   const platformId = typeof opts.platformId === 'string' ? opts.platformId.trim().toLowerCase() : null;
 
   const shifts = await db.shifts.where('date').equals(date).toArray();
-  const targetStart = new Date(`${date}T${startTime}:00`).getTime();
-  let targetEnd = new Date(`${date}T${endTime}:00`).getTime();
+  const targetStart = startTime;
+  let targetEnd = endTime;
   if (targetEnd < targetStart) {
     targetEnd += 24 * 60 * 60 * 1000;
   }
@@ -259,13 +454,12 @@ export async function checkConflict(date, startTime, endTime, opts = {}) {
     if (s.deletedAt != null) continue;
     if (excludeId != null && s.id === excludeId) continue;
     if (platformId != null && s.platformId != null && s.platformId.toLowerCase() !== platformId) continue;
-    if (!isHm(s.startTime) || !isHm(s.endTime)) continue;
-    const sStart = new Date(`${date}T${s.startTime}:00`).getTime();
-    let sEnd = new Date(`${date}T${s.endTime}:00`).getTime();
+    if (typeof s.startTime !== 'number' || typeof s.endTime !== 'number') continue;
+    let sStart = s.startTime;
+    let sEnd = s.endTime;
     if (sEnd < sStart) {
       sEnd += 24 * 60 * 60 * 1000;
     }
-    if (!Number.isFinite(sStart) || !Number.isFinite(sEnd)) continue;
 
     // Skip if the existing shift is a placeholder/daily total (1 min or less)
     if (sEnd - sStart <= 60000) continue;
@@ -287,10 +481,11 @@ export async function checkHoursWarning(date) {
   let total = 0;
   for (const s of shifts) {
     if (s.deletedAt != null) continue;
-    const mins = minutesBetween(date, s.startTime, s.endTime);
-    if (mins != null && mins > 0) total += mins;
+    if (typeof s.startTime === 'number' && typeof s.endTime === 'number' && s.endTime > s.startTime) {
+      total += (s.endTime - s.startTime) / 60000;
+    }
   }
-  return { totalMinutes: total };
+  return { totalMinutes: Math.round(total) };
 }
 
 /**
@@ -307,7 +502,7 @@ export async function saveShiftsBulk(shifts) {
 
 async function syncShiftOutOfPocketExpense(shiftId, outOfPocketExpense, date, platformId) {
   const existing = await db.expenses
-    .filter((e) => e.deletedAt == null && Number(e.shiftId) === Number(shiftId) && e.category === 'out_of_pocket')
+    .filter((e) => e.deletedAt == null && e.shiftId === shiftId && e.category === 'out_of_pocket')
     .first();
 
   const amtRaw = Number(outOfPocketExpense);
@@ -317,7 +512,7 @@ async function syncShiftOutOfPocketExpense(shiftId, outOfPocketExpense, date, pl
         amount: amtRaw,
         date,
         platformId,
-        businessPct: 0,
+        deductiblePct: 0,
       });
     } else {
       await saveExpense({
@@ -325,7 +520,7 @@ async function syncShiftOutOfPocketExpense(shiftId, outOfPocketExpense, date, pl
         amount: amtRaw,
         date,
         platformId,
-        businessPct: 0,
+        deductiblePct: 0,
         notes: `Out-of-pocket ordering expense during shift`,
         shiftId,
       });
@@ -344,7 +539,7 @@ async function syncShiftOutOfPocketExpense(shiftId, outOfPocketExpense, date, pl
  */
 export async function saveShift(shiftData) {
   const row = normalizeShiftInput(shiftData);
-  validateTimeWindow(row.date, row.startTime, row.endTime);
+  validateTimeWindow(row.startTime, row.endTime);
   const conflict = await checkConflict(row.date, row.startTime, row.endTime, { platformId: row.platformId });
   if (conflict) throw new Error('shift:conflict');
 
@@ -352,6 +547,7 @@ export async function saveShift(shiftData) {
   if (shiftData.outOfPocketExpense != null) {
     await syncShiftOutOfPocketExpense(id, shiftData.outOfPocketExpense, row.date, row.platformId);
   }
+  await syncShiftPlatformRows(id, shiftData.shiftPlatforms);
   bus.emit(SHIFT_SAVED, { id });
   return id;
 }
@@ -359,7 +555,7 @@ export async function saveShift(shiftData) {
 /**
  * Patch update shift.
  * Emits SHIFT_SAVED with `{ id }`.
- * @param {number} id
+ * @param {string} id
  * @param {Record<string, unknown>} patch
  */
 export async function updateShift(id, patch) {
@@ -368,25 +564,68 @@ export async function updateShift(id, patch) {
 
   const nextPatch = { ...patch };
   if (nextPatch.gross !== undefined) {
-    nextPatch.grossEarnings = dollarsToCents(nextPatch.gross);
+    nextPatch.grossRevenue = Math.max(0, moneyToNumber(nextPatch.gross) ?? 0);
     delete nextPatch.gross;
   }
   if (nextPatch.tips !== undefined) {
-    nextPatch.tips = dollarsToCents(nextPatch.tips);
+    nextPatch.tipsRevenue = Math.max(0, moneyToNumber(nextPatch.tips) ?? 0);
+    delete nextPatch.tips;
   }
-  if (nextPatch.bonus !== undefined) {
-    nextPatch.bonusEarnings = dollarsToCents(nextPatch.bonus);
+  if (nextPatch.bonus !== undefined || nextPatch.bonusEarnings !== undefined) {
+    // Mobile has no top-level bonus column — fold into customFields (see normalizeShiftInput).
+    const bonusVal = moneyToNumber(nextPatch.bonusEarnings ?? nextPatch.bonus) ?? 0;
+    const baseCf =
+      nextPatch.customFields && typeof nextPatch.customFields === 'object'
+        ? { .../** @type {object} */ (nextPatch.customFields) }
+        : prev.customFields && typeof prev.customFields === 'object'
+          ? { .../** @type {object} */ (prev.customFields) }
+          : {};
+    nextPatch.customFields = { ...baseCf, bonusAmount: bonusVal };
     delete nextPatch.bonus;
+    delete nextPatch.bonusEarnings;
   }
   if (nextPatch.orders !== undefined || nextPatch.deliveryCount !== undefined) {
     nextPatch.deliveryCount = clampNum(nextPatch.deliveryCount ?? nextPatch.orders, { min: 0 });
     delete nextPatch.orders;
+  }
+  if (nextPatch.distanceKm !== undefined || nextPatch.activeMileage !== undefined) {
+    nextPatch.activeMileage = clampNum(nextPatch.activeMileage ?? nextPatch.distanceKm, { min: 0 }) ?? 0;
+    delete nextPatch.distanceKm;
+  }
+  if (nextPatch.deadMilesKm !== undefined || nextPatch.deadMileage !== undefined) {
+    const dm = clampNum(nextPatch.deadMileage ?? nextPatch.deadMilesKm, { min: 0 });
+    nextPatch.deadMileage = dm == null ? 0 : dm;
+    delete nextPatch.deadMilesKm;
+  }
+  if (nextPatch.durationMinutes !== undefined || nextPatch.durationSeconds !== undefined) {
+    nextPatch.durationSeconds =
+      nextPatch.durationSeconds != null
+        ? Math.max(0, Math.round(Number(nextPatch.durationSeconds) || 0))
+        : Math.max(0, Math.round((Number(nextPatch.durationMinutes) || 0) * 60));
+    delete nextPatch.durationMinutes;
+  }
+  // Multi-platform breakdown (interop plan Workstream 4): `shiftPlatforms` lives in its own Dexie
+  // table (persisted below, after `db.shifts.put`), never on the shift row itself — when present,
+  // it also re-derives the shift's aggregate grossRevenue/tipsRevenue/deliveryCount the same way
+  // `normalizeShiftInput` does for new shifts (see there for why summing is safe for the
+  // single-platform case). `patch.shiftPlatforms` (pre-strip) is kept around for the persistence
+  // call at the bottom of this function.
+  const shiftPlatformsPatch = nextPatch.shiftPlatforms;
+  if (nextPatch.shiftPlatforms !== undefined) {
+    const platformRows = normalizeShiftPlatformRows(nextPatch.shiftPlatforms);
+    if (platformRows.length) {
+      nextPatch.grossRevenue = Math.max(0, platformRows.reduce((sum, r) => sum + r.grossRevenue, 0));
+      nextPatch.tipsRevenue = Math.max(0, platformRows.reduce((sum, r) => sum + r.tipsRevenue, 0));
+      nextPatch.deliveryCount = platformRows.reduce((sum, r) => sum + r.tripsCount, 0);
+    }
+    delete nextPatch.shiftPlatforms;
   }
 
   const next = {
     ...prev,
     ...nextPatch,
     updatedAt: nowIso(),
+    syncUpdatedAt: Date.now(),
   };
 
   // Normalize critical fields if present.
@@ -396,8 +635,41 @@ export async function updateShift(id, patch) {
   if (patch.platformId != null) {
     if (!normStr(next.platformId)) throw new Error('shift:platform:required');
   }
-  if (patch.startTime != null) next.startTime = isHm(next.startTime) ? next.startTime : null;
-  if (patch.endTime != null) next.endTime = isHm(next.endTime) ? next.endTime : null;
+  // Fix 1 (interop plan) — startTime/endTime are epoch-ms timestamps in the stored row; `patch`
+  // (from shift-form.js's getValue()) still supplies them as HH:mm time-of-day strings, combined
+  // here with `next.date` (the same conversion normalizeShiftInput does for new shifts). A caller
+  // that already passes a resolved epoch-ms number (e.g. a future sync-merge apply) passes straight
+  // through unchanged.
+  if (patch.startTime !== undefined || patch.endTime !== undefined) {
+    const startAlreadyMs = typeof patch.startTime === 'number' && Number.isFinite(patch.startTime);
+    const endAlreadyMs = typeof patch.endTime === 'number' && Number.isFinite(patch.endTime);
+    const startHm = !startAlreadyMs && isHm(patch.startTime) ? String(patch.startTime) : null;
+    const endHm = !endAlreadyMs && isHm(patch.endTime) ? String(patch.endTime) : null;
+    if (startAlreadyMs || endAlreadyMs) {
+      next.startTime = startAlreadyMs ? patch.startTime : typeof prev.startTime === 'number' ? prev.startTime : null;
+      next.endTime = endAlreadyMs ? patch.endTime : typeof prev.endTime === 'number' ? prev.endTime : null;
+    } else if (startHm || endHm) {
+      const derived = deriveShiftTimestamps(next.date, startHm, endHm, next.durationSeconds);
+      next.startTime = startHm ? derived.startMs : typeof prev.startTime === 'number' ? prev.startTime : null;
+      next.endTime = endHm ? derived.endMs : typeof prev.endTime === 'number' ? prev.endTime : null;
+    } else {
+      // Explicit null/invalid clear.
+      if (patch.startTime !== undefined) next.startTime = null;
+      if (patch.endTime !== undefined) next.endTime = null;
+    }
+  }
+  if (patch.date != null && typeof next.startTime === 'number') {
+    // Date changed independently of time-of-day — re-anchor the stored timestamp onto the new
+    // calendar date, keeping the same time-of-day, so `date` and `startTime` never disagree.
+    const hm = hmFromMs(next.startTime);
+    if (hm) {
+      const durSec = typeof next.durationSeconds === 'number' ? next.durationSeconds : 0;
+      const endHm = typeof next.endTime === 'number' ? hmFromMs(next.endTime) : null;
+      const derived = deriveShiftTimestamps(next.date, hm, endHm, durSec);
+      next.startTime = derived.startMs;
+      next.endTime = derived.endMs;
+    }
+  }
   if (
     patch.platformId != null ||
     patch.platformSpecific != null ||
@@ -419,8 +691,12 @@ export async function updateShift(id, patch) {
     delete next.peakPay;
   }
   if (patch.provinceId != null) next.provinceId = resolveProvinceId({ provinceId: patch.provinceId });
+  if (patch.vehicleId !== undefined) {
+    // vehicles.id is a client-generated string (Fix 2) — no numeric coercion.
+    next.vehicleId = patch.vehicleId == null || patch.vehicleId === '' ? null : String(patch.vehicleId);
+  }
 
-  validateTimeWindow(next.date, next.startTime, next.endTime);
+  validateTimeWindow(next.startTime, next.endTime);
   const conflict = await checkConflict(next.date, next.startTime, next.endTime, { excludeId: id, platformId: next.platformId });
   if (conflict) throw new Error('shift:conflict');
 
@@ -428,35 +704,55 @@ export async function updateShift(id, patch) {
   if (patch.outOfPocketExpense !== undefined) {
     await syncShiftOutOfPocketExpense(id, patch.outOfPocketExpense, next.date, next.platformId);
   }
+  if (shiftPlatformsPatch !== undefined) {
+    await syncShiftPlatformRows(id, shiftPlatformsPatch);
+  }
   bus.emit(SHIFT_SAVED, { id });
 }
 
 /**
  * Soft delete (Feature 48). Emits SHIFT_DELETED with `{ id }`.
- * @param {number} id
+ * @param {string} id
  */
 export async function deleteShift(id) {
   await softDelete('shifts', id);
   const oop = await db.expenses
-    .filter((e) => e.deletedAt == null && Number(e.shiftId) === Number(id) && e.category === 'out_of_pocket')
+    .filter((e) => e.deletedAt == null && e.shiftId === id && e.category === 'out_of_pocket')
     .toArray();
   for (const e of oop) {
     await deleteExpense(e.id);
+  }
+  // Tombstone the shift's multi-platform breakdown rows alongside the shift itself (interop plan
+  // Workstream 4) — `shiftPlatforms` has no `deletedAt`/softDelete() convention of its own (see
+  // db.js), only the sync tombstone column, so this bumps it directly.
+  const platformRows = await db.shiftPlatforms.where('shiftId').equals(id).toArray();
+  const syncNow = Date.now();
+  for (const r of platformRows) {
+    if (r.syncDeletedAt == null) {
+      await db.shiftPlatforms.update(r.id, { syncDeletedAt: syncNow, syncUpdatedAt: syncNow });
+    }
   }
   bus.emit(SHIFT_DELETED, { id });
 }
 
 /**
  * Restore from trash (Feature 49). Emits SHIFT_SAVED with `{ id }`.
- * @param {number} id
+ * @param {string} id
  */
 export async function restoreShift(id) {
   await restoreDeleted('shifts', id);
   const oop = await db.expenses
-    .filter((e) => e.deletedAt != null && Number(e.shiftId) === Number(id) && e.category === 'out_of_pocket')
+    .filter((e) => e.deletedAt != null && e.shiftId === id && e.category === 'out_of_pocket')
     .toArray();
   for (const e of oop) {
     await restoreDeleted('expenses', e.id);
+  }
+  const platformRows = await db.shiftPlatforms.where('shiftId').equals(id).toArray();
+  const syncNow = Date.now();
+  for (const r of platformRows) {
+    if (r.syncDeletedAt != null) {
+      await db.shiftPlatforms.update(r.id, { syncDeletedAt: null, syncUpdatedAt: syncNow });
+    }
   }
   bus.emit(SHIFT_SAVED, { id });
 }
@@ -469,13 +765,39 @@ export async function purgeShifts() {
 }
 
 /**
- * Duplicate shift (Feature 50) — returns a new shift object (no id) for prefill.
- * @param {number} id
+ * Duplicate shift (Feature 50) — returns a new shift-form-shaped object (no id) for prefill.
+ * @param {string} id
  */
 export async function duplicateShift(id) {
   const s = await db.shifts.get(id);
   if (!s) throw new Error('shift:not_found');
-  const { id: _id, createdAt: _c, updatedAt: _u, deletedAt: _d, ...rest } = s;
+  const {
+    id: _id,
+    createdAt: _c,
+    updatedAt: _u,
+    deletedAt: _d,
+    syncUpdatedAt: _su,
+    syncDeletedAt: _sd,
+    ...rest
+  } = shiftRowToFormTimeFields(s);
+  // Carry the multi-platform breakdown along so a duplicated shift reopens with the same
+  // platform split pre-filled (interop plan Workstream 4), instead of collapsing to a single row
+  // holding the original's aggregate total.
+  const platformRows = await db.shiftPlatforms
+    .where('shiftId')
+    .equals(id)
+    .filter((r) => r.syncDeletedAt == null)
+    .toArray();
+  if (platformRows.length) {
+    rest.shiftPlatforms = platformRows.map((r) => ({
+      platform: r.platform,
+      grossRevenue: r.grossRevenue,
+      tipsRevenue: r.tipsRevenue,
+      tripsCount: r.tripsCount,
+      platformOnlineSeconds: r.platformOnlineSeconds,
+      platformActiveSeconds: r.platformActiveSeconds,
+    }));
+  }
   return { ...rest };
 }
 
@@ -670,16 +992,19 @@ export async function stopShiftTimer() {
 
   return {
     platformId: state.platformId,
-    vehicleId: state.vehicleId ? Number(state.vehicleId) : undefined,
+    vehicleId: state.vehicleId ? String(state.vehicleId) : undefined,
     date,
     startTime: startHm,
     endTime: endHm,
     activeMinutes: durMin,
     onlineMinutes: durMin,
+    durationSeconds: Math.max(0, Math.round(totalMs / 1000)),
     distanceKm: totalKm > 0.01 ? parseFloat(totalKm.toFixed(4)) : null,
     distance: distanceVal,
     deadMilesKm: deadKm > 0.01 ? parseFloat(deadKm.toFixed(4)) : null,
     deadMiles: deadMilesVal,
+    // GPS-tracked shifts (mobile parity — see distanceSource on the shifts table).
+    distanceSource: totalKm > 0.01 ? 'gps_only' : 'manual',
   };
 }
 

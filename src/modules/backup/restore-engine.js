@@ -1,95 +1,66 @@
 /**
- * COMMA — Restore Engine
+ * COMMA — Restore Engine (interop plan Workstream 2)
  * Orchestrates the full restore flow: Download → Decrypt → Validate → Write.
+ *
+ * Uses the password-derived `BackupEnvelope` (see `encryption.js`) — the same envelope shape
+ * mobile's backups use, so a `.comdb` written by mobile can be restored on web (and vice versa)
+ * given the shared backup password. This is a listing-only step for `.comdb` files (see
+ * `backup-engine.js` doc); the sync engine (Workstream 3) has its own separate pull/apply path.
  */
 
 import { deserializeVault } from './vault-serializer.js';
-import { 
-  getActiveKey, 
-  setActiveKey, 
-  importKeyFromJwk, 
-  decryptVault 
-} from './encryption.js';
-import { 
-  listAppDataFiles, 
-  downloadFile 
-} from './drive-api.js';
-import { getAccessToken, isDriveConnected } from './drive-auth.js';
+import { decryptBackup } from './encryption.js';
+import { listAppDataFiles, downloadFile } from './drive-api.js';
+import { isDriveConnected } from './drive-auth.js';
 import { bus } from '../../core/events.js';
 
 /**
- * Fetches a list of available backups from Drive with metadata.
- * Does NOT decrypt the ciphertext, only reads the unencrypted wrapper.
+ * Fetches a list of available `.comdb` backups from Drive with metadata. The new envelope has
+ * NO plaintext metadata (unlike the old `{magic, encryptedAt, appVersion, ...}` wrapper) — every
+ * field is inside the encrypted `content`, so listing no longer requires (or reveals anything
+ * without) the backup password. Drive's own file metadata (`modifiedTime`) stands in for the old
+ * `encryptedAt` field.
  */
 export async function listAvailableBackups() {
   if (!isDriveConnected()) return [];
-  
-  const files = await listAppDataFiles();
-  const backupFiles = files.filter(f => f.name.startsWith('comma-vault'));
-  
-  const results = [];
-  for (const file of backupFiles) {
-    try {
-      const blob = await downloadFile(file.id);
-      const text = await blob.text();
-      const wrapper = JSON.parse(text);
-      
-      if (wrapper.magic === 'COMMA_VAULT') {
-        results.push({
-          id: file.id,
-          name: file.name,
-          encryptedAt: wrapper.encryptedAt,
-          appVersion: wrapper.appVersion,
-          schemaVersion: wrapper.schemaVersion,
-          deviceHint: wrapper.deviceHint,
-          // We could potentially add more metadata to the wrapper like shift count
-        });
-      }
-    } catch (err) {
-      console.warn(`[restore-engine] Failed to read metadata for ${file.name}:`, err);
-    }
-  }
 
-  // Sort by date descending
-  return results.sort((a, b) => new Date(b.encryptedAt) - new Date(a.encryptedAt));
+  const files = await listAppDataFiles();
+  const backupFiles = files.filter((f) => f.name.startsWith('comma-vault'));
+
+  return backupFiles
+    .map((file) => ({
+      id: file.id,
+      name: file.name,
+      encryptedAt: file.modifiedTime || file.createdTime || null,
+      size: file.size,
+    }))
+    .sort((a, b) => new Date(b.encryptedAt || 0) - new Date(a.encryptedAt || 0));
 }
 
 /**
  * Runs the full restore process for a specific file.
- * @param {string} fileId 
+ * @param {string} fileId
+ * @param {string} passphrase Backup password (the decryption key).
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-export async function runRestore(fileId) {
+export async function runRestore(fileId, passphrase) {
   if (!navigator.onLine) return { success: false, error: 'No internet connection.' };
+  if (!passphrase) return { success: false, error: 'Enter the backup password.' };
 
   try {
     bus.emit('restore:started');
 
-    // 1. Download the .comdb file
+    // 1. Download the .comdb file (a BackupEnvelope JSON string, see encryption.js)
     const blob = await downloadFile(fileId);
-    const text = await blob.text();
-    const wrapper = JSON.parse(text);
+    const envelopeJson = await blob.text();
 
-    // 2. Validate wrapper
-    if (wrapper.magic !== 'COMMA_VAULT') {
-      throw new Error('Invalid backup file format.');
-    }
+    // 2. Decrypt
+    const plaintext = await decryptBackup(envelopeJson, passphrase);
+    const vaultData = JSON.parse(plaintext);
 
-    // 3. Ensure we have the key
-    let key = getActiveKey();
-    if (!key) {
-      key = await fetchKeyFromDrive();
-    }
-
-    // 4. Decrypt
-    const decryptedBytes = await decryptVault(wrapper.iv, wrapper.ciphertext, key);
-    const decoder = new TextEncoder();
-    const jsonString = new TextDecoder().decode(decryptedBytes);
-    const vaultData = JSON.parse(jsonString);
-
-    // 5. Restore to Dexie
+    // 3. Restore to Dexie
     const result = await deserializeVault(vaultData);
-    
+
     if (result.success) {
       bus.emit('restore:success');
       // The caller should handle the page reload / state refresh
@@ -97,27 +68,9 @@ export async function runRestore(fileId) {
     } else {
       throw new Error(result.error || 'Restore failed during database write.');
     }
-
   } catch (err) {
     console.error('[restore-engine] Restore failed:', err);
     bus.emit('restore:failed', { error: err.message });
     return { success: false, error: err.message };
   }
-}
-
-/**
- * Helper to fetch and import the key from Drive.
- */
-async function fetchKeyFromDrive() {
-  const files = await listAppDataFiles();
-  const keyFile = files.find(f => f.name === 'comma-key.json');
-  
-  if (!keyFile) throw new Error('Encryption key not found in Google Drive. Cannot decrypt backup.');
-
-  const blob = await downloadFile(keyFile.id);
-  const text = await blob.text();
-  const jwk = JSON.parse(text);
-  const key = await importKeyFromJwk(jwk);
-  setActiveKey(key);
-  return key;
 }

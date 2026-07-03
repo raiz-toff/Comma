@@ -66,9 +66,20 @@ function dayName(idx) {
   return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][idx] || 'Day';
 }
 
+// NOTE (Fix 1 — interop plan): this module reads TWO different shapes that both happen to be
+// called "shift" here — real `db.shifts` rows, whose startTime/endTime are now epoch-ms
+// timestamps, AND the separate `schedule_planning_shifts` appState array (future-planned shifts,
+// not real shift rows — see getScheduleState below), which still stores startTime/endTime as
+// HH:mm-of-day strings paired with `date` (a genuinely different, unsynced, web-only concept —
+// left alone by this pass). Every helper below accepts either shape.
+
 function minutesFromShift(shift) {
   const explicit = num(shift.activeMinutes || shift.onlineMinutes);
   if (explicit > 0) return explicit;
+  if (typeof shift.startTime === 'number' && typeof shift.endTime === 'number') {
+    const delta = shift.endTime - shift.startTime;
+    return Number.isFinite(delta) && delta > 0 ? Math.round(delta / 60000) : 0;
+  }
   const date = typeof shift.date === 'string' ? shift.date : null;
   const start = typeof shift.startTime === 'string' ? shift.startTime : null;
   const end = typeof shift.endTime === 'string' ? shift.endTime : null;
@@ -81,13 +92,12 @@ function minutesFromShift(shift) {
 }
 
 function grossFromShift(shift) {
-  // All shift earnings are stored as integer cents in the DB.
-  // We must divide by 100 to get the dollar value for display/math.
-  const valCents = num(shift.grossEarnings ?? shift.gross);
-  return valCents / 100;
+  // Shift gross revenue is stored as a real dollar value in the DB.
+  return num(shift.grossRevenue);
 }
 
 function shiftStartDateTime(shift) {
+  if (typeof shift.startTime === 'number' && Number.isFinite(shift.startTime)) return new Date(shift.startTime);
   const date = typeof shift.date === 'string' ? shift.date : null;
   const start = typeof shift.startTime === 'string' ? shift.startTime : '00:00';
   if (!date) return null;
@@ -96,6 +106,7 @@ function shiftStartDateTime(shift) {
 }
 
 function shiftEndDateTime(shift) {
+  if (typeof shift.endTime === 'number' && Number.isFinite(shift.endTime)) return new Date(shift.endTime);
   const date = typeof shift.date === 'string' ? shift.date : null;
   if (!date) return null;
   const start = typeof shift.startTime === 'string' ? shift.startTime : '00:00';
@@ -112,6 +123,13 @@ function shiftEndDateTime(shift) {
 }
 
 function isNightShift(shift) {
+  if (typeof shift.startTime === 'number' && typeof shift.endTime === 'number') {
+    const startHour = new Date(shift.startTime).getHours();
+    const endHour = new Date(shift.endTime).getHours();
+    if (startHour >= 22) return true;
+    if (endHour <= 5) return true;
+    return false;
+  }
   const start = typeof shift.startTime === 'string' ? shift.startTime : '';
   const end = typeof shift.endTime === 'string' ? shift.endTime : '';
   const startHour = Number(start.slice(0, 2));
@@ -125,6 +143,13 @@ function isNightShift(shift) {
     if (!Number.isNaN(s.getTime()) && !Number.isNaN(e.getTime()) && e.getTime() < s.getTime()) return true;
   }
   return false;
+}
+
+/** HH:mm (local time-of-day) from a real shift's epoch-ms startTime/endTime (Fix 1). */
+function fmtHm(ms) {
+  if (typeof ms !== 'number' || !Number.isFinite(ms)) return '--:--';
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 function bucketForHeat(v) {
@@ -237,8 +262,9 @@ async function loadScheduleModel(referenceDate = new Date()) {
 
   const hourlyBuckets = new Array(24).fill(0);
   for (const shift of allRows) {
-    const start = typeof shift.startTime === 'string' ? Number(shift.startTime.slice(0, 2)) : NaN;
-    if (!Number.isFinite(start) || start < 0 || start > 23) continue;
+    // Fix 1 (interop plan) — allRows are real db.shifts rows; startTime is epoch ms now.
+    if (typeof shift.startTime !== 'number' || !Number.isFinite(shift.startTime)) continue;
+    const start = new Date(shift.startTime).getHours();
     hourlyBuckets[start] += grossFromShift(shift);
   }
   const peakThreshold = [...hourlyBuckets].sort((a, b) => b - a)[Math.max(0, Math.floor(hourlyBuckets.length * 0.2) - 1)] || 0;
@@ -313,8 +339,8 @@ function renderWeekGrid(model) {
         <div class="schedule-shift-blocks">
           ${bucket.shifts
             .map((shift) => {
-              const st = shift.startTime || '--:--';
-              const et = shift.endTime || '--:--';
+              const st = fmtHm(shift.startTime);
+              const et = fmtHm(shift.endTime);
               const night = isNightShift(shift);
               return `<span class="schedule-shift-chip ${night ? 'is-night' : ''}" title="${esc(`${st}-${et}`)}">${esc(st)}-${esc(et)}${night ? ' 🌙' : ''}</span>`;
             })
@@ -476,7 +502,14 @@ function renderScatter(model) {
 function render24hTimeline(dayShifts, dayPlans) {
   const renderRow = (rowStart, rowEnd, label) => {
     const hours = Array.from({ length: 12 }, (_, i) => rowStart + i);
+    // Fix 1 (interop plan) — real shift rows' startTime/endTime are epoch-ms timestamps now;
+    // planning rows (dayPlans) are still HH:mm-of-day strings (a separate, unsynced concept —
+    // see the module-level note above `minutesFromShift`). Handle both shapes.
     const getH = (t) => {
+      if (typeof t === 'number' && Number.isFinite(t)) {
+        const d = new Date(t);
+        return d.getHours() + d.getMinutes() / 60;
+      }
       if (!t || typeof t !== 'string' || !t.includes(':')) return null;
       const [h, m] = t.split(':').map(Number);
       return Number.isFinite(h) ? h + (Number.isFinite(m) ? m / 60 : 0) : null;
@@ -491,7 +524,7 @@ function render24hTimeline(dayShifts, dayPlans) {
       const bEnd = Math.min(rowEnd, eH);
       const left = ((bStart - rowStart) / 12) * 100;
       const width = ((bEnd - bStart) / 12) * 100;
-      return `<div class="day-timeline-block is-shift is-clickable" data-shift-id="${esc(s.id)}" style="left:${left}%; width:${Math.max(1, width)}%;" title="${esc(`${s.platformId}: ${s.startTime}-${s.endTime}`)}"></div>`;
+      return `<div class="day-timeline-block is-shift is-clickable" data-shift-id="${esc(s.id)}" style="left:${left}%; width:${Math.max(1, width)}%;" title="${esc(`${s.platformId}: ${fmtHm(s.startTime)}-${fmtHm(s.endTime)}`)}"></div>`;
     }).join('');
 
     const plansInRow = dayPlans.map(p => {
@@ -565,12 +598,12 @@ async function showDayDetailModal(dateStr, model, root) {
         const durationHrs = (s.activeMinutes || s.onlineMinutes || minutesFromShift(s)) / 60;
         const hourlyRate = durationHrs > 0 ? grossFromShift(s) / durationHrs : 0;
         const fmtRate = formatCurrency(hourlyRate, model.localeCountry, { currency: model.currency });
-        const basePay = (num(s.grossEarnings) - num(s.tips) - num(s.bonusEarnings)) / 100;
+        const basePay = num(s.grossRevenue) - num(s.tipsRevenue) - (Number(s.customFields?.bonusAmount) || 0);
         
         return `
           <div class="day-detail-row is-clickable" data-shift-id="${esc(s.id)}">
             <span class="badge" data-platform-id="${esc(s.platformId)}">${esc(s.platformId)}</span>
-            <span class="time">${esc(s.startTime)} - ${esc(s.endTime)}</span>
+            <span class="time">${esc(fmtHm(s.startTime))} - ${esc(fmtHm(s.endTime))}</span>
             <span class="earn">${esc(formatCurrency(grossFromShift(s), model.localeCountry, { currency: model.currency }))}</span>
           </div>
           <div class="day-shift-overview" id="overview-${esc(s.id)}">
@@ -585,11 +618,11 @@ async function showDayDetailModal(dateStr, model, root) {
               </div>
               <div class="sch-overview-cell">
                 <span class="sch-overview-lbl">Tips</span>
-                <span class="sch-overview-val" style="color: var(--color-success);">${esc(formatCurrency(num(s.tips) / 100, model.localeCountry, { currency: model.currency }))}</span>
+                <span class="sch-overview-val" style="color: var(--color-success);">${esc(formatCurrency(num(s.tipsRevenue), model.localeCountry, { currency: model.currency }))}</span>
               </div>
               <div class="sch-overview-cell">
                 <span class="sch-overview-lbl">Bonus</span>
-                <span class="sch-overview-val">${esc(formatCurrency(num(s.bonusEarnings) / 100, model.localeCountry, { currency: model.currency }))}</span>
+                <span class="sch-overview-val">${esc(formatCurrency(Number(s.customFields?.bonusAmount) || 0, model.localeCountry, { currency: model.currency }))}</span>
               </div>
               <div class="sch-overview-cell">
                 <span class="sch-overview-lbl">Deliveries</span>
@@ -597,7 +630,7 @@ async function showDayDetailModal(dateStr, model, root) {
               </div>
               <div class="sch-overview-cell">
                 <span class="sch-overview-lbl">Distance</span>
-                <span class="sch-overview-val">${esc(s.distanceKm || 0)} km</span>
+                <span class="sch-overview-val">${esc(s.activeMileage || 0)} km</span>
               </div>
             </div>
             ${s.notes ? `<div class="sch-overview-notes"><strong>Notes:</strong> ${esc(s.notes)}</div>` : ''}

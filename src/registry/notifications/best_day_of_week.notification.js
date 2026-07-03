@@ -28,8 +28,7 @@ export default {
       if (Number.isNaN(d.getTime())) continue;
       const day = d.getDay(); // 0 = Sunday, 1 = Monday, etc.
 
-      const raw = s.grossEarnings ?? s.gross;
-      const dollars = s.grossEarnings != null ? Math.max(0, Number(raw)) / 100 : Math.max(0, Number(raw));
+      const dollars = Math.max(0, Number(s.grossRevenue) || 0);
 
       weekdayGross[day] = (weekdayGross[day] || 0) + dollars;
     }

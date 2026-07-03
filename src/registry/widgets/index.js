@@ -12,7 +12,6 @@ import weekCompare from './week-compare.widget.js';
 
 import incomeBreakdown from './income-breakdown.widget.js';
 import weeklyProjection from './weekly-projection.widget.js';
-import avgRate from './avg-rate.widget.js';
 import bestDay from './best-day.widget.js';
 import bestHour from './best-hour.widget.js';
 import deadMiles from './dead-miles.widget.js';
@@ -28,6 +27,10 @@ import stabilityScore from './stability-score.widget.js';
 import tipsTotal from './tips-total.widget.js';
 import zeroDays from './zero-days.widget.js';
 import hoursCompare from './hours-compare.widget.js';
+import taxJar from './tax-jar.widget.js';
+import totalHours from './total-hours.widget.js';
+import weeklyGoal from './weekly-goal.widget.js';
+import outOfPocket from './out-of-pocket.widget.js';
 
 /** First bento stat strip — matches legacy `views/dashboard.js` layout. */
 export const DASHBOARD_STAT_STRIP_IDS = ['weeklyProjection', 'deliveries', 'weekCompare'];
@@ -57,7 +60,6 @@ const WIDGETS = [
   placeholder,
   incomeBreakdown,
   weeklyProjection,
-  avgRate,
   bestDay,
   bestHour,
   deadMiles,
@@ -75,6 +77,10 @@ const WIDGETS = [
   tipsTotal,
   zeroDays,
   hoursCompare,
+  taxJar,
+  totalHours,
+  weeklyGoal,
+  outOfPocket,
 ];
 
 /** @type {Map<string, WidgetDefinition>} */

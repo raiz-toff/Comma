@@ -107,8 +107,13 @@ export function renderExpenseForm(options = {}) {
 
       <label class="field">
         <span class="field-label">${esc(t('expenses.businessUsePct'))}</span>
-        <input type="range" min="0" max="100" step="1" name="businessPct" />
-        <span class="field-hint" data-slot="business-pct-label"></span>
+        <input type="range" min="0" max="100" step="1" name="deductiblePct" />
+        <span class="field-hint" data-slot="deductible-pct-label"></span>
+      </label>
+
+      <label class="field">
+        <span class="field-label">Merchant</span>
+        <input class="input" type="text" name="merchant" autocomplete="off" placeholder="e.g. Shell, Tim Hortons" />
       </label>
 
       <label class="field">
@@ -157,7 +162,7 @@ export function renderExpenseForm(options = {}) {
 
   const form = root.querySelector('form');
   const cats = root.querySelector('[data-slot="categories"]');
-  const pctLabel = root.querySelector('[data-slot="business-pct-label"]');
+  const pctLabel = root.querySelector('[data-slot="deductible-pct-label"]');
   const intervalWrap = root.querySelector('[data-slot="interval-wrap"]');
   const confirmedWrap = root.querySelector('[data-slot="confirmed-wrap"]');
 
@@ -175,9 +180,9 @@ export function renderExpenseForm(options = {}) {
       .join('');
   }
 
-  function updateBusinessLabel() {
+  function updateDeductiblePctLabel() {
     if (!pctLabel || !form) return;
-    const pct = Number(form.businessPct.value || 0);
+    const pct = Number(form.deductiblePct.value || 0);
     pctLabel.textContent = t('expenses.businessUseLabel').replace('{pct}', String(Math.round(pct)));
   }
 
@@ -188,47 +193,47 @@ export function renderExpenseForm(options = {}) {
     if (confirmedWrap instanceof HTMLElement) confirmedWrap.hidden = !rec;
   }
 
-  function syncBusinessPctDeductibility() {
+  function syncDeductiblePctDeductibility() {
     if (!form) return;
     const catDef = ExpenseCategoryRegistry.getById(selectedCategory);
     const deductible = catDef ? catDef.deductible !== false : true;
     if (!deductible) {
-      form.businessPct.value = '0';
-      form.businessPct.disabled = true;
-      const field = form.businessPct.closest('.field');
+      form.deductiblePct.value = '0';
+      form.deductiblePct.disabled = true;
+      const field = form.deductiblePct.closest('.field');
       if (field) field.style.opacity = '0.5';
     } else {
-      form.businessPct.disabled = false;
-      const field = form.businessPct.closest('.field');
+      form.deductiblePct.disabled = false;
+      const field = form.deductiblePct.closest('.field');
       if (field) field.style.opacity = '1';
-      if (form.businessPct.value === '0') {
-        form.businessPct.value = initial.businessPct != null ? String(initial.businessPct) : '100';
+      if (form.deductiblePct.value === '0') {
+        form.deductiblePct.value = initial.deductiblePct != null ? String(initial.deductiblePct) : '100';
       }
     }
-    updateBusinessLabel();
+    updateDeductiblePctLabel();
   }
 
   renderCategoryGrid();
 
   if (form) {
-    const amtCents = Number(initial.amount);
-    form.amount.value =
-      initial.amount != null && Number.isFinite(amtCents) ? String(Math.round(amtCents) / 100) : '';
+    const amt = Number(initial.amount);
+    form.amount.value = initial.amount != null && Number.isFinite(amt) ? String(amt) : '';
     form.date.value = initial.date ? String(initial.date) : nowYmd();
     form.platformId.value = initial.platformId == null ? 'all' : String(initial.platformId || 'all');
-    form.businessPct.value = initial.businessPct != null ? String(initial.businessPct) : '100';
+    form.deductiblePct.value = initial.deductiblePct != null ? String(initial.deductiblePct) : '100';
+    form.merchant.value = initial.merchant ? String(initial.merchant) : '';
     form.notes.value = initial.notes ? String(initial.notes) : '';
     form.isRecurring.checked = Boolean(initial.isRecurring);
     form.recurringInterval.value = String(initial.recurringInterval || 'monthly');
-    const hstCents = Number(initial.hstPaid ?? initial.hstItcAmount ?? 0);
-    form.hstPaid.value = Number.isFinite(hstCents) && hstCents > 0 ? String(hstCents / 100) : '';
+    const hst = Number(initial.hstPaid ?? initial.hstItcAmount ?? 0);
+    form.hstPaid.value = Number.isFinite(hst) && hst > 0 ? String(hst) : '';
     if (form.confirmedPaid instanceof HTMLInputElement) {
       form.confirmedPaid.checked =
         initial.id != null && initial.confirmedPaid != null
           ? Boolean(initial.confirmedPaid)
           : false;
     }
-    syncBusinessPctDeductibility();
+    syncDeductiblePctDeductibility();
     syncRecurringVisibility();
   }
 
@@ -254,11 +259,11 @@ export function renderExpenseForm(options = {}) {
     if (categoryId) {
       selectedCategory = categoryId;
       renderCategoryGrid();
-      syncBusinessPctDeductibility();
+      syncDeductiblePctDeductibility();
     }
   });
 
-  form?.businessPct.addEventListener('input', updateBusinessLabel);
+  form?.deductiblePct.addEventListener('input', updateDeductiblePctLabel);
   form?.isRecurring.addEventListener('change', () => {
     syncRecurringVisibility();
     if (form.isRecurring.checked && form.confirmedPaid instanceof HTMLInputElement && !initial.id) {
@@ -288,7 +293,8 @@ export function renderExpenseForm(options = {}) {
         amount: Number(form.amount.value || 0),
         date: String(form.date.value || nowYmd()),
         platformId: platformValue === 'all' ? null : platformValue,
-        businessPct: Number(form.businessPct.value || 0),
+        deductiblePct: Number(form.deductiblePct.value || 0),
+        merchant: String(form.merchant.value || '').trim(),
         notes: String(form.notes.value || ''),
         receiptData,
         isRecurring: recurring,

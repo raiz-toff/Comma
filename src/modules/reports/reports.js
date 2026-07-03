@@ -26,6 +26,13 @@ function fileSafeDate(date = new Date()) {
   return ymd(date).replaceAll('-', '');
 }
 
+/** HH:mm (local time-of-day) from a shift's epoch-ms startTime/endTime (Fix 1 — interop plan). */
+function fmtHm(ms) {
+  if (typeof ms !== 'number' || !Number.isFinite(ms)) return '';
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 function toStartOfWeek(input, weekStartDay = 0) {
   const d = new Date(input.getFullYear(), input.getMonth(), input.getDate());
   const delta = (d.getDay() - weekStartDay + 7) % 7;
@@ -66,17 +73,6 @@ async function listExpenses(startDate, endDate) {
     .toArray();
 }
 
-/**
- * Explicit, hardened cents-to-dollars converter.
- * summarization logic converts cent inputs immediately at the top of summarize()
- * so raw cent values never escape into computed metrics.
- */
-function centsToReport(cents) {
-  const n = Number(cents);
-  if (!Number.isFinite(n)) return 0;
-  return Math.round(n) / 100;
-}
-
 function summarize(shifts, expenses) {
   let gross = 0;
   let tips = 0;
@@ -87,31 +83,23 @@ function summarize(shifts, expenses) {
   let distanceKm = 0;
 
   for (const s of shifts) {
-    const isNew = s.grossEarnings !== undefined;
-    if (isNew) {
-      // New schema: grossEarnings, tips, bonusEarnings are all in cents
-      gross += centsToReport(num(s.grossEarnings));
-      tips  += centsToReport(num(s.tips));
-      bonus += centsToReport(num(s.bonusEarnings ?? 0));
-    } else {
-      // Legacy schema: gross, tips, bonus are in dollars already
-      gross += num(s.gross);
-      tips  += num(s.tips);
-      bonus += num(s.bonus);
-    }
-    orders += num(s.deliveryCount ?? s.orders);
-    clockMinutes += num(s.durationMinutes ?? s.onlineMinutes ?? s.activeMinutes);
-    activeMinutes += num(s.activeMinutes ?? s.durationMinutes ?? s.onlineMinutes);
-    distanceKm += num(s.distanceKm);
+    const durationMin = s.durationSeconds != null ? Math.round(num(s.durationSeconds) / 60) : undefined;
+    gross += num(s.grossRevenue);
+    tips  += num(s.tipsRevenue);
+    bonus += Number(s.customFields?.bonusAmount) || 0;
+    orders += num(s.deliveryCount);
+    clockMinutes += num(durationMin ?? s.onlineMinutes ?? s.activeMinutes);
+    activeMinutes += num(s.activeMinutes ?? durationMin ?? s.onlineMinutes);
+    distanceKm += num(s.activeMileage);
   }
 
   let expenseTotal = 0;
   for (const e of expenses) {
-    const businessPct = num(e.businessPct, 100) / 100;
-    expenseTotal += centsToReport(num(e.amount)) * businessPct;
+    const deductiblePct = num(e.deductiblePct, 100) / 100;
+    expenseTotal += num(e.amount) * deductiblePct;
   }
 
-  // CONFIRMATION (Bug D): Shift raw gross (s.grossEarnings) is base platform earnings only
+  // CONFIRMATION (Bug D): Shift raw gross (s.grossRevenue) is base platform earnings only
   // and does NOT include tips/bonuses. Therefore, actual take-home is base gross + tips + bonuses.
   const totalEarnings = gross + tips + bonus;
   const net = totalEarnings - expenseTotal;
@@ -239,26 +227,20 @@ export async function exportAllShiftsCsv() {
     'notes',
   ];
   
-  const getDollars = (cents) => {
-    if (cents == null) return 0;
-    const n = Number(cents);
-    return Number.isFinite(n) ? n / 100 : 0;
-  };
-
   const rows = shifts.map((s) => [
     s.id,
     s.date,
     s.provinceId || '',
     s.platformId || '',
-    s.startTime || '',
-    s.endTime || '',
-    Number(s.durationMinutes ?? s.onlineMinutes ?? 0),
-    s.grossEarnings != null ? getDollars(s.grossEarnings) : Number(s.gross || 0),
-    s.tips != null ? getDollars(s.tips) : 0,
-    s.bonusEarnings != null ? getDollars(s.bonusEarnings) : Number(s.bonus || 0),
-    num(s.deliveryCount ?? s.orders),
-    num(s.distanceKm),
-    num(s.deadMilesKm ?? s.deadKm),
+    fmtHm(s.startTime),
+    fmtHm(s.endTime),
+    Number(s.durationSeconds != null ? Math.round(s.durationSeconds / 60) : (s.onlineMinutes ?? 0)),
+    num(s.grossRevenue),
+    num(s.tipsRevenue),
+    Number(s.customFields?.bonusAmount) || 0,
+    num(s.deliveryCount),
+    num(s.activeMileage),
+    num(s.deadMileage),
     s.notes || '',
   ]);
 
@@ -282,7 +264,7 @@ export async function exportAllExpensesCsv() {
     'category',
     'platformId',
     'amount',
-    'businessPct',
+    'deductiblePct',
     'notes',
     'hstPaid',
     'confirmedPaid',
@@ -291,15 +273,9 @@ export async function exportAllExpensesCsv() {
     'businessAmount',
   ];
 
-  const getDollars = (cents) => {
-    if (cents == null) return 0;
-    const n = Number(cents);
-    return Number.isFinite(n) ? n / 100 : 0;
-  };
-
   const rows = expenses.map((e) => {
-    const amount = getDollars(e.amount);
-    const pct = num(e.businessPct, 100);
+    const amount = num(e.amount);
+    const pct = num(e.deductiblePct, 100);
     const businessAmount = Math.round(amount * pct) / 100;
     return [
       e.id,
@@ -309,7 +285,7 @@ export async function exportAllExpensesCsv() {
       amount,
       pct,
       e.notes || '',
-      getDollars(e.hstPaid),
+      num(e.hstPaid),
       e.confirmedPaid ? 'true' : 'false',
       e.customCategory || '',
       e.source || '',
@@ -334,14 +310,14 @@ export async function exportMileageLogCsv() {
   const header = ['date', 'platformId', 'startTime', 'endTime', 'businessKm', 'deadKm', 'totalKm', 'notes'];
   
   const rows = shifts.map((s) => {
-    const businessKm = num(s.distanceKm);
-    const deadKm = num(s.deadMilesKm ?? s.deadKm);
+    const businessKm = num(s.activeMileage);
+    const deadKm = num(s.deadMileage);
     const totalKm = Math.round((businessKm + deadKm) * 100) / 100;
     return [
       s.date,
       s.platformId || '',
-      s.startTime || '',
-      s.endTime || '',
+      fmtHm(s.startTime),
+      fmtHm(s.endTime),
       businessKm,
       deadKm,
       totalKm,
@@ -494,16 +470,10 @@ export async function exportTaxSummaryJson(year = new Date().getFullYear()) {
   const locale = user.locale?.locale || `en-${country}`;
   const province = user.locale?.province || '';
 
-  const getDollars = (cents) => {
-    if (cents == null) return 0;
-    const n = Number(cents);
-    return Number.isFinite(n) ? n / 100 : 0;
-  };
-
   const hstPaidOnExpenses = Math.round(
     report.expenses.reduce((sum, e) => {
-      const businessPct = num(e.businessPct, 100) / 100;
-      return sum + getDollars(e.hstPaid) * businessPct;
+      const deductiblePct = num(e.deductiblePct, 100) / 100;
+      return sum + num(e.hstPaid) * deductiblePct;
     }, 0) * 100
   ) / 100;
 
@@ -515,13 +485,9 @@ export async function exportTaxSummaryJson(year = new Date().getFullYear()) {
     }
     const data = platformBreakdown[pId];
     // Tips and bonus included in total gross for platform breakdown
-    if (s.grossEarnings !== undefined) {
-      data.gross += getDollars(num(s.grossEarnings) + num(s.tips) + num(s.bonusEarnings ?? 0));
-    } else {
-      data.gross += num(s.gross) + num(s.tips) + num(s.bonus);
-    }
-    data.orders += num(s.deliveryCount ?? s.orders);
-    data.distanceKm += num(s.distanceKm);
+    data.gross += num(s.grossRevenue) + num(s.tipsRevenue) + (Number(s.customFields?.bonusAmount) || 0);
+    data.orders += num(s.deliveryCount);
+    data.distanceKm += num(s.activeMileage);
   }
   for (const key of Object.keys(platformBreakdown)) {
     platformBreakdown[key].gross = Math.round(platformBreakdown[key].gross * 100) / 100;

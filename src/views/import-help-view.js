@@ -60,7 +60,7 @@ export async function render(root) {
           </div>
           
           <div style="background: var(--color-surface-raised); padding: var(--space-4); border-radius: var(--radius-md); font-family: var(--font-mono); font-size: 11px; margin-bottom: var(--space-6); border: 1px solid var(--color-border); overflow-x: auto;">
-            date,platformId,startTime,endTime,gross,tips,bonus,orders,distanceKm,deadMilesKm,outOfPocketExpense,notes<br>
+            date,platformId,startTime,endTime,grossRevenue,tipsRevenue,bonus,orders,activeMileage,deadMileage,outOfPocketExpense,notes<br>
             2026-05-10,ubereats,17:00,21:30,120.50,15.00,5.00,8,12.5,4.2,25.50,"Evening rush"
           </div>
 
@@ -87,22 +87,22 @@ export async function render(root) {
                 <td>lowercase: ubereats, doordash, etc.</td>
               </tr>
               <tr style="border-bottom: 1px solid var(--color-border);">
-                <td style="padding: var(--space-2); font-weight: 700;">gross</td>
+                <td style="padding: var(--space-2); font-weight: 700;">grossRevenue</td>
                 <td><code>Number</code></td>
-                <td>earnings</td>
+                <td>gross, earnings</td>
                 <td>Base pay in dollars.</td>
               </tr>
               <tr style="border-bottom: 1px solid var(--color-border);">
-                <td style="padding: var(--space-2); font-weight: 700;">distanceKm</td>
+                <td style="padding: var(--space-2); font-weight: 700;">activeMileage</td>
                 <td><code>Number</code></td>
-                <td>distance</td>
-                <td>Active distance (KM).</td>
+                <td>distance, distanceKm</td>
+                <td>Active delivery distance, stored in KM.</td>
               </tr>
               <tr style="border-bottom: 1px solid var(--color-border);">
-                <td style="padding: var(--space-2); font-weight: 700;">deadMilesKm</td>
+                <td style="padding: var(--space-2); font-weight: 700;">deadMileage</td>
                 <td><code>Number</code></td>
                 <td>—</td>
-                <td>Unpaid travel distance.</td>
+                <td>Unpaid travel distance, stored in KM. Not currently mapped by the import wizard UI.</td>
               </tr>
               <tr style="border-bottom: 1px solid var(--color-border);">
                 <td style="padding: var(--space-2); font-weight: 700;">outOfPocketExpense</td>
@@ -127,7 +127,7 @@ export async function render(root) {
           </div>
           
           <div style="background: var(--color-surface-raised); padding: var(--space-4); border-radius: var(--radius-md); font-family: var(--font-mono); font-size: 11px; margin-bottom: var(--space-6); border: 1px solid var(--color-border); overflow-x: auto;">
-            date,category,amount,businessPct,hstPaid,isRecurring,notes<br>
+            date,category,amount,deductiblePct,hstPaid,isRecurring,notes<br>
             2026-05-12,fuel,45.00,100,5.40,false,"Full tank"
           </div>
 
@@ -151,7 +151,7 @@ export async function render(root) {
                 <td>Total dollars spent.</td>
               </tr>
               <tr style="border-bottom: 1px solid var(--color-border);">
-                <td style="padding: var(--space-2); font-weight: 700;">businessPct</td>
+                <td style="padding: var(--space-2); font-weight: 700;">deductiblePct</td>
                 <td><code>0-100</code></td>
                 <td>Tax deductible percentage.</td>
               </tr>
@@ -178,7 +178,7 @@ export async function render(root) {
       </div>
 
       <footer style="margin-top: var(--space-12); text-align: center; border-top: 1px solid var(--color-border); padding-top: var(--space-6); color: var(--color-text-secondary); font-size: var(--text-xs);">
-        All currency values are automatically converted to integer cents for precision. Always use decimal dollars in CSV files.
+        All currency values are stored as real decimal dollars. Always use decimal dollars (not cents) in CSV files.
       </footer>
     </section>
   `;
@@ -189,11 +189,11 @@ export async function render(root) {
     const action = target.getAttribute('data-action');
     
     if (action === 'dl-shift-tpl') {
-      const csv = 'date,platformId,startTime,endTime,gross,tips,bonus,orders,distanceKm,deadMilesKm,outOfPocketExpense,notes\\n2026-05-10,ubereats,17:00,21:30,120.50,15.00,5.00,8,12.5,4.2,25.50,"Morning"';
+      const csv = 'date,platformId,startTime,endTime,grossRevenue,tipsRevenue,bonus,orders,activeMileage,deadMileage,outOfPocketExpense,notes\\n2026-05-10,ubereats,17:00,21:30,120.50,15.00,5.00,8,12.5,4.2,25.50,"Morning"';
       downloadCsv('comma_shifts.csv', csv.replace(/\\\\n/g, '\\n'));
     }
     if (action === 'dl-expense-tpl') {
-      const csv = 'date,category,amount,businessPct,hstPaid,isRecurring,notes\\n2026-05-12,fuel,45.00,100,5.40,false,"Tank"';
+      const csv = 'date,category,amount,deductiblePct,hstPaid,isRecurring,notes\\n2026-05-12,fuel,45.00,100,5.40,false,"Tank"';
       downloadCsv('comma_expenses.csv', csv.replace(/\\\\n/g, '\\n'));
     }
   });

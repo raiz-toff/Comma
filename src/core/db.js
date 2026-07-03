@@ -6,9 +6,10 @@
 import Dexie from '../libs/dexie.min.js';
 import { BadgeRegistry } from '../registry/badges/index.js';
 import { PlatformRegistry } from '../registry/platforms/index.js';
+import { newId } from './id.js';
 
 /** Logical data schema version (appState.schema_version). Non-destructive migrations only. */
-export const CURRENT_LOGICAL_SCHEMA_VERSION = 3;
+export const CURRENT_LOGICAL_SCHEMA_VERSION = 4;
 
 const DB_NAME = 'COMMAVault';
 
@@ -30,6 +31,155 @@ const STORES_V3 = {
   notifications: '&id, read, dismissed, createdAt',
   backupLog: '++id, createdAt',
   appState: '&key, updatedAt',
+};
+
+/**
+ * IndexedDB object store definitions — Dexie v5 (schema-alignment pass, interop plan Workstream 1).
+ *
+ * Web's local schema is rewritten to be field-for-field identical to mobile's Drizzle schema
+ * (`commaApp/src/database/schema.ts`) for the 10 tables mobile syncs, so a later workstream can
+ * port mobile's push/pull/merge sync engine against this shape with zero translation layer.
+ * See `commaApp/src/database/schema.ts` for the authoritative field list/types this mirrors.
+ *
+ * Sync columns (mirrors mobile's `syncColumns` spread exactly, just as plain numbers —
+ * no Drizzle machinery needed on web):
+ *   - syncUpdatedAt: number (epoch ms) — last LOCAL mutation, default 0. The LWW clock a future
+ *     sync engine will diff against. Populated defensively by this workstream (bumped on every
+ *     create/update of a synced row) even though nothing reads it yet.
+ *   - syncDeletedAt: number (epoch ms) | null — tombstone timestamp, mirrors mobile's soft-delete.
+ *     NOT wired into web's existing `deletedAt`/`softDelete()` convention in this pass (that stays
+ *     as-is for current app behavior) — syncDeletedAt is bumped in parallel wherever a synced row
+ *     is soft-deleted so the column is meaningful once sync lands.
+ *
+ * These two columns are added to all 10 synced tables: vehicles, platforms, merchants, goals,
+ * taxHistory, shifts, maintenanceLogs (vehicleMaintenanceLogs), expenses, shiftPlatforms,
+ * vehicleTaxProfiles. `locationPoints` is intentionally EXCLUDED (mobile keeps it unsynced too —
+ * local-only GPS scratch data for route storage, see schema.ts comment on `syncColumns`).
+ *
+ * Field-shape notes (deltas from STORES_V3 / prior web shape — see call-site modules for the
+ * normalize/read logic that actually produces these shapes):
+ *
+ * shifts: money fields are now real dollars (not cents) — `grossRevenue`/`tipsRevenue` replace
+ *   `grossEarnings`/`tips`/`bonusEarnings` (mobile has no separate bonus field on shifts; a
+ *   `bonus` entered in web's form is folded into `grossRevenue` at save time — see shifts.js).
+ *   `durationSeconds`/`pausedSeconds` replace `durationMinutes`. `activeMileage`/`deadMileage`
+ *   replace `distanceKm`/`deadMilesKm`. New: `startOdometer`, `endOdometer`, `distanceSource`,
+ *   `reconciliationStatus`, `routePath`, `vehicleId` (already existed), plus `syncUpdatedAt`/
+ *   `syncDeletedAt`. `platformId` (mobile: `platform`) is KEPT as the single/primary-platform
+ *   field for backward-compat + display (mobile also keeps a single required `platform` text
+ *   field on shifts); real multi-platform breakdowns live in the new `shiftPlatforms` table.
+ *   `deliveryCount` is likewise kept as a backward-compat display aggregate (mobile has no
+ *   shift-level trip count either — only `shiftPlatforms.tripsCount` per platform).
+ *   Web-only fields with no mobile equivalent (`date`, `startTime`/`endTime` as HH:mm strings,
+ *   `onlineMinutes`/`activeMinutes`, `weather`, `mood`, `isMultiApp`, `multiAppPlatformIds`,
+ *   `customFields`) are DELIBERATELY left in place — mobile's `startTime`/`endTime` are full
+ *   timestamps (a materially different concept from web's date+HH:mm split), and restructuring
+ *   that was out of scope for this pass (not called out in the plan's field-rename list, and
+ *   touches far more of the app than shifts.js/shift-form.js). Flagged for a follow-up decision.
+ *
+ * expenses: adds `merchant`/`merchantNormalized`/`receiptUri` and renames web's `businessPct` to
+ *   mobile's `deductiblePct` (0–100; actual deductible = amount * deductiblePct / 100 — same
+ *   semantics web already had under the old name). `amount`/`hstPaid` are now real dollars (not
+ *   cents), matching mobile's `amount: real`. `receiptData` (base64 data URL, web's actual local
+ *   storage mechanism — mobile uses a real filesystem URI which web has no equivalent for) is
+ *   KEPT alongside the new `receiptUri` (populated with the same data URL for schema parity).
+ *
+ * vehicles: adds `fuelType`, `licensePlate`, `currentOdometer` (mobile also has `make`/`model`/
+ *   `year`, which web already had). Web's `nickname`/`active` field names are left as-is (mobile:
+ *   `name`/`isActive`) — the plan only asked to ADD the missing fields, not rename existing ones.
+ *
+ * vehicleMaintenanceLogs (mobile: `maintenanceLogs`): `serviceType`→`type`, `odometerKm`→
+ *   `odometer`, matching mobile exactly (small, contained rename — vehicles.js is its only caller).
+ *
+ * platforms / goals: sync columns added only. Existing field shapes are NOT realigned to mobile's
+ *   (mobile platforms: label/textColor/country/hourlyRate/mileageRate/sortPriority/logoEmoji;
+ *   mobile goals: label/targetValue/unit/period vs web's type/scope/platformId/target) — the plan
+ *   gave no concrete rename instructions for these two tables and restructuring them would ripple
+ *   into the platform switcher, settings platform manager, and goal creation UI untouched by this
+ *   pass. Flagged as an open follow-up, not done here.
+ *
+ * New tables (mobile shape verbatim, see schema.ts):
+ *   shiftPlatforms: shiftId, platform, platformOnlineSeconds, platformActiveSeconds, grossRevenue,
+ *     tipsRevenue, tripsCount, + sync columns.
+ *   vehicleTaxProfiles: vehicleId, taxYear, country, deductionMethod, standardRatePrimary,
+ *     standardRateSecondary, rateThreshold, beginningYearOdometer, endingYearOdometer, + sync.
+ *   merchants: name (unique), normalizedName, + sync columns.
+ *   taxHistory: oldRegion, oldRate, newRegion, newRate, changedAt, + sync columns.
+ *   locationPoints (UNSYNCED, local-only): sessionId, shiftId, latitude, longitude, altitude,
+ *     accuracy, speed, timestamp, source, isFiltered. Populated by a later workstream (route
+ *     storage); the table exists now so that workstream has schema to write against.
+ *
+ * Primary keys: web keeps its own native id convention (Dexie `++id` auto-increment / natural
+ * string ids for catalog tables) rather than switching to mobile's globally-unique text uuids.
+ * The plan's field-rename instructions never called out primary-key type, and reconciling id
+ * *values* across two independently-numbered devices is fundamentally a sync-protocol concern
+ * (Workstream 3 will need some id-generation/mapping story regardless of what web's local PK
+ * looks like today) — not a local schema-shape concern. Flagged as an open question for
+ * Workstream 3 to resolve, not decided here.
+ */
+const STORES_V4 = {
+  users: 'id',
+  platforms: '&id, active, syncUpdatedAt',
+  shifts: '++id, date, platformId, vehicleId, provinceId, deletedAt, syncUpdatedAt, syncDeletedAt',
+  expenses: '++id, date, category, platformId, provinceId, deletedAt, syncUpdatedAt, syncDeletedAt',
+  vehicles: '++id, active, syncUpdatedAt',
+  vehicleMaintenanceLogs: '++id, vehicleId, date, syncUpdatedAt',
+  vehicleOdometerLog: '++id, vehicleId, date',
+  fuelPrices: '++id, vehicleId, date',
+  goals: '++id, scope, active, syncUpdatedAt',
+  goalHistory: '++id, goalId, periodStart',
+  badges: '&id',
+  xpLog: '++id, createdAt',
+  challenges: '&id, active',
+  notifications: '&id, read, dismissed, createdAt',
+  backupLog: '++id, createdAt',
+  appState: '&key, updatedAt',
+  taxHistory: '++id, changedAt, syncUpdatedAt, syncDeletedAt',
+  shiftPlatforms: '++id, shiftId, platform, syncUpdatedAt, syncDeletedAt',
+  vehicleTaxProfiles: '++id, vehicleId, taxYear, syncUpdatedAt, syncDeletedAt',
+  merchants: '++id, &name, normalizedName, syncUpdatedAt, syncDeletedAt',
+  locationPoints: '++id, sessionId, shiftId, timestamp',
+};
+
+/**
+ * IndexedDB object store definitions — Dexie v6 (interop plan Workstream 3 prerequisite fixes,
+ * applied BEFORE the sync engine itself as flagged by the schema-alignment pass):
+ *
+ * Fix 1 — shift date/time representation: `shifts.startTime`/`shifts.endTime` are no longer
+ *   HH:mm-of-day strings paired with a separate `date` string — they are now real epoch-ms
+ *   timestamps (mobile parity: `commaApp/src/database/schema.ts` has them as
+ *   `integer({mode:'timestamp'})`, i.e. a genuine instant, not a time-of-day). A synced `shifts`
+ *   row is otherwise meaningless to mobile (it has no `date`/HH:mm concept at all). `date`
+ *   (YYYY-MM-DD) is KEPT as a derived, auto-maintained convenience column — every write path
+ *   that sets `startTime` also (re)derives `date` from it — so the large surface of existing
+ *   code that queries/sorts/displays by `date` (store.js's weekly-earnings query, goals.js,
+ *   notifications, tax.js, search.js, reports.js, the schedule module, widgets, etc.) keeps
+ *   working unchanged; `date` is simply not sent anywhere mobile would choke on it (mobile's
+ *   Drizzle insert is column-driven — see applyChangeLog.js finding — so an extra `date` key on
+ *   a pushed row is silently ignored there, exactly like `customFields`).
+ *
+ * Fix 2 — primary keys: the 10 synced tables switch from Dexie auto-increment (`++id`, a
+ *   per-browser-instance counter) to a client-generated STRING id (`id`, see `core/id.js`).
+ *   Auto-increment is dangerous under multi-device sync: two independent browser instances could
+ *   each mint `shift.id: 1` for a genuinely different shift, and the Drive merge engine (keyed by
+ *   `id`) would treat them as the same row, silently clobbering one. `platforms` already used a
+ *   client-set string id (catalog ids like `'uber'`) and is unaffected — its schema string is
+ *   unchanged. `locationPoints` (unsynced local GPS scratch) is also unaffected.
+ *
+ * No `.upgrade()` data transform is written for this version bump — same "no real users yet, so
+ * the shape simply changes and old local dev data is left inert" policy the v5 bump documented.
+ */
+const STORES_V5 = {
+  ...STORES_V4,
+  shifts: 'id, date, platformId, vehicleId, provinceId, deletedAt, syncUpdatedAt, syncDeletedAt',
+  expenses: 'id, date, category, platformId, provinceId, deletedAt, syncUpdatedAt, syncDeletedAt',
+  vehicles: 'id, active, syncUpdatedAt',
+  vehicleMaintenanceLogs: 'id, vehicleId, date, syncUpdatedAt',
+  goals: 'id, scope, active, syncUpdatedAt',
+  taxHistory: 'id, changedAt, syncUpdatedAt, syncDeletedAt',
+  shiftPlatforms: 'id, shiftId, platform, syncUpdatedAt, syncDeletedAt',
+  vehicleTaxProfiles: 'id, vehicleId, taxYear, syncUpdatedAt, syncDeletedAt',
+  merchants: 'id, &name, normalizedName, syncUpdatedAt, syncDeletedAt',
 };
 
 const STORES_V1 = {
@@ -239,6 +389,20 @@ class COMMADatabase extends Dexie {
       .upgrade((tx) => {
         void tx;
       });
+    /**
+     * v5 — schema-alignment pass (interop plan Workstream 1): web's shift/expense/vehicle field
+     * shapes change incompatibly (cents→dollars, minutes→seconds, combined→split mileage, etc. —
+     * see STORES_V4 doc above) and several tables are brand new. There are no real users of this
+     * PWA yet, so per the plan this is a straight schema-shape bump with NO data-migrating
+     * `.upgrade()` transform — old local dev data in anyone's browser is simply left in its old
+     * shape (effectively inert under the new field names) rather than migrated.
+     */
+    this.version(5).stores(STORES_V4);
+    /**
+     * v6 — sync prerequisite fixes (interop plan Workstream 3, Fix 1 + Fix 2 — see STORES_V5
+     * doc above). Straight shape bump, no data-migrating `.upgrade()`, same policy as v5.
+     */
+    this.version(6).stores(STORES_V5);
   }
 }
 
@@ -283,6 +447,11 @@ const logicalMigrations = [
       await db.users.update(1, { dashboardWidgets: null, updatedAt: new Date().toISOString() });
     }
   },
+  async () => {
+    // 3 → 4: placeholder — the shift/expense/vehicle field-shape change (interop plan Workstream 1)
+    // is handled entirely by the Dexie v5 `.stores()` bump (STORES_V4) above, not by a logical
+    // migration step (it's explicitly non-migrating; see the v5 comment on `this.version(5)`).
+  },
 ];
 
 async function runLogicalMigrations() {
@@ -312,6 +481,8 @@ async function seedFirstRun() {
     const platformRows = DEFAULT_PLATFORMS.map((p) => ({
       ...p,
       addedAt: p.addedAt ?? t,
+      syncUpdatedAt: Date.now(),
+      syncDeletedAt: null,
     }));
     await db.platforms.bulkPut(platformRows);
 
@@ -330,12 +501,15 @@ async function seedFirstRun() {
     await putMissingAppStateDefaults(t);
 
     await db.goals.add({
+      id: newId('goal'),
       type: 'earnings',
       scope: 'weekly',
       platformId: null,
       target: 0,
       active: false,
       createdAt: t,
+      syncUpdatedAt: Date.now(),
+      syncDeletedAt: null,
     });
   });
 }
@@ -422,7 +596,11 @@ export async function softDelete(table, id) {
     throw new Error(`softDelete: unsupported table "${table}"`);
   }
   const ts = nowIso();
-  await db[table].update(id, { deletedAt: ts, updatedAt: ts });
+  const syncTs = Date.now();
+  // Both tables here (shifts, expenses) are synced tables (interop plan Workstream 1) — bump the
+  // sync tombstone/clock in parallel with web's existing deletedAt/updatedAt convention so the
+  // columns are meaningful once a sync engine reads them, without changing current read paths.
+  await db[table].update(id, { deletedAt: ts, updatedAt: ts, syncDeletedAt: syncTs, syncUpdatedAt: syncTs });
 }
 
 export async function restoreDeleted(table, id) {
@@ -430,7 +608,7 @@ export async function restoreDeleted(table, id) {
     throw new Error(`restoreDeleted: unsupported table "${table}"`);
   }
   const ts = nowIso();
-  await db[table].update(id, { deletedAt: null, updatedAt: ts });
+  await db[table].update(id, { deletedAt: null, updatedAt: ts, syncDeletedAt: null, syncUpdatedAt: Date.now() });
 }
 
 export async function purgeOldDeleted(table, days = 30) {

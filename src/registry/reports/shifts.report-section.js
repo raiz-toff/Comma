@@ -1,3 +1,10 @@
+/** HH:mm (local time-of-day) from a shift's epoch-ms startTime/endTime (Fix 1 — interop plan). */
+function fmtHm(ms) {
+  if (typeof ms !== 'number' || !Number.isFinite(ms)) return '';
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 export default {
   id: 'shifts',
   label: 'Shift list',
@@ -35,26 +42,20 @@ export default {
       'notes',
     ];
     
-    const getDollars = (cents) => {
-      if (cents == null) return 0;
-      const n = Number(cents);
-      return Number.isFinite(n) ? n / 100 : 0;
-    };
-
     const body = rows.map((s) => [
       s.id,
       s.date,
       s.provinceId || '',
       s.platformId || '',
-      s.startTime || '',
-      s.endTime || '',
-      Number(s.durationMinutes ?? s.onlineMinutes ?? 0),
-      s.grossEarnings != null ? getDollars(s.grossEarnings) : Number(s.gross || 0),
-      s.tips != null ? getDollars(s.tips) : 0,
-      s.bonusEarnings != null ? getDollars(s.bonusEarnings) : Number(s.bonus || 0),
-      s.deliveryCount ?? s.orders ?? 0,
-      s.distanceKm ?? 0,
-      s.deadMilesKm ?? s.deadKm ?? 0,
+      fmtHm(s.startTime),
+      fmtHm(s.endTime),
+      Number(s.durationSeconds != null ? Math.round(s.durationSeconds / 60) : (s.onlineMinutes ?? 0)),
+      Number(s.grossRevenue ?? 0),
+      Number(s.tipsRevenue ?? 0),
+      Number(s.customFields?.bonusAmount) || 0,
+      s.deliveryCount ?? 0,
+      s.activeMileage ?? 0,
+      s.deadMileage ?? 0,
       s.notes ?? '',
     ]);
     return [header, ...body];

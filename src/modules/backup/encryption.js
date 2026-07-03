@@ -1,143 +1,142 @@
 /**
- * COMMA — Encryption Module
- * AES-GCM 256-bit encryption for local-first data vaults.
- * Uses Web Crypto API. No external dependencies.
+ * COMMA — Encryption Module (interop plan Workstream 2)
+ *
+ * Mirrors mobile's `commaApp/src/services/cryptoHelper.ts` exactly, so a backup/change-log
+ * encrypted by one app decrypts on the other: PBKDF2-HMAC-SHA256 (210,000 iterations — the
+ * OWASP 2023 floor) deriving an AES-GCM 256-bit key from the backup PASSWORD alone (no separate
+ * key file), with a per-file random salt/IV stored in the envelope. The output envelope is a
+ * hex-encoded JSON object shaped exactly like mobile's `BackupEnvelope`:
+ *   { v: 2, kdf: 'PBKDF2', hash: 'SHA-256', iter, salt, iv, content, tag }
+ *
+ * This REPLACES web's previous `{magic:'COMMA_VAULT', iv, ciphertext}` base64 envelope + a
+ * separately-generated-and-Drive-stored raw AES key (`comma-key.json`) — that scheme had no
+ * mobile equivalent and couldn't decrypt/be decrypted by mobile's backups. Both `backup-engine.js`
+ * (whole-vault `.comdb` backup) and the sync engine's change-logs (Workstream 3) now share this
+ * one password-derived envelope, exactly as mobile keeps backup and sync on the same crypto
+ * helper.
  */
 
-/** @type {CryptoKey | null} */
-let activeKey = null;
+const KDF_ITERATIONS = 210_000; // OWASP 2023 floor for PBKDF2-HMAC-SHA256
+const SALT_BYTES = 16;
+const IV_BYTES = 12;
 
 /**
- * Generates a new AES-GCM 256-bit encryption key.
+ * @typedef {Object} BackupEnvelope
+ * @property {2} v
+ * @property {'PBKDF2'} kdf
+ * @property {'SHA-256'} hash
+ * @property {number} iter
+ * @property {string} salt hex
+ * @property {string} iv hex
+ * @property {string} content hex ciphertext
+ * @property {string} tag hex GCM auth tag
+ */
+
+/** @param {Uint8Array} arr @returns {string} */
+function toHex(arr) {
+  return Array.from(arr)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/** @param {string} hex @returns {Uint8Array} */
+function fromHex(hex) {
+  const matches = hex.match(/.{1,2}/g) || [];
+  return new Uint8Array(matches.map((b) => parseInt(b, 16)));
+}
+
+/**
+ * @param {string} passphrase
+ * @param {BufferSource} salt
+ * @param {number} iterations
  * @returns {Promise<CryptoKey>}
  */
-export async function generateVaultKey() {
-  return window.crypto.subtle.generateKey(
-    {
-      name: 'AES-GCM',
-      length: 256,
-    },
-    true, // extractable (so we can save it to Drive)
-    ['encrypt', 'decrypt']
+async function deriveKey(passphrase, salt, iterations) {
+  const enc = new TextEncoder();
+  const baseKey = await window.crypto.subtle.importKey(
+    'raw',
+    enc.encode(passphrase),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey'],
+  );
+  return window.crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
   );
 }
 
 /**
- * Exports a CryptoKey to JWK (JSON Web Key) format for storage.
- * @param {CryptoKey} key 
- * @returns {Promise<Object>}
+ * Encrypt plaintext with a backup password. Returns the JSON-stringified envelope.
+ * @param {string} plaintext
+ * @param {string} passphrase
+ * @returns {Promise<string>}
  */
-export async function exportKeyToJwk(key) {
-  return window.crypto.subtle.exportKey('jwk', key);
-}
+export async function encryptBackup(plaintext, passphrase) {
+  if (!passphrase) throw new Error('A backup password is required.');
 
-/**
- * Imports a CryptoKey from JWK (JSON Web Key) format.
- * @param {Object} jwk 
- * @returns {Promise<CryptoKey>}
- */
-export async function importKeyFromJwk(jwk) {
-  return window.crypto.subtle.importKey(
-    'jwk',
-    jwk,
-    {
-      name: 'AES-GCM',
-      length: 256,
-    },
-    true,
-    ['encrypt', 'decrypt']
+  const enc = new TextEncoder();
+  const salt = window.crypto.getRandomValues(new Uint8Array(SALT_BYTES));
+  const iv = window.crypto.getRandomValues(new Uint8Array(IV_BYTES));
+  const key = await deriveKey(passphrase, salt, KDF_ITERATIONS);
+
+  const encrypted = new Uint8Array(
+    await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(plaintext)),
   );
-}
+  // Web Crypto appends the 16-byte GCM tag to the ciphertext; split it out so the envelope
+  // matches mobile's {content, tag} shape.
+  const content = encrypted.slice(0, encrypted.length - 16);
+  const tag = encrypted.slice(encrypted.length - 16);
 
-/**
- * Encrypts a Uint8Array using AES-GCM.
- * @param {Uint8Array} plaintextBytes 
- * @param {CryptoKey} key 
- * @returns {Promise<{iv: string, ciphertext: string}>} Base64 strings
- */
-export async function encryptVault(plaintextBytes, key) {
-  // Generate a fresh 12-byte IV for every encryption operation
-  const iv = window.crypto.getRandomValues(new Uint8Array(12));
-  
-  const encryptedBuffer = await window.crypto.subtle.encrypt(
-    {
-      name: 'AES-GCM',
-      iv: iv,
-    },
-    key,
-    plaintextBytes
-  );
-
-  return {
-    iv: arrayBufferToBase64(iv),
-    ciphertext: arrayBufferToBase64(encryptedBuffer),
+  /** @type {BackupEnvelope} */
+  const envelope = {
+    v: 2,
+    kdf: 'PBKDF2',
+    hash: 'SHA-256',
+    iter: KDF_ITERATIONS,
+    salt: toHex(salt),
+    iv: toHex(iv),
+    content: toHex(content),
+    tag: toHex(tag),
   };
+  return JSON.stringify(envelope);
 }
 
 /**
- * Decrypts a base64 ciphertext using AES-GCM.
- * @param {string} ivBase64 
- * @param {string} ciphertextBase64 
- * @param {CryptoKey} key 
- * @returns {Promise<Uint8Array>}
+ * Decrypt a `BackupEnvelope` JSON string with a backup password.
+ * @param {string} envelopeJson
+ * @param {string} passphrase
+ * @returns {Promise<string>}
  */
-export async function decryptVault(ivBase64, ciphertextBase64, key) {
-  const iv = base64ToArrayBuffer(ivBase64);
-  const ciphertext = base64ToArrayBuffer(ciphertextBase64);
+export async function decryptBackup(envelopeJson, passphrase) {
+  if (!passphrase) throw new Error('A backup password is required.');
 
-  const decryptedBuffer = await window.crypto.subtle.decrypt(
-    {
-      name: 'AES-GCM',
-      iv: iv,
-    },
-    key,
-    ciphertext
-  );
-
-  return new Uint8Array(decryptedBuffer);
-}
-
-/**
- * In-memory state management for the key.
- */
-export function setActiveKey(key) {
-  activeKey = key;
-}
-
-export function getActiveKey() {
-  return activeKey;
-}
-
-export function clearActiveKey() {
-  activeKey = null;
-}
-
-// --- Utilities ---
-
-/**
- * @param {ArrayBuffer} buffer 
- * @returns {string}
- */
-function arrayBufferToBase64(buffer) {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  /** @type {BackupEnvelope} */
+  let env;
+  try {
+    env = JSON.parse(envelopeJson);
+  } catch {
+    throw new Error("This file isn't a valid Comma backup.");
   }
-  return window.btoa(binary);
-}
-
-/**
- * @param {string} base64 
- * @returns {Uint8Array}
- */
-function base64ToArrayBuffer(base64) {
-  const binaryString = window.atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
+  if (!env || env.v !== 2 || !env.salt || !env.iv || !env.content || !env.tag) {
+    throw new Error('Unrecognized backup format.');
   }
-  return bytes;
+
+  const key = await deriveKey(passphrase, fromHex(env.salt), env.iter || KDF_ITERATIONS);
+  const ct = fromHex(env.content);
+  const tag = fromHex(env.tag);
+  const concat = new Uint8Array(ct.length + tag.length);
+  concat.set(ct);
+  concat.set(tag, ct.length);
+
+  try {
+    const decrypted = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromHex(env.iv) }, key, concat);
+    return new TextDecoder().decode(decrypted);
+  } catch {
+    // GCM tag mismatch — almost always the wrong password.
+    throw new Error('Wrong backup password, or the file is corrupted.');
+  }
 }

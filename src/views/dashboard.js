@@ -15,9 +15,7 @@ import { renderSkeleton } from '../ui/components.js';
 import { defaultRangeForPreset } from '../utils/date-range-presets.js';
 import { t } from '../utils/strings.js';
 import { getDemoAnalyticsAnchorDate } from '../modules/demo/sample-year.js';
-import { getOrderedDashboardWidgetIds, renderWidgetCellsInnerHtml, WidgetRegistry } from '../registry/widgets/index.js';
 import { buildWidgetDataContext } from '../modules/analytics/widget-data.js';
-import { afterRenderWidgets } from '../registry/widgets/after-render.js';
 import { getCountryTaxProfile } from '../registry/countries/index.js';
 import { calcTaxSetAside } from '../utils/calculations.js';
 
@@ -175,52 +173,10 @@ async function paintDashboard(root, ctx) {
     getFinancialMonthlyBreakdown(range.start, range.end, platformFilter),
   ]);
 
-  // 1. Data Context for Widgets
+  // Data context for the KPI hero strip (rolling-trend sparklines, week compare, etc.)
   const widgetCtx = await buildWidgetDataContext({ start: range.start, end: range.end }, platformFilter, weekStartDay);
   widgetCtx.data.financial = fin; // Inject pre-fetched financial data
 
-  // 2. Render Widgets from Registry
-  const currentWidgets = getOrderedDashboardWidgetIds(user, widgetCtx).filter(id => ![
-    'earnings',
-    'expenses',
-    'netIncome',
-    'taxJar'
-  ].includes(id));
-
-  // 0. FILTER OUT PERMANENT WIDGETS
-  const dashboardWidgets = currentWidgets.filter(wObj => {
-    const id = typeof wObj === 'string' ? wObj : wObj?.id;
-    return id !== 'totalHours';
-  });
-
-  const widgetCells = await Promise.all(dashboardWidgets.map(async (wObj) => {
-    try {
-      const id = typeof wObj === 'string' ? wObj : wObj?.id;
-      const def = WidgetRegistry.getById(id);
-      if (!def) return null;
-
-      // Find custom size if it exists in user settings
-      const config = Array.isArray(user?.dashboardWidgets)
-        ? user.dashboardWidgets.find((w) => (typeof w === 'string' ? w : w?.id) === id)
-        : null;
-      const size = (typeof config === 'object' ? config?.size : null) || def.defaultSize || '1x1';
-
-      return { id, size, html: await def.render(widgetCtx) };
-    } catch (err) {
-      console.error('Widget render failed:', err);
-      return null;
-    }
-  }));
-
-  const widgetCardsHtml = widgetCells
-    .filter(Boolean)
-    .map(
-      (cell) => `
-        <article class="card bento-cell-${cell.size}" data-widget-id="${esc(cell.id)}">
-          ${cell.html}
-        </article>`,
-    )
-    .join('');
   const localeCountry = user?.locale?.country || 'US';
   const currency = user?.locale?.currency || 'USD';
 
@@ -330,8 +286,15 @@ async function paintDashboard(root, ctx) {
   const onlinePts = widgetCtx.data.rollingTrend?.onlineRatePoints?.slice(-14).map(p => Number(p.y) || 0) || rollingPoints.map(p => p * 0.75);
   const sparkPathRate = getSparkPath(activePts);
   const sparkPathRateOnline = getSparkPath(onlinePts);
-  const taxJarRatio = fin.gross > 0 ? Math.min(100, (taxSetAside / (fin.gross * 0.3)) * 100) : 0; 
+  const taxJarRatio = fin.gross > 0 ? Math.min(100, (taxSetAside / (fin.gross * 0.3)) * 100) : 0;
   const hoursRatio = Math.min(100, (hoursVal / 40) * 100);
+
+  // Weekly Goal (progress ring) — same target/actual source as the weeklyGoal widget.
+  const weeklyGoalTarget = Number(widgetCtx.data.projection) || 0;
+  const weeklyGoalActual = fin.gross;
+  const weeklyGoalPct = weeklyGoalTarget > 0 ? Math.min(100, Math.round((weeklyGoalActual / weeklyGoalTarget) * 100)) : 0;
+  const weeklyGoalArcLen = (weeklyGoalPct / 100) * 88;
+  const weeklyGoalRemaining = Math.max(0, weeklyGoalTarget - weeklyGoalActual);
 
   const wc = widgetCtx.data.weekCompare;
   const isUp = (wc?.delta || 0) >= 0;
@@ -430,6 +393,8 @@ async function paintDashboard(root, ctx) {
       .kpi-card:nth-child(3) { animation-delay: 0.19s; }
       .kpi-card:nth-child(4) { animation-delay: 0.26s; }
       .kpi-card:nth-child(5) { animation-delay: 0.33s; }
+      .kpi-card:nth-child(6) { animation-delay: 0.40s; }
+      .kpi-card:nth-child(7) { animation-delay: 0.47s; }
 
       .kpi-card-top {
         display: flex;
@@ -587,7 +552,7 @@ async function paintDashboard(root, ctx) {
         z-index: 0;
       }
 
-      /* Container Layout — Responsive Grid for 6 cards */
+      /* Container Layout — Responsive Grid for 7 cards */
       .kpi-hero-strip {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -602,7 +567,7 @@ async function paintDashboard(root, ctx) {
       }
       @media (min-width: 1200px) {
         .kpi-hero-strip {
-          grid-template-columns: repeat(6, 1fr);
+          grid-template-columns: repeat(4, 1fr);
         }
       }
 
@@ -808,6 +773,35 @@ async function paintDashboard(root, ctx) {
                 <span style="color: #3b82f6;">${onlineExactHours}h ${onlineExactMinutes}m</span> <span style="opacity: 0.7; font-size: 9px;">ONLINE</span>
              </div>
           </div>
+        </div>
+      </div>
+
+      <!-- ⑦ WEEKLY GOAL - Progress Ring -->
+      <div class="kpi-card" style="--kpi-accent: #a855f7;" role="listitem">
+        <div class="kpi-card-noise"></div>
+        <div class="kpi-card-top">
+          <div class="kpi-label-group">
+            <div class="kpi-label">${esc(t('views.dashboard.financial.kpiGoal')) || 'Weekly Goal'}</div>
+          </div>
+          <div class="kpi-arc-wrap" style="--arc-len: ${weeklyGoalArcLen.toFixed(1)};">
+            <svg viewBox="0 0 36 36">
+              <circle class="kpi-arc-bg" cx="18" cy="18" r="14"></circle>
+              <path class="kpi-arc-fill" d="${arc(weeklyGoalPct)}"></path>
+            </svg>
+            <div class="kpi-arc-pct">${weeklyGoalPct}%</div>
+          </div>
+        </div>
+        <div class="kpi-value">${fmt(weeklyGoalActual)}</div>
+
+        <div style="margin-top: 2px; height: 6px; border-radius: 999px; background: var(--color-surface-raised); overflow: hidden;">
+          <div style="height: 100%; width: ${weeklyGoalPct}%; background: var(--kpi-accent); border-radius: 999px; transition: width 0.4s ease;"></div>
+        </div>
+
+        <div style="margin-top: auto; display: flex;">
+           <div style="background: var(--color-surface-raised); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; color: var(--color-text-main); display: flex; gap: 6px; align-items: center; border: 1px solid var(--color-border);">
+              <span style="color: #a855f7;">${weeklyGoalTarget > 0 ? fmt(weeklyGoalRemaining) : '—'}</span>
+              <span style="opacity: 0.7; font-size: 9px;">${weeklyGoalTarget > 0 ? 'TO GOAL' : 'NO TARGET SET'}</span>
+           </div>
         </div>
       </div>
 
@@ -1025,26 +1019,6 @@ async function paintDashboard(root, ctx) {
         ${monthlyPagerHtml}
       </article>
 
-      <div class="dashboard-section-header">
-        <span class="dashboard-section-label">${esc(t('views.dashboard.financial.sections.insights')) || 'Further Insights'}</span>
-        <div class="dashboard-section-line"></div>
-      </div>
-
-      ${widgetCardsHtml ? `
-        <div class="bento-grid bento-layout-${user?.bentoLayout || 'balanced'}" style="margin-bottom: var(--space-6);">
-          ${widgetCardsHtml}
-        </div>
-      ` : `
-        <div class="dashboard-empty-state">
-          <div class="empty-state-icon">${getIcon('layout-grid', 48)}</div>
-          <h3>Your dashboard is empty</h3>
-          <p>Add some insights from the analytics page to start tracking your performance.</p>
-          <a href="#/analytics" class="btn btn-primary btn-sm">
-            ${getIcon('trending-up', 18)} Browse Analytics
-          </a>
-        </div>
-      `}
-
       <div class="financial-dash-highlights">
         <article class="financial-highlight financial-highlight--best">
           <div class="financial-highlight-icon" aria-hidden="true">${getIcon('trophy', 22)}</div>
@@ -1258,9 +1232,6 @@ async function paintDashboard(root, ctx) {
       openBigClockOverlay();
     });
   }
-
-  // After-render for all widgets
-  afterRenderWidgets(root, widgetCtx);
 }
 
 /** @param {HTMLElement} root @param {Record<string, unknown>} ctx */

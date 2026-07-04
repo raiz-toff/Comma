@@ -44,16 +44,22 @@ export interface CompactionResult {
   deletedLogs: number;
 }
 
-/** Read the full current state of every synced table (all rows). */
+/** Read the full current state of every synced table (all rows).
+ *  Excludes never-synced rows (syncUpdatedAt = 0 — pre-sync/seed scaffolding): they were
+ *  never in any delta log, so the snapshot loses nothing by skipping them, and including
+ *  them would leak per-device default rows to every peer. (Real history is bumped to 1 by
+ *  migration 0021 precisely so it IS included.) */
 async function readFullState(): Promise<Record<string, Record<string, unknown>[]>> {
   const rows: Record<string, Record<string, unknown>[]> = {};
   for (const { name, table } of SYNCED_TABLES) {
+    let all: Record<string, unknown>[];
     if (isWeb) {
       const raw = localStorage.getItem(`comma_${name}`);
-      rows[name] = raw ? JSON.parse(raw) : [];
+      all = raw ? JSON.parse(raw) : [];
     } else {
-      rows[name] = (await db.select().from(table)) as Record<string, unknown>[];
+      all = (await db.select().from(table)) as Record<string, unknown>[];
     }
+    rows[name] = all.filter((r) => Number(r.syncUpdatedAt ?? 0) > 0);
   }
   return rows;
 }

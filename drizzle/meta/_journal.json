@@ -148,6 +148,13 @@
       "when": 1783111592192,
       "tag": "0020_shift_bonus_amount",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1783197000000,
+      "tag": "0021_first_sync_backfill",
+      "breakpoints": true
     }
   ]
 }

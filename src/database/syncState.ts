@@ -42,7 +42,11 @@ export const SYNC_KEYS = {
   lastPushedAt: "sync_last_pushed_at", // CURSOR: max syncUpdatedAt already pushed
   schedule: "sync_schedule", // auto-push cadence: 'manual' | 'daily' | 'weekly'
   lastPushRunAt: "sync_last_push_run_at", // WALL-CLOCK ms of the last push run (schedule timer)
+  failedLogs: "sync_failed_logs", // JSON object {filename: consecutive apply-failure count}
 } as const;
+
+/** A log that fails to apply this many times is QUARANTINED: pull stops re-downloading it. */
+export const LOG_QUARANTINE_THRESHOLD = 3;
 
 /** A fresh per-install device id. Dash-free by construction (see genDeviceId) so it
  *  round-trips cleanly through change-log filenames. The `dev_` prefix (underscore, not
@@ -63,6 +67,7 @@ export function postResetSyncState(freshDeviceId: string): Record<string, string
     [SYNC_KEYS.appliedLogs]: "[]", // forget which change-logs were applied
     [SYNC_KEYS.lastPushedAt]: "0", // reset push cursor
     [SYNC_KEYS.lastPushRunAt]: "0", // reset the schedule timer
+    [SYNC_KEYS.failedLogs]: "{}", // forget quarantine history
   };
 }
 
@@ -211,4 +216,50 @@ export async function setLastPushRunAt(value: number): Promise<void> {
  */
 export async function setLastCloudSaveAt(iso: string): Promise<void> {
   await writeSyncKey("last_backup_at", iso);
+}
+
+// ─── Poison-log quarantine (2026-07-03 interop audit, Gap 5) ─────────────────────
+//
+// A change-log whose apply keeps throwing (e.g. a row shape this build can't store) must
+// not wedge the pull pipeline forever: without this, the failing log is re-downloaded and
+// re-failed on every sync, and every log queued behind it is never applied. Failures are
+// counted per filename; at LOG_QUARANTINE_THRESHOLD the file is skipped by pull (it stays
+// on Drive — a later app update can clear the counter and retry it).
+
+/** filename → consecutive apply-failure count. */
+export async function getLogFailureCounts(): Promise<Record<string, number>> {
+  const raw = await readSyncKey(SYNC_KEYS.failedLogs);
+  if (!raw) return {};
+  try {
+    const obj = JSON.parse(raw);
+    return obj && typeof obj === "object" && !Array.isArray(obj) ? obj : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Bump a log's failure count; returns the new count. */
+export async function recordLogFailure(filename: string): Promise<number> {
+  const counts = await getLogFailureCounts();
+  counts[filename] = (Number(counts[filename]) || 0) + 1;
+  await writeSyncKey(SYNC_KEYS.failedLogs, JSON.stringify(counts));
+  return counts[filename];
+}
+
+/** Forget a log's failures (called after it finally applies cleanly). */
+export async function clearLogFailure(filename: string): Promise<void> {
+  const counts = await getLogFailureCounts();
+  if (!(filename in counts)) return;
+  delete counts[filename];
+  await writeSyncKey(SYNC_KEYS.failedLogs, JSON.stringify(counts));
+}
+
+/** Filenames pull should skip (failed ≥ LOG_QUARANTINE_THRESHOLD times). */
+export async function getQuarantinedLogs(): Promise<Set<string>> {
+  const counts = await getLogFailureCounts();
+  const out = new Set<string>();
+  for (const [name, count] of Object.entries(counts)) {
+    if (Number(count) >= LOG_QUARANTINE_THRESHOLD) out.add(name);
+  }
+  return out;
 }

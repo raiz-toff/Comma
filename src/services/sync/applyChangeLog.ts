@@ -27,6 +27,21 @@ import { decideMerge, shouldAuditOverwrite } from "./mergeRules";
 const isWeb = Platform.OS === "web";
 const genAuditId = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 16);
 
+/**
+ * Merchant identity key (2026-07-03 interop audit, Gap 4). Both apps mint their OWN merchant
+ * ids, and `merchants.name` is UNIQUE here and on web — so an id-unknown incoming merchant
+ * whose normalizedName (fallback: exact name) matches an existing row must merge into THAT
+ * row (keeping the LOCAL id) instead of inserting a UNIQUE violation that aborts the whole
+ * apply transaction and wedges sync. Safe to remap: merchants are a suggestion list — nothing
+ * references them by id (expenses store the merchant NAME, denormalized).
+ */
+function merchantIdentity(row: Record<string, unknown>): { norm: string; name: string } {
+  return {
+    norm: String((row as any).normalizedName ?? "").trim(),
+    name: String((row as any).name ?? ""),
+  };
+}
+
 export interface ApplyResult {
   /** rows inserted or overwritten (i.e. incoming won) */
   upserted: number;
@@ -59,7 +74,16 @@ export async function applyChangeLog(log: ChangeLog, mergedAt = Date.now()): Pro
 
       for (const incoming of rows) {
         const id = String(incoming.id);
-        const at = idx.get(id);
+        let at = idx.get(id);
+        // Merchant identity dedupe — see merchantIdentity() doc.
+        if (at == null && name === "merchants") {
+          const { norm, name: nameVal } = merchantIdentity(incoming);
+          const found = list.findIndex((r) => {
+            const local = merchantIdentity(r);
+            return norm ? local.norm === norm : nameVal !== "" && local.name === nameVal;
+          });
+          if (found >= 0) at = found;
+        }
         const localRow = at != null ? list[at] : undefined;
         const decision = decideMerge({
           localExists: localRow != null,
@@ -79,7 +103,8 @@ export async function applyChangeLog(log: ChangeLog, mergedAt = Date.now()): Pro
           appendWebAudit({ tableName: name, rowId: id, supersededRow: localRow, winnerRow: incoming, mergedAt });
           audited++;
         }
-        if (at != null) list[at] = incoming;
+        // Keep the LOCAL id when the merchant dedupe remapped the row.
+        if (at != null) list[at] = { ...incoming, id: (list[at] as any).id ?? incoming.id };
         else list.push(incoming);
         upserted++;
       }
@@ -98,7 +123,32 @@ export async function applyChangeLog(log: ChangeLog, mergedAt = Date.now()): Pro
           .from(table)
           .where(eq((table as any).id, incoming.id))
           .limit(1);
-        const localRow = existing[0] as Record<string, unknown> | undefined;
+        let localRow = existing[0] as Record<string, unknown> | undefined;
+
+        // Merchant identity dedupe — see merchantIdentity() doc. When it matches, the merge
+        // targets the EXISTING row (its id is kept) instead of inserting a duplicate name.
+        let targetId = String(incoming.id);
+        if (!localRow && name === "merchants") {
+          const { norm, name: nameVal } = merchantIdentity(incoming);
+          let dupe: unknown[] = [];
+          if (norm) {
+            dupe = await tx
+              .select()
+              .from(table)
+              .where(eq((table as any).normalizedName, norm))
+              .limit(1);
+          } else if (nameVal !== "") {
+            dupe = await tx
+              .select()
+              .from(table)
+              .where(eq((table as any).name, nameVal))
+              .limit(1);
+          }
+          if (dupe[0]) {
+            localRow = dupe[0] as Record<string, unknown>;
+            targetId = String((dupe[0] as any).id);
+          }
+        }
 
         const decision = decideMerge({
           localExists: localRow != null,
@@ -127,14 +177,17 @@ export async function applyChangeLog(log: ChangeLog, mergedAt = Date.now()): Pro
           await tx.insert(syncOverwriteLog).values({
             id: genAuditId(),
             tableName: name,
-            rowId: String(incoming.id),
+            rowId: targetId,
             supersededRow: JSON.stringify(localRow),
             winnerRow: JSON.stringify(incoming),
             mergedAt,
           });
           audited++;
         }
-        await tx.update(table).set(values).where(eq((table as any).id, incoming.id));
+        // Never move the primary key: update the LOCAL row id (equals incoming.id except
+        // when the merchant dedupe remapped the target).
+        const { id: _incomingId, ...updateValues } = values as Record<string, unknown>;
+        await tx.update(table).set(updateValues).where(eq((table as any).id, targetId));
         upserted++;
       }
     }

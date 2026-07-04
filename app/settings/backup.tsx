@@ -6,7 +6,7 @@
  * in order, then lists existing backups to restore. Reached via /settings/backup.
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   View,
@@ -22,6 +22,7 @@ import { router } from "expo-router";
 import {
   ChevronLeft,
   Check,
+  FileDown,
   KeyRound,
   Lock,
   RefreshCw,
@@ -47,6 +48,7 @@ import {
   setBackupPassword,
   hasBackupPassword,
 } from "@/src/services/backupPassword";
+import { exportBackupFile, restoreBackupFile } from "@/src/services/backupFile";
 import { FeedbackDialog, BusyOverlay, type FeedbackVariant } from "@/src/components/ui/FeedbackDialog";
 import { GoogleDriveLogo } from "@/src/components/logos/GoogleDriveLogo";
 
@@ -262,6 +264,11 @@ export default function SyncScreen() {
   const [schedule, setScheduleState] = useState<SyncSchedule>(DEFAULT_SCHEDULE);
   const [passwordSet, setPasswordSet] = useState(false);
   const [pwPrompt, setPwPrompt] = useState<null | { mode: "set" | "enter"; onSubmit: (pw: string) => void }>(null);
+  const [fileBusy, setFileBusy] = useState<null | "export" | "restore">(null);
+  // After a file restore, sync is deliberately OFF (fresh device id) — hold the auto-enable
+  // effect below until the user opts back in, so the cloud can't instantly re-fill/overwrite
+  // what was just restored.
+  const suppressAutoEnable = useRef(false);
   const [dialog, setDialog] = useState<null | {
     variant: FeedbackVariant;
     title: string;
@@ -285,7 +292,7 @@ export default function SyncScreen() {
   // "Connect then done": once Drive is connected AND a password is set, Cloud Sync turns
   // itself on — no extra switch to flip. Sync is free for everyone (no paywall).
   useEffect(() => {
-    if (ready && !syncEnabled) {
+    if (ready && !syncEnabled && !suppressAutoEnable.current) {
       setSyncEnabledState(true);
       persistSyncEnabled(true).catch(() => setSyncEnabledState(false));
     }
@@ -356,6 +363,61 @@ export default function SyncScreen() {
       setDialog({ variant: "error", title: "Sync failed", message: e?.message ?? "Something went wrong." });
     }
   };
+
+  // ── Backup file (offline copy the user keeps themselves) ─────────────────────
+  const onExportFile = async () => {
+    if (fileBusy) return;
+    setFileBusy("export");
+    try {
+      await exportBackupFile();
+    } catch (e: any) {
+      setDialog({ variant: "error", title: "Export failed", message: e?.message ?? "Something went wrong." });
+    } finally {
+      setFileBusy(null);
+    }
+  };
+
+  const onRestoreFile = () =>
+    setDialog({
+      variant: "info",
+      title: "Restore from file?",
+      message:
+        "This replaces the data on this phone with the backup file's contents, and pauses Cloud Sync so the cloud can't immediately overwrite what you restored.",
+      confirmLabel: "Choose file",
+      confirmDanger: true,
+      cancelLabel: "Cancel",
+      onConfirm: async () => {
+        setDialog(null);
+        setFileBusy("restore");
+        try {
+          const res = await restoreBackupFile();
+          if (!res.restored) return; // picker cancelled
+          // restoreBackupFile re-minted the device id and turned sync OFF — keep it off on
+          // this screen too until the user opts back in.
+          suppressAutoEnable.current = true;
+          setSyncEnabledState(false);
+          queryClient.invalidateQueries();
+          setDialog({
+            variant: "success",
+            title: "Backup restored",
+            message:
+              "Your data is back. Cloud Sync is paused — turn it back on to merge with your cloud copy (newer cloud edits win conflicts).",
+            confirmLabel: "Turn sync on",
+            cancelLabel: "Keep paused",
+            onConfirm: async () => {
+              setDialog(null);
+              suppressAutoEnable.current = false;
+              setSyncEnabledState(true);
+              await persistSyncEnabled(true);
+            },
+          });
+        } catch (e: any) {
+          setDialog({ variant: "error", title: "Restore failed", message: e?.message ?? "Something went wrong." });
+        } finally {
+          setFileBusy(null);
+        }
+      },
+    });
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -477,6 +539,50 @@ export default function SyncScreen() {
               variant="primary"
               disabled={!ready || !syncEnabled || isSyncing}
               onPress={doSyncNow}
+              accent={accentColor}
+              accentDim={accentColorDim}
+              accentMid={accentColorMid}
+              accentContrast={accentColorContrast}
+            />
+          </View>
+        </View>
+
+        {/* Backup file — offline copy you keep yourself (works without Google) */}
+        <Text style={s.groupLabel}>BACKUP FILE</Text>
+        <View style={s.card}>
+          <View style={s.stepRow}>
+            <View style={[s.badge, { backgroundColor: DS.inputBg, borderColor: DS.inputBorder }]}>
+              <FileDown size={15} color={DS.textSecondary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.stepTitle}>Backup file</Text>
+              <Text style={s.stepSub}>
+                An offline copy you keep yourself — save it to Files, Drive, or anywhere. Works without Google.
+              </Text>
+            </View>
+          </View>
+
+          <View style={[s.syncActionRow, { borderTopColor: DS.sep }]}>
+            <Text style={s.stepSub}>Download backup file</Text>
+            <PillBtn
+              label={fileBusy === "export" ? "Preparing…" : "Download"}
+              variant="primary"
+              disabled={!!fileBusy}
+              onPress={onExportFile}
+              accent={accentColor}
+              accentDim={accentColorDim}
+              accentMid={accentColorMid}
+              accentContrast={accentColorContrast}
+            />
+          </View>
+
+          <View style={[s.syncActionRow, { borderTopColor: DS.sep }]}>
+            <Text style={s.stepSub}>Restore from a backup file</Text>
+            <PillBtn
+              label={fileBusy === "restore" ? "Restoring…" : "Restore"}
+              variant="ghost"
+              disabled={!!fileBusy}
+              onPress={onRestoreFile}
               accent={accentColor}
               accentDim={accentColorDim}
               accentMid={accentColorMid}

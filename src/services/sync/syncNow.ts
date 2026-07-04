@@ -17,6 +17,9 @@ import {
   addAppliedLog,
   setLastPushRunAt,
   setLastCloudSaveAt,
+  recordLogFailure,
+  clearLogFailure,
+  LOG_QUARANTINE_THRESHOLD,
 } from "../../database/syncState";
 import { pullChanges } from "./pullChanges";
 import { pushChanges } from "./pushChanges";
@@ -36,6 +39,8 @@ export interface SyncResult {
   skippedRows: number;
   /** financial overwrites recorded to the audit log */
   auditedRows: number;
+  /** pulled logs whose apply threw this run (retried next sync, quarantined after 3) */
+  failedLogs: number;
   pushed: boolean;
   pushedRows: number;
 }
@@ -51,19 +56,34 @@ async function runSync(passphrase: string, opts: SyncOptions): Promise<SyncResul
   let appliedRows = 0;
   let skippedRows = 0;
   let auditedRows = 0;
+  let failedLogs = 0;
 
   // ── PULL + merge ──
   if (doPull) {
     const pulled = await pullChanges(passphrase);
     pulledLogs = pulled.length;
     for (const { log, filename } of pulled) {
-      const { upserted, skipped, audited } = await applyChangeLog(log);
-      appliedRows += upserted;
-      skippedRows += skipped;
-      auditedRows += audited;
-      // Record AFTER the merge transaction commits, so a crash mid-batch leaves the log
-      // un-applied and it's simply retried next pull (the applied-set is the cursor).
-      await addAppliedLog(filename);
+      try {
+        const { upserted, skipped, audited } = await applyChangeLog(log);
+        appliedRows += upserted;
+        skippedRows += skipped;
+        auditedRows += audited;
+        // Record AFTER the merge transaction commits, so a crash mid-batch leaves the log
+        // un-applied and it's simply retried next pull (the applied-set is the cursor).
+        await addAppliedLog(filename);
+        await clearLogFailure(filename);
+      } catch (e) {
+        // One bad log must not wedge every log behind it (interop-audit Gap 5): count the
+        // failure (pull skips it entirely after LOG_QUARANTINE_THRESHOLD) and keep going —
+        // LWW merge is order-independent, so applying the rest first is safe.
+        failedLogs += 1;
+        const failures = await recordLogFailure(filename);
+        console.warn(
+          `[sync] failed to apply ${filename} (attempt ${failures}` +
+            `${failures >= LOG_QUARANTINE_THRESHOLD ? " — quarantined" : ""})`,
+          e
+        );
+      }
     }
   }
 
@@ -92,7 +112,7 @@ async function runSync(passphrase: string, opts: SyncOptions): Promise<SyncResul
     }
   }
 
-  return { pulledLogs, appliedRows, skippedRows, auditedRows, pushed, pushedRows };
+  return { pulledLogs, appliedRows, skippedRows, auditedRows, failedLogs, pushed, pushedRows };
 }
 
 // Serialize all syncs: each call waits for the previous to settle, then runs its own.

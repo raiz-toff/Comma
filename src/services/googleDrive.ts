@@ -192,7 +192,7 @@ export const MIN_PASSPHRASE_LENGTH = 6;
  *  tables, password-only key that restores on any device). */
 export const BACKUP_SCHEMA_VERSION = 2;
 
-interface BackupPayload {
+export interface BackupPayload {
   version: number;
   app: "comma";
   createdAt: string;
@@ -214,11 +214,11 @@ function reviveTimestamps(
 
 // ─── Backup Flow ─────────────────────────────────────────────────────────────
 
-export async function backupToDrive(passphrase: string): Promise<void> {
-  if (!passphrase || passphrase.length < MIN_PASSPHRASE_LENGTH) {
-    throw new Error(`Backup password must be at least ${MIN_PASSPHRASE_LENGTH} characters.`);
-  }
-
+/**
+ * Snapshot every BACKUP_TABLE into a portable payload. Shared by the (dormant) Drive backup
+ * and the local backup-file export (`src/services/backupFile.ts`).
+ */
+export async function buildBackupPayload(): Promise<BackupPayload> {
   const tables: Record<string, Record<string, unknown>[]> = {};
   if (isWeb) {
     for (const { name } of BACKUP_TABLES) {
@@ -230,14 +230,20 @@ export async function backupToDrive(passphrase: string): Promise<void> {
       tables[name] = await db.select().from(table);
     }
   }
-
-  const payload: BackupPayload = {
+  return {
     version: BACKUP_SCHEMA_VERSION,
     app: "comma",
     createdAt: new Date().toISOString(),
     tables,
   };
+}
 
+export async function backupToDrive(passphrase: string): Promise<void> {
+  if (!passphrase || passphrase.length < MIN_PASSPHRASE_LENGTH) {
+    throw new Error(`Backup password must be at least ${MIN_PASSPHRASE_LENGTH} characters.`);
+  }
+
+  const payload = await buildBackupPayload();
   const envelope = await encryptBackup(JSON.stringify(payload), passphrase);
 
   // Upload to the Drive appDataFolder via a multipart/related request. We build the
@@ -357,6 +363,16 @@ export async function restoreFromDrive(fileId: string, passphrase: string): Prom
   } catch {
     throw new Error("Backup contents are corrupted.");
   }
+  await applyBackupPayload(payload);
+}
+
+/**
+ * Transactionally replace local data with a backup payload's contents. Shared by the
+ * (dormant) Drive restore and the local backup-file restore (`src/services/backupFile.ts`).
+ * Only tables PRESENT in the payload are wiped, so a partial backup never destroys data it
+ * doesn't contain; timestamp columns are revived before insert.
+ */
+export async function applyBackupPayload(payload: BackupPayload): Promise<void> {
   if (!payload || !payload.tables || typeof payload.tables !== "object") {
     throw new Error("Invalid backup file structure.");
   }

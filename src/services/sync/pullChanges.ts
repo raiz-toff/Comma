@@ -13,6 +13,7 @@
 import {
   getDeviceId,
   getAppliedLogs,
+  getQuarantinedLogs,
 } from "../../database/syncState";
 import { getValidAccessToken, fetchWithTimeout } from "../googleDrive";
 import { listAppDataFiles, type DriveFileRef } from "./driveIO";
@@ -57,13 +58,18 @@ async function downloadFile(fileId: string): Promise<string> {
 export async function pullChanges(passphrase: string): Promise<PulledLog[]> {
   if (!passphrase) throw new Error("Enter the backup password to sync.");
 
-  const [deviceId, applied] = await Promise.all([getDeviceId(), getAppliedLogs()]);
+  const [deviceId, applied, quarantined] = await Promise.all([
+    getDeviceId(),
+    getAppliedLogs(),
+    getQuarantinedLogs(),
+  ]);
   const files = await listChangeLogFiles();
 
-  // Filter: not already applied AND not authored by me. (Pairing with the applied-set
-  // means my own just-pushed logs — already in the set — are skipped here too.)
+  // Filter: not already applied AND not authored by me AND not quarantined (a log whose
+  // apply failed repeatedly — see syncState — must not wedge every newer log behind it).
+  // Pairing with the applied-set means my own just-pushed logs are skipped here too.
   const toFetch = files.filter((f) => {
-    if (applied.has(f.name)) return false;
+    if (applied.has(f.name) || quarantined.has(f.name)) return false;
     const parsed = parseSyncFilename(f.name);
     return parsed != null && parsed.deviceId !== deviceId;
   });

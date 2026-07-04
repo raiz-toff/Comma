@@ -237,31 +237,16 @@ export async function insertShiftPlatform(payload: typeof shiftPlatforms.$inferI
 }
 
 /**
- * HARD delete — intentional. This is only used as the "clear" half of the
- * delete-then-reinsert REPLACE pattern in saveShiftWithPlatforms (its sole call site),
- * not a user-initiated delete. Soft-deleting here would tombstone rows whose ids are
- * immediately reinserted, causing conflicts and accumulating dead tombstones, so it
- * stays a hard delete.
- */
-export async function deleteShiftPlatforms(shiftId: string): Promise<void> {
-  if (isWeb) {
-    const existing = localStorage.getItem("comma_shift_platforms");
-    if (existing) {
-      const list = JSON.parse(existing);
-      const filtered = list.filter((sp: any) => sp.shiftId !== shiftId);
-      localStorage.setItem("comma_shift_platforms", JSON.stringify(filtered));
-    }
-    return;
-  }
-  await db.delete(shiftPlatforms).where(eq(shiftPlatforms.shiftId, shiftId));
-}
-
-/**
- * Atomically save a shift and its per-platform ledger. The parent shift write, the wipe of
- * the old platform rows, and the re-insert all run inside ONE transaction, so an
- * interrupted/failed save can never leave a shift with a half-deleted platform breakdown
- * (which previously corrupted analytics reading shiftPlatforms — e.g. on a failed edit the
- * old rows were deleted with nothing re-inserted).
+ * Atomically save a shift and its per-platform ledger. The parent shift write and the
+ * ledger replace run inside ONE transaction, so an interrupted/failed save can never leave
+ * a shift with a half-written platform breakdown.
+ *
+ * The ledger REPLACE is sync-safe (2026-07-03 interop audit, Gap 8): this save's rows are
+ * UPSERTED under their deterministic ids (`sp_{shiftId}_{i}` — stable across re-saves), and
+ * every OTHER still-alive row for the shift is soft-deleted so the removal reaches other
+ * devices as a tombstone. The old hard delete-then-reinsert never told peers about removed
+ * rows — the web app (which authors uuid `sp_…` ids that never line up with ours) kept its
+ * own copies AND gained ours, double-counting the platform breakdown.
  */
 export async function saveShiftWithPlatforms(
   shiftId: string,
@@ -276,11 +261,25 @@ export async function saveShiftWithPlatforms(
     } else {
       await insertShift(shiftPayload);
     }
-    await deleteShiftPlatforms(shiftId);
+    const raw = localStorage.getItem("comma_shift_platforms");
+    const list: any[] = raw ? JSON.parse(raw) : [];
+    const byId = new Map<string, number>(list.map((r: any, i: number) => [String(r.id), i]));
+    const keepIds = new Set<string>();
     let i = 0;
     for (const entry of platformEntries) {
-      await insertShiftPlatform({ id: `sp_${shiftId}_${i++}`, shiftId, ...entry });
+      const id = `sp_${shiftId}_${i++}`;
+      keepIds.add(id);
+      const at = byId.get(id);
+      if (at != null) list[at] = stampUpdate({ ...list[at], ...entry, id, shiftId, syncDeletedAt: null });
+      else list.push(stampInsert({ id, shiftId, ...entry }));
     }
+    for (let j = 0; j < list.length; j++) {
+      const r = list[j];
+      if (r.shiftId === shiftId && !keepIds.has(String(r.id)) && r.syncDeletedAt == null) {
+        list[j] = { ...r, ...softDeletePatch() };
+      }
+    }
+    localStorage.setItem("comma_shift_platforms", JSON.stringify(list));
     return;
   }
 
@@ -290,13 +289,34 @@ export async function saveShiftWithPlatforms(
     } else {
       await tx.insert(shifts).values(stampInsert(shiftPayload));
     }
-    // HARD delete — intentional: this is the "clear" half of the delete-then-reinsert
-    // REPLACE of this shift's platform ledger, not a user delete. The same ids are
-    // reinserted immediately below, so soft-deleting would conflict and pile up tombstones.
-    await tx.delete(shiftPlatforms).where(eq(shiftPlatforms.shiftId, shiftId));
+    const existing = (await tx
+      .select()
+      .from(shiftPlatforms)
+      .where(eq(shiftPlatforms.shiftId, shiftId))) as Array<Record<string, unknown>>;
+    const existingIds = new Set(existing.map((r) => String(r.id)));
+    const keepIds = new Set<string>();
     let i = 0;
     for (const entry of platformEntries) {
-      await tx.insert(shiftPlatforms).values(stampInsert({ id: `sp_${shiftId}_${i++}`, shiftId, ...entry }));
+      const id = `sp_${shiftId}_${i++}`;
+      keepIds.add(id);
+      if (existingIds.has(id)) {
+        // Re-save under the same deterministic id: refresh values, clear any old tombstone.
+        await tx
+          .update(shiftPlatforms)
+          .set(stampUpdate({ ...entry, syncDeletedAt: null }))
+          .where(eq(shiftPlatforms.id, id));
+      } else {
+        await tx.insert(shiftPlatforms).values(stampInsert({ id, shiftId, ...entry }));
+      }
+    }
+    // Tombstone every other still-alive row for this shift (shrunken index tail, or rows a
+    // web peer authored under its own uuid ids) so the removal SYNCS instead of silently
+    // vanishing on this device only.
+    for (const row of existing) {
+      const rowId = String(row.id);
+      if (!keepIds.has(rowId) && row.syncDeletedAt == null) {
+        await tx.update(shiftPlatforms).set(softDeletePatch()).where(eq(shiftPlatforms.id, rowId));
+      }
     }
   });
 }

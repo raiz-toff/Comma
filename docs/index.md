@@ -21,6 +21,8 @@ Built for DoorDash, Uber Eats, SkipTheDishes, Instacart, Amazon Flex, and a doze
 - [Introduction](./getting-started/introduction.md) — What Comma is and how it works
 - [Quick Start](./getting-started/quick-start.md) — Install, onboard, log your first shift
 - [Core Concepts](./getting-started/core-concepts.md) — Shifts, platforms, active vs dead miles, and more
+- [FAQ](./getting-started/faq.md) — Common questions about the web and phone apps
+- [Troubleshooting](./getting-started/troubleshooting.md) — Fix common issues on web and phone
 
 ### Features
 - [Shift Tracking](./features/shift-tracking.md) — Live GPS shifts and manual log entries
@@ -31,6 +33,7 @@ Built for DoorDash, Uber Eats, SkipTheDishes, Instacart, Amazon Flex, and a doze
 - [Vehicles](./features/vehicles.md) — Manage multiple vehicles and maintenance logs
 - [Analytics & Reports](./features/analytics-and-reports.md) — Charts, trends, and exportable reports
 - [Supported Platforms](./features/platforms.md) — All gig platforms Comma supports
+- [Web App (PWA)](./features/web-app.md) — Using Comma in the browser
 
 ### Backup & Sync
 - [Overview](./backup-and-sync/overview.md) — Local-first philosophy

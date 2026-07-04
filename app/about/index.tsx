@@ -17,7 +17,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { Text } from "@/src/components/ui/text";
 import { Image } from "expo-image";
-import { ChevronLeft, Heart, Share2, Terminal, Globe, Coffee } from "lucide-react-native";
+import { ChevronLeft, Heart, Share2, Terminal, Globe, Coffee, BookOpen } from "lucide-react-native";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { notify } from "@/src/services/notify";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
@@ -139,6 +139,13 @@ export default function AboutScreen() {
 
         {/* Links */}
         <View style={s.links}>
+          <LinkRow
+            icon={<BookOpen size={18} color={accentColor} />}
+            label="Help & Docs"
+            sub="Guides, FAQ & troubleshooting"
+            onPress={() => Linking.openURL("https://comma-docs.vercel.app")}
+          />
+          <View style={s.linkSep} />
           <LinkRow
             icon={<Globe size={18} color={accentColor} />}
             label="Portfolio"

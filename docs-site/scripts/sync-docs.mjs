@@ -24,8 +24,8 @@ const PAGES_OUT = path.resolve(__dirname, "../pages");
 // Section order + display names, mirroring docs/index.md. Page order within a
 // section is taken from here; titles are read from each file's first heading.
 const TREE = [
-  { dir: "getting-started", title: "Getting Started", pages: ["introduction", "quick-start", "core-concepts"] },
-  { dir: "features",        title: "Features",        pages: ["shift-tracking", "mileage-tracking", "expenses", "tax-center", "goals-and-gamification", "vehicles", "analytics-and-reports", "platforms"] },
+  { dir: "getting-started", title: "Getting Started", pages: ["introduction", "quick-start", "core-concepts", "faq", "troubleshooting"] },
+  { dir: "features",        title: "Features",        pages: ["shift-tracking", "mileage-tracking", "expenses", "tax-center", "goals-and-gamification", "vehicles", "analytics-and-reports", "platforms", "web-app"] },
   { dir: "backup-and-sync", title: "Backup & Sync",   pages: ["overview", "google-drive-backup", "cloud-sync", "encryption"] },
   { dir: "architecture",    title: "Architecture",    pages: ["overview", "database", "state-management", "navigation", "gps-engine"] },
   { dir: "development",     title: "Development",      pages: ["setup", "project-structure", "environment-variables", "native-module", "contributing"] },

@@ -724,10 +724,12 @@ export async function mountSettings(root, ctx = {}) {
         </div>
         <div class="settings-actions settings-wrap" style="display: flex; flex-wrap: wrap; gap: var(--space-2);">
           <a class="btn btn-secondary btn-sm" href="https://comma-docs.vercel.app" target="_blank" rel="noopener noreferrer">Help &amp; Docs</a>
+          <a class="btn btn-secondary btn-sm" href="https://github.com/raiz-toff/CommaApp/releases/latest" target="_blank" rel="noopener noreferrer">Get the Android App</a>
           <button type="button" class="btn btn-secondary btn-sm" data-open-install>Install COMMA</button>
           <a class="btn btn-secondary btn-sm" href="#/about">Data Portability Manifesto</a>
           <a class="btn btn-secondary btn-sm" href="https://github.com/raiz-toff/comma/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">Changelog</a>
           <a class="btn btn-secondary btn-sm" href="#/support">Support & Feedback</a>
+          <a class="btn btn-secondary btn-sm" href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
           <button type="button" class="btn btn-secondary btn-sm" data-share-comma>Share COMMA</button>
           <a class="btn btn-secondary btn-sm" href="https://en.wikipedia.org/wiki/Glossary_of_economics" target="_blank" rel="noopener noreferrer">Driver Financial Glossary</a>
           <button type="button" class="btn btn-primary btn-sm" style="display: none;" data-open-dev-tools>Open Developer Tools</button>

@@ -5,7 +5,11 @@
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
   [![Build](https://img.shields.io/badge/build-esbuild-brightgreen)](https://esbuild.github.io/)
-  [![PWA](https://img.shields.io/badge/PWA-Ready-blue)](#)
+  [![PWA](https://img.shields.io/badge/PWA-Ready-blue)](https://comma-psi.vercel.app)
+
+  <strong><a href="https://comma-psi.vercel.app">Open COMMA</a></strong> ·
+  <strong><a href="https://comma-docs.vercel.app">User Docs</a></strong> ·
+  <strong><a href="https://github.com/raiz-toff/CommaApp/releases/latest">Android App (APK)</a></strong>
 </div>
 
 > [!WARNING]  
@@ -24,42 +28,27 @@ By treating gig work like a real business, COMMA gives you the same analytics an
 
 ## App Interface
 
-Experience a state-of-the-art interface designed for speed and clarity.
+### Financial Overview
+The heart of COMMA. Gross earnings, average hourly rate, business expenses, tax set-aside, and net after tax — filterable by platform and date range, with a monthly breakdown table and one-click exports.
 
-### Dashboard & Analytics
-The heart of COMMA. A high-fidelity Bento-style dashboard providing real-time insights into your earnings, expenses, and goal progress.
-
-![Dashboard Overview](docs/images/image.png)
+![Financial Overview dashboard with earnings, rate, expense and tax cards](docs/images/dashboard-overview.png)
 
 <table width="100%">
   <tr>
-    <td width="50%" align="center">
-      <strong>Platform Switcher</strong><br/>
-      <img src="docs/images/image-2.png" alt="Platform Switcher" /><br/>
-      <em>Seamlessly switch with a touch-optimized sliding pill.</em>
+    <td width="38%" align="center">
+      <strong>Analytics Insights</strong><br/>
+      <img src="docs/images/analytics-insights.png" alt="Platform mix and income breakdown charts" /><br/>
+      <em>See your platform mix at a glance, and how much of your income is base pay vs. tips vs. bonuses.</em>
     </td>
-    <td width="50%" align="center">
-      <strong>Visual Goals</strong><br/>
-      <img src="docs/images/image-3.png" alt="Visual Goals" /><br/>
-      <em>Track targets with interactive SVG progress rings.</em>
-    </td>
-  </tr>
-</table>
-
-### Expenses & Settings
-Manage your business costs with region-specific tax categories and fine-tune your experience with modular settings.
-
-<table width="100%">
-  <tr>
-    <td width="50%" align="center">
+    <td width="38%" align="center">
       <strong>Expense Tracking</strong><br/>
-      <img src="docs/images/image-1.png" alt="Expense Tracking" /><br/>
-      <em>Detailed management with tax set-aside hints.</em>
+      <img src="docs/images/expenses.png" alt="Monthly expenses with deductible year-to-date totals" /><br/>
+      <em>Weekly spending bars, deductible year-to-date totals, and tax-deductible flags per transaction.</em>
     </td>
-    <td width="50%" align="center">
-      <strong>Modular Settings</strong><br/>
-      <img src="docs/images/image-4.png" alt="Settings" /><br/>
-      <em>A tabbed, organized interface for personalization.</em>
+    <td width="24%" align="center">
+      <strong>Quick Add</strong><br/>
+      <img src="docs/images/quick-add.png" alt="Quick add menu: shift, expense, goals, schedule" /><br/>
+      <em>Log a shift, expense, goal, or schedule entry from anywhere.</em>
     </td>
   </tr>
 </table>
@@ -109,6 +98,15 @@ COMMA is an exercise in stripping away modern web bloat:
 * **Charts**: `Chart.js` (vendored).
 * **Routing**: Simple hash-based router.
 * **PWA**: Custom, hand-written Service Worker (no Workbox black boxes).
+
+---
+
+## The COMMA family
+
+The web app is one half of the project. There is also a **native Android app** with background GPS mileage tracking, built with Expo/React Native — the two share the same backup format, so you can move your vault between them.
+
+* **Android app**: [raiz-toff/CommaApp](https://github.com/raiz-toff/CommaApp) — [download the APK](https://github.com/raiz-toff/CommaApp/releases/latest)
+* **User documentation** (both apps): [comma-docs.vercel.app](https://comma-docs.vercel.app) — see especially the [Web App guide](https://comma-docs.vercel.app/features/web-app)
 
 ---
 

@@ -19,6 +19,45 @@ function isWebManifestPath(pathname) {
   return pathname.endsWith('/manifest.json');
 }
 
+/**
+ * The HTML entry document (and the unhashed `bundle.css`). These MUST stay network-first (like
+ * manifest.json) because they are NOT content-hashed in their filenames. The prod build fingerprints
+ * the JS bundle (`bundle-<hash>.js`, safe to cache-first — a new build mints a new filename), but
+ * `index.html` — which references whichever bundle is current — keeps a stable URL. Serve a stale
+ * `index.html` cache-first and the browser loads the OLD bundle filename → old JS whose declared
+ * Dexie/IndexedDB schema version is LOWER than the DB the browser already upgraded on a prior visit
+ * → IndexedDB refuses to open it (VersionError) → the app dead-ends at "Could not open local
+ * database." Network-first keeps the running code in lockstep with the on-disk schema; cache is the
+ * offline fallback only. (initDatabase() still auto-recovers if skew slips through anyway.)
+ */
+function isAppCodePath(pathname) {
+  return (
+    pathname.endsWith('/index.html') ||
+    pathname.endsWith('/') ||
+    pathname.endsWith('/bundle.css')
+  );
+}
+
+/** Network-first + cache fallback so app code/HTML never goes stale against an upgraded local DB. */
+async function handleAppCodeGet(request) {
+  const cache = await caches.open(CACHE_NAME);
+  try {
+    const networkRes = await fetch(request);
+    if (networkRes.ok) {
+      await cache.put(request, networkRes.clone());
+    }
+    return networkRes;
+  } catch {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    if (request.mode === 'navigate') {
+      const shell = await cache.match(new Request(new URL('./index.html', self.location.href)));
+      if (shell) return shell;
+    }
+    return new Response('', { status: 503, statusText: 'Offline' });
+  }
+}
+
 /** Network-first + cache fallback so manifest changes propagate without a full SW bump. */
 async function handleManifestGet(request) {
   const cache = await caches.open(CACHE_NAME);
@@ -92,6 +131,13 @@ self.addEventListener('fetch', (event) => {
 
   if (isWebManifestPath(url.pathname)) {
     event.respondWith(handleManifestGet(req));
+    return;
+  }
+
+  // App code + HTML entry: network-first so running code stays in lockstep with the on-disk
+  // IndexedDB schema version (prevents the stale-bundle VersionError → "could not open database").
+  if (req.mode === 'navigate' || isAppCodePath(url.pathname)) {
+    event.respondWith(handleAppCodeGet(req));
     return;
   }
 

@@ -428,10 +428,51 @@ class COMMADatabase extends Dexie {
      * that connects needs no setup. Bridged around each sync in services/sync/profileBridge.js.
      */
     this.version(8).stores({ profile: 'key, syncUpdatedAt' });
+
+    // Another tab on an OLDER build is holding COMMAVault open at a lower version, blocking this
+    // tab's upgrade — `db.open()` would hang until that tab closes. Log it so the stall is
+    // diagnosable; the user-facing recovery for the persistent case is recreateDatabase().
+    this.on('blocked', () => {
+      console.warn('[comma db] upgrade blocked by another open tab on an older version');
+    });
   }
 }
 
 export const db = new COMMADatabase();
+
+/**
+ * Dexie error names that mean "the on-disk IndexedDB can't be reconciled with the schema this
+ * build declares" — almost always a returning user whose browser holds a NEWER `COMMAVault`
+ * (e.g. schema v8) while a stale service worker just handed them OLDER JS (declaring v7). IDB
+ * refuses to open a higher-versioned DB with lower-versioned code, so `db.open()` throws one of
+ * these. The v5→v8 bumps are deliberately non-migrating (see the version() comments), so a
+ * corrupt/partial upgrade lands here too. These are the cases the old boot handled only by making
+ * the user manually "reset site cache"; recreateDatabase() does that reset automatically.
+ */
+const RECOVERABLE_OPEN_ERRORS = new Set([
+  'VersionError', // installed DB version > requested, or a version-transaction conflict
+  'UpgradeError', // a .upgrade() transform threw
+  'InvalidStateError', // DB blocked/corrupt
+  'DatabaseClosedError', // closed mid-open (typically after a failed upgrade)
+  'NotFoundError', // object store/index missing vs. the requested schema
+]);
+
+/**
+ * Nuke the local `COMMAVault` IndexedDB and reopen it clean at the current schema. This is the
+ * programmatic equivalent of the manual "reset site cache" workaround — it discards the local
+ * cache that couldn't be opened so the app can boot. Data loss is limited to unsynced local
+ * changes: the Drive sync/backup layer re-hydrates everything else on the next pull, and this
+ * only runs when the DB was UNOPENABLE anyway (the alternative was a dead page).
+ */
+async function recreateDatabase() {
+  try {
+    db.close();
+  } catch {
+    /* already closed */
+  }
+  await Dexie.delete(DB_NAME);
+  await db.open();
+}
 
 /**
  * logicalMigrations[n] runs when upgrading appState `schema_version` from n → n+1.
@@ -635,9 +676,28 @@ async function putMissingAppStateDefaults(updatedAt) {
 /**
  * Open database, run logical migrations, seed first-run catalog rows.
  * Call once at app startup (before router/store).
+ *
+ * Returns `{ recovered }` — `recovered: true` means the on-disk DB could not be opened (a
+ * version/schema conflict from a stale service worker, or a corrupt/partial upgrade) and had to
+ * be deleted and recreated. Startup succeeds either way; callers can surface a heads-up when
+ * `recovered` is true. Only a genuinely unrecoverable failure (or a second failure right after a
+ * fresh recreate) rejects.
+ *
+ * @returns {Promise<{ recovered: boolean }>}
  */
 export async function initDatabase() {
-  await db.open();
+  let recovered = false;
+  try {
+    await db.open();
+  } catch (err) {
+    const name = /** @type {{ name?: string }} */ (err)?.name || '';
+    if (!RECOVERABLE_OPEN_ERRORS.has(name)) throw err;
+    // Unopenable local DB (typically stale-SW version skew) — auto-reset instead of dead-ending
+    // the user at "Could not open local database" and making them clear site data by hand.
+    console.warn(`[comma db] open failed (${name}); recreating local database`, err);
+    await recreateDatabase();
+    recovered = true;
+  }
   await runLogicalMigrations();
   await seedFirstRun();
   await putMissingAppStateDefaults(nowIso());
@@ -655,6 +715,8 @@ export async function initDatabase() {
   } catch (err) {
     console.warn('[comma db] failed to prune residual orders fields:', err);
   }
+
+  return { recovered };
 }
 
 export async function getUser() {

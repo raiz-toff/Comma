@@ -37,7 +37,7 @@ import './utils/locale.js';
 import './utils/strings.js';
 import { t } from './utils/strings.js';
 import './ui/icons.js';
-import { initDatePickers } from './ui/components.js';
+import { initDatePickers, showToast } from './ui/components.js';
 import { initAdaptiveTheme } from './core/adaptive-theme.js';
 import { initDriveAuth } from './modules/backup/drive-auth.js';
 import { initBackupTriggers } from './modules/backup/backup-triggers.js';
@@ -194,10 +194,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   const app = document.getElementById('app');
   if (!app) return;
 
+  // The database open is the one boot step whose failure genuinely means "could not open local
+  // database" — keep it in its own try so a later boot failure never mis-reports as a DB error.
+  // initDatabase() self-heals recoverable version/schema conflicts (stale service worker, corrupt
+  // upgrade) by recreating the local DB, so this only rejects on a truly unopenable IndexedDB.
+  /** @type {boolean} */
+  let dbRecovered = false;
   try {
-    await initDatabase();
+    ({ recovered: dbRecovered } = await initDatabase());
     window.__comma.db = db;
+  } catch (err) {
+    console.error('[comma] database open failed', err);
+    if (app) app.textContent = t('errors.dbOpen');
+    if (splash) splash.remove();
+    return;
+  }
 
+  try {
     await store.loadFromDB();
     window.__comma.store = store;
 
@@ -212,6 +225,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     window.__comma.router = Router;
     Router.init();
+
+    // If the local DB had to be reset to recover from an unopenable/corrupt state, tell the user
+    // now that the shell (and its toast host) exists — so they understand why local data is empty
+    // and that synced data will come back, instead of silently losing it.
+    if (dbRecovered) {
+      showToast({ type: 'info', message: t('errors.dbRecovered'), duration: 6000 });
+    }
 
     // Features & Registries
     try {
@@ -299,8 +319,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       setTimeout(() => splash.remove(), 400);
     }
   } catch (err) {
+    // The DB is already open by here (its own try above handles open failures), so a failure at
+    // this point is a general boot error, not a database one — don't mislabel it as "dbOpen".
     console.error('[comma] boot failed', err);
-    if (app) app.textContent = t('errors.dbOpen');
+    if (app) app.textContent = t('errors.generic');
     if (splash) splash.remove();
     return;
   }

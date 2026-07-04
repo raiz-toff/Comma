@@ -6,3 +6,4 @@ next-env.d.ts
 
 # Generated from ../docs by scripts/sync-docs.mjs — do not edit here
 /pages
+.vercel

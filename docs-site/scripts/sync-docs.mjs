@@ -7,12 +7,18 @@
 //   3. Writes _meta.json files so the sidebar order + titles are intentional
 //      (matching docs/index.md) rather than alphabetical.
 
-import { promises as fs } from "node:fs";
+import { promises as fs, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DOCS_SRC = path.resolve(__dirname, "../../docs");
+// Docs live at the repo root (../../docs) for local dev, but isolated deploys
+// (e.g. Vercel with docs-site as the root) only have the docs-site/ tree. In
+// that case fall back to a vendored copy at docs-site/docs-src, kept in sync by
+// `npm run vendor-docs`. Prefer the repo-root copy when it exists.
+const REPO_DOCS = path.resolve(__dirname, "../../docs");
+const VENDORED_DOCS = path.resolve(__dirname, "../docs-src");
+const DOCS_SRC = existsSync(REPO_DOCS) ? REPO_DOCS : VENDORED_DOCS;
 const PAGES_OUT = path.resolve(__dirname, "../pages");
 
 // Section order + display names, mirroring docs/index.md. Page order within a
@@ -23,6 +29,13 @@ const TREE = [
   { dir: "backup-and-sync", title: "Backup & Sync",   pages: ["overview", "google-drive-backup", "cloud-sync", "encryption"] },
   { dir: "architecture",    title: "Architecture",    pages: ["overview", "database", "state-management", "navigation", "gps-engine"] },
   { dir: "development",     title: "Development",      pages: ["setup", "project-structure", "environment-variables", "native-module", "contributing"] },
+];
+
+// Top-level pages that live at docs/<slug>.md and publish to /<slug> (not in a
+// section). Kept out of the sidebar via `display: "hidden"` in the root meta —
+// they're linked directly (e.g. the Play Store privacy policy URL).
+const ROOT_PAGES = [
+  { slug: "privacy", title: "Privacy Policy" },
 ];
 
 // Strip ".md" from relative markdown links: [x](./a/b.md) → [x](./a/b),
@@ -104,7 +117,22 @@ async function main() {
   // Top-level sidebar order.
   const rootMeta = { index: "Home" };
   for (const section of TREE) rootMeta[section.dir] = section.title;
+  // Root-level standalone pages: published but hidden from the sidebar.
+  for (const { slug, title } of ROOT_PAGES) {
+    rootMeta[slug] = { title, display: "hidden" };
+  }
   await writeFileMkdir(path.join(PAGES_OUT, "_meta.js"), metaModule(rootMeta));
+
+  // Emit each root-level standalone page.
+  for (const { slug } of ROOT_PAGES) {
+    const srcFile = path.join(DOCS_SRC, `${slug}.md`);
+    try {
+      const raw = await read(srcFile);
+      await writeFileMkdir(path.join(PAGES_OUT, `${slug}.mdx`), processMd(raw));
+    } catch {
+      console.warn(`⚠ missing: docs/${slug}.md — skipping`);
+    }
+  }
 
   let count = 1;
   for (const section of TREE) {

@@ -11,6 +11,27 @@ const config: DocsThemeConfig = {
     link: "https://github.com/raiz-toff/CommaApp",
   },
   docsRepositoryBase: "https://github.com/raiz-toff/CommaApp/tree/main/docs",
+  // pages/ is generated (gitignored) from docs/*.md by sync-docs.mjs, so the
+  // default edit link (docsRepositoryBase + "/pages/<page>.mdx") points at a
+  // path that doesn't exist in the repo. Map the generated page path back to
+  // the real source: pages/getting-started/faq.mdx → docs/getting-started/faq.md
+  editLink: {
+    component({ children, className, filePath }) {
+      const src = (filePath ?? "")
+        .replace(/^pages\//, "")
+        .replace(/\.mdx$/, ".md");
+      return (
+        <a
+          href={`https://github.com/raiz-toff/CommaApp/edit/main/docs/${src}`}
+          className={className}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {children}
+        </a>
+      );
+    },
+  },
   footer: {
     content: (
       <span>

@@ -1,6 +1,6 @@
 # Web App (PWA)
 
-Comma runs as an installable Progressive Web App (PWA) in the browser — a companion to the native phone app for logging and reviewing your work from a laptop or desktop. It shares Comma's data model, look, and features, with the differences noted below.
+Comma runs as an installable Progressive Web App (PWA) in the browser at **[comma-psi.vercel.app](https://comma-psi.vercel.app)** — a companion to the native phone app for logging and reviewing your work from a laptop or desktop. It shares Comma's data model, look, and features, with the differences noted below.
 
 For how it compares to the phone app at a glance, see the [FAQ](../getting-started/faq.md#web-app-vs-phone-app).
 
@@ -8,7 +8,7 @@ For how it compares to the phone app at a glance, see the [FAQ](../getting-start
 
 ## Installing the web app
 
-Open the Comma web app in a modern browser, then install it so it runs in its own window and works offline:
+Open the Comma web app at [comma-psi.vercel.app](https://comma-psi.vercel.app) in a modern browser, then install it so it runs in its own window and works offline:
 
 - **Chrome / Edge (desktop):** click the install icon in the address bar, or menu → **Install Comma**.
 - **Chrome (Android):** menu → **Add to Home screen** / **Install app**.

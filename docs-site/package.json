@@ -4,7 +4,7 @@
   "private": true,
   "description": "Documentation site for Comma, built with Nextra.",
   "scripts": {
-    "vendor-docs": "rm -rf docs-src && cp -r ../docs docs-src",
+    "vendor-docs": "rm -rf docs-src && cp -r ../docs docs-src && rm -rf docs-src/images",
     "sync": "node scripts/sync-docs.mjs",
     "predev": "npm run sync",
     "prebuild": "npm run sync",

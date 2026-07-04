@@ -20,8 +20,8 @@ This guide gets you from zero to a running Comma development build.
 ## Clone and install
 
 ```bash
-git clone https://github.com/your-org/comma.git
-cd comma
+git clone https://github.com/raiz-toff/CommaApp.git
+cd CommaApp
 npm install
 ```
 
@@ -176,7 +176,7 @@ To inspect the SQLite database on a running emulator:
 **Android:**
 ```bash
 adb shell
-run-as com.comma.app
+run-as app.comma.tracker
 cd databases
 sqlite3 comma.db
 ```

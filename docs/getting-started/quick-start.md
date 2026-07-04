@@ -6,15 +6,19 @@ Get Comma installed and log your first shift in about 5 minutes.
 
 ## Install
 
-Comma is built with Expo and distributed as a native app for Android and iOS.
+Comma is built with Expo and distributed as a native app for Android and iOS, plus an installable web app for the browser.
 
 ### Android (APK / Play Store)
 
-Download the APK directly or install from the Play Store listing when available. On Android you may need to allow installation from unknown sources for direct APK installs.
+[Download the latest APK](https://github.com/raiz-toff/CommaApp/releases/latest) from GitHub Releases, or install from the Play Store listing when available. For direct APK installs you may need to allow installation from unknown sources ("Install unknown apps").
 
 ### iOS
 
 Install from the App Store listing or run locally via Expo Go / a development build (see [Development Setup](../development/setup.md)).
+
+### Web (PWA)
+
+No install needed — open [comma-psi.vercel.app](https://comma-psi.vercel.app) in a modern browser, and optionally install it to your home screen or desktop. See [Web App (PWA)](../features/web-app.md).
 
 ---
 

@@ -62,7 +62,7 @@ You need credentials for each platform you're targeting:
 #### Android client
 
 1. Create Credentials → OAuth Client ID → **Android**.
-2. Package name: `com.comma.app` (or your bundle ID from `app.json`).
+2. Package name: `app.comma.tracker` (or your package name from `app.json`).
 3. SHA-1 fingerprint: get your debug keystore SHA-1:
    ```bash
    cd android && ./gradlew signingReport
@@ -73,7 +73,7 @@ You need credentials for each platform you're targeting:
 #### iOS client
 
 1. Create Credentials → OAuth Client ID → **iOS**.
-2. Bundle ID: `com.comma.app` (or your bundle ID).
+2. Bundle ID: `app.comma.tracker` (or your bundle ID).
 3. Copy the **Client ID** — not needed in `.env`, but must exist for iOS sign-in.
 
 ---

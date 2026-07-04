@@ -176,7 +176,7 @@ Use Xcode's console with the filter `CommaTracker`.
 Check that `tempNativePoints` is being populated:
 ```bash
 # Android emulator
-adb shell run-as com.comma.app sqlite3 databases/comma.db "SELECT COUNT(*) FROM temp_native_points;"
+adb shell run-as app.comma.tracker sqlite3 databases/comma.db "SELECT COUNT(*) FROM temp_native_points;"
 ```
 
 If the count isn't growing while the shift is running, the native service isn't writing. Common causes:

@@ -32,17 +32,57 @@ const config: DocsThemeConfig = {
       );
     },
   },
+  navbar: {
+    extraContent: (
+      <a
+        href="https://comma-psi.vercel.app"
+        target="_blank"
+        rel="noreferrer"
+        style={{ fontSize: "0.875rem", fontWeight: 600, whiteSpace: "nowrap" }}
+      >
+        Open Web App ↗
+      </a>
+    ),
+  },
   footer: {
     content: (
-      <span>
-        MIT Licensed · Comma — privacy-first earnings tracker for gig workers.
-      </span>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "0.75rem",
+          width: "100%",
+        }}
+      >
+        <span>MIT Licensed · Comma — privacy-first earnings tracker for gig workers.</span>
+        <span style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
+          <a href="https://comma-psi.vercel.app" target="_blank" rel="noreferrer">
+            Web App
+          </a>
+          <a
+            href="https://github.com/raiz-toff/CommaApp/releases/latest"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Android APK
+          </a>
+          <a href="https://github.com/raiz-toff/CommaApp" target="_blank" rel="noreferrer">
+            GitHub
+          </a>
+          <a href="/privacy">Privacy</a>
+        </span>
+      </div>
     ),
   },
   head: (
     <>
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <meta name="description" content="Documentation for Comma, a privacy-first earnings tracker for gig workers." />
+      <meta property="og:site_name" content="Comma Docs" />
+      <meta property="og:title" content="Comma Docs" />
+      <meta property="og:description" content="Documentation for Comma, a privacy-first earnings tracker for gig workers." />
     </>
   ),
   color: {

@@ -32,7 +32,7 @@ Yes. Comma is MIT-licensed and open source. See the [project on GitHub](https://
 
 | | Phone app (Android/iOS) | Web app (PWA) |
 |---|---|---|
-| **Install** | Play Store / App Store / APK | Open the site in a browser, "Add to Home Screen" |
+| **Install** | [APK from GitHub Releases](https://github.com/raiz-toff/CommaApp/releases/latest) (store listings planned) | Open [comma-psi.vercel.app](https://comma-psi.vercel.app), "Add to Home Screen" |
 | **GPS mileage tracking** | ✅ Full background GPS engine | ⚠️ Limited — no reliable background tracking in a browser |
 | **Live shifts** | ✅ Native timer + location | ✅ Timer works; manual mileage entry recommended |
 | **Manual logging** | ✅ | ✅ |
@@ -53,7 +53,7 @@ Yes, but they're separate local vaults. Data does **not** automatically flow bet
 
 ### How do I install the web app?
 
-Open the Comma web app in your browser, then:
+Open the Comma web app at [comma-psi.vercel.app](https://comma-psi.vercel.app) in your browser, then:
 
 - **Chrome / Edge (desktop or Android):** look for the install icon in the address bar, or open the menu → **Install Comma** / **Add to Home screen**.
 - **Safari (iOS):** tap the Share button → **Add to Home Screen**.

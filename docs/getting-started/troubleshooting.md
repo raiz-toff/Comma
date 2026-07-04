@@ -47,6 +47,7 @@ The PWA caches itself to work offline, so an update may take one reload to apply
 
 - Enable **install from unknown sources** for your browser/file manager (Android settings → Apps → special access).
 - If a different signed build is already installed, uninstall it first, then install the new APK.
+- Make sure you downloaded the APK from the official [GitHub Releases page](https://github.com/raiz-toff/CommaApp/releases/latest).
 
 ---
 

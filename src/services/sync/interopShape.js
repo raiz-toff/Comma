@@ -32,6 +32,19 @@
  * Deliberately dependency-free so it stays unit-testable with plain `node`.
  */
 
+/**
+ * Legacy web expense-category slugs → canonical cross-app ids (2026-07-04 unification).
+ * Keep in step with `registry/expense-categories/index.js` LEGACY_CATEGORY_ALIASES —
+ * duplicated here (it's two entries, frozen forever) so this module stays dependency-free.
+ */
+const LEGACY_CATEGORY_ALIASES = { car_wash: 'wash', registration: 'licensing' };
+
+/** @param {unknown} id @returns {string} canonical form of a possibly-legacy category id */
+function canonicalCategoryId(id) {
+  const s = String(id || '');
+  return LEGACY_CATEGORY_ALIASES[s] || s;
+}
+
 /** Web goal `type` → mobile goal `unit` (unmapped types pass through verbatim). */
 export const WEB_GOAL_TYPE_TO_MOBILE_UNIT = {
   earnings: 'currency',
@@ -205,6 +218,8 @@ export function normalizeIncoming(tableName, incoming, localRow) {
     case 'expenses': {
       const ymd = toYmdLocal(merged.date);
       if (ymd) merged.date = ymd;
+      // Old change-logs/snapshots in Drive can carry pre-unification web slugs forever.
+      if (merged.category != null) merged.category = canonicalCategoryId(merged.category);
       deriveDeletedAt(merged, incoming);
       break;
     }

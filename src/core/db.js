@@ -13,9 +13,10 @@ import {
   mobilePlatformKeys,
   mobileShiftKeys,
 } from '../services/sync/interopShape.js';
+import { canonicalCategoryId } from '../registry/expense-categories/index.js';
 
 /** Logical data schema version (appState.schema_version). Non-destructive migrations only. */
-export const CURRENT_LOGICAL_SCHEMA_VERSION = 5;
+export const CURRENT_LOGICAL_SCHEMA_VERSION = 6;
 
 const DB_NAME = 'COMMAVault';
 
@@ -522,7 +523,27 @@ const logicalMigrations = [
     // 4 → 5: backfill the MOBILE-CANONICAL keys onto existing rows (2026-07-03 interop audit).
     await backfillMobileShapeKeys();
   },
+  async () => {
+    // 5 → 6: canonicalize legacy expense category slugs (2026-07-04 category unification —
+    // the cross-app vocabulary now lives in registry/expense-categories; mobile runs the
+    // same remap in drizzle migration 0023_category_canonicalize).
+    await canonicalizeExpenseCategories();
+  },
 ];
+
+/**
+ * Remap legacy expense category slugs (car_wash→wash, registration→licensing) to the
+ * canonical cross-app vocabulary. `syncUpdatedAt` is deliberately NOT bumped: mobile runs
+ * the identical remap on its own rows, so both sides converge with no sync traffic and no
+ * LWW timestamp moves. Runs as logical migration 5→6 AND after a vault restore (restored
+ * rows may come from a pre-unification backup while appState.schema_version already says 6).
+ */
+export async function canonicalizeExpenseCategories() {
+  await db.expenses.toCollection().modify((e) => {
+    const canonical = canonicalCategoryId(e.category);
+    if (canonical !== e.category) e.category = canonical;
+  });
+}
 
 /**
  * Backfill the mobile-canonical keys (see interopShape.js) onto rows that lack them. New
@@ -578,6 +599,8 @@ export async function backfillMobileShapeKeys() {
       });
     }
   });
+  // Restored rows may predate the category unification — remap their slugs too.
+  await canonicalizeExpenseCategories();
   // Rewind the push cursor (same key syncState.js manages — written directly so core/db
   // doesn't import from services/). Next push re-collects everything above cursor 0.
   try {

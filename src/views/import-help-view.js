@@ -228,7 +228,7 @@ export async function render(root) {
           <section class="card" style="padding: var(--space-4);">
             <h3 style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: var(--color-text-secondary); margin-bottom: var(--space-3);">Expense Categories</h3>
             <div style="display: flex; flex-wrap: wrap; gap: 4px; font-family: var(--font-mono); font-size: 10px;">
-              ${['fuel', 'maintenance', 'parking', 'tolls', 'insurance', 'registration', 'phone', 'data_plan', 'car_wash', 'supplies', 'meals', 'bank_fees', 'software', 'accounting', 'out_of_pocket', 'other'].map(c => `<span style="background:var(--color-surface-raised); padding:2px 6px; border-radius:4px; border:1px solid var(--color-border);">${c}</span>`).join('')}
+              ${['fuel', 'maintenance', 'parking', 'tolls', 'insurance', 'licensing', 'interest', 'leasing', 'fees', 'phone', 'data_plan', 'wash', 'supplies', 'meals', 'bank_fees', 'software', 'accounting', 'bike_maintenance', 'out_of_pocket', 'other'].map(c => `<span style="background:var(--color-surface-raised); padding:2px 6px; border-radius:4px; border:1px solid var(--color-border);">${c}</span>`).join('')}
             </div>
           </section>
         </div>

@@ -6,7 +6,7 @@ import { calcEVCost, calcFuelCost } from '../../utils/calculations.js';
 import { t } from '../../utils/strings.js';
 import { renderEmptyState, showModal, showToast } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
-import { ExpenseCategoryRegistry } from '../../registry/expense-categories/index.js';
+import { ExpenseCategoryRegistry, canonicalCategoryId } from '../../registry/expense-categories/index.js';
 import { renderExpenseForm } from './expense-form.js';
 
 const APP_STATE_CUSTOM_CATEGORIES_KEY = 'expense_custom_categories';
@@ -65,7 +65,8 @@ function resolveExpenseProvinceId(input) {
 export function normalizeExpenseInput(input) {
   const now = nowIso();
   const date = typeof input.date === 'string' && input.date ? input.date : ymd(new Date());
-  const category = String(input.category || 'other');
+  // Canonicalize legacy web slugs (car_wash→wash, …) — every write path funnels through here.
+  const category = canonicalCategoryId(String(input.category || 'other'));
   const recurring = Boolean(input.isRecurring);
   // amount is real dollars (Dexie v5 — see db.js STORES_V4 doc). Legacy `amountCents` alias (if a
   // caller still supplies it) is treated as cents and converted for backward compat.

@@ -157,7 +157,7 @@ async function listVehicles() {
 
 async function syncRecurringExpense(vehicleId, kind, date, amount) {
   if (!date || amount <= 0) return;
-  const cat = kind === 'insurance' ? 'insurance' : 'registration';
+  const cat = kind === 'insurance' ? 'insurance' : 'licensing';
   const existing = await db.expenses
     .filter(
       (e) =>

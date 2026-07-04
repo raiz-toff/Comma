@@ -36,6 +36,7 @@ const TREE = [
 // they're linked directly (e.g. the Play Store privacy policy URL).
 const ROOT_PAGES = [
   { slug: "privacy", title: "Privacy Policy" },
+  { slug: "delete-data", title: "Data Deletion Request" },
 ];
 
 // Strip ".md" from relative markdown links: [x](./a/b.md) → [x](./a/b),

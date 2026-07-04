@@ -365,6 +365,12 @@ export function render(root, ctx) {
               </select>
             </div>
             <div class="import-field-group">
+              <label>Dead Mileage (km)</label>
+              <select class="import-upload-select" data-map="deadMileage">
+                ${renderColumnOptions(state.mappings.deadMileage, 'deadMileage')}
+              </select>
+            </div>
+            <div class="import-field-group">
               <label>Out-of-pocket Order Cost</label>
               <select class="import-upload-select" data-map="outOfPocketExpense">
                 ${renderColumnOptions(state.mappings.outOfPocketExpense, 'outOfPocketExpense')}
@@ -403,6 +409,12 @@ export function render(root, ctx) {
               </select>
             </div>
             <div class="import-field-group">
+              <label>Recurring Expense (true/false)</label>
+              <select class="import-upload-select" data-map="isRecurring">
+                ${renderColumnOptions(state.mappings.isRecurring, 'isRecurring')}
+              </select>
+            </div>
+            <div class="import-field-group">
               <label>Expense Notes</label>
               <select class="import-upload-select" data-map="notes">
                 ${renderColumnOptions(state.mappings.notes, 'notes')}
@@ -438,7 +450,7 @@ export function render(root, ctx) {
           </div>
         `;
       }
-      renderSpreadsheetGrid(gridViewer, ['startTime', 'endTime', 'platformId', 'orders', 'activeMileage', 'outOfPocketExpense', 'notes', 'category', 'deductiblePct']);
+      renderSpreadsheetGrid(gridViewer, ['startTime', 'endTime', 'platformId', 'orders', 'activeMileage', 'deadMileage', 'outOfPocketExpense', 'notes', 'category', 'deductiblePct', 'isRecurring']);
 
     } else if (state.step === 5) {
       // ── STEP 5: SMART PREVIEW & STRICTION VALIDATION ───────────────────
@@ -721,7 +733,7 @@ export function render(root, ctx) {
       if (state.rawRows[0]) {
         state.rawRows[0].forEach((col, idx) => {
           const norm = String(col).toLowerCase().trim();
-          if (norm.includes('date')) state.mappings.date = idx;
+          if (norm.includes('date') || norm === 'day') state.mappings.date = idx;
           if (norm.includes('gross') || norm.includes('earning')) state.mappings.grossRevenue = idx;
           if (norm.includes('amount')) state.mappings.amount = idx;
           if (norm.includes('tip')) state.mappings.tipsRevenue = idx;
@@ -730,12 +742,16 @@ export function render(root, ctx) {
           if (norm.includes('end')) state.mappings.endTime = idx;
           if (norm.includes('platform') || norm.includes('app')) state.mappings.platformId = idx;
           if (norm.includes('order') || norm.includes('deliver')) state.mappings.orders = idx;
-          if (norm.includes('distance') || norm.includes('km') || norm.includes('mile')) state.mappings.activeMileage = idx;
+          // 'dead' headers (deadMileage, deadMilesKm) also contain 'mile'/'km' — without the
+          // guard they would steal the activeMileage mapping from the real distance column.
+          if ((norm.includes('distance') || norm.includes('km') || norm.includes('mile')) && !norm.includes('dead')) state.mappings.activeMileage = idx;
+          if (norm.includes('dead')) state.mappings.deadMileage = idx;
           if (norm.includes('out of pocket') || norm.includes('pocket') || norm.includes('oop')) state.mappings.outOfPocketExpense = idx;
           if (norm.includes('note')) state.mappings.notes = idx;
           if (norm.includes('category')) state.mappings.category = idx;
           if (norm.includes('business') || norm.includes('deductible')) state.mappings.deductiblePct = idx;
           if (norm.includes('tax') || norm.includes('hst')) state.mappings.hstPaid = idx;
+          if (norm.includes('recurring')) state.mappings.isRecurring = idx;
         });
       }
 
@@ -965,12 +981,14 @@ export function render(root, ctx) {
       const platformVal = getVal('platformId') || 'other';
       const ordersVal = getVal('orders');
       const distanceVal = getVal('activeMileage');
+      const deadMileageVal = getVal('deadMileage');
       const outOfPocketExpenseVal = getValOrNull('outOfPocketExpense') ?? '0';
       const notesVal = getVal('notes') || '';
 
       const categoryVal = getVal('category') || 'other';
       const businessVal = getValOrNull('deductiblePct') ?? '100';
       const hstVal = getValOrNull('hstPaid') ?? '0';
+      const recurringVal = getVal('isRecurring');
 
       // 1. Verify Date column is populated & valid
       if (!dateVal || !DATE_RE.test(dateVal)) {
@@ -1021,6 +1039,11 @@ export function render(root, ctx) {
         state.validationErrors.push(`Row ${lineNum}: Distance value "${distanceVal}" is not a valid number`);
         continue;
       }
+      const deadMileageNum = deadMileageVal ? Number(deadMileageVal) : null;
+      if (deadMileageVal && isNaN(deadMileageNum)) {
+        state.validationErrors.push(`Row ${lineNum}: Dead Mileage value "${deadMileageVal}" is not a valid number`);
+        continue;
+      }
       const outOfPocketNum = outOfPocketExpenseVal ? Number(outOfPocketExpenseVal) : 0;
       if (outOfPocketExpenseVal && isNaN(outOfPocketNum)) {
         state.validationErrors.push(`Row ${lineNum}: Out-of-pocket value "${outOfPocketExpenseVal}" is not a valid number`);
@@ -1033,14 +1056,17 @@ export function render(root, ctx) {
 
       // Build target object and validate with core normalize functions
       if (state.importType === 'expenses') {
+        // `|| 100` would coerce an explicit 0% allocation to 100% — only fall back on NaN.
+        const businessNum = Number(businessVal);
         const inputObj = {
           date: dateVal,
           amount: Number(grossVal),
           category: categoryVal,
           platformId: platformVal !== 'other' ? platformVal : null,
           notes: notesVal || 'Imported via Wizard',
-          deductiblePct: Number(businessVal) || 100,
+          deductiblePct: Number.isFinite(businessNum) ? businessNum : 100,
           hstPaid: Number(hstVal) || 0,
+          isRecurring: recurringVal ? /^(true|1|yes|y)$/i.test(recurringVal) : false,
           source: 'import',
         };
 
@@ -1065,6 +1091,7 @@ export function render(root, ctx) {
           endTime: endVal ? endVal : null,
           deliveryCount: ordersVal !== undefined && ordersVal !== '' ? Number(ordersVal) : null,
           activeMileage: distanceVal !== undefined && distanceVal !== '' ? Number(distanceVal) : null,
+          deadMileage: deadMileageVal !== undefined && deadMileageVal !== '' ? Number(deadMileageVal) : null,
           notes: notesVal || (isIncome ? 'Imported via Platform Statement' : 'Imported via Wizard'),
         };
 

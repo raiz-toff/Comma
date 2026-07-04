@@ -66,3 +66,5 @@ assets/logo (2).png
 assets/logowithtext (2).png
 assets/logowithtext.png
 assets/mylogo.png
+.vercel
+.env*

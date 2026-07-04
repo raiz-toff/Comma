@@ -723,6 +723,7 @@ export async function mountSettings(root, ctx = {}) {
           </p>
         </div>
         <div class="settings-actions settings-wrap" style="display: flex; flex-wrap: wrap; gap: var(--space-2);">
+          <a class="btn btn-secondary btn-sm" href="https://comma-docs.vercel.app" target="_blank" rel="noopener noreferrer">Help &amp; Docs</a>
           <button type="button" class="btn btn-secondary btn-sm" data-open-install>Install COMMA</button>
           <a class="btn btn-secondary btn-sm" href="#/about">Data Portability Manifesto</a>
           <a class="btn btn-secondary btn-sm" href="https://github.com/raiz-toff/comma/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">Changelog</a>

@@ -2,7 +2,7 @@ import { db } from "../client";
 import { expenses, merchants } from "../schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { Platform } from "react-native";
-import { getExpenseCategories, type ExpenseCategory } from "@/src/registry/expenseCategories";
+import { getExpenseCategories, canonicalCategoryId, type ExpenseCategory } from "@/src/registry/expenseCategories";
 import { stampInsert, stampUpdate, softDeletePatch, notDeleted, isNotDeleted } from "../syncedWrites";
 
 const isWeb = Platform.OS === "web";
@@ -170,7 +170,7 @@ export async function getExpensesByTaxCode(
 
   const grouped = new Map<string, TaxCodeSummaryRow>();
   for (const row of rows) {
-    const meta = codeMap.get(row.category) ?? { taxCode: "Other", taxCodeLabel: "Other / Uncategorized" };
+    const meta = codeMap.get(canonicalCategoryId(row.category)) ?? { taxCode: "Other", taxCodeLabel: "Other / Uncategorized" };
     const key = meta.taxCode;
     const deductibleAmount = row.amount * (row.deductiblePct / 100);
 

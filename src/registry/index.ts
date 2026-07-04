@@ -76,6 +76,8 @@ export {
   US_IRS_CATEGORIES,
   getExpenseCategories,
   getCategoryMeta,
+  canonicalCategoryId,
+  LEGACY_CATEGORY_ALIASES,
   type ExpenseCategory,
   type ExpenseCategoryKey,
 } from "./expenseCategories";

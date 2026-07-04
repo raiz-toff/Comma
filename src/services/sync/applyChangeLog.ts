@@ -20,7 +20,7 @@ import { eq } from "drizzle-orm";
 import { customAlphabet } from "nanoid/non-secure";
 import { db } from "../../database/client";
 import { syncOverwriteLog } from "../../database/schema";
-import { SYNCED_TABLE_BY_NAME, reviveTimestamps } from "../../database/syncedTables";
+import { SYNCED_TABLE_BY_NAME, reviveTimestamps, canonicalizeIncoming } from "../../database/syncedTables";
 import { type ChangeLog } from "./changeLog";
 import { decideMerge, shouldAuditOverwrite } from "./mergeRules";
 
@@ -72,7 +72,8 @@ export async function applyChangeLog(log: ChangeLog, mergedAt = Date.now()): Pro
       const list: Record<string, unknown>[] = raw ? JSON.parse(raw) : [];
       const idx = new Map<string, number>(list.map((r, i) => [String(r.id), i]));
 
-      for (const incoming of rows) {
+      for (const rawIncoming of rows) {
+        const incoming = canonicalizeIncoming(name, rawIncoming);
         const id = String(incoming.id);
         let at = idx.get(id);
         // Merchant identity dedupe — see merchantIdentity() doc.
@@ -117,7 +118,8 @@ export async function applyChangeLog(log: ChangeLog, mergedAt = Date.now()): Pro
     for (const [name, rows] of Object.entries(log.rows)) {
       const table = SYNCED_TABLE_BY_NAME[name];
       if (!table) continue; // unknown/non-synced table — ignore
-      for (const incoming of rows) {
+      for (const rawIncoming of rows) {
+        const incoming = canonicalizeIncoming(name, rawIncoming);
         const existing = await tx
           .select()
           .from(table)

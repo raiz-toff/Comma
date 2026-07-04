@@ -26,6 +26,7 @@ import {
   vehicleTaxProfiles,
   profile,
 } from "./schema";
+import { canonicalCategoryId } from "../registry/expenseCategories";
 
 export const SYNCED_TABLES = [
   // Synced user PROFILE (bucket b — per-key KV; the record engine gives per-key LWW free).
@@ -64,6 +65,24 @@ export const TIMESTAMP_FIELDS: Record<string, readonly string[]> = {
   maintenanceLogs: ["date"],
   expenses: ["date"],
 };
+
+/**
+ * Canonicalize legacy field VALUES on an incoming change-log row. Currently only
+ * `expenses.category`: rows authored by the web app before the 2026-07-04 category
+ * unification carry its old slugs (`car_wash`, `registration`) — remap them so the
+ * canonical registry vocabulary is the only thing that ever lands in the DB. Old
+ * change-logs/snapshots in Drive keep the legacy slugs forever, so this stays.
+ */
+export function canonicalizeIncoming(
+  tableName: string,
+  row: Record<string, unknown>
+): Record<string, unknown> {
+  if (tableName === "expenses" && typeof row.category === "string") {
+    const canonical = canonicalCategoryId(row.category);
+    if (canonical !== row.category) return { ...row, category: canonical };
+  }
+  return row;
+}
 
 /** Revive ISO/epoch timestamp fields on an incoming row back into `Date` objects. */
 export function reviveTimestamps(

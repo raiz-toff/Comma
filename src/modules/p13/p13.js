@@ -171,15 +171,19 @@ async function generateSyntheticData() {
     // generator builds rows manually (bypassing normalizeShiftInput), so derive them itself:
     // noon local time + the row's own duration.
     const startMs = new Date(`${dateStr}T12:00:00`).getTime();
+    const platformId = getDefaultSamplePlatformId();
     rows.push({
       id: newId('shift'),
       date: dateStr,
-      platformId: getDefaultSamplePlatformId(),
+      platformId,
+      // Mobile-canonical mirror (interop audit) — these rows sync like real ones, and
+      // mobile's shifts.platform is NOT NULL.
+      platform: String(platformId || 'other'),
       startTime: startMs,
       endTime: startMs + durationSeconds * 1000,
       grossRevenue: 90 + i * 8,
       tipsRevenue: 16 + i * 2,
-      customFields: { bonusAmount: i % 2 === 0 ? 5 : 0 },
+      bonusAmount: i % 2 === 0 ? 5 : 0,
       activeMileage: 42 + i * 3,
       durationSeconds,
       deliveryCount: 11 + i,

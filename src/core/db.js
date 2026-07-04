@@ -7,9 +7,15 @@ import Dexie from '../libs/dexie.min.js';
 import { BadgeRegistry } from '../registry/badges/index.js';
 import { PlatformRegistry } from '../registry/platforms/index.js';
 import { newId } from './id.js';
+import {
+  mobileGoalKeys,
+  mobileVehicleKeys,
+  mobilePlatformKeys,
+  mobileShiftKeys,
+} from '../services/sync/interopShape.js';
 
 /** Logical data schema version (appState.schema_version). Non-destructive migrations only. */
-export const CURRENT_LOGICAL_SCHEMA_VERSION = 4;
+export const CURRENT_LOGICAL_SCHEMA_VERSION = 5;
 
 const DB_NAME = 'COMMAVault';
 
@@ -60,8 +66,9 @@ const STORES_V3 = {
  * normalize/read logic that actually produces these shapes):
  *
  * shifts: money fields are now real dollars (not cents) — `grossRevenue`/`tipsRevenue` replace
- *   `grossEarnings`/`tips`/`bonusEarnings` (mobile has no separate bonus field on shifts; a
- *   `bonus` entered in web's form is folded into `grossRevenue` at save time — see shifts.js).
+ *   `grossEarnings`/`tips`/`bonusEarnings` (as of Dexie v7, mobile also has a real top-level
+ *   `bonusAmount` column — real/float dollars, default 0 — so web's `bonusAmount` mirrors it
+ *   directly rather than folding into `customFields`; see shifts.js).
  *   `durationSeconds`/`pausedSeconds` replace `durationMinutes`. `activeMileage`/`deadMileage`
  *   replace `distanceKm`/`deadMilesKm`. New: `startOdometer`, `endOdometer`, `distanceSource`,
  *   `reconciliationStatus`, `routePath`, `vehicleId` (already existed), plus `syncUpdatedAt`/
@@ -403,6 +410,24 @@ class COMMADatabase extends Dexie {
      * doc above). Straight shape bump, no data-migrating `.upgrade()`, same policy as v5.
      */
     this.version(6).stores(STORES_V5);
+    /**
+     * v7 — mobile's shifts table gains a real top-level `bonusAmount` column (real/float dollars,
+     * default 0), replacing the "mobile has no bonus field" premise the v5 doc + shifts.js/
+     * shift-form.js were written against. Web now matches: a plain, non-indexed data field, so no
+     * index-string change is needed on the `shifts` store entry itself — this bump exists purely to
+     * record the shape change in the version history, same documentation convention as v5/v6. No
+     * data-migrating `.upgrade()`, same "no real users yet" policy as v5/v6 — `bonusAmount` simply
+     * reads back `undefined` (treated as 0 by call sites) on old local dev rows until re-saved.
+     */
+    this.version(7).stores(STORES_V5);
+    /**
+     * v8 — SYNCED user profile (design doc "bucket b", 2026-07-04): per-key KV mirroring the
+     * `users` row's user-meaningful fields (name, country, units, goals, theme, onboarding
+     * flag…), one row per key with the standard sync columns, so the existing record engine
+     * gives per-key LWW and the cloud copy becomes a TOTAL user snapshot — a fresh device
+     * that connects needs no setup. Bridged around each sync in services/sync/profileBridge.js.
+     */
+    this.version(8).stores({ profile: 'key, syncUpdatedAt' });
   }
 }
 
@@ -452,7 +477,74 @@ const logicalMigrations = [
     // is handled entirely by the Dexie v5 `.stores()` bump (STORES_V4) above, not by a logical
     // migration step (it's explicitly non-migrating; see the v5 comment on `this.version(5)`).
   },
+  async () => {
+    // 4 → 5: backfill the MOBILE-CANONICAL keys onto existing rows (2026-07-03 interop audit).
+    await backfillMobileShapeKeys();
+  },
 ];
+
+/**
+ * Backfill the mobile-canonical keys (see interopShape.js) onto rows that lack them. New
+ * writes stamp these keys themselves; this covers rows that predate the interop fix, because
+ * compaction snapshots push EVERY row as-is — an old row without `platform`/`name`/`label`/…
+ * would still poison mobile's NOT NULL columns from a snapshot. Runs as logical migration
+ * 4→5 AND after a vault restore (restored rows may come from a pre-fix backup while
+ * appState.schema_version — which survives restores — already says 5).
+ *
+ * Also the FIRST-SYNC backfill: rows from before the sync columns existed sit at
+ * `syncUpdatedAt` 0/undefined, and push only collects rows STRICTLY ABOVE the cursor — so
+ * historical data never reached other devices. Stamp them to 1 (older than any real
+ * epoch-ms edit, so it can never win an LWW merge) and rewind the push cursor so the next
+ * push carries the full history once (peers skip duplicates by LWW). Mobile does the same
+ * in drizzle migration `0021_first_sync_backfill`. Real edit timestamps are never touched.
+ */
+export async function backfillMobileShapeKeys() {
+  const user = await db.users.get(1);
+  const country = String(user?.countryId || 'CA');
+  const syncedTables = [
+    db.vehicles,
+    db.platforms,
+    db.merchants,
+    db.goals,
+    db.taxHistory,
+    db.shifts,
+    db.vehicleMaintenanceLogs,
+    db.expenses,
+    db.shiftPlatforms,
+    db.vehicleTaxProfiles,
+  ];
+  await db.transaction('rw', [db.users, ...syncedTables], async () => {
+    await db.shifts.toCollection().modify((s) => {
+      if (s.platform == null) Object.assign(s, mobileShiftKeys(s));
+    });
+    await db.vehicles.toCollection().modify((v) => {
+      if (v.name == null || v.isActive === undefined) Object.assign(v, mobileVehicleKeys(v));
+    });
+    await db.goals.toCollection().modify((g) => {
+      if (g.label == null || g.targetValue == null || g.unit == null || g.period == null) {
+        Object.assign(g, mobileGoalKeys(g));
+      }
+    });
+    await db.platforms.toCollection().modify((p) => {
+      if (p.label == null || p.textColor == null || p.country == null) {
+        Object.assign(p, mobilePlatformKeys(p, { country }));
+      }
+    });
+    for (const table of syncedTables) {
+      await table.toCollection().modify((r) => {
+        if (r.syncUpdatedAt == null || r.syncUpdatedAt === 0) r.syncUpdatedAt = 1;
+        if (r.syncDeletedAt === undefined) r.syncDeletedAt = null;
+      });
+    }
+  });
+  // Rewind the push cursor (same key syncState.js manages — written directly so core/db
+  // doesn't import from services/). Next push re-collects everything above cursor 0.
+  try {
+    localStorage.setItem('comma_sync_last_pushed_at', '0');
+  } catch {
+    /* private mode / quota */
+  }
+}
 
 async function runLogicalMigrations() {
   let stored = await getAppState('schema_version');
@@ -480,8 +572,15 @@ async function seedFirstRun() {
 
     const platformRows = DEFAULT_PLATFORMS.map((p) => ({
       ...p,
+      // Mobile-canonical keys (interop audit): label/textColor/country/isActive/sortPriority
+      // must exist on every platform row so a synced insert can't hit mobile's NOT NULLs.
+      ...mobilePlatformKeys(p, { country: DEFAULT_USER.countryId }),
       addedAt: p.addedAt ?? t,
-      syncUpdatedAt: Date.now(),
+      // Seed rows stamp 0, NOT Date.now(): scaffolding isn't user data. A fresh device joining
+      // an existing sync must never beat the other device's REAL platform state in the LWW
+      // merge (a Date.now() seed stamp would win and deactivate the user's platforms there).
+      // 0-stamped rows don't push; they start syncing when the user actually touches them.
+      syncUpdatedAt: 0,
       syncDeletedAt: null,
     }));
     await db.platforms.bulkPut(platformRows);
@@ -508,7 +607,11 @@ async function seedFirstRun() {
       target: 0,
       active: false,
       createdAt: t,
-      syncUpdatedAt: Date.now(),
+      // Mobile-canonical keys (interop audit — mobile's label/targetValue/unit/period are NOT NULL).
+      ...mobileGoalKeys({ type: 'earnings', scope: 'weekly', target: 0, active: false }),
+      // Seed stamp 0 (see the platforms seed comment): per-device scaffolding must not sync
+      // until the user actually sets a goal (onboarding/upsert stamp it then).
+      syncUpdatedAt: 0,
       syncDeletedAt: null,
     });
   });

@@ -153,12 +153,13 @@ function renderOnboardingLanding() {
           <div class="onboarding-landing-actions">
             <button type="button" class="btn btn-primary btn-lg onboarding-landing-primary" data-start-onboarding>${esc(t('onboarding.landing.startCta'))}</button>
             <button type="button" class="btn btn-secondary btn-lg" data-demo>${esc(t('onboarding.tryDemo'))}</button>
+            <button type="button" class="btn btn-secondary btn-lg" data-action="restore-sync">${getIcon('google-drive', 18)} Restore / Sync</button>
           </div>
-          
+
           <div class="onboarding-landing-restore">
-            <button type="button" class="btn btn-ghost btn-sm onboarding-restore-link" data-action="restore-vault">
-              ${getIcon('database', 18)} <span>${esc(t('onboarding.landing.restoreLink'))}</span>
-            </button>
+            <p class="text-secondary" style="margin:0;font-size:0.85em">
+              Already using Comma? Restore / Sync pulls your data from Google Drive or a backup file.
+            </p>
           </div>
         </div>
         

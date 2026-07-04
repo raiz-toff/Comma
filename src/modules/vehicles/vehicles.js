@@ -61,14 +61,21 @@ function fixed(v, decimals = 1) {
 /**
  * @param {Record<string, unknown>} input
  */
-function normalizeVehicleInput(input) {
+export function normalizeVehicleInput(input) {
   const ts = nowIso();
   const type = String(input.type || 'gas').toLowerCase();
+  const nickname = String(input.nickname || '').trim() || 'Vehicle';
+  const active = input.active !== false;
   return {
     // Fix 2 (interop plan) — client-generated string primary key (see core/id.js). Preserve an
     // incoming string id (editing an existing vehicle) rather than minting a new one.
     id: typeof input.id === 'string' && input.id ? input.id : newId('veh'),
-    nickname: String(input.nickname || '').trim() || 'Vehicle',
+    nickname,
+    // Mobile-canonical mirrors (2026-07-03 interop audit): mobile's `vehicles.name` is NOT NULL
+    // and its active flag is `isActive` — without these keys a web-created vehicle crashed
+    // mobile's sync apply, and web vehicles rendered blank/inactive on mobile.
+    name: nickname,
+    isActive: active,
     type,
     make: String(input.make || '').trim(),
     model: String(input.model || '').trim(),
@@ -81,7 +88,7 @@ function normalizeVehicleInput(input) {
     purchasePrice: Math.max(0, num(input.purchasePrice, 0)),
     expectedLifespanKm: Math.max(0, num(input.expectedLifespanKm, 0)),
     estimatedAnnualKm: Math.max(1, num(input.estimatedAnnualKm, 20000)),
-    active: input.active !== false,
+    active,
     updatedAt: ts,
     createdAt: typeof input.createdAt === 'string' ? input.createdAt : ts,
     insuranceRenewalDate: String(input.insuranceRenewalDate || ''),
@@ -144,7 +151,7 @@ async function listVehicles() {
   // ids are opaque client-generated strings (Fix 2 — interop plan), not sortable numbers —
   // sort by createdAt (ISO string) instead, preserving insertion order.
   return rows
-    .filter((v) => v.active !== false)
+    .filter((v) => v.active !== false && v.syncDeletedAt == null)
     .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
 }
 
@@ -337,7 +344,7 @@ async function addOdometerEntry(vehicleId) {
             const all = await getOdometerLog();
             all.push({ vehicleId: String(vehicleId), km, date: ymd(), createdAt: nowIso() });
             await putOdometerLog(all.slice(-1000));
-            await db.vehicles.update(vehicleId, { totalKmLogged: km, updatedAt: nowIso() });
+            await db.vehicles.update(vehicleId, { totalKmLogged: km, updatedAt: nowIso(), syncUpdatedAt: Date.now() });
             resolve(true);
           },
         },
@@ -471,7 +478,7 @@ export async function renderVehiclesView(root) {
 
               <div class="vehicle-actions">
                 <button type="button" class="btn btn-secondary btn-sm" data-action="odometer">${getIcon('trending-up', 14)} Mileage</button>
-                <button type="button" class="btn btn-secondary btn-sm" data-action="maintenance">${getIcon('tool', 14)} Upkeep</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-action="maintenance">${getIcon('maintenance', 14)} Upkeep</button>
                 <button type="button" class="btn btn-ghost btn-sm" data-action="edit">${getIcon('edit', 14)}</button>
                 <button type="button" class="btn btn-ghost btn-sm btn-danger" data-action="archive">${getIcon('trash', 14)}</button>
               </div>
@@ -609,8 +616,8 @@ export async function renderVehiclesView(root) {
             onClick: async () => {
               const fd = new FormData(form);
               const n = Math.max(0, num(fd.get('efficiency')));
-              if (String(row.type) === 'ev') await db.vehicles.update(id, { kwPer100km: n, updatedAt: nowIso() });
-              else await db.vehicles.update(id, { fuelEfficiency: n, updatedAt: nowIso() });
+              if (String(row.type) === 'ev') await db.vehicles.update(id, { kwPer100km: n, updatedAt: nowIso(), syncUpdatedAt: Date.now() });
+              else await db.vehicles.update(id, { fuelEfficiency: n, updatedAt: nowIso(), syncUpdatedAt: Date.now() });
               showToast({ type: 'success', message: 'Efficiency updated', duration: 1800 });
               await refresh();
             },

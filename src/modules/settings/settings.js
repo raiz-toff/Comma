@@ -6,6 +6,7 @@ import { getIcon } from '../../ui/icons.js';
 import { t } from '../../utils/strings.js';
 import { resetVault, exitDemoToOnboardingStart } from '../onboarding/onboarding.js';
 import { exportVaultBackupJson } from '../reports/reports.js';
+import { importVaultFile } from '../backup/vault-import.js';
 import { CountryRegistry, getCountryTaxProfile } from '../../registry/countries/index.js';
 import { ProvinceRegistry } from '../../registry/provinces/index.js';
 import { renderBackupStatus } from '../backup/backup-ui.js';
@@ -656,6 +657,8 @@ export async function mountSettings(root, ctx = {}) {
             <div class="settings-actions settings-wrap">
               <a class="btn btn-primary btn-sm" href="#/reports">${getIcon('chart-bar', 14)} ${esc(t('settings.openReportsBtn'))}</a>
               <button type="button" class="btn btn-secondary btn-sm" data-export-vault-reports>${getIcon('file-text', 14)} ${esc(t('settings.exportVaultBtn'))}</button>
+              <button type="button" class="btn btn-secondary btn-sm" data-import-vault-file-btn>${getIcon('upload', 14)} Import backup file</button>
+              <input type="file" data-import-vault-file accept=".json,.comdb,application/json" style="display:none" />
               <button type="button" class="btn btn-secondary btn-sm" data-export-snapshot>${getIcon('camera', 14)} ${esc(t('settings.quickSnapshotBtn'))}</button>
             </div>
           </div>
@@ -1106,10 +1109,25 @@ export async function mountSettings(root, ctx = {}) {
       confirmLabel: 'Reset platform',
       confirmClass: 'btn btn-danger',
       onConfirm: async () => {
-        await db.platforms.update(platformId, { active: false, deactivatedAt: new Date().toISOString() });
-        await db.shifts.where('platformId').equals(platformId).delete();
-        await db.expenses.where('platformId').equals(platformId).delete();
-        await db.goals.where('platformId').equals(platformId).delete();
+        // Soft-delete (interop audit): a hard .delete() leaves no tombstone, so synced peers
+        // never drop these rows — and they'd resurrect here on the next pull. Tombstones
+        // propagate the wipe; reads already filter syncDeletedAt.
+        const ts = new Date().toISOString();
+        const stamp = Date.now();
+        const tombstone = { deletedAt: ts, updatedAt: ts, syncDeletedAt: stamp, syncUpdatedAt: stamp };
+        await db.platforms.update(platformId, {
+          active: false,
+          deactivatedAt: ts,
+          isActive: false, // mobile mirror
+          syncUpdatedAt: stamp,
+        });
+        await db.shifts.where('platformId').equals(platformId).modify(tombstone);
+        await db.expenses.where('platformId').equals(platformId).modify(tombstone);
+        // .filter(), not .where(): goals' Dexie store doesn't index platformId (the old
+        // .where() here threw SchemaError at runtime).
+        await db.goals
+          .filter((g) => g.platformId === platformId)
+          .modify({ ...tombstone, active: false, isActive: false });
         const fresh = await getUser();
         const nextIds = Array.isArray(fresh?.platforms) ? fresh.platforms.filter((id) => id !== platformId) : [];
         await saveUser({
@@ -1158,6 +1176,27 @@ export async function mountSettings(root, ctx = {}) {
     } catch (e) {
       console.error(e);
       showToast({ type: 'error', message: t('errors.exportFailed') });
+    }
+  });
+
+  // Import backup file — accepts current vault JSON, encrypted .comdb (password-prompted),
+  // and legacy pre-interop exports (cents money, HH:mm times, numeric ids) — see
+  // backup/vault-import.js. Replaces this device's data after an explicit confirm.
+  const importVaultInput = /** @type {HTMLInputElement | null} */ (root.querySelector('[data-import-vault-file]'));
+  root.querySelector('[data-import-vault-file-btn]')?.addEventListener('click', () => importVaultInput?.click());
+  importVaultInput?.addEventListener('change', async (e) => {
+    const file = /** @type {HTMLInputElement} */ (e.target).files?.[0];
+    if (importVaultInput) importVaultInput.value = ''; // allow re-picking the same file
+    if (!file) return;
+    const res = await importVaultFile(file);
+    if ('cancelled' in res && res.cancelled) return;
+    if (res.success) {
+      const skippedNote = res.skipped?.length ? ` (${res.skipped.length} rows skipped)` : '';
+      if (res.skipped?.length) console.warn('[comma] import skipped rows:', res.skipped);
+      showToast({ type: 'success', message: `Backup imported ✓${skippedNote}`, duration: 2400 });
+      setTimeout(() => window.location.reload(), 1000);
+    } else {
+      showToast({ type: 'error', message: res.error || 'Import failed.', duration: 3600 });
     }
   });
 

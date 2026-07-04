@@ -63,7 +63,7 @@ export async function openStartShiftWizard() {
   }
 
   // Get active vehicles
-  const vehicles = (await db.vehicles.toArray()).filter(v => v.active !== false);
+  const vehicles = (await db.vehicles.toArray()).filter(v => v.active !== false && v.syncDeletedAt == null);
 
   if (vehicles.length > 1) {
     // Step 1: Multiple vehicles -> Select Vehicle

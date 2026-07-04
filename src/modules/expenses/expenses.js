@@ -4,69 +4,13 @@ import { bus, EXPENSE_SAVED, SHIFT_SAVED, XP_EARNED } from '../../core/events.js
 import { store } from '../../core/store.js';
 import { calcEVCost, calcFuelCost } from '../../utils/calculations.js';
 import { t } from '../../utils/strings.js';
-import { renderEmptyState, showModal, showToast, renderSkeleton } from '../../ui/components.js';
-import { destroyChart, renderBarChart, renderDonutChart } from '../../ui/charts.js';
+import { renderEmptyState, showModal, showToast } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
 import { ExpenseCategoryRegistry } from '../../registry/expense-categories/index.js';
 import { renderExpenseForm } from './expense-form.js';
-import { getDemoAnalyticsAnchorDate } from '../demo/sample-year.js';
 
 const APP_STATE_CUSTOM_CATEGORIES_KEY = 'expense_custom_categories';
 const AUTO_EXPENSE_SOURCES = new Set(['auto_fuel', 'auto_ev']);
-
-const EXPENSE_CHART_COLORS = ['#3b82f6', '#14b8a6', '#22c55e', '#eab308', '#a855f7', '#f97316', '#ec4899', '#64748b'];
-
-/**
- * @param {string} ym `YYYY-MM`
- * @param {string} [locale]
- */
-function formatChartMonthLabel(ym, locale = 'en') {
-  const [y, mo] = ym.split('-').map((x) => Number(x));
-  if (!Number.isFinite(y) || !Number.isFinite(mo)) return ym;
-  const d = new Date(y, mo - 1, 1);
-  return d.toLocaleString(locale, { month: 'short', year: 'numeric' });
-}
-
-/**
- * @param {Record<string, unknown>} row
- * @param {string} q
- */
-function expenseRowMatchesSearch(row, q) {
-  if (!q) return true;
-  const s = q.toLowerCase();
-  const blob = [row.date, row.category, row.notes, row.customCategory, row.platformId, row.merchant]
-    .map((x) => String(x ?? '').toLowerCase())
-    .join(' ');
-  return blob.includes(s);
-}
-
-/**
- * @param {Record<string, unknown>} row
- */
-function expenseDescriptionCell(row) {
-  const c = String(row.customCategory || '').trim();
-  if (c) return c;
-  const n = String(row.notes || '').trim();
-  if (!n) return '—';
-  return n.length > 120 ? `${n.slice(0, 117)}…` : n;
-}
-
-/**
- * @param {Record<string, unknown>} row
- */
-function expenseNotesCell(row) {
-  const n = String(row.notes || '').trim();
-  if (!n) return '—';
-  return n.length > 80 ? `${n.slice(0, 77)}…` : n;
-}
-
-/** @param {unknown} catId */
-function categoryPillTone(catId) {
-  const s = String(catId ?? '');
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h) % 6;
-}
 
 /** Remove `fab` query flag from the current hash (used after FAB deep-links). */
 function stripFabQueryFromHash() {
@@ -219,7 +163,9 @@ async function upsertMerchant(name) {
   try {
     const existing = await db.merchants.filter((m) => m.normalizedName === normalizedName).first();
     if (existing) {
-      await db.merchants.update(existing.id, { syncUpdatedAt: Date.now() });
+      // Also revive a tombstoned merchant on reuse (interop audit) — the row is
+      // identity-matched across devices, so clearing the tombstone syncs the revival.
+      await db.merchants.update(existing.id, { syncUpdatedAt: Date.now(), syncDeletedAt: null });
     } else {
       await db.merchants.add({
         id: newId('mer'),
@@ -496,7 +442,7 @@ export async function updateFuelPrice(vehicleId, price) {
     notes: '',
   };
   await db.fuelPrices.add(row);
-  await db.vehicles.update(vehicleId, { currentFuelPrice: row.price, updatedAt: nowIso() });
+  await db.vehicles.update(vehicleId, { currentFuelPrice: row.price, updatedAt: nowIso(), syncUpdatedAt: Date.now() });
 }
 
 export async function getAllCategories() {
@@ -665,38 +611,11 @@ export function initExpensesModule() {
   });
 }
 
-async function listExpenses(filters = {}, sort = { key: 'date', dir: 'desc' }) {
-  const rows = await db.expenses.filter((e) => e.deletedAt == null).toArray();
-  const filtered = rows.filter((e) => {
-    if (filters.category && String(e.category) !== String(filters.category)) return false;
-    if (filters.platformId && String(e.platformId || '') !== String(filters.platformId || '')) return false;
-    if (filters.minAmount != null && num(e.amount) < num(filters.minAmount)) return false;
-    if (filters.maxAmount != null && num(e.amount) > num(filters.maxAmount)) return false;
-    if (filters.receiptOnly && !e.receiptData) return false;
-    if (filters.startDate && String(e.date || '') < String(filters.startDate)) return false;
-    if (filters.endDate && String(e.date || '') > String(filters.endDate)) return false;
-    return true;
-  });
-  filtered.sort((a, b) => {
-    let av;
-    let bv;
-    if (sort.key === 'description') {
-      av = String(a.customCategory || '') + String(a.notes || '');
-      bv = String(b.customCategory || '') + String(b.notes || '');
-    } else {
-      av = a[sort.key];
-      bv = b[sort.key];
-    }
-    const cmp =
-      typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av ?? '').localeCompare(String(bv ?? ''));
-    return sort.dir === 'asc' ? cmp : -cmp;
-  });
-  return filtered;
-}
-
 /**
- * Full-screen expense ledger (filters + table + modals). Caller must invoke the returned
- * teardown when the host `root` is reused (e.g. route change) so listeners and bus subs are removed.
+ * Full-screen expense ledger — mobile-parity layout mirroring the Android Expenses tab
+ * (header + month navigator, weekly bar chart, YTD bento, filterable transactions, month
+ * selector modal). Caller must invoke the returned teardown when the host `root` is reused
+ * (e.g. route change) so listeners and bus subs are removed.
  * @param {HTMLElement} root
  * @param {Record<string, unknown>} [ctx]
  * @returns {Promise<() => void>}
@@ -705,809 +624,511 @@ export async function renderExpensesView(root, ctx = {}) {
   const categories = await getAllCategories();
   const user = store.get('user');
   const platformRows = (store.get('platforms') || []).map((p) => ({ id: String(p.id), name: String(p.name || p.id) }));
-  const catOptions = categories
-    .map((c) => `<option value="${esc(c.id)}">${esc(c.emoji || '🧾')} ${esc(c.name)}</option>`)
-    .join('');
-  const platformOptions = platformRows
-    .map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`)
-    .join('');
 
+  const currencySymbol = user?.locale?.currencySymbol || '$';
+  const locale = typeof navigator !== 'undefined' ? navigator.language : 'en';
+
+  /** @param {number} v */
+  function money(v) {
+    return `${currencySymbol}${num(v).toFixed(2)}`;
+  }
+  /** @param {number} v — value split into symbol + digits for the big header amount. */
+  function moneyParts(v) {
+    return { symbol: currencySymbol, value: num(v).toFixed(2) };
+  }
+
+  function rowIsDeductible(row) {
+    const cat = ExpenseCategoryRegistry.getById(row.category);
+    return cat ? cat.deductible !== false : true;
+  }
+  function catMeta(id) {
+    const c = categories.find((x) => x.id === String(id));
+    return { emoji: c?.emoji || '🧾', name: c?.name || categoryLabel({ category: id }) };
+  }
+
+  // ── State ────────────────────────────────────────────────────────────────
+  const now = new Date();
+  let selectedMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  let selectorYear = now.getFullYear();
+  /** @type {string} */ let filterCategory = '';
+  /** @type {'all' | 'yes' | 'no'} */ let filterDeductible = 'all';
+  /** @type {number | null} */ let selectedWeekIndex = null;
+  let filtersVisible = false;
+  let monthModalOpen = false;
+
+  /** All non-deleted expense rows (loaded once, refreshed on EXPENSE_SAVED). */
+  let allRows = [];
+  async function loadRows() {
+    allRows = await db.expenses.filter((e) => e.deletedAt == null).toArray();
+  }
+  await loadRows();
+
+  function monthKeyOf(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+  function rowsForMonth(d) {
+    const key = monthKeyOf(d);
+    return allRows.filter((e) => String(e.date || '').slice(0, 7) === key);
+  }
+
+  // ── Static shell ─────────────────────────────────────────────────────────
   root.innerHTML = `
-    <section class="expenses-view">
-      <header class="expenses-view-header">
-        <div class="expenses-view-header-text">
-          <h1 class="expenses-view-title">
-            <span class="expenses-view-title-icon" aria-hidden="true">${getIcon('receipt', 28)}</span>
-            ${esc(t('expenses.title'))}
-          </h1>
-          <p class="expenses-view-subtitle">${esc(t('expenses.subtitle'))}</p>
+    <section class="expenses-m">
+      <header class="expenses-m-header">
+        <div class="expenses-m-header-text">
+          <h1 class="expenses-m-title">${esc(t('expenses.title'))}</h1>
+          <p class="expenses-m-subtitle">${esc(t('expenses.subtitle'))}</p>
         </div>
-        <div class="expenses-view-header-actions">
-          <button type="button" class="btn btn-primary expenses-add-btn" data-action="new-expense">
-            <span class="expenses-add-btn-icon" aria-hidden="true">${getIcon('plus', 18)}</span>
-            ${esc(t('expenses.addNewExpense'))}
-          </button>
-        </div>
+        <button type="button" class="expenses-m-add" data-action="new-expense">
+          ${getIcon('plus', 16)}<span>${esc(t('expenses.add'))}</span>
+        </button>
       </header>
 
-      <div class="expenses-tabstrip" role="tablist" aria-label="${esc(t('expenses.title'))}">
-        <button type="button" role="tab" class="expenses-tab is-active" data-action="expense-tab" data-tab="all" aria-selected="true">${esc(t('expenses.tabAll'))}</button>
-        <button type="button" role="tab" class="expenses-tab" data-action="expense-tab" data-tab="category" aria-selected="false">${esc(t('expenses.tabByCategory'))}</button>
-        <button type="button" role="tab" class="expenses-tab" data-action="expense-tab" data-tab="recurring" aria-selected="false">${esc(t('expenses.tabRecurring'))}</button>
-        <button type="button" role="tab" class="expenses-tab" data-action="expense-tab" data-tab="deductions" aria-selected="false">${esc(t('expenses.tabDeductions'))}</button>
-      </div>
-
-      <div class="expenses-panels">
-        <div class="expenses-panel" data-panel="all" role="tabpanel">
-          <div class="expenses-dash card">
-            <div class="expenses-kpi-row">
-              <article class="expenses-kpi expenses-kpi--total">
-                <span class="expenses-kpi-label">${esc(t('expenses.kpiTotal'))}</span>
-                <span class="expenses-kpi-value" data-kpi="total">—</span>
-              </article>
-              <article class="expenses-kpi expenses-kpi--count">
-                <span class="expenses-kpi-label">${esc(t('expenses.kpiCount'))}</span>
-                <span class="expenses-kpi-value" data-kpi="count">—</span>
-              </article>
-              <article class="expenses-kpi expenses-kpi--avg">
-                <span class="expenses-kpi-label">${esc(t('expenses.kpiAverage'))}</span>
-                <span class="expenses-kpi-value" data-kpi="avg">—</span>
-              </article>
-              <article class="expenses-kpi expenses-kpi--cats">
-                <span class="expenses-kpi-label">${esc(t('expenses.kpiCategories'))}</span>
-                <span class="expenses-kpi-value" data-kpi="categories">—</span>
-              </article>
-            </div>
-            <div class="expenses-charts-row">
-              <article class="expenses-chart-card">
-                <h2 class="expenses-chart-title">${getIcon('chart-donut', 18, 'expenses-chart-title-icon')} ${esc(t('expenses.chartByCategory'))}</h2>
-                <div class="expenses-chart-body"><canvas data-chart="by-category" aria-label="${esc(t('expenses.chartByCategory'))}"></canvas></div>
-              </article>
-              <article class="expenses-chart-card">
-                <h2 class="expenses-chart-title">${getIcon('chart-bar', 18, 'expenses-chart-title-icon')} ${esc(t('expenses.chartMonthlyTrend'))}</h2>
-                <div class="expenses-chart-body"><canvas data-chart="monthly" aria-label="${esc(t('expenses.chartMonthlyTrend'))}"></canvas></div>
-              </article>
-            </div>
+      <div class="expenses-m-nav">
+        <button type="button" class="expenses-m-monthpill" data-action="open-month-modal">
+          <span data-slot="month-label"></span>
+          ${getIcon('chevron-down', 14)}
+        </button>
+        <div class="expenses-m-navrow">
+          <button type="button" class="expenses-m-arrow" data-action="prev-month" aria-label="${esc(t('expenses.previousPage'))}">${getIcon('chevron-left', 22)}</button>
+          <div class="expenses-m-amount">
+            <span class="expenses-m-amount-sym" data-slot="total-sym">${esc(currencySymbol)}</span>
+            <span class="expenses-m-amount-val" data-slot="total-val">0.00</span>
           </div>
-
-          <div class="financial-filter-container card" style="margin-bottom: var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; padding: 0;">
-            <button type="button" class="financial-dash-filter-summary" data-expenses-toggle-shortcuts aria-expanded="true" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: var(--space-3) var(--space-4); background: transparent; border: none; cursor: pointer; color: inherit; text-align: left;">
-              <span class="financial-dash-summary-left" style="display: flex; align-items: center; gap: var(--space-2); font-weight: 600;">
-                <span class="financial-dash-summary-icon" style="color: var(--color-brand, #10b981);">${getIcon('calendar', 18)}</span>
-                <span class="financial-dash-summary-text" data-expenses-summary>${esc(t('common.all'))}</span>
-              </span>
-              <span class="financial-dash-summary-right" style="display: flex; align-items: center; gap: var(--space-2);">
-                <span class="financial-dash-summary-preset badge badge--secondary" data-expenses-summary-preset style="text-transform: capitalize;">All</span>
-                <span class="financial-dash-summary-chevron" data-expenses-summary-chevron style="display: flex; align-items: center; transition: transform 0.2s ease;">${getIcon('chevron-up', 18)}</span>
-              </span>
-            </button>
-
-            <div class="financial-filter-body" data-expenses-shortcut-bar style="display: block; border-top: 1px solid var(--color-border); padding: var(--space-3) var(--space-4); background: var(--color-surface-raised);">
-              <div class="filter-shortcut-bar" style="display: flex; gap: var(--space-3); align-items: center; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
-                <div class="shifts-presets-group">
-                  <button type="button" class="btn expenses-preset-btn" data-expenses-preset="day">${esc(t('views.dashboard.financial.presetDay'))}</button>
-                  <button type="button" class="btn expenses-preset-btn" data-expenses-preset="week">${esc(t('views.dashboard.financial.presetWeek'))}</button>
-                  <button type="button" class="btn expenses-preset-btn" data-expenses-preset="month">${esc(t('views.dashboard.financial.presetMonth'))}</button>
-                  <button type="button" class="btn expenses-preset-btn" data-expenses-preset="q1">${esc(t('views.dashboard.financial.presetQ1'))}</button>
-                  <button type="button" class="btn expenses-preset-btn" data-expenses-preset="q2">${esc(t('views.dashboard.financial.presetQ2'))}</button>
-                  <button type="button" class="btn expenses-preset-btn" data-expenses-preset="q3">${esc(t('views.dashboard.financial.presetQ3'))}</button>
-                  <button type="button" class="btn expenses-preset-btn" data-expenses-preset="q4">${esc(t('views.dashboard.financial.presetQ4'))}</button>
-                  <button type="button" class="btn expenses-preset-btn" data-expenses-preset="year">${esc(t('views.dashboard.financial.presetYear'))}</button>
-                </div>
-                <button type="button" class="btn btn-ghost btn-sm" data-expenses-toggle-filter style="white-space:nowrap;">Custom Filter <span data-expenses-custom-chevron>${getIcon('chevron-down', 14)}</span></button>
-              </div>
-
-              <div class="expenses-filter-content" data-expenses-filter style="display: none; margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px dashed var(--color-border);">
-                <div style="display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-bottom: var(--space-3);">
-                  <div class="expenses-filter-dates" style="display: flex; gap: var(--space-2); align-items: center;">
-                    <div class="input-with-icon" style="position: relative;">
-                      <input type="text" class="input expenses-filter-date-start" id="expenses-filter-start" placeholder="Start date" readonly style="width: 130px; padding-left: 32px; cursor: pointer;" />
-                      <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--color-primary, #10b981); pointer-events: none;">${getIcon('calendar', 16)}</span>
-                    </div>
-                    <span style="color: var(--color-text-muted, #a1a1aa); font-weight: 600;">&ndash;</span>
-                    <div class="input-with-icon" style="position: relative;">
-                      <input type="text" class="input expenses-filter-date-end" id="expenses-filter-end" placeholder="End date" readonly style="width: 130px; padding-left: 32px; cursor: pointer;" />
-                      <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--color-primary, #10b981); pointer-events: none;">${getIcon('calendar', 16)}</span>
-                    </div>
-                  </div>
-                  <select class="select expenses-select-compact" name="category" aria-label="${esc(t('expenses.category'))}">
-                    <option value="">${esc(t('common.all'))}</option>${catOptions}
-                  </select>
-                  <select class="select expenses-select-compact" name="platformId" aria-label="${esc(t('expenses.platformAssignment'))}">
-                    <option value="">${esc(t('common.all'))}</option>${platformOptions}
-                  </select>
-                  <input class="input expenses-search" type="search" name="search" placeholder="${esc(t('expenses.searchPlaceholder'))}" autocomplete="off" />
-                  <label class="expenses-page-size" style="margin-left: auto;">
-                    <span class="sr-only">${esc(t('expenses.rowsPerPage'))}</span>
-                    <select class="select expenses-select-compact" name="pageSize" aria-label="${esc(t('expenses.rowsPerPage'))}">
-                      <option value="10">${esc(t('expenses.rowsOption').replace('{n}', '10'))}</option>
-                      <option value="15" selected>${esc(t('expenses.rowsOption').replace('{n}', '15'))}</option>
-                      <option value="25">${esc(t('expenses.rowsOption').replace('{n}', '25'))}</option>
-                      <option value="50">${esc(t('expenses.rowsOption').replace('{n}', '50'))}</option>
-                    </select>
-                  </label>
-                  <button type="button" class="btn btn-secondary btn-sm" data-action="reset-filters" style="margin-left: var(--space-2);">${esc(t('expenses.resetFilters'))}</button>
-                  <button type="button" class="btn btn-primary btn-sm" data-expenses-apply style="margin-left: var(--space-2); height: 36px;">${getIcon('filter', 16)} ${esc(t('views.dashboard.financial.apply'))}</button>
-                </div>
-                <details class="expenses-more-filters">
-                  <summary>${esc(t('expenses.moreFilters'))}</summary>
-                  <div class="expenses-more-filters-grid">
-                    <label class="field"><span class="field-label">${esc(t('expenses.minAmount'))}</span><input class="input" type="number" step="0.01" min="0" name="minAmount" /></label>
-                    <label class="field"><span class="field-label">${esc(t('expenses.maxAmount'))}</span><input class="input" type="number" step="0.01" min="0" name="maxAmount" /></label>
-                    <label class="toggle"><input type="checkbox" name="receiptOnly" /><span class="toggle-track"><span class="toggle-thumb"></span></span><span>${esc(t('expenses.receiptOnly'))}</span></label>
-                  </div>
-                </details>
-              </div>
-            </div>
-          </div>
-
-          <div class="expenses-records card">
-            <div class="expenses-list-wrap">
-              <table class="expenses-table expenses-table--records">
-                <thead>
-                  <tr>
-                    <th scope="col"><button type="button" class="expenses-th-sort" data-sort-col="date" aria-label="${esc(t('expenses.sortAria').replace('{column}', t('expenses.date')))}">${esc(t('expenses.date'))}<span class="expenses-sort-ind" aria-hidden="true"></span></button></th>
-                    <th scope="col"><button type="button" class="expenses-th-sort" data-sort-col="category" aria-label="${esc(t('expenses.sortAria').replace('{column}', t('expenses.category')))}">${esc(t('expenses.category'))}<span class="expenses-sort-ind" aria-hidden="true"></span></button></th>
-                    <th scope="col"><button type="button" class="expenses-th-sort" data-sort-col="description" aria-label="${esc(t('expenses.sortAria').replace('{column}', t('expenses.columnDescription')))}">${esc(t('expenses.columnDescription'))}<span class="expenses-sort-ind" aria-hidden="true"></span></button></th>
-                    <th scope="col"><button type="button" class="expenses-th-sort" data-sort-col="amount" aria-label="${esc(t('expenses.sortAria').replace('{column}', t('expenses.amount')))}">${esc(t('expenses.amount'))}<span class="expenses-sort-ind" aria-hidden="true"></span></button></th>
-                    <th scope="col">${esc(t('expenses.receipt'))}</th>
-                    <th scope="col">${esc(t('expenses.notes'))}</th>
-                    <th scope="col" class="expenses-th-actions">${esc(t('expenses.columnActions'))}</th>
-                  </tr>
-                </thead>
-                <tbody data-slot="rows">
-                  <tr><td colspan="7">${renderSkeleton('list-item')}</td></tr>
-                  <tr><td colspan="7">${renderSkeleton('list-item')}</td></tr>
-                  <tr><td colspan="7">${renderSkeleton('list-item')}</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <footer class="expenses-records-footer">
-              <span class="expenses-page-meta" data-slot="page-meta"></span>
-              <div class="expenses-page-nav">
-                <button type="button" class="btn btn-secondary btn-sm" data-action="page-prev">${esc(t('expenses.previousPage'))}</button>
-                <button type="button" class="btn btn-secondary btn-sm" data-action="page-next">${esc(t('expenses.nextPage'))}</button>
-              </div>
-            </footer>
-          </div>
-        </div>
-
-        <div class="expenses-panel" data-panel="category" role="tabpanel" hidden>
-          <p class="expenses-panel-hint">${esc(t('expenses.byCategoryHint'))}</p>
-          <div class="expenses-list-wrap">
-            <table class="expenses-table expenses-table--compact">
-              <thead><tr>
-                <th>${esc(t('expenses.category'))}</th>
-                <th>${esc(t('expenses.categoryTotalHeader'))}</th>
-              </tr></thead>
-              <tbody data-slot="category-rows"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="expenses-panel" data-panel="recurring" role="tabpanel" hidden>
-          <p class="expenses-panel-hint">${esc(t('expenses.recurringPanelHint'))}</p>
-          <div class="expenses-list-wrap">
-            <table class="expenses-table expenses-table--compact">
-              <thead><tr>
-                <th>${esc(t('expenses.category'))}</th>
-                <th>${esc(t('expenses.recurringNextDue'))}</th>
-                <th>${esc(t('expenses.recurringInterval'))}</th>
-                <th>${esc(t('expenses.recurringAmount'))}</th>
-                <th>${esc(t('expenses.platformAssignment'))}</th>
-              </tr></thead>
-              <tbody data-slot="recurring-rows"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="expenses-panel" data-panel="deductions" role="tabpanel" hidden>
-          <div class="card expenses-deductions-card">
-            <h2 class="expenses-deductions-title">${esc(t('expenses.deductionsTitle'))}</h2>
-            <p class="expenses-deductions-lead">${esc(t('expenses.deductionsLead'))}</p>
-            <a class="btn btn-primary" href="#/tax">${esc(t('expenses.deductionsGoTax'))}</a>
-          </div>
+          <button type="button" class="expenses-m-arrow" data-action="next-month" data-slot="next-arrow" aria-label="${esc(t('expenses.nextPage'))}">${getIcon('chevron-right', 22)}</button>
         </div>
       </div>
+
+      <div class="expenses-m-chart" data-slot="chart"></div>
+
+      <div class="expenses-m-bento">
+        <article class="expenses-m-bento-card">
+          <div class="expenses-m-bento-head">
+            <span class="expenses-m-bento-icon expenses-m-bento-icon--in">${getIcon('trending-down', 14)}</span>
+            <span class="expenses-m-bento-label">${esc(t('expenses.deductibleYtd') || 'Deductible YTD')}</span>
+          </div>
+          <span class="expenses-m-bento-value" data-slot="ytd-deductible">—</span>
+        </article>
+        <article class="expenses-m-bento-card">
+          <div class="expenses-m-bento-head">
+            <span class="expenses-m-bento-icon expenses-m-bento-icon--out">${getIcon('trending-up', 14)}</span>
+            <span class="expenses-m-bento-label">${esc(t('expenses.standardYtd') || 'Standard YTD')}</span>
+          </div>
+          <span class="expenses-m-bento-value" data-slot="ytd-standard">—</span>
+        </article>
+      </div>
+
+      <div class="expenses-m-txhead">
+        <h2 class="expenses-m-txtitle">${esc(t('expenses.transactions') || 'Transactions')}</h2>
+        <button type="button" class="expenses-m-filterbtn" data-action="toggle-filters" aria-expanded="false">
+          ${getIcon('filter', 14)}<span>${esc(t('expenses.filters') || 'Filters')}</span>
+        </button>
+      </div>
+
+      <div class="expenses-m-filters" data-slot="filters" hidden></div>
+
+      <div class="expenses-m-list" data-slot="list"></div>
+
+      <div class="expenses-m-modal" data-slot="month-modal" hidden></div>
     </section>
   `;
 
-  const rowsSlot = root.querySelector('[data-panel="all"] [data-slot="rows"]');
-  const categoryRowsSlot = root.querySelector('[data-slot="category-rows"]');
-  const recurringRowsSlot = root.querySelector('[data-slot="recurring-rows"]');
-  const pageMetaSlot = root.querySelector('[data-slot="page-meta"]');
-  const prevBtn = root.querySelector('[data-action="page-prev"]');
-  const nextBtn = root.querySelector('[data-action="page-next"]');
+  const monthLabelEl = root.querySelector('[data-slot="month-label"]');
+  const totalSymEl = root.querySelector('[data-slot="total-sym"]');
+  const totalValEl = root.querySelector('[data-slot="total-val"]');
+  const nextArrowEl = root.querySelector('[data-slot="next-arrow"]');
+  const chartEl = root.querySelector('[data-slot="chart"]');
+  const ytdDeductibleEl = root.querySelector('[data-slot="ytd-deductible"]');
+  const ytdStandardEl = root.querySelector('[data-slot="ytd-standard"]');
+  const filtersEl = root.querySelector('[data-slot="filters"]');
+  const listEl = root.querySelector('[data-slot="list"]');
+  const modalEl = root.querySelector('[data-slot="month-modal"]');
 
-  /** @type {{ key: string; dir: 'asc' | 'desc' }} */
-  let sortState = { key: 'date', dir: 'desc' };
-  let page = 1;
-
-  let currentStartDate = '';
-  let currentEndDate = '';
-  let currentPreset = 'all';
-
-  const controls = {
-    startInput: /** @type {HTMLInputElement | null} */ (root.querySelector('#expenses-filter-start')),
-    endInput: /** @type {HTMLInputElement | null} */ (root.querySelector('#expenses-filter-end')),
-    category: root.querySelector('[name="category"]'),
-    platformId: root.querySelector('[name="platformId"]'),
-    minAmount: root.querySelector('[name="minAmount"]'),
-    maxAmount: root.querySelector('[name="maxAmount"]'),
-    receiptOnly: root.querySelector('[name="receiptOnly"]'),
-    search: root.querySelector('[name="search"]'),
-    pageSize: root.querySelector('[name="pageSize"]'),
-  };
-
-  // Initialize flatpickr
-  if (controls.startInput) {
-    controls.startInput.value = currentStartDate;
-    if (window.flatpickr) {
-      if (!controls.startInput._fp) {
-        controls.startInput._fp = window.flatpickr(controls.startInput, {
-          dateFormat: 'Y-m-d',
-          defaultDate: currentStartDate || new Date(),
-          locale: { firstDayOfWeek: Number(user?.locale?.weekStartDay ?? 0) },
-          onChange: function(selectedDates) {
-            if (selectedDates.length === 1) {
-              currentStartDate = window.flatpickr.formatDate(selectedDates[0], "Y-m-d");
-              currentPreset = 'custom';
-              page = 1;
-              void refreshAllPanels();
-            }
-          }
-        });
-      } else {
-        controls.startInput._fp.setDate(currentStartDate, false);
-      }
-    }
-  }
-  if (controls.endInput) {
-    controls.endInput.value = currentEndDate;
-    if (window.flatpickr) {
-      if (!controls.endInput._fp) {
-        controls.endInput._fp = window.flatpickr(controls.endInput, {
-          dateFormat: 'Y-m-d',
-          defaultDate: currentEndDate || new Date(),
-          locale: { firstDayOfWeek: Number(user?.locale?.weekStartDay ?? 0) },
-          onChange: function(selectedDates) {
-            if (selectedDates.length === 1) {
-              currentEndDate = window.flatpickr.formatDate(selectedDates[0], "Y-m-d");
-              currentPreset = 'custom';
-              page = 1;
-              void refreshAllPanels();
-            }
-          }
-        });
-      } else {
-        controls.endInput._fp.setDate(currentEndDate, false);
-      }
-    }
-  }
-
-  function listFilterPayload() {
-    const globalPid = String(store.get('activePlatformId') ?? 'all');
-    const localPid = controls.platformId?.value || '';
-    
-    // Use local filter if set, otherwise fallback to global
-    const platformId = localPid || (globalPid === 'all' ? '' : globalPid);
-
-    return {
-      startDate: currentStartDate,
-      endDate: currentEndDate,
-      category: controls.category?.value || '',
-      platformId,
-      minAmount: controls.minAmount?.value || null,
-      maxAmount: controls.maxAmount?.value || null,
-      receiptOnly: Boolean(controls.receiptOnly?.checked),
-    };
-  }
-
-  function syncSortHeaders() {
-    for (const btn of root.querySelectorAll('.expenses-th-sort')) {
-      const col = btn.getAttribute('data-sort-col');
-      const ind = btn.querySelector('.expenses-sort-ind');
-      const active = col === sortState.key;
-      btn.classList.toggle('is-active', active);
-      if (ind) ind.textContent = active ? (sortState.dir === 'asc' ? '↑' : '↓') : '';
-    }
-  }
-
-  function paintKpiAndCharts(rows) {
-    const totalDollars = rows.reduce((acc, r) => {
-      const cat = ExpenseCategoryRegistry.getById(r.category);
-      const ded = cat ? cat.deductible !== false : true;
-      return acc + (ded ? num(r.amount) * (num(r.deductiblePct, 100) / 100) : 0);
-    }, 0);
-    const kTotal = root.querySelector('[data-kpi="total"]');
-    const kCount = root.querySelector('[data-kpi="count"]');
-    const kAvg = root.querySelector('[data-kpi="avg"]');
-    const kCats = root.querySelector('[data-kpi="categories"]');
-    if (kTotal) kTotal.textContent = fmtMoney(totalDollars);
-    if (kCount) kCount.textContent = String(rows.length);
-    if (kAvg) kAvg.textContent = rows.length ? fmtMoney(totalDollars / rows.length) : fmtMoney(0);
-    if (kCats) kCats.textContent = String(new Set(rows.map((r) => String(r.category || 'other'))).size);
-
-    const catCanvas = /** @type {HTMLCanvasElement | null} */ (root.querySelector('[data-chart="by-category"]'));
-    const moCanvas = /** @type {HTMLCanvasElement | null} */ (root.querySelector('[data-chart="monthly"]'));
-    destroyChart(catCanvas);
-    destroyChart(moCanvas);
-    const loc = typeof navigator !== 'undefined' ? navigator.language : 'en';
-
-    const byCat = new Map();
-    for (const row of rows) {
-      const id = String(row.category || 'other');
-      const cat = ExpenseCategoryRegistry.getById(id);
-      const ded = cat ? cat.deductible !== false : true;
-      const amt = ded ? num(row.amount) * (num(row.deductiblePct, 100) / 100) : num(row.amount);
-      byCat.set(id, (byCat.get(id) || 0) + amt);
-    }
-    const entries = [...byCat.entries()].sort((a, b) => b[1] - a[1]);
-    if (entries.length && catCanvas) {
-      const labels = entries.map(([id]) => categoryLabel({ category: id }));
-      const dataVals = entries.map(([, dollars]) => Math.round(dollars * 100) / 100);
-      const colors = entries.map((_, i) => EXPENSE_CHART_COLORS[i % EXPENSE_CHART_COLORS.length]);
-      renderDonutChart(
-        catCanvas,
-        {
-          labels,
-          datasets: [{ data: dataVals, backgroundColor: colors, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)' }],
-        },
-        { plugins: { legend: { position: 'bottom' } } },
-      );
-    }
-
-    const byMonth = new Map();
-    for (const row of rows) {
-      const ym = String(row.date || '').slice(0, 7);
-      if (ym.length !== 7) continue;
-      const cat = ExpenseCategoryRegistry.getById(row.category);
-      const ded = cat ? cat.deductible !== false : true;
-      const amt = ded ? num(row.amount) * (num(row.deductiblePct, 100) / 100) : num(row.amount);
-      byMonth.set(ym, (byMonth.get(ym) || 0) + amt);
-    }
-    const monthKeys = [...byMonth.keys()].sort();
-    const lastKeys = monthKeys.slice(-12);
-    if (lastKeys.length && moCanvas) {
-      const labels = lastKeys.map((k) => formatChartMonthLabel(k, loc));
-      const data = lastKeys.map((k) => Math.round((byMonth.get(k) || 0) * 100) / 100);
-      renderBarChart(
-        moCanvas,
-        {
-          labels,
-          datasets: [
-            {
-              label: t('expenses.amount'),
-              data,
-              backgroundColor: 'color-mix(in srgb, var(--color-brand) 50%, var(--color-surface-raised))',
-              borderRadius: 6,
-            },
-          ],
-        },
-        { scales: { x: { grid: { display: false } }, y: { beginAtZero: true } } },
-      );
-    }
-  }
-
-  function recurringIntervalLabel(iv) {
-    const x = String(iv || 'monthly');
-    if (x === 'weekly') return t('expenses.recurringWeekly');
-    if (x === 'annual') return t('expenses.recurringAnnual');
-    return t('expenses.recurringMonthly');
-  }
-
-  function setExpenseTab(tab) {
-    for (const btn of root.querySelectorAll('[data-action="expense-tab"]')) {
-      const v = btn.getAttribute('data-tab');
-      const on = v === tab;
-      btn.classList.toggle('is-active', on);
-      btn.setAttribute('aria-selected', on ? 'true' : 'false');
-    }
-    for (const panel of root.querySelectorAll('.expenses-panel[data-panel]')) {
-      const id = panel.getAttribute('data-panel');
-      panel.hidden = id !== tab;
-    }
-  }
-
-  async function refreshRows() {
-    const rows = await listExpenses(listFilterPayload(), sortState);
-    paintKpiAndCharts(rows);
-    syncSortHeaders();
-
-    const q = String(controls.search?.value || '').trim().toLowerCase();
-    const searched = rows.filter((r) => expenseRowMatchesSearch(r, q));
-    const total = searched.length;
-    const pageSize = Math.max(1, Math.min(100, Number(controls.pageSize?.value) || 15));
-    const pages = Math.max(1, Math.ceil(total / pageSize));
-    if (page > pages) page = pages;
-    if (page < 1) page = 1;
-    const start = (page - 1) * pageSize;
-    const slice = searched.slice(start, start + pageSize);
-
-    if (pageMetaSlot) {
-      pageMetaSlot.textContent = t('expenses.pageInfo')
-        .replace('{page}', String(page))
-        .replace('{pages}', String(pages))
-        .replace('{total}', String(total));
-    }
-    if (prevBtn) prevBtn.disabled = page <= 1;
-    if (nextBtn) nextBtn.disabled = page >= pages;
-
-    if (!rowsSlot) return;
-
-    if (!total) {
-      rowsSlot.innerHTML = `<tr><td colspan="7">${renderEmptyState({
-        title: t('expenses.emptyTitle'),
-        message: t('expenses.emptyMessage'),
-      })}</td></tr>`;
-      return;
-    }
-
-    const totalsDollars = searched.reduce((acc, r) => {
-      const cat = ExpenseCategoryRegistry.getById(r.category);
-      const ded = cat ? cat.deductible !== false : true;
-      return acc + (ded ? num(r.amount) * (num(r.deductiblePct, 100) / 100) : 0);
-    }, 0);
-    const rowsHtml = slice
-      .map((row) => {
-        const cat = ExpenseCategoryRegistry.getById(row.category);
-        const ded = cat ? cat.deductible !== false : true;
-        const amt = ded ? num(row.amount) * (num(row.deductiblePct, 100) / 100) : num(row.amount);
-        const tone = categoryPillTone(row.category);
-        const desc = expenseDescriptionCell(row);
-        const notes = expenseNotesCell(row);
-        return `<tr data-expense-id="${esc(row.id)}">
-          <td>${esc(row.date)}</td>
-          <td><span class="expenses-cat-pill expenses-cat-pill--${tone}">${esc(categoryLabel(row))}</span></td>
-          <td>${esc(desc)}</td>
-          <td class="expenses-amount-cell"><strong>${esc(fmtMoney(amt))}</strong></td>
-          <td>${row.receiptData ? '📷' : '—'}</td>
-          <td class="expenses-notes-cell">${esc(notes)}</td>
-          <td class="expenses-row-actions">
-            <button type="button" class="expenses-icon-btn expenses-icon-btn--edit" data-action="edit" aria-label="${esc(t('common.edit'))}">${getIcon('edit', 16)}</button>
-            <button type="button" class="expenses-icon-btn expenses-icon-btn--delete" data-action="delete" aria-label="${esc(t('common.delete'))}">${getIcon('trash', 16)}</button>
-          </td>
-        </tr>`;
-      })
-      .join('');
-    const totalsRow = `<tr class="expenses-totals-row">
-      <td colspan="3"><strong>${esc(t('expenses.totalsLabel'))}</strong></td>
-      <td><strong>${esc(fmtMoney(totalsDollars))}</strong></td>
-      <td colspan="2">${esc(t('expenses.totalsExpensesCount').replace('{n}', String(total)))}</td>
-      <td></td>
-    </tr>`;
-    rowsSlot.innerHTML = rowsHtml + totalsRow;
-  }
-
-  async function refreshCategoryRows() {
-    if (!categoryRowsSlot) return;
-    const rows = await listExpenses(listFilterPayload(), { key: 'category', dir: 'asc' });
-    /** @type {Map<string, number>} */
-    const totals = new Map();
-    for (const row of rows) {
-      const key = String(row.category || 'other');
-      const cat = ExpenseCategoryRegistry.getById(key);
-      const ded = cat ? cat.deductible !== false : true;
-      const amt = ded ? num(row.amount) * (num(row.deductiblePct, 100) / 100) : num(row.amount);
-      totals.set(key, (totals.get(key) || 0) + amt);
-    }
-    const entries = [...totals.entries()].sort((a, b) => b[1] - a[1]);
-    if (!entries.length) {
-      categoryRowsSlot.innerHTML = `<tr><td colspan="2">${renderEmptyState({
-        title: t('expenses.emptyTitle'),
-        message: t('expenses.emptyMessage'),
-      })}</td></tr>`;
-      return;
-    }
-    categoryRowsSlot.innerHTML = entries
-      .map(([catId, dollars]) => {
-        const labelRow = { category: catId };
-        return `<tr>
-          <td>${esc(categoryLabel(labelRow))}</td>
-          <td>${esc(fmtMoney(dollars))}</td>
-        </tr>`;
-      })
-      .join('');
-  }
-
-  async function refreshRecurringRows() {
-    if (!recurringRowsSlot) return;
-    const rows = await db.expenses
-      .filter((e) => e.deletedAt == null && e.isRecurring === true)
-      .toArray();
-    rows.sort((a, b) => String(a.recurringNextDate || '').localeCompare(String(b.recurringNextDate || '')));
-    if (!rows.length) {
-      recurringRowsSlot.innerHTML = `<tr><td colspan="5">${renderEmptyState({
-        title: t('expenses.emptyTitle'),
-        message: t('expenses.emptyMessage'),
-      })}</td></tr>`;
-      return;
-    }
-    recurringRowsSlot.innerHTML = rows
-      .map((row) => {
-        const platformLabel = row.platformId ? String(row.platformId) : t('app.platformAll');
-        return `<tr>
-          <td>${esc(categoryLabel(row))}</td>
-          <td>${esc(String(row.recurringNextDate || '—'))}</td>
-          <td>${esc(recurringIntervalLabel(row.recurringInterval))}</td>
-          <td>${esc(fmtMoney(num(row.amount)))}</td>
-          <td>${esc(platformLabel)}</td>
-        </tr>`;
-      })
-      .join('');
-  }
-
-  function updateExpensesFilterUI() {
-    const storedFilter = localStorage.getItem('comma_expenses_toolbar_collapsed');
-    const filterCollapsed = storedFilter === null ? true : storedFilter === 'true';
-    const storedShortcuts = localStorage.getItem('comma_expenses_shortcuts_collapsed');
-    const shortcutsCollapsed = storedShortcuts === null ? true : storedShortcuts === 'true';
-
-    const shortcutBarEl = root.querySelector('[data-expenses-shortcut-bar]');
-    if (shortcutBarEl) shortcutBarEl.style.display = shortcutsCollapsed ? 'none' : 'block';
-
-    const filterEl = root.querySelector('[data-expenses-filter]');
-    if (filterEl) filterEl.style.display = filterCollapsed || shortcutsCollapsed ? 'none' : 'block';
-
-    const summaryChevron = root.querySelector('[data-expenses-summary-chevron]');
-    if (summaryChevron) summaryChevron.innerHTML = getIcon(shortcutsCollapsed ? 'chevron-down' : 'chevron-up', 18);
-
-    const customChevron = root.querySelector('[data-expenses-custom-chevron]');
-    if (customChevron) customChevron.innerHTML = getIcon(filterCollapsed ? 'chevron-down' : 'chevron-up', 14);
-
-    const customBtn = root.querySelector('[data-expenses-toggle-filter]');
-    if (customBtn) {
-      customBtn.className = `btn ${filterCollapsed ? 'btn-ghost' : 'btn-primary'} btn-sm`;
-    }
-
-    const summaryEl = root.querySelector('[data-expenses-summary]');
-    if (summaryEl) {
-      summaryEl.textContent = currentStartDate && currentEndDate ? `${currentStartDate} – ${currentEndDate}` : t('common.all');
-    }
-
-    const presetSummary = root.querySelector('[data-expenses-summary-preset]');
-    if (presetSummary) {
-      presetSummary.textContent = currentPreset === 'custom' ? 'Custom' : currentPreset.charAt(0).toUpperCase() + currentPreset.slice(1);
-    }
-
-    root.querySelectorAll('[data-expenses-preset]').forEach((btn) => {
-      const p = btn.getAttribute('data-expenses-preset');
-      btn.className = `btn expenses-preset-btn ${p === currentPreset ? 'is-active' : ''}`;
+  // ── Derived helpers ──────────────────────────────────────────────────────
+  function filteredMonthRows() {
+    return rowsForMonth(selectedMonth).filter((e) => {
+      if (filterCategory && String(e.category) !== filterCategory) return false;
+      if (filterDeductible === 'yes' && !rowIsDeductible(e)) return false;
+      if (filterDeductible === 'no' && rowIsDeductible(e)) return false;
+      return true;
     });
   }
 
-  async function refreshAllPanels() {
-    updateExpensesFilterUI();
-    await refreshRows();
-    await refreshCategoryRows();
-    await refreshRecurringRows();
+  function weekBucketsFor(rows, monthDate) {
+    const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+    const w = [
+      { label: 'W1', min: 1, max: 7, total: 0, items: [] },
+      { label: 'W2', min: 8, max: 14, total: 0, items: [] },
+      { label: 'W3', min: 15, max: 21, total: 0, items: [] },
+      { label: 'W4', min: 22, max: daysInMonth, total: 0, items: [] },
+    ];
+    let total = 0;
+    for (const exp of rows) {
+      total += num(exp.amount);
+      const day = Number(String(exp.date || '').slice(8, 10));
+      const week = w.find((wk) => day >= wk.min && day <= wk.max);
+      if (week) {
+        week.total += num(exp.amount);
+        week.items.push(exp);
+      }
+    }
+    const max = Math.max(...w.map((wk) => wk.total), 0);
+    return { weeks: w, total, max };
   }
 
-  async function runFabQuickExpenseFlow() {
-    stripFabQueryFromHash();
-    try {
-      const u = store.get('user');
-      const pr = (store.get('platforms') || []).map((p) => ({ id: String(p.id), name: String(p.name || p.id) }));
-      const cat = await getAllCategories();
-      await openExpenseEditor({
-        categories: cat,
-        platformRows: pr,
-        isHstRegistered: Boolean(u?.hstRegistered),
-        currencySymbol: u?.locale?.currencySymbol || '$',
-        onSave: saveExpense,
-      });
-      await refreshAllPanels();
-    } catch (err) {
-      console.warn('[comma expenses] quick add from FAB failed', err);
+  function ytdSummary() {
+    const year = now.getFullYear();
+    const ytd = allRows.filter((e) => Number(String(e.date || '').slice(0, 4)) === year);
+    let deductible = 0;
+    let standard = 0;
+    for (const e of ytd) {
+      if (rowIsDeductible(e)) deductible += num(e.amount) * (num(e.deductiblePct, 100) / 100);
+      else standard += num(e.amount);
+    }
+    return { deductible, standard };
+  }
+
+  // ── Renderers ────────────────────────────────────────────────────────────
+  function renderNav(total) {
+    if (monthLabelEl) {
+      monthLabelEl.textContent = selectedMonth.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+    }
+    const parts = moneyParts(total);
+    if (totalSymEl) totalSymEl.textContent = parts.symbol;
+    if (totalValEl) totalValEl.textContent = parts.value;
+    const isCurrentOrFuture =
+      selectedMonth.getFullYear() === now.getFullYear() && selectedMonth.getMonth() >= now.getMonth();
+    if (nextArrowEl) {
+      nextArrowEl.disabled = isCurrentOrFuture;
+      nextArrowEl.classList.toggle('is-disabled', isCurrentOrFuture);
     }
   }
 
+  function renderChart(weeks, max) {
+    if (!chartEl) return;
+    const highBadge =
+      max > 0
+        ? `<div class="expenses-m-chart-high"><span class="expenses-m-chart-highline"></span><span class="expenses-m-chart-highbadge">${esc((t('expenses.chartHigh') || 'HIGH'))}: ${esc(money(max))}</span></div>`
+        : '';
+    const cols = weeks
+      .map((week, idx) => {
+        const pct = max > 0 ? (week.total / max) * 100 : 0;
+        const h = Math.max(pct, week.total > 0 ? 8 : 2);
+        const active = selectedWeekIndex === null || selectedWeekIndex === idx;
+        const selected = selectedWeekIndex === idx;
+        return `<button type="button" class="expenses-m-chart-col" data-action="select-week" data-week="${idx}">
+          <span class="expenses-m-chart-track">
+            <span class="expenses-m-chart-fill${active ? '' : ' is-dim'}" style="height:${h}%"></span>
+          </span>
+          <span class="expenses-m-chart-lbl${selected ? ' is-selected' : ''}">${esc(week.label)}</span>
+        </button>`;
+      })
+      .join('');
+    chartEl.innerHTML = `${highBadge}<div class="expenses-m-chart-row">${cols}</div>`;
+  }
+
+  function renderBento() {
+    const s = ytdSummary();
+    if (ytdDeductibleEl) ytdDeductibleEl.textContent = money(s.deductible);
+    if (ytdStandardEl) ytdStandardEl.textContent = money(s.standard);
+  }
+
+  function renderFilters() {
+    if (!filtersEl) return;
+    filtersEl.hidden = !filtersVisible;
+    root.querySelector('[data-action="toggle-filters"]')?.setAttribute('aria-expanded', String(filtersVisible));
+    root.querySelector('[data-action="toggle-filters"]')?.classList.toggle('is-active', filtersVisible);
+    if (!filtersVisible) {
+      filtersEl.innerHTML = '';
+      return;
+    }
+    const catPills = [`<button type="button" class="expenses-m-pill${!filterCategory ? ' is-active' : ''}" data-action="filter-cat" data-cat="">${esc(t('common.all'))}</button>`]
+      .concat(
+        categories.map((c) => {
+          const active = filterCategory === c.id;
+          return `<button type="button" class="expenses-m-pill${active ? ' is-active' : ''}" data-action="filter-cat" data-cat="${esc(c.id)}"><span class="expenses-m-pill-emoji">${esc(c.emoji || '🧾')}</span>${esc(c.name)}</button>`;
+        }),
+      )
+      .join('');
+    const typePills = [
+      { key: 'all', label: t('common.all') },
+      { key: 'yes', label: t('expenses.deductibleOnly') || 'Deductible' },
+      { key: 'no', label: t('expenses.standardOnly') || 'Standard' },
+    ]
+      .map(({ key, label }) => {
+        const active = filterDeductible === key;
+        return `<button type="button" class="expenses-m-typepill expenses-m-typepill--${key}${active ? ' is-active' : ''}" data-action="filter-ded" data-ded="${key}">${esc(label)}</button>`;
+      })
+      .join('');
+    filtersEl.innerHTML = `
+      <div class="expenses-m-pillrow">${catPills}</div>
+      <div class="expenses-m-typerow">${typePills}</div>
+    `;
+  }
+
+  function renderList(displayed) {
+    if (!listEl) return;
+    if (!displayed.length) {
+      listEl.innerHTML = renderEmptyState({
+        title: t('expenses.emptyTitle'),
+        message: selectedWeekIndex !== null ? (t('expenses.emptyWeek') || t('expenses.emptyMessage')) : t('expenses.emptyMessage'),
+      });
+      return;
+    }
+    const sorted = [...displayed].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+    listEl.innerHTML = sorted
+      .map((exp) => {
+        const meta = catMeta(exp.category);
+        const dateLabel = (() => {
+          const d = new Date(`${String(exp.date || '').slice(0, 10)}T12:00:00`);
+          if (Number.isNaN(d.getTime())) return String(exp.date || '');
+          return d.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric' });
+        })();
+        const ded = rowIsDeductible(exp);
+        const notes = String(exp.notes || '').trim();
+        const badge = ded
+          ? `<span class="expenses-m-badge">${esc(t('expenses.taxDeductible') || 'Tax Deductible')}</span>`
+          : '';
+        return `<div class="expenses-m-row" data-expense-id="${esc(exp.id)}">
+          <button type="button" class="expenses-m-row-main" data-action="edit">
+            <span class="expenses-m-row-icon">${esc(meta.emoji)}</span>
+            <span class="expenses-m-row-body">
+              <span class="expenses-m-row-titleline">
+                <span class="expenses-m-row-title">${esc(meta.name)}</span>${badge}
+              </span>
+              <span class="expenses-m-row-sub">${esc(dateLabel)}${notes ? ` · ${esc(notes)}` : ''}</span>
+            </span>
+          </button>
+          <div class="expenses-m-row-right">
+            <span class="expenses-m-row-amount">-${esc(money(num(exp.amount)))}</span>
+            <button type="button" class="expenses-m-row-del" data-action="delete" aria-label="${esc(t('common.delete'))}">${getIcon('trash', 12)}</button>
+          </div>
+        </div>`;
+      })
+      .join('');
+  }
+
+  function renderMonthModal() {
+    if (!modalEl) return;
+    modalEl.hidden = !monthModalOpen;
+    if (!monthModalOpen) {
+      modalEl.innerHTML = '';
+      return;
+    }
+    const realYear = now.getFullYear();
+    const realMonth = now.getMonth();
+    const maxMonthIndex = selectorYear === realYear ? realMonth : 11;
+    const s = ytdSummary();
+
+    const cards = [];
+    for (let i = maxMonthIndex; i >= 0; i--) {
+      const mDate = new Date(selectorYear, i, 1);
+      const rows = rowsForMonth(mDate);
+      const { weeks, total, max } = weekBucketsFor(rows, mDate);
+      const isSel =
+        selectedMonth.getFullYear() === selectorYear && selectedMonth.getMonth() === i;
+      const mini = weeks
+        .map((week) => {
+          const pct = max > 0 ? (week.total / max) * 100 : 0;
+          const h = Math.max(pct, week.total > 0 ? 8 : 2);
+          return `<span class="expenses-m-mini-col"><span class="expenses-m-mini-track"><span class="expenses-m-mini-fill" style="height:${h}%"></span></span></span>`;
+        })
+        .join('');
+      cards.push(`<button type="button" class="expenses-m-mcard${isSel ? ' is-selected' : ''}" data-action="pick-month" data-month="${i}">
+        <span class="expenses-m-mcard-info">
+          <span class="expenses-m-mcard-name">${esc(mDate.toLocaleDateString(locale, { month: 'long' }))} ${selectorYear}</span>
+          <span class="expenses-m-mcard-total">${esc(money(total))}</span>
+        </span>
+        <span class="expenses-m-mini">${mini}</span>
+      </button>`);
+    }
+
+    const nextYearDisabled = selectorYear >= realYear;
+    modalEl.innerHTML = `
+      <div class="expenses-m-modal-backdrop" data-action="close-month-modal"></div>
+      <div class="expenses-m-modal-sheet" role="dialog" aria-modal="true">
+        <div class="expenses-m-modal-head">
+          <h2 class="expenses-m-modal-title">${selectorYear} ${esc(t('expenses.title'))}</h2>
+          <button type="button" class="expenses-m-modal-done" data-action="close-month-modal">${esc(t('common.done') || 'Done')}</button>
+        </div>
+        <div class="expenses-m-modal-subhead">
+          <span>${esc((t('expenses.month') || 'MONTH'))}</span>
+          <span>${esc((t('expenses.ytdDeductibleShort') || 'YTD DEDUCTIBLE'))}: ${esc(money(s.deductible))}</span>
+        </div>
+        <div class="expenses-m-modal-list">${cards.join('')}</div>
+        <div class="expenses-m-modal-foot">
+          <button type="button" class="expenses-m-modal-year" data-action="prev-year">${esc(t('expenses.previousYear') || 'Previous Year')}</button>
+          <span class="expenses-m-modal-yearlbl">${selectorYear}</span>
+          <button type="button" class="expenses-m-modal-year${nextYearDisabled ? ' is-disabled' : ''}" data-action="next-year" ${nextYearDisabled ? 'disabled' : ''}>${esc(t('expenses.nextYear') || 'Next Year')}</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function refresh() {
+    const monthRows = filteredMonthRows();
+    const { weeks, total, max } = weekBucketsFor(monthRows, selectedMonth);
+    renderNav(total);
+    renderChart(weeks, max);
+    renderBento();
+    renderFilters();
+    const displayed = selectedWeekIndex !== null && weeks[selectedWeekIndex] ? weeks[selectedWeekIndex].items : monthRows;
+    renderList(displayed);
+  }
+
+  refresh();
+
+  // ── Interactions ─────────────────────────────────────────────────────────
   const ac = new AbortController();
   const { signal } = ac;
 
-  /** @type {ReturnType<typeof setTimeout> | null} */
-  let filterDebounce = null;
-  const onFilterInput = () => {
-    if (filterDebounce) clearTimeout(filterDebounce);
-    filterDebounce = setTimeout(() => {
-      page = 1;
-      void refreshAllPanels();
-    }, 250); // 250ms debounce for smoother typing/filtering
-  };
+  async function openEditorForNew() {
+    await openExpenseEditor({
+      categories,
+      platformRows,
+      isHstRegistered: Boolean(user?.hstRegistered),
+      currencySymbol,
+      onSave: saveExpense,
+    });
+    await loadRows();
+    refresh();
+  }
 
-  root.addEventListener('input', onFilterInput, { signal });
-  root.addEventListener('change', onFilterInput, { signal });
+  function openEditorForRow(id) {
+    const handle = showModal({
+      title: t('expenses.editTitle'),
+      content: `<div class="expense-edit-loading"><div class="shimmer-line"></div><div class="shimmer-line shimmer-line--short"></div><div class="shimmer-line"></div><p class="expense-loading-text">${esc(t('common.loading'))}...</p></div>`,
+      actions: [],
+    });
+    void db.expenses.get(id).then((row) => {
+      if (!row) {
+        handle.close();
+        return;
+      }
+      const formApi = renderExpenseForm({
+        initial: row,
+        categories,
+        platforms: platformRows,
+        isHstRegistered: Boolean(user?.hstRegistered),
+        currencySymbol,
+        onSave: async (payload) => {
+          await updateExpense(id, payload);
+          handle.close();
+          await loadRows();
+          refresh();
+        },
+        onCancel: () => handle.close(),
+      });
+      handle.body.innerHTML = '';
+      handle.body.appendChild(formApi.el);
+      setTimeout(() => handle.body.querySelector('input, select, textarea')?.focus(), 0);
+    });
+  }
 
   root.addEventListener(
     'click',
     async (e) => {
-      const sortBtn = e.target instanceof HTMLElement ? e.target.closest('.expenses-th-sort[data-sort-col]') : null;
-      if (sortBtn && root.contains(sortBtn)) {
-        const col = sortBtn.getAttribute('data-sort-col');
-        if (col === 'date' || col === 'category' || col === 'description' || col === 'amount') {
-          if (sortState.key === col) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
-          else {
-            sortState.key = col;
-            sortState.dir = col === 'category' || col === 'description' ? 'asc' : 'desc';
-          }
-          page = 1;
-          void refreshAllPanels();
-        }
-        return;
-      }
-
-      const tabBtn = e.target instanceof HTMLElement ? e.target.closest('[data-action="expense-tab"]') : null;
-      if (tabBtn) {
-        const tab = tabBtn.getAttribute('data-tab');
-        if (tab) setExpenseTab(tab);
-        return;
-      }
-
-      const shortcutsToggle = e.target instanceof HTMLElement ? e.target.closest('[data-expenses-toggle-shortcuts]') : null;
-      if (shortcutsToggle) {
-        const stored = localStorage.getItem('comma_expenses_shortcuts_collapsed');
-        const collapsed = stored === null ? true : stored === 'true';
-        localStorage.setItem('comma_expenses_shortcuts_collapsed', String(!collapsed));
-        if (!collapsed) {
-          localStorage.setItem('comma_expenses_toolbar_collapsed', 'true');
-        }
-        updateExpensesFilterUI();
-        return;
-      }
-
-      const filterToggle = e.target instanceof HTMLElement ? e.target.closest('[data-expenses-toggle-filter]') : null;
-      if (filterToggle) {
-        const stored = localStorage.getItem('comma_expenses_toolbar_collapsed');
-        const collapsed = stored === null ? true : stored === 'true';
-        localStorage.setItem('comma_expenses_toolbar_collapsed', String(!collapsed));
-        updateExpensesFilterUI();
-        return;
-      }
-
-      const applyBtn = e.target instanceof HTMLElement ? e.target.closest('[data-expenses-apply]') : null;
-      if (applyBtn) {
-        localStorage.setItem('comma_expenses_toolbar_collapsed', 'true');
-        updateExpensesFilterUI();
-        return;
-      }
-
-      const presetBtn = e.target instanceof HTMLElement ? e.target.closest('[data-expenses-preset]') : null;
-      if (presetBtn) {
-        const preset = presetBtn.getAttribute('data-expenses-preset');
-        if (preset) {
-          currentPreset = preset;
-          const u = store.get('user');
-          const wsd = Number(u?.locale?.weekStartDay ?? 0);
-          import('../../utils/date-range-presets.js').then((m) => {
-            const anchorDate = store.get('demoMode') ? getDemoAnalyticsAnchorDate() : new Date();
-            const r = m.defaultRangeForPreset(preset, anchorDate, wsd);
-            currentStartDate = r.start;
-            currentEndDate = r.end;
-            if (controls.startInput && controls.startInput._fp) {
-              controls.startInput._fp.setDate(r.start, false);
-            }
-            if (controls.endInput && controls.endInput._fp) {
-              controls.endInput._fp.setDate(r.end, false);
-            }
-            page = 1;
-            void refreshAllPanels();
-          });
-        }
-        return;
-      }
-
       const target = e.target instanceof HTMLElement ? e.target.closest('[data-action]') : null;
       if (!target || !root.contains(target)) return;
       const action = target.getAttribute('data-action');
 
-      if (action === 'page-prev') {
-        page = Math.max(1, page - 1);
-        void refreshAllPanels();
-        return;
-      }
-      if (action === 'page-next') {
-        page += 1;
-        void refreshAllPanels();
-        return;
-      }
-      if (action === 'reset-filters') {
-        currentStartDate = '';
-        currentEndDate = '';
-        if (controls.rangeInput && controls.rangeInput._fp) controls.rangeInput._fp.clear();
-        if (controls.category) controls.category.value = '';
-        if (controls.platformId) controls.platformId.value = '';
-        if (controls.minAmount) controls.minAmount.value = '';
-        if (controls.maxAmount) controls.maxAmount.value = '';
-        if (controls.receiptOnly) controls.receiptOnly.checked = false;
-        if (controls.search) controls.search.value = '';
-        if (controls.pageSize) controls.pageSize.value = '15';
-        sortState = { key: 'date', dir: 'desc' };
-        page = 1;
-        void refreshAllPanels();
-        return;
-      }
-
-      if (action === 'new-expense') {
-        void openExpenseEditor({
-          categories,
-          platformRows,
-          isHstRegistered: Boolean(user?.hstRegistered),
-          currencySymbol: user?.locale?.currencySymbol || '$',
-          onSave: saveExpense,
-        }).then(() => refreshAllPanels());
-        return;
+      switch (action) {
+        case 'new-expense':
+          void openEditorForNew();
+          return;
+        case 'prev-month':
+          selectedWeekIndex = null;
+          selectedMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1, 1);
+          refresh();
+          return;
+        case 'next-month': {
+          const next = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 1);
+          const cur = new Date(now.getFullYear(), now.getMonth(), 1);
+          if (next <= cur) {
+            selectedWeekIndex = null;
+            selectedMonth = next;
+            refresh();
+          }
+          return;
+        }
+        case 'select-week': {
+          const idx = Number(target.getAttribute('data-week'));
+          selectedWeekIndex = selectedWeekIndex === idx ? null : idx;
+          refresh();
+          return;
+        }
+        case 'toggle-filters':
+          filtersVisible = !filtersVisible;
+          renderFilters();
+          return;
+        case 'filter-cat':
+          filterCategory = target.getAttribute('data-cat') || '';
+          selectedWeekIndex = null;
+          refresh();
+          return;
+        case 'filter-ded':
+          filterDeductible = /** @type {'all'|'yes'|'no'} */ (target.getAttribute('data-ded') || 'all');
+          selectedWeekIndex = null;
+          refresh();
+          return;
+        case 'open-month-modal':
+          selectorYear = selectedMonth.getFullYear();
+          monthModalOpen = true;
+          renderMonthModal();
+          return;
+        case 'close-month-modal':
+          monthModalOpen = false;
+          renderMonthModal();
+          return;
+        case 'prev-year':
+          selectorYear -= 1;
+          renderMonthModal();
+          return;
+        case 'next-year':
+          if (selectorYear < now.getFullYear()) {
+            selectorYear += 1;
+            renderMonthModal();
+          }
+          return;
+        case 'pick-month': {
+          const mi = Number(target.getAttribute('data-month'));
+          selectedMonth = new Date(selectorYear, mi, 1);
+          selectedWeekIndex = null;
+          monthModalOpen = false;
+          renderMonthModal();
+          refresh();
+          return;
+        }
+        default:
+          break;
       }
 
       const rowEl = target.closest('[data-expense-id]');
       const id = rowEl?.getAttribute('data-expense-id');
       if (!id) return;
       if (action === 'edit') {
-        // Open modal IMMEDIATELY with a loading state to provide instant feedback
-        const handle = showModal({
-          title: t('expenses.editTitle'),
-          content: `
-            <div class="expense-edit-loading">
-              <div class="shimmer-line"></div>
-              <div class="shimmer-line shimmer-line--short"></div>
-              <div class="shimmer-line"></div>
-              <p class="expense-loading-text">${esc(t('common.loading'))}...</p>
-            </div>
-          `,
-          actions: [],
-        });
-
-        void db.expenses.get(id).then(row => {
-          if (!row) {
-            handle.close();
-            return;
-          }
-          
-          const formApi = renderExpenseForm({
-            initial: row,
-            categories,
-            platformRows,
-            isHstRegistered: Boolean(user?.hstRegistered),
-            currencySymbol: user?.locale?.currencySymbol || '$',
-            onSave: async (payload) => {
-              await updateExpense(id, payload);
-              handle.close();
-              void refreshAllPanels();
-            },
-            onCancel: () => handle.close()
-          });
-
-          // Swap loading state for the actual form
-          handle.body.innerHTML = '';
-          handle.body.appendChild(formApi.el);
-
-          // Focus first input
-          setTimeout(() => {
-            handle.body.querySelector('input, select, textarea')?.focus();
-          }, 0);
-        });
-      }
-      if (action === 'delete') {
+        openEditorForRow(id);
+      } else if (action === 'delete') {
+        if (typeof window !== 'undefined' && !window.confirm(t('expenses.deleteConfirm') || 'Delete this expense?')) return;
         await deleteExpense(id);
         showToast({ type: 'success', message: t('expenses.deletedToast'), duration: 1800 });
-        await refreshAllPanels();
+        await loadRows();
+        refresh();
       }
     },
     { signal },
   );
 
   const offExpenseSaved = bus.on(EXPENSE_SAVED, () => {
-    void refreshAllPanels();
+    void loadRows().then(() => refresh());
   });
 
-  await refreshAllPanels();
-
   if (ctx && /** @type {{ fabQuickExpense?: boolean }} */ (ctx).fabQuickExpense) {
-    queueMicrotask(() => void runFabQuickExpenseFlow());
+    stripFabQueryFromHash();
+    queueMicrotask(() => void openEditorForNew());
   }
 
   return () => {
-    destroyChart(/** @type {HTMLCanvasElement | null} */ (root.querySelector('[data-chart="by-category"]')));
-    destroyChart(/** @type {HTMLCanvasElement | null} */ (root.querySelector('[data-chart="monthly"]')));
     ac.abort();
     offExpenseSaved();
   };

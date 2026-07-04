@@ -19,6 +19,8 @@
 import { db } from '../../core/db.js';
 
 export const SYNCED_TABLES = [
+  // Synced user PROFILE (bucket b — per-key KV; the record engine gives per-key LWW free).
+  { name: 'profile', table: db.profile },
   { name: 'vehicles', table: db.vehicles },
   { name: 'platforms', table: db.platforms },
   { name: 'merchants', table: db.merchants },

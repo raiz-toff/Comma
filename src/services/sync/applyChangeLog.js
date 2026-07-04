@@ -14,20 +14,27 @@
  * un-applied and it's simply retried next pull (nothing to roll back — Dexie transactions are
  * all-or-nothing). The merge DECISION logic lives in pure functions in `mergeRules.js`.
  *
- * A note on unknown/extra fields (see the interop plan's `customFields` question): incoming rows
- * from mobile never carry web-only fields like `customFields`/`date`/`onlineMinutes` in the first
- * place (mobile's schema has no such columns to populate them from), so there's nothing to strip
- * on THIS (pull) side — Dexie also has no strict per-row column schema, so even if an incoming
- * row somehow carried an unrecognized key, `bulkPut`/`put` would just store it harmlessly. The
- * asymmetric risk is on the PUSH side (see `pushChanges.js` doc) — mobile's Drizzle insert is
- * column-driven and silently ignores unknown keys, so web's extra fields don't survive a
- * round-trip through mobile, but they don't crash it either.
+ * 2026-07-03 interop-audit hardening (see `interopShape.js` + the audit report in
+ * `commaApp/app/docs/web-mobile-interop-audit-2026-07-03.md`):
+ *   - Rows are written via `normalizeIncoming(...)` instead of a bare `put(incoming)`: incoming
+ *     values are merged OVER the surviving local row (a mobile row can no longer wipe web-only
+ *     fields like `date`/`customFields`/`receiptData` — audit Gap 7), mobile's ISO-string
+ *     timestamps are coerced to web's epoch-ms / `YYYY-MM-DD` formats (Gap 6), and the web
+ *     convenience fields (`date`, `platformId`, `nickname`, `active`, goal `type`/`scope`/
+ *     `target`) are re-derived from the mobile-canonical values.
+ *   - Merchants dedupe by identity, not id (Gap 4): both apps mint their own merchant ids, and
+ *     `merchants.name` is UNIQUE here (`&name`) and on mobile — so an incoming merchant whose id
+ *     is unknown but whose `normalizedName` (fallback: exact `name`) matches an existing row is
+ *     treated as THAT row (LWW against it, local id kept). Without this, "Shell" created on two
+ *     devices is a ConstraintError that aborts the transaction and wedges sync permanently.
+ *     Safe to remap because neither app references merchants by id — it's a suggestion list.
  */
 
 import { db } from '../../core/db.js';
 import { newId } from '../../core/id.js';
 import { SYNCED_TABLE_BY_NAME } from './syncedTables.js';
 import { decideMerge, shouldAuditOverwrite } from './mergeRules.js';
+import { normalizeIncoming } from './interopShape.js';
 
 const OVERWRITE_LOG_KEY = 'comma_sync_overwrite_log';
 
@@ -64,6 +71,22 @@ function appendOverwriteAudit(entry) {
 }
 
 /**
+ * Find the local merchant row an id-unknown incoming merchant actually IS, by identity:
+ * `normalizedName` when the incoming row has one, else exact `name`. Empty identities never
+ * match (mobile defaults `normalizedName` to '' — matching '' to '' would collapse rows).
+ * @param {import('dexie').Table} table
+ * @param {Record<string, unknown>} incoming
+ * @returns {Promise<Record<string, unknown> | undefined>}
+ */
+async function findMerchantByIdentity(table, incoming) {
+  const norm = String(incoming.normalizedName ?? '').trim();
+  if (norm) return table.where('normalizedName').equals(norm).first();
+  const name = String(incoming.name ?? '').trim();
+  if (name) return table.where('name').equals(name).first();
+  return undefined;
+}
+
+/**
  * Apply one change-log with real LWW + financial audit. `mergedAt` is passed in so the audit
  * timestamps are consistent across a single apply.
  * @param {import('./changeLog.js').ChangeLog} log
@@ -90,7 +113,18 @@ export async function applyChangeLog(log, mergedAt = Date.now()) {
       const rows = log.rows[name] || [];
       for (const incoming of rows) {
         if (incoming == null || incoming.id == null) continue;
-        const localRow = await table.get(incoming.id);
+
+        let localRow = await table.get(incoming.id);
+        // Merchant identity dedupe (audit Gap 4): unknown id + known name → merge into the
+        // existing row (keep the LOCAL id) instead of inserting a UNIQUE-name violation.
+        let targetId = incoming.id;
+        if (localRow == null && name === 'merchants') {
+          const dupe = await findMerchantByIdentity(table, incoming);
+          if (dupe && dupe.id != null) {
+            localRow = dupe;
+            targetId = dupe.id;
+          }
+        }
 
         const decision = decideMerge({
           localExists: localRow != null,
@@ -110,16 +144,19 @@ export async function applyChangeLog(log, mergedAt = Date.now()) {
         ) {
           auditQueue.push({
             tableName: name,
-            rowId: String(incoming.id),
+            rowId: String(targetId),
             supersededRow: localRow,
             winnerRow: incoming,
           });
           audited++;
         }
 
-        // decision is 'insert' or 'overwrite' — both are a straight put() in Dexie (no separate
-        // insert-vs-update API; `put` upserts by primary key either way).
-        await table.put(incoming);
+        // Merge over the local row + coerce mobile wire formats + re-derive web fields
+        // (see interopShape.js). Insert and overwrite are both a `put` in Dexie; the row's
+        // id stays the LOCAL one when the merchant dedupe remapped it.
+        const finalRow = normalizeIncoming(name, incoming, localRow);
+        finalRow.id = targetId;
+        await table.put(finalRow);
         upserted++;
       }
     }

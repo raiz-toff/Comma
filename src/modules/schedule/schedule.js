@@ -1,6 +1,6 @@
 import { db, getAppState, setAppState } from '../../core/db.js';
 import { store } from '../../core/store.js';
-import { bus, PLATFORM_CHANGED } from '../../core/events.js';
+import { bus, PLATFORM_CHANGED, NAVIGATION } from '../../core/events.js';
 import { formatCurrency } from '../../utils/formatters.js';
 import { t } from '../../utils/strings.js';
 import { showModal } from '../../ui/components.js';
@@ -598,7 +598,7 @@ async function showDayDetailModal(dateStr, model, root) {
         const durationHrs = (s.activeMinutes || s.onlineMinutes || minutesFromShift(s)) / 60;
         const hourlyRate = durationHrs > 0 ? grossFromShift(s) / durationHrs : 0;
         const fmtRate = formatCurrency(hourlyRate, model.localeCountry, { currency: model.currency });
-        const basePay = num(s.grossRevenue) - num(s.tipsRevenue) - (Number(s.customFields?.bonusAmount) || 0);
+        const basePay = num(s.grossRevenue) - num(s.tipsRevenue) - (Number(s.bonusAmount) || 0);
         
         return `
           <div class="day-detail-row is-clickable" data-shift-id="${esc(s.id)}">
@@ -622,7 +622,7 @@ async function showDayDetailModal(dateStr, model, root) {
               </div>
               <div class="sch-overview-cell">
                 <span class="sch-overview-lbl">Bonus</span>
-                <span class="sch-overview-val">${esc(formatCurrency(Number(s.customFields?.bonusAmount) || 0, model.localeCountry, { currency: model.currency }))}</span>
+                <span class="sch-overview-val">${esc(formatCurrency(Number(s.bonusAmount) || 0, model.localeCountry, { currency: model.currency }))}</span>
               </div>
               <div class="sch-overview-cell">
                 <span class="sch-overview-lbl">Deliveries</span>
@@ -1066,7 +1066,11 @@ export async function renderScheduleModule(root, ctx = {}) {
   const onPlatform = () => renderScheduleModule(root, ctx);
   const offPlatform = bus.on(PLATFORM_CHANGED, onPlatform);
 
-  // Simple teardown to avoid multiple listeners on re-render
+  // Teardown to avoid multiple listeners on re-render, AND to stop the PLATFORM_CHANGED
+  // listener above from leaking after the user navigates away. Without the NAVIGATION
+  // self-clean below, that leaked listener re-rendered the schedule into whatever view
+  // shared this root — e.g. swiping the platform switcher on the Goals page redrew Schedule.
+  let offNav = null;
   const prevTeardown = root._scheduleTeardown;
   if (typeof prevTeardown === 'function') prevTeardown();
   root._scheduleTeardown = () => {
@@ -1076,7 +1080,26 @@ export async function renderScheduleModule(root, ctx = {}) {
       root._scheduleDocClick = null;
     }
     offPlatform();
+    if (offNav) {
+      offNav();
+      offNav = null;
+    }
   };
+
+  // Self-clean when navigating to a non-schedule route (mirrors expenses/notifications views).
+  // Runs the CURRENT `_scheduleTeardown`, so it stays correct across self re-renders.
+  offNav = bus.on(NAVIGATION, (payload) => {
+    const h =
+      payload && typeof payload === 'object' && payload && 'hash' in payload
+        ? String(/** @type {{ hash?: string }} */ (payload).hash)
+        : '';
+    if (h === '#/schedule' || h.startsWith('#/schedule/')) return;
+    const teardown = root._scheduleTeardown;
+    if (typeof teardown === 'function') {
+      root._scheduleTeardown = null;
+      teardown();
+    }
+  });
 
   if (ctx && /** @type {{ fabQuickSchedule?: boolean }} */ (ctx).fabQuickSchedule) {
     queueMicrotask(() => {

@@ -18,14 +18,10 @@
  * `tx.update(table).set(values)`, and Drizzle's SQL builder iterates the TABLE's OWN defined
  * columns (not the input object's keys) when building the query — so an extra key like
  * `customFields` on the pushed row is silently ignored, never even reaching a query parameter.
- * No crash. But it also means a bonus amount entered on web (folded into
- * `shifts.customFields.bonusAmount` — mobile's shifts table has no bonus column at all) is
- * SILENTLY DROPPED once mobile applies that row — it will not appear on mobile, and if mobile
- * later pushes its own newer edit of that same shift back, web's LWW "overwrite" will replace
- * web's whole row (including its customFields) with mobile's fieldless version, losing the bonus
- * there too (mitigated only by the financial-overwrite audit log — see applyChangeLog.js). This
- * is an inherent limitation of mobile's own whole-row LWW design (its own mergeRules.ts comment
- * acknowledges row-level LWW can't isolate individual fields), not something introduced here.
+ * No crash. Note that `shifts.bonusAmount` is NOT one of these web-only fields as of Dexie v7 —
+ * mobile's shifts table now has its own real top-level `bonusAmount` column (interop plan
+ * Workstream 1 follow-up), so a bonus amount entered on web round-trips through sync like any
+ * other shift field (grossRevenue, tipsRevenue, etc.) instead of being silently dropped.
  */
 
 import { getDeviceId, getLastPushedAt, setLastPushedAt, addAppliedLog } from './syncState.js';

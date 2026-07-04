@@ -3,7 +3,7 @@
  * Handles converting the Dexie database to a portable JSON format and back.
  */
 
-import { db, CURRENT_LOGICAL_SCHEMA_VERSION, getAppState } from '../../core/db.js';
+import { db, CURRENT_LOGICAL_SCHEMA_VERSION, getAppState, backfillMobileShapeKeys } from '../../core/db.js';
 
 /**
  * Serializes the entire database into a JSON structure.
@@ -88,9 +88,11 @@ export async function deserializeVault(data) {
       }
     });
 
-    // Note: Migration logic (if backupVersion < current) will be handled 
-    // by the database initialization flow after reload or by the restore engine.
-    
+    // appState.schema_version survives the restore, so logical migrations will NOT re-run —
+    // re-apply the mobile-shape backfill directly in case this vault predates the interop fix
+    // (2026-07-03 audit): restored rows must carry platform/name/label/… before they sync.
+    await backfillMobileShapeKeys();
+
     return { success: true };
   } catch (err) {
     console.error('[vault-serializer] Restore failed', err);

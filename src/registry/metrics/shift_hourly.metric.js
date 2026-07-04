@@ -26,7 +26,7 @@ export default {
     const s = /** @type {any} */ (shift);
     const base = Number(s?.grossRevenue ?? 0);
     const tips = Number(s?.tipsRevenue ?? 0);
-    const bonus = Number(s?.customFields?.bonusAmount) || 0;
+    const bonus = Number(s?.bonusAmount) || 0;
     const grossDollars = base + tips + bonus;
     const mins = durationMinutes(shift);
     return mins > 0 ? calcHourlyRate(grossDollars, mins) : null;

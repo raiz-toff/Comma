@@ -25,7 +25,11 @@ export const SYNC_KEYS = {
   lastPushedAt: 'sync_last_pushed_at', // CURSOR: max syncUpdatedAt already pushed
   schedule: 'sync_schedule', // auto-push cadence: 'manual' | 'daily' | 'weekly'
   lastPushRunAt: 'sync_last_push_run_at', // WALL-CLOCK ms of the last push run (schedule timer)
+  failedLogs: 'sync_failed_logs', // JSON object {filename: consecutive apply-failure count}
 };
+
+/** A log that fails to apply this many times is QUARANTINED: pull stops re-downloading it. */
+export const LOG_QUARANTINE_THRESHOLD = 3;
 
 /**
  * A fresh per-browser device id. Dash-free by construction (see `newDashFreeId`) so it
@@ -51,6 +55,7 @@ export function postResetSyncState(freshDeviceId) {
     [SYNC_KEYS.appliedLogs]: '[]', // forget which change-logs were applied
     [SYNC_KEYS.lastPushedAt]: '0', // reset push cursor
     [SYNC_KEYS.lastPushRunAt]: '0', // reset the schedule timer
+    [SYNC_KEYS.failedLogs]: '{}', // forget quarantine history
   };
 }
 
@@ -174,4 +179,56 @@ export function setLastPushRunAt(value) {
  */
 export function setLastCloudSaveAt(iso) {
   writeSyncKey('last_backup_at', iso);
+}
+
+// ─── Poison-log quarantine (interop-audit Gap 5) ─────────────────────────────────
+//
+// A change-log whose apply keeps throwing (e.g. a row shape this build can't store) must not
+// wedge the pull pipeline forever: without this, the failing log is re-downloaded and re-failed
+// on every sync, and every log queued behind it is never applied. Failures are counted per
+// filename; at LOG_QUARANTINE_THRESHOLD the file is skipped by pull (it stays on Drive — a
+// later app update can clear the counter and retry it).
+
+/** @returns {Record<string, number>} filename → consecutive apply-failure count */
+export function getLogFailureCounts() {
+  const raw = readSyncKey(SYNC_KEYS.failedLogs);
+  if (!raw) return {};
+  try {
+    const obj = JSON.parse(raw);
+    return obj && typeof obj === 'object' && !Array.isArray(obj) ? obj : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Bump a log's failure count. @param {string} filename @returns {number} the new count */
+export function recordLogFailure(filename) {
+  const counts = getLogFailureCounts();
+  counts[filename] = (Number(counts[filename]) || 0) + 1;
+  writeSyncKey(SYNC_KEYS.failedLogs, JSON.stringify(counts));
+  return counts[filename];
+}
+
+/** Forget a log's failures (called after it finally applies cleanly). @param {string} filename */
+export function clearLogFailure(filename) {
+  const counts = getLogFailureCounts();
+  if (!(filename in counts)) return;
+  delete counts[filename];
+  writeSyncKey(SYNC_KEYS.failedLogs, JSON.stringify(counts));
+}
+
+/** @returns {Set<string>} filenames pull should skip (failed ≥ LOG_QUARANTINE_THRESHOLD times) */
+export function getQuarantinedLogs() {
+  const counts = getLogFailureCounts();
+  const out = new Set();
+  for (const [name, count] of Object.entries(counts)) {
+    if (Number(count) >= LOG_QUARANTINE_THRESHOLD) out.add(name);
+  }
+  return out;
+}
+
+/** Wipe ALL failure counts — e.g. after a wrong-password attempt failed every log (the logs
+ *  are fine; the password was wrong) so good files don't end up quarantined. */
+export function resetLogFailures() {
+  writeSyncKey(SYNC_KEYS.failedLogs, '{}');
 }

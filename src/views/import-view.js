@@ -1058,9 +1058,9 @@ export function render(root, ctx) {
           platformId: platformVal,
           grossRevenue: Number(grossVal),
           tipsRevenue: Number(tipsVal) || 0,
-          // Mobile's shifts table has no top-level bonus column — fold it into customFields
-          // rather than inventing a field the new schema doesn't have (see shifts.js normalizeShiftInput).
-          customFields: { bonusAmount: bonusNum },
+          // Mobile's shifts table has a real top-level bonusAmount column (Dexie v7) — pass it
+          // straight through (see shifts.js normalizeShiftInput).
+          bonusAmount: bonusNum,
           startTime: startVal ? startVal : null,
           endTime: endVal ? endVal : null,
           deliveryCount: ordersVal !== undefined && ordersVal !== '' ? Number(ordersVal) : null,

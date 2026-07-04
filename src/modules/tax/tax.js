@@ -130,7 +130,7 @@ async function loadTaxSummary(year) {
     .toArray();
 
   const gross = shifts.reduce(
-    (sum, s) => sum + num(s.grossRevenue) + num(s.tipsRevenue) + (Number(s.customFields?.bonusAmount) || 0),
+    (sum, s) => sum + num(s.grossRevenue) + num(s.tipsRevenue) + (Number(s.bonusAmount) || 0),
     0,
   );
   const businessExpenses = expenses.reduce(

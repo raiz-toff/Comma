@@ -12,7 +12,7 @@ export default {
     const s = /** @type {any} */ (shift);
     const base = Number(s?.grossRevenue ?? 0);
     const tips = Number(s?.tipsRevenue ?? 0);
-    const bonus = Number(s?.customFields?.bonusAmount) || 0;
+    const bonus = Number(s?.bonusAmount) || 0;
     return base + tips + bonus;
   },
 };

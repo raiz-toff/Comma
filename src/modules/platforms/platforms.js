@@ -455,6 +455,13 @@ export async function addPlatform(platformId) {
     name,
     color,
     priority: maxPri + 1,
+    // Mobile-canonical mirrors + LWW stamp (2026-07-03 interop audit): mobile reads
+    // `label`/`isActive`/`sortPriority`, and an unstamped write never pushes — so platform
+    // activation used to be invisible to the other device.
+    label: name,
+    isActive: true,
+    sortPriority: maxPri + 1,
+    syncUpdatedAt: Date.now(),
   });
 
   await saveUser({
@@ -479,7 +486,13 @@ export async function deactivatePlatform(platformId) {
   if (!row || !row.active) return;
 
   const ts = nowIso();
-  await db.platforms.update(id, { active: false, deactivatedAt: ts });
+  await db.platforms.update(id, {
+    active: false,
+    deactivatedAt: ts,
+    // Mobile mirror + LWW stamp (interop audit) — deactivation must sync too.
+    isActive: false,
+    syncUpdatedAt: Date.now(),
+  });
 
   const user = (await getUser()) || {};
   const pl = Array.isArray(user.platforms) ? user.platforms.filter((x) => String(x) !== id) : [];
@@ -514,6 +527,10 @@ export async function reactivatePlatform(platformId) {
     deactivatedAt: null,
     addedAt: row.addedAt || ts,
     priority: maxPri + 1,
+    // Mobile mirrors + LWW stamp (interop audit) — reactivation must sync too.
+    isActive: true,
+    sortPriority: maxPri + 1,
+    syncUpdatedAt: Date.now(),
   });
 
   const user = (await getUser()) || {};
@@ -539,6 +556,7 @@ export async function updatePlatformGoal(platformId, weekly, monthly) {
   await db.platforms.update(id, {
     weeklyGoal: Number(weekly) || 0,
     monthlyGoal: Number(monthly) || 0,
+    syncUpdatedAt: Date.now(), // LWW stamp (interop audit) — unstamped edits never push
   });
   await pushPlatformStateFromDb();
   bus.emit(PLATFORM_CHANGED, { platformId: id, source: 'updatePlatformGoal' });
@@ -550,7 +568,7 @@ export async function updatePlatformGoal(platformId, weekly, monthly) {
  */
 export async function updatePlatformTaxRate(platformId, ratePct) {
   const id = String(platformId || '').toLowerCase();
-  await db.platforms.update(id, { taxRatePct: Number(ratePct) || 0 });
+  await db.platforms.update(id, { taxRatePct: Number(ratePct) || 0, syncUpdatedAt: Date.now() });
   await pushPlatformStateFromDb();
   bus.emit(PLATFORM_CHANGED, { platformId: id, source: 'updatePlatformTaxRate' });
 }
@@ -561,7 +579,7 @@ export async function updatePlatformTaxRate(platformId, ratePct) {
  */
 export async function updatePlatformNotes(platformId, notes) {
   const id = String(platformId || '').toLowerCase();
-  await db.platforms.update(id, { notes: String(notes ?? '') });
+  await db.platforms.update(id, { notes: String(notes ?? ''), syncUpdatedAt: Date.now() });
   await pushPlatformStateFromDb();
   bus.emit(PLATFORM_CHANGED, { platformId: id, source: 'updatePlatformNotes' });
 }
@@ -573,7 +591,8 @@ export async function reorderPlatforms(newOrder) {
   const ids = newOrder.map(String).filter(Boolean);
   let i = 1;
   for (const id of ids) {
-    await db.platforms.update(id, { priority: i });
+    // sortPriority = mobile mirror of priority; stamp so the new order syncs (interop audit).
+    await db.platforms.update(id, { priority: i, sortPriority: i, syncUpdatedAt: Date.now() });
     i += 1;
   }
   const user = await getUser();

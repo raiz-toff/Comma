@@ -35,12 +35,15 @@ export const COMPACTION_THRESHOLD = 30;
  * @property {number} deletedLogs
  */
 
-/** Read the full current state of every synced table (all rows, including tombstones). */
+/** Read the full current state of every synced table (all rows, including tombstones).
+ *  Excludes never-synced rows (syncUpdatedAt 0/undefined — per-device seed scaffolding):
+ *  they were never in any delta log, so the snapshot loses nothing by skipping them, and
+ *  including them would leak every device's default seed rows to every peer. */
 async function readFullState() {
   /** @type {Record<string, Record<string, unknown>[]>} */
   const rows = {};
   for (const { name, table } of SYNCED_TABLES) {
-    rows[name] = await table.toArray();
+    rows[name] = (await table.toArray()).filter((r) => Number(r.syncUpdatedAt ?? 0) > 0);
   }
   return rows;
 }

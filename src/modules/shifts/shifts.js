@@ -226,6 +226,7 @@ function safeJsonParse(raw, fallback) {
  * @property {number} pausedSeconds mobile: paused time; net active = durationSeconds - pausedSeconds
  * @property {number} grossRevenue dollars (mobile: real, not cents)
  * @property {number} tipsRevenue dollars
+ * @property {number} bonusAmount dollars (mobile: real, default 0)
  * @property {number|null} deliveryCount backward-compat display aggregate (mobile has no shift-level trip count)
  * @property {number} activeMileage mobile: GPS-tracked delivery miles (web stores in km, see db.js doc)
  * @property {number} deadMileage mobile: commute/waiting miles not on a delivery
@@ -242,8 +243,8 @@ function safeJsonParse(raw, fallback) {
  * @property {string} notes
  * @property {boolean} isMultiApp web-only
  * @property {string[]} multiAppPlatformIds web-only
- * @property {Record<string, unknown>} customFields web-only bag (peakPay, bonusAmount, platform extras —
- *   mobile has no bonus field on shifts, so a web-entered "bonus" is folded in here, not into grossRevenue)
+ * @property {Record<string, unknown>} customFields web-only bag (peakPay, platform extras — mobile
+ *   has no equivalent columns for these, so they stay off the top-level row)
  * @property {string|null} deletedAt
  * @property {string} createdAt
  * @property {string} updatedAt
@@ -319,7 +320,7 @@ export function normalizeShiftInput(input) {
   const tipsRevenue = platformRows.length
     ? Math.max(0, platformRows.reduce((sum, r) => sum + r.tipsRevenue, 0))
     : Math.max(0, moneyToNumber(input.tipsRevenue ?? input.tips) ?? 0);
-  const bonusAmount = moneyToNumber(input.bonusEarnings ?? input.bonus);
+  const bonusAmount = Math.max(0, moneyToNumber(input.bonusAmount ?? input.bonusEarnings ?? input.bonus) ?? 0);
 
   const deliveryCount = platformRows.length
     ? platformRows.reduce((sum, r) => sum + r.tripsCount, 0)
@@ -352,18 +353,10 @@ export function normalizeShiftInput(input) {
     ...platformExtra.platformSpecific,
   };
   if (platformExtra.peakPay != null) customFields.peakPay = platformExtra.peakPay;
-  // Mobile's shifts table has no separate bonus/peak-pay column (interop plan Workstream 1) — a
-  // web-entered "bonus" folds into customFields rather than corrupting grossRevenue or inventing
-  // a top-level field mobile doesn't have.
-  if (bonusAmount != null) {
-    customFields.bonusAmount = bonusAmount;
-  } else if (
-    input.customFields &&
-    typeof input.customFields === 'object' &&
-    /** @type {any} */ (input.customFields).bonusAmount != null
-  ) {
-    customFields.bonusAmount = Number(/** @type {any} */ (input.customFields).bonusAmount) || 0;
-  }
+  // Mobile's shifts table has a real top-level `bonusAmount` column (interop plan Workstream 1,
+  // Dexie v7) — web mirrors it directly instead of folding into customFields (see `bonusAmount`
+  // above, same treatment as grossRevenue/tipsRevenue).
+  delete customFields.bonusAmount;
 
   const t = nowIso();
   const syncNow = Date.now();
@@ -375,6 +368,10 @@ export function normalizeShiftInput(input) {
     id,
     date,
     platformId,
+    // Mobile-canonical mirror (2026-07-03 interop audit): mobile's `shifts.platform` is a
+    // NOT NULL registry slug — same slugs as web's platformId (web's catalog is a subset of
+    // mobile's). Without this key, every web-created shift crashed mobile's sync apply.
+    platform: String(platformId || 'other'),
     provinceId,
     startTime,
     endTime,
@@ -382,6 +379,7 @@ export function normalizeShiftInput(input) {
     pausedSeconds,
     grossRevenue,
     tipsRevenue,
+    bonusAmount,
     deliveryCount,
     activeMileage,
     deadMileage,
@@ -571,16 +569,10 @@ export async function updateShift(id, patch) {
     nextPatch.tipsRevenue = Math.max(0, moneyToNumber(nextPatch.tips) ?? 0);
     delete nextPatch.tips;
   }
-  if (nextPatch.bonus !== undefined || nextPatch.bonusEarnings !== undefined) {
-    // Mobile has no top-level bonus column — fold into customFields (see normalizeShiftInput).
-    const bonusVal = moneyToNumber(nextPatch.bonusEarnings ?? nextPatch.bonus) ?? 0;
-    const baseCf =
-      nextPatch.customFields && typeof nextPatch.customFields === 'object'
-        ? { .../** @type {object} */ (nextPatch.customFields) }
-        : prev.customFields && typeof prev.customFields === 'object'
-          ? { .../** @type {object} */ (prev.customFields) }
-          : {};
-    nextPatch.customFields = { ...baseCf, bonusAmount: bonusVal };
+  if (nextPatch.bonus !== undefined || nextPatch.bonusEarnings !== undefined || nextPatch.bonusAmount !== undefined) {
+    // Mobile has a real top-level bonusAmount column (interop plan Workstream 1, Dexie v7) — mirror
+    // it directly, same treatment as grossRevenue/tipsRevenue above.
+    nextPatch.bonusAmount = Math.max(0, moneyToNumber(nextPatch.bonusAmount ?? nextPatch.bonusEarnings ?? nextPatch.bonus) ?? 0);
     delete nextPatch.bonus;
     delete nextPatch.bonusEarnings;
   }

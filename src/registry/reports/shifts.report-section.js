@@ -52,7 +52,7 @@ export default {
       Number(s.durationSeconds != null ? Math.round(s.durationSeconds / 60) : (s.onlineMinutes ?? 0)),
       Number(s.grossRevenue ?? 0),
       Number(s.tipsRevenue ?? 0),
-      Number(s.customFields?.bonusAmount) || 0,
+      Number(s.bonusAmount) || 0,
       s.deliveryCount ?? 0,
       s.activeMileage ?? 0,
       s.deadMileage ?? 0,

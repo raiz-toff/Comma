@@ -748,17 +748,17 @@ export function renderShiftForm(opts = {}) {
     if (typeof val === 'string' || typeof val === 'number') el.value = String(val);
   };
   // Schema-alignment pass (interop plan Workstream 1): shift rows now store grossRevenue/
-  // tipsRevenue as plain dollars (mobile parity) with bonus folded into customFields.bonusAmount
-  // (mobile has no top-level bonus column). Legacy `gross`/`tips`/`bonus` are still accepted as a
-  // read-side fallback (e.g. shift templates saved before this pass, or callers passing the old
-  // loose draft shape straight through).
+  // tipsRevenue/bonusAmount as plain dollars (mobile parity — mobile also has a real top-level
+  // bonusAmount column as of Dexie v7). Legacy `gross`/`tips`/`bonus`/`customFields.bonusAmount`
+  // are still accepted as a read-side fallback (e.g. shift templates saved before this pass, or
+  // callers passing the old loose draft shape straight through).
   const grossDollars = moneyStr(row1Source?.grossRevenue ?? initial.grossRevenue ?? initial.gross);
   const tipsDollars = moneyStr(row1Source?.tipsRevenue ?? initial.tipsRevenue ?? initial.tips);
   const bonusFromCustomFields =
     initial.customFields && typeof initial.customFields === 'object'
       ? /** @type {any} */ (initial.customFields).bonusAmount
       : undefined;
-  const bonusDollars = moneyStr(bonusFromCustomFields ?? initial.bonusEarnings ?? initial.bonus);
+  const bonusDollars = moneyStr(initial.bonusAmount ?? bonusFromCustomFields ?? initial.bonusEarnings ?? initial.bonus);
 
   seed('gross', grossDollars);
   seed('tips', tipsDollars);

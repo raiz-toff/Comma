@@ -140,7 +140,7 @@ export async function filterShifts(filters = {}) {
     if (filters.vehicleId && str(row.vehicleId) !== str(filters.vehicleId)) return false;
     const base = num(row.grossRevenue);
     const tips = num(row.tipsRevenue);
-    const bonus = Number(row.customFields?.bonusAmount) || 0;
+    const bonus = Number(row.bonusAmount) || 0;
     const gc = base + tips + bonus;
     if (filters.minGross != null && gc < num(filters.minGross)) return false;
     if (filters.maxGross != null && gc > num(filters.maxGross)) return false;
@@ -227,9 +227,17 @@ export async function deleteSavedFilter(id) {
  * @param {{ shifts?: Record<string, unknown>[], expenses?: Record<string, unknown>[] }} [opts]
  */
 async function buildSearchDocuments(opts = {}) {
-  const [vehicles, platforms] = await Promise.all([db.vehicles.toArray(), db.platforms.toArray()]);
-  const shifts = Array.isArray(opts.shifts) ? opts.shifts : await db.shifts.filter((s) => s.deletedAt == null).toArray();
-  const expenses = Array.isArray(opts.expenses) ? opts.expenses : await db.expenses.filter((e) => e.deletedAt == null).toArray();
+  // syncDeletedAt is the cross-device tombstone (interop audit) — a delete synced in from
+  // mobile carries it; `deletedAt` alone is web-local.
+  const [vehiclesAll, platformsAll] = await Promise.all([db.vehicles.toArray(), db.platforms.toArray()]);
+  const vehicles = vehiclesAll.filter((v) => v.syncDeletedAt == null);
+  const platforms = platformsAll.filter((p) => p.syncDeletedAt == null);
+  const shifts = Array.isArray(opts.shifts)
+    ? opts.shifts
+    : await db.shifts.filter((s) => s.deletedAt == null && s.syncDeletedAt == null).toArray();
+  const expenses = Array.isArray(opts.expenses)
+    ? opts.expenses
+    : await db.expenses.filter((e) => e.deletedAt == null && e.syncDeletedAt == null).toArray();
   const platformById = new Map(platforms.map((p) => [str(p.id), p]));
   const vehicleById = new Map(vehicles.map((v) => [str(v.id), v]));
 

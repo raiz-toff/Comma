@@ -1,14 +1,14 @@
-import { getGoalDashboardData, upsertGoal, listGoals } from '../modules/goals/goals.js';
-import { formatCurrency, formatLargeNumber, formatPercent } from '../utils/formatters.js';
+import { getGoalDashboardData, upsertGoal } from '../modules/goals/goals.js';
+import { formatCurrency, formatLargeNumber } from '../utils/formatters.js';
 import { t } from '../utils/strings.js';
 import { getIcon } from '../ui/icons.js';
-import { renderProgressRing, showNumericKeypad, showToast, showModal, showConfirm } from '../ui/components.js';
+import { showNumericKeypad, showToast, showModal, showConfirm } from '../ui/components.js';
 import { GoalTypeRegistry, GoalScopeRegistry } from '../registry/goal-types/index.js';
 import { db } from '../core/db.js';
 
 /**
  * Escapes HTML to prevent XSS.
- * @param {unknown} v 
+ * @param {unknown} v
  * @returns {string}
  */
 function esc(v) {
@@ -41,389 +41,416 @@ function stripFabQueryFromHash() {
   }
 }
 
+// ─── Mappings (mirror mobile's GOAL_UNITS) ──────────────────────────────────────
+const UNIT_ICON = {
+  earnings: '💰', net_profit: '💵', tips: '💸', hours: '⏱️', deliveries: '🚗', distance: '📍',
+};
+const UNIT_LABEL = {
+  earnings: 'Earnings ($)', net_profit: 'Net Profit', tips: 'Tips', hours: 'Hours Worked',
+  deliveries: 'Deliveries', distance: 'Active Distance',
+};
+const CURRENCY_TYPES = new Set(['earnings', 'net_profit', 'tips']);
+
+/** Title-case a snake_case goal type for display. */
+function humanizeType(type) {
+  return String(type || '')
+    .split('_')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+/** Next streak milestone (mirror mobile's getStreakMilestone). */
+function streakMilestone(days) {
+  if (days < 7) return { target: 7, label: '7-day streak' };
+  if (days < 30) return { target: 30, label: '30-day streak' };
+  if (days < 100) return { target: 100, label: '100-day streak' };
+  return { target: 100, label: 'Legend' };
+}
+
+function daysUntilReset(nextResetDate) {
+  if (!nextResetDate) return 7;
+  const diff = new Date(nextResetDate).getTime() - Date.now();
+  return Math.max(0, Math.ceil(diff / 86400000));
+}
+
 /**
- * Renders the sleek Goals view.
- * @param {HTMLElement} root 
- * @param {Record<string, unknown>} ctx 
+ * Inline SVG progress ring — visually matches mobile's `CircularProgress`
+ * (grey track, rounded colored arc from 12 o'clock, centered content).
+ * @param {number} pct @param {{size?:number,stroke?:number,color?:string,center?:string}} [o]
+ */
+function ring(pct, o = {}) {
+  const size = o.size ?? 140;
+  const stroke = o.stroke ?? 10;
+  const color = o.color ?? '#f59e0b';
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const off = c - (Math.min(100, Math.max(0, Number(pct) || 0)) / 100) * c;
+  return `
+    <div class="gv-ring" style="width:${size}px;height:${size}px;">
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <circle class="gv-ring-track" cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke-width="${stroke}"></circle>
+        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}"
+          stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" stroke-linecap="round"
+          transform="rotate(-90 ${size / 2} ${size / 2})"></circle>
+      </svg>
+      <div class="gv-ring-center">${o.center ?? ''}</div>
+    </div>`;
+}
+
+/**
+ * Goals view — matches the mobile (Android) "Goals & Progress" screen: a Goals / Progress
+ * tab switch, a weekly thermometer hero, an active-goals list, and a progress tab with
+ * XP, day-streak (+ shields), weekly challenges and a driver-badges grid.
+ * @param {HTMLElement} root
+ * @param {Record<string, unknown>} ctx
  */
 export async function render(root, ctx) {
   const data = await getGoalDashboardData();
-  const unlockedBadges = data.badges.filter((b) => b.unlockedAt);
-  const activeChallenges = data.challenges.filter((c) => c.active);
-  const activeGoals = data.goals;
+  const badges = data.badges || [];
+  const unlockedBadges = badges.filter((b) => b.unlockedAt);
+  const activeChallenges = (data.challenges || []).filter((c) => c.active !== false);
+  const activeGoals = data.goals || [];
+
+  const weeklyGoal = activeGoals.find((g) => g.scope === 'weekly' && g.type === 'earnings');
+  const otherGoals = activeGoals.filter((g) => !(weeklyGoal && g.id === weeklyGoal.id));
+
+  const thermoPct = Math.round((data.thermometer?.progress || 0) * 100);
+  const streakDays = data.streakDays || 0;
+  const frozen = Math.max(0, data.streakFrozenCount || 0);
+  const milestone = streakMilestone(streakDays);
+  const streakPct = streakDays >= 100 ? 100 : (streakDays / milestone.target) * 100;
+  const xpTotal = data.xpTotal || 0;
+  const xpLevel = data.xpLevel || 1;
+  const bestGross = data.records?.bestShiftGross || 0;
+
+  // ── Goals tab ──
+  const heroHtml = weeklyGoal
+    ? `
+      <div class="gv-card gv-hero">
+        <div class="gv-hero-main">
+          <span class="gv-kicker" style="color:#f59e0b;">Weekly Thermometer</span>
+          <h1 class="gv-hero-title">${esc(humanizeType(weeklyGoal.type))}</h1>
+          <p class="gv-hero-sub">Weekly Target Progress</p>
+          <div class="gv-hero-value">${esc(formatCurrency(weeklyGoal.current || 0))}</div>
+          <button class="gv-edit-target" data-action="edit-weekly-goal">
+            ${getIcon('edit', 13)} <span>EDIT TARGET</span>
+          </button>
+        </div>
+        ${ring(thermoPct, { color: '#f59e0b', center: `<span class="gv-ring-pct">${thermoPct}%</span>` })}
+      </div>`
+    : '';
+
+  const goalsListHtml = `
+    <div class="gv-card gv-list">
+      <div class="gv-list-head">
+        <h2>${weeklyGoal ? 'Other Active Goals' : 'Active Goals'}</h2>
+        <button class="gv-add" data-action="add-goal">${getIcon('plus', 16)} <span>ADD</span></button>
+      </div>
+      <div class="gv-list-body">
+        ${otherGoals.length === 0
+          ? `<p class="gv-empty">No other active goals. Tap Add to create one.</p>`
+          : otherGoals.map((goal) => {
+              const pct = Math.min(100, (goal.progress || 0) * 100);
+              const target = CURRENCY_TYPES.has(goal.type)
+                ? formatCurrency(goal.target || 0)
+                : formatLargeNumber(goal.target || 0);
+              return `
+                <div class="gv-goal">
+                  <div class="gv-goal-top">
+                    <div class="gv-goal-id">
+                      <div class="gv-goal-icon">${UNIT_ICON[goal.type] || '🎯'}</div>
+                      <div>
+                        <div class="gv-goal-name">${esc(humanizeType(goal.type))}</div>
+                        <div class="gv-goal-meta">${esc(goal.scope)} · ${esc(UNIT_LABEL[goal.type] || goal.type)}</div>
+                      </div>
+                    </div>
+                    <div class="gv-goal-right">
+                      <div class="gv-goal-target">${esc(target)}</div>
+                      <div class="gv-goal-actions">
+                        <button class="gv-ibtn" data-action="edit-goal" data-id="${esc(goal.id)}" aria-label="Edit">${getIcon('edit', 14)}</button>
+                        <button class="gv-ibtn gv-danger" data-action="delete-goal" data-id="${esc(goal.id)}" aria-label="Delete">${getIcon('trash', 14)}</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="gv-bar"><div class="gv-bar-fill" style="width:${pct}%;background:${pct >= 100 ? '#22c55e' : '#f59e0b'};"></div></div>
+                </div>`;
+            }).join('')}
+      </div>
+    </div>`;
+
+  // ── Progress tab ──
+  const xpHtml = `
+    <div class="gv-card" style="padding:20px;">
+      <div class="gv-row-between" style="margin-bottom:16px;">
+        <div class="gv-inline"><span style="color:#3b82f6;">${getIcon('award', 16)}</span><span class="gv-cap">Driver XP</span></div>
+        <div class="gv-lvl">LVL ${xpLevel}</div>
+      </div>
+      <div class="gv-xp">${esc(formatLargeNumber(xpTotal))} <span class="gv-xp-unit">XP</span></div>
+      <div class="gv-bar" style="margin:10px 0;"><div class="gv-bar-fill" style="width:${xpTotal % 100}%;background:#3b82f6;"></div></div>
+      <div class="gv-hint">${100 - (xpTotal % 100)} XP to Level ${xpLevel + 1}</div>
+    </div>`;
+
+  const streakHtml = `
+    <div class="gv-card" style="padding:20px;">
+      <div class="gv-inline" style="margin-bottom:20px;"><span style="color:#FF5247;">${getIcon('fire', 16)}</span><span class="gv-cap">Day Streak</span></div>
+      <div class="gv-streak">
+        ${ring(streakPct, { size: 110, stroke: 8, color: '#FF5247', center: `<span class="gv-streak-n">${streakDays}</span><span class="gv-streak-l">days</span>` })}
+        <div class="gv-streak-side">
+          <div>
+            <div class="gv-mini-cap">Next milestone</div>
+            <div class="gv-streak-ms">${streakDays >= 100 ? 'Legend 🏆' : `${milestone.target - streakDays} days to ${esc(milestone.label)}`}</div>
+          </div>
+          <div class="gv-shields">
+            ${Array.from({ length: Math.min(3, frozen) }).map(() => `<span class="gv-shield on">${getIcon('shield', 18)}</span>`).join('')}
+            ${Array.from({ length: Math.max(0, 3 - frozen) }).map(() => `<span class="gv-shield">${getIcon('shield', 18)}</span>`).join('')}
+            <span class="gv-shields-n">${frozen}/3 shields</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  const challengesHtml = `
+    <div class="gv-card" style="padding:20px;">
+      <h2 class="gv-card-title">Weekly Challenges</h2>
+      <div class="gv-challenges">
+        ${activeChallenges.length === 0
+          ? `<p class="gv-empty">No active challenges.</p>`
+          : activeChallenges.map((c) => {
+              const pct = c.target > 0 ? Math.min(100, Math.round((c.current / c.target) * 100)) : 0;
+              const done = !!c.completedAt || pct >= 100;
+              const resetDays = daysUntilReset(c.nextResetDate ?? c.resetAt ?? null);
+              return `
+                <div class="gv-challenge">
+                  <div class="gv-ch-top">
+                    <div class="gv-ch-icon ${done ? 'done' : ''}">${getIcon('goal', 18)}</div>
+                    <div class="gv-ch-body">
+                      <div class="gv-row-between">
+                        <span class="gv-ch-name">${esc(c.name)}</span>
+                        <span class="gv-ch-pct" style="color:${done ? '#22c55e' : '#ec4899'};">${done ? '✓ Done' : pct + '%'}</span>
+                      </div>
+                      ${c.description ? `<div class="gv-ch-desc">${esc(c.description)}</div>` : ''}
+                    </div>
+                  </div>
+                  <div class="gv-bar" style="margin:6px 0;"><div class="gv-bar-fill" style="width:${pct}%;background:${done ? '#22c55e' : '#ec4899'};"></div></div>
+                  <div class="gv-hint">${done ? `Resets in ${resetDays} day${resetDays === 1 ? '' : 's'}` : `${resetDays} day${resetDays === 1 ? '' : 's'} remaining`}</div>
+                </div>`;
+            }).join('')}
+      </div>
+    </div>`;
+
+  const badgesHtml = `
+    <div class="gv-card" style="padding:20px;">
+      <div class="gv-row-between" style="margin-bottom:18px;">
+        <div class="gv-inline"><span style="color:#8b5cf6;">${getIcon('star', 16)}</span><h2 class="gv-card-title" style="margin:0;">Driver Badges</h2></div>
+        <span class="gv-hint" style="font-weight:700;">${unlockedBadges.length} / ${badges.length}</span>
+      </div>
+      <div class="gv-badges">
+        ${badges.map((b) => `
+          <button class="gv-badge ${b.unlockedAt ? 'on' : ''}" data-action="badge" data-id="${esc(b.id)}" title="${esc(b.name)}">
+            <span class="gv-badge-icon">${esc(b.icon)}</span>
+          </button>`).join('')}
+      </div>
+      <p class="gv-badges-hint">Tap a badge to see details</p>
+    </div>`;
+
+  const bestHtml = `
+    <div class="gv-card gv-best">
+      <div class="gv-inline">
+        <span style="color:#f59e0b;">${getIcon('trending-up', 18)}</span>
+        <div>
+          <div class="gv-cap">Best Shift — All Time</div>
+          <div class="gv-best-val">${esc(formatCurrency(bestGross))}</div>
+        </div>
+      </div>
+      <span class="gv-chevron">›</span>
+    </div>`;
 
   root.innerHTML = `
     <div class="goals-view-container" data-goals-root>
-      <!-- Hero Section: Weekly Thermometer -->
-      <section class="goals-hero">
-        <div class="hero-card card card-raised">
-          <div class="hero-main">
-            <div class="hero-progress">
-              ${renderProgressRing({
-                value: data.thermometer.current,
-                max: data.thermometer.target,
-                size: 140,
-                strokeWidth: 10,
-                color: 'var(--color-warn)',
-                label: formatPercent(data.thermometer.progress * 100, 0),
-                ariaLabel: t('goals.thermometer'),
-              })}
-            </div>
-            <div class="hero-content">
-              <span class="hero-kicker">${esc(t('goals.thermometer'))}</span>
-              <h1 class="hero-title">${esc(t('goals.title'))}</h1>
-              <p class="hero-subtitle">${esc(t('goals.weeklyTarget'))}</p>
-              <div class="hero-value">
-                ${esc(formatCurrency(data.thermometer.current))} 
-                <span class="target-sep">/</span> 
-                <span class="target-val">${esc(formatCurrency(data.thermometer.target))}</span>
-              </div>
-              <button class="btn btn-primary btn-sm edit-target-btn" data-action="edit-weekly-goal">
-                ${getIcon('edit', 14)} <span>${esc(t('common.edit'))}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
+      <div class="gv-header"><h1 class="gv-page-title">Goals &amp; Progress</h1></div>
 
-      <!-- Bento Grid: Summary Stats -->
-      <section class="bento-grid">
-        <!-- XP & Level -->
-        <article class="card bento-cell-1x1 stat-card xp-card" data-widget-id="xp">
-          <div class="wr">
-            <div class="wh">
-              <div class="wi">${getIcon('award', 16)}</div>
-              <span class="wl">${esc(t('goals.xp'))}</span>
-              <span class="wb neu">Lv. ${data.xpLevel}</span>
-            </div>
-            <div class="wv">${esc(formatLargeNumber(data.xpTotal))} <span class="unit">XP</span></div>
-            <div class="wpb" style="margin-top: 4px;">
-              <div class="wpf" style="width: ${data.xpTotal % 100}%;"></div>
-            </div>
-            <div class="ws">${esc(100 - (data.xpTotal % 100))} to next level</div>
-          </div>
-        </article>
+      <div class="gv-tabs" role="tablist">
+        <button class="gv-tab is-active" data-tab="0" role="tab">Goals</button>
+        <button class="gv-tab" data-tab="1" role="tab">Progress</button>
+      </div>
 
-        <!-- Day Streak -->
-        <article class="card bento-cell-1x1 stat-card streak-card" data-widget-id="streak">
-          <div class="wr">
-            <div class="wh">
-              <div class="wi" style="--wa: var(--color-neg); --war: var(--rgb-neg)">${getIcon('fire', 16)}</div>
-              <span class="wl">${esc(t('goals.streakDays'))}</span>
-            </div>
-            <div class="wv">${esc(formatLargeNumber(data.streakDays))} <span class="unit">days</span></div>
-            <div class="wf">
-              <span class="ws">${getIcon('award', 12)} ${data.weekGoalStreak} weeks hit</span>
-            </div>
-          </div>
-        </article>
+      <div class="gv-panel is-active" data-panel="0">
+        ${heroHtml}
+        ${goalsListHtml}
+      </div>
 
-        <!-- Badge Progress -->
-        <article class="card bento-cell-1x1 stat-card badges-card" data-widget-id="badges">
-          <div class="wr">
-            <div class="wh">
-              <div class="wi" style="--wa: #8b5cf6; --war: 139, 92, 246">${getIcon('star', 16)}</div>
-              <span class="wl">${esc(t('goals.badges'))}</span>
-            </div>
-            <div class="wv">${esc(unlockedBadges.length)} <span class="unit">/ ${data.badges.length}</span></div>
-            <div class="badge-mini-preview">
-              ${unlockedBadges.slice(0, 4).map((b) => `<span class="mini-icon" title="${esc(b.name)}">${esc(b.icon)}</span>`).join('')}
-            </div>
-          </div>
-        </article>
-
-        <!-- Top Record -->
-        <article class="card bento-cell-1x1 stat-card records-card" data-widget-id="records">
-          <div class="wr">
-            <div class="wh">
-              <div class="wi" style="--wa: #10b981; --war: 16, 185, 129">${getIcon('trending-up', 16)}</div>
-              <span class="wl">Personal Best</span>
-            </div>
-            <div class="wv">${esc(formatCurrency(data.records.bestShiftGross || 0))}</div>
-            <div class="ws">Highest single shift gross</div>
-          </div>
-        </article>
-      </section>
-
-      <!-- Row 2: Active Goals & Challenges -->
-      <section class="bento-grid" style="margin-top: var(--space-4);">
-        <!-- Active Goals List -->
-        <article class="card bento-cell-2x1 goals-list-card">
-          <div class="card-header-flex">
-            <h2>${esc(t('goals.activeGoals'))}</h2>
-            <button class="btn btn-ghost btn-xs" data-action="add-goal">
-              ${getIcon('plus', 14)} <span>Add Goal</span>
-            </button>
-          </div>
-          <div class="goals-content-list">
-            ${activeGoals.length === 0 
-              ? `<p class="empty-hint">No active goals. Set one to start tracking!</p>`
-              : activeGoals.map(goal => `
-                <div class="goal-row" data-goal-id="${goal.id}">
-                  <div class="goal-meta">
-                    <div class="goal-name-wrap">
-                      <span class="goal-name">${esc(goal.scope)} ${esc(goal.type)}</span>
-                      <div class="goal-actions">
-                        <button class="btn-icon" data-action="edit-goal" data-id="${goal.id}" aria-label="Edit">${getIcon('edit', 12)}</button>
-                        <button class="btn-icon danger" data-action="delete-goal" data-id="${goal.id}" aria-label="Delete">${getIcon('trash', 12)}</button>
-                      </div>
-                    </div>
-                    <span class="goal-target">${esc(formatCurrency(goal.target))}</span>
-                  </div>
-                  <div class="wpb">
-                    <div class="wpf" style="width: ${goal.progress * 100}%;"></div>
-                  </div>
-                </div>
-              `).join('')}
-          </div>
-        </article>
-
-        <!-- Challenges -->
-        <article class="card bento-cell-1x1 challenges-card">
-          <div class="card-header-flex">
-            <h2>${esc(t('goals.challenges'))}</h2>
-          </div>
-          <div class="challenges-content-list">
-            ${activeChallenges.length === 0
-              ? `<p class="empty-hint">No active challenges.</p>`
-              : activeChallenges.map(challenge => {
-                  const pct = challenge.target > 0 ? Math.min(100, (challenge.current / challenge.target) * 100) : 0;
-                  return `
-                    <div class="challenge-row">
-                      <div class="challenge-meta">
-                        <span class="challenge-name">${esc(challenge.name)}</span>
-                        <span class="challenge-pct">${formatPercent(pct, 0)}</span>
-                      </div>
-                      <div class="wpb">
-                        <div class="wpf" style="width: ${pct}%;"></div>
-                      </div>
-                    </div>
-                  `;
-                }).join('')}
-          </div>
-        </article>
-      </section>
-
-      <!-- Badge Gallery Grid -->
-      <section class="card badges-gallery-card" style="margin-top: var(--space-4);">
-        <div class="card-header-flex">
-          <h2>Badge Collection</h2>
-        </div>
-        <div class="badges-gallery-grid">
-          ${data.badges.map(badge => `
-            <div class="badge-gallery-item ${badge.unlockedAt ? 'is-unlocked' : 'is-locked'}" title="${esc(badge.description)}">
-              <div class="badge-icon-large">${esc(badge.icon)}</div>
-              <span class="badge-label-small">${esc(badge.name)}</span>
-            </div>
-          `).join('')}
-        </div>
-      </section>
-
-      <!-- History Log -->
-      <section class="card history-card" style="margin-top: var(--space-4);">
-        <div class="card-header-flex">
-          <h2>${esc(t('goals.history'))}</h2>
-        </div>
-        <div class="history-scroll-table">
-          <table class="goal-history-table">
-            <thead>
-              <tr>
-                <th>Period</th>
-                <th>Target</th>
-                <th>Actual</th>
-                <th>Result</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.history.length === 0
-                ? `<tr><td colspan="4" class="empty-table-hint">No history yet. Log shifts to see progress.</td></tr>`
-                : data.history.slice(0, 10).map(row => `
-                  <tr>
-                    <td>${esc(row.periodStart)} — ${esc(row.periodEnd)}</td>
-                    <td>${esc(formatCurrency(row.target))}</td>
-                    <td>${esc(formatCurrency(row.actual))}</td>
-                    <td>
-                      <span class="result-badge ${row.hit ? 'is-hit' : 'is-miss'}">
-                        ${row.hit ? 'HIT' : 'MISS'}
-                      </span>
-                    </td>
-                  </tr>
-                `).join('')}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <div class="gv-panel" data-panel="1">
+        ${xpHtml}
+        ${streakHtml}
+        ${challengesHtml}
+        ${badgesHtml}
+        ${bestHtml}
+      </div>
     </div>
 
     <style>
       .goals-view-container {
-        padding: var(--space-4);
-        max-width: 1000px;
-        margin: 0 auto;
-        padding-bottom: 120px;
-        animation: goalsFadeIn 0.4s ease-out;
+        /* Dark (default — matches the Android look). Light theme overrides below. */
+        --gv-card:#0F0F12; --gv-border:#1E1E23; --gv-inset:#16161A; --gv-inset2:#1C1C21;
+        --gv-text:#F6F6F7; --gv-muted:#9B9BA4; --gv-dim:#65656E; --gv-faint:#2E2E36;
+        --gv-track:#1C1C21; --gv-badge:#0a0a0a; --gv-badge-on:#ffffff08; --gv-badge-on-bd:#ffffff18;
+        --gv-lvl-bg:#1e3a8a22; --gv-done-bg:#052e1640;
+        max-width: 720px; margin: 0 auto; padding: 20px 16px 120px;
+        animation: gvFade 0.35s ease-out;
       }
+      /* Light theme (explicit) + auto theme when the OS prefers light. */
+      html[data-theme='light'] .goals-view-container {
+        --gv-card:#ffffff; --gv-border:#e5e2da; --gv-inset:#f2f0eb; --gv-inset2:#e5e2da;
+        --gv-text:#1a1916; --gv-muted:#6b6860; --gv-dim:#a09d96; --gv-faint:#d5d1c8;
+        --gv-track:#e5e2da; --gv-badge:#f2f0eb; --gv-badge-on:rgba(0,0,0,0.035); --gv-badge-on-bd:#e5e2da;
+        --gv-lvl-bg:rgba(59,130,246,0.12); --gv-done-bg:rgba(34,197,94,0.14);
+      }
+      @media (prefers-color-scheme: light) {
+        html[data-theme='auto'] .goals-view-container {
+          --gv-card:#ffffff; --gv-border:#e5e2da; --gv-inset:#f2f0eb; --gv-inset2:#e5e2da;
+          --gv-text:#1a1916; --gv-muted:#6b6860; --gv-dim:#a09d96; --gv-faint:#d5d1c8;
+          --gv-track:#e5e2da; --gv-badge:#f2f0eb; --gv-badge-on:rgba(0,0,0,0.035); --gv-badge-on-bd:#e5e2da;
+          --gv-lvl-bg:rgba(59,130,246,0.12); --gv-done-bg:rgba(34,197,94,0.14);
+        }
+      }
+      .gv-ring-track { stroke: var(--gv-track); }
+      @keyframes gvFade { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 
-      @keyframes goalsFadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
+      .gv-header { text-align:center; padding:6px 0 16px; }
+      .gv-page-title { margin:0; font-size:17px; font-weight:900; letter-spacing:-0.3px; color:var(--gv-text); }
 
-      /* Hero Card Customization */
-      .hero-card {
-        padding: var(--space-6);
-        background: linear-gradient(135deg, var(--color-bg-card) 0%, var(--color-bg-alt) 100%);
-        border: 1px solid var(--color-border);
-        margin-bottom: var(--space-4);
-      }
-      .hero-main {
-        display: flex;
-        align-items: center;
-        gap: var(--space-8);
-      }
-      .hero-kicker {
-        display: block;
-        font-size: 0.7rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        color: var(--color-warn);
-        margin-bottom: 4px;
-      }
-      .hero-title {
-        margin: 0;
-        font-size: 2.25rem;
-        font-weight: 800;
-        letter-spacing: -0.03em;
-        line-height: 1;
-      }
-      .hero-subtitle {
-        margin: var(--space-1) 0 0;
-        font-size: 0.875rem;
-        color: var(--color-text-muted);
-        font-weight: 500;
-      }
-      .hero-value {
-        margin: var(--space-4) 0;
-        font-size: 1.75rem;
-        font-weight: 800;
-        color: var(--color-text-primary);
-        letter-spacing: -0.01em;
-      }
-      .target-sep { color: var(--color-text-muted); opacity: 0.3; padding: 0 4px; }
-      .target-val { color: var(--color-text-muted); font-weight: 600; }
+      .gv-tabs { display:flex; gap:0; background:var(--gv-inset); border:0.8px solid var(--gv-inset2);
+        border-radius:14px; padding:4px; margin-bottom:20px; }
+      .gv-tab { flex:1; padding:10px; border:none; background:transparent; border-radius:10px; cursor:pointer;
+        font-size:13px; font-weight:800; color:var(--gv-muted); transition:background 0.15s; }
+      .gv-tab.is-active { background:var(--gv-inset2); color:var(--gv-text); }
 
-      /* Stat Cards */
-      .badge-mini-preview {
-        display: flex;
-        gap: 6px;
-        margin-top: 8px;
-      }
-      .mini-icon {
-        font-size: 1.25rem;
-        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
-      }
+      .gv-panel { display:none; flex-direction:column; gap:16px; }
+      .gv-panel.is-active { display:flex; }
 
-      /* List & Challenges */
-      .card-header-flex {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: var(--space-4);
-      }
-      .card-header-flex h2 {
-        font-size: 1.1rem;
-        font-weight: 700;
-        margin: 0;
-      }
-      .goal-row, .challenge-row {
-        margin-bottom: var(--space-4);
-      }
-      .goal-meta, .challenge-meta {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 6px;
-        font-size: 0.8125rem;
-        font-weight: 600;
-      }
-      .goal-name-wrap { display: flex; align-items: center; gap: 8px; }
-      .goal-name { text-transform: capitalize; }
-      .goal-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.2s; }
-      .goal-row:hover .goal-actions { opacity: 1; }
-      .btn-icon { background: none; border: none; padding: 4px; cursor: pointer; color: var(--color-text-muted); display: flex; align-items: center; border-radius: 4px; }
-      .btn-icon:hover { background: rgba(0,0,0,0.1); color: var(--color-text-primary); }
-      .btn-icon.danger:hover { color: var(--color-neg); }
+      .gv-card { background:var(--gv-card); border:0.8px solid var(--gv-border); border-radius:20px; }
 
-      .empty-hint { color: var(--color-text-muted); font-style: italic; font-size: 0.875rem; }
+      /* Hero */
+      .gv-hero { padding:24px; display:flex; align-items:center; gap:24px; overflow:hidden; }
+      .gv-hero-main { flex:1; min-width:0; }
+      .gv-kicker { display:block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:6px; }
+      .gv-hero-title { margin:0 0 6px; font-size:24px; font-weight:900; letter-spacing:-0.5px; line-height:1.15; color:var(--gv-text); text-transform:capitalize; }
+      .gv-hero-sub { margin:0 0 14px; font-size:12px; font-weight:600; color:var(--gv-muted); }
+      .gv-hero-value { font-size:38px; font-weight:800; letter-spacing:-0.5px; color:var(--gv-text); margin-bottom:18px; line-height:1; }
+      .gv-edit-target { display:inline-flex; align-items:center; gap:6px; background:var(--gv-inset2); border:none;
+        color:var(--gv-text); font-size:11px; font-weight:800; padding:9px 14px; border-radius:12px; cursor:pointer; }
 
-      /* Badge Gallery */
-      .badges-gallery-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
-        gap: var(--space-4);
-      }
-      .badge-gallery-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 6px;
-        padding: var(--space-2);
-        border-radius: var(--radius-md);
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        cursor: help;
-      }
-      .badge-icon-large { font-size: 2rem; filter: grayscale(1) opacity(0.2); transition: all 0.3s; }
-      .badge-label-small { font-size: 0.65rem; font-weight: 700; color: var(--color-text-muted); text-align: center; }
-      
-      .badge-gallery-item.is-unlocked .badge-icon-large { filter: grayscale(0) opacity(1); transform: scale(1.1); }
-      .badge-gallery-item.is-unlocked .badge-label-small { color: var(--color-text-primary); }
-      .badge-gallery-item.is-unlocked:hover { background: rgba(0,0,0,0.05); }
+      /* Ring */
+      .gv-ring { position:relative; display:grid; place-items:center; flex-shrink:0; }
+      .gv-ring-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+      .gv-ring-pct { font-size:28px; font-weight:800; color:var(--gv-text); letter-spacing:-0.5px; }
 
-      /* History Table */
-      .history-scroll-table { overflow-x: auto; margin: 0 calc(-1 * var(--space-4)); padding: 0 var(--space-4); }
-      .goal-history-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
-      .goal-history-table th { text-align: left; padding: var(--space-3); color: var(--color-text-muted); font-weight: 600; border-bottom: 1px solid var(--color-border); }
-      .goal-history-table td { padding: var(--space-3); border-bottom: 1px solid var(--color-border); }
-      .result-badge { padding: 2px 8px; border-radius: 99px; font-size: 0.65rem; font-weight: 800; }
-      .result-badge.is-hit { background: rgba(var(--rgb-pos), 0.1); color: var(--color-pos); }
-      .result-badge.is-miss { background: rgba(var(--rgb-neg), 0.1); color: var(--color-neg); }
+      /* Active goals list */
+      .gv-list-head { display:flex; align-items:center; justify-content:space-between; padding:20px; border-bottom:0.8px solid var(--gv-border); }
+      .gv-list-head h2 { margin:0; font-size:16px; font-weight:800; color:var(--gv-text); }
+      .gv-add { display:inline-flex; align-items:center; gap:6px; background:none; border:none; cursor:pointer;
+        color:#f59e0b; font-size:12px; font-weight:800; text-transform:uppercase; }
+      .gv-list-body { padding:20px; display:flex; flex-direction:column; gap:20px; }
+      .gv-empty { margin:0; font-size:13px; color:var(--gv-muted); font-style:italic; text-align:center; }
+      .gv-goal { display:flex; flex-direction:column; gap:10px; }
+      .gv-goal-top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+      .gv-goal-id { display:flex; align-items:center; gap:10px; min-width:0; }
+      .gv-goal-icon { width:36px; height:36px; border-radius:12px; background:var(--gv-inset); border:1px solid var(--gv-inset2);
+        display:grid; place-items:center; font-size:16px; flex-shrink:0; }
+      .gv-goal-name { font-size:14px; font-weight:800; color:var(--gv-text); text-transform:capitalize; }
+      .gv-goal-meta { font-size:11px; font-weight:700; color:var(--gv-muted); text-transform:uppercase; margin-top:2px; }
+      .gv-goal-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+      .gv-goal-target { font-size:14px; font-weight:900; color:var(--gv-text); }
+      .gv-goal-actions { display:flex; gap:8px; }
+      .gv-ibtn { background:none; border:none; padding:0; cursor:pointer; color:var(--gv-muted); display:inline-flex; }
+      .gv-ibtn.gv-danger { color:#FF5247; }
+      .gv-bar { height:5px; background:var(--gv-border); border-radius:3px; overflow:hidden; }
+      .gv-bar-fill { height:100%; border-radius:3px; transition:width 0.4s ease; }
 
-      @media (max-width: 40rem) {
-        .hero-main { flex-direction: column; text-align: center; gap: var(--space-6); }
-        .hero-content { width: 100%; }
-        .hero-title { font-size: 1.75rem; }
-        .hero-value { font-size: 1.5rem; }
-        .goal-actions { opacity: 1; }
+      /* Progress tab shared */
+      .gv-row-between { display:flex; align-items:center; justify-content:space-between; }
+      .gv-inline { display:flex; align-items:center; gap:8px; }
+      .gv-cap { font-size:12px; font-weight:800; color:var(--gv-muted); text-transform:uppercase; }
+      .gv-card-title { margin:0 0 18px; font-size:16px; font-weight:800; color:var(--gv-text); }
+      .gv-hint { font-size:11px; font-weight:700; color:var(--gv-dim); }
+
+      .gv-lvl { background:var(--gv-lvl-bg); border:1px solid #3b82f640; border-radius:8px; padding:4px 10px; font-size:11px; font-weight:900; color:#3b82f6; }
+      .gv-xp { font-size:34px; font-weight:800; letter-spacing:-0.5px; color:var(--gv-text); line-height:1; }
+      .gv-xp-unit { font-size:16px; color:var(--gv-dim); font-weight:600; }
+
+      .gv-streak { display:flex; align-items:center; gap:20px; }
+      .gv-streak-n { font-size:26px; font-weight:800; color:var(--gv-text); line-height:1; }
+      .gv-streak-l { font-size:10px; font-weight:700; color:var(--gv-muted); }
+      .gv-streak-side { flex:1; display:flex; flex-direction:column; gap:12px; }
+      .gv-mini-cap { font-size:10px; font-weight:800; color:var(--gv-dim); text-transform:uppercase; margin-bottom:4px; }
+      .gv-streak-ms { font-size:13px; font-weight:800; color:var(--gv-text); }
+      .gv-shields { display:flex; align-items:center; gap:6px; }
+      .gv-shield { color:var(--gv-faint); display:inline-flex; }
+      .gv-shield.on { color:#6366f1; }
+      .gv-shields-n { font-size:11px; font-weight:700; color:#6366f1; margin-left:2px; }
+
+      .gv-challenges { display:flex; flex-direction:column; gap:16px; }
+      .gv-ch-top { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+      .gv-ch-icon { width:40px; height:40px; border-radius:20px; background:var(--gv-card); border:1px solid var(--gv-inset2);
+        display:grid; place-items:center; color:#ec4899; flex-shrink:0; }
+      .gv-ch-icon.done { background:var(--gv-done-bg); border-color:#22c55e40; color:#22c55e; }
+      .gv-ch-body { flex:1; min-width:0; }
+      .gv-ch-name { font-size:13px; font-weight:800; color:var(--gv-text); }
+      .gv-ch-pct { font-size:12px; font-weight:900; }
+      .gv-ch-desc { font-size:11px; color:var(--gv-muted); margin-top:3px; }
+
+      .gv-badges { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
+      .gv-badge { aspect-ratio:1; display:grid; place-items:center; background:var(--gv-badge); border:1px solid var(--gv-border);
+        border-radius:14px; cursor:pointer; }
+      .gv-badge.on { background:var(--gv-badge-on); border-color:var(--gv-badge-on-bd); }
+      .gv-badge-icon { font-size:32px; filter:grayscale(1) opacity(0.25); }
+      .gv-badge.on .gv-badge-icon { filter:none; }
+      .gv-badges-hint { text-align:center; font-size:11px; color:var(--gv-dim); font-style:italic; margin:14px 0 0; }
+
+      .gv-best { padding:20px; display:flex; align-items:center; justify-content:space-between; cursor:default; }
+      .gv-best-val { font-size:22px; font-weight:900; letter-spacing:-0.5px; color:var(--gv-text); margin-top:2px; }
+      .gv-chevron { font-size:18px; color:var(--gv-dim); }
+
+      @media (max-width: 30rem) {
+        .gv-hero { flex-direction:column; text-align:center; gap:18px; }
+        .gv-hero-main { width:100%; }
+        .gv-edit-target { align-self:center; }
       }
     </style>
   `;
 
-  // --- INTERACTION HANDLERS ---
-
-  // Edit Weekly Goal (Main Hero)
-  root.querySelectorAll('[data-action="edit-weekly-goal"]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const weeklyEarningsGoal = activeGoals.find(g => g.scope === 'weekly' && g.type === 'earnings');
-      if (weeklyEarningsGoal) openGoalEditModal(weeklyEarningsGoal);
+  // ── Tab switching (no re-render, preserves scroll) ──
+  const tabs = Array.from(root.querySelectorAll('.gv-tab'));
+  const panels = Array.from(root.querySelectorAll('.gv-panel'));
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const idx = tab.dataset.tab;
+      tabs.forEach((tt) => tt.classList.toggle('is-active', tt.dataset.tab === idx));
+      panels.forEach((p) => p.classList.toggle('is-active', p.dataset.panel === idx));
     });
   });
 
-  // Add Goal
+  // ── Interaction handlers ──
+  root.querySelectorAll('[data-action="edit-weekly-goal"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (weeklyGoal) openGoalEditModal(weeklyGoal);
+    });
+  });
+
   root.querySelectorAll('[data-action="add-goal"]').forEach((btn) => {
     btn.addEventListener('click', () => openGoalEditModal(null));
   });
 
-  // Edit Goal (from list)
   root.querySelectorAll('[data-action="edit-goal"]').forEach((btn) => {
     btn.addEventListener('click', () => {
       // goals.id is a client-generated string (Fix 2 — interop plan) — no numeric coercion.
       const id = btn.dataset.id;
-      const goal = activeGoals.find(g => g.id === id);
+      const goal = activeGoals.find((g) => g.id === id);
       if (goal) openGoalEditModal(goal);
     });
   });
 
-  // Delete Goal
   root.querySelectorAll('[data-action="delete-goal"]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.id;
@@ -435,30 +462,48 @@ export async function render(root, ctx) {
           await db.goals.delete(id);
           showToast({ message: 'Goal removed', type: 'info' });
           render(root, ctx);
-        }
+        },
       });
     });
   });
 
-  // Goal Edit Modal Implementation
+  // Badge detail (mirror mobile's badge modal).
+  root.querySelectorAll('[data-action="badge"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const badge = badges.find((b) => String(b.id) === btn.dataset.id);
+      if (!badge) return;
+      const el = document.createElement('div');
+      el.style.textAlign = 'center';
+      el.innerHTML = `
+        <div style="font-size:56px;filter:${badge.unlockedAt ? 'none' : 'grayscale(1) opacity(0.3)'};">${esc(badge.icon)}</div>
+        <h3 style="margin:12px 0 4px;font-weight:900;">${esc(badge.name)}</h3>
+        <p style="margin:0;color:var(--color-text-muted);font-size:0.85rem;">${esc(badge.description || '')}</p>
+        <div style="margin-top:12px;font-weight:800;font-size:0.75rem;color:${badge.unlockedAt ? '#22c55e' : 'var(--color-text-muted)'};">
+          ${badge.unlockedAt ? '✓ UNLOCKED' : 'LOCKED'}
+        </div>`;
+      showModal({ title: '', content: el, actions: [{ label: t('common.close'), class: 'btn btn-secondary' }] });
+    });
+  });
+
+  // Goal edit/create modal.
   function openGoalEditModal(goal) {
     const isNew = !goal;
     const types = GoalTypeRegistry.getAll();
     const scopes = GoalScopeRegistry.getAll();
-    
+
     const content = document.createElement('div');
     content.className = 'goal-form';
     content.innerHTML = `
       <div class="input-group">
         <label class="input-label">Metric</label>
         <select class="input" id="goal-type">
-          ${types.map(t => `<option value="${t.key}" ${goal?.type === t.key ? 'selected' : ''}>${esc(t.key)}</option>`).join('')}
+          ${types.map((tp) => `<option value="${tp.key}" ${goal?.type === tp.key ? 'selected' : ''}>${esc(humanizeType(tp.key))}</option>`).join('')}
         </select>
       </div>
       <div class="input-group" style="margin-top: var(--space-4);">
         <label class="input-label">Frequency</label>
         <select class="input" id="goal-scope">
-          ${scopes.map(s => `<option value="${s}" ${goal?.scope === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
+          ${scopes.map((s) => `<option value="${s}" ${goal?.scope === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
         </select>
       </div>
       <div class="input-group" style="margin-top: var(--space-4);">
@@ -470,37 +515,30 @@ export async function render(root, ctx) {
       </div>
     `;
 
-    const modal = showModal({
+    showModal({
       title: isNew ? 'Add Goal' : 'Edit Goal',
       content,
       actions: [
         { label: t('common.cancel'), class: 'btn btn-secondary' },
-        { 
-          label: isNew ? 'Add' : 'Save', 
+        {
+          label: isNew ? 'Add' : 'Save',
           class: 'btn btn-primary',
           onClick: async () => {
             const type = content.querySelector('#goal-type').value;
             const scope = content.querySelector('#goal-scope').value;
             const target = parseFloat(content.querySelector('#goal-target').value);
-            
+
             if (isNaN(target) || target <= 0) {
               showToast({ message: 'Please enter a valid target', type: 'error' });
               return false; // Stay open
             }
 
-            await upsertGoal({
-              id: goal?.id,
-              type,
-              scope,
-              target,
-              active: true
-            });
-
+            await upsertGoal({ id: goal?.id, type, scope, target, active: true });
             showToast({ message: isNew ? 'Goal added!' : 'Goal updated!', type: 'success' });
             render(root, ctx);
-          }
-        }
-      ]
+          },
+        },
+      ],
     });
 
     content.querySelector('#btn-keypad').addEventListener('click', () => {
@@ -509,7 +547,7 @@ export async function render(root, ctx) {
         title: 'Enter Target',
         onConfirm: (val) => {
           content.querySelector('#goal-target').value = val;
-        }
+        },
       });
     });
   }
@@ -522,5 +560,3 @@ export async function render(root, ctx) {
     });
   }
 }
-
-

@@ -21,9 +21,12 @@ import { ProvinceRegistry } from '../../registry/provinces/index.js';
 import { getDefaultSamplePlatformId } from '../../registry/platforms/index.js';
 import { showConfirm, showToast, showModal } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
-import { requestToken, isDriveConnected } from '../backup/drive-auth.js';
+import { requestToken, isDriveConnected, getAccessToken } from '../backup/drive-auth.js';
 import { listAvailableBackups, runRestore } from '../backup/restore-engine.js';
-import { deserializeVault } from '../backup/vault-serializer.js';
+import { setBackupPassword, clearBackupPassword } from '../../services/sync/backupPassword.js';
+import { setSyncEnabled, resetLogFailures } from '../../services/sync/syncState.js';
+import { syncNow } from '../../services/sync/syncNow.js';
+import { importVaultFile } from '../backup/vault-import.js';
 import { runOnOpenNotificationCheck } from '../notifications/notifications.js';
 import {
   TOTAL_STEPS,
@@ -56,122 +59,173 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-async function handleRestoreVault() {
+/**
+ * Landing-page "Restore / Sync" chooser: pull existing data in via Google Drive SYNC (the
+ * cross-device path — works with the phone) or by importing a local backup FILE (current or
+ * legacy web exports, plus encrypted .comdb — see backup/vault-import.js).
+ */
+function handleRestoreSync() {
   const modal = showModal({
-    title: t('onboarding.landing.restoreLink') || 'Restore existing vault',
+    title: 'Restore / Sync',
     content: `
       <div class="restore-choice-grid">
-        <button type="button" class="restore-choice-btn card" data-restore-type="drive">
+        <button type="button" class="restore-choice-btn card" data-choice="google-sync">
           <span class="restore-choice-icon">${getIcon('google-drive', 28)}</span>
-          <span class="restore-choice-label">Google Drive</span>
-          <span class="restore-choice-desc">Restore from your cloud backups</span>
+          <span class="restore-choice-label">Google Sync</span>
+          <span class="restore-choice-desc">Connect your account — pulls the data your phone (or another browser) synced, and keeps syncing</span>
         </button>
-        <button type="button" class="restore-choice-btn card" data-restore-type="local">
+        <button type="button" class="restore-choice-btn card" data-choice="local-file">
           <span class="restore-choice-icon">${getIcon('upload', 28)}</span>
-          <span class="restore-choice-label">Local Backup</span>
-          <span class="restore-choice-desc">Import a .comdb or .json file</span>
+          <span class="restore-choice-label">Backup file</span>
+          <span class="restore-choice-desc">Import a comma-vault-backup .json or encrypted .comdb — old exports work too</span>
         </button>
       </div>
-      <input type="file" id="ob-restore-file" accept=".comdb,.json" style="display:none" />
+      <input type="file" id="ob-import-file" accept=".json,.comdb,application/json" style="display:none" />
     `,
     size: 'sm',
-    actions: []
+    actions: [],
   });
 
-  const driveBtn = modal.root.querySelector('[data-restore-type="drive"]');
-  driveBtn?.addEventListener('click', async () => {
+  modal.root.querySelector('[data-choice="google-sync"]')?.addEventListener('click', () => {
     modal.close();
-    if (!isDriveConnected()) {
-      requestToken();
-    } else {
-      const backups = await listAvailableBackups();
-      if (backups.length > 0) {
-        showRestoreChoiceModal(backups);
-      } else {
-        showToast({ type: 'info', message: t('settings.backupRestoreEmpty') || 'No backups found in your Drive.' });
-      }
-    }
+    handleJoinSync();
   });
 
-  const localBtn = modal.root.querySelector('[data-restore-type="local"]');
-  const fileInput = modal.root.querySelector('#ob-restore-file');
-  localBtn?.addEventListener('click', () => fileInput?.click());
-
+  const fileInput = modal.root.querySelector('#ob-import-file');
+  modal.root.querySelector('[data-choice="local-file"]')?.addEventListener('click', () => fileInput?.click());
   fileInput?.addEventListener('change', async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const file = /** @type {HTMLInputElement} */ (e.target).files?.[0];
     modal.close();
-    
-    try {
-      const text = await file.text();
-      const data = JSON.parse(text);
-      
-      const confirmed = await showConfirm({
-        title: 'Confirm Restore',
-        message: 'This will replace all current data. Are you sure?',
-        confirmText: 'Restore Now',
-        danger: true
-      });
-
-      if (confirmed) {
-        const res = await (data.magic === 'COMMA_VAULT' ? runRestoreFromFile(data) : deserializeVault(data));
-        if (res.success) {
-          showToast({ type: 'success', message: 'Vault restored ✓' });
-          setTimeout(() => window.location.reload(), 1000);
-        } else {
-          showToast({ type: 'error', message: res.error || 'Restore failed.' });
-        }
-      }
-    } catch (err) {
-      showToast({ type: 'error', message: 'Invalid file format.' });
+    if (!file) return;
+    const res = await importVaultFile(file);
+    if ('cancelled' in res && res.cancelled) return;
+    if (res.success) {
+      showToast({ type: 'success', message: 'Backup imported ✓' });
+      setTimeout(() => window.location.reload(), 900);
+    } else {
+      showToast({ type: 'error', message: res.error || 'Import failed.', duration: 3600 });
     }
   });
 }
 
-async function showRestoreChoiceModal(backups) {
+/**
+ * "Google Sync" flow (reached from the Restore/Sync chooser): connect Drive with the SAME
+ * Google account as the phone → enter the SAME sync password → run the first full sync (the
+ * phone must have pushed at least once) → adopt the synced platform choices and mark
+ * onboarding complete.
+ */
+async function handleJoinSync() {
+  let unsubOk = null;
+  let unsubFail = null;
+  const cleanup = () => {
+    unsubOk?.();
+    unsubFail?.();
+    unsubOk = null;
+    unsubFail = null;
+  };
+
   const modal = showModal({
-    title: t('settings.backupRestoreTitle'),
+    title: 'Sync from your phone',
     content: `
-      <div class="restore-list">
-        ${backups.map(b => `
-          <div class="restore-item">
-            <div class="restore-info">
-              <p class="restore-date">${new Date(b.encryptedAt).toLocaleString()}</p>
-              <p class="restore-meta text-xs text-secondary">${b.deviceHint || 'Unknown Device'} · v${b.appVersion}</p>
-            </div>
-            <button type="button" class="btn btn-primary btn-sm" data-restore-id="${b.id}">Restore</button>
-          </div>
-        `).join('')}
-      </div>
+      <p class="text-secondary" style="margin:0 0 var(--space-3)">
+        Connect the <strong>same Google account</strong> you use in the Comma app, then enter
+        your <strong>sync password</strong>. Your records will sync into this browser and stay
+        in sync both ways.
+      </p>
+      <button type="button" class="btn btn-primary" data-join-connect style="width:100%">
+        ${getIcon('google-drive', 18)} <span data-join-connect-label>Connect Google Drive</span>
+      </button>
+      <label class="input-group" style="margin-top:var(--space-3)">
+        <span class="input-label">Sync password</span>
+        <input type="password" class="input" data-join-password placeholder="Same password as on your phone" autocomplete="off" />
+      </label>
+      <button type="button" class="btn btn-primary" data-join-start style="width:100%;margin-top:var(--space-3)" disabled>
+        Start syncing
+      </button>
+      <p class="text-xs text-secondary" data-join-status style="margin-top:var(--space-2);min-height:1em"></p>
     `,
-    size: 'sm'
+    size: 'sm',
+    actions: [],
+    onClose: cleanup,
   });
 
-  modal.root.querySelectorAll('[data-restore-id]').forEach(btn => {
-    btn.onclick = async () => {
-      const id = btn.dataset.restoreId;
-      modal.close();
-      const confirmed = await showConfirm({
-        title: t('settings.backupRestoreConfirmTitle'),
-        message: t('settings.backupRestoreConfirmMessage'),
-        requireType: 'RESTORE',
-        danger: true
-      });
-      if (confirmed) {
-        const res = await runRestore(id);
-        if (res.success) {
-          showToast({ type: 'success', message: 'Vault restored ✓' });
-          setTimeout(() => window.location.reload(), 1000);
-        } else {
-          showToast({ type: 'error', message: res.error });
-        }
+  const root = modal.root;
+  const connectBtn = root.querySelector('[data-join-connect]');
+  const connectLabel = root.querySelector('[data-join-connect-label]');
+  const startBtn = root.querySelector('[data-join-start]');
+  const pwInput = root.querySelector('[data-join-password]');
+  const statusEl = root.querySelector('[data-join-status]');
+
+  const setStatus = (msg) => {
+    if (statusEl) statusEl.textContent = msg;
+  };
+  const markConnected = () => {
+    if (connectLabel) connectLabel.textContent = 'Google Drive connected ✓';
+    connectBtn?.setAttribute('disabled', 'true');
+    startBtn?.removeAttribute('disabled');
+    setStatus('');
+  };
+
+  // A still-valid token from a previous visit means we're already connected.
+  if (getAccessToken()) markConnected();
+
+  unsubOk = bus.on('drive:auth_success', markConnected);
+  unsubFail = bus.on('drive:auth_failed', () => setStatus('Google sign-in failed — try again.'));
+
+  connectBtn?.addEventListener('click', () => {
+    setStatus('Waiting for Google sign-in…');
+    requestToken();
+  });
+
+  startBtn?.addEventListener('click', async () => {
+    const pw = String(pwInput?.value || '');
+    if (pw.length < 6) {
+      setStatus('Enter your sync password (6+ characters).');
+      return;
+    }
+    startBtn.setAttribute('disabled', 'true');
+    setStatus('Syncing your data…');
+    setBackupPassword(pw);
+    setSyncEnabled(true);
+    try {
+      const res = await syncNow(pw);
+
+      if (res.pulledLogs === 0) {
+        // Same account + password, but nothing on Drive yet — the phone hasn't pushed.
+        // Leave sync enabled (it'll pull once the phone pushes) but don't finish onboarding
+        // on an empty vault without telling the user why.
+        setStatus('No synced data found yet. On your phone: Settings → Cloud Sync → Sync now, then press "Start syncing" again.');
+        startBtn.removeAttribute('disabled');
+        return;
       }
-    };
-  });
-}
+      if (res.appliedRows === 0 && res.failedLogs === res.pulledLogs) {
+        // Every log failed to decrypt — almost certainly the wrong sync password. Undo, and
+        // clear the failure counters so a typo can't quarantine perfectly good logs.
+        setSyncEnabled(false);
+        clearBackupPassword();
+        resetLogFailures();
+        setStatus("That password didn't decrypt your data — make sure it matches the one on your phone.");
+        startBtn.removeAttribute('disabled');
+        return;
+      }
 
-async function runRestoreFromFile(wrapper) {
-  return { success: false, error: 'Encrypted local files must be restored via Google Drive for key synchronization.' };
+      // Adopt the synced platform choices into the local profile, then skip the wizard.
+      const active = await db.platforms.filter((p) => p.active === true && p.syncDeletedAt == null).toArray();
+      await saveUser({
+        onboardingComplete: true,
+        platforms: active.map((p) => p.id),
+        primaryPlatform: active[0]?.id || null,
+      });
+      showToast({ type: 'success', message: `Synced ✓ ${res.appliedRows} records from your other device.` });
+      cleanup();
+      modal.close();
+      setTimeout(() => window.location.reload(), 800);
+    } catch (err) {
+      setSyncEnabled(false);
+      setStatus(err?.message || 'Sync failed — check your connection and try again.');
+      startBtn.removeAttribute('disabled');
+    }
+  });
 }
 
 function interpolate(str, vars) {
@@ -267,10 +321,13 @@ function downloadJson(filename, obj) {
   URL.revokeObjectURL(url);
 }
 
-import { DEMO_SAMPLE_DATA_YEAR } from '../demo/sample-year.js';
+import { DEMO_WINDOW_DAYS } from '../demo/sample-year.js';
+import { generateDemoRoutePath, demoVehicleTypeForIndex } from '../demo/demo-routes.js';
 
 /**
- * Demo vault: three active platforms, weekday earnings across the sample calendar year, and sample expenses (watermarked).
+ * Demo vault: three active platforms, weekday earnings across the recent ~2-month window ending
+ * today (mobile parity — current data, not a fixed year), each shift carrying a road-snapped GPS
+ * `routePath` so its card shows a route mini-map, plus sample expenses (all watermarked).
  */
 export async function loadSampleData() {
   const user = await getUser();
@@ -286,20 +343,29 @@ export async function loadSampleData() {
   const shiftRows = [];
   const expenseRows = [];
   let weekdayShiftCount = 0;
-  const start2025 = new Date(DEMO_SAMPLE_DATA_YEAR, 0, 1, 12, 0, 0, 0);
+  // Seed the last ~2 months ending today, so the demo shows CURRENT data (mobile parity) rather
+  // than a fixed calendar year. `dayIndex` (days since the window start) drives the same
+  // pseudo-random variation the old `dayOfYear` did.
+  const windowStart = new Date();
+  windowStart.setHours(12, 0, 0, 0);
+  windowStart.setDate(windowStart.getDate() - DEMO_WINDOW_DAYS);
+  const windowEnd = new Date();
+  windowEnd.setHours(12, 0, 0, 0);
 
   for (
-    let d = new Date(DEMO_SAMPLE_DATA_YEAR, 0, 1, 12, 0, 0, 0);
-    d.getFullYear() === DEMO_SAMPLE_DATA_YEAR;
+    let d = new Date(windowStart);
+    d.getTime() <= windowEnd.getTime();
     d.setDate(d.getDate() + 1)
   ) {
     const dow = d.getDay();
     const dateStr = ymdFromDate(d);
-    const dayOfYear = Math.round((d.getTime() - start2025.getTime()) / 86400000);
+    const dayOfYear = Math.round((d.getTime() - windowStart.getTime()) / 86400000);
 
     if (dow >= 1 && dow <= 5) {
       const platformId = DEMO_SAMPLE_PLATFORM_IDS[weekdayShiftCount % 3];
       const seed = weekdayShiftCount * 13 + dow;
+      // Road-snapped GPS route for this shift's mini-map; scale cycles car → scooter → ebike.
+      const routeVehicleType = demoVehicleTypeForIndex(weekdayShiftCount);
       const grossDollars = 68 + (seed % 42) + (weekdayShiftCount % 3) * 5.5;
       const tipsDollars = 9 + (seed % 8) + (weekdayShiftCount % 4) * 1.25;
       const bonusDollars = 3 + (seed % 5);
@@ -317,6 +383,7 @@ export async function loadSampleData() {
         durationSeconds: (240 + (seed % 90)) * 60,
         grossRevenue: Math.round(grossDollars * 100) / 100,
         tipsRevenue: Math.round(tipsDollars * 100) / 100,
+        bonusAmount: bonusDollars,
         deliveryCount: 6 + (seed % 7),
         activeMileage: 28 + (seed % 55),
         deadMileage: seed % 4,
@@ -324,6 +391,7 @@ export async function loadSampleData() {
         onlineMinutes: 220 + (seed % 80),
         activeMinutes: 170 + (seed % 70),
         vehicleId: null,
+        routePath: generateDemoRoutePath(weekdayShiftCount, routeVehicleType),
         weather: seed % 3 === 0 ? 'Rain' : seed % 3 === 1 ? 'Cloudy' : 'Clear',
         mood: '🙂',
         notes: SAMPLE_NOTE,
@@ -332,7 +400,6 @@ export async function loadSampleData() {
         isPlaceholder: true,
         isMultiApp: false,
         multiAppSplit: {},
-        customFields: { bonusAmount: bonusDollars },
         deletedAt: null,
         createdAt: t0,
         updatedAt: t0,
@@ -514,6 +581,10 @@ async function activatePlatformSet(platformIds, busSource = 'onboarding') {
     await db.platforms.update(p.id, {
       active,
       deactivatedAt: active ? null : p.deactivatedAt || ts,
+      // Mobile mirror + LWW stamp (interop audit) — mobile reads `isActive`, and an
+      // unstamped write never pushes, so the chosen platform set stayed device-local.
+      isActive: active,
+      syncUpdatedAt: Date.now(),
     });
   }
   const primary = platformIds[0] || null;
@@ -544,9 +615,13 @@ async function persistVehicles(draft) {
   }
   for (const v of toSave) {
     const yearNum = v.year === '' || v.year == null ? null : Number(v.year);
+    const nickname = v.nickname.trim() || 'Vehicle';
     await db.vehicles.add({
       id: newId('veh'),
-      nickname: v.nickname.trim(),
+      nickname,
+      // Mobile-canonical mirrors (interop audit): mobile's vehicles.name is NOT NULL.
+      name: nickname,
+      isActive: true,
       type: /** @type {'gas'} */ (v.type) || 'gas',
       make: v.make || '',
       model: v.model || '',
@@ -578,9 +653,13 @@ async function persistVehicles(draft) {
 async function persistWeeklyGoalRow(draft) {
   const row = await db.goals.filter((g) => g.scope === 'weekly' && g.type === 'earnings').first();
   if (row?.id != null) {
+    const target = Math.max(0, Number(draft.weeklyGoal) || 0);
     await db.goals.update(row.id, {
-      target: Math.max(0, Number(draft.weeklyGoal) || 0),
+      target,
       active: true,
+      // Mobile-canonical mirrors (interop audit) — keep targetValue/isActive in step.
+      targetValue: target,
+      isActive: true,
       syncUpdatedAt: Date.now(),
     });
   }
@@ -983,8 +1062,8 @@ export async function mountOnboarding(root) {
       });
     }
 
-    body.querySelector('[data-action="restore-vault"]')?.addEventListener('click', () => {
-      handleRestoreVault();
+    body.querySelector('[data-action="restore-sync"]')?.addEventListener('click', () => {
+      handleRestoreSync();
     });
 
     body.querySelector('[data-start-onboarding]')?.addEventListener('click', () => {
@@ -1018,7 +1097,7 @@ export async function mountOnboarding(root) {
           await loadSampleData();
           await persistVehicles(draft);
           await persistWeeklyGoalRow(draft);
-          const displayName = draft.displayName.trim() || t('onboarding.steps.completeFallbackName');
+          const displayName = draft.displayName.trim() || 'Hustler';
           await saveUser(buildCompletedUserPatch(draft, displayName));
           clearSession();
           await store.refresh('user');

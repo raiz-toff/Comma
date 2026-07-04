@@ -32,7 +32,7 @@ function calculatePlatformSummaries(shifts) {
     const durationMin = s.durationSeconds != null ? Math.round(Number(s.durationSeconds) / 60) : undefined;
     data.gross += Number(s.grossRevenue || 0);
     data.tips += Number(s.tipsRevenue || 0);
-    data.bonus += Number(s.customFields?.bonusAmount) || 0;
+    data.bonus += Number(s.bonusAmount) || 0;
     data.clockMinutes += Number(durationMin ?? s.onlineMinutes ?? s.activeMinutes ?? 0);
     data.activeMinutes += Number(s.activeMinutes ?? durationMin ?? s.onlineMinutes ?? 0);
     data.orders += Number(s.deliveryCount ?? 0);

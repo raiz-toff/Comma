@@ -6,8 +6,8 @@
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#ffffff",
-  "background_color": "#ffffff",
+  "theme_color": "#0d0d0d",
+  "background_color": "#0d0d0d",
   "icons": [
     {
       "src": "web-app-manifest-192x192.png",

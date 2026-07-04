@@ -12,7 +12,7 @@
  * read).
  */
 
-import { getDeviceId, getAppliedLogs } from './syncState.js';
+import { getDeviceId, getAppliedLogs, getQuarantinedLogs } from './syncState.js';
 import { listAppDataFiles, downloadFile } from '../../modules/backup/drive-api.js';
 import { decodeChangeLog, parseSyncFilename } from './changeLog.js';
 
@@ -42,12 +42,14 @@ export async function pullChanges(passphrase) {
 
   const deviceId = getDeviceId();
   const applied = getAppliedLogs();
+  const quarantined = getQuarantinedLogs();
   const files = await listChangeLogFiles();
 
-  // Filter: not already applied AND not authored by me. (Pairing with the applied-set means my
-  // own just-pushed logs — already in the set — are skipped here too.)
+  // Filter: not already applied AND not authored by me AND not quarantined (a log whose apply
+  // failed repeatedly — see syncState.js — must not wedge every newer log behind it). Pairing
+  // with the applied-set means my own just-pushed logs — already in the set — are skipped too.
   const toFetch = files.filter((f) => {
-    if (applied.has(f.name)) return false;
+    if (applied.has(f.name) || quarantined.has(f.name)) return false;
     const parsed = parseSyncFilename(f.name);
     return parsed != null && parsed.deviceId !== deviceId;
   });

@@ -86,7 +86,7 @@ function summarize(shifts, expenses) {
     const durationMin = s.durationSeconds != null ? Math.round(num(s.durationSeconds) / 60) : undefined;
     gross += num(s.grossRevenue);
     tips  += num(s.tipsRevenue);
-    bonus += Number(s.customFields?.bonusAmount) || 0;
+    bonus += Number(s.bonusAmount) || 0;
     orders += num(s.deliveryCount);
     clockMinutes += num(durationMin ?? s.onlineMinutes ?? s.activeMinutes);
     activeMinutes += num(s.activeMinutes ?? durationMin ?? s.onlineMinutes);
@@ -237,7 +237,7 @@ export async function exportAllShiftsCsv() {
     Number(s.durationSeconds != null ? Math.round(s.durationSeconds / 60) : (s.onlineMinutes ?? 0)),
     num(s.grossRevenue),
     num(s.tipsRevenue),
-    Number(s.customFields?.bonusAmount) || 0,
+    Number(s.bonusAmount) || 0,
     num(s.deliveryCount),
     num(s.activeMileage),
     num(s.deadMileage),
@@ -485,7 +485,7 @@ export async function exportTaxSummaryJson(year = new Date().getFullYear()) {
     }
     const data = platformBreakdown[pId];
     // Tips and bonus included in total gross for platform breakdown
-    data.gross += num(s.grossRevenue) + num(s.tipsRevenue) + (Number(s.customFields?.bonusAmount) || 0);
+    data.gross += num(s.grossRevenue) + num(s.tipsRevenue) + (Number(s.bonusAmount) || 0);
     data.orders += num(s.deliveryCount);
     data.distanceKm += num(s.activeMileage);
   }

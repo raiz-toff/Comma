@@ -2,6 +2,7 @@ import { db, getAppState, setAppState } from '../../core/db.js';
 import { newId } from '../../core/id.js';
 import { BadgeRegistry } from '../../registry/badges/index.js';
 import { GoalScopeRegistry, GoalTypeRegistry } from '../../registry/goal-types/index.js';
+import { mobileGoalKeys } from '../../services/sync/interopShape.js';
 import {
   bus,
   BADGE_UNLOCKED,
@@ -111,7 +112,7 @@ async function sumShiftMetric(startDate, endDate, metric) {
     if (metric === 'earnings') {
       const base = num(shift.grossRevenue);
       const tips = num(shift.tipsRevenue);
-      const bonus = Number(shift.customFields?.bonusAmount) || 0;
+      const bonus = Number(shift.bonusAmount) || 0;
       total += (base + tips + bonus);
     }
     else if (metric === 'tips') {
@@ -123,7 +124,7 @@ async function sumShiftMetric(startDate, endDate, metric) {
     else if (metric === 'net_profit') {
       const g = num(shift.grossRevenue);
       const tips = num(shift.tipsRevenue);
-      const bonus = Number(shift.customFields?.bonusAmount) || 0;
+      const bonus = Number(shift.bonusAmount) || 0;
       total += Math.max(0, g - tips - bonus);
     }
   }
@@ -205,7 +206,7 @@ async function refreshChallengeProgress({ earnings, deliveries, streak }) {
 }
 
 async function evaluateGoalHistory() {
-  const activeGoals = await db.goals.filter((g) => g.active === true).toArray();
+  const activeGoals = await db.goals.filter((g) => g.active === true && g.syncDeletedAt == null).toArray();
   const now = new Date();
   for (const goal of activeGoals) {
     let periodStart;
@@ -292,7 +293,7 @@ export async function checkPersonalRecords(newShift) {
   let changedNetHourly = false;
   const base = num(newShift?.grossRevenue);
   const tips = num(newShift?.tipsRevenue);
-  const bonus = Number(newShift?.customFields?.bonusAmount) || 0;
+  const bonus = Number(newShift?.bonusAmount) || 0;
   const gross = base + tips + bonus;
   if (gross > records.bestShiftGross) {
     records.bestShiftGross = gross;
@@ -378,7 +379,7 @@ async function handleShiftSaved(payload) {
 
   const base = num(shift.grossRevenue);
   const tips = num(shift.tipsRevenue);
-  const bonus = Number(shift.customFields?.bonusAmount) || 0;
+  const bonus = Number(shift.bonusAmount) || 0;
   const gross = base + tips + bonus;
   const weekGross = await sumShiftMetric(startOfWeek(new Date()), endOfWeek(new Date()), 'earnings');
   const monthGross = await sumShiftMetric(startOfMonth(new Date()), endOfMonth(new Date()), 'earnings');
@@ -419,12 +420,23 @@ export async function ensureGoalScaffold() {
   const goals = await db.goals.toArray();
   if (goals.length === 0) {
     const t = nowIso();
-    const syncNow = Date.now();
-    await db.goals.bulkAdd([
-      { id: newId('goal'), type: 'earnings', scope: 'daily', platformId: null, target: 80, active: true, createdAt: t, syncUpdatedAt: syncNow, syncDeletedAt: null },
-      { id: newId('goal'), type: 'earnings', scope: 'weekly', platformId: null, target: 500, active: true, createdAt: t, syncUpdatedAt: syncNow, syncDeletedAt: null },
-      { id: newId('goal'), type: 'earnings', scope: 'monthly', platformId: null, target: 2000, active: true, createdAt: t, syncUpdatedAt: syncNow, syncDeletedAt: null },
-    ]);
+    // Seed stamp 0, NOT Date.now() (interop audit): scaffolding is per-device, must never
+    // push to peers or win an LWW merge. Rows start syncing when the user edits them.
+    const syncNow = 0;
+    // Each row also carries the mobile-canonical keys via mobileGoalKeys (interop audit).
+    const scaffold = (scope, target) => ({
+      id: newId('goal'),
+      type: 'earnings',
+      scope,
+      platformId: null,
+      target,
+      active: true,
+      createdAt: t,
+      ...mobileGoalKeys({ type: 'earnings', scope, target, active: true }),
+      syncUpdatedAt: syncNow,
+      syncDeletedAt: null,
+    });
+    await db.goals.bulkAdd([scaffold('daily', 80), scaffold('weekly', 500), scaffold('monthly', 2000)]);
   }
   await ensureChallengeSeeds();
 }
@@ -441,7 +453,9 @@ export async function initGoalsModule() {
 }
 
 export async function listGoals() {
-  return db.goals.toArray();
+  // Tombstone filter (interop audit): synced deletes from other devices land as
+  // syncDeletedAt-stamped rows and must not render.
+  return db.goals.filter((g) => g.syncDeletedAt == null).toArray();
 }
 
 export async function upsertGoal(goal) {
@@ -454,14 +468,20 @@ export async function upsertGoal(goal) {
   // is falsy, so `if (row.id)` below always failed and every edit fell through to `add()`,
   // silently creating a duplicate goal instead of updating the existing one.
   const isNew = !(typeof goal.id === 'string' && goal.id);
+  const target = Math.max(0, num(goal.target, 0));
+  const active = goal.active !== false;
   const row = {
     id: isNew ? newId('goal') : goal.id,
     type,
     scope,
     platformId: goal.platformId ?? null,
-    target: Math.max(0, num(goal.target, 0)),
-    active: goal.active !== false,
+    target,
+    active,
     createdAt: goal.createdAt || nowIso(),
+    // Mobile-canonical keys (2026-07-03 interop audit): mobile's goals table requires
+    // label/targetValue/unit/period (all NOT NULL) — a web goal without them crashed
+    // mobile's sync apply. Recomputed fresh on every upsert so they track type/scope edits.
+    ...mobileGoalKeys({ type, scope, target, active }),
     syncUpdatedAt: Date.now(),
     syncDeletedAt: goal.syncDeletedAt ?? null,
   };
@@ -485,7 +505,7 @@ export async function listChallenges() {
 }
 
 export async function getActiveGoalsWithProgress() {
-  const activeGoals = await db.goals.filter((g) => g.active === true).toArray();
+  const activeGoals = await db.goals.filter((g) => g.active === true && g.syncDeletedAt == null).toArray();
   const now = new Date();
   const results = [];
   for (const goal of activeGoals) {
@@ -513,7 +533,7 @@ export async function getActiveGoalsWithProgress() {
 
 export async function getEarningsThermometer() {
   const weeklyGoal = await db.goals
-    .filter((g) => g.active === true && g.scope === 'weekly' && g.type === 'earnings')
+    .filter((g) => g.active === true && g.syncDeletedAt == null && g.scope === 'weekly' && g.type === 'earnings')
     .first();
   const target = Math.max(1, num(weeklyGoal?.target, 500));
   const current = await sumShiftMetric(startOfWeek(new Date()), endOfWeek(new Date()), 'earnings');
@@ -534,6 +554,7 @@ export async function getGoalDashboardData() {
   const xpTotal = num(await getAppState(APP_STATE_KEYS.XP_TOTAL), 0);
   const xpLevel = num(await getAppState(APP_STATE_KEYS.XP_LEVEL), 1);
   const records = (await getAppState(APP_STATE_KEYS.PERSONAL_RECORDS)) || {};
+  const streakFrozenCount = num(await getAppState(APP_STATE_KEYS.STREAK_FROZEN_COUNT), 0);
 
   return {
     goals,
@@ -546,5 +567,6 @@ export async function getGoalDashboardData() {
     xpTotal,
     xpLevel,
     records,
+    streakFrozenCount,
   };
 }

@@ -7,8 +7,12 @@
 import { bus } from '../../core/events.js';
 
 // --- Configuration ---
-// TODO: Replace with real Client ID from environment or secure config
-const GOOGLE_CLIENT_ID = '100816104558-cig5m6sa8b455ru0iemvihl1c1bv84kq.apps.googleusercontent.com';
+// Web client of the SAME Google Cloud project as the mobile app (438513486290 — see
+// commaApp/src/config/google.ts). Drive's appDataFolder is scoped per project, so web and
+// mobile can only see each other's sync files when their OAuth clients share this project.
+// Console prereqs: this PWA's deployed origin(s) + http://localhost must be listed under the
+// client's Authorized JavaScript Origins, Drive API enabled, user added as an OAuth test user.
+const GOOGLE_CLIENT_ID = '438513486290-hvsmc82435unb6t9gvmgddngk0p92g1m.apps.googleusercontent.com';
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 
 // --- State ---

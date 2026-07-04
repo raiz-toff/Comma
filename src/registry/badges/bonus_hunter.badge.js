@@ -14,6 +14,6 @@ export default {
   checkFromShift: async (ctx) => {
     const shift = ctx.shift;
     const gross = num(shift?.grossRevenue, 0);
-    return ((s) => num(s.shift.customFields?.bonusAmount, 0) > 0 && s.gross > 0 && num(s.shift.customFields?.bonusAmount, 0) / s.gross >= 0.15)({ shift, gross, weekGross: ctx.weekGross, monthGross: ctx.monthGross });
+    return ((s) => num(s.shift.bonusAmount, 0) > 0 && s.gross > 0 && num(s.shift.bonusAmount, 0) / s.gross >= 0.15)({ shift, gross, weekGross: ctx.weekGross, monthGross: ctx.monthGross });
   },
 };

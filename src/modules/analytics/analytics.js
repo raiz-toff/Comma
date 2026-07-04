@@ -22,12 +22,11 @@ function num(v, fallback = 0) {
 
 /**
  * Returns total earnings for a shift in CENTS.
- * Shift rows store grossRevenue/tipsRevenue in dollars and bonus as
- * customFields.bonusAmount (dollars); this converts to cents for the
- * internal cents-based aggregation used throughout this file.
+ * Shift rows store grossRevenue/tipsRevenue/bonusAmount in dollars; this converts to cents for
+ * the internal cents-based aggregation used throughout this file.
  */
 function grossCents(shift) {
-  const bonus = Number(shift.customFields?.bonusAmount) || 0;
+  const bonus = Number(shift.bonusAmount) || 0;
   return Math.round((num(shift.grossRevenue) + num(shift.tipsRevenue) + bonus) * 100);
 }
 
@@ -192,7 +191,7 @@ async function hydrateDerived(shifts) {
       const gross = gc / 100;
       const durationMinutes = getDurationMinutes(shift);
       const tips = num(shift.tipsRevenue);
-      const bonus = Number(shift.customFields?.bonusAmount) || 0;
+      const bonus = Number(shift.bonusAmount) || 0;
       const orders = num(shift.deliveryCount);
       const distanceKm = num(shift.activeMileage);
       const expense = await getTotalExpensesForPeriod(shift.date, shift.date, shift.platformId || undefined);
@@ -263,7 +262,7 @@ function aggregateShiftsLight(shifts) {
     // grossCents() already includes tips+bonus; pull individual breakdowns separately
     gross += grossCents(s) / 100;
     tips  += num(s.tipsRevenue);
-    bonus += Number(s.customFields?.bonusAmount) || 0;
+    bonus += Number(s.bonusAmount) || 0;
     orders  += num(s.deliveryCount);
     minutes += getDurationMinutes(s);
     const durMin = shiftDurationMinutesFromSeconds(s);
@@ -735,7 +734,7 @@ export async function getIncomeSourceBreakdown(activePlatformId = 'all') {
   for (const s of shifts) {
     const g = grossCents(s);
     const t = Math.round(num(s.tipsRevenue) * 100);
-    const b = Math.round((Number(s.customFields?.bonusAmount) || 0) * 100);
+    const b = Math.round((Number(s.bonusAmount) || 0) * 100);
     tipsCents += t;
     bonusCents += b;
     baseCents += Math.max(0, g - t - b);

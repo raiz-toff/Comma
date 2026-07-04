@@ -25,7 +25,7 @@ import {
 } from '../modules/shifts/shifts.js';
 import { formatRegisteredMetricValue } from '../modules/analytics/analytics.js';
 import { MetricRegistry, getMetricValue } from '../registry/metrics/index.js';
-import { defaultRangeForPreset } from '../utils/date-range-presets.js';
+import { defaultRangeForPreset, enumerateWeekDates, ymd, startOfWeekDate } from '../utils/date-range-presets.js';
 import { demoSampleRangeOverlaps, getDemoAnalyticsAnchorDate } from '../modules/demo/sample-year.js';
 
 const Papa = /** @type {any} */ (PapaMod).default || PapaMod;
@@ -71,6 +71,12 @@ function loadShiftsRange(weekStartDay) {
         if (store.get('demoMode') && !demoSampleRangeOverlaps(start, end)) {
           /* Saved range (e.g. real-world week) misses 2025 demo data — ignore. */
         } else {
+          // Week-nav presets carry their own anchor and must NOT be re-pinned to "today" — they are
+          // recomputed from the stored anchorYmd so prev/next stepping and day selection persist.
+          if ((p.preset === 'week' || p.preset === 'shift-day') && typeof p.anchorYmd === 'string') {
+            if (p.preset === 'shift-day') return { ...normalized, preset: 'shift-day' };
+            return weekRangeFor(p.anchorYmd, weekStartDay);
+          }
           if (p.preset && p.preset !== 'custom') {
             return defaultRangeForPreset(p.preset, shiftsFilterAnchorDate(), weekStartDay);
           }
@@ -91,6 +97,51 @@ function saveShiftsRange(s) {
   } catch {
     /* ignore */
   }
+}
+
+/* ── Mobile-style week navigation ──────────────────────────────────────────────────────────────
+ * The list is driven by a single "anchor" date (any day inside the shown week). Prev/next step the
+ * anchor by ±7 days; tapping a day-bar narrows to that one date. State is persisted in the same
+ * `saveShiftsRange` slot the rest of the view already reads, using two of its presets:
+ *   - preset 'week'      → whole week [weekStart … weekEnd] containing the anchor
+ *   - preset 'shift-day' → a single date [d … d]  (mobile: tapping a bar; distinct from the old
+ *                          'day' preset which defaultRangeForPreset pins to *today*)
+ * `anchorYmd` (the tapped/selected date, or the week's chosen day) is stashed alongside so prev/next
+ * and re-selection are stable across repaints.
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+/** Full week range containing `anchorYmd`, tagged so it round-trips through saveShiftsRange. */
+function weekRangeFor(anchorYmd, weekStartDay) {
+  const days = enumerateWeekDates(anchorYmd, weekStartDay);
+  const start = days[0];
+  const end = days[days.length - 1];
+  return { start, end, preset: 'week', anchorYmd, weekStartYmd: start };
+}
+
+/** Read the current shifts range as a week-nav model (anchor + whether a single day is selected). */
+function loadWeekNav(weekStartDay) {
+  const today = ymd(shiftsFilterAnchorDate());
+  let raw = null;
+  try {
+    const s = sessionStorage.getItem(SHIFTS_RANGE_KEY);
+    if (s) raw = JSON.parse(s);
+  } catch {
+    /* ignore */
+  }
+  const anchor = raw && typeof raw.anchorYmd === 'string' ? raw.anchorYmd : today;
+  const week = weekRangeFor(anchor, weekStartDay);
+  const selectedDay = raw && raw.preset === 'shift-day' && typeof raw.anchorYmd === 'string' ? raw.anchorYmd : null;
+  return { anchor, week, selectedDay, weekStartDay };
+}
+
+/** Persist the week-nav selection into the shared range slot and reset paging. */
+function saveWeekNav(anchorYmd, weekStartDay, { selectDay = false } = {}) {
+  const week = weekRangeFor(anchorYmd, weekStartDay);
+  const range = selectDay
+    ? { start: anchorYmd, end: anchorYmd, preset: 'shift-day', anchorYmd, weekStartYmd: week.weekStartYmd }
+    : { ...week, anchorYmd };
+  saveShiftsRange(range);
+  saveShiftsPageIdx(range.start, range.end, range.preset, 0);
 }
 
 /** @param {string} start @param {string} end @param {string} preset */
@@ -469,6 +520,127 @@ function shiftRouteAndOdometerHtml(s) {
 }
 /* ============================================================================ end Workstream 5 */
 
+/** User's currency symbol (defaults to `$`). */
+function currencySymbol() {
+  const user = store.get('user');
+  return user && user.locale && typeof user.locale.currencySymbol === 'string' ? user.locale.currencySymbol : '$';
+}
+
+/** Net earnings for a shift = gross + tips + bonus (matches shift_gross metric). */
+function shiftNetEarnings(s) {
+  return Number(s?.grossRevenue ?? 0) + Number(s?.tipsRevenue ?? 0) + (Number(s?.bonusAmount) || 0);
+}
+
+/** Friendly day label like mobile's "Monday, Jul 4"; falls back to the raw YYYY-MM-DD string. */
+function shiftDayLabel(s) {
+  const raw = String(s?.date || '');
+  if (!raw) return '';
+  const d = new Date(`${raw}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return raw;
+  try {
+    return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  } catch {
+    return raw;
+  }
+}
+
+/** Minutes worked for a shift (durationSeconds, falling back to onlineMinutes) — matches metrics. */
+function shiftMinutes(s) {
+  return Math.round(Number(s?.durationSeconds) / 60) || Number(s?.onlineMinutes) || 0;
+}
+
+/** Short "MMM D – MMM D" label for the week pill (mobile shows the current week span). */
+function weekPillLabel(week) {
+  const fmt = (ymdStr) => {
+    const d = new Date(`${ymdStr}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return ymdStr;
+    try {
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    } catch {
+      return ymdStr;
+    }
+  };
+  return `${fmt(week.start)} – ${fmt(week.end)}`;
+}
+
+/**
+ * 7-day earnings bar chart for the week containing the nav anchor. Each bar is a day; height is the
+ * day's net earnings relative to the week's best day. Tapping a bar filters the list to that day
+ * (data-shifts-day="<ymd>"); the selected day is highlighted, others dimmed (mobile parity).
+ * @param {Array<Record<string, unknown>>} allShifts  all (platform-filtered) shifts
+ * @param {{ week: any, selectedDay: string|null }} nav
+ * @param {number} weekStartDay
+ */
+function shiftsWeekChartHtml(allShifts, nav, weekStartDay) {
+  const sym = currencySymbol();
+  const days = enumerateWeekDates(nav.week.start, weekStartDay);
+  const totals = days.map((d) => allShifts.filter((s) => String(s.date) === d).reduce((sum, s) => sum + shiftNetEarnings(s), 0));
+  const maxTotal = Math.max(0, ...totals);
+  const dayLetter = (d) => {
+    const dt = new Date(`${d}T00:00:00`);
+    try {
+      return dt.toLocaleDateString(undefined, { weekday: 'narrow' });
+    } catch {
+      return d.slice(-2);
+    }
+  };
+  const anySelected = !!nav.selectedDay;
+  const high = maxTotal > 0
+    ? `<div class="shifts-chart-high"><span class="shifts-chart-high-line"></span><span class="shifts-chart-high-badge sh-eyebrow">${escapeHtml(t('shifts.chartHigh'))}: ${escapeHtml(sym)}${maxTotal.toFixed(2)}</span></div>`
+    : '';
+  const cols = days
+    .map((d, i) => {
+      const val = totals[i];
+      const pct = maxTotal > 0 ? (val / maxTotal) * 100 : 0;
+      const h = Math.max(pct, val > 0 ? 8 : 2);
+      const isSel = nav.selectedDay === d;
+      const dim = anySelected && !isSel ? ' is-dim' : '';
+      const selCls = isSel ? ' is-selected' : '';
+      const title = `${d}: ${sym}${val.toFixed(2)}`;
+      return `
+        <button type="button" class="shifts-chart-col${selCls}" data-shifts-day="${escapeAttr(d)}" title="${escapeAttr(title)}" aria-pressed="${isSel ? 'true' : 'false'}">
+          <span class="shifts-chart-track"><span class="shifts-chart-fill${dim}" style="height:${h}%"></span></span>
+          <span class="shifts-chart-daylabel">${escapeHtml(dayLetter(d))}</span>
+        </button>`;
+    })
+    .join('');
+  return `<div class="shifts-chart-card">${high}<div class="shifts-chart-row">${cols}</div></div>`;
+}
+
+/**
+ * Mobile-style stats grid summarising the shifts currently in range: total earnings, hours,
+ * distance and orders. Mirrors the mobile shifts tab's 4-card stat block (Online/Active/Miles/
+ * Orders), adapted for web's data (net earnings + total distance + total orders).
+ * @param {Array<Record<string, unknown>>} shifts
+ */
+function shiftsStatsHtml(shifts) {
+  const sym = currencySymbol();
+  const user = store.get('user');
+  const unit = user && user.locale && typeof user.locale.distanceUnit === 'string' ? user.locale.distanceUnit : 'mi';
+  let earn = 0;
+  let minutes = 0;
+  let distance = 0;
+  let orders = 0;
+  for (const s of shifts) {
+    earn += shiftNetEarnings(s);
+    minutes += shiftMinutes(s);
+    distance += Number(s?.activeMileage || 0) + Number(s?.deadMileage || 0);
+    orders += Number(s?.deliveryCount || 0);
+  }
+  const hours = (minutes / 60).toFixed(1);
+  const cell = (label, value) => `
+    <div class="shifts-stat-card">
+      <div class="sh-eyebrow shifts-stat-label">${escapeHtml(label)}</div>
+      <div class="shifts-stat-value">${value}</div>
+    </div>`;
+  return (
+    cell(t('shifts.gross'), `${escapeHtml(sym)}${earn.toFixed(2)}`) +
+    cell(t('shifts.statHours'), `${hours}`) +
+    cell(t('shifts.statDistance'), `${distance.toFixed(1)} ${escapeHtml(unit)}`) +
+    cell(t('shifts.statOrders'), `${orders}`)
+  );
+}
+
 /**
  * @param {Record<string, unknown>} s
  * @param {Array<Record<string, unknown>>} [platformRows] Non-deleted `shiftPlatforms` rows for
@@ -478,16 +650,24 @@ function shiftRouteAndOdometerHtml(s) {
 function shiftCardHtml(s, platformRows = []) {
   const pid = String(s.platformId || 'other');
   const pl = getPlatformConfig(pid);
-  const badge =
+  const platName = String(pl.name || pid);
+  // Platform icon chip: first letter of the platform name, tinted by the platform brand color.
+  const iconGlyph = escapeHtml((platName.trim()[0] || '·').toUpperCase());
+  const earn = `${escapeHtml(currencySymbol())}${shiftNetEarnings(s).toFixed(2)}`;
+  const breakdown =
     platformRows.length > 1
-      ? `<span class="shift-card-platform-breakdown">${platformBreakdownChipsHtml(platformRows)}</span>`
-      : `<span class="shift-badge" data-platform-id="${escapeAttr(pid)}">${escapeHtml(pl.name || pid)}</span>`;
+      ? `<div class="shift-card-platform"><span class="shift-card-platform-breakdown">${platformBreakdownChipsHtml(platformRows)}</span></div>`
+      : '';
   return `
     <article class="shift-card" data-shift-id="${escapeAttr(String(s.id))}">
       <div class="shift-card-top">
-        <div class="shift-card-date">${escapeHtml(String(s.date || ''))}</div>
-        <div class="shift-card-platform">${badge}</div>
+        <div class="shift-card-ident">
+          <span class="shift-card-plat-icon" data-platform-id="${escapeAttr(pid)}" title="${escapeAttr(platName)}">${iconGlyph}</span>
+          <span class="shift-card-date">${escapeHtml(shiftDayLabel(s))}</span>
+        </div>
+        <div class="shift-card-earn">${earn}</div>
       </div>
+      ${breakdown}
       <div class="shift-card-main">
         ${shiftCardMetricsHtml(s)}
       </div>
@@ -547,6 +727,127 @@ async function submitShiftFromForm(formApi, onSaved) {
     showToast({ type: 'error', message: t('errors.generic'), duration: 2200 });
     return null;
   }
+}
+
+/**
+ * Week-picker popup — built as the SAME bottom-sheet as the Expenses month picker (it reuses the
+ * `expenses-m-modal*` / `expenses-m-mcard*` classes), so the two pickers are visually identical.
+ * Lists every week of the chosen year (most recent first, current year is YTD), each row showing
+ * the date range + weekly net-earnings total and a mini 7-day bar graph; a footer pages by year.
+ * Tapping a week calls `onPick(weekStartYmd)` and closes.
+ * @param {{ selectedWeekStart: string, weekStartDay: number, onPick: (weekStartYmd: string) => void }} opts
+ */
+async function openWeekSelector({ selectedWeekStart, weekStartDay, onPick }) {
+  const sym = currencySymbol();
+  const all = await loadAllShiftsForPlatform();
+  const realYear = shiftsFilterAnchorDate().getFullYear();
+
+  // Net earnings per date, computed once.
+  const byDate = new Map();
+  for (const s of all) {
+    const d = String(s.date || '');
+    if (!d) continue;
+    byDate.set(d, (byDate.get(d) || 0) + shiftNetEarnings(s));
+  }
+
+  const selectedYear = Number(String(selectedWeekStart).slice(0, 4)) || realYear;
+  let viewYear = Number.isFinite(selectedYear) ? selectedYear : realYear;
+
+  // Host element (fixed bottom-sheet). Reuses the expenses month-modal chrome. Remove any prior
+  // instance first so rapid re-opens can't stack sheets.
+  document.querySelectorAll('.shifts-week-modal').forEach((n) => n.remove());
+  const host = document.createElement('div');
+  host.className = 'expenses-m-modal shifts-week-modal';
+
+  /** Build the sheet markup for `viewYear`. */
+  const build = () => {
+    // All week-starts whose week overlaps viewYear, from the last (YTD if current year) back to Jan.
+    const lastDay = viewYear >= realYear ? shiftsFilterAnchorDate() : new Date(viewYear, 11, 31);
+    let cursor = startOfWeekDate(lastDay, weekStartDay);
+    const yearStart = new Date(viewYear, 0, 1);
+    const cards = [];
+    while (cursor.getFullYear() >= viewYear || cursor >= startOfWeekDate(yearStart, weekStartDay)) {
+      if (cursor.getFullYear() < viewYear && cursor < startOfWeekDate(yearStart, weekStartDay)) break;
+      const wsYmd = ymd(cursor);
+      const days = enumerateWeekDates(wsYmd, weekStartDay);
+      const dayTotals = days.map((d) => byDate.get(d) || 0);
+      const total = dayTotals.reduce((a, b) => a + b, 0);
+      const maxDay = Math.max(0, ...dayTotals);
+      const isSel = wsYmd === selectedWeekStart;
+      const mini = days
+        .map((d, di) => {
+          const h = maxDay > 0 ? Math.max((dayTotals[di] / maxDay) * 100, dayTotals[di] > 0 ? 8 : 2) : 2;
+          return `<span class="expenses-m-mini-col"><span class="expenses-m-mini-track"><span class="expenses-m-mini-fill" style="height:${h}%"></span></span></span>`;
+        })
+        .join('');
+      const range = weekPillLabel({ start: days[0], end: days[days.length - 1] });
+      cards.push(`<button type="button" class="expenses-m-mcard${isSel ? ' is-selected' : ''}" data-week-pick="${escapeAttr(wsYmd)}">
+        <span class="expenses-m-mcard-info">
+          <span class="expenses-m-mcard-name">${escapeHtml(range)}</span>
+          <span class="expenses-m-mcard-total">${escapeHtml(sym)}${total.toFixed(2)}</span>
+        </span>
+        <span class="expenses-m-mini">${mini}</span>
+      </button>`);
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() - 7);
+      if (cursor < startOfWeekDate(yearStart, weekStartDay)) break;
+    }
+
+    const nextDisabled = viewYear >= realYear;
+    host.innerHTML = `
+      <div class="expenses-m-modal-backdrop" data-week-close></div>
+      <div class="expenses-m-modal-sheet" role="dialog" aria-modal="true" aria-label="${escapeAttr(t('shifts.selectWeek'))}">
+        <div class="expenses-m-modal-head">
+          <h2 class="expenses-m-modal-title">${escapeHtml(t('shifts.selectWeek'))}</h2>
+          <button type="button" class="expenses-m-modal-done" data-week-close>${escapeHtml(t('common.done') || 'Done')}</button>
+        </div>
+        <div class="expenses-m-modal-subhead">
+          <span>${escapeHtml(t('shifts.weeklyEarnings'))}</span>
+          <span>${viewYear}</span>
+        </div>
+        <div class="expenses-m-modal-list">${cards.join('')}</div>
+        <div class="expenses-m-modal-foot">
+          <button type="button" class="expenses-m-modal-year" data-week-year="prev">${escapeHtml(t('expenses.previousYear') || 'Previous Year')}</button>
+          <span class="expenses-m-modal-yearlbl">${viewYear}</span>
+          <button type="button" class="expenses-m-modal-year${nextDisabled ? ' is-disabled' : ''}" data-week-year="next"${nextDisabled ? ' disabled' : ''}>${escapeHtml(t('expenses.nextYear') || 'Next Year')}</button>
+        </div>
+      </div>`;
+  };
+
+  build();
+  document.body.appendChild(host);
+
+  const close = () => {
+    host.remove();
+    document.removeEventListener('keydown', onKey);
+  };
+  const onKey = (ev) => {
+    if (ev.key === 'Escape') close();
+  };
+  document.addEventListener('keydown', onKey);
+
+  host.addEventListener('click', (ev) => {
+    const el = ev.target instanceof Element ? ev.target : null;
+    if (!el) return;
+    if (el.closest('[data-week-close]')) {
+      close();
+      return;
+    }
+    const yearBtn = el.closest('[data-week-year]');
+    if (yearBtn) {
+      if (yearBtn.hasAttribute('disabled')) return;
+      viewYear += yearBtn.getAttribute('data-week-year') === 'next' ? 1 : -1;
+      build();
+      return;
+    }
+    const pick = el.closest('[data-week-pick]');
+    if (pick) {
+      const ws = pick.getAttribute('data-week-pick');
+      if (ws) {
+        onPick(ws);
+        close();
+      }
+    }
+  });
 }
 
 async function openShiftFormModal({ initial, onSaved, title, mode = 'full', submitLabel }) {
@@ -646,71 +947,23 @@ export async function render(root, ctx) {
       </header>
 
       <div class="shifts-view-body">
-        ${(() => {
-          const storedFilter = localStorage.getItem('comma_shifts_toolbar_collapsed');
-          const filterCollapsed = storedFilter === null ? true : storedFilter === 'true';
-          const storedShortcuts = localStorage.getItem('comma_shifts_shortcuts_collapsed');
-          const shortcutsCollapsed = storedShortcuts === null ? true : storedShortcuts === 'true';
-          return `
-        <div class="financial-filter-container card" style="margin-bottom: var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; padding: 0;">
-          <button type="button" class="financial-dash-filter-summary" data-shifts-toggle-shortcuts aria-expanded="${!shortcutsCollapsed}" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: var(--space-3) var(--space-4); background: transparent; border: none; cursor: pointer; color: inherit; text-align: left;">
-            <span class="financial-dash-summary-left" style="display: flex; align-items: center; gap: var(--space-2); font-weight: 600;">
-              <span class="financial-dash-summary-icon" style="color: var(--color-brand, #10b981);">${getIcon('calendar', 18)}</span>
-              <span class="financial-dash-summary-text" data-shifts-summary></span>
-            </span>
-            <span class="financial-dash-summary-right" style="display: flex; align-items: center; gap: var(--space-2);">
-              <span class="financial-dash-summary-preset badge badge--secondary" data-shifts-summary-preset style="text-transform: capitalize;"></span>
-              <span class="financial-dash-summary-chevron" data-shifts-summary-chevron style="display: flex; align-items: center; transition: transform 0.2s ease;">${getIcon(shortcutsCollapsed ? 'chevron-down' : 'chevron-up', 18)}</span>
-            </span>
+        <!-- Mobile-style week navigation: tappable week pill, prev/next arrows, big weekly total. -->
+        <div class="shifts-weeknav">
+          <button type="button" class="shifts-week-pill" data-shifts-week="pick" aria-label="${escapeAttr(t('shifts.selectWeek'))}">
+            <span class="shifts-week-pill-label" data-slot="week-label"></span>
+            ${getIcon('chevron-down', 14)}
           </button>
-
-          <div class="financial-filter-body" data-shifts-shortcut-bar style="display: ${shortcutsCollapsed ? 'none' : 'block'}; border-top: 1px solid var(--color-border); padding: var(--space-3) var(--space-4); background: var(--color-surface-raised);">
-            <div class="filter-shortcut-bar" style="display: flex; gap: var(--space-3); align-items: center; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
-              <div class="shifts-presets-group">
-                <button type="button" class="btn shifts-preset-btn" data-shifts-preset="day">${escapeHtml(t('views.dashboard.financial.presetDay'))}</button>
-                <button type="button" class="btn shifts-preset-btn" data-shifts-preset="week">${escapeHtml(t('views.dashboard.financial.presetWeek'))}</button>
-                <button type="button" class="btn shifts-preset-btn" data-shifts-preset="month">${escapeHtml(t('views.dashboard.financial.presetMonth'))}</button>
-                <button type="button" class="btn shifts-preset-btn" data-shifts-preset="q1">${escapeHtml(t('views.dashboard.financial.presetQ1'))}</button>
-                <button type="button" class="btn shifts-preset-btn" data-shifts-preset="q2">${escapeHtml(t('views.dashboard.financial.presetQ2'))}</button>
-                <button type="button" class="btn shifts-preset-btn" data-shifts-preset="q3">${escapeHtml(t('views.dashboard.financial.presetQ3'))}</button>
-                <button type="button" class="btn shifts-preset-btn" data-shifts-preset="q4">${escapeHtml(t('views.dashboard.financial.presetQ4'))}</button>
-                <button type="button" class="btn shifts-preset-btn" data-shifts-preset="year">${escapeHtml(t('views.dashboard.financial.presetYear'))}</button>
-                <button type="button" class="btn shifts-preset-btn" data-shifts-preset="ytd">${escapeHtml(t('views.dashboard.financial.presetYtd'))}</button>
-              </div>
-              <button type="button" class="btn ${filterCollapsed ? 'btn-ghost' : 'btn-primary'} btn-sm" data-shifts-toggle-filter style="white-space:nowrap;">${escapeHtml(t('views.dashboard.financial.presetCustom'))} <span data-shifts-custom-chevron>${getIcon(filterCollapsed ? 'chevron-down' : 'chevron-up', 14)}</span></button>
-            </div>
-            <div class="shifts-filter" data-shifts-filter style="display: ${filterCollapsed || shortcutsCollapsed ? 'none' : 'block'}; margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px dashed var(--color-border);">
-              <div class="shifts-filter-content" style="padding: 0;">
-                <div class="shifts-filter-bar" style="flex-wrap: wrap; align-items: center; justify-content: space-between;">
-                  <div class="shifts-filter-left">
-                    <div class="shifts-filter-dates" style="display: flex; gap: var(--space-2); align-items: center;">
-                      <div class="input-with-icon" style="position: relative;">
-                        <input type="text" class="input shifts-filter-date-start" id="shifts-filter-start" placeholder="Start date" readonly style="width: 130px; padding-left: 32px; cursor: pointer;" />
-                        <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--color-primary, #10b981); pointer-events: none;">${getIcon('calendar', 16)}</span>
-                      </div>
-                      <span style="color: var(--color-text-muted, #a1a1aa); font-weight: 600;">&ndash;</span>
-                      <div class="input-with-icon" style="position: relative;">
-                        <input type="text" class="input shifts-filter-date-end" id="shifts-filter-end" placeholder="End date" readonly style="width: 130px; padding-left: 32px; cursor: pointer;" />
-                        <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--color-primary, #10b981); pointer-events: none;">${getIcon('calendar', 16)}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="shifts-filter-right" style="display: flex; gap: var(--space-3); align-items: center;">
-                    <label class="shifts-sort-inline">
-                      <span class="shifts-sort-inline-label">${escapeHtml(t('shifts.sortByDate'))}</span>
-                      <select class="input shifts-sort-select" data-shifts-sort aria-label="${escapeHtml(t('shifts.sortByDate'))}">
-                        <option value="desc">${escapeHtml(t('shifts.sortNewest'))}</option>
-                        <option value="asc">${escapeHtml(t('shifts.sortOldest'))}</option>
-                      </select>
-                    </label>
-                    <button type="button" class="btn btn-primary btn-sm shifts-filter-apply" data-shifts-apply style="height: 36px;">${getIcon('filter', 16)} ${escapeHtml(t('views.dashboard.financial.apply'))}</button>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div class="shifts-weeknav-row">
+            <button type="button" class="shifts-weeknav-arrow" data-shifts-week="prev" aria-label="${escapeAttr(t('shifts.prevWeek'))}">${getIcon('chevron-left', 22)}</button>
+            <div class="shifts-weeknav-amount" data-slot="week-total" aria-live="polite">—</div>
+            <button type="button" class="shifts-weeknav-arrow" data-shifts-week="next" aria-label="${escapeAttr(t('shifts.nextWeek'))}">${getIcon('chevron-right', 22)}</button>
           </div>
-        </div>`;
-        })()}
+        </div>
+
+        <!-- 7-day earnings bar chart. Tap a bar to filter the list to that day; tap again to clear. -->
+        <div class="shifts-chart" data-slot="chart" hidden></div>
+
+        <div class="shifts-stats" data-slot="stats" hidden></div>
         <div class="shifts-list" data-slot="list"></div>
         <div class="shifts-pager-slot" data-slot="pager" hidden></div>
       </div>
@@ -719,46 +972,29 @@ export async function render(root, ctx) {
 
   const listSlot = /** @type {HTMLElement | null} */ (root.querySelector('[data-slot="list"]'));
   const pagerSlot = /** @type {HTMLElement | null} */ (root.querySelector('[data-slot="pager"]'));
-  const summaryEl = /** @type {HTMLElement | null} */ (root.querySelector('[data-shifts-summary]'));
+  const statsSlot = /** @type {HTMLElement | null} */ (root.querySelector('[data-slot="stats"]'));
+  const chartSlot = /** @type {HTMLElement | null} */ (root.querySelector('[data-slot="chart"]'));
+  const weekLabelEl = /** @type {HTMLElement | null} */ (root.querySelector('[data-slot="week-label"]'));
+  const weekTotalEl = /** @type {HTMLElement | null} */ (root.querySelector('[data-slot="week-total"]'));
   const countSlot = /** @type {HTMLElement | null} */ (root.querySelector('[data-slot="shifts-count"]'));
 
   const paint = async () => {
     if (!listSlot || !pagerSlot) return;
     const user = store.get('user');
     const weekStartDay = Number(user?.locale?.weekStartDay ?? 0);
+    const nav = loadWeekNav(weekStartDay);
     const range = loadShiftsRange(weekStartDay);
     const sortDir = /** @type {'asc'|'desc'} */ (loadShiftsSortDir());
 
-    // Update summary text
-    if (summaryEl) {
-      summaryEl.textContent = `${range.start} – ${range.end}`;
-    }
-    const presetSummary = root.querySelector('[data-shifts-summary-preset]');
-    if (presetSummary) {
-      const p = range.preset;
-      presetSummary.textContent = p === 'custom' ? 'Custom' : (p === 'ytd' ? 'YTD' : p.charAt(0).toUpperCase() + p.slice(1));
-    }
-
-    const storedFilter = localStorage.getItem('comma_shifts_toolbar_collapsed');
-    const filterCollapsed = storedFilter === null ? true : storedFilter === 'true';
-    const storedShortcuts = localStorage.getItem('comma_shifts_shortcuts_collapsed');
-    const shortcutsCollapsed = storedShortcuts === null ? true : storedShortcuts === 'true';
-
-    const shortcutBarEl = root.querySelector('[data-shifts-shortcut-bar]');
-    if (shortcutBarEl) shortcutBarEl.style.display = shortcutsCollapsed ? 'none' : 'block';
-
-    const filterEl = root.querySelector('[data-shifts-filter]');
-    if (filterEl) filterEl.style.display = filterCollapsed || shortcutsCollapsed ? 'none' : 'block';
-
-    const summaryChevron = root.querySelector('[data-shifts-summary-chevron]');
-    if (summaryChevron) summaryChevron.innerHTML = getIcon(shortcutsCollapsed ? 'chevron-down' : 'chevron-up', 18);
-
-    const customChevron = root.querySelector('[data-shifts-custom-chevron]');
-    if (customChevron) customChevron.innerHTML = getIcon(filterCollapsed ? 'chevron-down' : 'chevron-up', 14);
-
-    const customBtn = root.querySelector('[data-shifts-toggle-filter]');
-    if (customBtn) {
-      customBtn.className = `btn ${filterCollapsed ? 'btn-ghost' : 'btn-primary'} btn-sm`;
+    // ── Week-nav header ──────────────────────────────────────────────────────────────────────
+    if (weekLabelEl) weekLabelEl.textContent = weekPillLabel(nav.week);
+    // Disable "next" once we're on the current (or a future) week — mobile parity.
+    const thisWeekStart = ymd(startOfWeekDate(shiftsFilterAnchorDate(), weekStartDay));
+    const atCurrentOrFuture = nav.week.weekStartYmd >= thisWeekStart;
+    const nextArrow = root.querySelector('[data-shifts-week="next"]');
+    if (nextArrow) {
+      nextArrow.toggleAttribute('disabled', atCurrentOrFuture);
+      nextArrow.classList.toggle('is-disabled', atCurrentOrFuture);
     }
 
     listSlot.innerHTML = `
@@ -771,8 +1007,22 @@ export async function render(root, ctx) {
     `;
 
     const all = await loadAllShiftsForPlatform();
+    // Whole-week set (for the bar chart + week total), independent of any single-day drill-down.
+    const weekShifts = filterAndSortShifts(all, nav.week.start, nav.week.end, sortDir);
+    // The list itself honors the active range (whole week, or one selected day).
     const filtered = filterAndSortShifts(all, range.start, range.end, sortDir);
     const total = filtered.length;
+
+    // Weekly earnings total shown in the header (always the whole week, not the drilled-in day).
+    const sym = currencySymbol();
+    const weekTotal = weekShifts.reduce((sum, s) => sum + shiftNetEarnings(s), 0);
+    if (weekTotalEl) weekTotalEl.textContent = `${sym}${weekTotal.toFixed(2)}`;
+
+    // ── 7-day bar chart ──────────────────────────────────────────────────────────────────────
+    if (chartSlot) {
+      chartSlot.innerHTML = shiftsWeekChartHtml(all, nav, weekStartDay);
+      chartSlot.hidden = false;
+    }
 
     if (countSlot) {
       countSlot.textContent = String(total);
@@ -784,64 +1034,15 @@ export async function render(root, ctx) {
     if (pageIdx >= totalPages) pageIdx = Math.max(0, totalPages - 1);
     if (total > SHIFTS_PER_PAGE) saveShiftsPageIdx(range.start, range.end, range.preset, pageIdx);
 
-    const startInput = /** @type {HTMLInputElement | null} */ (root.querySelector('#shifts-filter-start'));
-    const endInput = /** @type {HTMLInputElement | null} */ (root.querySelector('#shifts-filter-end'));
-    if (startInput) {
-      startInput.value = range.start;
-      if (window.flatpickr) {
-        if (!startInput._fp) {
-          startInput._fp = window.flatpickr(startInput, {
-            dateFormat: 'Y-m-d',
-            defaultDate: range.start,
-            locale: { firstDayOfWeek: weekStartDay },
-            onChange: function(selectedDates) {
-              if (selectedDates.length === 1) {
-                const s = window.flatpickr.formatDate(selectedDates[0], "Y-m-d");
-                // Read current end date from the live input, not from closed-over range
-                const currentEnd = endInput ? endInput.value : range.end;
-                saveShiftsRange({ start: s, end: currentEnd, preset: 'custom' });
-                saveShiftsPageIdx(s, currentEnd, 'custom', 0);
-                void paint();
-              }
-            }
-          });
-        } else {
-          startInput._fp.setDate(range.start, false);
-        }
+    if (statsSlot) {
+      if (total > 0) {
+        statsSlot.innerHTML = shiftsStatsHtml(filtered);
+        statsSlot.hidden = false;
+      } else {
+        statsSlot.innerHTML = '';
+        statsSlot.hidden = true;
       }
     }
-    if (endInput) {
-      endInput.value = range.end;
-      if (window.flatpickr) {
-        if (!endInput._fp) {
-          endInput._fp = window.flatpickr(endInput, {
-            dateFormat: 'Y-m-d',
-            defaultDate: range.end,
-            locale: { firstDayOfWeek: weekStartDay },
-            onChange: function(selectedDates) {
-              if (selectedDates.length === 1) {
-                const e = window.flatpickr.formatDate(selectedDates[0], "Y-m-d");
-                // Read current start date from the live input, not from closed-over range
-                const currentStart = startInput ? startInput.value : range.start;
-                saveShiftsRange({ start: currentStart, end: e, preset: 'custom' });
-                saveShiftsPageIdx(currentStart, e, 'custom', 0);
-                void paint();
-              }
-            }
-          });
-        } else {
-          endInput._fp.setDate(range.end, false);
-        }
-      }
-    }
-
-    const sortEl = /** @type {HTMLSelectElement | null} */ (root.querySelector('select[data-shifts-sort]'));
-    if (sortEl) sortEl.value = sortDir;
-
-    root.querySelectorAll('[data-shifts-preset]').forEach((btn) => {
-      const p = btn.getAttribute('data-shifts-preset');
-      btn.className = `btn shifts-preset-btn ${p === range.preset ? 'is-active' : ''}`;
-    });
 
     if (!total) {
       const emptyTitle = all.length === 0 ? t('shifts.emptyTitle') : t('shifts.emptyFilteredTitle');
@@ -894,53 +1095,56 @@ export async function render(root, ctx) {
   };
 
   const onClick = async (e) => {
-    const toggleShortcuts = e.target instanceof Element ? e.target.closest('[data-shifts-toggle-shortcuts]') : null;
-    if (toggleShortcuts) {
-      const stored = localStorage.getItem('comma_shifts_shortcuts_collapsed');
-      const isCollapsed = stored === null ? true : stored === 'true';
-      const nextCollapsed = !isCollapsed;
-      localStorage.setItem('comma_shifts_shortcuts_collapsed', nextCollapsed ? 'true' : 'false');
-      if (nextCollapsed) {
-        localStorage.setItem('comma_shifts_toolbar_collapsed', 'true');
+    // ── Week navigation (prev / next / pick) ─────────────────────────────────────────────────
+    const weekEl = e.target instanceof Element ? e.target.closest('[data-shifts-week]') : null;
+    if (weekEl && root.contains(weekEl)) {
+      const dir = weekEl.getAttribute('data-shifts-week');
+      const user = store.get('user');
+      const wsd = Number(user?.locale?.weekStartDay ?? 0);
+      const cur = loadWeekNav(wsd);
+      if (dir === 'pick') {
+        await openWeekSelector({
+          selectedWeekStart: cur.week.weekStartYmd,
+          weekStartDay: wsd,
+          onPick: (weekStartYmd) => {
+            saveWeekNav(weekStartYmd, wsd);
+            void paint();
+          },
+        });
+        return;
       }
+      if (weekEl.hasAttribute('disabled')) return;
+      // Step the week's start by ±7 days (clear any single-day drill-down).
+      const base = new Date(`${cur.week.weekStartYmd}T00:00:00`);
+      base.setDate(base.getDate() + (dir === 'next' ? 7 : -7));
+      saveWeekNav(ymd(base), wsd);
       await paint();
       return;
     }
 
-    const toggle = e.target instanceof Element ? e.target.closest('[data-shifts-toggle-filter]') : null;
-    if (toggle) {
-      const stored = localStorage.getItem('comma_shifts_toolbar_collapsed');
-      const isCollapsed = stored === null ? true : stored === 'true';
-      localStorage.setItem('comma_shifts_toolbar_collapsed', isCollapsed ? 'false' : 'true');
-      await paint();
-      return;
-    }
-
-    const applyBtn = e.target instanceof Element ? e.target.closest('[data-shifts-apply]') : null;
-    if (applyBtn) {
-      localStorage.setItem('comma_shifts_shortcuts_collapsed', 'true');
-      localStorage.setItem('comma_shifts_toolbar_collapsed', 'true');
-      await paint();
+    // ── Day bar selection (tap to drill into one day; tap the selected day again to clear) ────
+    const dayEl = e.target instanceof Element ? e.target.closest('[data-shifts-day]') : null;
+    if (dayEl && root.contains(dayEl)) {
+      const day = dayEl.getAttribute('data-shifts-day');
+      const user = store.get('user');
+      const wsd = Number(user?.locale?.weekStartDay ?? 0);
+      const cur = loadWeekNav(wsd);
+      if (day) {
+        if (cur.selectedDay === day) {
+          // Toggle off → back to the whole week.
+          saveWeekNav(day, wsd);
+        } else {
+          saveWeekNav(day, wsd, { selectDay: true });
+        }
+        await paint();
+      }
       return;
     }
 
     const navEl = /** @type {HTMLElement | null} */ (
-      e.target && /** @type {HTMLElement} */ (e.target).closest('[data-shifts-preset],[data-shifts-action],[data-shifts-page],[data-shifts-apply]')
+      e.target && /** @type {HTMLElement} */ (e.target).closest('[data-shifts-action],[data-shifts-page]')
     );
     if (navEl && root.contains(navEl)) {
-      const preset = navEl.getAttribute('data-shifts-preset');
-      if (preset && preset !== 'custom') {
-        const user = store.get('user');
-        const wsd = Number(user?.locale?.weekStartDay ?? 0);
-        // @ts-ignore
-        const r = defaultRangeForPreset(preset, shiftsFilterAnchorDate(), wsd);
-        saveShiftsRange(r);
-        saveShiftsPageIdx(r.start, r.end, r.preset, 0);
-        localStorage.setItem('comma_shifts_shortcuts_collapsed', 'true');
-        localStorage.setItem('comma_shifts_toolbar_collapsed', 'true');
-        await paint();
-        return;
-      }
       if (navEl.getAttribute('data-shifts-action') === 'new') {
         e.preventDefault();
         const target = '#/shifts/new';

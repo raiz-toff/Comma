@@ -1,9 +1,107 @@
-/* COMMA — shifts view (F11). */
+/* COMMA — shifts view (F11).
+ *
+ * ── Mobile-parity design layer ──────────────────────────────────────────────────────────────
+ * The shift screens (list, detail, add/edit form) are restyled to match the mobile Android app's
+ * look (commaApp/src/global.css + app/(tabs)/shifts). Mobile ships a cool-neutral, near-black
+ * "OLED" palette with flat hairline borders and no shadows — distinct from the web app's warm
+ * charcoal dark theme. Rather than touch the global tokens (which would restyle the whole app), we
+ * scope a local token override to the shift roots below: every `var(--color-surface)` etc. used by
+ * the existing shift markup resolves to mobile's values ONLY inside these screens. Light mode gets
+ * a clean, flat equivalent so web's light-theme users aren't left with a dark island.
+ *
+ * Mobile dark hexes (from global.css): canvas #000, card #0F0F12, raised #16161A, pressed #1C1C21,
+ * text #F6F6F7 / #9B9BA4 / #65656E, hairlines #1E1E23 / #2E2E36. Card radius 20px, input/row 12px,
+ * chip 8px. Numbers are tabular; micro-labels are 700-weight uppercase with letter-spacing.
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+.shifts-view,
+.shifts-form {
+  /* Cool-neutral surface ramp + flat hairlines (light-mode equivalent of mobile's dark ramp). */
+  --sh-canvas: #f4f5f7;
+  --sh-card: #ffffff;
+  --sh-raised: #f0f1f4;
+  --sh-pressed: #e7e9ee;
+  --sh-text: #14151a;
+  --sh-text-2: #565a66;
+  --sh-text-muted: #8b8f9c;
+  --sh-line: #e3e5ea;
+  --sh-line-strong: #cfd2da;
+  --sh-accent: var(--color-brand);
+  --sh-accent-contrast: #ffffff;
+  --sh-success: #16a34a;
+  --sh-danger: #e5484d;
+  --sh-warning: #d97706;
+
+  /* Radii mapped to mobile's Comma DS scale. */
+  --sh-r-chip: 8px;
+  --sh-r-input: 12px;
+  --sh-r-card: 20px;
+
+  /* Re-point the app tokens the existing shift markup already consumes, so cards/inputs/badges
+     inherit the mobile look without rewriting every rule. */
+  --color-surface: var(--sh-card);
+  --color-surface-raised: var(--sh-raised);
+  --color-border: var(--sh-line);
+  --color-text-primary: var(--sh-text);
+  --color-text-secondary: var(--sh-text-2);
+  --color-text-muted: var(--sh-text-muted);
+}
+
+/* Mobile's cool near-black OLED ramp — applied in dark mode (explicit + auto/system). */
+html[data-theme='dark'] .shifts-view,
+html[data-theme='dark'] .shifts-form {
+  --sh-canvas: #000000;
+  --sh-card: #0f0f12;
+  --sh-raised: #16161a;
+  --sh-pressed: #1c1c21;
+  --sh-text: #f6f6f7;
+  --sh-text-2: #9b9ba4;
+  --sh-text-muted: #65656e;
+  --sh-line: #1e1e23;
+  --sh-line-strong: #2e2e36;
+  --sh-success: #1fc16b;
+  --sh-danger: #ff5247;
+  --sh-warning: #f5a623;
+  --sh-accent-contrast: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-theme='auto'] .shifts-view,
+  html[data-theme='auto'] .shifts-form {
+    --sh-canvas: #000000;
+    --sh-card: #0f0f12;
+    --sh-raised: #16161a;
+    --sh-pressed: #1c1c21;
+    --sh-text: #f6f6f7;
+    --sh-text-2: #9b9ba4;
+    --sh-text-muted: #65656e;
+    --sh-line: #1e1e23;
+    --sh-line-strong: #2e2e36;
+    --sh-success: #1fc16b;
+    --sh-danger: #ff5247;
+    --sh-warning: #f5a623;
+    --sh-accent-contrast: #ffffff;
+  }
+}
+
+/* Shared micro-label eyebrow (mobile: 700 uppercase, letter-spaced, secondary color). */
+.shifts-view .sh-eyebrow,
+.shifts-form .sh-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sh-text-2);
+}
 
 .shifts-view {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  /* Share the common content column width with expenses/goals/analytics. */
+  max-width: var(--app-content-width);
+  margin-inline: auto;
+  width: 100%;
 }
 
 .shifts-view-header {
@@ -285,46 +383,298 @@
   font-size: var(--text-xs);
 }
 
+/* Mobile-parity stats grid: 4 flat stat cards (Gross / Hours / Distance / Orders) summarising the
+   shifts in range. On mobile it's two rows of two; on web it flexes to a responsive 2–4 columns. */
+.shifts-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+@media (min-width: 720px) {
+  .shifts-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.shifts-stat-card {
+  background: var(--sh-card);
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-r-card);
+  padding: 16px;
+}
+
+.shifts-stat-label {
+  margin-bottom: 6px;
+}
+
+.shifts-stat-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--sh-text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+/* ── Mobile-style week navigation header ───────────────────────────────────────────────────────
+   Centered: a tappable week pill, then a row of [◀]  big weekly total  [▶]. */
+.shifts-weeknav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 16px;
+  position: relative;
+}
+
+.shifts-week-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--sh-raised);
+  border: 1px solid var(--sh-pressed);
+  color: var(--sh-text-2);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.shifts-week-pill:hover {
+  background: var(--sh-pressed);
+  color: var(--sh-text);
+}
+
+.shifts-week-pill svg {
+  width: 14px;
+  height: 14px;
+}
+
+.shifts-weeknav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: 460px;
+}
+
+.shifts-weeknav-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  background: var(--sh-raised);
+  border: 1px solid var(--sh-pressed);
+  color: var(--sh-text);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.shifts-weeknav-arrow:hover:not(.is-disabled) {
+  background: var(--sh-pressed);
+}
+
+.shifts-weeknav-arrow.is-disabled {
+  opacity: 0.35;
+  cursor: default;
+  border-color: var(--sh-raised);
+}
+
+.shifts-weeknav-amount {
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--sh-text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  text-align: center;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 7-day earnings bar chart ──────────────────────────────────────────────────────────────── */
+.shifts-chart {
+  margin-bottom: 4px;
+}
+
+.shifts-chart-card {
+  position: relative;
+  background: var(--sh-card);
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-r-card);
+  padding: 16px;
+}
+
+.shifts-chart-high {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.shifts-chart-high-line {
+  flex: 1;
+  border-top: 1px dashed color-mix(in srgb, var(--sh-text-muted) 45%, transparent);
+}
+
+.shifts-chart-high-badge {
+  font-size: 9px;
+  background: var(--sh-card);
+  padding-left: 8px;
+  white-space: nowrap;
+}
+
+.shifts-chart-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  height: 100px;
+}
+
+.shifts-chart-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 1;
+  height: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.shifts-chart-track {
+  display: flex;
+  align-items: flex-end;
+  width: 14px;
+  height: 64px;
+  border-radius: 7px;
+  background: var(--sh-raised);
+  overflow: hidden;
+}
+
+.shifts-chart-fill {
+  width: 100%;
+  border-radius: 7px;
+  background: var(--sh-accent);
+  transition: height var(--transition-base), opacity var(--transition-fast);
+}
+
+.shifts-chart-fill.is-dim {
+  opacity: 0.35;
+}
+
+.shifts-chart-col.is-selected .shifts-chart-fill {
+  background: var(--sh-accent);
+}
+
+.shifts-chart-daylabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sh-text-2);
+}
+
+.shifts-chart-col.is-selected .shifts-chart-daylabel {
+  color: var(--sh-accent);
+  font-weight: 800;
+}
+
 .shifts-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 12px;
 }
 
+/* Mobile parity: flat #0F0F12 card, 20px radius, 0.8px hairline, no shadow. Column layout with a
+   header row (icon + day, earnings on the right) and a divided meta/metrics row below. */
 .shift-card {
   display: flex;
   flex-direction: column;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3) var(--space-4);
-  box-shadow: var(--shadow-sm);
-  gap: var(--space-3);
-  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+  background: var(--sh-card);
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-r-card);
+  padding: 16px;
+  box-shadow: none;
+  gap: 12px;
+  transition: border-color var(--transition-base), background var(--transition-base);
 }
 
 .shift-card:hover {
-  border-color: var(--color-brand);
-  box-shadow: var(--shadow-md);
-}
-
-@media (min-width: 840px) {
-  .shift-card {
-    flex-direction: row;
-    align-items: center;
-    gap: var(--space-6);
-  }
+  border-color: var(--sh-line-strong);
+  background: color-mix(in srgb, var(--sh-raised) 40%, var(--sh-card));
+  box-shadow: none;
 }
 
 .shift-card-top {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  min-width: 180px;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Left cluster: platform icon chip + day label. */
+.shift-card-ident {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* 28×28 rounded-square platform icon chip (mobile: #16161A bg, hairline, brand-tinted glyph). */
+.shift-card-plat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: var(--sh-r-chip);
+  background: var(--sh-raised);
+  border: 1px solid var(--sh-pressed);
+  color: var(--platform-color, var(--sh-text-2));
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .shift-card-date {
   font-weight: 700;
+  font-size: 14px;
+  color: var(--sh-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Net earnings, right-aligned in the header row. */
+.shift-card-earn {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--sh-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .shift-badge {
@@ -361,27 +711,67 @@
   --platform-color: #6b7280;
 }
 
+/* Platform brand tint for the card icon chip glyph (mirrors the badge palette). */
+.shift-card-plat-icon[data-platform-id='doordash'] {
+  --platform-color: #ff3008;
+}
+.shift-card-plat-icon[data-platform-id='ubereats'] {
+  --platform-color: #06c167;
+}
+.shift-card-plat-icon[data-platform-id='foodora'] {
+  --platform-color: #e21b70;
+}
+.shift-card-plat-icon[data-platform-id='skip'] {
+  --platform-color: #ed5a1f;
+}
+.shift-card-plat-icon[data-platform-id='instacart'] {
+  --platform-color: #0aad0a;
+}
+.shift-card-plat-icon[data-platform-id='amazonflex'] {
+  --platform-color: #b8bcc4;
+}
+.shift-card-plat-icon[data-platform-id='other'] {
+  --platform-color: var(--sh-text-2);
+}
+
+/* Meta/metrics row — mobile divides it from the header with a 0.5px hairline. Metrics read as
+   "Label value" pairs in secondary text, wrapping and separated with generous column gaps. */
 .shift-card-main {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-4) var(--space-8);
+  align-items: baseline;
+  gap: 6px 20px;
   flex: 1;
+  padding-top: 12px;
+  border-top: 1px solid var(--sh-line);
+}
+
+.shift-card-metric {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .shift-card-metric-label {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sh-text-2);
 }
 
 .shift-card-metric-value {
-  font-size: var(--text-sm);
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sh-text);
+  font-variant-numeric: tabular-nums;
 }
 
 .shift-card-actions {
   display: flex;
   gap: var(--space-1);
   justify-content: flex-end;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--sh-line);
 }
 
 /* Multi-platform shift breakdown (interop plan Workstream 4). Only rendered when a shift has
@@ -606,19 +996,93 @@
   font-size: var(--text-lg);
 }
 
+/* Form root container: a 2-column grid so paired fields (start/end time) sit side by side and the
+   existing `.field--span2` hooks span full width, as their class name always intended. Collapses to
+   a single column on narrow viewports (the form renders inside a modal). */
+.shifts-form-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (max-width: 520px) {
+  .shifts-form-fields {
+    grid-template-columns: 1fr;
+  }
+  .shifts-form-fields .field--span2 {
+    grid-column: span 1;
+  }
+}
+
+/* Mobile-parity footer: Cancel/Back on the left (dark chip), primary Save on the right (accent). */
 .shifts-form-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: var(--space-3);
   margin-top: var(--space-4);
   padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--sh-line);
+}
+
+.shifts-form-footer .btn {
+  border-radius: var(--sh-r-input);
+  padding: 12px 24px;
+  font-weight: 700;
+  min-width: 110px;
+  justify-content: center;
+}
+
+/* Cancel = neutral dark chip (mobile: #1E1E23 bg / #26262C border). */
+.shifts-form-footer .btn-ghost {
+  background: var(--sh-raised);
+  border: 1px solid var(--sh-line-strong);
+  color: var(--sh-text-2);
+}
+
+.shifts-form-footer .btn-ghost:hover {
+  background: var(--sh-pressed);
+  color: var(--sh-text);
+}
+
+/* Save = accent fill with contrast label. */
+.shifts-form-footer .btn-primary {
+  background: var(--sh-accent);
+  border: 1px solid var(--sh-accent);
+  color: var(--sh-accent-contrast);
 }
 
 .shifts-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
+}
+
+/* Mobile-parity inputs: 12px radius, recessed surface, semibold value text, and a neutral
+   strong-border focus (mobile uses focus:border-white) rather than the app's emerald ring. */
+.shifts-form .input,
+.shifts-form .textarea,
+.shifts-form select.input {
+  border-radius: var(--sh-r-input);
+  background: var(--sh-raised);
+  border-color: var(--sh-line);
+  color: var(--sh-text);
+  font-weight: 600;
+  padding: 12px 14px;
+}
+
+.shifts-form .input::placeholder,
+.shifts-form .textarea::placeholder {
+  color: var(--sh-text-muted);
+  font-weight: 500;
+}
+
+.shifts-form .input:focus,
+.shifts-form .textarea:focus,
+.shifts-form select.input:focus {
+  border-color: var(--sh-line-strong);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sh-line-strong) 45%, transparent);
 }
 
 .field {
@@ -629,6 +1093,16 @@
 
 .field--span2 {
   grid-column: span 2;
+}
+
+/* Mobile eyebrow labels: tiny, 700-weight, uppercase, letter-spaced, secondary color. */
+.shifts-form .field-label {
+  font-size: 10px;
+  color: var(--sh-text-2);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-left: 2px;
 }
 
 .field-label {
@@ -722,10 +1196,10 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-raised);
+  padding: 16px;
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-r-card);
+  background: var(--sh-card);
 }
 
 @media (min-width: 560px) {
@@ -744,10 +1218,10 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: var(--space-3);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-raised);
+  padding: 16px;
+  border-radius: var(--sh-r-card);
+  border: 1px solid var(--sh-line);
+  background: var(--sh-card);
   flex-wrap: wrap;
 }
 
@@ -759,12 +1233,18 @@
 }
 
 .shifts-livebar-label {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sh-text-2);
 }
 
 .shifts-livebar-value {
-  font-weight: 700;
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--sh-text);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Templates + import */

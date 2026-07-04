@@ -4,7 +4,7 @@
  */
 
 .expenses-m {
-  max-width: 640px;
+  max-width: var(--app-content-width);
   margin: 0 auto;
   padding: var(--space-4) var(--space-4) var(--space-16);
   display: flex;

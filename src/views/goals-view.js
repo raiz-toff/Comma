@@ -296,7 +296,7 @@ export async function render(root, ctx) {
         --gv-text:#F6F6F7; --gv-muted:#9B9BA4; --gv-dim:#65656E; --gv-faint:#2E2E36;
         --gv-track:#1C1C21; --gv-badge:#0a0a0a; --gv-badge-on:#ffffff08; --gv-badge-on-bd:#ffffff18;
         --gv-lvl-bg:#1e3a8a22; --gv-done-bg:#052e1640;
-        max-width: 720px; margin: 0 auto; padding: 20px 16px 120px;
+        max-width: var(--app-content-width, 720px); margin: 0 auto; padding: 20px 16px 120px;
         animation: gvFade 0.35s ease-out;
       }
       /* Light theme (explicit) + auto theme when the OS prefers light. */

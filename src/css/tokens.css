@@ -58,6 +58,10 @@
   --text-4xl: calc(var(--text-base) * 2.533);
   --text-5xl: calc(var(--text-base) * 3.2);
 
+  /* Shared max content width for the main tab views (shifts, expenses, goals, analytics) so they
+     line up at the same column width across screen sizes. */
+  --app-content-width: 720px;
+
   /* Radii */
   --radius-sm: 6px;
   --radius-md: 10px;

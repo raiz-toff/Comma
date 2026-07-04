@@ -145,6 +145,17 @@ export async function isSyncEnabled(): Promise<boolean> {
 }
 
 /**
+ * Whether Demo Mode is active. Read straight from the same settings/localStorage bucket
+ * the store persists it to (native: `demo_mode`, web: `comma_demo_mode`, both = "true"),
+ * so non-React callers like the sync engine can gate on it without the store. Sync must
+ * never run in demo mode — the seeded sample data would overwrite the user's real cloud
+ * copy. See useSettingsStore's demo activation.
+ */
+export async function isDemoModeActive(): Promise<boolean> {
+  return (await readSyncKey("demo_mode")) === "true";
+}
+
+/**
  * Turn Cloud Sync on/off. Auto-enabled once Drive is connected + a sync password is set
  * (the "connect then done" flow on the sync screen); turned off on disconnect.
  */

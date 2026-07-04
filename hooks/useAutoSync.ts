@@ -21,6 +21,7 @@ import { getTokens } from "../src/services/googleDrive";
 import { getBackupPassword } from "../src/services/backupPassword";
 import {
   isSyncEnabled,
+  isDemoModeActive,
   getSyncSchedule,
   getLastPushRunAt,
 } from "../src/database/syncState";
@@ -29,6 +30,7 @@ import { syncNow } from "../src/services/sync/syncNow";
 
 /** Resolve the gate + passphrase, or null if auto-sync can't run right now. */
 async function resolveAutoSync(): Promise<string | null> {
+  if (await isDemoModeActive()) return null; // demo data must never reach the user's cloud
   if (!(await isSyncEnabled())) return null;
   const tokens = await getTokens();
   if (!tokens) return null; // Drive not connected

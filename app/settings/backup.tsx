@@ -29,6 +29,7 @@ import {
 } from "lucide-react-native";
 
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import { useGoogleDriveSync } from "@/hooks/useGoogleDriveSync";
 import { useSyncNow } from "@/hooks/useSyncNow";
 import {
@@ -257,6 +258,8 @@ export default function SyncScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
+  const isDemoMode = useSettingsStore((st) => st.isDemoMode);
+  const loadSettings = useSettingsStore((st) => st.loadSettings);
   const { isAuthenticated, userEmail, login, logout } = useGoogleDriveSync();
 
   const { isSyncing, triggerSync } = useSyncNow();
@@ -289,16 +292,40 @@ export default function SyncScreen() {
 
   const ready = isAuthenticated && passwordSet;
 
+  // Demo mode uses seeded sample data — connecting Drive or syncing would push that fake
+  // data to the user's real cloud copy, so we block both entry points and point the user
+  // to Settings to leave demo mode first.
+  const blockedByDemo = () => {
+    if (!isDemoMode) return false;
+    setDialog({
+      variant: "info",
+      title: "Demo Mode Active",
+      message: "Cloud Sync and Google Drive are disabled while Demo Mode is on, so your sample data isn't backed up. Turn off Demo Mode in Settings to sync your real data.",
+      confirmLabel: "Go to Settings",
+      cancelLabel: "Cancel",
+      onConfirm: () => {
+        setDialog(null);
+        router.push("/settings");
+      },
+    });
+    return true;
+  };
+
   // "Connect then done": once Drive is connected AND a password is set, Cloud Sync turns
   // itself on — no extra switch to flip. Sync is free for everyone (no paywall).
+  // Never auto-enable in demo mode — the seeded data must not reach the user's cloud.
   useEffect(() => {
-    if (ready && !syncEnabled && !suppressAutoEnable.current) {
+    if (ready && !syncEnabled && !suppressAutoEnable.current && !isDemoMode) {
       setSyncEnabledState(true);
       persistSyncEnabled(true).catch(() => setSyncEnabledState(false));
     }
-  }, [ready, syncEnabled]);
+  }, [ready, syncEnabled, isDemoMode]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
+  const onConnect = () => {
+    if (blockedByDemo()) return;
+    login();
+  };
   const openSetPassword = () =>
     setPwPrompt({
       mode: "set",
@@ -341,6 +368,7 @@ export default function SyncScreen() {
   };
 
   const doSyncNow = async () => {
+    if (blockedByDemo()) return;
     const pw = await getBackupPassword();
     if (!pw) {
       openSetPassword();
@@ -349,6 +377,9 @@ export default function SyncScreen() {
     try {
       const res = await triggerSync(pw);
       queryClient.invalidateQueries({ queryKey: ["backup", "status"] });
+      // The pull may have applied synced PROFILE keys (name, country, onboarding flag…) —
+      // re-hydrate the store so the app (and a joining device's onboarding gate) reflects it.
+      await loadSettings();
       const plural = (n: number) => (n === 1 ? "" : "s");
       setDialog({
         variant: "success",
@@ -461,7 +492,7 @@ export default function SyncScreen() {
               <PillBtn label="Turn off" variant="danger" onPress={onDisconnect}
                 accent={accentColor} accentDim={accentColorDim} accentMid={accentColorMid} accentContrast={accentColorContrast} />
             ) : (
-              <PillBtn label="Connect" variant="primary" onPress={login}
+              <PillBtn label="Connect" variant="primary" onPress={onConnect}
                 accent={accentColor} accentDim={accentColorDim} accentMid={accentColorMid} accentContrast={accentColorContrast} />
             )
           }

@@ -88,10 +88,12 @@ function StyledInput({
 export function WelcomeScreen({
   onStart,
   onDemo,
+  onRestoreSync,
   demoLoading = false,
 }: {
   onStart: () => void;
   onDemo: () => void;
+  onRestoreSync: () => void;
   demoLoading?: boolean;
 }) {
   const insets = useSafeAreaInsets();
@@ -187,15 +189,39 @@ export function WelcomeScreen({
 
           <Pressable
             onPress={demoLoading ? undefined : onDemo}
-            style={{ borderRadius: 16, paddingVertical: 14, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 }}
+            style={{
+              borderRadius: 16,
+              paddingVertical: 14,
+              alignItems: "center",
+              flexDirection: "row",
+              justifyContent: "center",
+              gap: 8,
+              backgroundColor: "#0F0F12",
+              borderWidth: 1,
+              borderColor: "#1E1E23",
+            }}
           >
             {demoLoading
               ? <>
                   <ActivityIndicator size="small" color="#9B9BA4" />
                   <Text style={{ fontSize: 14, fontWeight: "600", color: "#9B9BA4" }}>Setting up demo...</Text>
                 </>
-              : <Text style={{ fontSize: 14, fontWeight: "600", color: "#65656E" }}>Try with demo data</Text>
+              : <Text style={{ fontSize: 14, fontWeight: "600", color: "#9B9BA4" }}>Try with demo data</Text>
             }
+          </Pressable>
+
+          <Pressable
+            onPress={demoLoading ? undefined : onRestoreSync}
+            style={{
+              borderRadius: 16,
+              paddingVertical: 14,
+              alignItems: "center",
+              backgroundColor: "#0F0F12",
+              borderWidth: 1,
+              borderColor: "#1E1E23",
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: "600", color: "#9B9BA4" }}>Restore / Sync existing data</Text>
           </Pressable>
 
           <Text

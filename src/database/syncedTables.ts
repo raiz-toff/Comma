@@ -24,9 +24,12 @@ import {
   expenses,
   shiftPlatforms,
   vehicleTaxProfiles,
+  profile,
 } from "./schema";
 
 export const SYNCED_TABLES = [
+  // Synced user PROFILE (bucket b — per-key KV; the record engine gives per-key LWW free).
+  { name: "profile", table: profile },
   { name: "vehicles", table: vehicles },
   { name: "platforms", table: platforms },
   { name: "merchants", table: merchants },

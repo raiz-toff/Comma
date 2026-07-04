@@ -155,6 +155,13 @@
       "when": 1783197000000,
       "tag": "0021_first_sync_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1783128920939,
+      "tag": "0022_profile_sync",
+      "breakpoints": true
     }
   ]
 }

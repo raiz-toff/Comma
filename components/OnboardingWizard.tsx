@@ -1,10 +1,14 @@
 import React, { useState } from "react";
-import { View, Pressable, ActivityIndicator } from "react-native";
+import { View, Pressable, ActivityIndicator, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import { FileDown } from "lucide-react-native";
 import { Text } from "../src/components/ui/text";
 import { useSettingsStore, type DriverProfile, type VehicleDraft } from "../store/useSettingsStore";
 import { getCountryDef } from "../src/registry/countries/index";
 import { type FeatureKey } from "../src/registry/modules";
+import { restoreBackupFile } from "../src/services/backupFile";
+import { GoogleDriveLogo } from "../src/components/logos/GoogleDriveLogo";
 import {
   WelcomeScreen,
   NameStep,
@@ -54,13 +58,18 @@ const DEFAULT_FEATURES: Partial<Record<FeatureKey, boolean>> = {
 };
 
 export default function OnboardingWizard() {
-  const { completeOnboarding, updateFeatureOverride, loadSampleData, isLoading } = useSettingsStore();
+  const { completeOnboarding, updateFeatureOverride, loadSampleData, loadSettings, isLoading } = useSettingsStore();
   const insets = useSafeAreaInsets();
 
   const [showWelcome, setShowWelcome] = useState(true);
   const [showReveal, setShowReveal] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
+
+  // "Restore / Sync existing data" chooser (welcome screen third option)
+  const [showRestoreChooser, setShowRestoreChooser] = useState(false);
+  const [isRestoringFile, setIsRestoringFile] = useState(false);
+  const [restoreError, setRestoreError] = useState("");
 
   // Name
   const [displayName, setDisplayName] = useState("");
@@ -169,10 +178,37 @@ export default function OnboardingWizard() {
     }
   };
 
+  // ── "Restore / Sync existing data" (welcome third option) ────────────────────
+  const handleChooseGoogleSync = () => {
+    // The cloud snapshot carries EVERYTHING — records AND the synced profile (name, country,
+    // units, onboarding flag) — so no setup wizard: go straight to the Cloud Sync hub. Once
+    // the user connects + syncs, the profile import completes onboarding by itself.
+    setShowRestoreChooser(false);
+    router.push("/settings/backup");
+  };
+
+  const handleChooseBackupFile = async () => {
+    if (isRestoringFile) return;
+    setIsRestoringFile(true);
+    setRestoreError("");
+    try {
+      const res = await restoreBackupFile();
+      if (!res.restored) return; // picker cancelled — stay on the chooser
+      // The restored settings carry the source phone's profile + onboarding flag; re-hydrate
+      // the store so the gate above this wizard swaps straight to the dashboard.
+      await loadSettings();
+      setShowRestoreChooser(false);
+    } catch (e: any) {
+      setRestoreError(e?.message ?? "Restore failed.");
+    } finally {
+      setIsRestoringFile(false);
+    }
+  };
+
   const handleDemoMode = async () => {
     setIsDemoLoading(true);
     const profile: DriverProfile = {
-      displayName: "Jane Doe",
+      displayName: "Hustler",
       country: "CA",
       taxRegion: "ON",
       operationalModelId: "delivery_fixed",
@@ -203,11 +239,113 @@ export default function OnboardingWizard() {
 
   if (showWelcome) {
     return (
-      <WelcomeScreen
-        onStart={() => setShowWelcome(false)}
-        onDemo={handleDemoMode}
-        demoLoading={isDemoLoading}
-      />
+      <>
+        <WelcomeScreen
+          onStart={() => setShowWelcome(false)}
+          onDemo={handleDemoMode}
+          onRestoreSync={() => {
+            setRestoreError("");
+            setShowRestoreChooser(true);
+          }}
+          demoLoading={isDemoLoading}
+        />
+
+        {showRestoreChooser ? (
+          <Modal
+            transparent
+            visible
+            animationType="fade"
+            onRequestClose={() => !isRestoringFile && setShowRestoreChooser(false)}
+          >
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: "rgba(0,0,0,0.72)",
+                justifyContent: "center",
+                padding: 24,
+              }}
+            >
+              <View
+                style={{
+                  backgroundColor: "#0F0F12",
+                  borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: "#1E1E23",
+                  padding: 20,
+                  gap: 10,
+                }}
+              >
+                <Text style={{ fontSize: 17, fontWeight: "800", color: "#F6F6F7" }}>Restore / Sync</Text>
+                <Text style={{ fontSize: 13, color: "#65656E", lineHeight: 19 }}>
+                  Bring your existing Comma data onto this phone.
+                </Text>
+
+                <Pressable
+                  onPress={isRestoringFile ? undefined : handleChooseGoogleSync}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 12,
+                    backgroundColor: "#16161A",
+                    borderWidth: 1,
+                    borderColor: "#2E2E36",
+                    borderRadius: 14,
+                    padding: 14,
+                  }}
+                >
+                  <GoogleDriveLogo size={22} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: "#F6F6F7" }}>Google Cloud Sync</Text>
+                    <Text style={{ fontSize: 12, color: "#65656E", lineHeight: 17, marginTop: 2 }}>
+                      Connect Drive — pulls your profile and all your data, no setup needed
+                    </Text>
+                  </View>
+                </Pressable>
+
+                <Pressable
+                  onPress={isRestoringFile ? undefined : handleChooseBackupFile}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 12,
+                    backgroundColor: "#16161A",
+                    borderWidth: 1,
+                    borderColor: "#2E2E36",
+                    borderRadius: 14,
+                    padding: 14,
+                    opacity: isRestoringFile ? 0.6 : 1,
+                  }}
+                >
+                  {isRestoringFile ? (
+                    <ActivityIndicator size="small" color="#9B9BA4" />
+                  ) : (
+                    <FileDown size={22} color="#9B9BA4" />
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: "#F6F6F7" }}>
+                      {isRestoringFile ? "Restoring…" : "Backup file"}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: "#65656E", lineHeight: 17, marginTop: 2 }}>
+                      Restore a comma-backup .json file made on another phone
+                    </Text>
+                  </View>
+                </Pressable>
+
+                {restoreError ? (
+                  <Text style={{ color: "#fb7185", fontSize: 12, lineHeight: 17 }}>{restoreError}</Text>
+                ) : null}
+
+                <Pressable
+                  onPress={() => !isRestoringFile && setShowRestoreChooser(false)}
+                  style={{ alignItems: "center", paddingVertical: 10 }}
+                >
+                  <Text style={{ color: "#65656E", fontWeight: "600", fontSize: 14 }}>Cancel</Text>
+                </Pressable>
+              </View>
+            </View>
+          </Modal>
+        ) : null}
+      </>
     );
   }
 

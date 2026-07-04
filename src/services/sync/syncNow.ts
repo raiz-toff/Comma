@@ -14,6 +14,7 @@
 
 import {
   isSyncEnabled,
+  isDemoModeActive,
   addAppliedLog,
   setLastPushRunAt,
   setLastCloudSaveAt,
@@ -25,6 +26,7 @@ import { pullChanges } from "./pullChanges";
 import { pushChanges } from "./pushChanges";
 import { applyChangeLog } from "./applyChangeLog";
 import { maybeCompact } from "./compaction";
+import { exportLocalProfile, importSyncedProfile } from "./profileBridge";
 
 export interface SyncOptions {
   pull?: boolean;
@@ -46,11 +48,26 @@ export interface SyncResult {
 }
 
 async function runSync(passphrase: string, opts: SyncOptions): Promise<SyncResult> {
+  // Hard stop in demo mode: the seeded sample data must never reach the user's real cloud
+  // copy. This backstops the UI gate on the sync screen and, crucially, the auto-sync
+  // triggers (foreground pull / background push) that would otherwise run for a user who
+  // had sync enabled before switching into demo mode.
+  if (await isDemoModeActive()) {
+    throw new Error("Cloud Sync is disabled while Demo Mode is active.");
+  }
   if (!(await isSyncEnabled())) {
     throw new Error("Sync is not enabled. Unlock sync to use it.");
   }
   const doPull = opts.pull !== false;
   const doPush = opts.push !== false;
+
+  // Mirror local profile → synced `profile` table BEFORE pulling, so fresh local edits carry
+  // stamps and win/lose per-key LWW honestly instead of being clobbered by an older pull.
+  try {
+    await exportLocalProfile();
+  } catch (e) {
+    console.warn("[sync] profile export skipped:", e);
+  }
 
   let pulledLogs = 0;
   let appliedRows = 0;
@@ -84,6 +101,14 @@ async function runSync(passphrase: string, opts: SyncOptions): Promise<SyncResul
           e
         );
       }
+    }
+
+    // Newly-won profile rows → local settings (name, country, units, onboarding flag…),
+    // so a joining device is fully set up straight from the cloud snapshot.
+    try {
+      await importSyncedProfile();
+    } catch (e) {
+      console.warn("[sync] profile import skipped:", e);
     }
   }
 

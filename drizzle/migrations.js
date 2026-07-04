@@ -23,6 +23,7 @@ import m0018 from './0018_mean_black_cat.sql';
 import m0019 from './0019_active_seconds.sql';
 import m0020 from './0020_shift_bonus_amount.sql';
 import m0021 from './0021_first_sync_backfill.sql';
+import m0022 from './0022_profile_sync.sql';
 
   export default {
     journal,
@@ -48,7 +49,8 @@ m0017,
 m0018,
 m0019,
 m0020,
-m0021
+m0021,
+m0022
     }
   }
   

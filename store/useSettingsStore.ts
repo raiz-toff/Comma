@@ -863,7 +863,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       const demoVehicleIds = ['demo_vehicle_car', 'demo_vehicle_scooter', 'demo_vehicle_ebike'];
       localStorage.setItem("comma_onboarding_completed", "true");
       const finalProfile = {
-        displayName: "Jane Doe (Demo)",
+        displayName: "Hustler",
         country: "CA" as const,
         taxRegion: "ON",
         avatarType: "emoji" as const,

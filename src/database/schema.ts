@@ -121,6 +121,21 @@ export const settings = sqliteTable('settings', {
   value: text('value').notNull(),
 });
 
+/**
+ * SYNCED user profile — per-key KV with the standard sync columns, so the existing
+ * record-level engine gives per-key Last-Write-Wins for free (each key = one row).
+ * This is the design doc's "bucket b": preferences that travel WITH THE USER
+ * (name, country, units, goals, theme, onboarding-complete…), unlike `settings`,
+ * which stays device-local (sync cursors, demo flag, scratch). Values are JSON-encoded.
+ * Both apps bridge their local profile storage ↔ this table around each sync
+ * (see src/services/sync/profileBridge.ts).
+ */
+export const profile = sqliteTable('profile', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  ...syncColumns,
+});
+
 export const taxHistory = sqliteTable('tax_history', {
   id: text('id').primaryKey(),
   oldRegion: text('old_region'),

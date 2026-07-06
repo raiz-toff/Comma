@@ -65,7 +65,10 @@ class CommaTrackerModule : Module() {
         Log.d("CommaTrackerModule", "stopTracking called, stopping service")
         // Clear flag BEFORE stopping so onDestroy does not schedule a restart
         val prefs = context.getSharedPreferences("CommaTracker", android.content.Context.MODE_PRIVATE)
-        prefs.edit().putBoolean("tracking_active", false).apply()
+        prefs.edit()
+          .putBoolean("tracking_active", false)
+          .putFloat("active_distance_meters", 0f)
+          .apply()
         val intent = Intent(context, LocationTrackingService::class.java)
         context.stopService(intent)
       }

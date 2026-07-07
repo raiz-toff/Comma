@@ -7,6 +7,7 @@ import { getIcon } from '../ui/icons.js';
 import { ymd } from '../utils/date-range-presets.js';
 import { renderSkeleton } from '../ui/components.js';
 import { formatCurrency } from '../utils/formatters.js';
+import { calcTaxSetAside } from '../utils/calculations.js';
 
 
 /** @param {string} h */
@@ -39,17 +40,16 @@ let periodOffset = 0;
 // refresh / stuck skeleton" race.
 let paintToken = 0;
 
+// Consolidated from 21 single-purpose widgets down to 6 grouped cards (see
+// docs/analytics-consolidation.md-equivalent proposal): each of these merges
+// several former standalone widgets behind a segmented control or compact
+// grid, grouped by the question they answer rather than by data source.
+// effectiveRate, monthHourly, outOfPocket and taxJar no longer appear here —
+// they're expandable detail on the hero stat cards below (see statCardHtml).
 const ANALYTICS_TAB_WIDGETS = {
-  // Charts & trends over time
-  perf: ['rollingTrend', 'scatter', 'weekCompare', 'hoursCompare', 'bestDay', 'bestHour', 'streak', 'deadMiles'],
-  // Breakdowns & forward-looking insights
-  // 'recentShifts' removed by request — not needed here.
-  insights: ['platformActivity', 'incomeBreakdown', 'stabilityScore', 'weeklyProjection', 'schedule', 'taxJar'],
-  // Single-number stat cards (excludes what the stat-card hero block already shows)
-  // 'monthOrders' removed — duplicated 'deliveries' (same underlying shift.deliveryCount data),
-  // but pinned to the current calendar month regardless of the period selector, unlike
-  // 'deliveries' which correctly tracks whatever range/period is selected.
-  stats: ['effectiveRate', 'deliveries', 'perDelivery', 'tipsTotal', 'monthHourly', 'zeroDays', 'outOfPocket'],
+  perf: ['trends', 'workRhythm'],
+  insights: ['incomeSources', 'outlook', 'efficiencyStability'],
+  stats: ['orderEconomics'],
 };
 
 // Matches the Android bottom tab bar (Performance / Insights / Stat Cards).
@@ -131,28 +131,47 @@ function currencyParts(amount, localeCountry, currency) {
 
 // ── Stat card hero block (mirrors Android renderStatCards) ─────────────────
 /**
- * @param {{ label: string, value: string, subtitle: string, color: string, icon: string, span?: string }} opts
+ * @param {{ label: string, value: string, subtitle: string, color: string, icon: string, span?: string, detail?: { label: string, value: string, tone?: string }[] }} opts
  */
-function statCardHtml({ label, value, subtitle, color, icon, span }) {
+function statCardHtml({ label, value, subtitle, color, icon, span, detail }) {
+  const expandable = Array.isArray(detail) && detail.length > 0;
   return `
-    <article class="astat-card${span ? ` ${span}` : ''}" style="--astat-accent: ${color};">
+    <article class="astat-card${span ? ` ${span}` : ''}${expandable ? ' is-expandable' : ''}" style="--astat-accent: ${color};"${expandable ? ' data-stat-toggle' : ''}>
       <div class="astat-card-head">
         <span class="astat-card-icon">${getIcon(icon, 14)}</span>
         <span class="astat-card-label">${esc(label)}</span>
+        ${expandable ? `<span class="astat-card-chevron">${getIcon('chevron-down', 12)}</span>` : ''}
       </div>
       <div class="astat-card-value">${esc(value)}</div>
       ${subtitle ? `<div class="astat-card-sub">${esc(subtitle)}</div>` : ''}
+      ${expandable ? `
+        <div class="astat-detail" hidden>
+          ${detail.map((d) => `
+            <div class="astat-detail-row">
+              <span class="astat-detail-l">${esc(d.label)}</span>
+              <span class="astat-detail-v${d.tone ? ` ${d.tone}` : ''}">${esc(d.value)}</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
     </article>
   `;
 }
 
 /**
- * @param {any} financial
+ * Renders the hero stat strip. Avg Rate / Expenses / Tax Set-Aside are
+ * expandable — they absorb what used to be the standalone effectiveRate,
+ * monthHourly, outOfPocket and taxJar widgets as a tap-to-reveal detail
+ * instead of 4 extra cards.
+ * @param {any} widgetCtx
  * @param {number} taxRatePct
  * @param {string} localeCountry
  * @param {string} currency
  */
-function renderStatCards(financial, taxRatePct, localeCountry, currency) {
+function renderStatCards(widgetCtx, taxRatePct, localeCountry, currency) {
+  const financial = widgetCtx?.data?.financial;
+  const monthSummary = widgetCtx?.data?.monthSummary;
+
   // On web `financial.gross` already includes tips + bonus (see grossCents in
   // analytics.js), so it IS the total revenue — do not add tips/bonus again.
   const totalRevenue = Number(financial?.gross) || 0;
@@ -170,13 +189,39 @@ function renderStatCards(financial, taxRatePct, localeCountry, currency) {
   const fmt = (v) => formatCurrency(Number(v) || 0, localeCountry, { currency });
   const burn = totalRevenue > 0 ? ((expenses / totalRevenue) * 100).toFixed(1) : '0';
 
+  const effectivePerHr = Number(financial?.effectivePerHr) || 0;
+  const monthlyHourly = Number(monthSummary?.hourlyRate) || 0;
+  const outOfPocket = Number(financial?.outOfPocket) || 0;
+  const estimatedTax = calcTaxSetAside(totalRevenue, taxRate);
+  const netAfterTax = Math.max(0, netIncome - estimatedTax);
+
   return `
     <div class="astat-grid">
       ${statCardHtml({ label: 'Gross Earnings', value: fmt(totalRevenue), subtitle: 'Total Revenue', color: '#14b8a6', icon: 'dollar', span: 'astat-span-full' })}
       ${statCardHtml({ label: 'Net Take-Home', value: fmt(netIncome), subtitle: 'After Expenses', color: '#3b82f6', icon: 'trending-up' })}
-      ${statCardHtml({ label: 'Expenses', value: fmt(expenses), subtitle: `${burn}% Burn Ratio`, color: '#FF5247', icon: 'trending-down' })}
-      ${statCardHtml({ label: 'Avg Rate', value: `${fmt(activeRate)}/hr`, subtitle: 'Active Rate', color: '#f59e0b', icon: 'bolt' })}
-      ${statCardHtml({ label: 'Tax Set-Aside', value: fmt(taxSetAside), subtitle: `${taxRate}% Tax Rate`, color: '#0ea5e9', icon: 'receipt' })}
+      ${statCardHtml({
+        label: 'Expenses', value: fmt(expenses), subtitle: `${burn}% Burn Ratio`, color: '#FF5247', icon: 'trending-down',
+        detail: [
+          { label: 'Burn Ratio', value: `${burn}% of gross` },
+          { label: 'Out of Pocket', value: fmt(outOfPocket) },
+        ],
+      })}
+      ${statCardHtml({
+        label: 'Avg Rate', value: `${fmt(activeRate)}/hr`, subtitle: 'Active Rate', color: '#f59e0b', icon: 'bolt',
+        detail: [
+          { label: 'Active Rate', value: `${fmt(activeRate)}/hr` },
+          { label: 'Online Rate', value: `${fmt(onlineRate)}/hr` },
+          { label: 'Effective (after costs)', value: `${fmt(effectivePerHr)}/hr` },
+          { label: 'Monthly Avg', value: `${fmt(monthlyHourly)}/hr` },
+        ],
+      })}
+      ${statCardHtml({
+        label: 'Tax Set-Aside', value: fmt(taxSetAside), subtitle: `${taxRate}% Tax Rate`, color: '#0ea5e9', icon: 'receipt',
+        detail: [
+          { label: 'Estimated Set-Aside', value: fmt(estimatedTax) },
+          { label: 'Net After Tax', value: fmt(netAfterTax), tone: 'pos' },
+        ],
+      })}
       ${statCardHtml({ label: 'Total Time', value: `${activeHrs.toFixed(1)} hrs`, subtitle: `${count} Shifts Logged (Active)`, color: '#8b5cf6', icon: 'clock', span: 'astat-span-full' })}
     </div>
   `;
@@ -313,7 +358,7 @@ async function paintAnalytics(root, _ctx) {
   if (myToken !== paintToken) return; // widgets finished after a newer repaint started
 
   const statHeroHtml = activeTab === 'stats'
-    ? renderStatCards(financial, taxRatePct, localeCountry, currency)
+    ? renderStatCards(widgetCtx, taxRatePct, localeCountry, currency)
     : '';
 
   const bodyHtml = cardsHtml || statHeroHtml
@@ -354,6 +399,18 @@ export async function render(root, ctx) {
   const handleClick = (ev) => {
     const target = ev.target;
     if (!(target instanceof HTMLElement)) return;
+
+    // Hero stat card tap-to-expand (Avg Rate / Expenses / Tax Set-Aside detail)
+    const statToggle = target.closest('[data-stat-toggle]');
+    if (statToggle) {
+      const panel = statToggle.querySelector('.astat-detail');
+      if (panel) {
+        const willOpen = panel.hasAttribute('hidden');
+        panel.hidden = !willOpen;
+        statToggle.classList.toggle('is-open', willOpen);
+      }
+      return;
+    }
 
     // Category tab switch
     const tabBtn = target.closest('[data-analytics-tab]');

@@ -32,6 +32,16 @@ import totalHours from './total-hours.widget.js';
 import weeklyGoal from './weekly-goal.widget.js';
 import outOfPocket from './out-of-pocket.widget.js';
 
+// Composite widgets (Category B consolidation) — group several of the widgets
+// above behind one card each for the Analytics tab. The originals stay
+// registered so the Dashboard's customizable widget grid is unaffected.
+import trends from './trends.widget.js';
+import workRhythm from './work-rhythm.widget.js';
+import incomeSources from './income-sources.widget.js';
+import outlook from './outlook.widget.js';
+import efficiencyStability from './efficiency-stability.widget.js';
+import orderEconomics from './order-economics.widget.js';
+
 /** First bento stat strip — matches legacy `views/dashboard.js` layout. */
 export const DASHBOARD_STAT_STRIP_IDS = ['weeklyProjection', 'deliveries', 'weekCompare'];
 
@@ -83,6 +93,12 @@ const WIDGETS = [
   totalHours,
   weeklyGoal,
   outOfPocket,
+  trends,
+  workRhythm,
+  incomeSources,
+  outlook,
+  efficiencyStability,
+  orderEconomics,
 ];
 
 /** @type {Map<string, WidgetDefinition>} */

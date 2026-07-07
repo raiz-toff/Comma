@@ -26,6 +26,14 @@
   --color-text-primary: #1a1916;
   --color-text-secondary: #6b6860;
   --color-text-muted: #a09d96;
+  /* Alias — several widgets (tips-total, deliveries, month-orders, etc.) reference
+     --color-text-main, which was never actually defined. Most usages are plain `color:` on an
+     inherited property, so the missing var() silently fell back to the inherited color and
+     looked fine by accident. But widgets using it inside a `background: linear-gradient(...)`
+     for a background-clip:text shimmer effect had no such fallback — an invalid var() there
+     invalidates the whole `background` shorthand, leaving the text with `color: transparent`
+     and nothing to clip, i.e. genuinely invisible (e.g. the Tips Total value). */
+  --color-text-main: var(--color-text-primary);
   --color-success: #22c55e;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;

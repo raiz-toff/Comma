@@ -14,7 +14,7 @@
  * @property {'emoji'|'initials'|'custom'} avatarType
  * @property {string|null} avatarData
  * @property {string} country
- * @property {{ nickname: string; type: string; make: string; model: string; year: string }[]} vehicles
+ * @property {{ nickname: string; type: string; make: string; model: string; year: string; mileageOptOut: boolean; mileageRateOverride: string }[]} vehicles
  * @property {boolean} addSecondVehicle
  * @property {string} workSchedulePreset
  * @property {number} weeklyGoal
@@ -32,6 +32,7 @@
 import { t } from '../../utils/strings.js';
 import { getLocaleConfig, getProvinceDef } from '../../utils/locale.js';
 import { CountryRegistry, getCountryTaxProfile } from '../../registry/countries/index.js';
+import { getVehicleMileageEligibility } from '../../registry/countries/mileageRates.js';
 import { ProvinceRegistry } from '../../registry/provinces/index.js';
 import { getWithholdingPresetPct } from '../../registry/tax/withholding-presets.js';
 import { resolveAvailablePlatformIds } from '../../registry/market/resolve.js';
@@ -105,8 +106,8 @@ export function defaultDraftFromUser(user) {
     avatarData: typeof u.avatarData === 'string' ? u.avatarData : '🚗',
     country,
     vehicles: [
-      { nickname: '', type: 'gas', make: '', model: '', year: '' },
-      { nickname: '', type: 'gas', make: '', model: '', year: '' },
+      { nickname: '', type: 'gas', make: '', model: '', year: '', mileageOptOut: false, mileageRateOverride: '' },
+      { nickname: '', type: 'gas', make: '', model: '', year: '', mileageOptOut: false, mileageRateOverride: '' },
     ],
     addSecondVehicle: false,
     workSchedulePreset: 'flexible',
@@ -403,7 +404,9 @@ export function renderStepInner(step, draft, platformRows) {
         </fieldset>`;
 
     case 4: {
-      const v = draft.vehicles[0] || { nickname: '', type: 'gas', make: '', model: '', year: '' };
+      const v = draft.vehicles[0] || { nickname: '', type: 'gas', make: '', model: '', year: '', mileageOptOut: false, mileageRateOverride: '' };
+      const mileageInfo = getVehicleMileageEligibility(draft.country, v.type);
+      const optedOut = Boolean(v.mileageOptOut);
       return `
         <h1 class="onboarding-step-title">${esc(t('onboarding.steps.vehicleTitle'))}</h1>
         <p class="onboarding-step-lead">${esc(t('onboarding.steps.vehicleLead'))}</p>
@@ -431,6 +434,24 @@ export function renderStepInner(step, draft, platformRows) {
         <div class="input-group">
           <label class="input-label" for="ob-v0-year">${esc(t('onboarding.steps.year'))}</label>
           <input id="ob-v0-year" class="input" type="number" inputmode="numeric" min="1980" max="2035" data-vehicle-idx="0" data-vehicle-field="year" value="${esc(v.year)}" />
+        </div>
+        <div class="input-group">
+          <label class="input-label">${esc(t('onboarding.steps.mileageWriteOffTitle'))}</label>
+          <div class="onboarding-card-note" style="border:1px solid var(--color-border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px;">
+            <p style="margin:0; font-size: var(--text-sm); color: var(--color-text-secondary);">
+              ${mileageInfo.eligible ? esc(`${mileageInfo.label} — $${mileageInfo.ratePrimary}`) : esc(t('onboarding.steps.mileageRateNotEligible'))}
+            </p>
+            <label class="input-label" style="display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer;">
+              <span>${esc(t('onboarding.steps.mileageOptOut'))}</span>
+              <input type="checkbox" data-vehicle-idx="0" data-vehicle-field="mileageOptOut" ${optedOut ? 'checked' : ''} />
+            </label>
+            ${optedOut ? '' : `
+            <div class="input-group" style="margin:0;">
+              <p style="margin:0 0 4px; font-size: var(--text-xs); color: var(--color-text-secondary);">${esc(t('onboarding.steps.mileageRateHint'))}</p>
+              <input class="input" type="number" step="0.001" inputmode="decimal" data-vehicle-idx="0" data-vehicle-field="mileageRateOverride"
+                placeholder="${mileageInfo.ratePrimary != null ? esc(String(mileageInfo.ratePrimary)) : '0.67'}" value="${esc(v.mileageRateOverride || '')}" />
+            </div>`}
+          </div>
         </div>`;
     }
 

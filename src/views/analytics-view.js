@@ -43,9 +43,13 @@ const ANALYTICS_TAB_WIDGETS = {
   // Charts & trends over time
   perf: ['rollingTrend', 'scatter', 'weekCompare', 'hoursCompare', 'bestDay', 'bestHour', 'streak', 'deadMiles'],
   // Breakdowns & forward-looking insights
-  insights: ['platformActivity', 'incomeBreakdown', 'stabilityScore', 'weeklyProjection', 'recentShifts', 'schedule', 'taxJar'],
+  // 'recentShifts' removed by request — not needed here.
+  insights: ['platformActivity', 'incomeBreakdown', 'stabilityScore', 'weeklyProjection', 'schedule', 'taxJar'],
   // Single-number stat cards (excludes what the stat-card hero block already shows)
-  stats: ['effectiveRate', 'deliveries', 'perDelivery', 'tipsTotal', 'monthOrders', 'monthHourly', 'zeroDays', 'outOfPocket'],
+  // 'monthOrders' removed — duplicated 'deliveries' (same underlying shift.deliveryCount data),
+  // but pinned to the current calendar month regardless of the period selector, unlike
+  // 'deliveries' which correctly tracks whatever range/period is selected.
+  stats: ['effectiveRate', 'deliveries', 'perDelivery', 'tipsTotal', 'monthHourly', 'zeroDays', 'outOfPocket'],
 };
 
 // Matches the Android bottom tab bar (Performance / Insights / Stat Cards).

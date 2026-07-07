@@ -16,6 +16,8 @@ import {
 } from '../../core/events.js';
 import { t } from '../../utils/strings.js';
 import { getLocaleConfig } from '../../utils/locale.js';
+import { getVehicleMileageEligibility } from '../../registry/countries/mileageRates.js';
+import { upsertTaxProfile } from '../vehicles/taxProfiles.js';
 import { getCountryTaxProfile } from '../../registry/countries/index.js';
 import { ProvinceRegistry } from '../../registry/provinces/index.js';
 import { getDefaultSamplePlatformId } from '../../registry/platforms/index.js';
@@ -616,8 +618,9 @@ async function persistVehicles(draft) {
   for (const v of toSave) {
     const yearNum = v.year === '' || v.year == null ? null : Number(v.year);
     const nickname = v.nickname.trim() || 'Vehicle';
+    const vehicleId = newId('veh');
     await db.vehicles.add({
-      id: newId('veh'),
+      id: vehicleId,
       nickname,
       // Mobile-canonical mirrors (interop audit): mobile's vehicles.name is NOT NULL.
       name: nickname,
@@ -644,7 +647,60 @@ async function persistVehicles(draft) {
       syncUpdatedAt: Date.now(),
       syncDeletedAt: null,
     });
+
+    // Seed a tax-year profile so the mileage write-off shown later reflects what the user told
+    // us during onboarding (opt out entirely, a custom rate, or the researched default for their
+    // vehicle type/country) — never a blind flat rate. Mirrors mobile's
+    // `store/useSettingsStore.ts` seedDefaultTaxProfile.
+    await seedDefaultTaxProfile(vehicleId, v, draft.country);
   }
+}
+
+/**
+ * @param {string} vehicleId
+ * @param {{ type: string, mileageOptOut?: boolean, mileageRateOverride?: string }} draftVehicle
+ * @param {string} countryId
+ */
+async function seedDefaultTaxProfile(vehicleId, draftVehicle, countryId) {
+  const taxYear = new Date().getFullYear();
+
+  if (draftVehicle.mileageOptOut) {
+    await upsertTaxProfile({
+      vehicleId,
+      taxYear,
+      deductionMethod: 'actual_expenses',
+      country: countryId,
+      standardRatePrimary: null,
+      standardRateSecondary: null,
+      rateThreshold: null,
+    });
+    return;
+  }
+
+  const override = draftVehicle.mileageRateOverride ? parseFloat(draftVehicle.mileageRateOverride) : null;
+  if (override != null && !Number.isNaN(override)) {
+    await upsertTaxProfile({
+      vehicleId,
+      taxYear,
+      deductionMethod: 'standard_mileage',
+      country: countryId,
+      standardRatePrimary: override,
+      standardRateSecondary: null,
+      rateThreshold: null,
+    });
+    return;
+  }
+
+  const def = getVehicleMileageEligibility(countryId, draftVehicle.type);
+  await upsertTaxProfile({
+    vehicleId,
+    taxYear,
+    deductionMethod: def.eligible ? 'standard_mileage' : 'actual_expenses',
+    country: countryId,
+    standardRatePrimary: def.ratePrimary,
+    standardRateSecondary: def.rateSecondary,
+    rateThreshold: def.rateThreshold,
+  });
 }
 
 /**
@@ -721,6 +777,10 @@ function readFormIntoDraft(root, draft) {
     const idx = Number(el.getAttribute('data-vehicle-idx'));
     const vf = el.getAttribute('data-vehicle-field');
     if (!Number.isFinite(idx) || !vf || !draft.vehicles[idx]) return;
+    if (el instanceof HTMLInputElement && el.type === 'checkbox') {
+      draft.vehicles[idx][vf] = el.checked;
+      return;
+    }
     draft.vehicles[idx][vf] = el.value;
   });
 
@@ -973,6 +1033,28 @@ export async function mountOnboarding(root) {
         };
         tr.addEventListener('change', syncRegion);
         if (tr instanceof HTMLInputElement) tr.addEventListener('blur', syncRegion);
+      }
+    }
+
+    if (draft.step === 4) {
+      // Vehicle type and the opt-out toggle both change what's shown (eligibility text /
+      // custom-rate field) — unlike most fields on this step, these need a live re-render
+      // rather than waiting for the "Next" commit, matching the country-select pattern above.
+      const vType = body.querySelector('[data-vehicle-idx="0"][data-vehicle-field="type"]');
+      if (vType instanceof HTMLSelectElement) {
+        vType.addEventListener('change', () => {
+          readFormIntoDraft(el, draft);
+          persistSession(draft);
+          render();
+        });
+      }
+      const vOptOut = body.querySelector('[data-vehicle-idx="0"][data-vehicle-field="mileageOptOut"]');
+      if (vOptOut instanceof HTMLInputElement) {
+        vOptOut.addEventListener('change', () => {
+          readFormIntoDraft(el, draft);
+          persistSession(draft);
+          render();
+        });
       }
     }
 

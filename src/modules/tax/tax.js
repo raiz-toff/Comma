@@ -8,6 +8,8 @@ import {
 import { formatCurrency, formatLargeNumber, formatPercent } from '../../utils/formatters.js';
 import { getAllTaxDeadlines, getLocaleConfig } from '../../utils/locale.js';
 import { getCountryTaxProfile } from '../../registry/countries/index.js';
+import { getVehicleMileageEligibility } from '../../registry/countries/mileageRates.js';
+import { getEffectiveMileageRate, calculateMileageWriteOff, upsertTaxProfile } from '../vehicles/taxProfiles.js';
 import { WITHHOLDING_PRESETS_CA, WITHHOLDING_PRESETS_US } from '../../registry/tax/withholding-presets.js';
 import { ProvinceRegistry } from '../../registry/provinces/index.js';
 import { t } from '../../utils/strings.js';
@@ -164,8 +166,27 @@ async function loadTaxSummary(year) {
   const totalMiles = distanceKm * 0.621371192;
   const actualCostDeduction = businessExpenses;
 
-  const cppEstimate = taxProfile.calcCpp ? calcCPPContribution(netIncome, year) : 0;
-  const seTaxEstimate = taxProfile.calcSeTax ? calcSEtax(netIncome) : 0;
+  // Eligibility-aware standard-mileage estimate: a saved tax profile (custom rate or explicit
+  // opt-out) always wins over the researched country/vehicle-type default, and the default
+  // itself only applies when this vehicle type is actually eligible (e.g. a bicycle isn't
+  // eligible for the CRA/IRS automobile mileage rate). Mirrors mobile's tax screen.
+  const vehicle = (await db.vehicles.toArray()).find((v) => v.isActive && v.syncDeletedAt == null) ?? null;
+  let mileageRate = null;
+  let mileageDeduction = 0;
+  if (vehicle) {
+    mileageRate = await getEffectiveMileageRate(vehicle.id, year, country, vehicle.type);
+    // Rates (default or custom) are entered/researched in the country's native distance unit —
+    // US is per-mile, CA is per-km.
+    const distanceForRate = country === 'US' ? totalMiles : distanceKm;
+    mileageDeduction = calculateMileageWriteOff(distanceForRate, mileageRate);
+  }
+
+  // Mileage reduces taxable income the same way logged expenses do — CPP/SE-tax must be based
+  // on income AFTER the mileage deduction, not just after expenses (previously mileageDeduction
+  // was computed here and only ever displayed, never actually subtracted before these ran).
+  const taxableIncome = Math.max(0, netIncome - mileageDeduction);
+  const cppEstimate = taxProfile.calcCpp ? calcCPPContribution(taxableIncome, year) : 0;
+  const seTaxEstimate = taxProfile.calcSeTax ? calcSEtax(taxableIncome) : 0;
   const deadlines = getAllTaxDeadlines(country, year);
 
   return {
@@ -187,6 +208,9 @@ async function loadTaxSummary(year) {
     distanceKm,
     totalMiles,
     actualCostDeduction,
+    vehicle,
+    mileageRate,
+    mileageDeduction,
     cppEstimate,
     seTaxEstimate,
     user,
@@ -276,6 +300,7 @@ function toTaxSummaryJson(summary) {
       distanceKm: summary.distanceKm,
       totalMiles: summary.totalMiles,
       actualCostDeduction: summary.actualCostDeduction,
+      mileageDeduction: summary.mileageDeduction,
       cppEstimate: summary.cppEstimate,
       seTaxEstimate: summary.seTaxEstimate,
       deadlines: summary.deadlines.map((d) => ({
@@ -308,6 +333,7 @@ function toTaxSummaryCsv(summary) {
     ['distance_km', summary.distanceKm],
     ['distance_miles', summary.totalMiles],
     ['actual_cost_deduction', summary.actualCostDeduction],
+    ['mileage_deduction', summary.mileageDeduction],
     ['cpp_estimate', summary.cppEstimate],
     ['se_tax_estimate', summary.seTaxEstimate],
   ];
@@ -604,10 +630,36 @@ export async function renderTaxDashboard(root, ctx = {}) {
             <span class="tax-metric-label">${esc(t('tax.actualCost'))}</span>
             <span class="tax-metric-value">${esc(formatCurrency(summary.actualCostDeduction, summary.localeTag, { currency: summary.currency }))}</span>
           </div>
+          ${summary.vehicle ? `
+          <div class="tax-metric-item">
+            <span class="tax-metric-label">${esc(t('tax.standardMileage'))}</span>
+            <span class="tax-metric-value">${esc(formatCurrency(summary.mileageDeduction, summary.localeTag, { currency: summary.currency }))}</span>
+          </div>` : ''}
         </div>
         <p style="color:var(--color-text-secondary); font-size: var(--text-sm); margin-top: var(--space-3); border-top: 1px solid var(--color-border); padding-top: var(--space-3);">
           ${esc(t('tax.actualCostsNote'))}
         </p>
+        ${summary.vehicle ? `
+        <div style="border:1px solid var(--color-border); border-radius:10px; padding:12px; margin-top: var(--space-3); display:flex; flex-direction:column; gap:10px;">
+          <p style="margin:0; font-size: var(--text-sm); color: var(--color-text-secondary);">
+            ${summary.mileageRate?.isUserOverride
+              ? esc(`${t('tax.standardMileage')} — ${summary.mileageRate.deductionMethod === 'standard_mileage' ? `$${summary.mileageRate.ratePrimary}` : t('tax.mileageWriteOffOptOut')}`)
+              : summary.mileageRate?.deductionMethod === 'standard_mileage'
+                ? esc(`${summary.mileageRate.label} — $${summary.mileageRate.ratePrimary}`)
+                : esc(t('tax.mileageWriteOffNotEligible'))}
+          </p>
+          <label class="input-label" style="display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer;">
+            <span>${esc(t('tax.mileageWriteOffOptOut'))}</span>
+            <input type="checkbox" data-mileage-optout ${summary.mileageRate?.deductionMethod === 'actual_expenses' && summary.mileageRate?.isUserOverride ? 'checked' : ''} />
+          </label>
+          <div class="input-group" style="margin:0;" data-mileage-rate-wrap ${summary.mileageRate?.deductionMethod === 'actual_expenses' && summary.mileageRate?.isUserOverride ? 'hidden' : ''}>
+            <p style="margin:0 0 4px; font-size: var(--text-xs); color: var(--color-text-secondary);">${esc(t('tax.mileageWriteOffHint'))}</p>
+            <input class="input" type="number" step="0.001" inputmode="decimal" data-mileage-rate-input
+              placeholder="${summary.mileageRate?.ratePrimary != null ? esc(String(summary.mileageRate.ratePrimary)) : '0.67'}"
+              value="${summary.mileageRate?.isUserOverride && summary.mileageRate?.deductionMethod === 'standard_mileage' ? esc(String(summary.mileageRate.ratePrimary ?? '')) : ''}" />
+            <button class="btn btn-secondary" type="button" data-mileage-rate-save style="margin-top:8px;">${esc(t('common.save'))}</button>
+          </div>
+        </div>` : ''}
       </section>
 
       <!-- Tax Helpers (T2125 / Schedule C) -->
@@ -678,4 +730,58 @@ export async function renderTaxDashboard(root, ctx = {}) {
       await renderTaxDashboard(root, { taxYear: selectedYear });
     });
   });
+
+  if (summary.vehicle) {
+    const optOutCb = root.querySelector('[data-mileage-optout]');
+    if (optOutCb instanceof HTMLInputElement) {
+      optOutCb.addEventListener('change', async () => {
+        if (optOutCb.checked) {
+          await upsertTaxProfile({
+            vehicleId: summary.vehicle.id,
+            taxYear: selectedYear,
+            deductionMethod: 'actual_expenses',
+            country: summary.country,
+            standardRatePrimary: null,
+            standardRateSecondary: null,
+            rateThreshold: null,
+          });
+        } else {
+          // Un-checking clears the opt-out back to the researched default (not a stale custom
+          // rate) — a fresh call resolves whatever the registry currently says for this vehicle.
+          const def = getVehicleMileageEligibility(summary.country, summary.vehicle.type);
+          await upsertTaxProfile({
+            vehicleId: summary.vehicle.id,
+            taxYear: selectedYear,
+            deductionMethod: def.eligible ? 'standard_mileage' : 'actual_expenses',
+            country: summary.country,
+            standardRatePrimary: def.ratePrimary,
+            standardRateSecondary: def.rateSecondary,
+            rateThreshold: def.rateThreshold,
+          });
+        }
+        showToast({ type: 'success', message: t('tax.mileageWriteOffSaved'), duration: 1800 });
+        await renderTaxDashboard(root, { taxYear: selectedYear });
+      });
+    }
+
+    const rateSaveBtn = root.querySelector('[data-mileage-rate-save]');
+    const rateInput = root.querySelector('[data-mileage-rate-input]');
+    if (rateSaveBtn instanceof HTMLButtonElement && rateInput instanceof HTMLInputElement) {
+      rateSaveBtn.addEventListener('click', async () => {
+        const custom = parseFloat(rateInput.value);
+        if (Number.isNaN(custom)) return;
+        await upsertTaxProfile({
+          vehicleId: summary.vehicle.id,
+          taxYear: selectedYear,
+          deductionMethod: 'standard_mileage',
+          country: summary.country,
+          standardRatePrimary: custom,
+          standardRateSecondary: null,
+          rateThreshold: null,
+        });
+        showToast({ type: 'success', message: t('tax.mileageWriteOffSaved'), duration: 1800 });
+        await renderTaxDashboard(root, { taxYear: selectedYear });
+      });
+    }
+  }
 }

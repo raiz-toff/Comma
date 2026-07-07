@@ -39,14 +39,16 @@ export const DASHBOARD_STAT_STRIP_IDS = ['weeklyProjection', 'deliveries', 'week
 export const DASHBOARD_STRIP_SLOT_ID_SET = new Set(DASHBOARD_STAT_STRIP_IDS);
 
 /** Default order when \`user.dashboardWidgets\` is unset (aligned with settings \`WIDGET_CHOICES\`). */
+// 'monthOrders' intentionally excluded — duplicates 'deliveries' (same underlying
+// shift.deliveryCount data), but pinned to the current calendar month regardless of any
+// selected period, unlike 'deliveries' which tracks whatever range is selected.
+// 'recentShifts' removed by request — not needed on the default dashboard.
 export const DEFAULT_DASHBOARD_WIDGET_ORDER = [
   'weeklyProjection',
   'streak',
   'schedule',
-  'recentShifts',
   'platformActivity',
   'deliveries',
-  'monthOrders',
 ];
 
 /** @typedef {{ user?: unknown; store?: unknown; data?: Record<string, unknown> }} WidgetContext */

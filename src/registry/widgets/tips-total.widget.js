@@ -111,7 +111,6 @@ export default {
             </svg>
           </div>
           <span class="stat-label">${esc(labelText)}</span>
-          <button type="button" class="btn btn-sm btn-success" style="margin-left: auto; padding: 2px 8px; font-size: 11px; height: 24px;">+ Add</button>
         </div>
 
         <!-- Metric Body -->

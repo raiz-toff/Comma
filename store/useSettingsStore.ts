@@ -11,6 +11,8 @@ import { getPlatformsByCountry } from "../src/registry/platforms";
 
 import { type ExpenseCategory } from "../src/registry/expenseCategories";
 import { getCountryDef, type CountryDef, resolveProvinceDef, type ProvinceDef, getMileagePresetRate } from "../src/registry/countries/index";
+import { getVehicleMileageEligibility } from "../src/registry/countries/mileageRates";
+import { upsertTaxProfile } from "../src/database/queries/taxProfiles";
 import { getMarketContext, type MarketContext } from "../src/registry/market/resolve";
 import { type FeatureKey, type OperationalModelId, getWithholdingPresetPct } from "../src/registry/index";
 import {
@@ -97,6 +99,10 @@ export interface VehicleDraft {
   make: string;
   model: string;
   year: string;
+  /** User opted out of the mileage write-off entirely (e.g. "doesn't apply to me"). */
+  mileageOptOut?: boolean;
+  /** User-supplied flat rate overriding the researched country/vehicle-type default. */
+  mileageRateOverride?: string;
 }
 
 interface SettingsState {
@@ -202,6 +208,54 @@ const DEFAULT_PROFILE: DriverProfile = {
   },
 };
 
+
+// Seeds a vehicleTaxProfiles row for the current tax year straight from onboarding, so the
+// mileage write-off is never computed from a blind flat rate: the user's onboarding choice
+// (opt out, custom rate, or accept the researched default) is what gets used.
+async function seedDefaultTaxProfile(vehicleId: string, draft: VehicleDraft, countryId: string): Promise<void> {
+  const taxYear = new Date().getFullYear();
+
+  if (draft.mileageOptOut) {
+    await upsertTaxProfile({
+      id: `tp_${vehicleId}_${taxYear}`,
+      vehicleId,
+      taxYear,
+      deductionMethod: "actual_expenses",
+      country: countryId,
+      standardRatePrimary: null,
+      standardRateSecondary: null,
+      rateThreshold: null,
+    });
+    return;
+  }
+
+  const override = draft.mileageRateOverride ? parseFloat(draft.mileageRateOverride) : null;
+  if (override != null && !isNaN(override)) {
+    await upsertTaxProfile({
+      id: `tp_${vehicleId}_${taxYear}`,
+      vehicleId,
+      taxYear,
+      deductionMethod: "standard_mileage",
+      country: countryId,
+      standardRatePrimary: override,
+      standardRateSecondary: null,
+      rateThreshold: null,
+    });
+    return;
+  }
+
+  const def = getVehicleMileageEligibility(countryId, draft.type);
+  await upsertTaxProfile({
+    id: `tp_${vehicleId}_${taxYear}`,
+    vehicleId,
+    taxYear,
+    deductionMethod: def.eligible ? "standard_mileage" : "actual_expenses",
+    country: countryId,
+    standardRatePrimary: def.ratePrimary,
+    standardRateSecondary: def.rateSecondary,
+    rateThreshold: def.rateThreshold,
+  });
+}
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   isOnboardingCompleted: false,
@@ -577,8 +631,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       await db.update(vehicles).set({ isActive: false });
 
       // Insert new active vehicle
+      const primaryVehicleId = "vehicle_" + Date.now();
       await db.insert(vehicles).values({
-        id: "vehicle_" + Date.now(),
+        id: primaryVehicleId,
         name: vehicle.nickname.trim() || "Default Vehicle",
         type: vehicle.type || "gas",
         make: vehicle.make?.trim() || null,
@@ -588,10 +643,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         createdAt: new Date(),
       });
 
+      // Seed a tax-year profile so the mileage write-off shown later reflects what the user
+      // told us during onboarding (opt out entirely, a custom rate, or the researched default
+      // for their vehicle type/country) — never a blind flat rate.
+      await seedDefaultTaxProfile(primaryVehicleId, vehicle, finalProfile.country);
+
       // Insert optional secondary vehicle if provided
       if (vehicle2) {
+        const secondaryVehicleId = "vehicle2_" + Date.now();
         await db.insert(vehicles).values({
-          id: "vehicle2_" + Date.now(),
+          id: secondaryVehicleId,
           name: vehicle2.nickname.trim() || "Secondary Vehicle",
           type: vehicle2.type || "gas",
           make: vehicle2.make?.trim() || null,
@@ -600,6 +661,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           isActive: false,
           createdAt: new Date(),
         });
+        await seedDefaultTaxProfile(secondaryVehicleId, vehicle2, finalProfile.country);
       }
 
       // Upsert goals from profile — stable IDs prevent duplicates on re-runs

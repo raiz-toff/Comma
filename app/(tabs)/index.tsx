@@ -33,7 +33,9 @@ import {
   getGoalProgress,
   getFinancialOverviewForRange,
   getPeriodStats,
+  getActiveVehicle,
 } from "../../src/database/queries/analytics";
+import { getEffectiveMileageRate, calculateMileageWriteOff } from "../../src/database/queries/taxProfiles";
 import { getShiftsPaginated, getUnreconciledShifts, getGPSOnlyShifts, reconcileOdometerAnchors } from "../../src/database/queries/shifts";
 import { PlatformBadge } from "../../src/components/ui/PlatformBadge";
 import { AppBottomSheet, type AppBottomSheetRef } from "../../src/components/ui/AppBottomSheet";
@@ -769,6 +771,20 @@ export default function HomeScreen() {
     enabled: isOnboardingCompleted,
   });
 
+  // The mileage write-off is a tax estimate, not real money — it must never be subtracted from
+  // the headline earnings figure, and it only applies at all if the active vehicle is actually
+  // eligible (a saved tax profile — including an explicit opt-out — always wins over the
+  // researched country/vehicle-type default; see getEffectiveMileageRate).
+  const { data: mileageRate } = useQuery({
+    queryKey: ["analytics", "mileage-rate", todayStr],
+    queryFn: async () => {
+      const vehicle = await getActiveVehicle();
+      if (!vehicle) return null;
+      return getEffectiveMileageRate(vehicle.id, new Date().getFullYear(), profile?.country || "CA", vehicle.type);
+    },
+    enabled: isOnboardingCompleted,
+  });
+
   const { data: weeklyGoals = [] } = useQuery({
     queryKey: ["analytics", "goals", "weekly"],
     queryFn: () => getGoalProgress("weekly"),
@@ -841,17 +857,21 @@ export default function HomeScreen() {
     expenses: financialOverview?.expense ?? 0,
   };
 
-  const writeOff    = currentStats.miles * 0.67;
-  const netEarnings = currentStats.gross + currentStats.tips + currentStats.bonus - writeOff;
+  // Real money earned — never reduced by the mileage write-off, which is a tax estimate, not
+  // an expense. Shown separately (see writeOff below) so it can never be mistaken for lost income.
+  const writeOff    = mileageRate ? calculateMileageWriteOff(currentStats.miles, mileageRate) : 0;
+  const netEarnings = currentStats.gross + currentStats.tips + currentStats.bonus;
   const totalMiles  = activeMileage + deadMileage;
+  // Live shift's own write-off (distinct from `writeOff`, which is today's aggregate across all shifts).
+  const sessionWriteOff = mileageRate ? calculateMileageWriteOff(totalMiles, mileageRate) : 0;
 
   // Derive weekly summary metrics dynamically (avoiding any hardcoding)
   const weeklyGross = weekStats?.gross ?? 0;
   const weeklyTips = weekStats?.tips ?? 0;
   const weeklyBonus = weekStats?.bonus ?? 0;
   const weeklyMiles = (weekStats?.activeMileage ?? 0) + (weekStats?.deadMileage ?? 0);
-  const weeklyWriteOff = weeklyMiles * 0.67;
-  const weeklyNet = weeklyGross + weeklyTips + weeklyBonus - weeklyWriteOff;
+  const weeklyWriteOff = mileageRate ? calculateMileageWriteOff(weeklyMiles, mileageRate) : 0;
+  const weeklyNet = weeklyGross + weeklyTips + weeklyBonus;
   const weeklyShiftsCount = weekStats?.count ?? 0;
   const weeklyDuration = weekStats?.durationSeconds ?? 0;
   const weeklyRate = weeklyDuration > 0 ? (weeklyGross + weeklyTips + weeklyBonus) / (weeklyDuration / 3600) : 0;
@@ -1111,7 +1131,7 @@ export default function HomeScreen() {
               {/* Left: content */}
               <View style={{ flex: 1, gap: 12 }}>
                 <Text style={{ fontSize: 11, fontWeight: "700", color: "#65656E", textTransform: "uppercase", letterSpacing: 1 }}>
-                  {heroTab === "T" ? "TODAY · NET" : "THIS WEEK · NET"}
+                  {heroTab === "T" ? "TODAY · EARNED" : "THIS WEEK · EARNED"}
                 </Text>
                 <Text
                   numberOfLines={1}
@@ -1243,8 +1263,9 @@ export default function HomeScreen() {
                 recentShifts.map((shift: any) => {
                   const durationHours = (shift.durationSeconds / 3600).toFixed(1);
                   const shiftMiles = (shift.activeMileage || 0) + (shift.deadMileage || 0);
-                  const shiftWriteOff = shiftMiles * 0.67;
-                  const totalRevenue = shift.grossRevenue + shift.tipsRevenue + (shift.bonusAmount || 0) - shiftWriteOff;
+                  // Real money earned — mileage is a tax estimate, not an expense, so it never
+                  // reduces this (matches netEarnings above).
+                  const totalRevenue = shift.grossRevenue + shift.tipsRevenue + (shift.bonusAmount || 0);
                   const totalMiles = shiftMiles.toFixed(0);
                   
                   return (
@@ -1317,12 +1338,16 @@ export default function HomeScreen() {
 
             {/* Active-shift timer lives in the bottom action bar (single source) — no duplicate banner here. */}
 
-            {/* ── IRS Mileage Tip ──────────────────────────────────────── */}
-            {currentStats.miles > 0 && (
+            {/* ── Mileage Write-off Tip ─────────────────────────────────────────
+                Only shown when the active vehicle is actually eligible (a saved tax profile —
+                including an explicit opt-out — always wins over the registry default). This
+                is an estimated tax deduction, not money earned — kept out of the headline
+                "EARNED" figure above. */}
+            {currentStats.miles > 0 && mileageRate?.deductionMethod === "standard_mileage" && writeOff > 0 && (
               <View style={S.tipCard}>
                 <Text style={{ fontSize: 13 }}>🚗</Text>
                 <Text style={{ fontSize: 12, color: "#9B9BA4", flex: 1, lineHeight: 18 }}>
-                  At 67¢/{profile?.distanceUnit ?? "mi"} you've earned a <Text style={{ color: "#f59e0b", fontWeight: "bold" }}>{fmt(writeOff)}</Text> write-off on <Text style={{ fontWeight: "bold", color: "#F6F6F7" }}>{currentStats.miles.toFixed(1)}</Text> {profile?.distanceUnit ?? "mi"} today.
+                  At {mileageRate.ratePrimary != null ? `$${mileageRate.ratePrimary}` : ""}/{profile?.distanceUnit ?? "mi"} you've got an est. <Text style={{ color: "#f59e0b", fontWeight: "bold" }}>{fmt(writeOff)}</Text> tax write-off on <Text style={{ fontWeight: "bold", color: "#F6F6F7" }}>{currentStats.miles.toFixed(1)}</Text> {profile?.distanceUnit ?? "mi"} today.
                 </Text>
               </View>
             )}
@@ -1458,7 +1483,7 @@ export default function HomeScreen() {
                     </Text>
                   </View>
                   <View style={{ alignItems: "flex-end" }}>
-                    <Text style={{ fontSize: 18, fontWeight: "bold", color: "#F6F6F7", paddingVertical: 1 }}>{fmt(writeOff)}</Text>
+                    <Text style={{ fontSize: 18, fontWeight: "bold", color: "#F6F6F7", paddingVertical: 1 }}>{fmt(sessionWriteOff)}</Text>
                     <Text style={{ fontSize: 10, color: "#9B9BA4", fontWeight: "500" }}>write-off value</Text>
                   </View>
                 </View>

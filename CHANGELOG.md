@@ -2,6 +2,17 @@
 
 All notable changes to Comma are documented here.
 
+## [1.2.1] — 2026-07-07 (versionCode 4)
+
+### Added
+- **Vehicle-type-aware mileage write-off with opt-out**: onboarding now asks whether the mileage tax write-off applies to your vehicle, lets you set a custom rate, or opt out entirely — seeded into a per-vehicle, per-tax-year profile. Absent a saved profile, the researched default now depends on vehicle type (a bicycle/e-bike/scooter isn't eligible for the IRS/CRA automobile mileage rate) instead of a flat country rate.
+- **Analytics tab redesign**: consolidated from 21 single-purpose widgets down to 6 grouped cards (Trends, Work Rhythm, Income Sources, Outlook, Efficiency & Stability, Order Economics), each grouping widgets that answer the same underlying question. The Avg Rate, Expenses, and Tax Set-Aside stat cards are now tap-to-expand for the detail that used to need its own card.
+
+### Changed
+- **Mileage write-off no longer reduces "earned" totals**: it's a tax estimate, not real money, so it's shown as a separate note (home screen, shift detail, tax center) instead of being subtracted from gross/net earnings everywhere.
+- **Tax Center calculation order fix**: the mileage deduction now reduces taxable income *before* pension/self-employment-tax/state-tax are computed, so it actually flows into the total estimated tax instead of being calculated and silently discarded.
+- Clearer tax deadline and obligation labels (e.g. "Yearly Tax Return Due" instead of "Self-Employed Filing", "Pension Plan"/"Self-Employment Tax" instead of "CPP"/"SE Tax").
+
 ## [1.2.0] — 2026-07-04 (versionCode 3)
 
 ### Added

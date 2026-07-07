@@ -87,6 +87,8 @@ export default function OnboardingWizard() {
   const [vehicleMake, setVehicleMake] = useState("");
   const [vehicleModel, setVehicleModel] = useState("");
   const [vehicleYear, setVehicleYear] = useState("");
+  const [mileageOptOut, setMileageOptOut] = useState(false);
+  const [mileageRateOverride, setMileageRateOverride] = useState("");
 
   // Goal
   const [weeklyGoal, setWeeklyGoal] = useState("500");
@@ -169,6 +171,8 @@ export default function OnboardingWizard() {
       make: vehicleMake.trim(),
       model: vehicleModel.trim(),
       year: vehicleYear.trim(),
+      mileageOptOut,
+      mileageRateOverride: mileageRateOverride.trim(),
     };
     await completeOnboarding(profile, vehicle, null, true);
 
@@ -407,6 +411,11 @@ export default function OnboardingWizard() {
             setModel={setVehicleModel}
             year={vehicleYear}
             setYear={setVehicleYear}
+            country={country}
+            mileageOptOut={mileageOptOut}
+            setMileageOptOut={setMileageOptOut}
+            mileageRateOverride={mileageRateOverride}
+            setMileageRateOverride={setMileageRateOverride}
           />
         );
       case STEP_GOAL:

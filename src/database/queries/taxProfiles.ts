@@ -3,8 +3,64 @@ import { vehicleTaxProfiles } from "../schema";
 import { eq, and } from "drizzle-orm";
 import { Platform } from "react-native";
 import { stampInsert, stampUpdate, softDeletePatch, notDeleted, isNotDeleted } from "../syncedWrites";
+import { getVehicleMileageEligibility } from "../../registry/countries/mileageRates";
 
 const isWeb = Platform.OS === "web";
+
+export type EffectiveMileageRate = {
+  deductionMethod: "standard_mileage" | "actual_expenses";
+  ratePrimary: number | null;
+  rateSecondary: number | null;
+  rateThreshold: number | null;
+  label: string;
+  /** True when this came from a profile the user explicitly saved, false when it's a registry default. */
+  isUserOverride: boolean;
+};
+
+/**
+ * Resolves the rate to actually use for a vehicle's write-off this tax year: a saved
+ * vehicleTaxProfiles row always wins (it represents an explicit user choice — including an
+ * explicit opt-out via deductionMethod: "actual_expenses" — even if it disagrees with the
+ * registry default). Only falls back to the registry default when no profile row exists yet,
+ * and only reports a standard_mileage default when the vehicle type is actually eligible.
+ */
+export async function getEffectiveMileageRate(
+  vehicleId: string,
+  taxYear: number,
+  countryId: string,
+  vehicleType: string
+): Promise<EffectiveMileageRate> {
+  const saved = await getTaxProfileForVehicleYear(vehicleId, taxYear);
+  if (saved) {
+    return {
+      deductionMethod: saved.deductionMethod,
+      ratePrimary: saved.standardRatePrimary,
+      rateSecondary: saved.standardRateSecondary,
+      rateThreshold: saved.rateThreshold,
+      label: "Custom rate",
+      isUserOverride: true,
+    };
+  }
+
+  const def = getVehicleMileageEligibility(countryId, vehicleType);
+  return {
+    deductionMethod: def.eligible ? "standard_mileage" : "actual_expenses",
+    ratePrimary: def.ratePrimary,
+    rateSecondary: def.rateSecondary,
+    rateThreshold: def.rateThreshold,
+    label: def.label,
+    isUserOverride: false,
+  };
+}
+
+/** amount × tiered rate (ratePrimary up to rateThreshold, rateSecondary beyond it). */
+export function calculateMileageWriteOff(miles: number, rate: EffectiveMileageRate): number {
+  if (rate.deductionMethod !== "standard_mileage" || rate.ratePrimary == null || miles <= 0) return 0;
+  if (rate.rateThreshold != null && rate.rateSecondary != null && miles > rate.rateThreshold) {
+    return rate.rateThreshold * rate.ratePrimary + (miles - rate.rateThreshold) * rate.rateSecondary;
+  }
+  return miles * rate.ratePrimary;
+}
 
 export async function getTaxProfilesForVehicle(vehicleId: string): Promise<any[]> {
   if (isWeb) {

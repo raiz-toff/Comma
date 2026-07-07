@@ -1,8 +1,8 @@
 import { db } from "../client";
-import { shifts, expenses, taxHistory, settings } from "../schema";
+import { shifts, expenses, taxHistory, profile, settings } from "../schema";
 import { sql, eq, and, gte, lte, desc } from "drizzle-orm";
 import { Platform } from "react-native";
-import { stampInsert, notDeleted, isNotDeleted } from "../syncedWrites";
+import { stampInsert, stampUpdate, notDeleted, isNotDeleted } from "../syncedWrites";
 
 const isWeb = Platform.OS === "web";
 
@@ -86,19 +86,59 @@ export async function getTaxHistory(): Promise<TaxHistoryEntry[]> {
 // ─── Tax Jar (Virtual Set-Aside Account) ────────────────────────────────────
 
 /** Read the current Tax Jar balance for a given tax year */
+// Tax Jar balance lives in the SYNCED `profile` KV table (one row per year, key
+// `taxJar_{year}`) rather than the device-local `settings` table, so the amount you've set
+// aside for taxes carries over between phone and web instead of tracking two separate
+// balances per device. The generic push/pull change-log engine syncs every row in `profile`
+// regardless of key, so this needs no changes to the sync engine or profileBridge's field
+// map — that map only translates the legacy settings.profile JSON blob, it doesn't gate what
+// can live in the table.
+function taxJarKey(year: number): string {
+  return `taxJar_${year}`;
+}
+
+/**
+ * One-time upgrade path: balances saved before this table migration live under the OLD
+ * device-local `settings` key (`tax_virtual_jar_{year}`). If the new synced row doesn't exist
+ * yet, pull the legacy value in and write it to the synced location so it starts syncing and
+ * this check becomes a no-op from then on. Returns 0 if there's nothing on either side.
+ */
+async function migrateLegacyJarBalance(year: number): Promise<number> {
+  const legacyKey = `tax_virtual_jar_${year}`;
+  let legacyValue: number | null = null;
+  if (isWeb) {
+    const raw = localStorage.getItem(`comma_setting_${legacyKey}`);
+    if (raw != null) legacyValue = Number(raw) || 0;
+  } else {
+    const row = await db.select().from(settings).where(eq(settings.key, legacyKey)).limit(1);
+    if (row[0]?.value != null) legacyValue = Number(row[0].value) || 0;
+  }
+  if (legacyValue == null) return 0;
+  await setTaxJarBalance(year, legacyValue);
+  return legacyValue;
+}
+
 export async function getTaxJarBalance(year: number): Promise<number> {
-  const jarKey = `tax_virtual_jar_${year}`;
+  const jarKey = taxJarKey(year);
   if (isWeb) {
     try {
-      const val = localStorage.getItem(`comma_setting_${jarKey}`);
-      return val ? Number(val) : 0;
+      const raw = localStorage.getItem("comma_profile_sync");
+      const rows: Array<{ key: string; value: string; syncDeletedAt?: number | null }> = raw ? JSON.parse(raw) : [];
+      const row = rows.find((r) => r.key === jarKey && r.syncDeletedAt == null);
+      if (row) return Number(JSON.parse(row.value)) || 0;
+      return await migrateLegacyJarBalance(year);
     } catch {
       return 0;
     }
   }
   try {
-    const row = await db.select().from(settings).where(eq(settings.key, jarKey)).limit(1);
-    return row[0]?.value ? Number(row[0].value) : 0;
+    const row = await db
+      .select()
+      .from(profile)
+      .where(and(eq(profile.key, jarKey), notDeleted(profile.syncDeletedAt)))
+      .limit(1);
+    if (row[0]?.value) return Number(JSON.parse(row[0].value)) || 0;
+    return await migrateLegacyJarBalance(year);
   } catch {
     return 0;
   }
@@ -106,16 +146,23 @@ export async function getTaxJarBalance(year: number): Promise<number> {
 
 /** Persist the Tax Jar balance for a given tax year */
 export async function setTaxJarBalance(year: number, amount: number): Promise<void> {
-  const jarKey = `tax_virtual_jar_${year}`;
-  const value = String(Math.max(0, amount));
+  const jarKey = taxJarKey(year);
+  const value = JSON.stringify(Math.max(0, amount));
   if (isWeb) {
-    localStorage.setItem(`comma_setting_${jarKey}`, value);
+    const raw = localStorage.getItem("comma_profile_sync");
+    const rows: Array<any> = raw ? JSON.parse(raw) : [];
+    const idx = rows.findIndex((r) => r.key === jarKey);
+    if (idx >= 0) rows[idx] = stampUpdate({ ...rows[idx], value, syncDeletedAt: null });
+    else rows.push(stampInsert({ key: jarKey, value }));
+    localStorage.setItem("comma_profile_sync", JSON.stringify(rows));
     return;
   }
-  await db
-    .insert(settings)
-    .values({ key: jarKey, value })
-    .onConflictDoUpdate({ target: settings.key, set: { value } });
+  const existing = await db.select().from(profile).where(eq(profile.key, jarKey)).limit(1);
+  if (existing[0]) {
+    await db.update(profile).set(stampUpdate({ value, syncDeletedAt: null })).where(eq(profile.key, jarKey));
+  } else {
+    await db.insert(profile).values(stampInsert({ key: jarKey, value }));
+  }
 }
 
 export async function insertTaxHistory(payload: {

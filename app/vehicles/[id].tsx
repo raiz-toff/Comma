@@ -126,28 +126,25 @@ export default function VehicleDetailScreen() {
   const [taxYear, setTaxYear] = useState(String(new Date().getFullYear()));
   const [deductionMethod, setDeductionMethod] = useState<"standard_mileage" | "actual_expenses">("standard_mileage");
 
-  const defaultRate = React.useMemo(() => {
-    const { getMileagePresetRate } = require("@/src/registry/countries/index");
-    const r = profile?.taxRegion || (profile?.country === "CA" ? "ON" : "CA");
-    return getMileagePresetRate(profile?.country || "CA", r);
-  }, [profile?.country, profile?.taxRegion]);
+  // Vehicle-type-aware default: eligibility and rate depend on BOTH country and the specific
+  // vehicle (a bicycle isn't eligible for the same standard-mileage rate a car is), not just
+  // country. This is only the pre-filled suggestion — the fields below remain fully editable so
+  // the user can opt out (Actual Expenses) or enter their own rate if it doesn't apply to them.
+  const mileageEligibility = React.useMemo(() => {
+    const { getVehicleMileageEligibility } = require("@/src/registry/countries/mileageRates");
+    return getVehicleMileageEligibility(profile?.country || "CA", vehicleType);
+  }, [profile?.country, vehicleType]);
 
-  const [ratePrimary, setRatePrimary] = useState(defaultRate);
+  const [ratePrimary, setRatePrimary] = useState("");
   const [rateSecondary, setRateSecondary] = useState("");
   const [thresholdDistance, setThresholdDistance] = useState("");
 
   useEffect(() => {
-    if (defaultRate) {
-      setRatePrimary(defaultRate);
-      if (profile?.country === "CA") {
-        setRateSecondary("0.64");
-        setThresholdDistance("5000");
-      } else {
-        setRateSecondary("");
-        setThresholdDistance("");
-      }
-    }
-  }, [defaultRate, profile?.country]);
+    setDeductionMethod(mileageEligibility.eligible ? "standard_mileage" : "actual_expenses");
+    setRatePrimary(mileageEligibility.ratePrimary != null ? String(mileageEligibility.ratePrimary) : "");
+    setRateSecondary(mileageEligibility.rateSecondary != null ? String(mileageEligibility.rateSecondary) : "");
+    setThresholdDistance(mileageEligibility.rateThreshold != null ? String(mileageEligibility.rateThreshold) : "");
+  }, [mileageEligibility]);
 
   const handleSaveTaxProfile = async () => {
     const yr = parseInt(taxYear, 10);
@@ -594,6 +591,24 @@ export default function VehicleDetailScreen() {
                   placeholderTextColor={DS.textMuted}
                   style={s.input}
                 />
+              </View>
+
+              {/* Eligibility hint — informational only, doesn't lock the fields below */}
+              <View
+                style={{
+                  backgroundColor: mileageEligibility.eligible ? accentColorDim : "rgba(244,63,94,0.08)",
+                  borderWidth: 0.5,
+                  borderColor: mileageEligibility.eligible ? accentColorMid : "rgba(244,63,94,0.18)",
+                  borderRadius: 10,
+                  padding: 10,
+                  marginBottom: 12,
+                }}
+              >
+                <Text style={{ fontSize: 12, color: mileageEligibility.eligible ? accentColor : "#fb7185", lineHeight: 16 }}>
+                  {mileageEligibility.label}
+                  {mileageEligibility.eligible ? ` — $${mileageEligibility.ratePrimary}` : ""}
+                  {"\n"}Doesn't match your situation? Pick "Actual Expenses" or edit the rate below.
+                </Text>
               </View>
 
               {/* Method Selection */}

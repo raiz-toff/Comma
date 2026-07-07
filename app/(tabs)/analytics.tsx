@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, LayoutGrid, Sparkles, BarChart2, DollarSign, Wallet, TrendingDown, Landmark, Clock, Activity } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, ChevronDown, LayoutGrid, Sparkles, BarChart2, DollarSign, Wallet, TrendingDown, Landmark, Clock, Activity } from "lucide-react-native";
 import Svg, { Path } from "react-native-svg";
 import { Text } from "@/src/components/ui/text";
 import {
@@ -25,35 +25,19 @@ import {
   getIncomeStabilityScore,
   getFinancialMonthlyBreakdown,
 } from "@/src/database/queries/analytics";
-import { getShiftsPaginated } from "@/src/database/queries/shifts";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
 import { router } from "expo-router";
 
-import BestDayWidget from "@/src/components/widgets/BestDayWidget";
-import BestHourWidget from "@/src/components/widgets/BestHourWidget";
-import DeadMilesWidget from "@/src/components/widgets/DeadMilesWidget";
-import PlatformActivityWidget from "@/src/components/widgets/PlatformActivityWidget";
-import IncomeBreakdownWidget from "@/src/components/widgets/IncomeBreakdownWidget";
-import WeeklyProjectionWidget from "@/src/components/widgets/WeeklyProjectionWidget";
-import TaxJarWidget from "@/src/components/widgets/TaxJarWidget";
-import StreakWidget from "@/src/components/widgets/StreakWidget";
-import RollingTrendWidget from "@/src/components/widgets/RollingTrendWidget";
-import ScatterWidget from "@/src/components/widgets/ScatterWidget";
-import WeekCompareWidget from "@/src/components/widgets/WeekCompareWidget";
-import HoursCompareWidget from "@/src/components/widgets/HoursCompareWidget";
-import StabilityScoreWidget from "@/src/components/widgets/StabilityScoreWidget";
-import RecentShiftsWidget from "@/src/components/widgets/RecentShiftsWidget";
-import ScheduleWidget from "@/src/components/widgets/ScheduleWidget";
-import EffectiveRateWidget from "@/src/components/widgets/EffectiveRateWidget";
-import DeliveriesWidget from "@/src/components/widgets/DeliveriesWidget";
-import PerDeliveryWidget from "@/src/components/widgets/PerDeliveryWidget";
-import TipsTotalWidget from "@/src/components/widgets/TipsTotalWidget";
-import MonthOrdersWidget from "@/src/components/widgets/MonthOrdersWidget";
-import MonthHourlyWidget from "@/src/components/widgets/MonthHourlyWidget";
-import ZeroDaysWidget from "@/src/components/widgets/ZeroDaysWidget";
-import OutOfPocketWidget from "@/src/components/widgets/OutOfPocketWidget";
+// Composite widgets (consolidated from 21 single-purpose widgets down to 6
+// grouped cards, mirroring the web Analytics tab — see web/src/registry/widgets/).
+import TrendsWidget from "@/src/components/widgets/TrendsWidget";
+import WorkRhythmWidget from "@/src/components/widgets/WorkRhythmWidget";
+import IncomeSourcesWidget from "@/src/components/widgets/IncomeSourcesWidget";
+import OutlookWidget from "@/src/components/widgets/OutlookWidget";
+import EfficiencyStabilityWidget from "@/src/components/widgets/EfficiencyStabilityWidget";
+import OrderEconomicsWidget from "@/src/components/widgets/OrderEconomicsWidget";
 
 // ─── Constants & Styling ──────────────────────────────────────────────────────
 const BG = "#000";
@@ -72,30 +56,13 @@ const CATEGORY_CONFIG = [
 ];
 
 const WIDGET_META: Record<string, { label: string; category: Category }> = {
-  bestDay:          { label: "Best Day of Week",         category: "perf" },
-  bestHour:         { label: "Best Hour of Day",         category: "perf" },
-  deadMiles:        { label: "Dead Mileage Split",       category: "perf" },
-  streak:           { label: "Active Streak",            category: "perf" },
-  rollingTrend:     { label: "Earnings Trajectory",      category: "perf" },
-  scatter:          { label: "Earnings vs Hours",        category: "perf" },
-  weekCompare:      { label: "Week over Week",           category: "perf" },
-  hoursCompare:     { label: "Active vs Total Hours",    category: "perf" },
-  platformActivity: { label: "Platform Breakdown",       category: "insights" },
-  incomeBreakdown:  { label: "Income Breakdown",         category: "insights" },
-  weeklyProjection: { label: "Weekly Projection",        category: "insights" },
-  taxJar:           { label: "Tax Jar Withholding",      category: "insights" },
-  stabilityScore:   { label: "Income Stability",         category: "insights" },
-  recentShifts:     { label: "Recent Activity",          category: "insights" },
-  schedule:         { label: "Schedule",                 category: "insights" },
-  // Stat cards are now custom rendered, plus these granular stat widgets appended below them
-  effectiveRate:    { label: "Effective $/hr",           category: "stats" },
-  deliveries:       { label: "Deliveries",                category: "stats" },
-  perDelivery:      { label: "Per Delivery",              category: "stats" },
-  tipsTotal:        { label: "Tips Total",                category: "stats" },
-  monthOrders:      { label: "Monthly Orders",            category: "stats" },
-  monthHourly:      { label: "Monthly $/hr",              category: "stats" },
-  zeroDays:         { label: "Zero-Earning Days",         category: "stats" },
-  outOfPocket:      { label: "Out of Pocket",              category: "stats" },
+  trends:              { label: "Trends",                 category: "perf" },
+  workRhythm:           { label: "Work Rhythm",            category: "perf" },
+  incomeSources:        { label: "Income Sources",         category: "insights" },
+  outlook:              { label: "Outlook",                category: "insights" },
+  efficiencyStability:  { label: "Efficiency & Stability", category: "insights" },
+  // Stat cards are custom rendered above; this is the one granular widget left below them.
+  orderEconomics:       { label: "Order Economics",        category: "stats" },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -145,9 +112,31 @@ function formatCurrencyParts(value: number, country?: string) {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-function PremiumStatCard({ label, value, subtitle, color, Icon, width, flex }: any) {
+function StatDetailRows({ rows }: { rows: { label: string; value: string; color?: string }[] }) {
   return (
-    <View style={{ width, flex, backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER, borderRadius: 20, padding: 16 }}>
+    <View style={{ marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: BORDER, gap: 8 }}>
+      {rows.map((r) => (
+        <View key={r.label} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
+          <Text style={{ fontSize: 11, fontWeight: "600", color: TEXT_MUTED }}>{r.label}</Text>
+          <Text style={{ fontSize: 12, fontWeight: "800", color: r.color ?? "#F6F6F7" }}>{r.value}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// `detail` (optional) makes the card tap-to-expand, showing extra rows instead of a whole
+// separate card — absorbs what used to be effectiveRate/monthHourly/outOfPocket/taxJar widgets.
+function PremiumStatCard({ label, value, subtitle, color, Icon, width, flex, detail }: any) {
+  const [open, setOpen] = useState(false);
+  const expandable = Array.isArray(detail) && detail.length > 0;
+
+  return (
+    <Pressable
+      disabled={!expandable}
+      onPress={() => setOpen((o) => !o)}
+      style={{ width, flex, backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER, borderRadius: 20, padding: 16 }}
+    >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 }}>
         <View style={{ backgroundColor: color + "20", padding: 6, borderRadius: 8 }}>
           <Icon size={14} color={color} strokeWidth={2.5} />
@@ -155,13 +144,23 @@ function PremiumStatCard({ label, value, subtitle, color, Icon, width, flex }: a
         <Text style={{ fontSize: 11, fontWeight: "800", color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 0.8 }}>{label}</Text>
       </View>
       <Text style={{ fontSize: 32, fontWeight: "800", color: "#F6F6F7", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
-      {subtitle && <Text style={{ fontSize: 12, fontWeight: "500", color: color, marginTop: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{subtitle}</Text>}
-    </View>
+      {subtitle && (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 }}>
+          <Text style={{ fontSize: 12, fontWeight: "500", color: color, textTransform: "uppercase", letterSpacing: 0.5 }}>{subtitle}</Text>
+          {expandable && (
+            <ChevronDown size={12} color={color} style={{ transform: [{ rotate: open ? "180deg" : "0deg" }] }} />
+          )}
+        </View>
+      )}
+      {expandable && open && <StatDetailRows rows={detail} />}
+    </Pressable>
   );
 }
 
-function SwitchableStatCard({ label, activeValue, onlineValue, activeSubtitle, onlineSubtitle, color, Icon, width, flex }: any) {
+function SwitchableStatCard({ label, activeValue, onlineValue, activeSubtitle, onlineSubtitle, color, Icon, width, flex, detail }: any) {
   const [tab, setTab] = useState<"active" | "online">("active");
+  const [open, setOpen] = useState(false);
+  const expandable = Array.isArray(detail) && detail.length > 0;
 
   const value = tab === "active" ? activeValue : onlineValue;
   const subtitle = tab === "active" ? activeSubtitle : onlineSubtitle;
@@ -185,9 +184,18 @@ function SwitchableStatCard({ label, activeValue, onlineValue, activeSubtitle, o
           </Pressable>
         </View>
       </View>
-      
+
       <Text style={{ fontSize: 32, fontWeight: "800", color: "#F6F6F7", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
-      <Text style={{ fontSize: 12, fontWeight: "500", color: color, marginTop: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{subtitle}</Text>
+
+      {expandable ? (
+        <Pressable onPress={() => setOpen((o) => !o)} style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 }}>
+          <Text style={{ fontSize: 12, fontWeight: "500", color, textTransform: "uppercase", letterSpacing: 0.5 }}>{subtitle}</Text>
+          <ChevronDown size={12} color={color} style={{ transform: [{ rotate: open ? "180deg" : "0deg" }] }} />
+        </Pressable>
+      ) : (
+        <Text style={{ fontSize: 12, fontWeight: "500", color, marginTop: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{subtitle}</Text>
+      )}
+      {expandable && open && <StatDetailRows rows={detail} />}
     </View>
   );
 }
@@ -268,8 +276,6 @@ export default function AnalyticsScreen() {
   const { data: thisWeekStats } = useQuery({ queryKey: ["analytics", "week-stats", "this", thisWeekStart.toISOString(), thisWeekEnd.toISOString(), activePlatformFilter], queryFn: () => getPeriodStats(thisWeekStart, thisWeekEnd, activePlatformFilter), enabled });
   const { data: lastWeekStats } = useQuery({ queryKey: ["analytics", "week-stats", "last", lastWeekStart.toISOString(), lastWeekEnd.toISOString(), activePlatformFilter], queryFn: () => getPeriodStats(lastWeekStart, lastWeekEnd, activePlatformFilter), enabled });
   const { data: stabilityData } = useQuery({ queryKey: ["analytics", "stability-score", activePlatformFilter], queryFn: () => getIncomeStabilityScore(activePlatformFilter), enabled });
-  const { data: recentShiftsData = [] } = useQuery({ queryKey: ["analytics", "recent-shifts"], queryFn: () => getShiftsPaginated(1, {}, 4), enabled });
-  const { data: monthStats } = useQuery({ queryKey: ["analytics", "month-stats", monthStart.toISOString(), monthEnd.toISOString(), activePlatformFilter], queryFn: () => getPeriodStats(monthStart, monthEnd, activePlatformFilter), enabled });
   const { data: monthHourlyRate = 0 } = useQuery({ queryKey: ["analytics", "month-hourly-rate", monthStart.toISOString(), monthEnd.toISOString(), activePlatformFilter], queryFn: () => getHourlyRate(monthStart, monthEnd, activePlatformFilter), enabled });
   const { data: monthlyBreakdown } = useQuery({ queryKey: ["analytics", "monthly-breakdown", start.toISOString(), end.toISOString(), activePlatformFilter], queryFn: () => getFinancialMonthlyBreakdown(start, end, activePlatformFilter), enabled });
 
@@ -284,7 +290,7 @@ export default function AnalyticsScreen() {
   const thisWeekTotal = (thisWeekStats?.gross ?? 0) + (thisWeekStats?.tips ?? 0) + (thisWeekStats?.bonus ?? 0);
   const lastWeekTotal = (lastWeekStats?.gross ?? 0) + (lastWeekStats?.tips ?? 0) + (lastWeekStats?.bonus ?? 0);
   const zeroDaysCount = dailyData.filter((d) => d.total === 0).length;
-  const perDeliveryVal = (periodStats?.count ?? 0) > 0 ? totalRevenue / (periodStats?.count ?? 1) : 0;
+  const perDeliveryVal = (periodStats?.orders ?? 0) > 0 ? totalRevenue / (periodStats?.orders ?? 1) : 0;
   const outOfPocketVal = monthlyBreakdown?.totals?.outOfPocket ?? 0;
 
 
@@ -292,32 +298,60 @@ export default function AnalyticsScreen() {
 
   const renderWidgetContent = useCallback((id: string) => {
     switch (id) {
-      case "bestDay":           return <BestDayWidget bestDayData={bestDayData} maxDayAvg={maxDayAvg} />;
-      case "bestHour":          return <BestHourWidget bestHourData={bestHourData} maxHourAvg={maxHourAvg} />;
-      case "deadMiles":         return <DeadMilesWidget mileage={mileage} distanceUnit={profile?.distanceUnit ?? "mi"} />;
-      case "streak":            return <StreakWidget streak={{ current: streakDays, best: bestStreak }} />;
-      case "rollingTrend":      return <RollingTrendWidget dailyData={dailyData} />;
-      case "scatter":           return <ScatterWidget data={scatterData} />;
-      case "weekCompare":       return <WeekCompareWidget thisWeek={thisWeekTotal} lastWeek={lastWeekTotal} country={country} />;
-      case "hoursCompare":      return <HoursCompareWidget activeHrs={activeHrs} onlineHrs={durationHrs} />;
-      case "platformActivity":  return <PlatformActivityWidget platformData={platformData} />;
-      case "incomeBreakdown":   return <IncomeBreakdownWidget totalRevenue={totalRevenue} netIncome={netIncome} taxWithholdingPct={profile.taxWithholdingPct} country={country} />;
-      case "weeklyProjection":  return <WeeklyProjectionWidget dailyData={dailyData} country={country} />;
-      case "taxJar":            return <TaxJarWidget taxWithholdingPct={profile.taxWithholdingPct} />;
-      case "stabilityScore":    return <StabilityScoreWidget score={stabilityData?.stabilityScore ?? 0} weeklyGross={stabilityData?.weeklyGross ?? []} />;
-      case "recentShifts":      return <RecentShiftsWidget shifts={recentShiftsData} country={country} />;
-      case "schedule":          return <ScheduleWidget />;
-      case "effectiveRate":     return <EffectiveRateWidget effectiveRate={effectivePerHr} avgRate={onlineRate} country={country} />;
-      case "deliveries":        return <DeliveriesWidget count={periodStats?.count ?? 0} />;
-      case "perDelivery":       return <PerDeliveryWidget perDelivery={perDeliveryVal} count={periodStats?.count ?? 0} country={country} />;
-      case "tipsTotal":         return <TipsTotalWidget tips={periodStats?.tips ?? 0} gross={periodStats?.gross ?? 0} country={country} />;
-      case "monthOrders":       return <MonthOrdersWidget count={monthStats?.count ?? 0} />;
-      case "monthHourly":       return <MonthHourlyWidget hourlyRate={monthHourlyRate} country={country} />;
-      case "zeroDays":          return <ZeroDaysWidget zeroDays={zeroDaysCount} totalDays={dailyData.length} />;
-      case "outOfPocket":       return <OutOfPocketWidget outOfPocket={outOfPocketVal} gross={totalRevenue} country={country} />;
+      case "trends":
+        return (
+          <TrendsWidget
+            dailyData={dailyData}
+            thisWeekTotal={thisWeekTotal}
+            lastWeekTotal={lastWeekTotal}
+            activeHrs={activeHrs}
+            durationHrs={durationHrs}
+            scatterData={scatterData}
+            country={country}
+          />
+        );
+      case "workRhythm":
+        return (
+          <WorkRhythmWidget
+            bestDayData={bestDayData}
+            bestHourData={bestHourData}
+            streak={{ current: streakDays, best: bestStreak }}
+            zeroDaysCount={zeroDaysCount}
+          />
+        );
+      case "incomeSources":
+        return (
+          <IncomeSourcesWidget
+            platformData={platformData}
+            totalRevenue={totalRevenue}
+            netIncome={netIncome}
+            taxWithholdingPct={profile.taxWithholdingPct}
+            country={country}
+          />
+        );
+      case "outlook":
+        return <OutlookWidget dailyData={dailyData} country={country} />;
+      case "efficiencyStability":
+        return (
+          <EfficiencyStabilityWidget
+            mileage={mileage}
+            distanceUnit={profile?.distanceUnit ?? "mi"}
+            score={stabilityData?.stabilityScore ?? 0}
+            weeklyGross={stabilityData?.weeklyGross ?? []}
+          />
+        );
+      case "orderEconomics":
+        return (
+          <OrderEconomicsWidget
+            count={periodStats?.orders ?? 0}
+            perDelivery={perDeliveryVal}
+            tips={periodStats?.tips ?? 0}
+            country={country}
+          />
+        );
       default: return null;
     }
-  }, [dailyData, bestDayData, maxDayAvg, bestHourData, maxHourAvg, mileage, platformData, totalRevenue, netIncome, profile, country, durationHrs, hourlyRate, periodStats, streakDays, bestStreak, scatterData, thisWeekTotal, lastWeekTotal, activeHrs, stabilityData, recentShiftsData, effectivePerHr, onlineRate, perDeliveryVal, monthStats, monthHourlyRate, zeroDaysCount, outOfPocketVal]);
+  }, [dailyData, bestDayData, maxDayAvg, bestHourData, maxHourAvg, mileage, platformData, totalRevenue, netIncome, profile, country, durationHrs, periodStats, streakDays, bestStreak, scatterData, thisWeekTotal, lastWeekTotal, activeHrs, stabilityData, perDeliveryVal, zeroDaysCount]);
 
   const activeWidgets = Object.keys(WIDGET_META).filter(id => WIDGET_META[id].category === activeCategory);
 
@@ -339,22 +373,50 @@ export default function AnalyticsScreen() {
         {/* Row 1: Net & Expenses */}
         <View style={{ flexDirection: "row", gap: 12 }}>
           <PremiumStatCard flex={1} label="Net Take-Home" value={formatCurrencyValue(netIncome, country)} subtitle="After Expenses" color="#3b82f6" Icon={Wallet} />
-          <PremiumStatCard flex={1} label="Expenses" value={formatCurrencyValue(expenses, country)} subtitle={`${totalRevenue > 0 ? ((expenses/totalRevenue)*100).toFixed(1) : 0}% Burn Ratio`} color="#FF5247" Icon={TrendingDown} />
+          <PremiumStatCard
+            flex={1}
+            label="Expenses"
+            value={formatCurrencyValue(expenses, country)}
+            subtitle={`${totalRevenue > 0 ? ((expenses/totalRevenue)*100).toFixed(1) : 0}% Burn Ratio`}
+            color="#FF5247"
+            Icon={TrendingDown}
+            detail={[
+              { label: "Burn Ratio", value: `${totalRevenue > 0 ? ((expenses/totalRevenue)*100).toFixed(1) : 0}% of gross` },
+              { label: "Out of Pocket", value: formatCurrencyValue(outOfPocketVal, country) },
+            ]}
+          />
         </View>
 
         {/* Row 2: Rate & Tax */}
         <View style={{ flexDirection: "row", gap: 12 }}>
-          <SwitchableStatCard 
+          <SwitchableStatCard
              flex={1}
-             label="Avg Rate" 
-             activeValue={`${formatCurrencyValue(activeRate, country)}/hr`} 
-             onlineValue={`${formatCurrencyValue(onlineRate, country)}/hr`} 
+             label="Avg Rate"
+             activeValue={`${formatCurrencyValue(activeRate, country)}/hr`}
+             onlineValue={`${formatCurrencyValue(onlineRate, country)}/hr`}
              activeSubtitle="Active Rate"
              onlineSubtitle="Online Rate"
-             color="#f59e0b" 
-             Icon={Activity} 
+             color="#f59e0b"
+             Icon={Activity}
+             detail={[
+               { label: "Active Rate", value: `${formatCurrencyValue(activeRate, country)}/hr` },
+               { label: "Online Rate", value: `${formatCurrencyValue(onlineRate, country)}/hr` },
+               { label: "Effective (after costs)", value: `${formatCurrencyValue(effectivePerHr, country)}/hr` },
+               { label: "Monthly Avg", value: `${formatCurrencyValue(monthHourlyRate, country)}/hr` },
+             ]}
           />
-          <PremiumStatCard flex={1} label="Tax Set-Aside" value={formatCurrencyValue(taxSetAside, country)} subtitle={`${taxRate}% Tax Rate`} color="#0ea5e9" Icon={Landmark} />
+          <PremiumStatCard
+            flex={1}
+            label="Tax Set-Aside"
+            value={formatCurrencyValue(taxSetAside, country)}
+            subtitle={`${taxRate}% Tax Rate`}
+            color="#0ea5e9"
+            Icon={Landmark}
+            detail={[
+              { label: "Estimated Set-Aside", value: formatCurrencyValue(taxSetAside, country) },
+              { label: "Net After Tax", value: formatCurrencyValue(Math.max(0, netIncome - taxSetAside), country), color: "#22c55e" },
+            ]}
+          />
         </View>
         
         {/* Full-width Footer */}

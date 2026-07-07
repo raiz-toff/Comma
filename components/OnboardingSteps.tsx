@@ -63,7 +63,7 @@ function StyledInput({
   value: string;
   onChangeText: (v: string) => void;
   placeholder?: string;
-  keyboardType?: "default" | "numeric";
+  keyboardType?: "default" | "numeric" | "decimal-pad";
   prefix?: string;
   suffix?: string;
 }) {
@@ -483,6 +483,11 @@ export function VehicleStep({
   setModel,
   year,
   setYear,
+  country,
+  mileageOptOut,
+  setMileageOptOut,
+  mileageRateOverride,
+  setMileageRateOverride,
 }: {
   nickname: string;
   setNickname: (v: string) => void;
@@ -494,7 +499,15 @@ export function VehicleStep({
   setModel: (v: string) => void;
   year: string;
   setYear: (v: string) => void;
+  country: string;
+  mileageOptOut: boolean;
+  setMileageOptOut: (v: boolean) => void;
+  mileageRateOverride: string;
+  setMileageRateOverride: (v: string) => void;
 }) {
+  const { getVehicleMileageEligibility } = require("../src/registry/countries/mileageRates");
+  const mileageInfo = getVehicleMileageEligibility(country, type);
+
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
       <StepHeading
@@ -565,6 +578,52 @@ export function VehicleStep({
             placeholder="2020"
             keyboardType="numeric"
           />
+        </View>
+
+        <View style={{ gap: 10 }}>
+          <FieldLabel label="Mileage write-off" />
+          <View
+            style={{
+              backgroundColor: "#0F0F12",
+              borderWidth: 1,
+              borderColor: "#1E1E23",
+              borderRadius: 14,
+              padding: 14,
+              gap: 12,
+            }}
+          >
+            <Text style={{ fontSize: 12, color: "#9B9BA4", lineHeight: 17 }}>
+              {mileageInfo.eligible
+                ? `${mileageInfo.label} — $${mileageInfo.ratePrimary}/${type === "gas" || type === "hybrid" || type === "ev" ? "mi or km" : "unit"}`
+                : mileageInfo.label}
+            </Text>
+
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: "#F6F6F7", flex: 1 }}>
+                This doesn't apply to me
+              </Text>
+              <Switch
+                value={mileageOptOut}
+                onValueChange={setMileageOptOut}
+                trackColor={{ false: "#26262C", true: "#10b981" }}
+                thumbColor="#F6F6F7"
+              />
+            </View>
+
+            {!mileageOptOut && (
+              <View style={{ gap: 8 }}>
+                <Text style={{ fontSize: 12, color: "#65656E" }}>
+                  Know your actual rate differs? Set it here — otherwise we'll use the default above.
+                </Text>
+                <StyledInput
+                  value={mileageRateOverride}
+                  onChangeText={setMileageRateOverride}
+                  placeholder={mileageInfo.ratePrimary != null ? String(mileageInfo.ratePrimary) : "e.g. 0.67"}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            )}
+          </View>
         </View>
       </View>
     </ScrollView>

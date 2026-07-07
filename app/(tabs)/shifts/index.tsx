@@ -321,10 +321,9 @@ export default function ShiftsScreen() {
       });
       
       const wTotal = wShifts.reduce((sum, s) => {
+        // Real money earned — mileage is a tax estimate, not an expense, so it never reduces this.
         const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0);
-        const miles = (s.activeMileage || 0) + (s.deadMileage || 0);
-        const writeOff = miles * 0.67;
-        return sum + (gross - writeOff);
+        return sum + gross;
       }, 0);
       
       const daysData = Array.from({ length: 7 }, (_, i) => {
@@ -339,9 +338,7 @@ export default function ShiftsScreen() {
         
         const dayTotal = dayShifts.reduce((sum, s) => {
           const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0);
-          const miles = (s.activeMileage || 0) + (s.deadMileage || 0);
-          const writeOff = miles * 0.67;
-          return sum + (gross - writeOff);
+          return sum + gross;
         }, 0);
         return {
           total: dayTotal,
@@ -428,9 +425,7 @@ export default function ShiftsScreen() {
 
       const dayTotal = dayShifts.reduce((sum, s) => {
         const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0);
-        const miles = (s.activeMileage || 0) + (s.deadMileage || 0);
-        const writeOff = miles * 0.67;
-        return sum + (gross - writeOff);
+        return sum + gross;
       }, 0);
       return {
         date: day,
@@ -447,9 +442,7 @@ export default function ShiftsScreen() {
     () =>
       weeklyShifts.reduce((sum, s) => {
         const gross = (s.grossRevenue || 0) + (s.tipsRevenue || 0) + (s.bonusAmount || 0);
-        const miles = (s.activeMileage || 0) + (s.deadMileage || 0);
-        const writeOff = miles * 0.67;
-        return sum + (gross - writeOff);
+        return sum + gross;
       }, 0),
     [weeklyShifts]
   );
@@ -645,9 +638,7 @@ export default function ShiftsScreen() {
           ) : (
             <View style={styles.shiftsList}>
               {displayedShifts.map((shift) => {
-                const shiftMiles = (shift.activeMileage || 0) + (shift.deadMileage || 0);
-                const shiftWriteOff = shiftMiles * 0.67;
-                const totalShiftEarnings = (shift.grossRevenue || 0) + (shift.tipsRevenue || 0) + (shift.bonusAmount || 0) - shiftWriteOff;
+                const totalShiftEarnings = (shift.grossRevenue || 0) + (shift.tipsRevenue || 0) + (shift.bonusAmount || 0);
                 const durationHrs = (shift.durationSeconds || 0) / 3600;
                 return (
                   <Pressable

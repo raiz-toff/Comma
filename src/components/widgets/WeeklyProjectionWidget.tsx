@@ -33,7 +33,7 @@ export default function WeeklyProjectionWidget({ dailyData, country }: WeeklyPro
       </View>
       
       <View style={{ alignItems: "center" }}>
-        <Text style={{ fontSize: 32, fontWeight: "900", color: "#F6F6F7", letterSpacing: -1 }}>{formatCurrency(projection)}</Text>
+        <Text style={{ fontSize: 32, fontWeight: "900", color: "#F6F6F7", letterSpacing: -1, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>{formatCurrency(projection)}</Text>
         <Text style={{ fontSize: 11, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 1, marginTop: 4 }}>Weekly Projection</Text>
       </View>
       

@@ -25,7 +25,8 @@ import {
   resolveProvinceDef,
 } from "@/src/registry/index";
 import { getPlatformDef } from "@/src/registry/platforms";
-import { getPeriodStats } from "@/src/database/queries/analytics";
+import { getPeriodStats, getActiveVehicle } from "@/src/database/queries/analytics";
+import { getEffectiveMileageRate, calculateMileageWriteOff } from "@/src/database/queries/taxProfiles";
 import { getExpenseYTDSummary } from "@/src/database/queries/expenses";
 import {
   getTaxHistory,
@@ -35,9 +36,7 @@ import {
 import {
   calculatePensionContributions,
   calculateHSTOwing,
-  calculateCRAMileageDeduction,
   calculateSelfEmploymentTax,
-  calculateIRSMileageDeduction,
   calculateHMRCMileageDeduction,
   calculateUKNationalInsurance,
 } from "@/utils/taxCalculations";
@@ -119,6 +118,19 @@ export default function TaxScreen() {
     enabled: isOnboardingCompleted,
   });
 
+  // Same eligibility-aware resolution as the dashboard: a saved tax profile (including an
+  // explicit opt-out) always wins over the researched default, and the default itself depends
+  // on the active vehicle's type, not just country (a bicycle isn't eligible for a car's rate).
+  const { data: mileageRate } = useQuery({
+    queryKey: ["analytics", "mileage-rate", currentYear],
+    queryFn: async () => {
+      const vehicle = await getActiveVehicle();
+      if (!vehicle) return null;
+      return getEffectiveMileageRate(vehicle.id, currentYear, profile?.country || "CA", vehicle.type);
+    },
+    enabled: isOnboardingCompleted,
+  });
+
   const grossRevenue = (ytdStats?.gross || 0) + (ytdStats?.tips || 0) + (ytdStats?.bonus || 0);
   const deductibleExpenses = ytdExpenses?.deductible || 0;
   const netIncome = Math.max(0, grossRevenue - deductibleExpenses);
@@ -127,28 +139,17 @@ export default function TaxScreen() {
   const taxData = useMemo(() => {
     const province = profile?.taxRegion || countryDef.tax.defaultRegionCode;
 
-    const pensionResult = countryDef.tax.calcCpp
-      ? calculatePensionContributions(netIncome, province, currentYear)
-      : { cpp1Total: 0, cpp2Total: 0, total: 0, planType: "CPP" as const };
-
-    const seTax = countryDef.tax.calcSeTax ? calculateSelfEmploymentTax(netIncome, currentYear) : 0;
-
-    const niResult = countryDef.tax.calcNI
-      ? calculateUKNationalInsurance(netIncome, currentYear)
-      : null;
-
-    const stateDef = profile?.country === "US" ? resolveProvinceDef("US", province) : null;
-    const stateIncomeTax = stateDef?.incomeTaxRate ? netIncome * stateDef.incomeTaxRate : 0;
-
-    let hstResult = null;
-    if (countryDef.tax.hstOnboarding && profile?.hstRegistered) {
-      hstResult = calculateHSTOwing(0, grossRevenue, deductibleExpenses, province, currentYear);
-    }
-
+    // Mileage deduction reduces taxable income the same way logged expenses already do —
+    // compute it FIRST so pension/SE-tax/state-tax/income-tax are all based on the same
+    // reduced base, and it actually flows into totalEstimatedTax below (previously this was
+    // computed and never used anywhere, so the total silently ignored it).
     let mileageDeduction = 0;
     if (countryDef.hasMileageDeduction) {
-      if (profile?.country === "CA") {
-        mileageDeduction = calculateCRAMileageDeduction(totalMileage, currentYear);
+      if (profile?.country === "CA" || profile?.country === "US") {
+        // Vehicle-type-aware: respects a saved tax profile (custom rate or explicit opt-out)
+        // and, absent one, only applies the researched default when the vehicle is eligible
+        // (e.g. a bicycle isn't eligible for the CRA/IRS automobile mileage rate).
+        mileageDeduction = mileageRate ? calculateMileageWriteOff(totalMileage, mileageRate) : 0;
       } else if (profile?.country === "UK") {
         mileageDeduction = calculateHMRCMileageDeduction(totalMileage, currentYear);
       } else {
@@ -156,8 +157,27 @@ export default function TaxScreen() {
         mileageDeduction = totalMileage * (parseFloat(rateStr) || 0);
       }
     }
+    const taxableIncome = Math.max(0, netIncome - mileageDeduction);
 
-    const estimatedIncomeTax = netIncome * ((profile?.taxWithholdingPct || 0) / 100);
+    const pensionResult = countryDef.tax.calcCpp
+      ? calculatePensionContributions(taxableIncome, province, currentYear)
+      : { cpp1Total: 0, cpp2Total: 0, total: 0, planType: "CPP" as const };
+
+    const seTax = countryDef.tax.calcSeTax ? calculateSelfEmploymentTax(taxableIncome, currentYear) : 0;
+
+    const niResult = countryDef.tax.calcNI
+      ? calculateUKNationalInsurance(taxableIncome, currentYear)
+      : null;
+
+    const stateDef = profile?.country === "US" ? resolveProvinceDef("US", province) : null;
+    const stateIncomeTax = stateDef?.incomeTaxRate ? taxableIncome * stateDef.incomeTaxRate : 0;
+
+    let hstResult = null;
+    if (countryDef.tax.hstOnboarding && profile?.hstRegistered) {
+      hstResult = calculateHSTOwing(0, grossRevenue, deductibleExpenses, province, currentYear);
+    }
+
+    const estimatedIncomeTax = taxableIncome * ((profile?.taxWithholdingPct || 0) / 100);
 
     const totalEstimatedTax =
       pensionResult.total +
@@ -177,31 +197,31 @@ export default function TaxScreen() {
       estimatedIncomeTax,
       totalEstimatedTax,
     };
-  }, [countryDef, profile, netIncome, grossRevenue, deductibleExpenses, totalMileage, currentYear]);
+  }, [countryDef, profile, netIncome, grossRevenue, deductibleExpenses, totalMileage, currentYear, mileageRate]);
 
   // 3 biggest obligation line items — shown as pills on the card
   const obligationPills = useMemo(() => {
     const items: { label: string; amount: number }[] = [];
     if (countryDef.tax.calcCpp && taxData.pensionResult.total > 0) {
       items.push({
-        label: taxData.pensionResult.planType === "QPP" ? "QPP" : "CPP",
+        label: "Pension Plan",
         amount: taxData.pensionResult.total,
       });
     }
     if (countryDef.tax.calcSeTax && taxData.seTax > 0) {
-      items.push({ label: "SE Tax", amount: taxData.seTax });
+      items.push({ label: "Self-Employment Tax", amount: taxData.seTax });
     }
     if (taxData.stateIncomeTax > 0) {
       items.push({ label: `${profile?.taxRegion || ""} Tax`, amount: taxData.stateIncomeTax });
     }
     if (countryDef.tax.calcNI && (taxData.niResult?.total ?? 0) > 0) {
-      items.push({ label: "NI", amount: taxData.niResult!.total });
+      items.push({ label: "National Insurance", amount: taxData.niResult!.total });
     }
     if (taxData.estimatedIncomeTax > 0) {
       items.push({ label: "Income Tax", amount: taxData.estimatedIncomeTax });
     }
     if ((taxData.hstResult?.netRemittable ?? 0) > 0) {
-      items.push({ label: "HST", amount: taxData.hstResult!.netRemittable });
+      items.push({ label: "Sales Tax", amount: taxData.hstResult!.netRemittable });
     }
     return items.sort((a, b) => b.amount - a.amount).slice(0, 3);
   }, [taxData, countryDef, profile?.taxRegion]);
@@ -237,7 +257,7 @@ export default function TaxScreen() {
         return {
           platform: def.label,
           total: pe.total,
-          message: `${def.label} will issue a ${formType} — earnings above threshold. Report this income on your return.`,
+          message: `You've earned enough with ${def.label} that they'll send you a ${formType} tax form — make sure to include this income when you file.`,
         };
       });
   }, [countryDef, platformEarnings, profile?.country]);
@@ -307,7 +327,7 @@ export default function TaxScreen() {
       <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8, paddingLeft: 70, height: Math.max(insets.top, 8) + 64 }]}>
         <View style={{ flex: 1 }}>
           <Text style={S.headerTitle}>Tax · {currentYear}</Text>
-          <Text style={S.headerSub}>{regionLabel} · {profile?.taxWithholdingPct || 0}% reserve</Text>
+          <Text style={S.headerSub}>{regionLabel} · {profile?.taxWithholdingPct || 0}% saved for taxes</Text>
         </View>
         <ScalePressable onPress={() => setIsSettingsOpen(true)} style={S.gearBtn}>
           <Settings size={14} color="#9B9BA4" />
@@ -381,7 +401,7 @@ export default function TaxScreen() {
 
           {/* ── Obligations Card ── */}
           <ScalePressable onPress={() => router.push("/tax/center" as any)} style={S.card}>
-            <Text style={S.cardLabel}>ESTIMATED OBLIGATION</Text>
+            <Text style={S.cardLabel}>ESTIMATED TAXES YOU OWE</Text>
             <CurrencyText
               amount={taxData.totalEstimatedTax}
               size="xl"
@@ -481,8 +501,8 @@ export default function TaxScreen() {
             {/* Withholding stepper */}
             <View style={S.settingRow}>
               <View style={{ flex: 1, paddingRight: 12 }}>
-                <Text style={S.settingRowLabel}>Withholding Rate</Text>
-                <Text style={S.settingRowDesc}>% of net revenue set aside as tax reserve.</Text>
+                <Text style={S.settingRowLabel}>Tax Savings Rate</Text>
+                <Text style={S.settingRowDesc}>% of your earnings (after expenses) to set aside for taxes.</Text>
               </View>
               <View style={S.stepper}>
                 <Pressable

@@ -219,19 +219,19 @@ function getDeadlines(country: string, year: number): Deadline[] {
 
   if (country === "CA") {
     list.push(
-      { label: "Q1 Installment", date: new Date(year, 2, 15) },
-      { label: "Q2 Installment", date: new Date(year, 5, 15) },
-      { label: "Q3 Installment", date: new Date(year, 8, 15) },
-      { label: "Q4 Installment", date: new Date(year, 11, 15) },
-      { label: "Self-Employed Filing", date: new Date(year + 1, 5, 15) }
+      { label: "Q1 Payment", date: new Date(year, 2, 15) },
+      { label: "Q2 Payment", date: new Date(year, 5, 15) },
+      { label: "Q3 Payment", date: new Date(year, 8, 15) },
+      { label: "Q4 Payment", date: new Date(year, 11, 15) },
+      { label: "Yearly Tax Return Due", date: new Date(year + 1, 5, 15) }
     );
   } else {
     list.push(
-      { label: "Q1 Estimated", date: new Date(year, 3, 15) },
-      { label: "Q2 Estimated", date: new Date(year, 5, 15) },
-      { label: "Q3 Estimated", date: new Date(year, 8, 15) },
-      { label: "Q4 Estimated", date: new Date(year + 1, 0, 15) },
-      { label: "Federal Filing", date: new Date(year + 1, 3, 15) }
+      { label: "Q1 Payment", date: new Date(year, 3, 15) },
+      { label: "Q2 Payment", date: new Date(year, 5, 15) },
+      { label: "Q3 Payment", date: new Date(year, 8, 15) },
+      { label: "Q4 Payment", date: new Date(year + 1, 0, 15) },
+      { label: "Yearly Tax Return Due", date: new Date(year + 1, 3, 15) }
     );
   }
 
@@ -398,20 +398,6 @@ export default function TaxCenterScreen() {
   const netIncome = summary?.netIncome || 0;
   const totalDistance = summary?.distanceKm || 0;
 
-  const pensionResult =
-    profile.country === "CA"
-      ? calculatePensionContributions(
-          netIncome,
-          profile.taxRegion || "ON",
-          selectedYear
-        )
-      : { cpp1Total: 0, cpp2Total: 0, total: 0, planType: "CPP" as const };
-
-  const seTaxEstimate =
-    profile.country === "US"
-      ? calculateSelfEmploymentTax(netIncome, selectedYear)
-      : 0;
-
   const mileageDeduction =
     profile.country === "CA"
       ? calculateCRAMileageDeduction(totalDistance, selectedYear)
@@ -425,9 +411,28 @@ export default function TaxCenterScreen() {
           selectedYear
         );
 
+  // Mileage reduces taxable income the same way logged expenses do — apply it BEFORE the
+  // dependent taxes below so the "Mileage Tax Savings" line actually flows into
+  // totalObligations, instead of being shown as a deduction that never affects the total.
+  const taxableIncome = Math.max(0, netIncome - mileageDeduction);
+
+  const pensionResult =
+    profile.country === "CA"
+      ? calculatePensionContributions(
+          taxableIncome,
+          profile.taxRegion || "ON",
+          selectedYear
+        )
+      : { cpp1Total: 0, cpp2Total: 0, total: 0, planType: "CPP" as const };
+
+  const seTaxEstimate =
+    profile.country === "US"
+      ? calculateSelfEmploymentTax(taxableIncome, selectedYear)
+      : 0;
+
   const ukNI =
     profile.country === "UK"
-      ? calculateUKNationalInsurance(netIncome, selectedYear)
+      ? calculateUKNationalInsurance(taxableIncome, selectedYear)
       : null;
 
   const stateDef =
@@ -435,10 +440,10 @@ export default function TaxCenterScreen() {
       ? resolveProvinceDef("US", profile.taxRegion || "CA")
       : null;
   const stateIncomeTax = stateDef?.incomeTaxRate
-    ? netIncome * stateDef.incomeTaxRate
+    ? taxableIncome * stateDef.incomeTaxRate
     : 0;
 
-  const estimatedIncomeTax = netIncome * (profile.taxWithholdingPct / 100);
+  const estimatedIncomeTax = taxableIncome * (profile.taxWithholdingPct / 100);
 
   const totalObligations =
     pensionResult.total +
@@ -547,7 +552,7 @@ export default function TaxCenterScreen() {
       >
         {/* ── Virtual Tax Jar ── */}
         <View style={S.card}>
-          <Text style={S.cardLabel}>VIRTUAL TAX JAR</Text>
+          <Text style={S.cardLabel}>TAX SAVINGS JAR</Text>
           <Text style={[S.heroAmount, { color: accentColor, marginTop: 8 }]}>
             {fmt(localJarValue)}
           </Text>
@@ -608,18 +613,18 @@ export default function TaxCenterScreen() {
         {/* ── Income snapshot ── */}
         <View style={S.twoCol}>
           <View style={[S.card, { flex: 1 }]}>
-            <Text style={S.cardLabel}>GROSS INCOME</Text>
+            <Text style={S.cardLabel}>TOTAL EARNINGS</Text>
             <Text style={[S.medAmount, { marginTop: 8 }]}>
               {fmt(summary?.gross || 0)}
             </Text>
-            <Text style={S.miniNote}>Revenue + tips + bonus</Text>
+            <Text style={S.miniNote}>Pay + tips + bonuses</Text>
           </View>
           <View style={[S.card, { flex: 1 }]}>
-            <Text style={S.cardLabel}>DEDUCTIBLE</Text>
+            <Text style={S.cardLabel}>EXPENSES</Text>
             <Text style={[S.medAmount, { marginTop: 8, color: "#f87171" }]}>
               {fmt(summary?.businessExpenses || 0)}
             </Text>
-            <Text style={S.miniNote}>Business expenses</Text>
+            <Text style={S.miniNote}>Money you spent to do the work</Text>
           </View>
         </View>
 
@@ -627,7 +632,7 @@ export default function TaxCenterScreen() {
         <View style={S.card}>
           <View style={S.rowBetween}>
             <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={S.cardLabel}>NET TAXABLE INCOME</Text>
+              <Text style={S.cardLabel}>WHAT YOU'LL BE TAXED ON</Text>
               <Text
                 style={[S.heroAmount, { color: accentColor, marginTop: 8 }]}
               >
@@ -635,9 +640,12 @@ export default function TaxCenterScreen() {
               </Text>
             </View>
             <View style={{ alignItems: "flex-end" }}>
-              <Text style={S.cardLabel}>AFTER WITHHOLDING</Text>
+              <Text style={S.cardLabel}>YOURS TO KEEP</Text>
               <Text style={[S.mutedValue, { marginTop: 6 }]}>
                 {fmt(Math.max(0, netIncome - targetSetAside))}
+              </Text>
+              <Text style={[S.miniNote, { marginTop: 2, textAlign: "right" }]}>
+                after setting aside for taxes
               </Text>
             </View>
           </View>
@@ -646,7 +654,7 @@ export default function TaxCenterScreen() {
         {/* ── Estimated obligations ── */}
         <View style={S.card}>
           <Text style={S.cardLabel}>
-            ESTIMATED OBLIGATIONS · {selectedYear}
+            ESTIMATED TAXES YOU OWE · {selectedYear}
           </Text>
 
           <View style={{ marginTop: 14 }}>
@@ -657,12 +665,12 @@ export default function TaxCenterScreen() {
                   <View style={S.oblLeft}>
                     <Text style={S.oblLabel}>
                       {pensionResult.planType === "QPP"
-                        ? "QPP1 Contribution"
-                        : "CPP1 Contribution"}
+                        ? "Quebec Pension Plan"
+                        : "Canada Pension Plan"}
                     </Text>
                     <Text style={S.oblNote}>
-                      Self-employed ·{" "}
-                      {pensionResult.planType === "QPP" ? "12.8%" : "11.9%"}
+                      Required for self-employed workers ·{" "}
+                      {pensionResult.planType === "QPP" ? "12.8%" : "11.9%"} of income
                     </Text>
                   </View>
                   <Text style={S.oblAmount}>
@@ -674,11 +682,11 @@ export default function TaxCenterScreen() {
                     <View style={S.oblLeft}>
                       <Text style={S.oblLabel}>
                         {pensionResult.planType === "QPP"
-                          ? "QPP2 Contribution"
-                          : "CPP2 Contribution"}
+                          ? "Quebec Pension Plan — extra"
+                          : "Canada Pension Plan — extra"}
                       </Text>
                       <Text style={S.oblNote}>
-                        8% on earnings above YMPE ceiling
+                        8% more on your higher earnings
                       </Text>
                     </View>
                     <Text style={S.oblAmount}>
@@ -695,7 +703,7 @@ export default function TaxCenterScreen() {
                 <View style={S.oblLeft}>
                   <Text style={S.oblLabel}>Self-Employment Tax</Text>
                   <Text style={S.oblNote}>
-                    SS + Medicare on 92.35% profit
+                    Covers Social Security & Medicare
                   </Text>
                 </View>
                 <Text style={S.oblAmount}>{fmt(seTaxEstimate)}</Text>
@@ -707,9 +715,9 @@ export default function TaxCenterScreen() {
               <View style={[S.oblRow, S.oblSep]}>
                 <View style={S.oblLeft}>
                   <Text style={S.oblLabel}>
-                    {profile.taxRegion} State Income Tax
+                    {profile.taxRegion} State Tax
                   </Text>
-                  <Text style={S.oblNote}>Approx. effective rate</Text>
+                  <Text style={S.oblNote}>Rough estimate for your state</Text>
                 </View>
                 <Text style={S.oblAmount}>{fmt(stateIncomeTax)}</Text>
               </View>
@@ -720,11 +728,11 @@ export default function TaxCenterScreen() {
               <>
                 <View style={S.oblRow}>
                   <View style={S.oblLeft}>
-                    <Text style={S.oblLabel}>Class 2 National Insurance</Text>
+                    <Text style={S.oblLabel}>National Insurance</Text>
                     <Text style={S.oblNote}>
                       {ukNI.isExemptClass2
                         ? "Exempt (below threshold)"
-                        : "£3.45/week flat"}
+                        : "£3.45/week flat rate"}
                     </Text>
                   </View>
                   <Text style={S.oblAmount}>{fmt(ukNI.class2Annual)}</Text>
@@ -732,9 +740,9 @@ export default function TaxCenterScreen() {
                 {ukNI.class4 > 0 && (
                   <View style={[S.oblRow, S.oblSep]}>
                     <View style={S.oblLeft}>
-                      <Text style={S.oblLabel}>Class 4 National Insurance</Text>
+                      <Text style={S.oblLabel}>National Insurance — extra</Text>
                       <Text style={S.oblNote}>
-                        9% on profits £12,570–£50,270
+                        9% of profit between £12,570–£50,270
                       </Text>
                     </View>
                     <Text style={S.oblAmount}>{fmt(ukNI.class4)}</Text>
@@ -746,9 +754,9 @@ export default function TaxCenterScreen() {
             {/* Income tax reserve */}
             <View style={[S.oblRow, S.oblSep]}>
               <View style={S.oblLeft}>
-                <Text style={S.oblLabel}>Income Tax Reserve</Text>
+                <Text style={S.oblLabel}>Income Tax</Text>
                 <Text style={S.oblNote}>
-                  {profile.taxWithholdingPct}% on net income
+                  {profile.taxWithholdingPct}% of what you'll be taxed on
                 </Text>
               </View>
               <Text style={S.oblAmount}>{fmt(estimatedIncomeTax)}</Text>
@@ -758,10 +766,11 @@ export default function TaxCenterScreen() {
             {mileageDeduction > 0 && (
               <View style={[S.oblRow, S.oblSep]}>
                 <View style={S.oblLeft}>
-                  <Text style={S.oblLabel}>Standard Mileage Write-Off</Text>
+                  <Text style={S.oblLabel}>Mileage Tax Savings</Text>
                   <Text style={S.oblNote}>
-                    {totalDistance.toFixed(0)}{" "}
-                    {distanceUnit === "mi" ? "mi" : "km"} at standard rate
+                    Based on the {totalDistance.toFixed(0)}{" "}
+                    {distanceUnit === "mi" ? "mi" : "km"} you drove — not tied to
+                    any expenses you've logged
                   </Text>
                 </View>
                 <Text style={[S.oblAmount, { color: accentColor }]}>
@@ -773,7 +782,7 @@ export default function TaxCenterScreen() {
 
           {/* Total row */}
           <View style={S.oblTotal}>
-            <Text style={S.oblTotalLabel}>Total Estimated Obligation</Text>
+            <Text style={S.oblTotalLabel}>Total Estimated Tax</Text>
             <Text style={[S.oblAmount, { color: "#f59e0b", fontSize: 14 }]}>
               {fmt(totalObligations)}
             </Text>
@@ -783,13 +792,13 @@ export default function TaxCenterScreen() {
         {/* ── HST Tracker — CA registered only ── */}
         {profile.country === "CA" && profile.hstRegistered && (
           <View style={S.card}>
-            <Text style={S.cardLabel}>HST TRACKER</Text>
+            <Text style={S.cardLabel}>SALES TAX (HST) TRACKER</Text>
             <View style={{ marginTop: 14 }}>
               <View style={S.oblRow}>
                 <View style={S.oblLeft}>
-                  <Text style={S.oblLabel}>HST on Direct Revenue</Text>
+                  <Text style={S.oblLabel}>Sales Tax You Collected</Text>
                   <Text style={S.oblNote}>
-                    Platform income excluded — digital platform rules
+                    Doesn't include tax the platform already collected for you
                   </Text>
                 </View>
                 <Text style={S.oblAmount}>
@@ -798,9 +807,9 @@ export default function TaxCenterScreen() {
               </View>
               <View style={[S.oblRow, S.oblSep]}>
                 <View style={S.oblLeft}>
-                  <Text style={S.oblLabel}>Input Tax Credits (ITC)</Text>
+                  <Text style={S.oblLabel}>Sales Tax You Can Claim Back</Text>
                   <Text style={S.oblNote}>
-                    GST paid on deductible expenses
+                    Tax you paid on your business expenses
                   </Text>
                 </View>
                 <Text style={[S.oblAmount, { color: "#f87171" }]}>
@@ -809,8 +818,8 @@ export default function TaxCenterScreen() {
               </View>
               <View style={[S.oblRow, S.oblSep]}>
                 <View style={S.oblLeft}>
-                  <Text style={S.oblLabel}>Net Remittable to CRA</Text>
-                  <Text style={S.oblNote}>Amount owed this filing period</Text>
+                  <Text style={S.oblLabel}>What You Owe the Tax Office</Text>
+                  <Text style={S.oblNote}>For this filing period</Text>
                 </View>
                 <Text style={[S.oblAmount, { color: "#f59e0b" }]}>
                   {fmt(summary?.hstRemittable || 0)}
@@ -824,20 +833,20 @@ export default function TaxCenterScreen() {
         {quarterlyProjection && (
           <View style={S.card}>
             <Text style={S.cardLabel}>
-              Q{quarterlyProjection.currentQuarter} RUN-RATE PROJECTION
+              Q{quarterlyProjection.currentQuarter} ESTIMATE FOR THE YEAR
             </Text>
             {quarterlyProjection.isLimitedData && (
               <View style={S.warnStrip}>
                 <Text style={S.warnText}>
-                  ⚠ Based on {quarterlyProjection.dayOfYear} days of data —
-                  projection may be unreliable
+                  ⚠ Based on just {quarterlyProjection.dayOfYear} days of data —
+                  this might not be accurate yet
                 </Text>
               </View>
             )}
             <View style={{ marginTop: 14 }}>
               <View style={S.oblRow}>
                 <View style={S.oblLeft}>
-                  <Text style={S.oblLabel}>Projected Annual Gross</Text>
+                  <Text style={S.oblLabel}>Estimated Yearly Earnings</Text>
                 </View>
                 <Text style={S.oblAmount}>
                   {fmt(quarterlyProjection.projectedAnnualGross)}
@@ -845,7 +854,7 @@ export default function TaxCenterScreen() {
               </View>
               <View style={[S.oblRow, S.oblSep]}>
                 <View style={S.oblLeft}>
-                  <Text style={S.oblLabel}>Projected Annual Net</Text>
+                  <Text style={S.oblLabel}>Estimated Yearly Take-Home</Text>
                 </View>
                 <Text style={S.oblAmount}>
                   {fmt(quarterlyProjection.projectedAnnualNet)}
@@ -854,9 +863,9 @@ export default function TaxCenterScreen() {
               <View style={[S.oblRow, S.oblSep]}>
                 <View style={S.oblLeft}>
                   <Text style={[S.oblLabel, { color: accentColor }]}>
-                    {quarterlyProjection.nextInstallmentLabel} Suggested
+                    Suggested {quarterlyProjection.nextInstallmentLabel} Payment
                   </Text>
-                  <Text style={S.oblNote}>¼ of projected annual tax</Text>
+                  <Text style={S.oblNote}>About a quarter of your yearly tax</Text>
                 </View>
                 <Text
                   style={[S.oblAmount, { color: accentColor, fontSize: 14 }]}
@@ -870,7 +879,7 @@ export default function TaxCenterScreen() {
 
         {/* ── Installment deadlines ── */}
         <View style={S.card}>
-          <Text style={S.cardLabel}>INSTALLMENT DEADLINES</Text>
+          <Text style={S.cardLabel}>UPCOMING TAX PAYMENT DATES</Text>
           <View style={{ marginTop: 14 }}>
             {deadlines.map((d, idx) => {
               const overdue = d.daysUntil < 0;
@@ -965,8 +974,8 @@ export default function TaxCenterScreen() {
         </View>
 
         <Text style={S.disclaimer}>
-          Estimates only — standard rates, no bracket or credit adjustments.
-          Consult a tax professional for your actual filing.
+          These are rough estimates using flat rates — they don't account for
+          tax brackets or credits. Talk to a tax professional before filing.
         </Text>
       </ScrollView>
     </SafeAreaView>

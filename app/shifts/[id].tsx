@@ -22,6 +22,7 @@ import { StatCard } from "@/src/components/ui/StatCard";
 import { getShiftById, deleteShift, getLocationPointsByShiftId, getShiftPlatforms } from "@/src/database/queries/shifts";
 import { getVehicleById } from "@/src/database/queries/vehicles";
 import { getExpensesByShift, insertExpense, deleteExpense } from "@/src/database/queries/expenses";
+import { getEffectiveMileageRate, calculateMileageWriteOff } from "@/src/database/queries/taxProfiles";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { getExpenseCategories, getCategoryMeta } from "@/src/registry/expenseCategories";
 import { cn } from "@/src/lib/utils";
@@ -436,6 +437,14 @@ export default function ShiftDetailScreen() {
     enabled: !!shift?.vehicleId,
   });
 
+  // The mileage write-off is a tax estimate, not real money — it must never be subtracted from
+  // the headline earnings figure (see netEarnings below), only shown as a separate line.
+  const { data: mileageRate } = useQuery({
+    queryKey: ["shift-mileage-rate", shift?.vehicleId, shift?.startTime],
+    queryFn: () => getEffectiveMileageRate(shift!.vehicleId!, new Date(shift!.startTime).getFullYear(), profile?.country || "CA", vehicle!.type),
+    enabled: !!shift?.vehicleId && !!vehicle,
+  });
+
   const handleDeleteShift = () => {
     if (isDemoMode) {
       Alert.alert(
@@ -719,8 +728,11 @@ export default function ShiftDetailScreen() {
   const deadMilePct = totalMiles > 0 ? (deadMiles / totalMiles) * 100 : 0;
   const durationHrs = (shift.durationSeconds / 3600).toFixed(1);
   const expenseTotal = expensesList.reduce((sum, exp: any) => sum + (Number(exp.amount) || 0), 0);
-  const writeOff = totalMiles * 0.67;
-  const netEarnings = (shift.grossRevenue || 0) + (shift.tipsRevenue || 0) + (shift.bonusAmount || 0) - writeOff - expenseTotal;
+  // Real money earned for this shift — never reduced by the mileage write-off, which is a tax
+  // estimate, not an expense (see mileageRate query above). Actual costs (fuel, tolls, etc.) are
+  // what the user logged in expensesList, so those — and only those — reduce earnings to profit.
+  const netEarnings = (shift.grossRevenue || 0) + (shift.tipsRevenue || 0) + (shift.bonusAmount || 0) - expenseTotal;
+  const writeOff = mileageRate ? calculateMileageWriteOff(totalMiles, mileageRate) : 0;
   const hourlyRate = shift.durationSeconds > 0 ? (netEarnings / (shift.durationSeconds / 3600)) : 0;
   const routeStrokeColor = PLATFORMS[shift.platform as PlatformKey]?.color || accentColor;
   const gpsPointCount = localPoints.length;
@@ -817,6 +829,19 @@ export default function ShiftDetailScreen() {
                 <Text className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">Total Dist</Text>
               </View>
             </View>
+
+            {/* Mileage write-off — a rough estimate of taxes it could save you, not money you
+                earned, so it's kept out of Net Earnings above and only shown here as a note. */}
+            {totalMiles > 0 && mileageRate?.deductionMethod === "standard_mileage" && writeOff > 0 && (
+              <View className="flex-row items-center gap-2 bg-[#16161A]/70 px-4 py-3 rounded-[16px] border border-[#1C1C21]">
+                <Text className="text-sm">🚗</Text>
+                <Text className="text-xs text-zinc-400 flex-1 leading-4">
+                  Driving {totalMiles.toFixed(1)} {profile.distanceUnit} could save you about{" "}
+                  <CurrencyText amount={writeOff} size="sm" style={{ color: "#f59e0b", fontWeight: "700" }} />{" "}
+                  on your taxes. That's not part of what you earned above.
+                </Text>
+              </View>
+            )}
 
             {/* Tips breakdown details */}
             <View className="flex-row justify-between items-center bg-[#16161A]/70 px-4 py-3.5 rounded-[16px] border border-[#1C1C21]">

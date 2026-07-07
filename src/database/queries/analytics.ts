@@ -1,14 +1,22 @@
 import { db } from "../client";
-import { shifts, vehicles, settings, goals, expenses } from "../schema";
-import { and, gte, lte, eq, sql, inArray, like, or, type SQL } from "drizzle-orm";
+import { shifts, shiftPlatforms, vehicles, settings, goals, expenses } from "../schema";
+import { and, gte, lte, eq, sql, inArray, like, or, isNull, type SQL } from "drizzle-orm";
 import { Platform } from "react-native";
 import { getGoalsWithProgress } from "./goals";
-import { notDeleted } from "../syncedWrites";
+import { notDeleted, isNotDeleted } from "../syncedWrites";
 
 function matchesPlatformWeb(platformField: string | null | undefined, filterPlatform: string): boolean {
   if (!platformField) return false;
   const parts = filterPlatform.split(",");
   return parts.some((p) => platformField.includes(p));
+}
+
+// shiftPlatforms.platform is a single exact value per row (unlike shifts.platform, which is a
+// comma-joined list for multi-apping shifts), so filtering it is a plain equality/inArray match
+// rather than the LIKE-based getPlatformConditions() used for the shifts table.
+function getShiftPlatformCondition(platform: string): SQL {
+  const parts = platform.split(",");
+  return parts.length > 1 ? inArray(shiftPlatforms.platform, parts) : eq(shiftPlatforms.platform, platform);
 }
 
 // Always called with a non-empty platform string (call sites guard `platform && platform !== "all"`),
@@ -20,6 +28,16 @@ function getPlatformConditions(platform: string): SQL {
     return or(...parts.map((p) => like(shifts.platform, `%${p}%`)))!;
   }
   return like(shifts.platform, `%${platform}%`);
+}
+
+// Scopes an expense query to the vehicle(s) actually used by the shifts being totaled, so a
+// car expense (e.g. fuel, insurance) logged in the same date range doesn't get deducted from
+// earnings from a different vehicle (e.g. a bike shift). General expenses with no vehicleId
+// still count everywhere. Returns undefined when there's nothing to scope by (caller should
+// omit the condition, not force a false match).
+function getVehicleExpenseCondition(vehicleIds: string[]): SQL | undefined {
+  if (vehicleIds.length === 0) return undefined;
+  return or(isNull(expenses.vehicleId), inArray(expenses.vehicleId, vehicleIds));
 }
 
 
@@ -192,7 +210,10 @@ export async function getWeekStats(platform?: string): Promise<{ gross: number; 
 
 export async function getActiveVehicle(): Promise<any> {
   if (isWeb) {
-    return null;
+    const existing = localStorage.getItem("comma_vehicles");
+    if (!existing) return null;
+    const list = JSON.parse(existing).filter(isNotDeleted);
+    return list.find((v: any) => v.isActive) ?? list[0] ?? null;
   }
 
   const activeVehicleIdRow = await db
@@ -611,11 +632,11 @@ export async function getPeriodStats(
   startDate: Date,
   endDate: Date,
   platform?: string
-): Promise<{ gross: number; tips: number; bonus: number; count: number; activeMileage: number; deadMileage: number; durationSeconds: number; pausedSeconds: number }> {
+): Promise<{ gross: number; tips: number; bonus: number; count: number; orders: number; activeMileage: number; deadMileage: number; durationSeconds: number; pausedSeconds: number }> {
   if (isWeb) {
     try {
       const existing = localStorage.getItem("comma_shifts");
-      if (!existing) return { gross: 0, tips: 0, bonus: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0, pausedSeconds: 0 };
+      if (!existing) return { gross: 0, tips: 0, bonus: 0, count: 0, orders: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0, pausedSeconds: 0 };
       let list = JSON.parse(existing).filter((s: any) => {
         const d = new Date(s.startTime);
         return d >= startDate && d <= endDate;
@@ -633,9 +654,22 @@ export async function getPeriodStats(
         durationSeconds += Number(s.durationSeconds || 0);
         pausedSeconds += Number(s.pausedSeconds || 0);
       });
-      return { gross, tips, bonus, count: list.length, activeMileage, deadMileage, durationSeconds, pausedSeconds };
+
+      // Real delivery/order count: shiftPlatforms.tripsCount is what the user actually enters
+      // per platform per shift, unlike `count` above (number of shifts logged).
+      const shiftIdsInRange = new Set(list.map((s: any) => s.id));
+      const spExisting = localStorage.getItem("comma_shift_platforms");
+      const spList = spExisting ? JSON.parse(spExisting).filter(isNotDeleted) : [];
+      let orders = 0;
+      spList.forEach((sp: any) => {
+        if (!shiftIdsInRange.has(sp.shiftId)) return;
+        if (platform && platform !== "all" && !matchesPlatformWeb(sp.platform, platform)) return;
+        orders += Number(sp.tripsCount || 0);
+      });
+
+      return { gross, tips, bonus, count: list.length, orders, activeMileage, deadMileage, durationSeconds, pausedSeconds };
     } catch {
-      return { gross: 0, tips: 0, bonus: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0, pausedSeconds: 0 };
+      return { gross: 0, tips: 0, bonus: 0, count: 0, orders: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0, pausedSeconds: 0 };
     }
   }
 
@@ -644,21 +678,38 @@ export async function getPeriodStats(
     conditions.push(getPlatformConditions(platform));
   }
 
-  const result = await db
-    .select({
-      gross: sql<number>`COALESCE(SUM(${shifts.grossRevenue}), 0)`,
-      tips: sql<number>`COALESCE(SUM(${shifts.tipsRevenue}), 0)`,
-      bonus: sql<number>`COALESCE(SUM(${shifts.bonusAmount}), 0)`,
-      count: sql<number>`COUNT(${shifts.id})`,
-      activeMileage: sql<number>`COALESCE(SUM(${shifts.activeMileage}), 0)`,
-      deadMileage: sql<number>`COALESCE(SUM(${shifts.deadMileage}), 0)`,
-      durationSeconds: sql<number>`COALESCE(SUM(${shifts.durationSeconds}), 0)`,
-      pausedSeconds: sql<number>`COALESCE(SUM(${shifts.pausedSeconds}), 0)`,
-    })
-    .from(shifts)
-    .where(and(...conditions));
+  const ordersConditions = [notDeleted(shifts.syncDeletedAt), notDeleted(shiftPlatforms.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
+  if (platform && platform !== "all") {
+    ordersConditions.push(getShiftPlatformCondition(platform));
+  }
 
-  return result[0] || { gross: 0, tips: 0, bonus: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0, pausedSeconds: 0 };
+  const [result, ordersResult] = await Promise.all([
+    db
+      .select({
+        gross: sql<number>`COALESCE(SUM(${shifts.grossRevenue}), 0)`,
+        tips: sql<number>`COALESCE(SUM(${shifts.tipsRevenue}), 0)`,
+        bonus: sql<number>`COALESCE(SUM(${shifts.bonusAmount}), 0)`,
+        count: sql<number>`COUNT(${shifts.id})`,
+        activeMileage: sql<number>`COALESCE(SUM(${shifts.activeMileage}), 0)`,
+        deadMileage: sql<number>`COALESCE(SUM(${shifts.deadMileage}), 0)`,
+        durationSeconds: sql<number>`COALESCE(SUM(${shifts.durationSeconds}), 0)`,
+        pausedSeconds: sql<number>`COALESCE(SUM(${shifts.pausedSeconds}), 0)`,
+      })
+      .from(shifts)
+      .where(and(...conditions)),
+    db
+      .select({
+        orders: sql<number>`COALESCE(SUM(${shiftPlatforms.tripsCount}), 0)`,
+      })
+      .from(shiftPlatforms)
+      .innerJoin(shifts, eq(shiftPlatforms.shiftId, shifts.id))
+      .where(and(...ordersConditions)),
+  ]);
+
+  return {
+    ...(result[0] || { gross: 0, tips: 0, bonus: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0, pausedSeconds: 0 }),
+    orders: ordersResult[0]?.orders || 0,
+  };
 }
 
 export async function getFinancialOverviewForRange(
@@ -715,6 +766,9 @@ export async function getFinancialOverviewForRange(
   }
 
   if (shiftList.length === 0) return empty;
+
+  const vehicleIds = Array.from(new Set(shiftList.map((s: any) => s.vehicleId).filter(Boolean))) as string[];
+  const vehicleCond = getVehicleExpenseCondition(vehicleIds);
 
   let gross = 0;
   let tips = 0;

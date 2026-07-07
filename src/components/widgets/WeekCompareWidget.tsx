@@ -31,7 +31,7 @@ export default function WeekCompareWidget({ thisWeek, lastWeek, country }: WeekC
       </View>
 
       <View style={{ alignItems: "center" }}>
-        <Text style={{ fontSize: 32, fontWeight: "900", color, letterSpacing: -1 }} numberOfLines={1} adjustsFontSizeToFit>
+        <Text style={{ fontSize: 32, fontWeight: "900", color, letterSpacing: -1, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
           {delta > 0 ? "+" : ""}{formatCurrency(delta)}
         </Text>
         <Text style={{ fontSize: 11, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 1, marginTop: 4 }}>

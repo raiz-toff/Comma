@@ -40,8 +40,8 @@ export default function StabilityScoreWidget({ score, weeklyGross }: StabilitySc
     <View style={{ gap: 16 }}>
       <View>
         <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
-          <Text style={{ fontSize: 36, fontWeight: "900", color: tier.color, letterSpacing: -1 }}>{clampedScore}</Text>
-          <Text style={{ fontSize: 14, fontWeight: "700", color: "#9B9BA4" }}>/ 100</Text>
+          <Text style={{ fontSize: 36, fontWeight: "900", color: tier.color, letterSpacing: -1, lineHeight: 42, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>{clampedScore}</Text>
+          <Text style={{ fontSize: 14, fontWeight: "700", color: "#9B9BA4", lineHeight: 18, includeFontPadding: false }}>/ 100</Text>
         </View>
         <View style={{ flexDirection: "row", marginTop: 6 }}>
           <View style={{ backgroundColor: tier.color + "20", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>

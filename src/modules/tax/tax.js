@@ -55,6 +55,58 @@ function parseAppStateValue(row, fallback = 0) {
   }
 }
 
+// Tax Jar balance lives in the SYNCED `db.profile` table (key `taxJar_{year}`) rather than the
+// device-local `db.appState`, so the amount you've set aside for taxes carries over between
+// web and phone instead of tracking two separate balances per device. Mirrors mobile's
+// src/database/queries/tax.ts getTaxJarBalance/setTaxJarBalance — same key scheme, same table
+// role (profile is already a generically-synced per-key KV table on both sides).
+function taxJarKey(year) {
+  return `taxJar_${year}`;
+}
+
+/** One-time upgrade path: pulls a balance saved under the old device-local appState key(s)
+ *  into the synced profile row, so existing users don't see their jar reset to $0. */
+async function migrateLegacyJarBalance(year) {
+  const legacyKey = `${TAX_VIRTUAL_JAR_KEY}_${year}`;
+  let legacyRecord = await db.appState.get(legacyKey);
+  if (!legacyRecord) {
+    const veryLegacy = await db.appState.get(TAX_VIRTUAL_JAR_KEY);
+    if (veryLegacy) {
+      legacyRecord = veryLegacy;
+      await db.appState.put({ ...veryLegacy, key: legacyKey });
+      await db.appState.delete(TAX_VIRTUAL_JAR_KEY);
+    }
+  }
+  if (!legacyRecord) return 0;
+  const legacyValue = num(parseAppStateValue(legacyRecord, 0), 0);
+  await setTaxJarBalance(year, legacyValue);
+  return legacyValue;
+}
+
+async function getTaxJarBalance(year) {
+  const row = await db.profile.get(taxJarKey(year));
+  if (row && row.syncDeletedAt == null) {
+    try {
+      return num(JSON.parse(row.value), 0);
+    } catch {
+      return 0;
+    }
+  }
+  return migrateLegacyJarBalance(year);
+}
+
+async function setTaxJarBalance(year, amount) {
+  const jarKey = taxJarKey(year);
+  const existing = await db.profile.get(jarKey);
+  await db.profile.put({
+    ...(existing || {}),
+    key: jarKey,
+    value: JSON.stringify(Math.max(0, amount)),
+    syncUpdatedAt: Date.now(),
+    syncDeletedAt: null,
+  });
+}
+
 function downloadTextFile(filename, text, mime) {
   const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
@@ -142,19 +194,7 @@ async function loadTaxSummary(year) {
   const netIncome = Math.max(0, gross - businessExpenses);
   const taxRatePct = num(user?.taxWithholdingPct, taxProfile.defaultWithholdingPct);
   const taxSetAside = calcTaxSetAside(gross, taxRatePct);
-  const jarKey = `${TAX_VIRTUAL_JAR_KEY}_${year}`;
-  let virtualJarRecord = await db.appState.get(jarKey);
-  
-  if (!virtualJarRecord) {
-    const legacyRecord = await db.appState.get(TAX_VIRTUAL_JAR_KEY);
-    if (legacyRecord) {
-      virtualJarRecord = legacyRecord;
-      await db.appState.put({ ...legacyRecord, key: jarKey });
-      await db.appState.delete(TAX_VIRTUAL_JAR_KEY);
-    }
-  }
-
-  const virtualJar = num(parseAppStateValue(virtualJarRecord, 0), 0);
+  const virtualJar = await getTaxJarBalance(year);
   const setAsideCoveragePct = taxSetAside > 0 ? Math.min(100, (virtualJar / Math.max(1, taxSetAside)) * 100) : 0;
 
   const hstRate = taxProfile.hstRateWhenRegistered || 0;
@@ -188,6 +228,7 @@ async function loadTaxSummary(year) {
   const cppEstimate = taxProfile.calcCpp ? calcCPPContribution(taxableIncome, year) : 0;
   const seTaxEstimate = taxProfile.calcSeTax ? calcSEtax(taxableIncome) : 0;
   const deadlines = getAllTaxDeadlines(country, year);
+  const totalEstimatedTax = cppEstimate + seTaxEstimate + hstRemittable;
 
   return {
     year,
@@ -213,6 +254,7 @@ async function loadTaxSummary(year) {
     mileageDeduction,
     cppEstimate,
     seTaxEstimate,
+    totalEstimatedTax,
     user,
     deadlines,
     distanceUnit: getLocaleConfig(country).distanceUnit === 'mi' ? 'mi' : 'km',
@@ -303,6 +345,7 @@ function toTaxSummaryJson(summary) {
       mileageDeduction: summary.mileageDeduction,
       cppEstimate: summary.cppEstimate,
       seTaxEstimate: summary.seTaxEstimate,
+      totalEstimatedTax: summary.totalEstimatedTax,
       deadlines: summary.deadlines.map((d) => ({
         label: d.label,
         date: toYmd(d.date),
@@ -336,6 +379,7 @@ function toTaxSummaryCsv(summary) {
     ['mileage_deduction', summary.mileageDeduction],
     ['cpp_estimate', summary.cppEstimate],
     ['se_tax_estimate', summary.seTaxEstimate],
+    ['total_estimated_tax', summary.totalEstimatedTax],
   ];
   summary.deadlines.forEach((d, idx) => {
     rows.push([`deadline_${idx + 1}`, `${toYmd(d.date)} (${d.label})`]);
@@ -361,45 +405,81 @@ async function exportTaxSummary(summary, format) {
 }
 
 /**
+ * Everything that adds up to what the user owes, in one place — previously split across a
+ * standalone CPP/SE-tax card and a separate HST card with no combined total shown anywhere.
  * @param {Awaited<ReturnType<typeof loadTaxSummary>>} summary
  */
-function renderSecondaryEstimatorArticle(summary) {
+function renderObligationsCard(summary) {
   const tp = summary.taxProfile;
   const loc = summary.localeTag;
   const cur = summary.currency;
-  let title = t('tax.genericEstimatorTitle');
-  let value = 0;
-  let note = t('tax.genericEstimatorNote');
-  let icon = 'info';
+  const fmt = (v) => formatCurrency(v, loc, { currency: cur });
+
+  let secondaryTitle = t('tax.genericEstimatorTitle');
+  let secondaryValue = 0;
+  let secondaryNote = t('tax.genericEstimatorNote');
 
   if (tp.secondaryEstimator === 'cpp') {
-    title = t('tax.cppEstimator');
-    value = summary.cppEstimate;
-    note = t('tax.cppNote');
-    icon = 'bolt';
+    secondaryTitle = t('tax.cppEstimator');
+    secondaryValue = summary.cppEstimate;
+    secondaryNote = t('tax.cppNote');
   } else if (tp.secondaryEstimator === 'se') {
-    title = t('tax.seTaxEstimator');
-    value = summary.seTaxEstimate;
-    note = t('tax.seTaxNote');
-    icon = 'trending-up';
+    secondaryTitle = t('tax.seTaxEstimator');
+    secondaryValue = summary.seTaxEstimate;
+    secondaryNote = t('tax.seTaxNote');
   }
 
-  return `
-    <article class="card bento-cell-1x1">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <h2>${esc(title)}</h2>
-        ${getIcon(icon, 20, 'text-muted')}
-      </div>
-      <div class="tax-metric-row">
+  const hstRows = tp.hstOnboarding
+    ? `
         <div class="tax-metric-item">
-          <span class="tax-metric-label">${esc(t('tax.estimatedValue'))}</span>
-          <span class="tax-metric-value" style="font-size: var(--text-lg);">${esc(formatCurrency(value, loc, { currency: cur }))}</span>
+          <span class="tax-metric-label">${esc(t('tax.hstCollectedTracker'))}</span>
+          <span class="tax-metric-value">${esc(fmt(summary.hstCollected))}</span>
         </div>
+        <div class="tax-metric-item">
+          <span class="tax-metric-label">${esc(t('tax.itcTracker'))}</span>
+          <span class="tax-metric-value is-negative">${esc(fmt(summary.itcTotal))}</span>
+        </div>
+        <div class="tax-metric-item">
+          <span class="tax-metric-label">${esc(t('tax.remittable'))}</span>
+          <span class="tax-metric-value">${esc(fmt(summary.hstRemittable))}</span>
+        </div>`
+    : '';
+
+  return `
+    <div class="tax-metric-row" style="margin-top: 0;">
+      <div class="tax-metric-item">
+        <span class="tax-metric-label">${esc(secondaryTitle)}</span>
+        <span class="tax-metric-value">${esc(fmt(secondaryValue))}</span>
       </div>
-      <p style="color:var(--color-text-secondary); font-size: var(--text-xs); margin-top: var(--space-4); line-height: 1.4;">
-        ${esc(note)}
-      </p>
-    </article>`;
+      ${hstRows}
+      <div class="tax-metric-item is-total">
+        <span class="tax-metric-label">${esc(t('tax.totalEstimatedTax'))}</span>
+        <span class="tax-metric-value" style="font-size: var(--text-lg);">${esc(fmt(summary.totalEstimatedTax))}</span>
+      </div>
+    </div>
+    <p style="color:var(--color-text-secondary); font-size: var(--text-xs); margin-top: var(--space-3); line-height: 1.4;">
+      ${esc(secondaryNote)}
+    </p>`;
+}
+
+/**
+ * Closed-by-default accordion row: header shows the title + an at-a-glance preview value so the
+ * page stays scannable with everything collapsed; body holds the existing detailed content.
+ */
+function renderAccordionItem(key, title, preview, bodyHtml) {
+  return `
+    <div class="tax-accordion-item" data-accordion-item="${key}">
+      <button type="button" class="tax-accordion-header" data-accordion-toggle="${key}" aria-expanded="false">
+        <span class="tax-accordion-title">${esc(title)}</span>
+        <span class="tax-accordion-right">
+          ${preview ? `<span class="tax-accordion-preview">${esc(preview)}</span>` : ''}
+          <span class="tax-accordion-chevron">${getIcon('chevron-down', 16)}</span>
+        </span>
+      </button>
+      <div class="tax-accordion-body" data-accordion-body="${key}" hidden>
+        ${bodyHtml}
+      </div>
+    </div>`;
 }
 
 export async function renderTaxDashboard(root, ctx = {}) {
@@ -418,25 +498,162 @@ export async function renderTaxDashboard(root, ctx = {}) {
   const netAfterSetAside = summary.netIncome - summary.taxSetAside;
   const mileageUnitLabel = summary.distanceUnit === 'mi' ? t('tax.miles') : t('tax.kilometres');
   const regionLabel = summary.taxProfile.regionLabel === 'province' ? t('tax.province') : t('tax.state');
-  const regionPresetCard =
-    regionOptions.length > 0
-      ? `
-        <article class="card bento-cell-1x1">
-          <h2>${esc(t('tax.provinceStatePresets'))}</h2>
-          <label class="input-group">
+  const fmt = (v) => formatCurrency(v, summary.localeTag, { currency: summary.currency });
+
+  const nextDeadline =
+    summary.deadlines.slice().sort((a, b) => a.daysUntil - b.daysUntil).find((d) => d.daysUntil >= 0) ||
+    summary.deadlines[0] ||
+    null;
+  const deadlinePreview = nextDeadline
+    ? `${nextDeadline.label} · ${nextDeadline.daysUntil < 0 ? t('tax.overdue') : `${nextDeadline.daysUntil}d`}`
+    : '';
+
+  const jarBody = `
+    <div style="display:flex; flex-direction: column; align-items: center;">
+      ${renderProgressRing({
+        value: summary.virtualJar,
+        max: Math.max(summary.taxSetAside, calcTaxSetAside(summary.gross, selectedRegionRate), 1),
+        size: 120,
+        strokeWidth: 10,
+        label: formatPercent(summary.setAsideCoveragePct, 0),
+      })}
+
+      <div class="tax-metric-row" style="width: 100%; margin-top: var(--space-6);">
+        <div class="tax-metric-item">
+          <span class="tax-metric-label">${esc(t('tax.targetSetAside'))}</span>
+          <span class="tax-metric-value">${esc(fmt(calcTaxSetAside(summary.gross, selectedRegionRate)))}</span>
+        </div>
+        <div class="tax-metric-item">
+          <span class="tax-metric-label">${esc(t('tax.currentSetAside'))}</span>
+          <span class="tax-metric-value is-positive">${esc(fmt(summary.virtualJar))}</span>
+        </div>
+      </div>
+
+      <div class="tax-jar-controls">
+        <button class="tax-jar-btn" type="button" data-jar-adjust="-25">-25</button>
+        <button class="tax-jar-btn" type="button" data-jar-adjust="-10">-10</button>
+        <button class="tax-jar-btn" type="button" data-jar-adjust="10">+10</button>
+        <button class="tax-jar-btn" type="button" data-jar-adjust="25">+25</button>
+      </div>
+
+      <div style="margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--color-border); font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.4;">
+        <strong>💡 Pro Tip:</strong> Consistently saving a fixed percentage of each payout protects you from unexpected bills at tax time. It's much safer to over-save and receive a lump-sum refund than to scramble for funds when taxes are due.
+      </div>
+    </div>`;
+
+  const incomeBody = `
+    <div class="tax-metric-row" style="margin-top: 0;">
+      <div class="tax-metric-item">
+        <span class="tax-metric-label">${esc(t('tax.grossIncome'))}</span>
+        <span class="tax-metric-value">${esc(fmt(summary.gross))}</span>
+      </div>
+      <div class="tax-metric-item">
+        <span class="tax-metric-label">${esc(t('tax.businessExpenses'))}</span>
+        <span class="tax-metric-value is-negative">${esc(fmt(summary.businessExpenses))}</span>
+      </div>
+      <div class="tax-metric-item">
+        <span class="tax-metric-label">${esc(t('tax.netIncome'))}</span>
+        <span class="tax-metric-value" style="font-size: var(--text-lg);">${esc(fmt(summary.netIncome))}</span>
+      </div>
+      <div class="tax-metric-item">
+        <span class="tax-metric-label">${esc(t('tax.netAfterSetAside'))}</span>
+        <span class="tax-metric-value" style="opacity: 0.7;">${esc(fmt(netAfterSetAside))}</span>
+      </div>
+    </div>
+    <p style="margin-top: var(--space-4); color: var(--color-text-secondary); font-size: var(--text-xs); line-height: 1.4;">
+      ${esc(t('tax.netIncomeNote'))}
+    </p>`;
+
+  const deadlinesBody = `
+    <div class="tax-deadline-list" style="margin-top: 0;">
+      ${summary.deadlines.map(row => {
+        const dt = row.date;
+        const urgent = row.daysUntil >= 0 && row.daysUntil <= 14;
+        const overdue = row.daysUntil < 0;
+        return `
+          <div class="tax-deadline-item">
+            <div class="tax-deadline-date">
+              <span class="tax-deadline-day">${dt.getDate()}</span>
+              <span class="tax-deadline-month">${dt.toLocaleDateString(undefined, { month: 'short' })}</span>
+            </div>
+            <div class="tax-deadline-info">
+              <div class="tax-deadline-label">${esc(row.label)}</div>
+              <div class="tax-deadline-status ${urgent || overdue ? 'is-urgent' : ''}">
+                ${overdue ? esc(t('tax.overdue')) : `${row.daysUntil}d remaining`}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>`;
+
+  const vehicleBody = `
+    <div class="bento-grid" style="margin-top: 0; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+      <div class="tax-metric-item">
+        <span class="tax-metric-label">${esc(t('tax.totalDistance'))}</span>
+        <span class="tax-metric-value">${esc(`${formatLargeNumber(summary.distanceUnit === 'mi' ? summary.totalMiles : summary.distanceKm)} ${mileageUnitLabel}`)}</span>
+      </div>
+      <div class="tax-metric-item">
+        <span class="tax-metric-label">${esc(t('tax.actualCost'))}</span>
+        <span class="tax-metric-value">${esc(fmt(summary.actualCostDeduction))}</span>
+      </div>
+      ${summary.vehicle ? `
+      <div class="tax-metric-item">
+        <span class="tax-metric-label">${esc(t('tax.standardMileage'))}</span>
+        <span class="tax-metric-value">${esc(fmt(summary.mileageDeduction))}</span>
+      </div>` : ''}
+    </div>
+    <p style="color:var(--color-text-secondary); font-size: var(--text-sm); margin-top: var(--space-3); border-top: 1px solid var(--color-border); padding-top: var(--space-3);">
+      ${esc(t('tax.actualCostsNote'))}
+    </p>
+    ${summary.vehicle ? `
+    <div style="border:1px solid var(--color-border); border-radius:10px; padding:12px; margin-top: var(--space-3); display:flex; flex-direction:column; gap:10px;">
+      <p style="margin:0; font-size: var(--text-sm); color: var(--color-text-secondary);">
+        ${summary.mileageRate?.isUserOverride
+          ? summary.mileageRate.deductionMethod === 'standard_mileage'
+            ? esc(`${t('tax.standardMileage')} — $${summary.mileageRate.ratePrimary}`)
+            : esc(t('tax.mileageWriteOffOptedOut'))
+          : summary.mileageRate?.deductionMethod === 'standard_mileage'
+            ? esc(`${summary.mileageRate.label} — $${summary.mileageRate.ratePrimary}`)
+            : esc(t('tax.mileageWriteOffNotEligible'))}
+      </p>
+      <label class="input-label" style="display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer;">
+        <span>${esc(t('tax.mileageWriteOffOptOut'))}</span>
+        <input type="checkbox" data-mileage-optout ${summary.mileageRate?.deductionMethod === 'actual_expenses' && summary.mileageRate?.isUserOverride ? 'checked' : ''} />
+      </label>
+      <div class="input-group" style="margin:0;" data-mileage-rate-wrap ${summary.mileageRate?.deductionMethod === 'actual_expenses' && summary.mileageRate?.isUserOverride ? 'hidden' : ''}>
+        <p style="margin:0 0 4px; font-size: var(--text-xs); color: var(--color-text-secondary);">${esc(t('tax.mileageWriteOffHint'))}</p>
+        <input class="input" type="number" step="0.001" inputmode="decimal" data-mileage-rate-input
+          placeholder="${summary.mileageRate?.ratePrimary != null ? esc(String(summary.mileageRate.ratePrimary)) : '0.67'}"
+          value="${summary.mileageRate?.isUserOverride && summary.mileageRate?.deductionMethod === 'standard_mileage' ? esc(String(summary.mileageRate.ratePrimary ?? '')) : ''}" />
+        <button class="btn btn-secondary" type="button" data-mileage-rate-save style="margin-top:8px;">${esc(t('common.save'))}</button>
+      </div>
+    </div>` : ''}`;
+
+  const settingsBody = `
+    <div style="display:flex; flex-wrap:wrap; gap: var(--space-6);">
+      ${regionOptions.length > 0 ? `
+        <div style="flex: 1 1 220px; display:flex; flex-direction: column; gap: var(--space-3);">
+          <label class="input-group" style="margin:0;">
             <span class="input-label">${esc(regionLabel)}</span>
             <select class="select" data-tax-region>
               ${regionOptions.map((row) => `<option value="${row.code}" ${row.code === selectedRegion ? 'selected' : ''}>${row.code} (${row.rate}%)</option>`).join('')}
             </select>
           </label>
-          <button class="btn btn-secondary" type="button" data-apply-rate style="margin-top:var(--space-3);">${esc(
-            t('tax.applyPreset'),
-          )}</button>
-          <p style="margin-top:var(--space-2);color:var(--color-text-secondary);">${esc(t('tax.currentRate'))}: ${esc(
-            formatPercent(summary.taxRatePct),
-          )}</p>
-        </article>`
-      : '';
+          <button class="btn btn-primary" type="button" data-apply-rate>${esc(t('tax.applyPreset'))}</button>
+        </div>
+      ` : ''}
+      <div class="tax-metric-row" style="flex: 1 1 220px; margin-top: 0;">
+        <div class="tax-metric-item">
+          <span class="tax-metric-label">${esc(t('tax.currentRate'))}</span>
+          <span class="tax-metric-value">${esc(formatPercent(summary.taxRatePct))}</span>
+        </div>
+        <div class="tax-metric-item">
+          <span class="tax-metric-label">${esc(t('tax.country'))}</span>
+          <span class="tax-metric-value">${esc(summary.country)}</span>
+        </div>
+      </div>
+    </div>`;
 
   root.innerHTML = `
     <section class="tax-view">
@@ -458,212 +675,22 @@ export async function renderTaxDashboard(root, ctx = {}) {
         </div>
       </header>
 
-      <section class="bento-grid">
-        <!-- Virtual Jar -->
-        <article class="card bento-cell-1x1">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <h2>${esc(t('tax.virtualJar'))}</h2>
-            ${getIcon('bolt', 20, 'text-brand')}
-          </div>
-          <div style="display:flex; flex-direction: column; align-items: center; margin-top: var(--space-6);">
-            ${renderProgressRing({
-              value: summary.virtualJar,
-              max: Math.max(summary.taxSetAside, calcTaxSetAside(summary.gross, selectedRegionRate), 1),
-              size: 120,
-              strokeWidth: 10,
-              label: formatPercent(summary.setAsideCoveragePct, 0),
-            })}
-            
-            <div class="tax-metric-row" style="width: 100%; margin-top: var(--space-6);">
-              <div class="tax-metric-item">
-                <span class="tax-metric-label">${esc(t('tax.targetSetAside'))}</span>
-                <span class="tax-metric-value">${esc(formatCurrency(calcTaxSetAside(summary.gross, selectedRegionRate), summary.localeTag, { currency: summary.currency }))}</span>
-              </div>
-              <div class="tax-metric-item">
-                <span class="tax-metric-label">${esc(t('tax.currentSetAside'))}</span>
-                <span class="tax-metric-value is-positive">${esc(formatCurrency(summary.virtualJar, summary.localeTag, { currency: summary.currency }))}</span>
-              </div>
-            </div>
+      <!-- Hero — the one number that matters at a glance; everything else is opt-in detail below. -->
+      <article class="card card-raised tax-hero">
+        <span class="tax-hero-label">${esc(t('tax.obligationsTitle'))} · ${selectedYear}</span>
+        <span class="tax-hero-value">${esc(fmt(summary.totalEstimatedTax))}</span>
+        <span class="tax-hero-sub">${esc(t('tax.grossIncome'))} ${esc(fmt(summary.gross))} · ${esc(t('tax.netAfterSetAside'))} ${esc(fmt(netAfterSetAside))}</span>
+      </article>
 
-            <div class="tax-jar-controls">
-              <button class="tax-jar-btn" type="button" data-jar-adjust="-25">-25</button>
-              <button class="tax-jar-btn" type="button" data-jar-adjust="-10">-10</button>
-              <button class="tax-jar-btn" type="button" data-jar-adjust="10">+10</button>
-              <button class="tax-jar-btn" type="button" data-jar-adjust="25">+25</button>
-            </div>
-            
-            <div style="margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--color-border); font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.4;">
-              <strong>💡 Pro Tip:</strong> Consistently saving a fixed percentage of each payout protects you from unexpected bills at tax time. It's much safer to over-save and receive a lump-sum refund than to scramble for funds when taxes are due.
-            </div>
-          </div>
-        </article>
-
-        <!-- Income Snapshot -->
-        <article class="card bento-cell-1x1">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <h2>${esc(t('tax.incomeSnapshot'))}</h2>
-            ${getIcon('trending-up', 20, 'text-success')}
-          </div>
-          <div class="tax-metric-row">
-            <div class="tax-metric-item">
-              <span class="tax-metric-label">${esc(t('tax.grossIncome'))}</span>
-              <span class="tax-metric-value">${esc(formatCurrency(summary.gross, summary.localeTag, { currency: summary.currency }))}</span>
-            </div>
-            <div class="tax-metric-item">
-              <span class="tax-metric-label">${esc(t('tax.businessExpenses'))}</span>
-              <span class="tax-metric-value is-negative">${esc(formatCurrency(summary.businessExpenses, summary.localeTag, { currency: summary.currency }))}</span>
-            </div>
-            <div class="tax-metric-item">
-              <span class="tax-metric-label">${esc(t('tax.netIncome'))}</span>
-              <span class="tax-metric-value" style="font-size: var(--text-lg);">${esc(formatCurrency(summary.netIncome, summary.localeTag, { currency: summary.currency }))}</span>
-            </div>
-            <div class="tax-metric-item">
-              <span class="tax-metric-label">${esc(t('tax.netAfterSetAside'))}</span>
-              <span class="tax-metric-value" style="opacity: 0.7;">${esc(formatCurrency(netAfterSetAside, summary.localeTag, { currency: summary.currency }))}</span>
-            </div>
-          </div>
-          <p style="margin-top: var(--space-4); color: var(--color-text-secondary); font-size: var(--text-xs); line-height: 1.4;">
-            ${esc(t('tax.netIncomeNote'))}
-          </p>
-        </article>
-
-        <!-- Region & Rate -->
-        <article class="card bento-cell-1x1">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <h2>${esc(t('tax.withholdingSettings'))}</h2>
-            ${getIcon('settings', 20, 'text-muted')}
-          </div>
-          ${regionOptions.length > 0 ? `
-            <div style="margin-top: var(--space-4);">
-              <label class="input-group">
-                <span class="input-label">${esc(regionLabel)}</span>
-                <select class="select" data-tax-region>
-                  ${regionOptions.map((row) => `<option value="${row.code}" ${row.code === selectedRegion ? 'selected' : ''}>${row.code} (${row.rate}%)</option>`).join('')}
-                </select>
-              </label>
-              <button class="btn btn-primary btn-block" type="button" data-apply-rate style="margin-top: var(--space-4);">
-                ${esc(t('tax.applyPreset'))}
-              </button>
-            </div>
-          ` : ''}
-          <div class="tax-metric-row" style="margin-top: var(--space-6);">
-            <div class="tax-metric-item">
-              <span class="tax-metric-label">${esc(t('tax.currentRate'))}</span>
-              <span class="tax-metric-value">${esc(formatPercent(summary.taxRatePct))}</span>
-            </div>
-            <div class="tax-metric-item">
-              <span class="tax-metric-label">${esc(t('tax.country'))}</span>
-              <span class="tax-metric-value">${esc(summary.country)}</span>
-            </div>
-          </div>
-        </article>
-      </section>
-
-      <section class="bento-grid">
-        <!-- HST / Sales Tax -->
-        <article class="card bento-cell-1x1">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <h2>${esc(t('tax.hstCollectedTracker'))}</h2>
-            ${getIcon('receipt', 20, 'text-brand')}
-          </div>
-          <div class="tax-metric-row">
-            <div class="tax-metric-item">
-              <span class="tax-metric-label">${esc(t('tax.collected'))}</span>
-              <span class="tax-metric-value">${esc(formatCurrency(summary.hstCollected, summary.localeTag, { currency: summary.currency }))}</span>
-            </div>
-            <div class="tax-metric-item">
-              <span class="tax-metric-label">${esc(t('tax.itcTracker'))}</span>
-              <span class="tax-metric-value is-negative">${esc(formatCurrency(summary.itcTotal, summary.localeTag, { currency: summary.currency }))}</span>
-            </div>
-            <div class="tax-metric-item">
-              <span class="tax-metric-label">${esc(t('tax.remittable'))}</span>
-              <span class="tax-metric-value" style="font-size: var(--text-lg);">${esc(formatCurrency(summary.hstRemittable, summary.localeTag, { currency: summary.currency }))}</span>
-            </div>
-          </div>
-        </article>
-
-        <!-- Secondary Estimator -->
-        ${renderSecondaryEstimatorArticle(summary)}
-
-        <!-- Deadlines -->
-        <article class="card bento-cell-1x1">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <h2>${esc(t('tax.installmentDeadlines'))}</h2>
-            ${getIcon('clock', 20, 'text-muted')}
-          </div>
-          <div class="tax-deadline-list">
-            ${summary.deadlines.map(row => {
-              const dt = row.date;
-              const urgent = row.daysUntil >= 0 && row.daysUntil <= 14;
-              const overdue = row.daysUntil < 0;
-              return `
-                <div class="tax-deadline-item">
-                  <div class="tax-deadline-date">
-                    <span class="tax-deadline-day">${dt.getDate()}</span>
-                    <span class="tax-deadline-month">${dt.toLocaleDateString(undefined, { month: 'short' })}</span>
-                  </div>
-                  <div class="tax-deadline-info">
-                    <div class="tax-deadline-label">${esc(row.label)}</div>
-                    <div class="tax-deadline-status ${urgent || overdue ? 'is-urgent' : ''}">
-                      ${overdue ? esc(t('tax.overdue')) : `${row.daysUntil}d remaining`}
-                    </div>
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </article>
-      </section>
-
-      <!-- Mileage & Deductions -->
-      <section class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h2>${esc(t('tax.vehicleActualCosts'))}</h2>
-          ${getIcon('parking', 24, 'text-muted')}
-        </div>
-        <div class="bento-grid" style="margin-top: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-          <div class="tax-metric-item">
-            <span class="tax-metric-label">${esc(t('tax.totalDistance'))}</span>
-            <span class="tax-metric-value">${esc(`${formatLargeNumber(summary.distanceUnit === 'mi' ? summary.totalMiles : summary.distanceKm)} ${mileageUnitLabel}`)}</span>
-          </div>
-          <div class="tax-metric-item">
-            <span class="tax-metric-label">${esc(t('tax.actualCost'))}</span>
-            <span class="tax-metric-value">${esc(formatCurrency(summary.actualCostDeduction, summary.localeTag, { currency: summary.currency }))}</span>
-          </div>
-          ${summary.vehicle ? `
-          <div class="tax-metric-item">
-            <span class="tax-metric-label">${esc(t('tax.standardMileage'))}</span>
-            <span class="tax-metric-value">${esc(formatCurrency(summary.mileageDeduction, summary.localeTag, { currency: summary.currency }))}</span>
-          </div>` : ''}
-        </div>
-        <p style="color:var(--color-text-secondary); font-size: var(--text-sm); margin-top: var(--space-3); border-top: 1px solid var(--color-border); padding-top: var(--space-3);">
-          ${esc(t('tax.actualCostsNote'))}
-        </p>
-        ${summary.vehicle ? `
-        <div style="border:1px solid var(--color-border); border-radius:10px; padding:12px; margin-top: var(--space-3); display:flex; flex-direction:column; gap:10px;">
-          <p style="margin:0; font-size: var(--text-sm); color: var(--color-text-secondary);">
-            ${summary.mileageRate?.isUserOverride
-              ? esc(`${t('tax.standardMileage')} — ${summary.mileageRate.deductionMethod === 'standard_mileage' ? `$${summary.mileageRate.ratePrimary}` : t('tax.mileageWriteOffOptOut')}`)
-              : summary.mileageRate?.deductionMethod === 'standard_mileage'
-                ? esc(`${summary.mileageRate.label} — $${summary.mileageRate.ratePrimary}`)
-                : esc(t('tax.mileageWriteOffNotEligible'))}
-          </p>
-          <label class="input-label" style="display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer;">
-            <span>${esc(t('tax.mileageWriteOffOptOut'))}</span>
-            <input type="checkbox" data-mileage-optout ${summary.mileageRate?.deductionMethod === 'actual_expenses' && summary.mileageRate?.isUserOverride ? 'checked' : ''} />
-          </label>
-          <div class="input-group" style="margin:0;" data-mileage-rate-wrap ${summary.mileageRate?.deductionMethod === 'actual_expenses' && summary.mileageRate?.isUserOverride ? 'hidden' : ''}>
-            <p style="margin:0 0 4px; font-size: var(--text-xs); color: var(--color-text-secondary);">${esc(t('tax.mileageWriteOffHint'))}</p>
-            <input class="input" type="number" step="0.001" inputmode="decimal" data-mileage-rate-input
-              placeholder="${summary.mileageRate?.ratePrimary != null ? esc(String(summary.mileageRate.ratePrimary)) : '0.67'}"
-              value="${summary.mileageRate?.isUserOverride && summary.mileageRate?.deductionMethod === 'standard_mileage' ? esc(String(summary.mileageRate.ratePrimary ?? '')) : ''}" />
-            <button class="btn btn-secondary" type="button" data-mileage-rate-save style="margin-top:8px;">${esc(t('common.save'))}</button>
-          </div>
-        </div>` : ''}
-      </section>
-
-      <!-- Tax Helpers (T2125 / Schedule C) -->
-      ${renderTaxHelpersClean(summary.taxProfile)}
+      <div class="tax-accordion">
+        ${renderAccordionItem('jar', t('tax.virtualJar'), `${formatPercent(summary.setAsideCoveragePct, 0)} saved`, jarBody)}
+        ${renderAccordionItem('income', t('tax.incomeSnapshot'), fmt(netAfterSetAside), incomeBody)}
+        ${renderAccordionItem('owe', t('tax.sectionObligations'), fmt(summary.totalEstimatedTax), renderObligationsCard(summary))}
+        ${renderAccordionItem('deadlines', t('tax.installmentDeadlines'), deadlinePreview, deadlinesBody)}
+        ${renderAccordionItem('vehicle', t('tax.vehicleActualCosts'), `${formatLargeNumber(summary.distanceUnit === 'mi' ? summary.totalMiles : summary.distanceKm)} ${mileageUnitLabel}`, vehicleBody)}
+        ${renderAccordionItem('settings', t('tax.withholdingSettings'), `${formatPercent(summary.taxRatePct, 0)} · ${summary.country}`, settingsBody)}
+        ${renderAccordionItem('reference', t('tax.sectionReference'), '', renderTaxHelpersClean(summary.taxProfile))}
+      </div>
 
       <!-- Export -->
       <footer class="card">
@@ -679,6 +706,19 @@ export async function renderTaxDashboard(root, ctx = {}) {
       </footer>
     </section>
   `;
+
+  root.querySelectorAll('[data-accordion-toggle]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.getAttribute('data-accordion-toggle');
+      const item = root.querySelector(`[data-accordion-item="${key}"]`);
+      const body = root.querySelector(`[data-accordion-body="${key}"]`);
+      if (!item || !body) return;
+      const isOpen = !body.hidden;
+      body.hidden = isOpen;
+      item.classList.toggle('is-open', !isOpen);
+      btn.setAttribute('aria-expanded', String(!isOpen));
+    });
+  });
 
   const yearSelect = root.querySelector('[data-tax-year]');
   if (yearSelect instanceof HTMLSelectElement) {
@@ -721,12 +761,7 @@ export async function renderTaxDashboard(root, ctx = {}) {
     btn.addEventListener('click', async () => {
       const delta = num(btn.getAttribute('data-jar-adjust'), 0);
       const next = Math.max(0, summary.virtualJar + delta);
-      const jarKey = `${TAX_VIRTUAL_JAR_KEY}_${selectedYear}`;
-      await db.appState.put({
-        key: jarKey,
-        value: JSON.stringify(next),
-        updatedAt: new Date().toISOString(),
-      });
+      await setTaxJarBalance(selectedYear, next);
       await renderTaxDashboard(root, { taxYear: selectedYear });
     });
   });

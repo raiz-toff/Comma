@@ -1,6 +1,30 @@
 import { t } from '../../utils/strings.js';
 import { esc } from './esc.js';
 
+/**
+ * Smooths a polyline by drawing a straight line to the midpoint of each
+ * segment, then a quadratic curve (using the real point as control) into the
+ * next midpoint. Rounds off the sharp joints without the overshoot a
+ * Catmull-Rom spline produces on a handful of points.
+ * @param {[number, number][]} pts
+ */
+function toSmoothPath(pts) {
+  if (pts.length < 2) return '';
+  if (pts.length === 2) {
+    return `M ${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)} L ${pts[1][0].toFixed(1)},${pts[1][1].toFixed(1)}`;
+  }
+
+  const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  let d = `M ${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const m = mid(pts[i], pts[i + 1]);
+    d += ` Q ${pts[i][0].toFixed(1)},${pts[i][1].toFixed(1)} ${m[0].toFixed(1)},${m[1].toFixed(1)}`;
+  }
+  const last = pts[pts.length - 1];
+  d += ` L ${last[0].toFixed(1)},${last[1].toFixed(1)}`;
+  return d;
+}
+
 export default {
   id: 'stabilityScore',
   label: 'Income Stability',
@@ -39,27 +63,17 @@ export default {
     const points = grossData.map((val, i) => {
       const x = (i / (grossData.length - 1)) * svgWidth;
       const y = svgHeight - ((val - minVal) / range) * svgHeight;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
+      return [x, y];
     });
 
-    const pathString = `M ${points.join(' L ')}`;
-    // The fill path needs to loop back to the bottom corners to complete the polygon
-    const fillString = `${pathString} L ${svgWidth},${svgHeight} L 0,${svgHeight} Z`;
+    const pathString = toSmoothPath(points);
+    const [lastX, lastY] = points[points.length - 1];
 
     const scopedStyles = `
       <style>
-        @keyframes drawSparkline {
-          0% { stroke-dashoffset: 200; opacity: 0; }
-          10% { opacity: 1; }
-          100% { stroke-dashoffset: 0; opacity: 1; }
-        }
-        @keyframes fadeFill {
-          0% { opacity: 0; transform: translateY(5px); }
-          100% { opacity: 0.2; transform: translateY(0); }
-        }
-        @keyframes pulseDot {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.5); opacity: 0.5; }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
 
         .ss-container { display: flex; flex-direction: column; height: 100%; justify-content: space-between; padding: 4px; }
@@ -91,31 +105,19 @@ export default {
         .ss-path-line {
           fill: none;
           stroke: ${healthColor};
-          stroke-width: 2.5;
+          stroke-width: 2;
           stroke-linecap: round;
           stroke-linejoin: round;
-          stroke-dasharray: 200; /* Arbitrary large number for the drawing animation */
-          stroke-dashoffset: 200;
-          animation: drawSparkline 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+          animation: fadeIn 0.4s ease-out forwards;
         }
 
-        .ss-path-fill {
-          fill: url(#ss-gradient);
-          opacity: 0;
-          animation: fadeFill 1s cubic-bezier(0.2, 0.8, 0.2, 1) 0.6s forwards;
-        }
-
-        /* Little glowing dot at the end of the line */
         .ss-end-dot {
           fill: ${healthColor};
-          animation: fadeFill 1s ease-out 0.8s forwards, pulseDot 2s infinite 1.5s;
-          opacity: 0;
         }
       </style>
     `;
 
     const labelText = t('analytics.stabilityScore') || 'Income Stability';
-    const lastPoint = points[points.length - 1].split(',');
 
     return `
       ${scopedStyles}
@@ -146,18 +148,10 @@ export default {
         <!-- Dynamic SVG Sparkline Visualizer -->
         <div class="ss-chart-wrap">
           <svg class="ss-svg" viewBox="0 0 ${svgWidth} ${svgHeight}" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="ss-gradient" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stop-color="${healthColor}" stop-opacity="1"/>
-                <stop offset="100%" stop-color="${healthColor}" stop-opacity="0"/>
-              </linearGradient>
-            </defs>
-            
-            <path class="ss-path-fill" d="${fillString}"></path>
             <path class="ss-path-line" d="${pathString}"></path>
             
             <!-- Live Indicator Dot at the end of the trend -->
-            <circle class="ss-end-dot" cx="${lastPoint[0]}" cy="${lastPoint[1]}" r="2.5"></circle>
+            <circle class="ss-end-dot" cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="2"></circle>
           </svg>
         </div>
 

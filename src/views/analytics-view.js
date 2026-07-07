@@ -197,17 +197,17 @@ function renderStatCards(widgetCtx, taxRatePct, localeCountry, currency) {
 
   return `
     <div class="astat-grid">
-      ${statCardHtml({ label: 'Gross Earnings', value: fmt(totalRevenue), subtitle: 'Total Revenue', color: '#14b8a6', icon: 'dollar', span: 'astat-span-full' })}
-      ${statCardHtml({ label: 'Net Take-Home', value: fmt(netIncome), subtitle: 'After Expenses', color: '#3b82f6', icon: 'trending-up' })}
+      ${statCardHtml({ label: 'Gross Earnings', value: fmt(totalRevenue), subtitle: 'Total Revenue', color: '#14b8a6', icon: 'gross', span: 'astat-span-full' })}
+      ${statCardHtml({ label: 'Net Take-Home', value: fmt(netIncome), subtitle: 'After Expenses', color: '#3b82f6', icon: 'net' })}
       ${statCardHtml({
-        label: 'Expenses', value: fmt(expenses), subtitle: `${burn}% Burn Ratio`, color: '#FF5247', icon: 'trending-down',
+        label: 'Expenses', value: fmt(expenses), subtitle: `${burn}% Burn Ratio`, color: '#FF5247', icon: 'expenses-solid',
         detail: [
           { label: 'Burn Ratio', value: `${burn}% of gross` },
           { label: 'Out of Pocket', value: fmt(outOfPocket) },
         ],
       })}
       ${statCardHtml({
-        label: 'Avg Rate', value: `${fmt(activeRate)}/hr`, subtitle: 'Active Rate', color: '#f59e0b', icon: 'bolt',
+        label: 'Avg Rate', value: `${fmt(activeRate)}/hr`, subtitle: 'Active Rate', color: '#f59e0b', icon: 'rate-solid',
         detail: [
           { label: 'Active Rate', value: `${fmt(activeRate)}/hr` },
           { label: 'Online Rate', value: `${fmt(onlineRate)}/hr` },
@@ -216,13 +216,13 @@ function renderStatCards(widgetCtx, taxRatePct, localeCountry, currency) {
         ],
       })}
       ${statCardHtml({
-        label: 'Tax Set-Aside', value: fmt(taxSetAside), subtitle: `${taxRate}% Tax Rate`, color: '#0ea5e9', icon: 'receipt',
+        label: 'Tax Set-Aside', value: fmt(taxSetAside), subtitle: `${taxRate}% Tax Rate`, color: '#0ea5e9', icon: 'tax-solid',
         detail: [
           { label: 'Estimated Set-Aside', value: fmt(estimatedTax) },
           { label: 'Net After Tax', value: fmt(netAfterTax), tone: 'pos' },
         ],
       })}
-      ${statCardHtml({ label: 'Total Time', value: `${activeHrs.toFixed(1)} hrs`, subtitle: `${count} Shifts Logged (Active)`, color: '#8b5cf6', icon: 'clock', span: 'astat-span-full' })}
+      ${statCardHtml({ label: 'Total Time', value: `${activeHrs.toFixed(1)} hrs`, subtitle: `${count} Shifts Logged (Active)`, color: '#8b5cf6', icon: 'time-solid', span: 'astat-span-full' })}
     </div>
   `;
 }

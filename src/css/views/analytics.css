@@ -817,10 +817,16 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
+/* Fixed (not min-height/flex-driven) on purpose: only the active pane is
+   in normal flow (others are position:absolute), so a content-based height
+   would change with whichever tab is active — and a Chart.js canvas inside
+   (responsive: true) resizes to match, which read as "the graph keeps
+   changing size" when switching segments. A fixed height keeps every
+   segment, and any chart inside it, rendering at one stable size. */
 .wseg-panes {
   position: relative;
-  flex: 1;
-  min-height: 200px;
+  height: 230px;
+  overflow: hidden;
 }
 
 .wseg-pane {
@@ -907,7 +913,9 @@
   width: 26px;
   height: 26px;
   border-radius: var(--radius-sm);
-  color: var(--astat-accent);
+  /* Badge background stays accent-tinted per card; the glyph itself stays a
+     plain neutral ink color instead of matching every card's bright accent. */
+  color: var(--color-text-primary);
   background: color-mix(in srgb, var(--astat-accent) 15%, transparent);
 }
 

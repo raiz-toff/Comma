@@ -27,7 +27,7 @@ export default {
           <span class="wl">${esc(t('analytics.incomeBreakdown'))}</span>
           ${tipsPct > 0 ? `<span class="wb pos">${tipsPct}% tips</span>` : ''}
         </div>
-        <div class="wch" style="min-height:100px">
+        <div class="wch" style="height:110px">
           <canvas data-widget-chart="incomeBreakdown"></canvas>
         </div>
         <div class="wss">

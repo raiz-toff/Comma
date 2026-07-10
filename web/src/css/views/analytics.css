@@ -1,0 +1,1020 @@
+.analytics-view {
+  padding: var(--space-4) var(--space-6);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.view-sub.analytics-view {
+  padding: var(--space-4) var(--space-6);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.view-subtitle {
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+.view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-4);
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.view-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.analytics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: var(--space-8);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-6);
+}
+
+.analytics-title h1 {
+  font-size: var(--text-3xl);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--color-text-main);
+  margin-bottom: 4px;
+}
+
+.analytics-title p {
+  color: var(--color-text-secondary);
+  font-size: var(--text-base);
+}
+
+.analytics-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.analytics-pro-tip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  background: color-mix(in srgb, var(--color-brand) 8%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-brand) 20%, var(--color-border));
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-10);
+}
+
+.pro-tip-icon {
+  color: var(--color-brand);
+  background: color-mix(in srgb, var(--color-brand) 15%, transparent);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pro-tip-content {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-main);
+}
+
+.pro-tip-content strong {
+  color: var(--color-brand);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.analytics-section-title h3 {
+  font-size: var(--text-sm);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.section-divider {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(to right, var(--color-border), transparent);
+}
+
+.analytics-card-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0 var(--space-2) 0;
+}
+
+.analytics-card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.card[data-widget-id] {
+  position: relative !important;
+}
+
+.card[data-widget-id]:hover {
+  overflow: visible !important;
+  z-index: 200 !important;
+}
+
+.widget-action-wrapper {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.toggle-widget-menu {
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+}
+
+.card:hover .toggle-widget-menu,
+.widget-command-stack.is-visible + .toggle-widget-menu, /* If menu is open */
+.widget-action-wrapper:focus-within .toggle-widget-menu {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Ensure button stays visible when its specific menu is open */
+.widget-action-wrapper:has(.widget-command-stack.is-visible) .toggle-widget-menu {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Premium COMMAnd Stack UI - High Visibility Manual Toggle */
+.widget-command-stack {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+  z-index: 3000;
+  transform: translateY(-10px) scale(0.9);
+}
+
+.widget-command-stack.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.stack-label {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-brand);
+  margin-bottom: 2px;
+  opacity: 0.9;
+}
+
+.primary-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.action-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 44px; /* Slightly wider for the grid */
+  height: 44px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.action-tile:hover {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+  color: white;
+  transform: scale(1.05) translateY(-2px);
+}
+
+.tile-shape {
+  border: 1.5px solid currentColor;
+  opacity: 0.8;
+}
+
+.shape-1x1 { width: 10px; height: 10px; border-radius: 1px; }
+.shape-2x1 { width: 18px; height: 10px; border-radius: 1px; }
+.shape-2x2 { width: 18px; height: 18px; border-radius: 2px; }
+.shape-1x2 { width: 10px; height: 18px; border-radius: 1px; }
+.shape-4x1 { width: 24px; height: 8px; border-radius: 1px; }
+.shape-4x2 { width: 24px; height: 16px; border-radius: 1px; }
+
+.tile-label {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+/* Active Widgets Ribbon (Minimalist Inventory) */
+.active-widgets-ribbon {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 8px;
+  padding: 4px 0 var(--space-4) 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.active-widgets-ribbon::-webkit-scrollbar {
+  display: none;
+}
+
+.active-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  opacity: 0.85;
+}
+
+.active-chip:hover {
+  border-color: var(--color-text-secondary);
+  opacity: 1;
+  transform: none;
+}
+
+.chip-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+}
+
+.chip-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.01em;
+}
+
+.chip-size {
+  font-size: 8px;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-text-muted) 10%, transparent);
+  padding: 1px 4px;
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+
+.analytics-manage-link {
+  margin-top: -8px;
+}
+
+.active-widget-item .badge {
+  font-size: 8px;
+  opacity: 0.7;
+  padding: 0 4px;
+}
+
+.active-widget-item .btn-error {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  min-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.active-widget-item:hover .btn-error {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.widget-config-row {
+  display: flex;
+  gap: 8px;
+}
+
+/* Analytics Layout (Settings Style) */
+.analytics-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.analytics-tabs {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: var(--space-1);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: var(--space-1);
+  margin: 0 calc(-1 * var(--space-2));
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.analytics-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.analytics-nav-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.analytics-tab-btn {
+  flex: 0 0 auto;
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-pill);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.analytics-tab-btn:hover {
+  color: var(--color-text-primary);
+  border-color: color-mix(in srgb, var(--color-brand) 35%, var(--color-border));
+}
+
+.analytics-tab-btn.is-active {
+  background: color-mix(in srgb, var(--color-brand) 12%, var(--color-surface));
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+}
+
+.analytics-panels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+  flex: 1;
+}
+
+.analytics-tab-content {
+  margin-top: var(--space-1);
+}
+
+@media (min-width: 900px) {
+  .analytics-layout {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: var(--space-10);
+  }
+
+  .analytics-nav-column {
+    position: sticky;
+    top: var(--space-8);
+    align-self: flex-start;
+    width: 240px;
+    flex-shrink: 0;
+    padding-right: var(--space-6);
+    border-right: 1px solid var(--color-border);
+  }
+
+  .analytics-tabs {
+    flex-direction: column;
+    overflow-x: visible;
+    overflow-y: visible;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  .analytics-tab-btn {
+    width: 100%;
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid transparent;
+  }
+  
+  .analytics-tab-btn.is-active {
+    background: var(--color-surface-raised);
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+.analytics-empty-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-16) var(--space-6);
+  text-align: center;
+  color: var(--color-text-muted);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-xl);
+  border: 2px dashed var(--color-border);
+}
+
+.analytics-empty-tab svg {
+  color: var(--color-success);
+  opacity: 0.4;
+}
+
+.analytics-empty-tab p {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  max-width: 320px;
+}
+
+/* Tab Section Breaker */
+.analytics-tab-breaker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-1);
+  margin-bottom: var(--space-3);
+  opacity: 0.7;
+}
+
+.breaker-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.breaker-line {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(to right, var(--color-border), transparent);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Android-parity analytics layout
+   (period nav header · segmented tab bar · stat-card hero · card column)
+   Mirrors app/(tabs)/analytics.tsx structure, responsive on wide screens.
+   ───────────────────────────────────────────────────────────────────────── */
+.analytics-android {
+  max-width: var(--app-content-width);
+  margin: 0 auto;
+  padding-top: var(--space-4);
+}
+
+/* ── Period navigation header ── */
+.analytics-period-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-4) 0 var(--space-6);
+}
+
+.analytics-period-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: var(--text-xs);
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.analytics-period-pill:hover {
+  color: var(--color-text-primary);
+  border-color: color-mix(in srgb, var(--color-brand) 35%, var(--color-border));
+}
+
+.analytics-period-pill svg {
+  opacity: 0.7;
+}
+
+.analytics-period-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 420px;
+  gap: var(--space-4);
+}
+
+.analytics-period-arrow {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s ease;
+}
+
+.analytics-period-arrow:hover {
+  background: color-mix(in srgb, var(--color-brand) 12%, var(--color-surface-raised));
+}
+
+.analytics-period-arrow:active {
+  transform: scale(0.94);
+}
+
+.analytics-period-arrow.is-disabled,
+.analytics-period-arrow[disabled] {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+
+.analytics-period-net {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  gap: 3px;
+}
+
+.analytics-period-net-symbol {
+  font-size: var(--text-2xl, 1.5rem);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.2;
+  margin-top: 0.35em;
+}
+
+.analytics-period-net-value {
+  font-size: clamp(2rem, 8vw, 2.75rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+/* ── Segmented category tab bar (Android bottom bar → top segbar on web) ── */
+.analytics-segbar {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.analytics-seg {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.analytics-seg svg {
+  flex-shrink: 0;
+}
+
+.analytics-seg:hover {
+  color: var(--color-text-secondary);
+}
+
+.analytics-seg.is-active {
+  background: var(--color-surface-raised);
+  border-color: var(--color-border);
+  color: var(--color-brand);
+  font-weight: 800;
+}
+
+/* ── Panels & responsive card flow ── */
+.analytics-panels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.analytics-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+.analytics-cards--loading {
+  gap: var(--space-3);
+}
+
+.analytics-widget-card {
+  min-width: 0;
+}
+
+/* Analytics shares the common content column (var(--app-content-width)); its widget cards flow
+   into two columns within that width on wider screens. (Previously this view widened to 960/1160px
+   with a third column; it now lines up with shifts/expenses/goals at the shared width.) */
+@media (min-width: 720px) {
+  .analytics-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── Stat-card hero block (Android renderStatCards parity) ── */
+.astat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.astat-span-full {
+  grid-column: 1 / -1;
+}
+
+.astat-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  min-width: 0;
+}
+
+.astat-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--space-4);
+}
+
+.astat-card.is-expandable {
+  cursor: pointer;
+}
+
+.astat-card-label {
+  flex: 1;
+}
+
+.astat-card-chevron {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform 0.2s ease;
+}
+
+.astat-card.is-open .astat-card-chevron {
+  transform: rotate(180deg);
+}
+
+.astat-detail {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* `display: flex` here would otherwise always beat the UA `[hidden] { display: none }`
+   rule (equal specificity, author origin wins) and the panel would never actually close. */
+.astat-detail:not([hidden]) {
+  display: flex;
+}
+
+.astat-detail-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--text-xs);
+}
+
+.astat-detail-l {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.astat-detail-v {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+
+.astat-detail-v.pos { color: var(--clr-teal, #14b8a6); }
+.astat-detail-v.neg { color: var(--color-danger, #f43f5e); }
+
+/* ── Segmented composite widgets (several widgets sharing one card) ── */
+.wseg-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: var(--space-2);
+}
+
+.wseg-title {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+}
+
+.wseg-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-md, 8px);
+  padding: 3px;
+  flex-shrink: 0;
+}
+
+.wseg-tab {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 6px 4px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wseg-tab.is-active {
+  background: var(--color-surface);
+  color: var(--color-text-main);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* Fixed (not min-height/flex-driven) on purpose: only the active pane is
+   in normal flow (others are position:absolute), so a content-based height
+   would change with whichever tab is active — and a Chart.js canvas inside
+   (responsive: true) resizes to match, which read as "the graph keeps
+   changing size" when switching segments. A fixed height keeps every
+   segment, and any chart inside it, rendering at one stable size. */
+.wseg-panes {
+  position: relative;
+  height: 230px;
+  overflow: hidden;
+}
+
+.wseg-pane {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.wseg-pane.is-active {
+  position: relative;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* ── Compact multi-stat composite widgets (Work Rhythm, Order Economics) ── */
+.wquad {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  flex: 1;
+}
+
+.wquad-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
+}
+
+.wquad-l {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.wquad-v {
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--color-text-main);
+  font-variant-numeric: tabular-nums;
+}
+
+.wrow3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+  flex: 1;
+  align-content: center;
+}
+
+.wrow3-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+}
+
+.wrow3-l {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.wrow3-v {
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--color-text-main);
+  font-variant-numeric: tabular-nums;
+}
+
+.astat-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  /* Badge background stays accent-tinted per card; the glyph itself stays a
+     plain neutral ink color instead of matching every card's bright accent. */
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--astat-accent) 15%, transparent);
+}
+
+.astat-card-label {
+  font-size: var(--text-xs);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.astat-card-value {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  line-height: 1.15;
+}
+
+.astat-card-sub {
+  margin-top: 6px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--astat-accent);
+}
+
+/* ── Period-type picker sheet ── */
+.analytics-period-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: color-mix(in srgb, #000 45%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+@media (min-width: 640px) {
+  .analytics-period-sheet {
+    align-items: center;
+  }
+}
+
+.analytics-period-sheet[hidden] {
+  display: none;
+}
+
+.analytics-period-sheet-panel {
+  width: 100%;
+  max-width: 440px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: var(--space-6) var(--space-4) var(--space-8);
+}
+
+@media (min-width: 640px) {
+  .analytics-period-sheet-panel {
+    border-radius: var(--radius-xl);
+    padding-bottom: var(--space-6);
+  }
+}
+
+.analytics-period-sheet-title {
+  font-size: var(--text-xs);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-3);
+}
+
+.analytics-period-seg {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.analytics-period-seg-btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.analytics-period-seg-btn.is-active {
+  background: var(--color-brand);
+  color: var(--color-brand-contrast);
+  font-weight: 800;
+}

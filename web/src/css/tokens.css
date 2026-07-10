@@ -1,0 +1,128 @@
+/* COMMA — design tokens (all custom properties, F3). */
+
+:root {
+  /* Color primitives */
+  --color-brand: #10b981;
+  --color-brand-rgb: 16, 185, 129;
+  --color-brand-dark: color-mix(in srgb, var(--color-brand), #000 22%);
+  --color-brand-contrast: #1a1916;
+  --color-brand-muted: color-mix(in srgb, var(--color-brand) 15%, transparent);
+  --color-brand-text: color-mix(in srgb, var(--color-brand), #000 25%);
+
+  /* Platform brand colors */
+  --color-doordash: #ff3008;
+  --color-ubereats: #142328;
+  --color-foodora: #e2006a;
+  --color-skip: #f96302;
+  --color-instacart: #43b02a;
+  --color-amazonflex: #ff9900;
+  --color-other: #6b7280;
+
+  /* Semantic colors (light mode defaults) */
+  --color-bg: #fafaf8;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f2f0eb;
+  --color-border: #e5e2da;
+  --color-text-primary: #1a1916;
+  --color-text-secondary: #6b6860;
+  --color-text-muted: #a09d96;
+  /* Alias — several widgets (tips-total, deliveries, month-orders, etc.) reference
+     --color-text-main, which was never actually defined. Most usages are plain `color:` on an
+     inherited property, so the missing var() silently fell back to the inherited color and
+     looked fine by accident. But widgets using it inside a `background: linear-gradient(...)`
+     for a background-clip:text shimmer effect had no such fallback — an invalid var() there
+     invalidates the whole `background` shorthand, leaving the text with `color: transparent`
+     and nothing to clip, i.e. genuinely invisible (e.g. the Tips Total value). */
+  --color-text-main: var(--color-text-primary);
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Typography */
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', 'Courier New', monospace;
+
+  --text-base: 15px;
+  --text-xs: calc(var(--text-base) * 0.733);
+  --text-sm: calc(var(--text-base) * 0.867);
+  --text-lg: calc(var(--text-base) * 1.133);
+  --text-xl: calc(var(--text-base) * 1.333);
+  --text-2xl: calc(var(--text-base) * 1.6);
+  --text-3xl: calc(var(--text-base) * 2.0);
+  --text-4xl: calc(var(--text-base) * 2.533);
+  --text-5xl: calc(var(--text-base) * 3.2);
+
+  /* Shared max content width for the main tab views (shifts, expenses, goals, analytics) so they
+     line up at the same column width across screen sizes. */
+  --app-content-width: 720px;
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.16);
+
+  /* Transitions */
+  --transition-fast: 120ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Z-index layers */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-modal: 200;
+  --z-toast: 300;
+  --z-top: 400;
+}
+
+/* Compact Density Override */
+html[data-layout-density='compact'],
+html[data-uidensity='compact'] {
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 8px;
+  --space-4: 10px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-8: 20px;
+  --space-10: 24px;
+  --space-12: 32px;
+  --space-16: 40px;
+}
+
+/* Comfortable Density Override */
+html[data-layout-density='comfortable'],
+html[data-uidensity='comfortable'] {
+  --space-1: 5px;
+  --space-2: 10px;
+  --space-3: 14px;
+  --space-4: 18px;
+  --space-5: 24px;
+  --space-6: 28px;
+  --space-8: 36px;
+  --space-10: 44px;
+  --space-12: 52px;
+  --space-16: 72px;
+}

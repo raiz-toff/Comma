@@ -1,0 +1,50 @@
+/* COMMA — light / dark / auto themes + reduced motion (F3).
+ * Theme attribute is set synchronously by public/theme-init.js (localStorage: comma-theme).
+ */
+
+html[data-theme='light'] {
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg: #12110f;
+  --color-surface: #1c1b18;
+  --color-surface-raised: #262522;
+  --color-border: #3d3a35;
+  --color-text-primary: #f4f2ed;
+  --color-text-secondary: #b8b4ab;
+  --color-text-muted: #7a7670;
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --color-info: #60a5fa;
+}
+
+html[data-theme='auto'] {
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-theme='auto'] {
+    --color-bg: #12110f;
+    --color-surface: #1c1b18;
+    --color-surface-raised: #262522;
+    --color-border: #3d3a35;
+    --color-text-primary: #f4f2ed;
+    --color-text-secondary: #b8b4ab;
+    --color-text-muted: #7a7670;
+    --color-success: #4ade80;
+    --color-warning: #fbbf24;
+    --color-danger: #f87171;
+    --color-info: #60a5fa;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0ms;
+    --transition-base: 0ms;
+    --transition-slow: 0ms;
+  }
+}

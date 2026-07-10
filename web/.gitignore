@@ -1,0 +1,31 @@
+# Build output
+dist/
+
+# Dependencies
+node_modules/
+
+# Generated bundles (build artifacts)
+all_widgets_bundle.js
+
+# IDE / Editor
+.cursor/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Expo (leftover)
+.expo/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Internal Dev/Planning Docs
+docs/internal/
+.vercel
+.env*.local

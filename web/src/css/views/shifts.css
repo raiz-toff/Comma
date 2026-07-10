@@ -1,0 +1,1439 @@
+/* COMMA — shifts view (F11).
+ *
+ * ── Mobile-parity design layer ──────────────────────────────────────────────────────────────
+ * The shift screens (list, detail, add/edit form) are restyled to match the mobile Android app's
+ * look (commaApp/src/global.css + app/(tabs)/shifts). Mobile ships a cool-neutral, near-black
+ * "OLED" palette with flat hairline borders and no shadows — distinct from the web app's warm
+ * charcoal dark theme. Rather than touch the global tokens (which would restyle the whole app), we
+ * scope a local token override to the shift roots below: every `var(--color-surface)` etc. used by
+ * the existing shift markup resolves to mobile's values ONLY inside these screens. Light mode gets
+ * a clean, flat equivalent so web's light-theme users aren't left with a dark island.
+ *
+ * Mobile dark hexes (from global.css): canvas #000, card #0F0F12, raised #16161A, pressed #1C1C21,
+ * text #F6F6F7 / #9B9BA4 / #65656E, hairlines #1E1E23 / #2E2E36. Card radius 20px, input/row 12px,
+ * chip 8px. Numbers are tabular; micro-labels are 700-weight uppercase with letter-spacing.
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+.shifts-view,
+.shifts-form {
+  /* Cool-neutral surface ramp + flat hairlines (light-mode equivalent of mobile's dark ramp). */
+  --sh-canvas: #f4f5f7;
+  --sh-card: #ffffff;
+  --sh-raised: #f0f1f4;
+  --sh-pressed: #e7e9ee;
+  --sh-text: #14151a;
+  --sh-text-2: #565a66;
+  --sh-text-muted: #8b8f9c;
+  --sh-line: #e3e5ea;
+  --sh-line-strong: #cfd2da;
+  --sh-accent: var(--color-brand);
+  --sh-accent-contrast: #ffffff;
+  --sh-success: #16a34a;
+  --sh-danger: #e5484d;
+  --sh-warning: #d97706;
+
+  /* Radii mapped to mobile's Comma DS scale. */
+  --sh-r-chip: 8px;
+  --sh-r-input: 12px;
+  --sh-r-card: 20px;
+
+  /* Re-point the app tokens the existing shift markup already consumes, so cards/inputs/badges
+     inherit the mobile look without rewriting every rule. */
+  --color-surface: var(--sh-card);
+  --color-surface-raised: var(--sh-raised);
+  --color-border: var(--sh-line);
+  --color-text-primary: var(--sh-text);
+  --color-text-secondary: var(--sh-text-2);
+  --color-text-muted: var(--sh-text-muted);
+}
+
+/* Mobile's cool near-black OLED ramp — applied in dark mode (explicit + auto/system). */
+html[data-theme='dark'] .shifts-view,
+html[data-theme='dark'] .shifts-form {
+  --sh-canvas: #000000;
+  --sh-card: #0f0f12;
+  --sh-raised: #16161a;
+  --sh-pressed: #1c1c21;
+  --sh-text: #f6f6f7;
+  --sh-text-2: #9b9ba4;
+  --sh-text-muted: #65656e;
+  --sh-line: #1e1e23;
+  --sh-line-strong: #2e2e36;
+  --sh-success: #1fc16b;
+  --sh-danger: #ff5247;
+  --sh-warning: #f5a623;
+  --sh-accent-contrast: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-theme='auto'] .shifts-view,
+  html[data-theme='auto'] .shifts-form {
+    --sh-canvas: #000000;
+    --sh-card: #0f0f12;
+    --sh-raised: #16161a;
+    --sh-pressed: #1c1c21;
+    --sh-text: #f6f6f7;
+    --sh-text-2: #9b9ba4;
+    --sh-text-muted: #65656e;
+    --sh-line: #1e1e23;
+    --sh-line-strong: #2e2e36;
+    --sh-success: #1fc16b;
+    --sh-danger: #ff5247;
+    --sh-warning: #f5a623;
+    --sh-accent-contrast: #ffffff;
+  }
+}
+
+/* Shared micro-label eyebrow (mobile: 700 uppercase, letter-spaced, secondary color). */
+.shifts-view .sh-eyebrow,
+.shifts-form .sh-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sh-text-2);
+}
+
+.shifts-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  /* Share the common content column width with expenses/goals/analytics. */
+  max-width: var(--app-content-width);
+  margin-inline: auto;
+  width: 100%;
+}
+
+.shifts-view-header {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+@media (min-width: 720px) {
+  .shifts-view-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-4);
+  }
+}
+
+.shifts-view-header-main {
+  min-width: 0;
+}
+
+.shifts-view-header-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: flex-start;
+}
+
+@media (min-width: 720px) {
+  .shifts-view-header-tools {
+    justify-content: flex-end;
+  }
+}
+
+.shifts-view-title {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.shifts-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--color-brand) 12%, var(--color-surface-raised));
+  color: var(--color-brand-dark, var(--color-brand));
+  font-size: var(--text-xs);
+  font-weight: 750;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--color-brand) 25%, var(--color-border));
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  min-width: 1.75rem;
+  height: 1.25rem;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
+}
+
+.shifts-view-subtitle {
+  margin: var(--space-1) 0 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  max-width: 52ch;
+}
+
+.shifts-view-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.shifts-filter {
+  padding: 0;
+  overflow: hidden;
+  margin-bottom: var(--space-2);
+}
+
+.shifts-filter-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.2s ease;
+}
+
+.shifts-filter-summary:hover {
+  background: var(--color-surface-raised);
+}
+
+.shifts-filter-content {
+  padding: var(--space-4);
+  display: block;
+}
+
+.shifts-filter-summary-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.shifts-filter-summary-icon {
+  flex-shrink: 0;
+  color: var(--color-brand);
+}
+
+.shifts-filter-summary-text {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shifts-filter-summary-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.shifts-filter-summary-preset.badge {
+  background: color-mix(in srgb, var(--color-brand) 12%, var(--color-surface-raised));
+  color: var(--color-text-primary);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+.shifts-filter-summary-chevron {
+  display: flex;
+  color: var(--color-text-muted);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.shifts-filter.is-expanded .shifts-filter-summary-chevron {
+  transform: rotate(180deg);
+}
+
+.shifts-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.shifts-filter-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.shifts-filter-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .shifts-filter-left {
+    width: auto;
+  }
+  .shifts-filter-right {
+    width: auto;
+    margin-left: auto;
+  }
+}
+
+.shifts-filter-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.shifts-filter-date {
+  min-width: 0;
+  flex: 1 1 120px;
+  max-width: 100%;
+  height: 36px;
+  font-size: var(--text-xs);
+}
+
+@media (min-width: 480px) {
+  .shifts-filter-date {
+    flex: 0 0 11rem;
+  }
+}
+
+.shifts-presets-group {
+  display: flex;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  scrollbar-width: none;
+  align-items: stretch;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  height: 36px;
+}
+
+.shifts-presets-group::-webkit-scrollbar {
+  display: none;
+}
+
+.shifts-preset-btn.btn,
+.expenses-preset-btn.btn {
+  flex: 0 0 auto !important;
+  height: 100%;
+  border-radius: 0;
+  border-width: 0 1px 0 0;
+  border-color: var(--color-border);
+  border-style: solid;
+  padding-inline: var(--space-3);
+  font-size: var(--text-xs);
+  white-space: nowrap !important;
+}
+
+.shifts-preset-btn.btn:last-child,
+.expenses-preset-btn.btn:last-child {
+  border-right-width: 0;
+}
+
+.shifts-preset-btn.is-active,
+.expenses-preset-btn.is-active {
+  border-color: var(--color-border);
+  background: color-mix(in srgb, var(--color-brand) 14%, var(--color-surface));
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+
+.shifts-filter-apply {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 700;
+  padding-inline: var(--space-4);
+  height: 36px;
+}
+
+.shifts-sort-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.shifts-sort-inline-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.shifts-sort-inline .shifts-sort-select {
+  height: 36px;
+  min-width: 120px;
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+}
+
+/* Mobile-parity stats grid: 4 flat stat cards (Gross / Hours / Distance / Orders) summarising the
+   shifts in range. On mobile it's two rows of two; on web it flexes to a responsive 2–4 columns. */
+.shifts-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+@media (min-width: 720px) {
+  .shifts-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.shifts-stat-card {
+  background: var(--sh-card);
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-r-card);
+  padding: 16px;
+}
+
+.shifts-stat-label {
+  margin-bottom: 6px;
+}
+
+.shifts-stat-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--sh-text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+/* ── Mobile-style week navigation header ───────────────────────────────────────────────────────
+   Centered: a tappable week pill, then a row of [◀]  big weekly total  [▶]. */
+.shifts-weeknav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 16px;
+  position: relative;
+}
+
+.shifts-week-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--sh-raised);
+  border: 1px solid var(--sh-pressed);
+  color: var(--sh-text-2);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.shifts-week-pill:hover {
+  background: var(--sh-pressed);
+  color: var(--sh-text);
+}
+
+.shifts-week-pill svg {
+  width: 14px;
+  height: 14px;
+}
+
+.shifts-weeknav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: 460px;
+}
+
+.shifts-weeknav-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  background: var(--sh-raised);
+  border: 1px solid var(--sh-pressed);
+  color: var(--sh-text);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.shifts-weeknav-arrow:hover:not(.is-disabled) {
+  background: var(--sh-pressed);
+}
+
+.shifts-weeknav-arrow.is-disabled {
+  opacity: 0.35;
+  cursor: default;
+  border-color: var(--sh-raised);
+}
+
+.shifts-weeknav-amount {
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--sh-text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  text-align: center;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 7-day earnings bar chart ──────────────────────────────────────────────────────────────── */
+.shifts-chart {
+  margin-bottom: 4px;
+}
+
+.shifts-chart-card {
+  position: relative;
+  background: var(--sh-card);
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-r-card);
+  padding: 16px;
+}
+
+.shifts-chart-high {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.shifts-chart-high-line {
+  flex: 1;
+  border-top: 1px dashed color-mix(in srgb, var(--sh-text-muted) 45%, transparent);
+}
+
+.shifts-chart-high-badge {
+  font-size: 9px;
+  background: var(--sh-card);
+  padding-left: 8px;
+  white-space: nowrap;
+}
+
+.shifts-chart-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  height: 100px;
+}
+
+.shifts-chart-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 1;
+  height: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.shifts-chart-track {
+  display: flex;
+  align-items: flex-end;
+  width: 14px;
+  height: 64px;
+  border-radius: 7px;
+  background: var(--sh-raised);
+  overflow: hidden;
+}
+
+.shifts-chart-fill {
+  width: 100%;
+  border-radius: 7px;
+  background: var(--sh-accent);
+  transition: height var(--transition-base), opacity var(--transition-fast);
+}
+
+.shifts-chart-fill.is-dim {
+  opacity: 0.35;
+}
+
+.shifts-chart-col.is-selected .shifts-chart-fill {
+  background: var(--sh-accent);
+}
+
+.shifts-chart-daylabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sh-text-2);
+}
+
+.shifts-chart-col.is-selected .shifts-chart-daylabel {
+  color: var(--sh-accent);
+  font-weight: 800;
+}
+
+.shifts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Mobile parity: flat #0F0F12 card, 20px radius, 0.8px hairline, no shadow. Column layout with a
+   header row (icon + day, earnings on the right) and a divided meta/metrics row below. */
+.shift-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--sh-card);
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-r-card);
+  padding: 16px;
+  box-shadow: none;
+  gap: 12px;
+  transition: border-color var(--transition-base), background var(--transition-base);
+}
+
+.shift-card:hover {
+  border-color: var(--sh-line-strong);
+  background: color-mix(in srgb, var(--sh-raised) 40%, var(--sh-card));
+  box-shadow: none;
+}
+
+.shift-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Left cluster: platform icon chip + day label. */
+.shift-card-ident {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* 28×28 rounded-square platform icon chip (mobile: #16161A bg, hairline, brand-tinted glyph). */
+.shift-card-plat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: var(--sh-r-chip);
+  background: var(--sh-raised);
+  border: 1px solid var(--sh-pressed);
+  color: var(--platform-color, var(--sh-text-2));
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.shift-card-date {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--sh-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Net earnings, right-aligned in the header row. */
+.shift-card-earn {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--sh-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.shift-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  border: 1px solid color-mix(in srgb, var(--platform-color, var(--color-border)) 25%, var(--color-border));
+  background: color-mix(in srgb, var(--platform-color, var(--color-surface-raised)) 14%, var(--color-surface));
+  color: var(--platform-color, var(--color-text-primary));
+}
+
+.shift-badge[data-platform-id='doordash'] {
+  --platform-color: #ff3008;
+}
+.shift-badge[data-platform-id='ubereats'] {
+  --platform-color: #06c167;
+}
+.shift-badge[data-platform-id='foodora'] {
+  --platform-color: #e21b70;
+}
+.shift-badge[data-platform-id='skip'] {
+  --platform-color: #ed5a1f;
+}
+.shift-badge[data-platform-id='instacart'] {
+  --platform-color: #0aad0a;
+}
+.shift-badge[data-platform-id='amazonflex'] {
+  --platform-color: #232f3e;
+}
+.shift-badge[data-platform-id='other'] {
+  --platform-color: #6b7280;
+}
+
+/* Platform brand tint for the card icon chip glyph (mirrors the badge palette). */
+.shift-card-plat-icon[data-platform-id='doordash'] {
+  --platform-color: #ff3008;
+}
+.shift-card-plat-icon[data-platform-id='ubereats'] {
+  --platform-color: #06c167;
+}
+.shift-card-plat-icon[data-platform-id='foodora'] {
+  --platform-color: #e21b70;
+}
+.shift-card-plat-icon[data-platform-id='skip'] {
+  --platform-color: #ed5a1f;
+}
+.shift-card-plat-icon[data-platform-id='instacart'] {
+  --platform-color: #0aad0a;
+}
+.shift-card-plat-icon[data-platform-id='amazonflex'] {
+  --platform-color: #b8bcc4;
+}
+.shift-card-plat-icon[data-platform-id='other'] {
+  --platform-color: var(--sh-text-2);
+}
+
+/* Meta/metrics row — mobile divides it from the header with a 0.5px hairline. Metrics read as
+   "Label value" pairs in secondary text, wrapping and separated with generous column gaps. */
+.shift-card-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 20px;
+  flex: 1;
+  padding-top: 12px;
+  border-top: 1px solid var(--sh-line);
+}
+
+.shift-card-metric {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.shift-card-metric-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sh-text-2);
+}
+
+.shift-card-metric-value {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sh-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.shift-card-actions {
+  display: flex;
+  gap: var(--space-1);
+  justify-content: flex-end;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--sh-line);
+}
+
+/* Multi-platform shift breakdown (interop plan Workstream 4). Only rendered when a shift has
+   more than one `shiftPlatforms` row — single-platform shifts keep the plain `.shift-badge`. */
+.shift-card-platform-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.shift-breakdown-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  border: 1px solid color-mix(in srgb, var(--platform-color, var(--color-border)) 25%, var(--color-border));
+  background: color-mix(in srgb, var(--platform-color, var(--color-surface-raised)) 14%, var(--color-surface));
+  color: var(--platform-color, var(--color-text-primary));
+}
+
+.shift-breakdown-chip-amount {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.trash-row-platform-breakdown {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+}
+
+.shifts-pager-slot {
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+}
+
+.shifts-pager {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+  /* Add plenty of bottom padding to clear the FAB (80px bottom + 56px height + gap) */
+  padding-bottom: calc(var(--space-16) + 88px + env(safe-area-inset-bottom, 0));
+}
+
+.shifts-pager-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-surface);
+  padding: var(--space-1);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.shifts-pager-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.shifts-pager-btn:hover:not(:disabled) {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+
+.shifts-pager-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.shifts-pager-numbers {
+  display: flex;
+  gap: var(--space-1);
+  padding: 0 var(--space-1);
+}
+
+.shifts-pager-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-base);
+  cursor: pointer;
+}
+
+.shifts-pager-number:hover:not(.is-active) {
+  background: var(--color-surface-raised);
+}
+
+.shifts-pager-number.is-active {
+  background: var(--color-brand);
+  border-color: var(--color-brand-dark);
+  color: #1a1916;
+  box-shadow: var(--shadow-sm);
+}
+
+.shifts-pager-status {
+  text-align: center;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
+}
+
+.shifts-entry-scope .shifts-segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.shifts-segmented-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shifts-segmented-item + .shifts-segmented-item {
+  border-left: 1px solid var(--color-border);
+}
+
+.shifts-segmented-item input:checked + span {
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+
+.shifts-segmented-item:has(input:checked) {
+  background: var(--color-surface-raised);
+}
+
+.shifts-week-panel {
+  padding-top: var(--space-2);
+}
+
+.shifts-week-panel.is-hidden {
+  display: none;
+}
+
+.shifts-weekday-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.shifts-weekday-chk {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: pointer;
+  min-width: 3.25rem;
+}
+
+.shifts-weekday-chk input {
+  margin: 0;
+}
+
+.shifts-weekday-chk-dow {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.shifts-weekday-chk-date {
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+/* Form */
+.shifts-form-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.shifts-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.shifts-form-title {
+  font-weight: 700;
+  font-size: var(--text-lg);
+}
+
+/* Form root container: a 2-column grid so paired fields (start/end time) sit side by side and the
+   existing `.field--span2` hooks span full width, as their class name always intended. Collapses to
+   a single column on narrow viewports (the form renders inside a modal). */
+.shifts-form-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (max-width: 520px) {
+  .shifts-form-fields {
+    grid-template-columns: 1fr;
+  }
+  .shifts-form-fields .field--span2 {
+    grid-column: span 1;
+  }
+}
+
+/* Mobile-parity footer: Cancel/Back on the left (dark chip), primary Save on the right (accent). */
+.shifts-form-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--sh-line);
+}
+
+.shifts-form-footer .btn {
+  border-radius: var(--sh-r-input);
+  padding: 12px 24px;
+  font-weight: 700;
+  min-width: 110px;
+  justify-content: center;
+}
+
+/* Cancel = neutral dark chip (mobile: #1E1E23 bg / #26262C border). */
+.shifts-form-footer .btn-ghost {
+  background: var(--sh-raised);
+  border: 1px solid var(--sh-line-strong);
+  color: var(--sh-text-2);
+}
+
+.shifts-form-footer .btn-ghost:hover {
+  background: var(--sh-pressed);
+  color: var(--sh-text);
+}
+
+/* Save = accent fill with contrast label. */
+.shifts-form-footer .btn-primary {
+  background: var(--sh-accent);
+  border: 1px solid var(--sh-accent);
+  color: var(--sh-accent-contrast);
+}
+
+.shifts-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+/* Mobile-parity inputs: 12px radius, recessed surface, semibold value text, and a neutral
+   strong-border focus (mobile uses focus:border-white) rather than the app's emerald ring. */
+.shifts-form .input,
+.shifts-form .textarea,
+.shifts-form select.input {
+  border-radius: var(--sh-r-input);
+  background: var(--sh-raised);
+  border-color: var(--sh-line);
+  color: var(--sh-text);
+  font-weight: 600;
+  padding: 12px 14px;
+}
+
+.shifts-form .input::placeholder,
+.shifts-form .textarea::placeholder {
+  color: var(--sh-text-muted);
+  font-weight: 500;
+}
+
+.shifts-form .input:focus,
+.shifts-form .textarea:focus,
+.shifts-form select.input:focus {
+  border-color: var(--sh-line-strong);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sh-line-strong) 45%, transparent);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field--span2 {
+  grid-column: span 2;
+}
+
+/* Mobile eyebrow labels: tiny, 700-weight, uppercase, letter-spaced, secondary color. */
+.shifts-form .field-label {
+  font-size: 10px;
+  color: var(--sh-text-2);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-left: 2px;
+}
+
+.field-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.field-inline {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.field-hint {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.shifts-form-toggle {
+  grid-column: span 2;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.shifts-advanced.is-hidden {
+  display: none;
+}
+
+.shifts-form [data-ps-wrap].is-hidden,
+.shifts-form [data-ps-object-hint].is-hidden {
+  display: none;
+}
+
+.shifts-advanced-grid {
+  grid-column: span 2;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.mood-row {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.mood-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: 18px;
+}
+
+.mood-btn.is-selected {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand) 20%, transparent);
+}
+
+.shifts-multiplatform {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.shifts-mp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.shifts-mp-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.shifts-mp-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding: 16px;
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-r-card);
+  background: var(--sh-card);
+}
+
+@media (min-width: 560px) {
+  .shifts-mp-row {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
+    align-items: end;
+  }
+}
+
+.shifts-mp-remove {
+  justify-self: start;
+}
+
+.shifts-livebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 16px;
+  border-radius: var(--sh-r-card);
+  border: 1px solid var(--sh-line);
+  background: var(--sh-card);
+  flex-wrap: wrap;
+}
+
+.shifts-livebar-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 120px;
+}
+
+.shifts-livebar-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sh-text-2);
+}
+
+.shifts-livebar-value {
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--sh-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Templates + import */
+.shifts-muted {
+  color: var(--color-text-muted);
+}
+
+.shifts-secondary {
+  color: var(--color-text-secondary);
+}
+
+.template-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.template-row:hover {
+  border-color: color-mix(in srgb, var(--color-brand) 22%, var(--color-border));
+}
+
+.import-pre {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  max-height: 260px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+/* Trash Manager */
+.shifts-trash {
+  min-width: 320px;
+}
+
+.trash-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.trash-row:hover {
+  border-color: color-mix(in srgb, var(--color-brand) 22%, var(--color-border));
+}
+
+.trash-row-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.trash-row-date {
+  font-weight: 500;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.trash-row-platform {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.trash-row-gross {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+/* Workstream 5 (interop plan) — GPS route mini-map + odometer/reconciliation badges. Read-only,
+   shown on the shift card only when the shift actually has routePath/odometer/reconciliation
+   data (mobile/GPS-tracked shifts, or a future sync pull from mobile) — invisible otherwise. */
+.shift-route-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-border);
+}
+
+.shift-route-minimap {
+  flex-shrink: 0;
+  width: 140px;
+  height: 76px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  overflow: hidden;
+}
+
+.shift-route-minimap-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.shift-route-minimap-grid {
+  stroke: var(--color-text-muted);
+  stroke-width: 0.5;
+  opacity: 0.2;
+}
+
+.shift-route-minimap-line {
+  fill: none;
+  stroke: var(--color-brand);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.shift-route-minimap-start {
+  fill: var(--color-success);
+}
+
+.shift-route-minimap-end {
+  fill: var(--color-danger);
+  stroke: var(--color-surface-raised);
+  stroke-width: 1;
+}
+
+.shift-route-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.shift-route-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.shift-route-badge-label {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.65rem;
+}
+
+.shift-route-badge-value {
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.shift-route-status--success {
+  border-color: color-mix(in srgb, var(--color-success) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-success) 12%, var(--color-surface-raised));
+}
+.shift-route-status--success .shift-route-badge-value {
+  color: var(--color-success);
+}
+
+.shift-route-status--warning {
+  border-color: color-mix(in srgb, var(--color-warning) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 12%, var(--color-surface-raised));
+}
+.shift-route-status--warning .shift-route-badge-value {
+  color: var(--color-warning);
+}
+
+.shift-route-status--info {
+  border-color: color-mix(in srgb, var(--color-info) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-info) 12%, var(--color-surface-raised));
+}
+.shift-route-status--info .shift-route-badge-value {
+  color: var(--color-info);
+}

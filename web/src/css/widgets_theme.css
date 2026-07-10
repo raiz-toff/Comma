@@ -1,0 +1,302 @@
+/*
+  ╔══════════════════════════════════════════════════════════════╗
+  ║   COMMA BENTO — PREMIUM DESIGN SYSTEM v3                   ║
+  ║   Production-grade aesthetics for all 31 bento widgets       ║
+  ╚══════════════════════════════════════════════════════════════╝
+*/
+
+:root {
+  /* Premium Palette Mapping */
+  --clr-teal: #14b8a6;
+  --clr-sky:  #0ea5e9;
+  --clr-blue: #3b82f6;
+  --clr-indi: #6366f1;
+  --clr-amb:  #f59e0b;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   1. COLOR PROFILES
+   ══════════════════════════════════════════════════════════════ */
+
+/* Performance & Financial — Sky Blue */
+[data-widget-id="earnings"], [data-widget-id="netIncome"], [data-widget-id="avgRate"],
+[data-widget-id="totalHours"], [data-widget-id="tipsTotal"],
+[data-widget-id="effectiveRate"], [data-widget-id="perDelivery"], [data-widget-id="hourlyRate"] {
+  --wa: var(--clr-sky);
+}
+
+/* Volume & Activity — Indigo */
+[data-widget-id="deliveries"], [data-widget-id="orders"], [data-widget-id="platformActivity"], 
+[data-widget-id="recentShifts"], [data-widget-id="monthOrders"], [data-widget-id="schedule"] {
+  --wa: var(--clr-indi);
+}
+
+/* Growth & Achievements — Teal */
+[data-widget-id="weeklyGoal"], [data-widget-id="streak"], 
+[data-widget-id="weeklyProjection"], [data-widget-id="monthGross"],
+[data-widget-id="rollingTrend"], [data-widget-id="stabilityScore"] {
+  --wa: var(--clr-teal);
+  --is-insight: 1;
+}
+
+/* Insights & Analytics — Blue */
+[data-widget-id="bestDay"], [data-widget-id="bestHour"], [data-widget-id="monthHourly"],
+[data-widget-id="weekCompare"], [data-widget-id="incomeBreakdown"], [data-widget-id="scatter"] {
+  --wa: var(--clr-blue);
+  --is-insight: 1;
+}
+
+/* Critical & Expenses — Amber/Rose */
+[data-widget-id="deadMiles"], [data-widget-id="taxJar"], [data-widget-id="expenses"],
+[data-widget-id="outOfPocket"], [data-widget-id="totalExpenses"], [data-widget-id="zeroDays"] {
+  --wa: var(--clr-amb);
+  --is-insight: 1;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   2. BASE CARD
+   ══════════════════════════════════════════════════════════════ */
+
+.card[data-widget-id] {
+  transition: box-shadow 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.card[data-widget-id]:hover {
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.25);
+  transform: translateY(-2px);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   3. WIDGET LAYOUT PRIMITIVES
+   ══════════════════════════════════════════════════════════════ */
+
+.wr {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 0.5rem;
+  padding: 8px;
+}
+
+.wh {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 2px;
+}
+
+.wi {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--wa) 12%, var(--color-surface-raised));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--wa);
+  flex-shrink: 0;
+}
+
+.wi svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 2.5;
+}
+
+.wl {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wb {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  color: var(--color-text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.wb.acc { color: var(--wa); border-color: color-mix(in srgb, var(--wa) 30%, var(--color-border)); }
+.wb.pos { color: var(--clr-teal); border-color: color-mix(in srgb, var(--clr-teal) 30%, var(--color-border)); }
+.wb.neg { color: var(--color-danger); border-color: color-mix(in srgb, var(--color-danger) 30%, var(--color-border)); }
+
+.wv {
+  font-size: 1.75rem;
+  font-weight: 900;
+  line-height: 1.1;
+  color: var(--color-text-main);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.wv .cur {
+  font-size: 0.55em;
+  font-weight: 800;
+  opacity: 0.6;
+  margin-right: 2px;
+}
+
+.wv .unit {
+  font-size: 0.45em;
+  font-weight: 800;
+  color: var(--wa);
+  margin-left: 4px;
+}
+
+.ws {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wt {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.wt.up { color: var(--clr-teal); }
+.wt.dn { color: var(--color-danger); }
+
+/* ══════════════════════════════════════════════════════════════
+   4. PROGRESS BAR (Aligned to 10px Thick Style)
+   ══════════════════════════════════════════════════════════════ */
+
+.wpb {
+  width: 100%;
+  height: 10px;
+  background: color-mix(in srgb, var(--wa) 8%, var(--color-border));
+  border-radius: 20px;
+  overflow: hidden;
+  margin-top: auto;
+}
+
+.wpf {
+  height: 100%;
+  border-radius: 20px;
+  background: linear-gradient(to right, color-mix(in srgb, var(--wa) 60%, white), var(--wa));
+  transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   5. STAT STRIP
+   ══════════════════════════════════════════════════════════════ */
+
+.wss {
+  display: flex;
+  gap: 6px;
+}
+
+.wsc {
+  flex: 1;
+  padding: 8px 10px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wscl {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.wscv {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--color-text-main);
+}
+.wscv.acc { color: var(--wa); }
+
+/* ══════════════════════════════════════════════════════════════
+   6. DAY-OF-WEEK BAR
+   ══════════════════════════════════════════════════════════════ */
+
+.wdow {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  height: 60px;
+}
+
+.wdow-b {
+  width: 100%;
+  border-radius: 4px 4px 2px 2px;
+  background: color-mix(in srgb, var(--wa) 15%, var(--color-border));
+  min-height: 4px;
+}
+
+.wdow-b.act {
+  background: var(--wa);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--wa) 30%, transparent);
+}
+
+.wdow-l {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.wdow-l.act { color: var(--wa); }
+
+/* ══════════════════════════════════════════════════════════════
+   7. HOUR STRIP
+   ══════════════════════════════════════════════════════════════ */
+
+.who {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+}
+
+.who-p {
+  flex: 1;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--wa) 15%, var(--color-border));
+}
+
+.who-p.pk { background: var(--wa); }
+
+/* ══════════════════════════════════════════════════════════════
+   8. MISC
+   ══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 480px) {
+  .wv { font-size: 1.5rem; }
+  .wsc { padding: 6px 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,191 @@
+.vehicles-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding-bottom: var(--space-12);
+}
+
+.vehicles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--space-4);
+}
+
+.vehicle-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vehicle-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.vehicle-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.vehicle-card-identity {
+  display: flex;
+  flex-direction: column;
+}
+
+.vehicle-card-identity h3 {
+  font-size: var(--text-lg);
+  font-weight: 800;
+  letter-spacing: var(--tracking-tight);
+}
+
+.vehicle-card-identity .type-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+
+/* Stats Grid */
+.vehicle-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.vehicle-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+}
+
+.vehicle-stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.vehicle-stat-value {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+/* Reminders & Alerts */
+.vehicle-alerts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.vehicle-alert-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  color: var(--color-danger);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vehicle-alert-pill.is-ok {
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+}
+
+/* Maintenance List */
+.vehicle-maintenance-summary {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.vehicle-maintenance-title {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
+.vehicle-maintenance-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  padding: 2px 0;
+}
+
+.vehicle-maintenance-date {
+  color: var(--color-text-secondary);
+}
+
+.vehicle-maintenance-service {
+  font-weight: 600;
+}
+
+/* Actions */
+.vehicle-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-2);
+}
+
+.vehicle-actions .btn {
+  flex: 1;
+  padding: var(--space-2);
+  font-size: 11px;
+}
+
+/* Comparison Section */
+.vehicle-comparison {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.comparison-table th {
+  text-align: left;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.comparison-table td {
+  padding: var(--space-3) var(--space-2);
+  font-size: var(--text-sm);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+}
+
+.comparison-rank {
+  width: 32px;
+  font-weight: 800;
+  color: var(--color-brand);
+}
+
+.comparison-best {
+  color: var(--color-success);
+  font-weight: 700;
+}

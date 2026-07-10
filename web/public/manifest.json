@@ -1,0 +1,67 @@
+{
+  "name": "COMMA",
+  "short_name": "COMMA",
+  "description": "Local-first gig driver earnings tracker.",
+  "start_url": "./#/dashboard",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0d0d0d",
+  "background_color": "#0d0d0d",
+  "icons": [
+    {
+      "src": "web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Log New Shift",
+      "short_name": "New shift",
+      "description": "Log a new delivery shift",
+      "url": "./#/shifts/new"
+    },
+    {
+      "name": "This Week",
+      "short_name": "This week",
+      "description": "Weekly analytics",
+      "url": "./#/analytics/week"
+    },
+    {
+      "name": "Export Vault",
+      "short_name": "Export",
+      "description": "Export reports",
+      "url": "./#/reports/export"
+    }
+  ],
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}

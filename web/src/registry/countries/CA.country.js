@@ -1,0 +1,32 @@
+export default {
+  id: 'CA',
+  labelKey: 'onboarding.steps.countryCA',
+  currency: 'CAD',
+  symbol: '$',
+  distanceUnit: 'km',
+  taxInstallmentDates: [
+    { month: 3, day: 15, label: 'Q1 payment' },
+    { month: 6, day: 15, label: 'Q2 payment' },
+    { month: 9, day: 15, label: 'Q3 payment' },
+    { month: 12, day: 15, label: 'Q4 payment' },
+  ],
+  hasCPP: true,
+  hasHST: true,
+  tax: {
+    taxInstallmentReminderDays: 10,
+    hstOnboarding: true,
+    intlLocaleTag: 'en-CA',
+    defaultWithholdingPct: 28,
+    regionPresetType: 'CA',
+    fallbackCurrency: 'CAD',
+    hstRateWhenRegistered: 0.13,
+    calcCpp: true,
+    calcSeTax: false,
+    regionLabel: 'province',
+    secondaryEstimator: 'cpp',
+    footnote: 'canada',
+    defaultRegionCode: 'ON',
+  },
+  /** Default platform picker ids when no province row applies (inherit before union). @see docs/market_resolution.md */
+  defaultAvailablePlatforms: ['doordash', 'ubereats', 'skip', 'foodora', 'instacart', 'amazonflex'],
+};

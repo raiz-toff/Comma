@@ -63,7 +63,7 @@ Expo will open the Metro bundler and launch the Android emulator automatically (
 ### Building an APK
 
 ```bash
-./build-android.sh
+./build.sh
 ```
 
 You need the Android SDK path set in `android/local.properties`:

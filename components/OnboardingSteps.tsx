@@ -771,13 +771,14 @@ export function GPSStep({ onNext }: { onNext: () => void }) {
         </View>
         <StepHeading
           title="Automatic mileage tracking"
-          sub="Comma tracks your mileage in the background while you drive — so you never have to log it manually."
+          sub="During an active shift, Comma records your GPS location in the background — even while the app is closed or you're using another app — so mileage keeps logging without you having to keep Comma open."
         />
         <View style={{ gap: 12 }}>
           {[
             "Active delivery miles separated from dead miles automatically",
-            "Mileage logged in the background during active shifts",
-            "All location data stays 100% on your device",
+            "Location is tracked in the background only while a shift is running, and stops the moment you end it",
+            "You'll see a second prompt asking to allow location \"All the time\" — this is what lets tracking continue when Comma isn't on screen",
+            "All location data stays 100% on your device — never uploaded anywhere",
           ].map((point) => (
             <View
               key={point}

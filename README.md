@@ -93,7 +93,7 @@ npx expo start
 For an Android APK:
 
 ```bash
-./build-android.sh
+./build.sh
 ```
 
 You need the Android SDK. Set the path in `android/local.properties`:

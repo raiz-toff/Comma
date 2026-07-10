@@ -79,6 +79,19 @@ export function useGPSTracking() {
       //    ongoing notification can collect location with while-in-use permission. Never
       //    hard-gate tracking on it (on Android 11+ this can only deep-link to Settings, so
       //    hard-gating would silently break tracking for most users).
+      //    Show our own disclosure BEFORE the OS "Allow all the time" prompt — but only when
+      //    it isn't already granted, so returning users aren't asked on every single shift.
+      const { status: existingBgStatus } = await Location.getBackgroundPermissionsAsync();
+      if (existingBgStatus !== "granted") {
+        await new Promise<void>((resolve) => {
+          Alert.alert(
+            "Track mileage in the background?",
+            "Comma records your GPS location during this shift, including while the app is closed or you're using another app, so your mileage keeps logging without you having to keep Comma open. Location data stays on your device and is never uploaded. The next screen lets you allow this.",
+            [{ text: "Continue", onPress: () => resolve() }],
+            { cancelable: false }
+          );
+        });
+      }
       const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
       if (bgStatus !== "granted") {
         console.warn("Background location not granted; tracking will pause when the app is backgrounded.");

@@ -16,9 +16,10 @@
   "author": "raiz-toff",
   "repository": {
     "type": "git",
-    "url": "https://github.com/raiz-toff/comma.git"
+    "url": "https://github.com/raiz-toff/CommaApp.git",
+    "directory": "web"
   },
-  "homepage": "https://github.com/raiz-toff/comma",
+  "homepage": "https://github.com/raiz-toff/CommaApp/tree/main/web",
   "keywords": [
     "gig-economy",
     "earnings-tracker",

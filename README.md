@@ -10,11 +10,15 @@ Built for DoorDash, Uber Eats, SkipTheDishes, Instacart, Amazon Flex, and others
 
 **[Download for Android](https://github.com/raiz-toff/CommaApp/releases/latest)** · **[Open the web app](https://comma-psi.vercel.app)** · **[Read the docs](https://comma-docs.vercel.app)**
 
-## One project, three faces
+## One repo, three faces
 
-- **Phone app** (this repo) — the native Android/iOS app, with background GPS mileage tracking. Grab the APK from [Releases](https://github.com/raiz-toff/CommaApp/releases/latest).
-- **Web app** ([`web/`](web/)) — an installable PWA at [comma-psi.vercel.app](https://comma-psi.vercel.app) for logging and reviewing from a laptop. Vanilla JS, no server, data stays in your browser.
+Everything lives in this repository — the phone app, the web app, and the docs.
+
+- **Phone app** (repo root) — the native Android/iOS app, with background GPS mileage tracking. Grab the APK from [Releases](https://github.com/raiz-toff/CommaApp/releases/latest).
+- **Web app** ([`web/`](web/)) — an installable PWA at [comma-psi.vercel.app](https://comma-psi.vercel.app) for logging and reviewing from a laptop. Vanilla JS, no server, data stays in your browser. Has its own [README](web/README.md) and [contributing guide](web/CONTRIBUTING.md).
 - **Docs** ([`docs/`](docs/)) — user guides and architecture notes, published at [comma-docs.vercel.app](https://comma-docs.vercel.app) via the [`docs-site/`](docs-site/) Nextra app.
+
+The two apps share the same backup format, so a vault can move between them.
 
 ## Screenshots
 

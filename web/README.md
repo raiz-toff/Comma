@@ -71,9 +71,9 @@ The heart of COMMA. Gross earnings, average hourly rate, business expenses, tax 
 Requires [Node.js](https://nodejs.org/) (v18+) solely for the local build server.
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/raiz-toff/comma.git
-cd comma
+# 1. Clone the repository (the web app lives in web/)
+git clone https://github.com/raiz-toff/CommaApp.git
+cd CommaApp/web
 
 # 2. Install dev dependencies (esbuild)
 npm install
@@ -103,9 +103,9 @@ COMMA is an exercise in stripping away modern web bloat:
 
 ## The COMMA family
 
-The web app is one half of the project. There is also a **native Android app** with background GPS mileage tracking, built with Expo/React Native — the two share the same backup format, so you can move your vault between them.
+The web app is one half of the project. There is also a **native Android app** with background GPS mileage tracking, built with Expo/React Native — it lives at the root of this same repository, and the two share the same backup format, so you can move your vault between them.
 
-* **Android app**: [raiz-toff/CommaApp](https://github.com/raiz-toff/CommaApp) — [download the APK](https://github.com/raiz-toff/CommaApp/releases/latest)
+* **Android app**: [repository root](../README.md) — [download the APK](https://github.com/raiz-toff/CommaApp/releases/latest)
 * **User documentation** (both apps): [comma-docs.vercel.app](https://comma-docs.vercel.app) — see especially the [Web App guide](https://comma-docs.vercel.app/features/web-app)
 
 ---

@@ -19,7 +19,7 @@ All notable changes to the COMMA project will be documented in this file.
 ### Fixed
 
 - **Pause-State Geolocation Watcher Guard**: Implemented bulletproof `localStorage` verification that ignores GPS coordinates when the shift is paused or stopped, preventing phantom mileage accumulation.
-- **White Mode High-Contrast Contrast**: Restructured hardcoded text and container styling in [shell.js](file:///home/coder/Production/macadam_web/src/core/shell.js) with semantic design system CSS variables, ensuring perfect legibility in both light and dark modes.
+- **White Mode High-Contrast Contrast**: Restructured hardcoded text and container styling in [shell.js](src/core/shell.js) with semantic design system CSS variables, ensuring perfect legibility in both light and dark modes.
 
 ## [1.2.0] - 2026-05-16
 

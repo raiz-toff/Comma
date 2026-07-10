@@ -10,7 +10,7 @@ Built for DoorDash, Uber Eats, SkipTheDishes, Instacart, Amazon Flex, and a doze
 
 - **Android** — [download the latest APK](https://github.com/raiz-toff/CommaApp/releases/latest) from GitHub Releases. Sideload it by allowing "Install unknown apps" (a Play Store listing is planned).
 - **Web** — open [comma-psi.vercel.app](https://comma-psi.vercel.app) in any modern browser and install it as an app. See [Web App (PWA)](./features/web-app.md).
-- **Source** — Comma is open source on GitHub: [raiz-toff/CommaApp](https://github.com/raiz-toff/CommaApp) (phone app + docs) and [raiz-toff/comma](https://github.com/raiz-toff/comma) (web app).
+- **Source** — Comma is open source on GitHub: [raiz-toff/CommaApp](https://github.com/raiz-toff/CommaApp) — one repo with the phone app, the [web app](https://github.com/raiz-toff/CommaApp/tree/main/web), and these docs.
 
 ---
 

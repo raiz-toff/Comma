@@ -14,8 +14,8 @@ Thanks for your interest in contributing to COMMA! This guide will help you get 
 ### Setup
 
 ```bash
-git clone https://github.com/raiz-toff/comma.git
-cd comma
+git clone https://github.com/raiz-toff/CommaApp.git
+cd CommaApp/web
 npm install
 npm run dev
 ```
@@ -116,4 +116,4 @@ This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). Please read
 
 ## Questions?
 
-Open a [Discussion](https://github.com/raiz-toff/comma/discussions) or an issue — happy to help.
+Open a [Discussion](https://github.com/raiz-toff/CommaApp/discussions) or an issue — happy to help.

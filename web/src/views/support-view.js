@@ -62,7 +62,7 @@ export async function render(root, ctx) {
           COMMA is a fully open-source, community-driven project. If you are comfortable using GitHub, we track and resolve bugs, feature requests, and tasks publicly on our repository.
         </p>
         <div style="margin-top: auto; padding-top: var(--space-2);">
-          <a href="https://github.com/raiz-toff/comma/issues/new" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: var(--space-2);">
+          <a href="https://github.com/raiz-toff/CommaApp/issues/new" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: var(--space-2);">
             ${getIcon('export', 16)} Open GitHub Issues
           </a>
         </div>

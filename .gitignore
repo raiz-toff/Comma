@@ -41,9 +41,6 @@ yarn-error.*
 /ios
 /android
 
-# comma web PWA — lives here as its own independent git repo (own remote, own history,
-# pushes to github.com/raiz-toff/comma), deliberately NOT part of this repo's tracked files.
-/web
 
 android/local.properties
 

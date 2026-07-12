@@ -49,6 +49,7 @@ import { db } from "@/src/database/client";
 import { settings, shifts, expenses } from "@/src/database/schema";
 import { generateShiftsCSV, generateExpensesCSV } from "@/utils/reportGenerator";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 import { notify } from "@/src/services/notify";
 import { FeedbackDialog, BusyOverlay, type FeedbackVariant } from "@/src/components/ui/FeedbackDialog";
 import { withAlpha } from "@/src/theme/colors";
@@ -535,6 +536,7 @@ export default function SettingsScreen() {
   const C = useColors();
   const DS = useThemedStyles(makeDS);
   const s = useThemedStyles(makeStyles);
+  const { columnStyle } = useLayout();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ tab?: string }>();
@@ -892,8 +894,8 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={s.safe} edges={["bottom", "left", "right"]}>
 
-      {/* ── Header ── */}
-      <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+      {/* ── Header ── Outside the scroller, so it takes the same cap as the content. */}
+      <View style={[s.header, { paddingTop: insets.top + 10 }, columnStyle]}>
         <View style={s.headerLeft}>
           <TouchableOpacity
             onPress={() => router.back()}
@@ -933,11 +935,13 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Tab bar ── */}
+      {/* ── Tab bar ── Also outside the scroller. The cap goes on the ScrollView's own
+           frame, not its contentContainerStyle: this one scrolls horizontally, and a
+           maxWidth on the content container would clamp the row instead of the viewport. */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={s.tabScroll}
+        style={[s.tabScroll, columnStyle]}
         contentContainerStyle={s.tabRow}
       >
         {TABS.map(({ id, label }) => {
@@ -964,7 +968,7 @@ export default function SettingsScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={s.scrollContent}
+        contentContainerStyle={[s.scrollContent, columnStyle]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

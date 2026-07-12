@@ -15,6 +15,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
+import { useLayout } from "@/src/hooks/useLayout";
 import { getCountryDef } from "@/src/registry/countries/index";
 import { getGoalsWithProgress, insertGoal, updateGoal } from "@/src/database/queries/goals";
 import { useSettingsStore } from "@/store/useSettingsStore";
@@ -35,6 +36,7 @@ const PRESETS = [400, 500, 750, 1000];
 export default function SetupGoalScreen() {
   const C = useColors();
   const s = useThemedStyles(makeStyles);
+  const { columnStyle } = useLayout();
   const { profile, updateProfile } = useSettingsStore();
   const queryClient = useQueryClient();
   const currency = getCountryDef(profile?.country ?? "CA").symbol;
@@ -113,7 +115,13 @@ export default function SetupGoalScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View style={s.header}>
+        {/*
+          The back button and the CTA footer are siblings of the ScrollView, not children of
+          it, so they need the same cap as the form — otherwise on a tablet they run the full
+          width of the screen while the form they belong to sits in a centred 640pt column.
+          `columnStyle` is undefined below 600pt, so none of this changes a phone.
+        */}
+        <View style={[s.header, columnStyle]}>
           <Pressable onPress={() => router.back()} accessibilityRole="button" hitSlop={10}>
             <ChevronLeft size={24} color={C.contentPrimary} />
           </Pressable>
@@ -123,7 +131,7 @@ export default function SetupGoalScreen() {
           <ActivityIndicator size="large" color={C.contentPrimary} style={{ marginTop: 60 }} />
         ) : (
           <ScrollView
-            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
+            contentContainerStyle={[{ paddingHorizontal: 24, paddingBottom: 24 }, columnStyle]}
             keyboardShouldPersistTaps="handled"
           >
             <View style={{ gap: 6, marginBottom: 28 }}>
@@ -193,7 +201,7 @@ export default function SetupGoalScreen() {
           </ScrollView>
         )}
 
-        <View style={s.footer}>
+        <View style={[s.footer, columnStyle]}>
           <Pressable
             onPress={handleSave}
             disabled={saving || loading}

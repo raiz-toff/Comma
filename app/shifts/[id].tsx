@@ -32,6 +32,7 @@ import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 import { ArrowLeft, Clock3, Gauge, MapPinned, PencilLine, Plus, Route, Trash2, ReceiptText, Maximize2 } from "lucide-react-native";
 import Svg, { Polyline, Circle, Line } from "react-native-svg";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 
 import { parseRoutePath, catmullRomSpline } from "../../utils/polyline";
 import { haversineDistance } from "../../utils/geoCalculations";
@@ -396,6 +397,7 @@ export default function ShiftDetailScreen() {
   const { profile, isDemoMode } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
   const C = useColors();
+  const { columnStyle } = useLayout();
 
   // Exit transition optimization for WebView unmount
   const [isNavigatingBack, setIsNavigatingBack] = useState(false);
@@ -779,8 +781,9 @@ export default function ShiftDetailScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      {/* Top Header */}
-      <View className="px-4 py-3 border-b border-line-subtle bg-surface-02 flex-row items-center justify-between">
+      {/* Top Header — sits outside the ScrollView, so it takes the same cap as the
+          content below it. `columnStyle` is undefined on phones. */}
+      <View style={columnStyle} className="px-4 py-3 border-b border-line-subtle bg-surface-02 flex-row items-center justify-between">
         <TouchableOpacity
           onPress={handleBack}
           accessibilityRole="button"
@@ -815,7 +818,7 @@ export default function ShiftDetailScreen() {
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView contentContainerClassName="p-4 pb-16 flex flex-col gap-4" keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={columnStyle} contentContainerClassName="p-4 pb-16 flex flex-col gap-4" keyboardShouldPersistTaps="handled">
         {/* Combined Map & Details Card */}
         <View className="bg-surface-02 border border-line-subtle rounded-xl overflow-hidden">
           {/* Map on the top */}

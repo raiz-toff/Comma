@@ -26,6 +26,7 @@ import { getVehicles } from "../../src/database/queries/vehicles";
 import { getShiftById, getShiftPlatforms, saveShiftWithPlatforms } from "../../src/database/queries/shifts";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 import Svg, { Polyline, Circle, Line } from "react-native-svg";
 
 type GigPlatform = string;
@@ -241,6 +242,7 @@ export default function AddShiftModal() {
 
   const { accentColor, accentColorDim } = usePlatformTheme();
   const C = useColors();
+  const { columnStyle } = useLayout();
 
   // Form State
   const [selectedPlatformsList, setSelectedPlatformsList] = useState<string[]>([]);
@@ -574,8 +576,9 @@ export default function AddShiftModal() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
       >
-        {/* Header Bar */}
-        <View className="flex flex-row items-center px-5 py-4 border-b border-line-subtle bg-surface-02">
+        {/* Header Bar — sits outside the ScrollView, so it takes the same cap as the
+            content below it. `columnStyle` is undefined on phones. */}
+        <View style={columnStyle} className="flex flex-row items-center px-5 py-4 border-b border-line-subtle bg-surface-02">
           <TouchableOpacity
             onPress={() => router.back()}
             accessibilityRole="button"
@@ -591,8 +594,8 @@ export default function AddShiftModal() {
           <View className="min-w-[70px]" />
         </View>
 
-        {/* Progress Bar */}
-        <View className="flex flex-row items-center justify-between px-5 pt-4 pb-2 bg-background">
+        {/* Progress Bar — also outside the ScrollView; same cap so it lines up. */}
+        <View style={columnStyle} className="flex flex-row items-center justify-between px-5 pt-4 pb-2 bg-background">
           <View className="flex flex-row gap-1.5 items-center flex-1">
             {stepsSequence.map((step, i) => (
               <View
@@ -613,6 +616,7 @@ export default function AddShiftModal() {
 
         <ScrollView
           className="flex-1"
+          contentContainerStyle={columnStyle}
           contentContainerClassName="p-4 flex flex-col gap-6 pb-12"
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -1059,8 +1063,9 @@ export default function AddShiftModal() {
           )}
         </ScrollView>
 
-        {/* Navigation Footer */}
-        <View className="flex flex-row justify-between items-center px-5 py-4 border-t border-line-subtle bg-surface-02">
+        {/* Navigation Footer — a fixed toolbar row outside the ScrollView; same cap so its
+            buttons stay with the form instead of hugging the screen edges on a tablet. */}
+        <View style={columnStyle} className="flex flex-row justify-between items-center px-5 py-4 border-t border-line-subtle bg-surface-02">
           <Button
             variant="secondary"
             size="lg"

@@ -7,6 +7,7 @@ import { Text } from "../../src/components/ui/text";
 import { useColors } from "@/src/theme/useColors";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 import { getCountryDef } from "@/src/registry/index";
 
 interface MenuItemProps {
@@ -44,6 +45,7 @@ export default function MoreScreen() {
   const C = useColors();
   const { setHeaderVisible, profile } = useSettingsStore();
   const { accentColor } = usePlatformTheme();
+  const { gridStyle } = useLayout();
   const countryDef = getCountryDef(profile?.country || "CA");
 
   const lastScrollY = useRef(0);
@@ -71,7 +73,7 @@ export default function MoreScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.background }} edges={["bottom", "left", "right"]}>
       <ScrollView
-        contentContainerStyle={{ paddingTop: insets.top + 64, paddingHorizontal: 16, paddingBottom: 48 }}
+        contentContainerStyle={[{ paddingTop: insets.top + 64, paddingHorizontal: 16, paddingBottom: 48 }, gridStyle]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}

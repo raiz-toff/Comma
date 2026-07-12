@@ -28,6 +28,7 @@ import { desc } from "drizzle-orm";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 import Svg, { Circle } from "react-native-svg";
 import { BADGES, type BadgeDefinition } from "@/src/registry/index";
 import { BadgeSvg } from "@/src/registry/badges/BadgeSvgs";
@@ -170,6 +171,8 @@ export default function GoalsScreen() {
     isDemoMode,
   } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
+  // Above the `return null` below — rules of hooks.
+  const { columnStyle, dialogStyle } = useLayout();
 
   const isGoalsEnabled = useFeatureEnabled("goals");
   React.useEffect(() => {
@@ -684,7 +687,7 @@ export default function GoalsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.background }} edges={["bottom", "left", "right"]}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 120, paddingTop: insets.top ? insets.top + 16 : 36 }}>
+      <ScrollView contentContainerStyle={[{ paddingBottom: 120, paddingTop: insets.top ? insets.top + 16 : 36 }, columnStyle]}>
         {/* Header */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingBottom: 16 }}>
           <TouchableOpacity
@@ -735,7 +738,7 @@ export default function GoalsScreen() {
       {/* ── Goal Edit Modal ── */}
       <Modal visible={isAdding} transparent animationType="slide">
         <View style={{ flex: 1, backgroundColor: C.scrim, justifyContent: "flex-end" }}>
-          <View style={{ backgroundColor: C.surface03, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: insets.bottom + 24 }}>
+          <View style={[{ backgroundColor: C.surface03, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: insets.bottom + 24 }, dialogStyle]}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
               <Text variant="headingM">
                 {editingGoal ? "Edit Goal" : "Create Goal"}
@@ -837,7 +840,7 @@ export default function GoalsScreen() {
       <Modal visible={!!selectedBadge} transparent animationType="fade">
         <Pressable style={{ flex: 1, backgroundColor: C.scrim, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 }} onPress={() => setSelectedBadge(null)}>
           <Pressable onPress={(e) => e.stopPropagation()}>
-            <View style={{ backgroundColor: C.surface03, borderRadius: 28, padding: 32, alignItems: "center", gap: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, minWidth: 280 }}>
+            <View style={[{ backgroundColor: C.surface03, borderRadius: 28, padding: 32, alignItems: "center", gap: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, minWidth: 280 }, dialogStyle]}>
               {selectedBadge && (
                 <BadgeSvg
                   id={selectedBadge.id}
@@ -873,7 +876,7 @@ export default function GoalsScreen() {
       {/* ── Shield Tooltip Modal ── */}
       <Modal visible={showShieldTooltip} transparent animationType="fade">
         <Pressable style={{ flex: 1, backgroundColor: C.scrim, justifyContent: "center", alignItems: "center", paddingHorizontal: 32 }} onPress={() => setShowShieldTooltip(false)}>
-          <View style={{ backgroundColor: C.surface03, borderRadius: 20, padding: 24, gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle }}>
+          <View style={[{ backgroundColor: C.surface03, borderRadius: 20, padding: 24, gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle }, dialogStyle]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
               <Shield size={20} color={KPI.hours} />
               <Text variant="headingS">Streak Shields</Text>

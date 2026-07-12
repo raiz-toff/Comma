@@ -22,6 +22,7 @@ import { Text } from "@/src/components/ui/text";
 import { EmptyState } from "@/src/components/ui/EmptyState";
 import { withAlpha } from "@/src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
+import { useLayout } from "@/src/hooks/useLayout";
 import { getPeriodStats, getMonthlyStatsForYear, getNetIncome } from "@/src/database/queries/analytics";
 import { generateShiftsCSV, generateExpensesCSV, generatePDFSummary } from "@/utils/reportGenerator";
 import { useSettingsStore } from "@/store/useSettingsStore";
@@ -116,6 +117,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
   const C = useColors();
   const DS = useThemedStyles(makeDS);
   const styles = useThemedStyles(makeStyles);
+  const { gridStyle, dialogStyle } = useLayout();
   const { profile, isOnboardingCompleted } = useSettingsStore();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
   const isPdfEnabled = useFeatureEnabled("pdf_reports");
@@ -427,8 +429,13 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: DS.BG }}>
-      {/* ── Screen header ── */}
-      <View style={styles.screenHeader}>
+      {/*
+        ── Screen header ──
+        It sits OUTSIDE the ScrollView, so it takes the same cap as the content — otherwise on
+        a tablet the close button and the title are flung to the edges of the screen while the
+        charts they head sit centred. `gridStyle` is undefined below 600pt: no change on a phone.
+      */}
+      <View style={[styles.screenHeader, gridStyle]}>
         <TouchableOpacity
           onPress={() => onClose ? onClose() : router.back()}
           accessibilityRole="button"
@@ -441,7 +448,8 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
         <View style={{ width: 44 }} />
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top > 0 ? 0 : 8 }]} showsVerticalScrollIndicator={false}>
+      {/* The page scroller. The two ScrollViews inside the period modal below are NOT this. */}
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top > 0 ? 0 : 8 }, gridStyle]} showsVerticalScrollIndicator={false}>
 
         {/* ── Period Navigation ── */}
         <View style={styles.periodNav}>
@@ -682,9 +690,17 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
           transparent={false}
           onRequestClose={() => setIsModalOpen(false)}
         >
+          {/*
+            `modalRoot` stays full-bleed and the content inside it is what gets capped.
+            It is this modal's opaque page surface, not a card floating on a backdrop — and
+            because the Modal is `transparent={false}`, React Native paints the container
+            behind it hardcoded `white`. Cap the root and that white shows through as two bars
+            down the sides of a dark-themed tablet. So: backdrop full-bleed, content capped —
+            the same split as a dialog, just with the surface painted by us instead of RN.
+          */}
           <SafeAreaView style={styles.modalRoot} edges={["top", "bottom", "left", "right"]}>
             {/* Modal header */}
-            <View style={styles.modalHeader}>
+            <View style={[styles.modalHeader, dialogStyle]}>
               <Text variant="headingM">Select Period</Text>
               <Pressable
                 onPress={() => setIsModalOpen(false)}
@@ -696,10 +712,16 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
               </Pressable>
             </View>
 
-            {/* Quick preset chips */}
+            {/* Quick preset chips. The cap goes on the scroller's OWN style, never on its
+                contentContainerStyle: a maxWidth on a horizontally scrolling content container
+                squashes the very row it is meant to scroll. Capping the viewport instead lines
+                the chips up with the rest of the dialog — otherwise they sit alone at the far
+                left of a tablet while everything above and below them is centred — and leaves
+                the row free to scroll inside it. */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
+              style={dialogStyle}
               contentContainerStyle={styles.presetRow}
             >
               {QUICK_PRESETS.map((p) => {
@@ -725,13 +747,13 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
             </ScrollView>
 
             {/* Table sub-header */}
-            <View style={styles.tableHeader}>
+            <View style={[styles.tableHeader, dialogStyle]}>
               <Text variant="labelXs" style={styles.tableHeaderLeft}>Month</Text>
               <Text variant="labelXs" style={styles.tableHeaderRight}>Gross Revenue</Text>
             </View>
 
-            {/* Month list + custom range */}
-            <ScrollView contentContainerStyle={styles.modalScroll} showsVerticalScrollIndicator={false}>
+            {/* Month list + custom range — the modal's own scroller, not the page scroller. */}
+            <ScrollView contentContainerStyle={[styles.modalScroll, dialogStyle]} showsVerticalScrollIndicator={false}>
               {modalMonthsList.map((m, idx) => {
                 const isActive =
                   periodMode === "month" &&
@@ -893,7 +915,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
             )}
 
             {/* Modal footer: year navigation */}
-            <View style={styles.modalFooter}>
+            <View style={[styles.modalFooter, dialogStyle]}>
               <Pressable
                 onPress={() => setSelectorYear((y) => y - 1)}
                 accessibilityRole="button"

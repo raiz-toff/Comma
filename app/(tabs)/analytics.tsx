@@ -7,6 +7,8 @@ import {
   Pressable,
   Modal,
   StyleSheet,
+  type StyleProp,
+  type ViewStyle,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
@@ -31,6 +33,7 @@ import {
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
+import { useLayout } from "@/src/hooks/useLayout";
 import { router } from "expo-router";
 
 // Composite widgets (consolidated from 21 single-purpose widgets down to 6
@@ -211,10 +214,12 @@ function SwitchableStatCard({ label, activeValue, onlineValue, activeSubtitle, o
   );
 }
 
-function WidgetCard({ id, children }: { id: string; children: React.ReactNode }) {
+function WidgetCard({ id, children, style }: { id: string; children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
   const { SURFACE, BORDER } = useThemedStyles(makeDS);
   return (
-    <View style={{ backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER, borderRadius: 16, overflow: "hidden", marginBottom: 12 }}>
+    // `style` carries the two-up width on a wide tablet. It is undefined below
+    // 900pt, so the array flattens to exactly the object that rendered before.
+    <View style={[{ backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER, borderRadius: 16, overflow: "hidden", marginBottom: 12 }, style]}>
       <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: BORDER }}>
         <Text variant="labelM">{WIDGET_META[id]?.label ?? id}</Text>
       </View>
@@ -227,6 +232,9 @@ function WidgetCard({ id, children }: { id: string; children: React.ReactNode })
 export default function AnalyticsScreen() {
   const C = useColors();
   const { BG, SURFACE, BORDER, TEXT_MUTED, TEXT_DIM } = useThemedStyles(makeDS);
+  // Above the `if (!isAnalyticsEnabled) return null` below — hook order must not
+  // depend on the feature flag.
+  const { gridStyle, twoUpRow, twoUpItem } = useLayout();
   const insets = useSafeAreaInsets();
   const { profile, isOnboardingCompleted, activePlatformFilter, setHeaderVisible, streakDays, bestStreak } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
@@ -466,7 +474,7 @@ export default function AnalyticsScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={["bottom", "left", "right"]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 24, paddingTop: insets.top + 64 }}
+        contentContainerStyle={[{ paddingBottom: 24, paddingTop: insets.top + 64 }, gridStyle]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
@@ -518,22 +526,33 @@ export default function AnalyticsScreen() {
           </View>
         ) : (
           <View style={{ paddingHorizontal: 16 }}>
+            {/*
+              On a wide tablet the widgets go two-up. A 500pt card beside another
+              beats one 1000pt-wide card with a sparkline stretched across it —
+              which is the whole reason this screen needed the extra width rather
+              than just a centred column. Below 900pt `twoUpRow`/`twoUpItem` are
+              undefined and the cards stack exactly as they always have.
+            */}
             {activeCategory === "stats" ? (
               <>
                 {renderStatCards()}
-                <View style={{ marginTop: 12 }}>
+                <View style={[{ marginTop: 12 }, twoUpRow]}>
                   {activeWidgets.map((id) => (
-                    <WidgetCard key={id} id={id}>
+                    <WidgetCard key={id} id={id} style={twoUpItem}>
                       {renderWidgetContent(id)}
                     </WidgetCard>
                   ))}
                 </View>
               </>
-            ) : activeWidgets.map((id) => (
-              <WidgetCard key={id} id={id}>
-                {renderWidgetContent(id)}
-              </WidgetCard>
-            ))}
+            ) : (
+              <View style={twoUpRow}>
+                {activeWidgets.map((id) => (
+                  <WidgetCard key={id} id={id} style={twoUpItem}>
+                    {renderWidgetContent(id)}
+                  </WidgetCard>
+                ))}
+              </View>
+            )}
           </View>
         )}
       </ScrollView>

@@ -17,6 +17,7 @@ import {
 } from "lucide-react-native";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 import { withAlpha } from "@/src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { EmptyState } from "@/src/components/ui/EmptyState";
@@ -170,6 +171,7 @@ export default function NotificationsScreen() {
   const styles = useThemedStyles(makeStyles);
   const { accentColor } = usePlatformTheme();
   const insets = useSafeAreaInsets();
+  const { columnStyle } = useLayout();
   const {
     notifications,
     markAllNotificationsRead,
@@ -188,8 +190,9 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.background }} edges={["bottom", "left", "right"]}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top ? insets.top + 12 : 24 }]}>
+      {/* Header — sits outside the list, so it takes the same cap as the content
+          below it. `columnStyle` is undefined on phones. */}
+      <View style={[styles.header, { paddingTop: insets.top ? insets.top + 12 : 24 }, columnStyle]}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back" onPress={() => router.back()} style={styles.iconBtn}>
           <ArrowLeft size={22} color={C.contentPrimary} />
         </TouchableOpacity>
@@ -197,9 +200,9 @@ export default function NotificationsScreen() {
         <View style={{ width: 44 }} />
       </View>
 
-      {/* Action bar */}
+      {/* Action bar — also outside the list; same cap so it lines up. */}
       {hasItems && (
-        <View style={styles.actionBar}>
+        <View style={[styles.actionBar, columnStyle]}>
           <View
             style={[
               styles.pill,
@@ -241,7 +244,7 @@ export default function NotificationsScreen() {
       <SectionList<NotificationItem, NotificationSection>
         sections={sections}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+        contentContainerStyle={[{ paddingHorizontal: 16, paddingBottom: 100 }, columnStyle]}
         showsVerticalScrollIndicator={false}
         stickySectionHeadersEnabled={false}
         renderSectionHeader={({ section }) => (

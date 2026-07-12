@@ -31,6 +31,7 @@ import { useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { getVehicles, insertVehicle } from "@/src/database/queries/vehicles";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
 
@@ -86,6 +87,7 @@ export default function VehiclesScreen() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { isOnboardingCompleted } = useSettingsStore();
+  const { columnStyle } = useLayout();
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [name, setName] = useState("");
@@ -165,8 +167,9 @@ export default function VehiclesScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={["bottom", "left", "right"]}>
-      {/* Top Header */}
-      <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+      {/* Top Header — sits outside the ScrollView, so it takes the same cap as the
+          content below it. `columnStyle` is undefined on phones. */}
+      <View style={[s.header, { paddingTop: insets.top + 10 }, columnStyle]}>
         <View style={s.headerLeft}>
           <TouchableOpacity
             onPress={() => router.back()}
@@ -199,7 +202,7 @@ export default function VehiclesScreen() {
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+        <ScrollView contentContainerStyle={[s.scroll, columnStyle]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           {/* Add Vehicle Form */}
           {showAddForm && (
             <View style={s.card}>

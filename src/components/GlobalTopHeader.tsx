@@ -10,6 +10,7 @@ import {
 import { Text } from "@/src/components/ui/text";
 import { withAlpha } from "@/src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
+import { useLayout } from "@/src/hooks/useLayout";
 import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
@@ -50,6 +51,7 @@ interface GlobalTopHeaderProps {
 
 export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: GlobalTopHeaderProps) {
   const C = useColors();
+  const { gridStyle } = useLayout();
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -302,8 +304,14 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
         </Reanimated.View>
       )}
 
-      {/* ── Main header row ── */}
-      <View style={styles.headerRow} pointerEvents={isTaxTab ? "box-none" : "auto"}>
+      {/*
+        ── Main header row ──
+        The bar itself stays full-bleed, but its contents are capped to the same
+        width the tab screens use — otherwise on a tablet the menu button and the
+        avatar end up a foot apart with nothing between them, and neither lines up
+        with the content below. `gridStyle` is undefined on phones.
+      */}
+      <View style={[styles.headerRow, gridStyle]} pointerEvents={isTaxTab ? "box-none" : "auto"}>
         {/* Hamburger Menu Button (Pill 1) */}
         <Pressable
           style={styles.hamburgerBtn}

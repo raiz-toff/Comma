@@ -31,6 +31,7 @@ import {
   type ExpenseCategory,
 } from "@/src/registry/expenseCategories";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 import { withAlpha } from "@/src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 
@@ -216,6 +217,7 @@ export default function ExpensesScreen() {
   const { accentColor, accentColorContrast } = usePlatformTheme();
   const C = useColors();
   const styles = useThemedStyles(makeStyles);
+  const { gridStyle, dialogStyle } = useLayout();
 
   const lastScrollY = useRef(0);
   const handleScroll = (event: any) => {
@@ -426,7 +428,7 @@ export default function ExpensesScreen() {
         renderItem={renderExpenseItem}
         ItemSeparatorComponent={ItemSeparator}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100, paddingTop: insets.top + 64 }}
+        contentContainerStyle={[{ paddingBottom: 100, paddingTop: insets.top + 64 }, gridStyle]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         ListHeaderComponent={
@@ -647,19 +649,25 @@ export default function ExpensesScreen() {
       {/* ── Month Selector Modal ── */}
       <Modal visible={isMonthSelectorOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setIsMonthSelectorOpen(false)}>
         <View style={styles.modalRoot}>
-          <View style={[styles.modalHeader, { paddingTop: Platform.OS === 'ios' ? 16 : insets.top + 16 }]}>
+          {/*
+            A full-screen modal, so the surface itself stays full-bleed and each row
+            inside takes the same `dialogStyle` cap — header, month list and footer end
+            up in one centred column on a tablet instead of drifting apart. Undefined
+            on a phone, so nothing here moves below 600pt.
+          */}
+          <View style={[styles.modalHeader, { paddingTop: Platform.OS === 'ios' ? 16 : insets.top + 16 }, dialogStyle]}>
             <Text variant="headingM">{selectorYear} Expenses</Text>
             <Pressable onPress={() => setIsMonthSelectorOpen(false)} accessibilityRole="button">
               <Text variant="labelM" style={{ color: accentColor }}>Done</Text>
             </Pressable>
           </View>
 
-          <View style={styles.tableHeader}>
+          <View style={[styles.tableHeader, dialogStyle]}>
             <Text variant="labelXs" className="text-content-secondary">MONTH</Text>
             <Text variant="labelXs" tabular className="text-content-secondary">YTD DEDUCTIBLE: {formatCurrency(ytdSummary?.deductible ?? 0, country)}</Text>
           </View>
 
-          <ScrollView contentContainerStyle={styles.modalScroll}>
+          <ScrollView contentContainerStyle={[styles.modalScroll, dialogStyle]}>
             {modalMonthsList.map((m, idx) => {
               const isSelectedMonth = selectedMonth.getFullYear() === m.date.getFullYear() && selectedMonth.getMonth() === m.date.getMonth();
               return (
@@ -709,7 +717,7 @@ export default function ExpensesScreen() {
             })}
           </ScrollView>
 
-          <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, 16) }, dialogStyle]}>
             <Pressable onPress={() => setSelectorYear(y => y - 1)} accessibilityRole="button" style={styles.pageBtn}>
               <Text variant="labelM">Previous Year</Text>
             </Pressable>

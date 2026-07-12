@@ -16,6 +16,7 @@ import { Car, Bike, Zap, ChevronLeft } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
 import { withAlpha } from "@/src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
+import { useLayout } from "@/src/hooks/useLayout";
 import { getVehicles, updateVehicle } from "@/src/database/queries/vehicles";
 import { upsertTaxProfile } from "@/src/database/queries/taxProfiles";
 import { getVehicleMileageEligibility } from "@/src/registry/countries/mileageRates";
@@ -46,6 +47,7 @@ const VEHICLE_TYPES = [
 export default function SetupVehicleScreen() {
   const C = useColors();
   const s = useThemedStyles(makeStyles);
+  const { columnStyle } = useLayout();
   const { profile } = useSettingsStore();
   const queryClient = useQueryClient();
   const country = profile?.country ?? "CA";
@@ -131,7 +133,13 @@ export default function SetupVehicleScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View style={s.header}>
+        {/*
+          The back button and the CTA footer are siblings of the ScrollView, not children of
+          it, so they need the same cap as the form — otherwise on a tablet they run the full
+          width of the screen while the form they belong to sits in a centred 640pt column.
+          `columnStyle` is undefined below 600pt, so none of this changes a phone.
+        */}
+        <View style={[s.header, columnStyle]}>
           <Pressable onPress={() => router.back()} accessibilityRole="button" hitSlop={10}>
             <ChevronLeft size={24} color={C.contentPrimary} />
           </Pressable>
@@ -141,7 +149,7 @@ export default function SetupVehicleScreen() {
           <ActivityIndicator size="large" color={C.contentPrimary} style={{ marginTop: 60 }} />
         ) : (
           <ScrollView
-            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
+            contentContainerStyle={[{ paddingHorizontal: 24, paddingBottom: 24 }, columnStyle]}
             keyboardShouldPersistTaps="handled"
           >
             <View style={{ gap: 6, marginBottom: 24 }}>
@@ -233,7 +241,7 @@ export default function SetupVehicleScreen() {
           </ScrollView>
         )}
 
-        <View style={s.footer}>
+        <View style={[s.footer, columnStyle]}>
           <Pressable
             onPress={handleSave}
             disabled={saving || loading}

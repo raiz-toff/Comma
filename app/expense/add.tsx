@@ -30,6 +30,7 @@ import { getExpenseCategories, getCategoryMeta, getCategoryDefaultPct, type Expe
 import { ExpenseCategoryIcon } from "@/src/components/ui/ExpenseCategoryIcon";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 import { withAlpha } from "@/src/theme/colors";
 import { useColors } from "@/src/theme/useColors";
 import { cn } from "@/src/lib/utils";
@@ -52,6 +53,7 @@ export default function AddExpenseModal() {
   // ── Theme State ──────────────────────────────────────────────────────────
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
   const C = useColors();
+  const { columnStyle, dialogStyle } = useLayout();
 
   // ── Form State ───────────────────────────────────────────────────────────
   const { profile, loadSettings, isDemoMode } = useSettingsStore();
@@ -409,7 +411,9 @@ export default function AddExpenseModal() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <Stack.Screen options={{ presentation: "fullScreenModal", headerShown: false }} />
-      <View className="flex flex-row items-center px-5 py-4 border-b border-line-subtle bg-surface-02">
+      {/* Header — sits outside the ScrollView, so it takes the same cap as the
+          content below it. `columnStyle` is undefined on phones. */}
+      <View style={columnStyle} className="flex flex-row items-center px-5 py-4 border-b border-line-subtle bg-surface-02">
         <TouchableOpacity
           onPress={() => {
             if (step > 1) {
@@ -432,7 +436,8 @@ export default function AddExpenseModal() {
       </View>
 
       {/* ── Step Indicator ────────────────────────────────────────────── */}
-      <View className="px-4 py-3 bg-surface-02 border-b border-line-subtle flex-row items-center justify-between">
+      {/* Also outside the ScrollView; same cap so it lines up with the form. */}
+      <View style={columnStyle} className="px-4 py-3 bg-surface-02 border-b border-line-subtle flex-row items-center justify-between">
         <View className="flex-row gap-1.5 items-center">
           {[1, 2, 3, 4].map((s) => (
             <View
@@ -460,7 +465,7 @@ export default function AddExpenseModal() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="p-4 pb-16 flex flex-col gap-5">
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={columnStyle} contentContainerClassName="p-4 pb-16 flex flex-col gap-5">
         {/* Error */}
         {errorMessage ? (
           <View className="bg-destructive/10 border border-destructive/20 p-4 rounded-md">
@@ -1106,7 +1111,9 @@ export default function AddExpenseModal() {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={{ flex: 1, backgroundColor: C.scrim, justifyContent: "flex-end", alignItems: "center" }}
         >
-          <View className="w-full max-w-md bg-surface-03 border-t border-x border-line-subtle rounded-t-xl p-6 pb-12 flex flex-col gap-5">
+          {/* Dialog card — capped and centred; the dimmed backdrop above stays full-bleed.
+              `dialogStyle` is undefined on phones. */}
+          <View style={dialogStyle} className="w-full max-w-md bg-surface-03 border-t border-x border-line-subtle rounded-t-xl p-6 pb-12 flex flex-col gap-5">
             <View>
               <Text variant="headingM">Create Custom Category</Text>
               <Text variant="paragraphS" className="text-content-muted mt-1">Add a personalized category (up to 3 total).</Text>

@@ -33,6 +33,7 @@ import {
 } from "lucide-react-native";
 
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useGoogleDriveSync } from "@/hooks/useGoogleDriveSync";
 import { useSyncNow } from "@/hooks/useSyncNow";
@@ -241,6 +242,7 @@ export default function SyncScreen() {
   const C = useColors();
   const DS = useThemedStyles(makeDS);
   const s = useThemedStyles(makeStyles);
+  const { columnStyle } = useLayout();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
@@ -515,8 +517,8 @@ export default function SyncScreen() {
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={s.safe} edges={["bottom", "left", "right"]}>
-      {/* Header */}
-      <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+      {/* Header — outside the ScrollView, so it takes the same cap as the content. */}
+      <View style={[s.header, { paddingTop: insets.top + 10 }, columnStyle]}>
         <TouchableOpacity
           onPress={() => router.back()}
           accessibilityRole="button"
@@ -534,7 +536,7 @@ export default function SyncScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[s.scroll, columnStyle]} showsVerticalScrollIndicator={false}>
 
         {/* ── Connection status card ── */}
         {!isAuthenticated ? (

@@ -16,6 +16,7 @@ import { ArrowLeft, Calculator, Clock, Download } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
 import { withAlpha } from "@/src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
+import { useLayout } from "@/src/hooks/useLayout";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { notifyExport } from "@/src/services/notify";
@@ -253,6 +254,9 @@ export default function TaxCenterScreen() {
   const queryClient = useQueryClient();
   const C = useColors();
   const S = useThemedStyles(makeStyles);
+  // Above the `isLoading` and `hasSelfAssessmentTax` early returns below — a hook
+  // called after them would not run on every render.
+  const { columnStyle } = useLayout();
   const { profile } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
@@ -519,8 +523,13 @@ export default function TaxCenterScreen() {
 
   return (
     <SafeAreaView style={S.root}>
-      {/* Header */}
-      <View style={S.header}>
+      {/*
+        Header. It sits OUTSIDE the ScrollView, so it takes the same cap as the content —
+        otherwise on a tablet the back button and the year picker are pushed to opposite
+        edges of the screen while the cards they head sit centred between them.
+        `columnStyle` is undefined below 600pt, so this changes nothing on a phone.
+      */}
+      <View style={[S.header, columnStyle]}>
         <Pressable
           onPress={() => router.back()}
           accessibilityRole="button"
@@ -567,7 +576,7 @@ export default function TaxCenterScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={S.scroll}
+        contentContainerStyle={[S.scroll, columnStyle]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Virtual Tax Jar ── */}

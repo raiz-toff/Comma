@@ -47,6 +47,16 @@ const COLUMN: ViewStyle = { width: "100%", maxWidth: COLUMN_MAX_WIDTH, alignSelf
 const GRID: ViewStyle = { width: "100%", maxWidth: GRID_MAX_WIDTH, alignSelf: "center" };
 const DIALOG: ViewStyle = { width: "100%", maxWidth: DIALOG_MAX_WIDTH, alignSelf: "center" };
 
+/**
+ * Two-up card grid. `space-between` rather than a gap so the two columns pin to
+ * the container's edges and the slack falls between them — which keeps the cards
+ * flush with the rest of the page's content, gap maths notwithstanding.
+ *
+ * Cards keep their own marginBottom, so the row rhythm needs nothing from here.
+ */
+const TWO_UP_ROW: ViewStyle = { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" };
+const TWO_UP_ITEM: ViewStyle = { width: "49%" };
+
 export interface Layout {
   /** Current window width in pt. Reactive. */
   width: number;
@@ -60,6 +70,13 @@ export interface Layout {
   dialogStyle: ViewStyle | undefined;
   /** How many cards fit side by side inside `gridStyle`. 1 on phone. */
   columns: 1 | 2;
+  /**
+   * Put on the container of a list of cards to lay them out two-up.
+   * undefined below 900pt, where they stack as they always have.
+   */
+  twoUpRow: ViewStyle | undefined;
+  /** Put on each card in a `twoUpRow`. undefined below 900pt. */
+  twoUpItem: ViewStyle | undefined;
 }
 
 export function useLayout(): Layout {
@@ -67,13 +84,16 @@ export function useLayout(): Layout {
 
   return useMemo(() => {
     const isTablet = width >= TABLET_MIN_WIDTH;
+    const twoUp = width >= TWO_COLUMN_MIN_WIDTH;
     return {
       width,
       isTablet,
       columnStyle: isTablet ? COLUMN : undefined,
       gridStyle: isTablet ? GRID : undefined,
       dialogStyle: isTablet ? DIALOG : undefined,
-      columns: width >= TWO_COLUMN_MIN_WIDTH ? 2 : 1,
+      columns: twoUp ? 2 : 1,
+      twoUpRow: twoUp ? TWO_UP_ROW : undefined,
+      twoUpItem: twoUp ? TWO_UP_ITEM : undefined,
     };
   }, [width]);
 }

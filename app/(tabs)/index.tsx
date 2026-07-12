@@ -10,7 +10,7 @@ import {
   AppState,
   Modal,
   TextInput,
-  Dimensions,
+  useWindowDimensions,
   KeyboardAvoidingView,
   Animated as RNAnimated,
 } from "react-native";
@@ -46,6 +46,7 @@ import { PlatformBadge } from "../../src/components/ui/PlatformBadge";
 import { AppBottomSheet, type AppBottomSheetRef } from "../../src/components/ui/AppBottomSheet";
 import { CelebrationSheet, type CelebrationSheetRef } from "../../src/components/celebration/CelebrationSheet";
 import { useBackupStatus } from "../../hooks/useBackupStatus";
+import { useLayout } from "../../src/hooks/useLayout";
 import { useDeviceLocationSetup } from "../../hooks/useDeviceLocationSetup";
 import Svg, { Path, Circle, Defs, LinearGradient, Stop, Polyline, Line } from "react-native-svg";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
@@ -60,7 +61,17 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+/*
+ * NOTE: the window height is NOT read here.
+ *
+ * `Dimensions.get("window")` at module scope is evaluated once, at import, and
+ * then never again — so the height the clock overlay slides out to was fixed at
+ * whatever the window happened to be when the bundle loaded. Rotate the device,
+ * unfold a foldable, or drag an Android split-screen divider, and the sheet's
+ * off-screen position is stale: it either stops short and leaves a strip of
+ * itself on screen, or overshoots. HomeScreen reads it from
+ * useWindowDimensions() instead, which is reactive.
+ */
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -623,6 +634,10 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const C = useColors();
   const S = useThemedStyles(makeS);
+  const { gridStyle } = useLayout();
+  // Reactive, unlike the module-scope Dimensions.get() this replaced — see the
+  // note at the top of the file. Rotation and foldables change this at runtime.
+  const { height: screenHeight } = useWindowDimensions();
 
   // A restored vault marks onboarding complete, so the wizard — the only thing
   // that asks for location — never runs on a new phone. An OS grant cannot be
@@ -715,22 +730,25 @@ export default function HomeScreen() {
   const [deadMilesAtFirstOrder, setDeadMilesAtFirstOrder] = useState(0);
   const heroTabAnim = useRef(new RNAnimated.Value(34)).current; // 34 = W position (30px tab + 4px gap)
 
-  const sheetTranslateY = useSharedValue(SCREEN_HEIGHT);
-  
+  const sheetTranslateY = useSharedValue(screenHeight);
+
   useEffect(() => {
     if (!isActive) setDeadMilesAtFirstOrder(0);
   }, [isActive]);
 
   useEffect(() => {
     // Instant show/hide — no slow slide animation.
-    sheetTranslateY.value = showClockOverlay ? 0 : SCREEN_HEIGHT;
+    sheetTranslateY.value = showClockOverlay ? 0 : screenHeight;
     // Hide the global top header when the fullscreen shift console/tracking page is open
     if (showClockOverlay) {
       setHeaderVisible(false);
     } else {
       setHeaderVisible(true);
     }
-  }, [showClockOverlay]);
+    // screenHeight is a dependency now that it is reactive: if the window resizes
+    // while the overlay is closed, the sheet must be re-parked off the NEW bottom
+    // edge, or a strip of it reappears on screen.
+  }, [showClockOverlay, screenHeight]);
 
   // If the user tapped the floating shift pill, open the live console (not just land on home)
   // when the app comes to the foreground.
@@ -1070,7 +1088,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={S.root} edges={["top", "left", "right", "bottom"]}>
       <ScrollView
-        contentContainerStyle={[S.scroll, { paddingBottom: 24 }]}
+        contentContainerStyle={[S.scroll, { paddingBottom: 24 }, gridStyle]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}

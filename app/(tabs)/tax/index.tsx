@@ -21,6 +21,7 @@ import { withAlpha } from "@/src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
 import {
   getCountryDef,
@@ -75,6 +76,8 @@ export default function TaxScreen() {
   const { profile, isOnboardingCompleted, setHeaderVisible, updateProfile } =
     useSettingsStore();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
+  // Called here, with the other hooks, because this screen early-returns twice below.
+  const { gridStyle, dialogStyle } = useLayout();
 
   const isTaxEnabled = useFeatureEnabled("tax_workspace");
 
@@ -312,7 +315,7 @@ export default function TaxScreen() {
   if (countryDef.hasSelfAssessmentTax === false) {
     return (
       <SafeAreaView style={S.root} edges={["left", "right"]}>
-        <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8, paddingLeft: 70, height: Math.max(insets.top, 8) + 64 }]}>
+        <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8, paddingLeft: 70, height: Math.max(insets.top, 8) + 64 }, gridStyle]}>
           <Text variant="headingM">Tax · {currentYear}</Text>
         </View>
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20, backgroundColor: C.background }}>
@@ -332,8 +335,11 @@ export default function TaxScreen() {
 
   return (
     <SafeAreaView style={S.root} edges={["left", "right"]}>
-      {/* ── Header — sits in-line with the hamburger row ── */}
-      <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8, paddingLeft: 70, height: Math.max(insets.top, 8) + 64 }]}>
+      {/* ── Header — sits in-line with the hamburger row ──
+           It is a sibling of the ScrollView, not inside it, so it takes the same
+           `gridStyle` cap as the content — otherwise on a tablet the gear button
+           hugs the screen edge while the cards it belongs to sit centred. */}
+      <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8, paddingLeft: 70, height: Math.max(insets.top, 8) + 64 }, gridStyle]}>
         <View style={{ flex: 1 }}>
           <Text variant="headingM">Tax · {currentYear}</Text>
           <Text variant="paragraphS" style={S.headerSub}>{regionLabel} · {profile?.taxWithholdingPct || 0}% saved for taxes</Text>
@@ -355,7 +361,7 @@ export default function TaxScreen() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={[S.scroll, { paddingBottom: 110 + insets.bottom }]}
+          contentContainerStyle={[S.scroll, { paddingBottom: 110 + insets.bottom }, gridStyle]}
           showsVerticalScrollIndicator={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}
@@ -483,8 +489,9 @@ export default function TaxScreen() {
       {/* ── Settings Bottom Sheet ── */}
       <Modal visible={isSettingsOpen} transparent animationType="slide">
         <Pressable style={S.sheetOverlay} onPress={() => setIsSettingsOpen(false)}>
+          {/* The scrim behind stays full-bleed; only the sheet itself is capped. */}
           <Pressable
-            style={[S.sheet, { paddingBottom: insets.bottom + 20 }]}
+            style={[S.sheet, { paddingBottom: insets.bottom + 20 }, dialogStyle]}
             onPress={(e) => e.stopPropagation()}
           >
             <View style={S.sheetHandle} />

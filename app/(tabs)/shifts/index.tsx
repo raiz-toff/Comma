@@ -17,6 +17,7 @@ import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors"
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { parseRoutePath } from "@/utils/polyline";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 import { getShiftsPaginated } from "@/src/database/queries/shifts";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 import Svg, { Path, Polyline, Circle, Line, Rect } from "react-native-svg";
@@ -292,6 +293,7 @@ export default function ShiftsScreen() {
   const styles = useThemedStyles(makeStyles);
   const { activePlatformFilter, profile, setHeaderVisible } = useSettingsStore();
   const { platformColor, accentColor } = usePlatformTheme();
+  const { gridStyle, dialogStyle } = useLayout();
 
   // Selected week tracker
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -596,7 +598,7 @@ export default function ShiftsScreen() {
           />
         )}
         ItemSeparatorComponent={ShiftSeparator}
-        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 64 }]}
+        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 64 }, gridStyle]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -765,7 +767,13 @@ export default function ShiftsScreen() {
         onRequestClose={() => setIsWeekSelectorOpen(false)}
       >
         <SafeAreaView style={styles.modalRoot} edges={["top", "bottom", "left", "right"]}>
-          <View style={styles.modalHeader}>
+          {/*
+            This modal is full-screen (transparent={false}), so its surface — not a
+            dimmed backdrop — is what stays full-bleed. Each row inside it takes the
+            same `dialogStyle` cap so the header, the week list and the footer line up
+            in one centred column on a tablet. All of them are undefined on a phone.
+          */}
+          <View style={[styles.modalHeader, dialogStyle]}>
             <Text variant="headingM" tabular>Select week ({selectorYear})</Text>
             <Pressable
               onPress={() => setIsWeekSelectorOpen(false)}
@@ -777,7 +785,7 @@ export default function ShiftsScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.tableHeader}>
+          <View style={[styles.tableHeader, dialogStyle]}>
             <Text variant="labelXs" className="text-content-secondary">Weekly Earnings</Text>
             <Text variant="labelXs" className="text-content-secondary">{weekdayHeaderLetters}</Text>
           </View>
@@ -788,7 +796,7 @@ export default function ShiftsScreen() {
               <Text variant="labelM" className="text-content-secondary" style={{ marginTop: 12 }}>Loading earnings data...</Text>
             </View>
           ) : (
-            <ScrollView contentContainerStyle={styles.modalScroll} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={[styles.modalScroll, dialogStyle]} showsVerticalScrollIndicator={false}>
               {visibleWeeks.map((week, idx) => {
                 const isSelected = getStartOfWeek(selectedDate, startDay).getTime() === week.start.getTime();
                 const formattedRange = `${week.start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${week.end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
@@ -839,7 +847,7 @@ export default function ShiftsScreen() {
           )}
 
           {/* Modal Footer with Pagination Controls */}
-          <View style={styles.modalFooter}>
+          <View style={[styles.modalFooter, dialogStyle]}>
             <Pressable
               onPress={handleModalNextPage}
               accessibilityRole="button"

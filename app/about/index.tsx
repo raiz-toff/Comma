@@ -20,6 +20,7 @@ import { Image } from "expo-image";
 import { ChevronLeft, ChevronRight, Heart, Share2, Terminal, Globe, Coffee, BookOpen } from "lucide-react-native";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
+import { useLayout } from "@/src/hooks/useLayout";
 import { notify } from "@/src/services/notify";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 
@@ -44,6 +45,7 @@ const isWeb = Platform.OS === "web";
 export default function AboutScreen() {
   const { accentColor } = usePlatformTheme();
   const DS = useThemedStyles(makeDS);
+  const { columnStyle } = useLayout();
   const s = useThemedStyles(makeStyles);
   const [isExporting, setIsExporting] = useState(false);
   const [debugTapCount, setDebugTapCount] = useState(0);
@@ -106,8 +108,13 @@ export default function AboutScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={["bottom", "left", "right"]}>
-      {/* Header */}
-      <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+      {/*
+        Header. It sits OUTSIDE the ScrollView, so it needs the same cap as the
+        content — otherwise on a tablet the back button hugs the screen edge while
+        the content it belongs to sits centred a couple of hundred points away.
+        `columnStyle` is undefined below 600pt, so this changes nothing on a phone.
+      */}
+      <View style={[s.header, { paddingTop: insets.top + 10 }, columnStyle]}>
         <TouchableOpacity
           onPress={() => router.back()}
           accessibilityRole="button"
@@ -120,7 +127,7 @@ export default function AboutScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={s.scrollContent}
+        contentContainerStyle={[s.scrollContent, columnStyle]}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero */}

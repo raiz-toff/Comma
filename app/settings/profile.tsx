@@ -11,6 +11,7 @@ import { useSettingsStore, type DriverProfile } from "@/store/useSettingsStore";
 import { getCountryDef, getRegionsByCountry, listCaProvinceCodes, listUsStateCodes } from "@/src/registry/index";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
+import { useLayout } from "@/src/hooks/useLayout";
 
 const COUNTRIES = [
   { id: "CA", label: "🇨🇦 Canada" },
@@ -38,6 +39,7 @@ export default function ProfileEditScreen() {
   const s = useThemedStyles(makeStyles);
   const { profile, updateProfile } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
+  const { columnStyle } = useLayout();
 
   const [name, setName] = useState(profile?.displayName ?? "");
   const [country, setCountry] = useState<CountryId>((profile?.country as CountryId) ?? "CA");
@@ -90,8 +92,8 @@ export default function ProfileEditScreen() {
 
   return (
     <SafeAreaView style={s.safe}>
-      {/* Header */}
-      <View style={s.header}>
+      {/* Header — outside the ScrollView, so it takes the same cap as the content. */}
+      <View style={[s.header, columnStyle]}>
         <Pressable
           onPress={() => router.back()}
           accessibilityRole="button"
@@ -118,7 +120,7 @@ export default function ProfileEditScreen() {
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[s.scroll, columnStyle]} keyboardShouldPersistTaps="handled">
 
         {/* Name */}
         <SectionLabel text="Display Name" />

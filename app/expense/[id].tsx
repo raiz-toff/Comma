@@ -21,6 +21,7 @@ import { getCategoryMeta } from "@/src/registry/expenseCategories";
 import { ExpenseCategoryIcon } from "@/src/components/ui/ExpenseCategoryIcon";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 import { withAlpha } from "@/src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 
@@ -53,6 +54,7 @@ export default function ExpenseDetailScreen() {
   const { accentColor, accentColorContrast } = usePlatformTheme();
   const C = useColors();
   const s = useThemedStyles(makeStyles);
+  const { columnStyle } = useLayout();
 
   const GREEN = C.success;
   const RED   = C.destructive;
@@ -151,7 +153,9 @@ export default function ExpenseDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <View style={s.header}>
+      {/* Sits outside the ScrollView, so it takes the same cap as the content
+          below it. `columnStyle` is undefined on phones. */}
+      <View style={[s.header, columnStyle]}>
         <TouchableOpacity
           onPress={() => router.back()}
           hitSlop={12}
@@ -175,7 +179,7 @@ export default function ExpenseDetailScreen() {
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={s.scroll}
+        contentContainerStyle={[s.scroll, columnStyle]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Amount + Category block ─────────────────────────────────── */}

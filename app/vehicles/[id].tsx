@@ -37,6 +37,7 @@ import { getMaintenanceLogs, insertMaintenanceLog, deleteMaintenanceLog } from "
 import { getTaxProfilesForVehicle, upsertTaxProfile, deleteTaxProfile } from "@/src/database/queries/taxProfiles";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
 
@@ -175,6 +176,7 @@ export default function VehicleDetailScreen() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { profile } = useSettingsStore();
+  const { columnStyle } = useLayout();
 
   // Edit form state
   const [name, setName] = useState("");
@@ -904,8 +906,9 @@ export default function VehicleDetailScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={["bottom", "left", "right"]}>
-      {/* Top Header */}
-      <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+      {/* Top Header — sits outside the FlatList, so it takes the same cap as the
+          content below it. `columnStyle` is undefined on phones. */}
+      <View style={[s.header, { paddingTop: insets.top + 10 }, columnStyle]}>
         <View style={s.headerLeft}>
           <TouchableOpacity
             onPress={() => router.back()}
@@ -958,7 +961,7 @@ export default function VehicleDetailScreen() {
               <Text variant="paragraphS" style={{ color: DS.textSecondary }}>No maintenance logs yet.</Text>
             </View>
           }
-          contentContainerStyle={s.scroll}
+          contentContainerStyle={[s.scroll, columnStyle]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         />

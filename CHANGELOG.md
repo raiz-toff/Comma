@@ -5,6 +5,7 @@ All notable changes to Comma are documented here.
 ## [1.4.0] — 2026-07-12 (versionCode 8)
 
 ### Added
+- **Comma fits a tablet now.** It was built for a phone, and on a big screen it showed: cards stretched the full width, and a line of text ran so far across that you lost your place in it. Now the page holds a comfortable width and sits centred, and on a wide screen the Analytics cards sit two side by side instead of one enormous one. Your phone is untouched — none of this happens below tablet width. Rotating, unfolding, or dropping Comma into a split-screen now re-lays the page out properly rather than leaving it stuck at whatever size it started.
 - **Light mode**: Comma can now be light. **Settings → Appearance → Theme** offers *Light*, *Dark*, or *Auto*, which follows whatever your phone is set to. It changes the moment you tap it — nothing to save, nothing to restart. Dark stays the default, because most driving is night driving. Your route maps switch over too, so a light screen no longer wraps a dark map.
 
 ### Fixed

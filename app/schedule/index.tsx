@@ -21,6 +21,7 @@ import { getShiftsPaginated } from "@/src/database/queries/shifts";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
 import { cn } from "@/src/lib/utils";
@@ -85,6 +86,8 @@ export default function ScheduleScreen() {
   const C = useColors();
   const DS = useThemedStyles(makeDS);
   const s = useThemedStyles(makeStyles);
+  // Above the `return null` below — rules of hooks.
+  const { columnStyle } = useLayout();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { profile, isOnboardingCompleted, updateProfile } = useSettingsStore();
@@ -639,8 +642,8 @@ export default function ScheduleScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={["bottom", "left", "right"]}>
-      {/* Header */}
-      <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+      {/* Header — outside the ScrollView, so it takes the same cap as the content. */}
+      <View style={[s.header, { paddingTop: insets.top + 10 }, columnStyle]}>
         <View style={s.headerLeft}>
           <TouchableOpacity
             onPress={() => router.back()}
@@ -671,7 +674,7 @@ export default function ScheduleScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={s.scroll} contentContainerStyle={[s.scrollContent, columnStyle]} showsVerticalScrollIndicator={false}>
         
         {/* Plan Shift Form */}
         {isPlanning && (

@@ -15,6 +15,7 @@
 import { getDeviceId, getAppliedLogs, getQuarantinedLogs } from './syncState.js';
 import { listAppDataFiles, downloadFile } from '../../modules/backup/drive-api.js';
 import { decodeChangeLog, parseSyncFilename } from './changeLog.js';
+import { isPassphraseError } from '../../modules/backup/cryptoEnvelope.js';
 
 /**
  * @typedef {Object} PulledLog
@@ -38,8 +39,8 @@ async function listChangeLogFiles() {
  * @returns {Promise<PulledLog[]>}
  */
 export async function pullChanges(passphrase) {
-  if (!passphrase) throw new Error('Enter the backup password to sync.');
-
+  // An EMPTY passphrase is legal — it's the default one-tap mode. Plain envelopes decode with
+  // no key; genuinely encrypted files surface as `needsPassphrase` below.
   const deviceId = getDeviceId();
   const applied = getAppliedLogs();
   const quarantined = getQuarantinedLogs();
@@ -62,13 +63,28 @@ export async function pullChanges(passphrase) {
     return ta - tb;
   });
 
-  const pulled = [];
+  // Decode per-file, not all-or-nothing: one unreadable file must not abort the whole pull
+  // (that would let a single bad/encrypted file block every other device's data forever).
+  const logs = [];
+  const failed = [];
+  let needsPassphrase = false;
+
   for (const f of toFetch) {
-    const blob = await downloadFile(f.id);
-    const envelope = await blob.text();
-    const log = await decodeChangeLog(envelope, passphrase);
-    pulled.push({ fileId: f.id, filename: f.name, log });
+    try {
+      const blob = await downloadFile(f.id);
+      const envelope = await blob.text();
+      const log = await decodeChangeLog(envelope, passphrase);
+      logs.push({ fileId: f.id, filename: f.name, log });
+    } catch (e) {
+      if (isPassphraseError(e)) {
+        // Encrypted and we lack the key — recoverable, so DON'T quarantine. Ask the user.
+        needsPassphrase = true;
+        continue;
+      }
+      failed.push(f.name);
+      console.warn(`[sync] could not read ${f.name}:`, e);
+    }
   }
 
-  return pulled;
+  return { logs, needsPassphrase, failed };
 }

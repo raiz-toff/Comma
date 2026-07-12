@@ -21,6 +21,24 @@ export const UK: CountryDef = {
   hasSelfAssessmentTax: true,
   hasMileageDeduction: true,
   mileageDeductionLabel: "HMRC AMAP Rate",
+  // HMRC Approved Mileage Allowance Payments: 45p/mile for cars.
+  //
+  // KNOWN SIMPLIFICATION: the real AMAP scheme steps down to 25p/mile beyond 10,000 miles in a
+  // tax year, which this does not yet model — set rateSecondary: 0.25 / rateThreshold: 10000 to
+  // fix, exactly as CA does. Motorcycles (24p) and bicycles (20p) have their own AMAP rates and
+  // are deliberately absent until they're verified, rather than inheriting the car rate — which
+  // is what the previous country-agnostic fallback did.
+  mileage: {
+    authority: "HMRC",
+    rates: {
+      car: {
+        ratePrimary: 0.45,
+        rateSecondary: null,
+        rateThreshold: null,
+        label: "HMRC AMAP Rate",
+      },
+    },
+  },
   cashEconomyPrimary: false,
   expenseProfile: "hmrc",
   taxInstallmentDates: [

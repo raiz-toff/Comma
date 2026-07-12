@@ -27,6 +27,7 @@ import { requestToken, isDriveConnected, getAccessToken } from '../backup/drive-
 import { listAvailableBackups, runRestore } from '../backup/restore-engine.js';
 import { setBackupPassword, clearBackupPassword } from '../../services/sync/backupPassword.js';
 import { setSyncEnabled, resetLogFailures } from '../../services/sync/syncState.js';
+import { promptEncryptionPassword } from '../backup/backup-ui.js';
 import { syncNow } from '../../services/sync/syncNow.js';
 import { importVaultFile } from '../backup/vault-import.js';
 import { runOnOpenNotificationCheck } from '../notifications/notifications.js';
@@ -34,12 +35,17 @@ import {
   TOTAL_STEPS,
   defaultDraftFromUser,
   renderStepInner,
+  renderReveal,
+  renderNoShiftYet,
   validateStep,
   applyTaxPreset,
   normalizeTaxRegionForCountry,
   filterPlatformRowsForOnboarding,
   pruneSelectedPlatformsForRegion,
 } from './steps.js';
+
+import { computeFirstShift, ASSUMED_VEHICLE_TYPE } from './firstShift.js';
+import { saveShift } from '../shifts/shifts.js';
 
 /** @typedef {import('./steps.js').OnboardingDraft} OnboardingDraft */
 
@@ -111,10 +117,9 @@ function handleRestoreSync() {
 }
 
 /**
- * "Google Sync" flow (reached from the Restore/Sync chooser): connect Drive with the SAME
- * Google account as the phone → enter the SAME sync password → run the first full sync (the
- * phone must have pushed at least once) → adopt the synced platform choices and mark
- * onboarding complete.
+ * "Google Sync" flow: connect Drive with the SAME Google account as the phone
+ * → run the first full sync → adopt the synced profile and mark onboarding complete.
+ * Password is no longer required — Drive connection + Google Account security is sufficient.
  */
 async function handleJoinSync() {
   let unsubOk = null;
@@ -130,17 +135,12 @@ async function handleJoinSync() {
     title: 'Sync from your phone',
     content: `
       <p class="text-secondary" style="margin:0 0 var(--space-3)">
-        Connect the <strong>same Google account</strong> you use in the Comma app, then enter
-        your <strong>sync password</strong>. Your records will sync into this browser and stay
-        in sync both ways.
+        Connect the <strong>same Google account</strong> you use in the Comma app.
+        Your records will sync into this browser and stay in sync both ways — no password needed.
       </p>
       <button type="button" class="btn btn-primary" data-join-connect style="width:100%">
         ${getIcon('google-drive', 18)} <span data-join-connect-label>Connect Google Drive</span>
       </button>
-      <label class="input-group" style="margin-top:var(--space-3)">
-        <span class="input-label">Sync password</span>
-        <input type="password" class="input" data-join-password placeholder="Same password as on your phone" autocomplete="off" />
-      </label>
       <button type="button" class="btn btn-primary" data-join-start style="width:100%;margin-top:var(--space-3)" disabled>
         Start syncing
       </button>
@@ -155,12 +155,9 @@ async function handleJoinSync() {
   const connectBtn = root.querySelector('[data-join-connect]');
   const connectLabel = root.querySelector('[data-join-connect-label]');
   const startBtn = root.querySelector('[data-join-start]');
-  const pwInput = root.querySelector('[data-join-password]');
   const statusEl = root.querySelector('[data-join-status]');
 
-  const setStatus = (msg) => {
-    if (statusEl) statusEl.textContent = msg;
-  };
+  const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg; };
   const markConnected = () => {
     if (connectLabel) connectLabel.textContent = 'Google Drive connected ✓';
     connectBtn?.setAttribute('disabled', 'true');
@@ -168,7 +165,6 @@ async function handleJoinSync() {
     setStatus('');
   };
 
-  // A still-valid token from a previous visit means we're already connected.
   if (getAccessToken()) markConnected();
 
   unsubOk = bus.on('drive:auth_success', markConnected);
@@ -180,38 +176,44 @@ async function handleJoinSync() {
   });
 
   startBtn?.addEventListener('click', async () => {
-    const pw = String(pwInput?.value || '');
-    if (pw.length < 6) {
-      setStatus('Enter your sync password (6+ characters).');
-      return;
-    }
     startBtn.setAttribute('disabled', 'true');
     setStatus('Syncing your data…');
-    setBackupPassword(pw);
     setSyncEnabled(true);
     try {
-      const res = await syncNow(pw);
+      // Default one-tap mode needs no password — the engine reads plain envelopes with an
+      // empty key. But if the OTHER device turned E2E encryption ON, its files are encrypted
+      // and we must ask for that password (syncNow reports needsPassphrase) — otherwise the
+      // join silently pulls nothing and looks like "no data found".
+      let res = await syncNow('');
+
+      if (res.needsPassphrase) {
+        setStatus('Your other device is end-to-end encrypted — enter its password.');
+        const pw = await promptEncryptionPassword('enter');
+        if (!pw) {
+          setSyncEnabled(false);
+          setStatus('Encryption password needed to sync from that device.');
+          startBtn.removeAttribute('disabled');
+          return;
+        }
+        setBackupPassword(pw);
+        res = await syncNow(pw);
+        if (res.needsPassphrase || res.pulledLogs === 0) {
+          // Still can't read it → wrong password. Undo so a typo can't leave sync half-on.
+          setSyncEnabled(false);
+          clearBackupPassword();
+          resetLogFailures();
+          setStatus("That password didn't decrypt your data — make sure it matches your other device.");
+          startBtn.removeAttribute('disabled');
+          return;
+        }
+      }
 
       if (res.pulledLogs === 0) {
-        // Same account + password, but nothing on Drive yet — the phone hasn't pushed.
-        // Leave sync enabled (it'll pull once the phone pushes) but don't finish onboarding
-        // on an empty vault without telling the user why.
         setStatus('No synced data found yet. On your phone: Settings → Cloud Sync → Sync now, then press "Start syncing" again.');
         startBtn.removeAttribute('disabled');
         return;
       }
-      if (res.appliedRows === 0 && res.failedLogs === res.pulledLogs) {
-        // Every log failed to decrypt — almost certainly the wrong sync password. Undo, and
-        // clear the failure counters so a typo can't quarantine perfectly good logs.
-        setSyncEnabled(false);
-        clearBackupPassword();
-        resetLogFailures();
-        setStatus("That password didn't decrypt your data — make sure it matches the one on your phone.");
-        startBtn.removeAttribute('disabled');
-        return;
-      }
 
-      // Adopt the synced platform choices into the local profile, then skip the wizard.
       const active = await db.platforms.filter((p) => p.active === true && p.syncDeletedAt == null).toArray();
       await saveUser({
         onboardingComplete: true,
@@ -769,6 +771,12 @@ function readFormIntoDraft(root, draft) {
       draft.distanceUnit = cfg.distanceUnit;
       return;
     }
+    if (field === 'lastShiftHours' || field === 'lastShiftGross' || field === 'lastShiftDistance') {
+      if (!draft.lastShift) draft.lastShift = { platformId: '', hours: '', gross: '', distance: '' };
+      const k = field.replace('lastShift', '').toLowerCase();
+      draft.lastShift[k] = el.value;
+      return;
+    }
     draft[field] = el.value;
   });
 
@@ -791,6 +799,22 @@ function readFormIntoDraft(root, draft) {
   });
 }
 
+const STEP_LOCATION = 0;
+const STEP_LAST_SHIFT = 1;
+
+/** The vehicle we assume until the driver tells us otherwise. Matches the reveal's assumption. */
+const DEFAULT_VEHICLE = {
+  nickname: 'My Car',
+  type: ASSUMED_VEHICLE_TYPE,
+  make: '',
+  model: '',
+  year: '',
+  mileageOptOut: false,
+  mileageRateOverride: '',
+};
+
+const DEFAULT_WEEKLY_GOAL = 500;
+
 /**
  * Mount onboarding UI into `root`.
  * @param {HTMLElement} root
@@ -808,6 +832,9 @@ export async function mountOnboarding(root) {
 
   const platformRows = await db.platforms.toArray();
   platformRows.sort((a, b) => (Number(a.priority) || 0) - (Number(b.priority) || 0));
+
+  /** Set once the driver reaches the reveal; its presence is what makes the reveal render. */
+  let revealMath = null;
 
   /**
    * @param {import('./steps.js').OnboardingDraft} d
@@ -844,9 +871,11 @@ export async function mountOnboarding(root) {
       countryId: country,
       provinceId,
       workSchedule,
-      weeklyGoal: Math.round(Number(d.weeklyGoal || 0) * 100),
-      monthlyGoal: Math.round(Number(d.monthlyGoal || 0) * 100),
-      annualGoal: Math.round(Number(d.annualGoal || 0) * 100),
+      // Goals, name, theme and tax % are no longer asked for — they are not inputs to the number
+      // the reveal shows, so they default here and are offered by the dashboard checklist instead.
+      weeklyGoal: Math.round(Number(d.weeklyGoal || DEFAULT_WEEKLY_GOAL) * 100),
+      monthlyGoal: Math.round(Number(d.monthlyGoal || DEFAULT_WEEKLY_GOAL * 4.33) * 100),
+      annualGoal: Math.round(Number(d.annualGoal || DEFAULT_WEEKLY_GOAL * 52) * 100),
       taxWithholdingPct: d.taxWithholdingPct,
       hstRegistered: getCountryTaxProfile(country).hstOnboarding ? d.hstRegistered : false,
       theme: d.theme,
@@ -857,6 +886,20 @@ export async function mountOnboarding(root) {
   }
 
   const render = () => {
+    // The reveal and its no-shift-yet counterpart are terminal screens rather than steps: they
+    // own their own CTA, carry no progress chrome, and there is nowhere to go "next" from them.
+    if (revealMath || draft.noShiftYet) {
+      root.innerHTML = `
+        <div class="onboarding-flow" role="region" aria-label="${escAttr(t('views.onboarding.title'))}">
+          <div class="onboarding-body card card-raised" data-step-body>${
+            revealMath ? renderReveal(revealMath) : renderNoShiftYet()
+          }</div>
+        </div>`;
+      bindStep(root);
+      if (revealMath) animateRevealHourly(root);
+      return;
+    }
+
     const step = draft.step;
     const inner = renderStepInner(step, draft, platformRows);
     const isLast = step === TOTAL_STEPS - 1;
@@ -870,12 +913,13 @@ export async function mountOnboarding(root) {
           <p class="onboarding-progress-text">${escHtml(progressLabel)}</p>
           <button type="button" class="btn btn-ghost btn-sm onboarding-demo" data-demo>${escHtml(t('onboarding.tryDemo'))}</button>
         </div>`;
-    const navHtml =
-      isLanding || isLast
-        ? ''
-        : `<div class="onboarding-nav">
+    const navHtml = isLanding
+      ? ''
+      : `<div class="onboarding-nav">
           <button type="button" class="btn btn-secondary" data-back>${escHtml(t('common.back'))}</button>
-          <button type="button" class="btn btn-primary" data-next>${escHtml(t('common.next'))}</button>
+          <button type="button" class="btn btn-primary" data-next>${escHtml(
+            isLast ? t('onboarding.steps.lastShiftCta') : t('common.next'),
+          )}</button>
         </div>`;
 
     root.innerHTML = `
@@ -1148,6 +1192,24 @@ export async function mountOnboarding(root) {
       handleRestoreSync();
     });
 
+    body.querySelectorAll('[data-last-shift-platform]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-last-shift-platform');
+        if (!id) return;
+        if (!draft.lastShift) draft.lastShift = { platformId: '', hours: '', gross: '', distance: '' };
+        readFormIntoDraft(el, draft);
+        draft.lastShift.platformId = id;
+        persistSession(draft);
+        render();
+      });
+    });
+
+    body.querySelector('[data-no-shift-yet]')?.addEventListener('click', () => {
+      draft.noShiftYet = true;
+      persistSession(draft);
+      render();
+    });
+
     body.querySelector('[data-start-onboarding]')?.addEventListener('click', () => {
       draft.landingComplete = true;
       persistSession(draft);
@@ -1217,28 +1279,64 @@ export async function mountOnboarding(root) {
 
     el.querySelector('[data-next]')?.addEventListener('click', async () => {
       readFormIntoDraft(el, draft);
-      if (draft.step === 0 && !draft.landingComplete) {
-        return;
-      }
-      if (draft.step === 6) {
-        draft.monthlyGoal = Math.round(draft.weeklyGoal * 4.33);
-        draft.annualGoal = Math.round(draft.weeklyGoal * 52);
-      }
+      if (draft.step === 0 && !draft.landingComplete) return;
+
       const err = validateStep(draft.step, draft, platformRows);
       if (err) {
         showToast({ type: 'warning', message: t(err) });
         return;
       }
-      if (draft.step === 0) normalizeTaxRegionForCountry(draft);
-      if (draft.step === 1) pruneSelectedPlatformsForRegion(draft, platformRows);
-      if (draft.step === 2) await applyPlatformsFromDraft(draft);
-      if (draft.step < TOTAL_STEPS - 1) {
-        draft.step += 1;
+
+      if (draft.step === STEP_LOCATION) {
+        normalizeTaxRegionForCountry(draft);
+        pruneSelectedPlatformsForRegion(draft, platformRows);
+        draft.step = STEP_LAST_SHIFT;
+        persistSession(draft);
+        await saveUser({ onboardingStep: draft.step });
+        render();
+        return;
       }
+
+      // Last step — the driver has given us a shift, so show them what it was worth. Nothing is
+      // written yet; persistence happens on the reveal's CTA, so bailing here leaves no residue.
+      const ls = draft.lastShift || {};
+      draft.selectedPlatforms = ls.platformId ? [ls.platformId] : draft.selectedPlatforms;
+      revealMath = computeFirstShift({
+        country: draft.country,
+        region: draft.taxRegion,
+        gross: Number(ls.gross) || 0,
+        hours: Number(ls.hours) || 0,
+        distance: Number(ls.distance) || 0,
+      });
       persistSession(draft);
-      await saveUser({ onboardingStep: draft.step });
       render();
     });
+  }
+
+  /** Counts the hero from the gross hourly rate down to the real one — the gap IS the insight. */
+  function animateRevealHourly(root) {
+    const el = root.querySelector('[data-reveal-hourly]');
+    if (!el) return;
+    const from = Number(el.getAttribute('data-from')) || 0;
+    const to = Number(el.getAttribute('data-to')) || 0;
+    const symbol = el.getAttribute('data-symbol') || '$';
+    if (!(from > 0) || Math.abs(to - from) < 0.01) return;
+
+    const DURATION = 1200;
+    const t0 = performance.now();
+    const paint = (v) => {
+      el.innerHTML = `${symbol}${v.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}<small>/hr</small>`;
+    };
+    const tick = (now) => {
+      const p = Math.min(1, (now - t0) / DURATION);
+      const eased = 1 - Math.pow(1 - p, 3);
+      paint(from + (to - from) * eased);
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
 
   async function finalizeOnboarding(container) {
@@ -1254,21 +1352,57 @@ export async function mountOnboarding(root) {
       }
     }
 
+    // Onboarding no longer asks for a vehicle, but the app needs one to hang shifts and tax
+    // profiles off. Seed the same gas car the reveal assumed, so the write-off it promised stays
+    // true; the checklist invites the driver to replace it with their real one.
+    draft.vehicles[0] = { ...DEFAULT_VEHICLE };
+
     await applyPlatformsFromDraft(draft);
     await persistVehicles(draft);
     await persistWeeklyGoalRow(draft);
 
-    await saveUser(buildCompletedUserPatch(draft, draft.displayName.trim()));
+    await saveUser(buildCompletedUserPatch(draft, draft.displayName.trim() || 'Driver'));
+
+    if (revealMath) await persistFirstShift(revealMath);
 
     clearSession();
     await store.refresh('user');
     await store.refresh('platforms');
+    await store.refresh('currentWeekEarnings');
+    await store.refresh('currentWeekGoal');
     bus.emit(ONBOARDING_COMPLETE, { displayName: draft.displayName });
     showToast({ type: 'celebration', message: t('onboarding.completeToast'), duration: 4500 });
-    // Proactive notification detectors disabled — mobile parity not built yet,
-    // see comma/../now-as-the-app-cozy-gray.md Workstream 7.
-    // await runOnOpenNotificationCheck();
     Router.navigate('#/dashboard');
+  }
+
+  /**
+   * Saves the backfilled shift.
+   *
+   * Anchored to *now* rather than to a guessed past date, deliberately: the dashboard reports on
+   * the current week, so a shift dated to "yesterday" silently falls outside it whenever today is
+   * the first day of the week — and the driver would land on a wall of zeros seconds after being
+   * shown their hourly rate. Being a few hours off on a timestamp they can edit is a much smaller
+   * cost than breaking the moment the whole flow is built around.
+   */
+  async function persistFirstShift(m) {
+    const ls = draft.lastShift || {};
+    const vehicles = await db.vehicles.toArray();
+    const vehicleId = vehicles[0]?.id ?? null;
+
+    const endTime = Date.now();
+    const durationSeconds = Math.round(m.hours * 3600);
+
+    await saveShift({
+      platformId: ls.platformId,
+      vehicleId,
+      startTime: endTime - durationSeconds * 1000,
+      endTime,
+      durationSeconds,
+      grossRevenue: m.gross,
+      activeMileage: m.distance,
+      distanceSource: 'manual',
+      notes: 'Your first shift — logged during setup. Open it to correct the date or details.',
+    });
   }
 
   render();

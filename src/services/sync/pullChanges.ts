@@ -16,6 +16,7 @@ import {
   getQuarantinedLogs,
 } from "../../database/syncState";
 import { getValidAccessToken, fetchWithTimeout } from "../googleDrive";
+import { isPassphraseError } from "../cryptoEnvelope";
 import { listAppDataFiles, type DriveFileRef } from "./driveIO";
 import {
   type ChangeLog,
@@ -28,6 +29,21 @@ export interface PulledLog {
   fileId: string;
   filename: string;
   log: ChangeLog;
+}
+
+export interface PullResult {
+  /** Successfully downloaded + decoded logs, oldest → newest. */
+  logs: PulledLog[];
+  /**
+   * True when at least one file is ENCRYPTED and we couldn't open it (no password on this
+   * device, or the wrong one). The caller should prompt for the password — these files are
+   * deliberately NOT counted as failures, because quarantining them would make a perfectly
+   * good backup permanently invisible after 3 syncs.
+   */
+  needsPassphrase: boolean;
+  /** Filenames that failed to download/decode for any OTHER reason (corrupt, truncated…).
+   *  These DO go through the quarantine counter. */
+  failed: string[];
 }
 
 /** List every sync file (delta `.cmlog` AND snapshot `.cmsnap`) in the appDataFolder. */
@@ -55,9 +71,9 @@ async function downloadFile(fileId: string): Promise<string> {
  * Returns them sorted oldest → newest (by filename timestamp) so the caller applies
  * them in order. Requires the backup passphrase to decrypt.
  */
-export async function pullChanges(passphrase: string): Promise<PulledLog[]> {
-  if (!passphrase) throw new Error("Enter the backup password to sync.");
-
+export async function pullChanges(passphrase: string): Promise<PullResult> {
+  // An EMPTY passphrase is legal — it's the default one-tap mode. Plain envelopes decode
+  // with no key; genuinely encrypted files surface as `needsPassphrase` below.
   const [deviceId, applied, quarantined] = await Promise.all([
     getDeviceId(),
     getAppliedLogs(),
@@ -83,12 +99,27 @@ export async function pullChanges(passphrase: string): Promise<PulledLog[]> {
     return ta - tb;
   });
 
-  const pulled: PulledLog[] = [];
+  // Decode per-file, not all-or-nothing: one unreadable file must not abort the whole pull
+  // (that would let a single bad/encrypted file block every other device's data forever).
+  const logs: PulledLog[] = [];
+  const failed: string[] = [];
+  let needsPassphrase = false;
+
   for (const f of toFetch) {
-    const envelope = await downloadFile(f.id);
-    const log = await decodeChangeLog(envelope, passphrase);
-    pulled.push({ fileId: f.id, filename: f.name, log });
+    try {
+      const envelope = await downloadFile(f.id);
+      const log = await decodeChangeLog(envelope, passphrase);
+      logs.push({ fileId: f.id, filename: f.name, log });
+    } catch (e) {
+      if (isPassphraseError(e)) {
+        // Encrypted and we lack the key — recoverable, so DON'T quarantine. Ask the user.
+        needsPassphrase = true;
+        continue;
+      }
+      failed.push(f.name);
+      console.warn(`[sync] could not read ${f.name}:`, e);
+    }
   }
 
-  return pulled;
+  return { logs, needsPassphrase, failed };
 }

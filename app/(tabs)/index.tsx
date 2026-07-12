@@ -28,6 +28,7 @@ import { useSettingsStore } from "../../store/useSettingsStore";
 import { parseRoutePath } from "../../utils/polyline";
 import { getVehicles } from "../../src/database/queries/vehicles";
 import OnboardingWizard from "../../components/OnboardingWizard";
+import { ActivationChecklist } from "../../components/ActivationChecklist";
 import { useVocabulary } from "../../src/hooks/useVocabulary";
 import { useFeatureEnabled } from "../../hooks/useFeatureEnabled";
 import {
@@ -1078,8 +1079,9 @@ export default function HomeScreen() {
         )}
 
         {/* ── Backup Reminder Banner ───────────────────────────────────── */}
-        {/* Only nudge once there's data worth protecting (at least one shift). */}
-        {!isActive && backupStatus?.isOverdue && !backupBannerDismissed && recentShifts.length > 0 && (
+        {/* Only nudge once there's data worth protecting (at least one shift) — and never in demo
+            mode, where the "data" is seeded sample records the driver is about to throw away. */}
+        {!isActive && !isDemoMode && backupStatus?.isOverdue && !backupBannerDismissed && recentShifts.length > 0 && (
           <Pressable
             onPress={() => router.push("/settings/backup")}
             accessibilityRole="button"
@@ -1253,6 +1255,11 @@ export default function HomeScreen() {
               );
             })}
 
+            {/* ── Finish Setting Up ─────────────────────────────────────────
+                Holds the config the onboarding wizard defers — asked here, next to the numbers
+                each item sharpens, rather than in front of them. Removes itself once done. */}
+            <ActivationChecklist />
+
             {/* ── Recent Sessions ────────────────────────────────────────── */}
             <View style={{ gap: 10, marginTop: 4 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 4 }}>
@@ -1321,10 +1328,15 @@ export default function HomeScreen() {
                   );
                 })
               ) : (
+                // A driver with no shifts has never seen what Comma is for. This is the last
+                // place left to show them, so it carries the same promise the reveal does —
+                // and an actual way to act on it.
                 <EmptyState
                   icon="clock"
                   title={vocab('no_sessions_yet')}
-                  message={`Start a new ${vocab('session')} below or log a past drive to see your summary statistics.`}
+                  message={`Log one and Comma will show you what it was really worth — after tax and mileage, not just the gross the app paid you.`}
+                  actionLabel="Log a shift"
+                  onAction={() => router.push("/shift/add")}
                   className="bg-surface-02 border border-line-subtle rounded-lg py-8"
                 />
               )}

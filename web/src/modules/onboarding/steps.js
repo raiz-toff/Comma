@@ -1,9 +1,12 @@
 /**
- * F9 — Onboarding step bodies (plain HTML strings). Chrome lives in `onboarding.js`.
- * Plan v3: **11 steps** — country, province/state/region, **platforms (filtered by province `availablePlatforms`)**, profile, vehicle → complete.
+ * Onboarding step bodies (plain HTML strings). Chrome lives in `onboarding.js`.
  *
- * Category D (docs/feature_modularity.md): a new **global** onboarding step still lands here —
- * bump `TOTAL_STEPS`, extend `renderStepInner` / `validateStep`, and persist fields via `onboarding.js`.
+ * **2 steps**: where you drive → your last shift → the reveal. Everything the app used to ask
+ * here (name, vehicle, goals, schedule, tax %, HST, theme, sync) is derived, defaulted, or
+ * deferred to the dashboard checklist — none of it is an input to the number the reveal shows,
+ * and all of it was sitting in front of the value.
+ *
+ * Mirrors the phone app's `components/OnboardingWizard.tsx`. Keep the two flows in step.
  */
 
 /**
@@ -32,16 +35,14 @@
 import { t } from '../../utils/strings.js';
 import { getLocaleConfig, getProvinceDef } from '../../utils/locale.js';
 import { CountryRegistry, getCountryTaxProfile } from '../../registry/countries/index.js';
-import { getVehicleMileageEligibility } from '../../registry/countries/mileageRates.js';
 import { ProvinceRegistry } from '../../registry/provinces/index.js';
 import { getWithholdingPresetPct } from '../../registry/tax/withholding-presets.js';
 import { resolveAvailablePlatformIds } from '../../registry/market/resolve.js';
 import { getPlatformColor, renderPlatformBadge } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
 
-export const TOTAL_STEPS = 11;
+export const TOTAL_STEPS = 2;
 
-const VEHICLE_TYPES = ['gas', 'hybrid', 'ev', 'motorcycle', 'bicycle', 'ebike', 'scooter', 'walking'];
 
 /** @param {unknown} s */
 function esc(s) {
@@ -129,6 +130,9 @@ export function defaultDraftFromUser(user) {
       ...(typeof u.notificationPrefs === 'object' && u.notificationPrefs ? /** @type {object} */ (u.notificationPrefs) : {}),
     },
     landingComplete: false,
+    // The backfilled shift — the only data (rather than config) onboarding collects.
+    lastShift: { platformId: '', hours: '', gross: '', distance: '' },
+    noShiftYet: false,
   };
 }
 
@@ -136,100 +140,35 @@ function whyBlock(summaryKey, bodyKey) {
   return `<details class="onboarding-why"><summary class="onboarding-why-summary">${esc(t(summaryKey))}</summary><p class="onboarding-why-body">${esc(t(bodyKey))}</p></details>`;
 }
 
-/** @param {string} name @param {number} [size] */
-function landingIcon(name, size = 22) {
-  return getIcon(name, size, 'onboarding-landing-icon');
-}
-
 function renderOnboardingLanding() {
+  // Comma's namesake is the one decorative gesture on this screen: the commas in the
+  // lead sentence take the brand color. Done post-escape so it survives any locale.
+  const lead = esc(t('onboarding.landing.heroLead')).replace(
+    /,/g,
+    '<span class="onboarding-landing-comma">,</span>',
+  );
   return `
     <div class="onboarding-landing">
-      <!-- Hero Section -->
-      <header class="onboarding-landing-hero">
-        <div class="hero-content">
-          <p class="onboarding-landing-kicker">${esc(t('onboarding.landing.kicker'))}</p>
-          <h1 class="onboarding-landing-title">${esc(t('onboarding.landing.heroTitle'))}</h1>
-          <p class="onboarding-landing-lead">${esc(t('onboarding.landing.heroLead'))}</p>
-          
-          <div class="onboarding-landing-actions">
-            <button type="button" class="btn btn-primary btn-lg onboarding-landing-primary" data-start-onboarding>${esc(t('onboarding.landing.startCta'))}</button>
-            <button type="button" class="btn btn-secondary btn-lg" data-demo>${esc(t('onboarding.tryDemo'))}</button>
-            <button type="button" class="btn btn-secondary btn-lg" data-action="restore-sync">${getIcon('google-drive', 18)} Restore / Sync</button>
-          </div>
-
-          <div class="onboarding-landing-restore">
-            <p class="text-secondary" style="margin:0;font-size:0.85em">
-              Already using Comma? Restore / Sync pulls your data from Google Drive or a backup file.
-            </p>
-          </div>
-        </div>
-        
-        <div class="hero-visual">
-          <div class="hero-browser-frame">
-            <img src="/image.png" alt="COMMA Dashboard" class="hero-screenshot" />
-          </div>
-        </div>
+      <header class="onboarding-landing-brand">
+        <img src="/logo.png" alt="" class="onboarding-landing-logo" />
+        <span class="onboarding-landing-wordmark">COMMA</span>
       </header>
 
-      <!-- Section 1: Dashboard -->
-      <section class="onboarding-feature-row">
-        <div class="feature-text">
-          <span class="feature-kicker">Analytics</span>
-          <h2 class="feature-title">${esc(t('onboarding.landing.featShiftsTitle'))}</h2>
-          <p class="feature-body">${esc(t('onboarding.landing.featShiftsBody'))}</p>
-        </div>
-        <div class="feature-visual">
-          <div class="feature-browser-frame">
-            <img src="/image.png" alt="Statistics" class="feature-screenshot" />
-          </div>
-        </div>
-      </section>
+      <div class="onboarding-landing-hero">
+        <h1 class="onboarding-landing-title">${esc(t('onboarding.landing.heroTitle'))}</h1>
+        <p class="onboarding-landing-lead">${lead}</p>
+      </div>
 
-      <!-- Section 2: Expenses (Reversed) -->
-      <section class="onboarding-feature-row is-reversed">
-        <div class="feature-text">
-          <span class="feature-kicker">Finance</span>
-          <h2 class="feature-title">${esc(t('onboarding.landing.featTaxTitle'))}</h2>
-          <p class="feature-body">${esc(t('onboarding.landing.featTaxBody'))}</p>
-        </div>
-        <div class="feature-visual">
-          <div class="feature-browser-frame">
-            <img src="/image-1.png" alt="Expenses" class="feature-screenshot" />
-          </div>
-        </div>
-      </section>
-
-      <!-- Section 3: Platforms -->
-      <section class="onboarding-feature-row">
-        <div class="feature-text">
-          <span class="feature-kicker">Workflow</span>
-          <h2 class="feature-title">Multi-Platform Mastery</h2>
-          <p class="feature-body">Switch between platforms effortlessly. COMMA adapts its terminology and tracking to match exactly how you work.</p>
-        </div>
-        <div class="feature-visual">
-          <div class="feature-browser-frame">
-            <img src="/image-2.png" alt="Platforms" class="feature-screenshot" />
-          </div>
-        </div>
-      </section>
-
-      <!-- Section 4: Drive (Bento Style) -->
-      <section class="onboarding-bento-section">
-        <div class="bento-card">
-          <div class="bento-content">
-            <span class="feature-kicker">Privacy First</span>
-            <h2 class="feature-title">${esc(t('onboarding.landing.featVaultTitle'))}</h2>
-            <p class="feature-body">${esc(t('onboarding.landing.featVaultBody'))}</p>
-          </div>
-          <div class="bento-visual">
-            <img src="/image-3.png" alt="Google Drive" class="bento-screenshot" />
-          </div>
-        </div>
-      </section>
+      <div class="onboarding-landing-actions">
+        <button type="button" class="btn btn-primary btn-lg onboarding-landing-primary" data-start-onboarding>${esc(t('onboarding.landing.startCta'))}</button>
+        <button type="button" class="onboarding-landing-link" data-demo>${esc(t('onboarding.tryDemo'))}</button>
+        <button type="button" class="onboarding-landing-link" data-action="restore-sync">${esc(t('onboarding.landing.restoreLink'))}</button>
+        <p class="onboarding-landing-trust">${esc(t('onboarding.landing.trustLine'))}</p>
+      </div>
 
       <footer class="onboarding-landing-footer">
         <nav class="onboarding-landing-footer-nav">
-          <a href="/privacy.html" target="_blank" class="onboarding-landing-footer-link">${esc(t('onboarding.landing.privacyLink'))}</a>
+          <a href="https://comma-docs.vercel.app/privacy" target="_blank" rel="noopener noreferrer" class="onboarding-landing-footer-link">${esc(t('onboarding.landing.privacyLink'))}</a>
           <span class="onboarding-landing-footer-sep">&bull;</span>
           <span class="onboarding-landing-footer-copy">&copy; 2026 COMMA</span>
         </nav>
@@ -292,27 +231,6 @@ export function renderStepInner(step, draft, platformRows) {
       }
       const cfg = getLocaleConfig(draft.country);
       const countries = CountryRegistry.getAll();
-      return `
-        <h1 class="onboarding-step-title">${esc(t('onboarding.steps.chooseCountryTitle'))}</h1>
-        <p class="onboarding-step-lead">${esc(t('onboarding.steps.chooseCountryLead'))}</p>
-        ${whyBlock('onboarding.why.regionSummary', 'onboarding.why.regionBody')}
-        <div class="input-group">
-          <label class="input-label" for="ob-country">${esc(t('onboarding.steps.country'))}</label>
-          <select id="ob-country" class="input" data-field="country">
-            ${countries
-              .map(
-                (c) =>
-                  `<option value="${esc(c.id)}" ${String(draft.country).toUpperCase() === c.id ? 'selected' : ''}>${esc(t(c.labelKey))}</option>`,
-              )
-              .join('')}
-          </select>
-        </div>
-        <p class="onboarding-hint">${esc(t('onboarding.steps.currencyHint'))}: <strong>${esc(cfg.currency)}</strong> (${esc(cfg.symbol)}) · ${
-          cfg.distanceUnit === 'mi' ? esc(t('onboarding.steps.unitMi')) : esc(t('onboarding.steps.unitKm'))
-        }</p>`;
-    }
-
-    case 1: {
       const country = String(draft.country || 'CA').toUpperCase();
       const provs = ProvinceRegistry.getByCountry(country);
       const tax = getCountryTaxProfile(country);
@@ -322,232 +240,168 @@ export function renderStepInner(step, draft, platformRows) {
           : tax.regionLabel === 'state'
             ? t('onboarding.steps.state')
             : t('onboarding.steps.regionShortLabel');
-      let control = '';
-      if (provs.length) {
-        control = `<select id="ob-region-input" class="input" data-field="taxRegion" aria-label="${esc(regionLabel)}">
-          ${provs
-            .map((p) => {
-              const lab = subdivisionOptionLabel(p);
-              const sel = String(draft.taxRegion || '').toUpperCase() === p.id ? 'selected' : '';
-              return `<option value="${esc(p.id)}" ${sel}>${esc(lab)}</option>`;
-            })
-            .join('')}
-        </select>`;
-      } else {
-        control = `
-          <p class="onboarding-hint">${esc(t('onboarding.steps.regionOptionalLead'))}</p>
-          <input id="ob-region-input" class="input" type="text" maxlength="12" data-field="taxRegion" value="${esc(draft.taxRegion)}" autocomplete="off" />`;
-      }
-      return `
-        <h1 class="onboarding-step-title">${esc(t('onboarding.steps.chooseRegionTitle'))}</h1>
-        <p class="onboarding-step-lead">${esc(t('onboarding.steps.chooseRegionLead'))}</p>
-        ${whyBlock('onboarding.why.regionSummary', 'onboarding.why.regionBody')}
-        <div class="input-group">
-          <label class="input-label" for="ob-region-input">${esc(regionLabel)}</label>
-          ${control}
-        </div>`;
-    }
 
-    case 2: {
-      const filtered = filterPlatformRowsForOnboarding(draft, platformRows);
-      if (!filtered.length) {
-        return `
-        <h1 class="onboarding-step-title">${esc(t('onboarding.steps.platformsTitle'))}</h1>
-        <p class="onboarding-step-lead">${esc(t('onboarding.steps.noPlatformsForRegion'))}</p>`;
-      }
-      return `
-        <h1 class="onboarding-step-title">${esc(t('onboarding.steps.platformsTitle'))}</h1>
-        <p class="onboarding-step-lead">${esc(t('onboarding.steps.platformsLeadFiltered'))}</p>
-        ${whyBlock('onboarding.why.platformsSummary', 'onboarding.why.platformsBody')}
-        <div class="onboarding-platform-grid" role="group" aria-label="${esc(t('onboarding.steps.platformsTitle'))}">
-          ${filtered
-            .map((p) => {
-              const sel = draft.selectedPlatforms.includes(p.id);
-              const col = getPlatformColor(p.id);
-              return `<button type="button" class="onboarding-platform-card card card-interactive${sel ? ' is-selected' : ''}" data-platform-id="${esc(p.id)}" style="--platform-color:${esc(col)}">
-                <span class="onboarding-platform-badge">${renderPlatformBadge(p.id, p.name)}</span>
-                <span class="onboarding-platform-name">${esc(p.name)}</span>
-              </button>`;
-            })
-            .join('')}
-        </div>`;
-    }
+      // Region lives on the same screen as country — it was never a decision worth its own step,
+      // and it's a real input to the tax rate and mileage rate we're about to show them.
+      const regionBlock = provs.length
+        ? `<div class="input-group">
+            <label class="input-label" for="ob-region-input">${esc(regionLabel)}</label>
+            <select id="ob-region-input" class="input" data-field="taxRegion" aria-label="${esc(regionLabel)}">
+              ${provs
+                .map((p) => {
+                  const lab = subdivisionOptionLabel(p);
+                  const sel = String(draft.taxRegion || '').toUpperCase() === p.id ? 'selected' : '';
+                  return `<option value="${esc(p.id)}" ${sel}>${esc(lab)}</option>`;
+                })
+                .join('')}
+            </select>
+          </div>`
+        : '';
 
-    case 3:
       return `
-        <h1 class="onboarding-step-title">${esc(t('onboarding.steps.profileTitle'))}</h1>
-        <p class="onboarding-step-lead">${esc(t('onboarding.steps.profileLead'))}</p>
-        ${whyBlock('onboarding.why.profileSummary', 'onboarding.why.profileBody')}
+        <h1 class="onboarding-step-title">${esc(t('onboarding.steps.locationTitle'))}</h1>
+        <p class="onboarding-step-lead">${esc(t('onboarding.steps.locationLead'))}</p>
         <div class="input-group">
-          <label class="input-label" for="ob-display-name">${esc(t('onboarding.steps.driverName'))}</label>
-          <input id="ob-display-name" class="input" type="text" autocomplete="name" maxlength="80" value="${esc(draft.displayName)}" data-field="displayName" />
-        </div>
-        <fieldset class="onboarding-fieldset">
-          <legend class="input-label">${esc(t('onboarding.steps.avatarPick'))}</legend>
-          <div class="onboarding-avatar-grid">
-            ${['🚗', '🛵', '🚲', '📦', '⭐', '🔥', '💼', '🤑']
+          <label class="input-label" for="ob-country">${esc(t('onboarding.steps.country'))}</label>
+          <select id="ob-country" class="input" data-field="country">
+            ${countries
               .map(
-                (em) =>
-                  `<button type="button" class="onboarding-avatar-btn${draft.avatarType === 'emoji' && draft.avatarData === em ? ' is-selected' : ''}" data-avatar-emoji="${esc(em)}">${em}</button>`,
+                (c) =>
+                  `<option value="${esc(c.id)}" ${country === c.id ? 'selected' : ''}>${esc(t(c.labelKey))}</option>`,
               )
               .join('')}
-          </div>
-          <div class="input-group">
-            <label class="input-label"><input type="radio" name="ob-avatar-type" value="initials" ${draft.avatarType === 'initials' ? 'checked' : ''} data-avatar-type /> ${esc(t('onboarding.steps.avatarInitials'))}</label>
-            <label class="input-label"><input type="radio" name="ob-avatar-type" value="custom" ${draft.avatarType === 'custom' ? 'checked' : ''} data-avatar-type /> ${esc(t('onboarding.steps.avatarCustom'))}</label>
-          </div>
-          <div class="input-group" data-custom-avatar-wrap ${draft.avatarType === 'custom' ? '' : 'hidden'}>
-            <label class="input-label" for="ob-avatar-file">${esc(t('onboarding.steps.avatarUpload'))}</label>
-            <input id="ob-avatar-file" type="file" accept="image/*" class="input" data-avatar-file />
-            <p class="onboarding-hint">${esc(t("onboarding.steps.avatarUploadHint"))}</p>
-          </div>
-        </fieldset>`;
-
-    case 4: {
-      const v = draft.vehicles[0] || { nickname: '', type: 'gas', make: '', model: '', year: '', mileageOptOut: false, mileageRateOverride: '' };
-      const mileageInfo = getVehicleMileageEligibility(draft.country, v.type);
-      const optedOut = Boolean(v.mileageOptOut);
-      return `
-        <h1 class="onboarding-step-title">${esc(t('onboarding.steps.vehicleTitle'))}</h1>
-        <p class="onboarding-step-lead">${esc(t('onboarding.steps.vehicleLead'))}</p>
-        ${whyBlock('onboarding.why.vehicleSummary', 'onboarding.why.vehicleBody')}
-        <div class="input-group">
-          <label class="input-label" for="ob-v0-nick">${esc(t('onboarding.steps.vehicleNickname'))}</label>
-          <input id="ob-v0-nick" class="input" type="text" data-vehicle-idx="0" data-vehicle-field="nickname" value="${esc(v.nickname)}" maxlength="60" />
-        </div>
-        <div class="input-group">
-          <label class="input-label" for="ob-v0-type">${esc(t('onboarding.steps.vehicleType'))}</label>
-          <select id="ob-v0-type" class="input" data-vehicle-idx="0" data-vehicle-field="type">
-            ${VEHICLE_TYPES.map((ty) => `<option value="${ty}" ${v.type === ty ? 'selected' : ''}>${esc(t(`onboarding.vehicleTypes.${ty}`))}</option>`).join('')}
           </select>
         </div>
-        <div class="onboarding-row-2">
-          <div class="input-group">
-            <label class="input-label" for="ob-v0-make">${esc(t('onboarding.steps.make'))}</label>
-            <input id="ob-v0-make" class="input" type="text" data-vehicle-idx="0" data-vehicle-field="make" value="${esc(v.make)}" />
-          </div>
-          <div class="input-group">
-            <label class="input-label" for="ob-v0-model">${esc(t('onboarding.steps.model'))}</label>
-            <input id="ob-v0-model" class="input" type="text" data-vehicle-idx="0" data-vehicle-field="model" value="${esc(v.model)}" />
-          </div>
-        </div>
-        <div class="input-group">
-          <label class="input-label" for="ob-v0-year">${esc(t('onboarding.steps.year'))}</label>
-          <input id="ob-v0-year" class="input" type="number" inputmode="numeric" min="1980" max="2035" data-vehicle-idx="0" data-vehicle-field="year" value="${esc(v.year)}" />
-        </div>
-        <div class="input-group">
-          <label class="input-label">${esc(t('onboarding.steps.mileageWriteOffTitle'))}</label>
-          <div class="onboarding-card-note" style="border:1px solid var(--color-border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px;">
-            <p style="margin:0; font-size: var(--text-sm); color: var(--color-text-secondary);">
-              ${mileageInfo.eligible ? esc(`${mileageInfo.label} — $${mileageInfo.ratePrimary}`) : esc(t('onboarding.steps.mileageRateNotEligible'))}
-            </p>
-            <label class="input-label" style="display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer;">
-              <span>${esc(t('onboarding.steps.mileageOptOut'))}</span>
-              <input type="checkbox" data-vehicle-idx="0" data-vehicle-field="mileageOptOut" ${optedOut ? 'checked' : ''} />
-            </label>
-            ${optedOut ? '' : `
-            <div class="input-group" style="margin:0;">
-              <p style="margin:0 0 4px; font-size: var(--text-xs); color: var(--color-text-secondary);">${esc(t('onboarding.steps.mileageRateHint'))}</p>
-              <input class="input" type="number" step="0.001" inputmode="decimal" data-vehicle-idx="0" data-vehicle-field="mileageRateOverride"
-                placeholder="${mileageInfo.ratePrimary != null ? esc(String(mileageInfo.ratePrimary)) : '0.67'}" value="${esc(v.mileageRateOverride || '')}" />
-            </div>`}
-          </div>
-        </div>`;
+        ${regionBlock}
+        <p class="onboarding-hint">${esc(t('onboarding.steps.currencyHint'))}: <strong>${esc(cfg.currency)}</strong> (${esc(cfg.symbol)}) · ${
+          cfg.distanceUnit === 'mi' ? esc(t('onboarding.steps.unitMi')) : esc(t('onboarding.steps.unitKm'))
+        }</p>`;
     }
 
-    case 5:
+    case 1: {
+      // The only screen in the flow that produces data rather than configuration.
+      const cfg = getLocaleConfig(draft.country);
+      const filtered = filterPlatformRowsForOnboarding(draft, platformRows);
+      const ls = draft.lastShift || {};
       return `
-        <h1 class="onboarding-step-title">${esc(t('onboarding.steps.scheduleTitle'))}</h1>
-        <p class="onboarding-step-lead">${esc(t('onboarding.steps.scheduleLead'))}</p>
-        ${whyBlock('onboarding.why.scheduleSummary', 'onboarding.why.scheduleBody')}
-        <div class="onboarding-choice-grid" role="radiogroup" aria-label="${esc(t('onboarding.steps.scheduleTitle'))}">
-          ${['flexible', 'weekdays', 'evenings', 'weekends']
-            .map(
-              (preset) =>
-                `<button type="button" class="onboarding-choice card${draft.workSchedulePreset === preset ? ' is-selected' : ''}" data-schedule="${esc(preset)}">${esc(t(`onboarding.schedule.${preset}`))}</button>`,
-            )
-            .join('')}
-        </div>`;
+        <h1 class="onboarding-step-title">${esc(t('onboarding.steps.lastShiftTitle'))}</h1>
+        <p class="onboarding-step-lead">${esc(t('onboarding.steps.lastShiftLead'))}</p>
 
-    case 6: {
-      const w = draft.weeklyGoal || 0;
-      const labelKey =
-        w >= 800 ? 'onboarding.motivation.high' : w >= 400 ? 'onboarding.motivation.mid' : w >= 200 ? 'onboarding.motivation.low' : 'onboarding.motivation.start';
-      return `
-        <h1 class="onboarding-step-title">${esc(t('onboarding.steps.weeklyGoalTitle'))}</h1>
-        <p class="onboarding-step-lead">${esc(t('onboarding.steps.weeklyGoalLead'))}</p>
-        ${whyBlock('onboarding.why.weeklyGoalSummary', 'onboarding.why.weeklyGoalBody')}
         <div class="input-group">
-          <label class="input-label" for="ob-weekly-goal">${esc(t('onboarding.steps.weeklyGoalLabel'))}</label>
-          <input id="ob-weekly-goal" class="input onboarding-input-number" type="number" inputmode="decimal" min="0" step="10" data-field="weeklyGoal" value="${esc(w)}" />
-        </div>
-        <p class="onboarding-motivation" data-motivation>${esc(t(labelKey))}</p>`;
-    }
-
-    case 7:
-      return `
-        <h1 class="onboarding-step-title">${esc(t('onboarding.steps.longTermGoalsTitle'))}</h1>
-        <p class="onboarding-step-lead">${esc(t('onboarding.steps.longTermGoalsLead'))}</p>
-        ${whyBlock('onboarding.why.longTermGoalsSummary', 'onboarding.why.longTermGoalsBody')}
-        <div class="input-group">
-          <label class="input-label" for="ob-monthly">${esc(t('onboarding.steps.monthlyGoal'))}</label>
-          <input id="ob-monthly" class="input" type="number" min="0" step="50" data-field="monthlyGoal" value="${esc(draft.monthlyGoal)}" />
-        </div>
-        <div class="input-group">
-          <label class="input-label" for="ob-annual">${esc(t('onboarding.steps.annualGoal'))}</label>
-          <input id="ob-annual" class="input" type="number" min="0" step="100" data-field="annualGoal" value="${esc(draft.annualGoal)}" />
-        </div>`;
-
-    case 8: {
-      const tax = getCountryTaxProfile(draft.country);
-      const regionLabel = tax.regionLabel === 'province' ? t('onboarding.steps.province') : t('onboarding.steps.state');
-      const regionCode = String(draft.taxRegion || '').trim() || '—';
-      return `
-        <h1 class="onboarding-step-title">${esc(t('onboarding.steps.taxTitle'))}</h1>
-        <p class="onboarding-step-lead">${esc(t('onboarding.steps.taxLead'))}</p>
-        ${whyBlock('onboarding.why.taxSummary', 'onboarding.why.taxBody')}
-        <input type="hidden" data-field="taxRegion" value="${esc(String(draft.taxRegion || '').trim())}" />
-        <div class="input-group">
-          <label class="input-label">${esc(regionLabel)}</label>
-          <p class="onboarding-hint"><strong>${esc(regionCode)}</strong></p>
-        </div>
-        <div class="input-group">
-          <label class="input-label" for="ob-tax-pct">${esc(t('onboarding.steps.taxWithholding'))}</label>
-          <input id="ob-tax-pct" class="input" type="number" min="0" max="60" step="0.5" data-field="taxWithholdingPct" value="${esc(draft.taxWithholdingPct)}" />
-        </div>
-        <button type="button" class="btn btn-secondary btn-sm" data-tax-preset>${esc(t('onboarding.steps.applyPreset'))}</button>`;
-    }
-
-    case 9:
-      if (!getCountryTaxProfile(draft.country).hstOnboarding) {
-        return `<p class="onboarding-step-lead">${esc(t('onboarding.steps.hstSkip'))}</p>`;
-      }
-      return `
-        <h1 class="onboarding-step-title">${esc(t('onboarding.steps.hstTitle'))}</h1>
-        <p class="onboarding-step-lead">${esc(t('onboarding.steps.hstLead'))}</p>
-        ${whyBlock('onboarding.why.hstSummary', 'onboarding.why.hstBody')}
-        <label class="onboarding-check card card-raised">
-          <input type="checkbox" data-field="hstRegistered" ${draft.hstRegistered ? 'checked' : ''} />
-          <span>${esc(t('onboarding.steps.hstToggle'))}</span>
-        </label>`;
-
-    case 10:
-      return `
-        <div class="onboarding-completion ${'onboarding-completion--celebrate'}">
-          <div class="onboarding-confetti" aria-hidden="true"></div>
-          <h1 class="onboarding-step-title onboarding-completion-title">${esc(t('onboarding.steps.completeTitle').replace('{name}', draft.displayName.trim() || t('onboarding.steps.completeFallbackName')))}</h1>
-          <p class="onboarding-step-lead">${esc(t('onboarding.steps.completeLead'))}</p>
-          <div class="onboarding-completion-actions">
-            <button type="button" class="btn btn-primary btn-lg" data-enter-vault>${getIcon('vault', 20)} ${esc(t('onboarding.steps.enterVault'))}</button>
-            <button type="button" class="btn btn-secondary" data-connect-drive>${getIcon('google-drive', 18)} ${esc(t('settings.backupConnectBtn'))}</button>
-            <button type="button" class="btn btn-secondary" data-export-setup>${esc(t('onboarding.steps.exportSetup'))}</button>
-            <button type="button" class="btn btn-ghost" data-load-sample>${esc(t('onboarding.sample.load'))}</button>
+          <label class="input-label">${esc(t('onboarding.steps.lastShiftWhichApp'))}</label>
+          <div class="onboarding-platform-grid" role="radiogroup" aria-label="${esc(t('onboarding.steps.lastShiftWhichApp'))}">
+            ${filtered
+              .map((p) => {
+                const sel = String(ls.platformId || '') === p.id;
+                const col = getPlatformColor(p.id);
+                return `<button type="button" role="radio" aria-checked="${sel ? 'true' : 'false'}" class="onboarding-platform-card card card-interactive${sel ? ' is-selected' : ''}" data-last-shift-platform="${esc(p.id)}" style="--platform-color:${esc(col)}">
+                  <span class="onboarding-platform-badge">${renderPlatformBadge(p.id, p.name)}</span>
+                  <span class="onboarding-platform-name">${esc(p.name)}</span>
+                </button>`;
+              })
+              .join('')}
           </div>
-        </div>`;
+        </div>
+
+        <div class="input-group">
+          <label class="input-label" for="ob-ls-hours">${esc(t('onboarding.steps.lastShiftHours'))}</label>
+          <input id="ob-ls-hours" class="input" type="number" inputmode="decimal" min="0" step="0.25"
+                 placeholder="5" data-field="lastShiftHours" value="${esc(ls.hours ?? '')}" autocomplete="off" />
+        </div>
+
+        <div class="input-group">
+          <label class="input-label" for="ob-ls-gross">${esc(t('onboarding.steps.lastShiftGross'))} (${esc(cfg.symbol)})</label>
+          <input id="ob-ls-gross" class="input" type="number" inputmode="decimal" min="0" step="0.01"
+                 placeholder="142" data-field="lastShiftGross" value="${esc(ls.gross ?? '')}" autocomplete="off" />
+        </div>
+
+        <div class="input-group">
+          <label class="input-label" for="ob-ls-distance">${esc(t('onboarding.steps.lastShiftDistance'))} (${esc(cfg.distanceUnit)})</label>
+          <input id="ob-ls-distance" class="input" type="number" inputmode="decimal" min="0" step="0.1"
+                 placeholder="47" data-field="lastShiftDistance" value="${esc(ls.distance ?? '')}" autocomplete="off" />
+          <p class="onboarding-hint">${esc(t('onboarding.steps.lastShiftDistanceHint'))}</p>
+        </div>
+
+        <button type="button" class="btn btn-ghost onboarding-skip-shift" data-no-shift-yet>
+          ${esc(t('onboarding.steps.lastShiftNone'))}
+        </button>`;
+    }
 
     default:
       return `<p>${esc(t('errors.generic'))}</p>`;
   }
+}
+
+/**
+ * The activation moment — sequences three numbers the app already computes into the one
+ * realisation gig drivers never get from the platforms themselves: gross is not take-home.
+ * @param {ReturnType<import('./firstShift.js').computeFirstShift>} m
+ */
+export function renderReveal(m) {
+  const money = (n) =>
+    `${m.currencySymbol}${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const writeOff =
+    m.hasMileageDeduction && m.mileageWriteOff > 0
+      ? `<div class="onboarding-reveal-writeoff">
+          <strong>+ ${esc(money(m.mileageWriteOff))} ${esc(t('onboarding.reveal.writeOffLabel'))}</strong>
+          <p>${esc(
+            t('onboarding.reveal.writeOffBody')
+              .replace('{distance}', String(m.distance))
+              .replace('{unit}', m.distanceUnit)
+              .replace('{rate}', m.mileageRateLabel),
+          )}</p>
+        </div>`
+      : '';
+
+  return `
+    <div class="onboarding-reveal">
+      <p class="onboarding-reveal-kicker">${esc(t('onboarding.reveal.kicker'))}</p>
+      <p class="onboarding-reveal-intro">${esc(
+        t('onboarding.reveal.intro')
+          .replace('{gross}', money(m.gross))
+          .replace('{hours}', String(m.hours))
+          .replace('{grossHourly}', money(m.grossHourly)),
+      )}</p>
+
+      <div class="onboarding-reveal-hero card">
+        <span class="onboarding-reveal-hero-label">${esc(t('onboarding.reveal.heroLabel'))}</span>
+        <span class="onboarding-reveal-hero-value" data-reveal-hourly
+              data-from="${esc(String(m.grossHourly))}" data-to="${esc(String(m.realHourly))}"
+              data-symbol="${esc(m.currencySymbol)}">${esc(money(m.grossHourly))}<small>/hr</small></span>
+        <span class="onboarding-reveal-hero-sub">${esc(
+          t('onboarding.reveal.heroSub')
+            .replace('{takeHome}', money(m.takeHome))
+            .replace('{taxSetAside}', money(m.taxSetAside)),
+        )}</span>
+      </div>
+
+      <dl class="onboarding-reveal-receipt">
+        <div><dt>${esc(t('onboarding.reveal.earned'))}</dt><dd>${esc(money(m.gross))}</dd></div>
+        <div><dt>${esc(t('onboarding.reveal.taxRow').replace('{pct}', String(m.withholdingPct)))}</dt><dd>− ${esc(money(m.taxSetAside))}</dd></div>
+        <div class="is-total"><dt>${esc(t('onboarding.reveal.keep'))}</dt><dd>${esc(money(m.takeHome))}</dd></div>
+      </dl>
+
+      ${writeOff}
+
+      <div class="onboarding-completion-actions">
+        <button type="button" class="btn btn-primary btn-lg" data-enter-vault>${getIcon('vault', 20)} ${esc(t('onboarding.reveal.enter'))}</button>
+      </div>
+      <p class="onboarding-hint onboarding-reveal-footnote">${esc(t('onboarding.reveal.footnote'))}</p>
+    </div>`;
+}
+
+/** Shown instead of the reveal when the driver hasn't worked yet. The dashboard empty state takes over. */
+export function renderNoShiftYet() {
+  return `
+    <div class="onboarding-reveal">
+      <p class="onboarding-reveal-kicker">${esc(t('onboarding.noShift.kicker'))}</p>
+      <h1 class="onboarding-step-title">${esc(t('onboarding.noShift.title'))}</h1>
+      <p class="onboarding-step-lead">${esc(t('onboarding.noShift.body'))}</p>
+      <div class="onboarding-completion-actions">
+        <button type="button" class="btn btn-primary btn-lg" data-enter-vault>${getIcon('vault', 20)} ${esc(t('onboarding.reveal.enter'))}</button>
+      </div>
+    </div>`;
 }
 
 /**
@@ -561,34 +415,22 @@ export function validateStep(step, draft, platformRows = []) {
     case 0: {
       if (!draft.landingComplete) return null;
       const c = String(draft.country || '').trim().toUpperCase();
-      return CountryRegistry.getAll().some((x) => x.id === c) ? null : 'onboarding.validation.country';
-    }
-    case 1: {
-      const country = String(draft.country || '').toUpperCase();
-      const provs = ProvinceRegistry.getByCountry(country);
+      if (!CountryRegistry.getAll().some((x) => x.id === c)) return 'onboarding.validation.country';
+      const provs = ProvinceRegistry.getByCountry(c);
       if (provs.length) {
         const r = String(draft.taxRegion || '').toUpperCase();
-        return provs.some((p) => p.id === r) ? null : 'onboarding.validation.region';
+        if (!provs.some((p) => p.id === r)) return 'onboarding.validation.region';
       }
       return null;
     }
-    case 2: {
+    case 1: {
+      const ls = draft.lastShift || {};
       const filtered = filterPlatformRowsForOnboarding(draft, platformRows);
       if (!filtered.length) return 'onboarding.validation.platformsNone';
-      if (!draft.selectedPlatforms.length) return 'onboarding.validation.platforms';
-      const allow = new Set(filtered.map((r) => String(r.id).toLowerCase()));
-      const ok = draft.selectedPlatforms.every((id) => allow.has(String(id).toLowerCase()));
-      return ok ? null : 'onboarding.validation.platforms';
-    }
-    case 3:
-      return draft.displayName.trim() ? null : 'onboarding.validation.name';
-    case 4: {
-      const v = draft.vehicles[0];
-      return v && v.nickname.trim() && v.type ? null : 'onboarding.validation.vehicle';
-    }
-    case 8: {
-      const n = Number(draft.taxWithholdingPct);
-      return Number.isFinite(n) && n >= 0 && n <= 80 ? null : 'onboarding.validation.tax';
+      if (!ls.platformId) return 'onboarding.validation.lastShiftPlatform';
+      if (!(Number(ls.hours) > 0)) return 'onboarding.validation.lastShiftHours';
+      if (!(Number(ls.gross) > 0)) return 'onboarding.validation.lastShiftGross';
+      return null;
     }
     default:
       return null;

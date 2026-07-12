@@ -57,12 +57,21 @@ export async function initBackupTriggers() {
   void runAutoSync('foreground');
 }
 
-/** Resolve the sync gate + passphrase, or null if auto-sync can't run right now. */
+/**
+ * Resolve the gate, returning `{ passphrase }` to sync with — or null if auto-sync can't run.
+ *
+ * The passphrase may legitimately be an EMPTY STRING: that's the default one-tap mode (no E2E
+ * password), where change-logs are written as plain envelopes into the Drive appDataFolder
+ * sandbox. Returning null for a missing password — as this used to — silently disabled
+ * auto-sync for every default user while the UI still said sync was on: a silent lie about
+ * data safety.
+ * @returns {{ passphrase: string } | null}
+ */
 function resolveAutoSyncPassphrase() {
   if (store.get('demoMode')) return null;
   if (!isSyncEnabled()) return null;
   if (!isDriveConnected()) return null;
-  return getBackupPassword() || null;
+  return { passphrase: getBackupPassword() ?? '' };
 }
 
 /**
@@ -75,8 +84,9 @@ async function runAutoSync(event) {
   if (autoSyncBusy) return;
   autoSyncBusy = true;
   try {
-    const passphrase = resolveAutoSyncPassphrase();
-    if (!passphrase) return;
+    const gate = resolveAutoSyncPassphrase();
+    if (!gate) return;
+    const { passphrase } = gate;
 
     const schedule = getSyncSchedule();
     const lastPushRunAt = getLastPushRunAt();

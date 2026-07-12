@@ -53,6 +53,12 @@ export class AppErrorBoundary extends React.Component<Props, State> {
           <Pressable
             onPress={this.reset}
             accessibilityRole="button"
+            style={{
+              backgroundColor: COLORS.success,
+              paddingHorizontal: 24,
+              paddingVertical: 12,
+              borderRadius: 12,
+            }}
           >
             <Text variant="labelM" style={{ color: COLORS.background }}>
               Try again

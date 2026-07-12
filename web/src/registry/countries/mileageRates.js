@@ -1,20 +1,20 @@
 /**
- * Vehicle-type-aware standard mileage deduction rates — web mirror of the mobile app's
- * `commaApp/src/registry/countries/mileageRates.ts`.
+ * Vehicle-type-aware standard mileage deduction rates — web mirror of the phone app's
+ * `src/registry/countries/mileageRates.ts`. Keep the two in step.
  *
- * Answers a tax question: is THIS vehicle type even eligible for a standard mileage deduction in
- * THIS country, and at what rate? Real tax authorities gate eligibility on vehicle type — the IRS
- * standard mileage rate only covers cars/vans/pickups/panel trucks (not motorcycles or bicycles);
- * CRA's per-km automobile allowance is likewise for motor vehicles, not bicycles.
+ * This file contains NO country-specific data and no country branching. Each country declares its
+ * own `mileage` table in its own definition file (see CA.country.js), and this is a pure lookup
+ * into it. Adding a country means adding that one file — nothing here changes.
  *
- * Research current as of 2026:
- *   - IRS Notice 2026-10: 72.5 cents/mile for cars/vans, no published rate for motorcycles/bicycles
- *   - CRA 2026: 73 cents/km (first 5,000 km) / 67 cents/km after, for automobiles only
- *
- * Scope: only US and CA are researched/supported, matching this app's current country coverage
- * (CountryRegistry only has CA/US/UK). UK has no researched vehicle-type table here — an
- * ineligible/no-rate result rather than a fabricated number.
+ * It answers a tax question: is THIS vehicle type even eligible for a standard mileage deduction
+ * in THIS country, and at what rate? Real tax authorities gate eligibility on vehicle type — the
+ * IRS standard rate covers cars/vans/pickups but not motorcycles or bicycles; CRA's per-km
+ * automobile allowance is likewise motor-vehicles-only. A category a country does not list is NOT
+ * eligible: absence is a deliberate answer, never a blank to be filled in with a neighbouring
+ * country's number.
  */
+
+import { findCountryDef } from './index.js';
 
 const VEHICLE_TYPES_BY_CATEGORY = {
   car: new Set(['gas', 'hybrid', 'ev']),
@@ -41,52 +41,35 @@ function notEligible(authority) {
   };
 }
 
-const US_RATES = {
-  car: {
-    eligible: true,
-    ratePrimary: 0.725,
-    rateSecondary: null,
-    rateThreshold: null,
-    label: 'IRS Standard Mileage Rate (2026)',
-  },
-  motorcycle: notEligible('IRS'),
-  bicycle: notEligible('IRS'),
-  none: notEligible('IRS'),
-};
-
-const CA_RATES = {
-  car: {
-    eligible: true,
-    ratePrimary: 0.73,
-    rateSecondary: 0.67,
-    rateThreshold: 5000,
-    label: 'CRA Automobile Allowance Rate (2026)',
-  },
-  motorcycle: notEligible('CRA'),
-  bicycle: notEligible('CRA'),
-  none: notEligible('CRA'),
-};
-
 /**
  * Resolves whether a vehicle type is eligible for a standard mileage deduction in a country, and
- * at what rate. This is the DEFAULT only — a saved vehicleTaxProfiles row (user override or
- * opt-out) always takes precedence over this lookup.
+ * at what rate. This is the DEFAULT only — a saved vehicleTaxProfiles row (a user override, or an
+ * explicit opt-out) always takes precedence over this lookup.
+ *
  * @param {string} countryId
  * @param {string} vehicleType
  */
 export function getVehicleMileageEligibility(countryId, vehicleType) {
+  const id = String(countryId || '').toUpperCase();
+  // findCountryDef, NOT getById — an unregistered country must not be handed Canada's rates.
+  const def = findCountryDef(id);
+  const table = def?.mileage ?? null;
+
+  // Either the country isn't registered, or it has declared it has no researched rates. Say so;
+  // don't invent one.
+  if (!table) return notEligible(id || 'this country');
+
   const category = vehicleCategory(vehicleType);
-  const c = String(countryId || '').toUpperCase();
+  if (category === 'none') return notEligible(table.authority);
 
-  if (c === 'US') return US_RATES[category];
-  if (c === 'CA') return CA_RATES[category];
+  const rate = table.rates?.[category];
+  if (!rate) return notEligible(table.authority);
 
-  // Out of researched scope (UK and others): report ineligible rather than fabricate a number.
   return {
-    eligible: false,
-    ratePrimary: null,
-    rateSecondary: null,
-    rateThreshold: null,
-    label: `No researched mileage rate available for ${c}`,
+    eligible: true,
+    ratePrimary: rate.ratePrimary,
+    rateSecondary: rate.rateSecondary ?? null,
+    rateThreshold: rate.rateThreshold ?? null,
+    label: rate.label,
   };
 }

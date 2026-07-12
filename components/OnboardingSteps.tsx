@@ -26,6 +26,7 @@ import { getPlatformsByCountry, PLATFORMS, PLATFORM_REGISTRY } from "../src/regi
 import { PlatformLogo } from "../src/components/GlobalTopHeader";
 import { getRegionsByCountry } from "../src/registry/countries/index";
 import { type FeatureKey } from "../src/registry/modules";
+import { type FirstShiftMath } from "../src/services/onboarding/firstShift";
 import {
   Car,
   Bike,
@@ -36,7 +37,9 @@ import {
   Moon,
   Smartphone,
   ArrowRight,
+  CloudUpload,
 } from "lucide-react-native";
+import { GoogleDriveLogo } from "../src/components/logos/GoogleDriveLogo";
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
 
@@ -146,7 +149,8 @@ export function WelcomeScreen({
           </Text>
         </View>
 
-        {/* Hero */}
+        {/* Hero — the commas in the lead carry the brand color: Comma's namesake is
+            the one decorative gesture on this screen. Mirrors the web landing. */}
         <View style={{ alignItems: "center", gap: 14 }}>
           <Text variant="headingXl" style={{ textAlign: "center" }}>
             Stop guessing{"\n"}what you made.
@@ -156,21 +160,29 @@ export function WelcomeScreen({
             style={{
               color: COLORS.contentMuted,
               textAlign: "center",
-              maxWidth: 260,
+              maxWidth: 280,
             }}
           >
-            Every dollar earned. Every mile driven. Every deduction tracked —
-            all on your device.
+            Comma logs every dollar
+            <Text variant="paragraphL" style={{ color: COLORS.primary }}>,</Text> every mile
+            <Text variant="paragraphL" style={{ color: COLORS.primary }}>,</Text> and every
+            write-off — and shows you what a shift was really worth.
           </Text>
         </View>
 
-        {/* CTAs */}
-        <View style={{ gap: 10 }}>
+        {/* CTAs — one real button; the side paths are quiet text links under it. */}
+        <View style={{ gap: 6 }}>
           <Pressable
             onPress={onStart}
             disabled={demoLoading}
             accessibilityRole="button"
             accessibilityState={{ disabled: demoLoading }}
+            style={{
+              backgroundColor: demoLoading ? COLORS.surface05 : COLORS.contentPrimary,
+              borderRadius: 16,
+              paddingVertical: 17,
+              alignItems: "center",
+            }}
           >
             <Text
               variant="headingS"
@@ -187,6 +199,13 @@ export function WelcomeScreen({
             onPress={demoLoading ? undefined : onDemo}
             accessibilityRole="button"
             accessibilityState={{ disabled: demoLoading }}
+            style={{
+              paddingVertical: 12,
+              alignItems: "center",
+              flexDirection: "row",
+              justifyContent: "center",
+              gap: 8,
+            }}
           >
             {demoLoading
               ? <>
@@ -201,8 +220,9 @@ export function WelcomeScreen({
             onPress={demoLoading ? undefined : onRestoreSync}
             accessibilityRole="button"
             accessibilityState={{ disabled: demoLoading }}
+            style={{ paddingVertical: 12, alignItems: "center" }}
           >
-            <Text variant="labelM" style={{ color: COLORS.contentSecondary }}>Restore / Sync existing data</Text>
+            <Text variant="labelM" style={{ color: COLORS.contentSecondary }}>Restore or sync existing data</Text>
           </Pressable>
 
           <Text
@@ -330,6 +350,16 @@ export function RegionStep({
                 onPress={() => onChange(r.id)}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: selected }}
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: 14,
+                  borderRadius: 12,
+                  backgroundColor: selected ? withAlpha(COLORS.contentPrimary, 0.05) : COLORS.surface02,
+                  borderWidth: 1,
+                  borderColor: selected ? COLORS.contentPrimary : COLORS.lineSubtle,
+                }}
               >
                 <Text
                   variant="labelM"
@@ -777,6 +807,12 @@ export function GPSStep({ onNext }: { onNext: () => void }) {
         <Pressable
           onPress={handleRequest}
           accessibilityRole="button"
+          style={{
+            backgroundColor: COLORS.contentPrimary,
+            borderRadius: 16,
+            paddingVertical: 17,
+            alignItems: "center",
+          }}
         >
           <Text variant="headingS" style={{ color: COLORS.background }}>
             Enable GPS tracking
@@ -785,9 +821,128 @@ export function GPSStep({ onNext }: { onNext: () => void }) {
         <Pressable
           onPress={onNext}
           accessibilityRole="button"
+          style={{ paddingVertical: 14, alignItems: "center" }}
         >
           <Text variant="labelM" style={{ color: COLORS.contentMuted }}>
             Skip — I'll enter mileage manually
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+// ─── Step — Protect your data (Cloud Sync) ────────────────────────────────────
+
+export function SyncStep({
+  onConnect,
+  onSkip,
+  isConnecting,
+  isConnected,
+}: {
+  onConnect: () => void;
+  onSkip: () => void;
+  isConnecting?: boolean;
+  isConnected?: boolean;
+}) {
+  return (
+    <View style={{ flex: 1, justifyContent: "space-between" }}>
+      <View>
+        <View
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: 20,
+            backgroundColor: COLORS.surface04,
+            borderWidth: 1,
+            borderColor: COLORS.lineStrong,
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 28,
+          }}
+        >
+          <CloudUpload size={28} color={COLORS.contentPrimary} strokeWidth={1.5} />
+        </View>
+        <StepHeading
+          title="Protect your data"
+          sub="Back up your shifts securely to Google Drive. Your data stays private and is only accessible with your Google Account."
+        />
+        <View style={{ gap: 12 }}>
+          {[
+            "One tap to set up — no passwords to remember",
+            "Sync across devices automatically",
+            "Your GPS tracking data always stays local on your phone",
+            "You can always change this later in Settings → Cloud Sync",
+          ].map((point) => (
+            <View
+              key={point}
+              style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}
+            >
+              <View
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  backgroundColor: COLORS.surface04,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginTop: 1,
+                }}
+              >
+                <Check size={10} color={COLORS.contentPrimary} strokeWidth={3} />
+              </View>
+              <Text variant="paragraphM" style={{ flex: 1 }}>
+                {point}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      <View style={{ gap: 10 }}>
+        {isConnected ? (
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              paddingVertical: 16,
+            }}
+          >
+            <Check size={18} color={COLORS.contentPrimary} strokeWidth={3} />
+            <Text variant="labelM">Google Drive connected!</Text>
+          </View>
+        ) : (
+          <Pressable
+            onPress={isConnecting ? undefined : onConnect}
+            accessibilityRole="button"
+            style={[
+              {
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                backgroundColor: COLORS.contentPrimary,
+                borderRadius: 16,
+                paddingVertical: 16,
+                opacity: isConnecting ? 0.6 : 1,
+              },
+            ]}
+          >
+            <GoogleDriveLogo size={18} />
+            <Text variant="headingS" style={{ color: COLORS.background }}>
+              {isConnecting ? "Connecting…" : "Connect Google Drive"}
+            </Text>
+          </Pressable>
+        )}
+        <Pressable
+          onPress={onSkip}
+          accessibilityRole="button"
+          style={{ paddingVertical: 14, alignItems: "center" }}
+        >
+          <Text variant="labelM" style={{ color: COLORS.contentMuted, textAlign: "center" }}>
+            Skip for now
           </Text>
         </Pressable>
       </View>
@@ -880,6 +1035,18 @@ export function AppearanceStep({
                   accessibilityRole="radio"
                   accessibilityState={{ checked: selected }}
                   accessibilityLabel={label}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    backgroundColor: id,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: selected ? 3 : 1,
+                    borderColor: selected
+                      ? (isLight ? COLORS.contentMuted : COLORS.contentPrimary)
+                      : COLORS.lineStrong,
+                  }}
                 >
                   {selected && (
                     <Check
@@ -1349,6 +1516,19 @@ export function RevealStep({
           <Pressable
             onPress={onEnter}
             accessibilityRole="button"
+            style={{
+              backgroundColor: accentColor,
+              borderRadius: 16,
+              paddingVertical: 17,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              shadowColor: accentColor,
+              shadowOpacity: 0.35,
+              shadowRadius: 16,
+              shadowOffset: { width: 0, height: 6 },
+            }}
           >
             <Text variant="headingS" style={{ color: onAccent }}>
               Go to my dashboard
@@ -1443,3 +1623,498 @@ const s = StyleSheet.create({
     backgroundColor: COLORS.surface04,
   },
 });
+
+// ─── Activation flow ──────────────────────────────────────────────────────────
+// The three screens between install and the driver's first real number. Everything else the
+// app needs is either derived, defaulted, or deferred to the dashboard checklist.
+
+/** Country and region on one screen — region reveals itself once a country is picked. */
+export function CountryRegionStep({
+  country,
+  onCountryChange,
+  taxRegion,
+  onRegionChange,
+}: {
+  country: "US" | "CA" | "UK" | "NP";
+  onCountryChange: (c: "US" | "CA" | "UK" | "NP") => void;
+  taxRegion: string;
+  onRegionChange: (r: string) => void;
+}) {
+  const regions = getRegionsByCountry(country);
+  // NP has a single tax regime — asking for a region would be a step that changes nothing.
+  const needsRegion = country !== "NP" && regions.length > 1;
+  const regionLabel =
+    country === "CA" ? "Province" : country === "US" ? "State" : "Region";
+
+  return (
+    <View style={{ flex: 1 }}>
+      <StepHeading
+        title="Where do you drive?"
+        sub="Sets your currency, distance unit, tax rate, and mileage write-off."
+      />
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+          {COUNTRIES.map(({ code, flag, label, sub }) => {
+            const selected = country === code;
+            return (
+              <Pressable
+                key={code}
+                onPress={() => onCountryChange(code)}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
+                style={[s.countryTile, selected && s.tileSelected]}
+              >
+                <Text style={{ fontSize: 28 }}>{flag}</Text>
+                <Text
+                  variant="labelL"
+                  style={[
+                    s.tileTitle,
+                    { textAlign: "center" },
+                    selected && { color: COLORS.contentPrimary },
+                  ]}
+                >
+                  {label}
+                </Text>
+                <Text variant="paragraphS" style={[s.tileSub, { textAlign: "center" }]}>
+                  {sub}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {needsRegion && (
+          <View style={{ marginTop: 26, gap: 8 }}>
+            <FieldLabel label={regionLabel.toUpperCase()} />
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {regions.map((r) => {
+                const selected = taxRegion === r.id;
+                return (
+                  <Pressable
+                    key={r.id}
+                    onPress={() => onRegionChange(r.id)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: selected }}
+                    style={[s.chip, selected && s.chipSelected]}
+                  >
+                    <Text
+                      variant="labelM"
+                      style={{
+                        color: selected ? COLORS.contentPrimary : COLORS.contentSecondary,
+                      }}
+                    >
+                      {r.id}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+/**
+ * The backfill step. Four fields, and the whole flow turns on them — this is the only screen
+ * that produces data rather than configuration. A driver who hasn't worked yet escapes via
+ * onSkip and gets the same activation job done by the dashboard's empty state instead.
+ */
+export function LastShiftStep({
+  country,
+  platform,
+  onPlatformChange,
+  hours,
+  onHoursChange,
+  gross,
+  onGrossChange,
+  distance,
+  onDistanceChange,
+  currencySymbol,
+  distanceUnit,
+  onSkip,
+}: {
+  country: string;
+  platform: string;
+  onPlatformChange: (id: string) => void;
+  hours: string;
+  onHoursChange: (v: string) => void;
+  gross: string;
+  onGrossChange: (v: string) => void;
+  distance: string;
+  onDistanceChange: (v: string) => void;
+  currencySymbol: string;
+  distanceUnit: string;
+  onSkip: () => void;
+}) {
+  const platforms = getPlatformsByCountry(country);
+
+  return (
+    <View style={{ flex: 1 }}>
+      <StepHeading
+        title="Your last shift"
+        sub="Roughly is fine. We'll show you what it was actually worth."
+      />
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <View style={{ gap: 8, marginBottom: 22 }}>
+          <FieldLabel label="WHICH APP?" />
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {platforms.map((p) => {
+              const selected = platform === p.id;
+              const hasLogo = !!PLATFORM_REGISTRY[p.id]?.logo;
+              return (
+                <Pressable
+                  key={p.id}
+                  onPress={() => onPlatformChange(p.id)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  style={[s.chip, selected && s.chipSelected]}
+                >
+                  {hasLogo ? (
+                    <PlatformLogo id={p.id} size={16} />
+                  ) : (
+                    <View
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: 5,
+                        backgroundColor: p.color,
+                      }}
+                    />
+                  )}
+                  <Text
+                    variant="labelM"
+                    style={{
+                      color: selected ? COLORS.contentPrimary : COLORS.contentSecondary,
+                    }}
+                  >
+                    {p.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={{ gap: 18 }}>
+          <View style={{ gap: 8 }}>
+            <FieldLabel label="HOW LONG WERE YOU OUT?" />
+            <StyledInput
+              value={hours}
+              onChangeText={onHoursChange}
+              placeholder="5"
+              keyboardType="decimal-pad"
+              suffix="hours"
+            />
+          </View>
+
+          <View style={{ gap: 8 }}>
+            <FieldLabel label="WHAT DID YOU MAKE? (TIPS INCLUDED)" />
+            <StyledInput
+              value={gross}
+              onChangeText={onGrossChange}
+              placeholder="142"
+              keyboardType="decimal-pad"
+              prefix={currencySymbol}
+            />
+          </View>
+
+          <View style={{ gap: 8 }}>
+            <FieldLabel label={`HOW FAR DID YOU DRIVE? (OPTIONAL)`} />
+            <StyledInput
+              value={distance}
+              onChangeText={onDistanceChange}
+              placeholder="47"
+              keyboardType="decimal-pad"
+              suffix={distanceUnit}
+            />
+            <Text variant="paragraphS" style={{ color: COLORS.contentMuted }}>
+              Turns into a tax write-off. Skip it and we'll just leave it out.
+            </Text>
+          </View>
+        </View>
+
+        <Pressable
+          onPress={onSkip}
+          accessibilityRole="button"
+          style={{ alignItems: "center", paddingVertical: 18, marginTop: 8 }}
+        >
+          <Text variant="labelM" style={{ color: COLORS.contentMuted }}>
+            I haven't driven yet
+          </Text>
+        </Pressable>
+      </ScrollView>
+    </View>
+  );
+}
+
+/**
+ * The activation moment. Sequences three numbers the app already computes into the one
+ * realisation gig drivers never get from the platforms themselves: gross is not take-home.
+ */
+export function FirstShiftReveal({
+  math,
+  accentColor = "#F6F6F7",
+  onEnter,
+}: {
+  math: FirstShiftMath;
+  accentColor?: string;
+  onEnter: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const accentLight = isLightHex(accentColor);
+  const onAccent = accentLight ? COLORS.background : COLORS.contentPrimary;
+  const cur = math.currencySymbol;
+
+  const money = (n: number) =>
+    `${cur}${n.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
+  // Count the real hourly rate up from the gross one — the gap between the two IS the insight,
+  // so we animate across it rather than just landing on a number.
+  const [shown, setShown] = useState(math.grossHourly);
+  useEffect(() => {
+    let raf = 0;
+    const start = Date.now();
+    const begin = 900;
+    const dur = 1200;
+    const from = math.grossHourly;
+    const to = math.realHourly;
+    const tick = () => {
+      const t = Math.min(1, Math.max(0, (Date.now() - start - begin) / dur));
+      const eased = 1 - Math.pow(1 - t, 3);
+      setShown(from + (to - from) * eased);
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [math.grossHourly, math.realHourly]);
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: COLORS.background,
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom,
+      }}
+    >
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: "space-between",
+          paddingHorizontal: 24,
+          paddingTop: 32,
+          paddingBottom: 28,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={{ gap: 24 }}>
+          <Rise delay={0} style={{ gap: 8 }}>
+            <Text variant="labelXs" style={{ color: accentColor, letterSpacing: 2 }}>
+              YOUR LAST SHIFT
+            </Text>
+            <Text variant="paragraphM" style={{ color: COLORS.contentSecondary }}>
+              You made {money(math.gross)} over {math.hours} hours. The app told you that was{" "}
+              <Text variant="labelL" style={{ color: COLORS.contentPrimary }}>
+                {money(math.grossHourly)}/hr
+              </Text>
+              .
+            </Text>
+          </Rise>
+
+          {/* The hero: real hourly, counted down from the gross figure. */}
+          <Rise delay={420}>
+            <View
+              style={{
+                backgroundColor: COLORS.card,
+                borderWidth: 1,
+                borderColor: withAlpha(accentColor, 0.35),
+                borderRadius: 24,
+                paddingVertical: 28,
+                paddingHorizontal: 20,
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <Text variant="labelXs" style={{ color: COLORS.contentMuted, letterSpacing: 1.5 }}>
+                WHAT YOU ACTUALLY KEEP
+              </Text>
+              <Text variant="display" tabular style={{ color: accentColor }}>
+                {money(shown)}
+                <Text variant="headingM" style={{ color: COLORS.contentMuted }}>
+                  /hr
+                </Text>
+              </Text>
+              <Text
+                variant="paragraphS"
+                style={{ color: COLORS.contentSecondary, textAlign: "center", marginTop: 2 }}
+              >
+                {money(math.takeHome)} take-home, after {money(math.taxSetAside)} set aside for tax
+              </Text>
+            </View>
+          </Rise>
+
+          {/* The receipt — every line traceable to a screen they can go check. */}
+          <Rise delay={700} style={{ gap: 10 }}>
+            <RevealRow label="You earned" value={money(math.gross)} />
+            <RevealRow
+              label={`Tax to set aside (${math.withholdingPct}%)`}
+              value={`− ${money(math.taxSetAside)}`}
+            />
+            <View style={{ height: 1, backgroundColor: COLORS.lineSubtle, marginVertical: 2 }} />
+            <RevealRow label="Yours to keep" value={money(math.takeHome)} strong />
+
+            {math.hasMileageDeduction && math.mileageWriteOff > 0 && (
+              <View
+                style={{
+                  marginTop: 10,
+                  backgroundColor: withAlpha(accentColor, 0.07),
+                  borderWidth: 1,
+                  borderColor: withAlpha(accentColor, 0.2),
+                  borderRadius: 14,
+                  padding: 14,
+                  gap: 3,
+                }}
+              >
+                <Text variant="labelM" style={{ color: COLORS.contentPrimary }}>
+                  + {money(math.mileageWriteOff)} in write-offs
+                </Text>
+                <Text variant="paragraphS" style={{ color: COLORS.contentSecondary }}>
+                  Those {math.distance} {math.distanceUnit} are deductible at {math.mileageRateLabel}.
+                  Assumes a gas car — set your real vehicle to sharpen this.
+                </Text>
+              </View>
+            )}
+          </Rise>
+        </View>
+
+        <Rise delay={980} style={{ marginTop: 28, gap: 12 }}>
+          <Pressable
+            onPress={onEnter}
+            accessibilityRole="button"
+            style={{
+              backgroundColor: accentColor,
+              borderRadius: 16,
+              paddingVertical: 17,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              shadowColor: accentColor,
+              shadowOpacity: 0.35,
+              shadowRadius: 16,
+              shadowOffset: { width: 0, height: 6 },
+            }}
+          >
+            <Text variant="headingS" style={{ color: onAccent }}>
+              Go to my dashboard
+            </Text>
+            <ArrowRight size={18} color={onAccent} strokeWidth={2.8} />
+          </Pressable>
+          <Text
+            variant="paragraphS"
+            style={{ color: COLORS.contentMuted, textAlign: "center" }}
+          >
+            That shift is saved. Everything else can wait.
+          </Text>
+        </Rise>
+      </ScrollView>
+    </View>
+  );
+}
+
+function RevealRow({
+  label,
+  value,
+  strong,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
+  return (
+    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+      <Text
+        variant={strong ? "labelL" : "paragraphM"}
+        style={{ color: strong ? COLORS.contentPrimary : COLORS.contentSecondary }}
+      >
+        {label}
+      </Text>
+      <Text
+        variant={strong ? "labelL" : "paragraphM"}
+        tabular
+        style={{ color: strong ? COLORS.contentPrimary : COLORS.contentSecondary }}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * Shown instead of the reveal when the driver hasn't worked yet. Same destination, different
+ * promise — the dashboard's empty state picks the activation job up from here.
+ */
+export function NoShiftYetStep({
+  accentColor = "#F6F6F7",
+  onEnter,
+}: {
+  accentColor?: string;
+  onEnter: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const onAccent = isLightHex(accentColor) ? COLORS.background : COLORS.contentPrimary;
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: COLORS.background,
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom,
+        paddingHorizontal: 24,
+        justifyContent: "space-between",
+      }}
+    >
+      <View style={{ flex: 1, justifyContent: "center", gap: 14 }}>
+        <Rise delay={0} style={{ gap: 12 }}>
+          <Text variant="labelXs" style={{ color: accentColor, letterSpacing: 2 }}>
+            YOU'RE SET UP
+          </Text>
+          <Text variant="display" style={{ color: COLORS.contentPrimary, lineHeight: 46 }}>
+            Go drive.
+          </Text>
+          <Text variant="paragraphM" style={{ color: COLORS.contentSecondary, maxWidth: 320 }}>
+            When you get back, log the shift — or hit the tracker before you set off — and Comma
+            will show you what it was really worth after tax and mileage.
+          </Text>
+        </Rise>
+      </View>
+
+      <Rise delay={320} style={{ paddingBottom: 28 }}>
+        <Pressable
+          onPress={onEnter}
+          accessibilityRole="button"
+          style={{
+            backgroundColor: accentColor,
+            borderRadius: 16,
+            paddingVertical: 17,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
+        >
+          <Text variant="headingS" style={{ color: onAccent }}>
+            Go to my dashboard
+          </Text>
+          <ArrowRight size={18} color={onAccent} strokeWidth={2.8} />
+        </Pressable>
+      </Rise>
+    </View>
+  );
+}

@@ -23,6 +23,9 @@ export const NP: CountryDef = {
   currency: "NPR",
   symbol: "₨",
   distanceUnit: "km",
+  // Nepal has no standard per-distance mileage deduction we've researched. null is the honest
+  // answer: the app reports ineligible and points at actual expenses, rather than inventing a rate.
+  mileage: null,
   taxInstallmentDates: [],
   hasContractorEconomy: false,
   hasSelfAssessmentTax: false,

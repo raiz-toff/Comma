@@ -20,12 +20,26 @@ import { eq } from "drizzle-orm";
 import { customAlphabet } from "nanoid/non-secure";
 import { db } from "../../database/client";
 import { syncOverwriteLog } from "../../database/schema";
-import { SYNCED_TABLE_BY_NAME, reviveTimestamps, canonicalizeIncoming } from "../../database/syncedTables";
+import {
+  SYNCED_TABLE_BY_NAME,
+  SYNCED_PK_BY_NAME,
+  reviveTimestamps,
+  canonicalizeIncoming,
+} from "../../database/syncedTables";
 import { type ChangeLog } from "./changeLog";
 import { decideMerge, shouldAuditOverwrite } from "./mergeRules";
 
 const isWeb = Platform.OS === "web";
 const genAuditId = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 16);
+
+/**
+ * Bump whenever the apply/merge logic changes what it can successfully apply. syncNow
+ * compares this against the persisted value and clears the poison-log quarantine on a
+ * mismatch, so logs a BUGGY build failed on get retried under the fixed code.
+ *   v2 (2026-07-12): per-table primary keys — profile rows (pk `key`, no `id` column)
+ *   made every log containing them fail with a SQL syntax error and get quarantined.
+ */
+export const APPLY_LOGIC_VERSION = "2";
 
 /**
  * Merchant identity key (2026-07-03 interop audit, Gap 4). Both apps mint their OWN merchant
@@ -68,13 +82,14 @@ export async function applyChangeLog(log: ChangeLog, mergedAt = Date.now()): Pro
   if (isWeb) {
     for (const [name, rows] of Object.entries(log.rows)) {
       if (!SYNCED_TABLE_BY_NAME[name]) continue; // unknown/non-synced table — ignore
+      const pk = SYNCED_PK_BY_NAME[name] ?? "id";
       const raw = localStorage.getItem(`comma_${name}`);
       const list: Record<string, unknown>[] = raw ? JSON.parse(raw) : [];
-      const idx = new Map<string, number>(list.map((r, i) => [String(r.id), i]));
+      const idx = new Map<string, number>(list.map((r, i) => [String(r[pk]), i]));
 
       for (const rawIncoming of rows) {
         const incoming = canonicalizeIncoming(name, rawIncoming);
-        const id = String(incoming.id);
+        const id = String(incoming[pk]);
         let at = idx.get(id);
         // Merchant identity dedupe — see merchantIdentity() doc.
         if (at == null && name === "merchants") {
@@ -104,9 +119,12 @@ export async function applyChangeLog(log: ChangeLog, mergedAt = Date.now()): Pro
           appendWebAudit({ tableName: name, rowId: id, supersededRow: localRow, winnerRow: incoming, mergedAt });
           audited++;
         }
-        // Keep the LOCAL id when the merchant dedupe remapped the row.
-        if (at != null) list[at] = { ...incoming, id: (list[at] as any).id ?? incoming.id };
-        else list.push(incoming);
+        // Keep the LOCAL key when the merchant dedupe remapped the row.
+        if (at != null) list[at] = { ...incoming, [pk]: (list[at] as any)[pk] ?? incoming[pk] };
+        else {
+          list.push(incoming);
+          idx.set(id, list.length - 1);
+        }
         upserted++;
       }
       localStorage.setItem(`comma_${name}`, JSON.stringify(list));
@@ -118,18 +136,23 @@ export async function applyChangeLog(log: ChangeLog, mergedAt = Date.now()): Pro
     for (const [name, rows] of Object.entries(log.rows)) {
       const table = SYNCED_TABLE_BY_NAME[name];
       if (!table) continue; // unknown/non-synced table — ignore
+      // Per-table primary key: `key` for the profile KV, `id` everywhere else. Assuming
+      // `id` here rendered `WHERE = ?` for profile rows (no such column) — a SQL syntax
+      // error that failed and eventually quarantined EVERY log carrying a profile.
+      const pk = SYNCED_PK_BY_NAME[name] ?? "id";
+      const pkCol = (table as any)[pk];
       for (const rawIncoming of rows) {
         const incoming = canonicalizeIncoming(name, rawIncoming);
         const existing = await tx
           .select()
           .from(table)
-          .where(eq((table as any).id, incoming.id))
+          .where(eq(pkCol, (incoming as any)[pk]))
           .limit(1);
         let localRow = existing[0] as Record<string, unknown> | undefined;
 
         // Merchant identity dedupe — see merchantIdentity() doc. When it matches, the merge
         // targets the EXISTING row (its id is kept) instead of inserting a duplicate name.
-        let targetId = String(incoming.id);
+        let targetId = String((incoming as any)[pk]);
         if (!localRow && name === "merchants") {
           const { norm, name: nameVal } = merchantIdentity(incoming);
           let dupe: unknown[] = [];
@@ -186,10 +209,11 @@ export async function applyChangeLog(log: ChangeLog, mergedAt = Date.now()): Pro
           });
           audited++;
         }
-        // Never move the primary key: update the LOCAL row id (equals incoming.id except
-        // when the merchant dedupe remapped the target).
-        const { id: _incomingId, ...updateValues } = values as Record<string, unknown>;
-        await tx.update(table).set(updateValues).where(eq((table as any).id, targetId));
+        // Never move the primary key: update the LOCAL row's key (equals the incoming one
+        // except when the merchant dedupe remapped the target).
+        const updateValues = { ...(values as Record<string, unknown>) };
+        delete updateValues[pk];
+        await tx.update(table).set(updateValues).where(eq(pkCol, targetId));
         upserted++;
       }
     }

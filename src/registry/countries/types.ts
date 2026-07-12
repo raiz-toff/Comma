@@ -21,6 +21,27 @@ export interface TaxProfile {
   taxInstallmentReminderDays: number;
 }
 
+/** Tax authorities gate mileage eligibility on vehicle type, so rates are keyed by category. */
+export type MileageCategory = "car" | "motorcycle" | "bicycle";
+
+export interface MileageRate {
+  /** Rate per distance unit (per km or per mile — the country's own distanceUnit). */
+  ratePrimary: number;
+  /** Rate beyond rateThreshold, for tiered schemes (e.g. CRA's 5,000 km step-down). */
+  rateSecondary?: number | null;
+  /** Distance at which ratePrimary gives way to rateSecondary. */
+  rateThreshold?: number | null;
+  /** Shown to the driver, so name the actual scheme (e.g. "CRA Automobile Allowance Rate (2026)"). */
+  label: string;
+}
+
+export interface MileageTable {
+  /** The tax authority these rates come from — used in "not eligible" copy. */
+  authority: string;
+  /** Categories omitted here are NOT eligible. Absence is meaningful — don't fill in blanks. */
+  rates: Partial<Record<MileageCategory, MileageRate>>;
+}
+
 export interface CountryDef {
   id: "US" | "CA" | "UK" | "NP";
   label: string;
@@ -49,6 +70,15 @@ export interface CountryDef {
   hasMileageDeduction?: boolean;
   /** Label for the mileage deduction source (e.g. "IRS Standard Rate") */
   mileageDeductionLabel?: string;
+  /**
+   * This country's standard mileage deduction rules — DATA, owned by the country.
+   *
+   * Required (not optional) on purpose: adding a new country forces an explicit decision about
+   * its mileage rules instead of silently inheriting another country's. `null` is a valid, honest
+   * answer meaning "we have not researched rates here" — the app then reports ineligible rather
+   * than inventing a number. See getVehicleMileageEligibility, which is a pure lookup into this.
+   */
+  mileage: MileageTable | null;
   /** Whether cash-based gig economy is the norm (shows cash tools prominently) */
   cashEconomyPrimary?: boolean;
   /** Expense category profile to use for deduction UI */

@@ -1,6 +1,24 @@
 {
   "version": 1,
   "skills": {
+    "expo-native-ui": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-native-ui/SKILL.md",
+      "computedHash": "1b259d6f4a97329c26c75d11995bee64097b882561b590ddc698117febd5bb8f"
+    },
+    "find-skills": {
+      "source": "vercel-labs/skills",
+      "sourceType": "github",
+      "skillPath": "skills/find-skills/SKILL.md",
+      "computedHash": "781bd6d3f9b19f8c9af6b53d8d0e4876d0183841b565db34ca7092ffa412d111"
+    },
+    "improve": {
+      "source": "shadcn/improve",
+      "sourceType": "github",
+      "skillPath": "skills/improve/SKILL.md",
+      "computedHash": "39a9358732dcff385e9e4d3e60b4547856f834e54a58b35e455aa9bd49928c13"
+    },
     "logo-creator": {
       "source": "resciencelab/opc-skills",
       "sourceType": "github",
@@ -12,6 +30,24 @@
       "sourceType": "github",
       "skillPath": "plugins/ui-design/skills/mobile-android-design/SKILL.md",
       "computedHash": "bcb274bcc4e0ad076b5947f90e5a247f370ed4da1274b2b7347dc293ee396309"
+    },
+    "react-native-best-practices": {
+      "source": "callstackincubator/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-native-best-practices/SKILL.md",
+      "computedHash": "68a961f23c65fd9b4a85738afdf5ba32982cf66935bceb9031c97651e85fe7f9"
+    },
+    "react-native-design": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/ui-design/skills/react-native-design/SKILL.md",
+      "computedHash": "8a044b22f5296c463d328ba6144d978b15b382754344e596bce8e827c4ca699f"
+    },
+    "vercel-react-native-skills": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-native-skills/SKILL.md",
+      "computedHash": "41d24eafa7c3d82e270439808f7cfbc4d51aeb2d14f2809a2267c16275784d06"
     }
   }
 }

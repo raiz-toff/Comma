@@ -116,6 +116,7 @@ export default function ExpenseDetailScreen() {
           message="This expense may have been deleted or is no longer available."
           actionLabel="Go Back"
           onAction={() => router.back()}
+          className="flex-1"
         />
       </SafeAreaView>
     );

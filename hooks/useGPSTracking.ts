@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Platform, Alert, Linking, PermissionsAndroid } from "react-native";
+import { promptForFullLocationAccess } from "../src/services/permissions/locationAccess";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import { useActiveShift } from "../store/useActiveShift";
@@ -94,7 +95,11 @@ export function useGPSTracking() {
       }
       const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
       if (bgStatus !== "granted") {
+        // A "while using the app" grant reads like a yes but logs short shifts, and on Android 11+
+        // the request above cannot even show a dialog. Say so and walk them to the setting rather
+        // than warning a console nobody reads. Still never hard-gates tracking.
         console.warn("Background location not granted; tracking will pause when the app is backgrounded.");
+        promptForFullLocationAccess();
       }
 
       // Android 13+ suppresses the foreground-service notification unless

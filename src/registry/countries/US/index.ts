@@ -115,6 +115,19 @@ export const US: CountryDef = {
   hasSelfAssessmentTax: true,
   hasMileageDeduction: true,
   mileageDeductionLabel: "IRS Standard Rate",
+  // IRS Notice 2026-10: 72.5¢/mile for cars, vans, pickups and panel trucks. No published rate
+  // for motorcycles or bicycles, so those are absent (= not eligible) rather than guessed at.
+  mileage: {
+    authority: "IRS",
+    rates: {
+      car: {
+        ratePrimary: 0.725,
+        rateSecondary: null,
+        rateThreshold: null,
+        label: "IRS Standard Mileage Rate (2026)",
+      },
+    },
+  },
   cashEconomyPrimary: false,
   expenseProfile: "irs",
   taxInstallmentDates: [

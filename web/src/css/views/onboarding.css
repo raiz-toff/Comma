@@ -274,10 +274,11 @@
   }
 }
 
-/* Welcome landing (step 0 intro) */
+/* Welcome landing (step 0 gate) — one calm centered column: brand, promise, action.
+   Mirrors the phone app's WelcomeScreen; keep the two in step. */
 .onboarding-flow--landing {
-  max-width: 52rem;
-  padding-top: 0.5rem;
+  max-width: 26rem;
+  padding-top: 0;
 }
 
 .onboarding-body--landing {
@@ -288,212 +289,106 @@
 }
 
 .onboarding-landing {
+  min-height: calc(100dvh - 7rem);
   display: flex;
   flex-direction: column;
-  gap: 2rem;
-}
-
-.onboarding-landing-hero {
-  position: relative;
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  padding: 2.25rem 1.5rem 2.5rem;
-  border-radius: var(--radius-xl, 24px);
-  background:
-    radial-gradient(120% 80% at 50% -20%, color-mix(in srgb, var(--color-brand) 28%, transparent), transparent 55%),
-    linear-gradient(165deg, color-mix(in srgb, var(--color-surface) 92%, var(--color-brand) 8%), var(--color-surface));
-  border: 1px solid color-mix(in srgb, var(--color-brand) 22%, var(--color-border));
-  box-shadow: var(--shadow-md);
+  gap: var(--space-10, 2.5rem);
+  padding: var(--space-8, 2rem) var(--space-2, 0.5rem);
+  animation: onboarding-landing-in 0.5s ease both;
 }
 
-.onboarding-landing-kicker {
+@keyframes onboarding-landing-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-landing {
+    animation: none;
+  }
+}
+
+.onboarding-landing-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.onboarding-landing-logo {
+  width: 72px;
+  height: 72px;
+}
+
+.onboarding-landing-wordmark {
+  font-size: var(--text-xs);
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--color-brand);
-  font-size: var(--text-sm);
-  margin-bottom: 1rem;
+  letter-spacing: 0.35em;
+  text-indent: 0.35em; /* re-centers the tracked text */
+  color: var(--color-text-muted);
 }
 
 .onboarding-landing-title {
   font-family: var(--font-display, serif);
-  font-size: clamp(2.5rem, 8vw, 4.5rem);
-  line-height: 1.1;
-  margin-bottom: 1.5rem;
+  font-weight: 400;
+  font-size: clamp(2.1rem, 6vw, 2.75rem);
+  line-height: 1.15;
+  margin: 0 0 var(--space-4);
   color: var(--color-text-primary);
-  font-weight: 800;
 }
 
 .onboarding-landing-lead {
-  font-size: clamp(1.1rem, 2vw, 1.35rem);
+  font-size: var(--text-base);
   line-height: 1.6;
   color: var(--color-text-secondary);
-  margin-bottom: 2.5rem;
-  max-width: 520px;
+  margin: 0 auto;
+  max-width: 22rem;
+}
+
+.onboarding-landing-comma {
+  color: var(--color-brand);
+  font-weight: 700;
 }
 
 .onboarding-landing-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  margin-bottom: 2rem;
-}
-
-@media (max-width: 1023px) {
-  .onboarding-landing-actions {
-    justify-content: center;
-  }
-}
-
-.hero-visual {
-  flex: 1.2;
-  perspective: 1000px;
-  width: 100%;
-  margin-top: 3rem;
-}
-
-@media (min-width: 1024px) {
-  .hero-visual {
-    margin-top: 0;
-  }
-}
-
-.hero-browser-frame {
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  overflow: hidden;
-  box-shadow: 0 30px 60px -12px rgba(0,0,0,0.25), 0 18px 36px -18px rgba(0,0,0,0.3);
-  transform: rotateY(-5deg) rotateX(5deg);
-  transition: transform 0.5s ease;
-}
-
-.onboarding-landing:hover .hero-browser-frame {
-  transform: rotateY(0) rotateX(0);
-}
-
-.hero-screenshot {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
-/* Feature Rows */
-.onboarding-feature-row {
-  display: flex;
   flex-direction: column;
-  padding: 6rem 1.5rem;
-  gap: 3rem;
-  align-items: center;
-  max-width: 1200px;
-  margin: 0 auto;
+  align-items: stretch;
+  gap: var(--space-2);
+  width: 100%;
 }
 
-@media (min-width: 768px) {
-  .onboarding-feature-row {
-    flex-direction: row;
-    gap: 5rem;
-    padding: 8rem 2rem;
-  }
-  
-  .onboarding-feature-row.is-reversed {
-    flex-direction: row-reverse;
-  }
+.onboarding-landing-primary {
+  width: 100%;
 }
 
-.feature-text {
-  flex: 1;
+.onboarding-landing-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  padding: var(--space-3);
 }
 
-.feature-kicker {
-  color: var(--color-brand);
-  font-weight: 700;
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  margin-bottom: 0.75rem;
-  display: block;
-}
-
-.feature-title {
-  font-family: var(--font-display, serif);
-  font-size: clamp(2rem, 4vw, 2.75rem);
-  margin-bottom: 1.25rem;
+.onboarding-landing-link:hover {
   color: var(--color-text-primary);
 }
 
-.feature-body {
-  font-size: 1.15rem;
-  line-height: 1.6;
-  color: var(--color-text-secondary);
+.onboarding-landing-trust {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
 }
 
-.feature-visual {
-  flex: 1.2;
-  width: 100%;
-}
-
-.feature-browser-frame {
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-xl);
-}
-
-.feature-screenshot {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
-/* Bento Section */
-.onboarding-bento-section {
-  padding: 4rem 1.5rem 8rem;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.bento-card {
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-2xl);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: var(--shadow-lg);
-}
-
-@media (min-width: 768px) {
-  .bento-card {
-    flex-direction: row;
-    align-items: center;
-  }
-}
-
-.bento-content {
-  padding: 3rem;
-  flex: 1;
-}
-
-.bento-visual {
-  flex: 1.5;
-  background: color-mix(in srgb, var(--color-brand) 5%, transparent);
-  padding: 2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.bento-screenshot {
-  max-width: 100%;
-  height: auto;
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-}
-
-/* Footer & Other */
 .onboarding-landing-footer {
-  padding: 4rem 1.5rem;
-  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-2);
   text-align: center;
 }
 
@@ -501,18 +396,18 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 1.5rem;
+  gap: var(--space-3);
   color: var(--color-text-muted);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
 }
 
 .onboarding-landing-footer-link {
-  color: var(--color-brand);
+  color: var(--color-text-muted);
   text-decoration: none;
-  font-weight: 600;
 }
 
 .onboarding-landing-footer-link:hover {
+  color: var(--color-text-primary);
   text-decoration: underline;
 }
 
@@ -590,4 +485,129 @@
   line-height: 1.4;
   color: var(--color-text-secondary);
   max-width: 140px;
+}
+
+/* ── The reveal ───────────────────────────────────────────────────────────────
+   The activation moment: gross hourly counts down to what the driver actually keeps.
+   Mirrors the phone app's FirstShiftReveal. */
+
+.onboarding-reveal {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.onboarding-reveal-kicker {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--color-brand);
+  margin: 0;
+}
+
+.onboarding-reveal-intro {
+  margin: 0;
+  color: var(--color-text-secondary, #666);
+  line-height: 1.5;
+}
+
+.onboarding-reveal-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 1.75rem 1.25rem;
+  text-align: center;
+  border: 1px solid var(--color-brand-muted, #ddd);
+  border-radius: 1.25rem;
+}
+
+.onboarding-reveal-hero-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted, #666);
+}
+
+.onboarding-reveal-hero-value {
+  font-family: var(--font-display, 'DM Serif Display', serif);
+  font-size: clamp(2.5rem, 9vw, 3.5rem);
+  line-height: 1.05;
+  color: var(--color-brand);
+  font-variant-numeric: tabular-nums;
+}
+
+.onboarding-reveal-hero-value small {
+  font-size: 0.4em;
+  color: var(--color-text-muted, #666);
+}
+
+.onboarding-reveal-hero-sub {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #666);
+}
+
+.onboarding-reveal-receipt {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.onboarding-reveal-receipt > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.onboarding-reveal-receipt dt,
+.onboarding-reveal-receipt dd {
+  margin: 0;
+  color: var(--color-text-secondary, #666);
+}
+
+.onboarding-reveal-receipt dd {
+  font-variant-numeric: tabular-nums;
+}
+
+.onboarding-reveal-receipt .is-total {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border-subtle, #eee);
+}
+
+.onboarding-reveal-receipt .is-total dt,
+.onboarding-reveal-receipt .is-total dd {
+  color: var(--color-text-primary, #111);
+  font-weight: 700;
+}
+
+.onboarding-reveal-writeoff {
+  padding: 0.875rem;
+  border: 1px solid var(--color-brand-muted, #ddd);
+  border-radius: 0.875rem;
+  background: var(--color-surface-02, rgba(0, 0, 0, 0.02));
+}
+
+.onboarding-reveal-writeoff strong {
+  display: block;
+  color: var(--color-text-primary, #111);
+}
+
+.onboarding-reveal-writeoff p {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #666);
+}
+
+.onboarding-reveal-footnote {
+  text-align: center;
+}
+
+/* "I haven't driven yet" — the escape hatch for a driver who hasn't worked a shift. */
+.onboarding-skip-shift {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  color: var(--color-text-muted, #666);
 }

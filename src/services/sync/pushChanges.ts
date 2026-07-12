@@ -87,8 +87,8 @@ async function collectChangedRows(cursor: number): Promise<{
  * from app code where Date.now() is fine — defaulting here keeps the signature simple.
  */
 export async function pushChanges(passphrase: string, createdAt = Date.now()): Promise<PushResult> {
-  if (!passphrase) throw new Error("Enter the backup password to sync.");
-
+  // An EMPTY passphrase is legal — it's the default one-tap mode, where encodeChangeLog
+  // writes a plain envelope into the Drive appDataFolder sandbox (see cryptoEnvelope.ts).
   const cursor = await getLastPushedAt();
   const { rows, maxUpdatedAt, rowCount } = await collectChangedRows(cursor);
 

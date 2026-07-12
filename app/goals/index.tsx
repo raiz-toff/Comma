@@ -19,6 +19,7 @@ import { Text } from "@/src/components/ui/text";
 import { EmptyState } from "@/src/components/ui/EmptyState";
 import { COLORS, KPI, withAlpha } from "@/src/theme/colors";
 import { getGoalsWithProgress, insertGoal, updateGoal, deleteGoal } from "@/src/database/queries/goals";
+import { markActivationDone } from "@/src/services/onboarding/activationChecklist";
 import { getEarningsByDay } from "@/src/database/queries/analytics";
 import { db } from "@/src/database/client";
 import { shifts } from "@/src/database/schema";
@@ -254,6 +255,9 @@ export default function GoalsScreen() {
   };
 
   const handleSaveGoal = async () => {
+    // Ticks the dashboard's "Set a weekly goal" item. Recorded on save rather than inferred from
+    // the value, so a driver who deliberately keeps the seeded 500 still completes it.
+    void markActivationDone("goal");
     if (isDemoMode) {
       Alert.alert("Demo Mode Active", "Turn off Demo Mode in Settings to manage goals.", [
         { text: "Go to Settings", onPress: () => router.push("/settings") },

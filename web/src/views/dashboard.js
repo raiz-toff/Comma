@@ -18,6 +18,7 @@ import { getDemoAnalyticsAnchorDate } from '../modules/demo/sample-year.js';
 import { buildWidgetDataContext } from '../modules/analytics/widget-data.js';
 import { getCountryTaxProfile } from '../registry/countries/index.js';
 import { calcTaxSetAside } from '../utils/calculations.js';
+import { renderActivationPanel } from '../modules/onboarding/activation.js';
 
 const DASHBOARD_RANGE_KEY = 'comma-dashboard-range-v1';
 const DASHBOARD_FILTER_EXPANDED_KEY = 'comma-dashboard-filter-expanded-v1';
@@ -908,6 +909,10 @@ async function paintDashboard(root, ctx) {
       </td>
     </tr>`;
 
+  // Setup deferred out of the wizard, plus the zero-shift empty state. Renders to '' once the
+  // driver has logged a shift and finished (or dismissed) the checklist.
+  const activationHtml = await renderActivationPanel();
+
   root.innerHTML = `
     <section class="dashboard-view dashboard-view--financial">
       <header class="financial-dash-header" style="display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4);">
@@ -929,6 +934,8 @@ async function paintDashboard(root, ctx) {
           `}
         </div>
       </header>
+
+      ${activationHtml}
 
       <div class="financial-filter-container card" style="margin-bottom: var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; padding: 0;">
         <button type="button" class="financial-dash-filter-summary" data-dashboard-toggle-shortcuts aria-expanded="${loadDashboardShortcutsExpanded()}" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: var(--space-3) var(--space-4); background: transparent; border: none; cursor: pointer; color: inherit; text-align: left;">

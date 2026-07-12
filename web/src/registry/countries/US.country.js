@@ -4,6 +4,14 @@ export default {
   currency: 'USD',
   symbol: '$',
   distanceUnit: 'mi',
+  // IRS Notice 2026-10: 72.5¢/mile for cars, vans, pickups and panel trucks. No published rate for
+  // motorcycles or bicycles, so those are absent (= not eligible) rather than guessed at.
+  mileage: {
+    authority: 'IRS',
+    rates: {
+      car: { ratePrimary: 0.725, rateSecondary: null, rateThreshold: null, label: 'IRS Standard Mileage Rate (2026)' },
+    },
+  },
   taxInstallmentDates: [
     { month: 4, day: 15, label: 'Q1 payment' },
     { month: 6, day: 15, label: 'Q2 payment' },

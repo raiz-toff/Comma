@@ -485,6 +485,10 @@ export async function upsertGoal(goal) {
     syncUpdatedAt: Date.now(),
     syncDeletedAt: goal.syncDeletedAt ?? null,
   };
+  // Ticks the dashboard's "Set a weekly goal" item. Recorded on save rather than inferred from the
+  // value, so a driver who deliberately keeps the seeded 500 still completes it.
+  void import('../onboarding/activation.js').then((m) => m.markActivationDone('goal')).catch(() => {});
+
   if (isNew) await db.goals.add(row);
   else await db.goals.put(row);
   bus.emit(GOAL_UPDATED, { source: 'upsert_goal', goalId: row.id });

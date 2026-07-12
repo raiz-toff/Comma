@@ -70,6 +70,11 @@ else
   mkdir -p app/build/intermediates/sourcemaps/react/release
   mkdir -p app/build/generated/sourcemaps/react/release
 
+  # Experimental Metro tree shaking (measured: JS bundle 6.78 → 5.34 MB).
+  # If a release build ever misbehaves at runtime, delete these two lines first.
+  export EXPO_UNSTABLE_TREE_SHAKING=1
+  export EXPO_UNSTABLE_METRO_OPTIMIZE_GRAPH=1
+
   if [ "$VARIANT" = "release" ]; then
     echo "🔨 Building offline release APK..."
     ./gradlew assembleRelease

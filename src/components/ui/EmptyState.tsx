@@ -67,9 +67,13 @@ export function EmptyState({
   const IconComponent = typeof icon === "string" ? mapIconName(icon) : icon;
 
   return (
+    // Sizes to its content by default. It must NOT be flex-1 here: as an inline block inside a
+    // content-height column (a card on the dashboard, a section on a list screen) flex-1 sets
+    // flexBasis to 0, collapsing the box to nothing while the icon and action button spill out
+    // above and below it. Screens that use this to fill a blank route pass "flex-1" themselves.
     <View
       className={cn(
-        "flex-1 items-center justify-center py-12 px-6 flex-col",
+        "items-center justify-center py-12 px-6 flex-col",
         className
       )}
     >

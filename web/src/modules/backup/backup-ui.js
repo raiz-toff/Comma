@@ -1,6 +1,9 @@
 /**
- * COMMA — Backup UI
- * Renders the backup status and controls in the Settings -> Data tab.
+ * COMMA — Backup UI (simplified, WhatsApp-style)
+ *
+ * Sync activates the moment the user connects Google Drive — no password required.
+ * E2E encryption is optional and lives in an "Advanced" collapsible section.
+ * Renders the backup status and controls in Settings → Data tab.
  */
 
 import { getAccessToken, isDriveConnected, requestToken, disconnectDrive } from './drive-auth.js';
@@ -12,27 +15,35 @@ import { getIcon } from '../../ui/icons.js';
 import { t } from '../../utils/strings.js';
 import { showConfirm, showToast, showModal } from '../../ui/components.js';
 import { store } from '../../core/store.js';
-import { getBackupPassword, hasBackupPassword, setBackupPassword } from '../../services/sync/backupPassword.js';
+import { getBackupPassword, hasBackupPassword, setBackupPassword, clearBackupPassword } from '../../services/sync/backupPassword.js';
 import {
   isSyncEnabled,
   setSyncEnabled,
   getSyncSchedule,
   setSyncSchedule,
-  getLastPushedAt,
+  getLastPushRunAt,
+  setLastPushedAt,
 } from '../../services/sync/syncState.js';
 import { SYNC_SCHEDULES, SCHEDULE_LABELS } from '../../services/sync/schedule.js';
 import { syncNow } from '../../services/sync/syncNow.js';
-
-const MIN_PW = 6;
+import { showE2EESetup } from './e2ee-setup.js';
 
 /**
- * Prompt the user to set (mode:'set', with confirm field) or enter (mode:'enter') the backup
- * password. Resolves to the password string, or null if cancelled. Mirrors mobile's
- * `PasswordPrompt` modal (`app/settings/backup.tsx`) in spirit — same copy, vanilla-JS modal.
+ * Switching encryption mode changes the format of every file we write. Rewind the push cursor
+ * to 0 so the very next push re-uploads this browser's FULL state in the new mode — otherwise
+ * the cloud keeps only old-mode files plus a thin new-mode delta, and a device without the
+ * password can never reconstruct the history.
+ */
+function repushInNewMode() {
+  setLastPushedAt(0);
+}
+
+/**
+ * Prompt user to set or enter an E2E encryption password (advanced feature only).
  * @param {'set'|'enter'} mode
  * @returns {Promise<string|null>}
  */
-function promptBackupPassword(mode) {
+export function promptEncryptionPassword(mode) {
   return new Promise((resolve) => {
     const isSet = mode === 'set';
     const wrap = document.createElement('div');
@@ -40,8 +51,8 @@ function promptBackupPassword(mode) {
       <p class="text-secondary text-sm" style="margin-bottom: var(--space-3);">
         ${
           isSet
-            ? 'This password encrypts your backups and sync data. You will need it on every device — including a brand-new one. If you lose it, your cloud data cannot be recovered.'
-            : 'Enter the password used when this data was encrypted.'
+            ? 'This password encrypts your backup end-to-end. You will need it on every device. If you lose it, your cloud data cannot be recovered.'
+            : 'Enter the encryption password used when E2E encryption was enabled.'
         }
       </p>
       <form class="backup-password-form">
@@ -62,7 +73,7 @@ function promptBackupPassword(mode) {
     `;
     let resolved = false;
     const handle = showModal({
-      title: isSet ? 'Set backup password' : 'Enter backup password',
+      title: isSet ? 'Set encryption password' : 'Enter encryption password',
       content: wrap,
       actions: [
         { label: t('common.cancel'), class: 'btn btn-ghost', onClick: () => { resolved = true; resolve(null); } },
@@ -74,8 +85,8 @@ function promptBackupPassword(mode) {
             const pw = /** @type {HTMLInputElement} */ (wrap.querySelector('[name="pw"]'))?.value || '';
             const pw2 = /** @type {HTMLInputElement} */ (wrap.querySelector('[name="pw2"]'))?.value || '';
             const errEl = wrap.querySelector('[data-pw-err]');
-            if (pw.length < MIN_PW) {
-              if (errEl) errEl.textContent = `Use at least ${MIN_PW} characters.`;
+            if (pw.length < 6) {
+              if (errEl) errEl.textContent = 'Use at least 6 characters.';
               return;
             }
             if (isSet && pw !== pw2) {
@@ -96,20 +107,6 @@ function promptBackupPassword(mode) {
 }
 
 /**
- * Resolve the backup password: the stored one if present, otherwise prompt to set one (first
- * use) or enter one (restoring on a device that's never had it typed in).
- * @param {'set'|'enter'} modeIfMissing
- * @returns {Promise<string|null>}
- */
-async function resolveBackupPassword(modeIfMissing) {
-  const stored = getBackupPassword();
-  if (stored) return stored;
-  const pw = await promptBackupPassword(modeIfMissing);
-  if (pw) setBackupPassword(pw);
-  return pw;
-}
-
-/**
  * Renders the backup status section into the provided container.
  * @param {HTMLElement} container
  */
@@ -125,10 +122,8 @@ export async function renderBackupStatus(container) {
 
   if (!online) {
     statusHtml = renderOfflineState();
-  } else if (!connected) {
+  } else if (!connected || !token) {
     statusHtml = renderNotConnectedState();
-  } else if (!token) {
-    statusHtml = renderDisconnectedState();
   } else {
     statusHtml = await renderConnectedState(lastBackupAt);
   }
@@ -136,70 +131,92 @@ export async function renderBackupStatus(container) {
   container.innerHTML = `
     <div class="settings-backup-card card card-raised">
       <div class="settings-backup-header">
-        <h3 class="settings-subsection-title">${getIcon('vault', 24)} ${t('settings.backupTitle')}</h3>
-        <p class="text-secondary text-xs">${t('settings.backupLead')}</p>
+        <h3 class="settings-subsection-title">${getIcon('google-drive', 24)} Cloud Sync</h3>
+        <p class="text-secondary text-xs">Back up and sync your data privately via Google Drive.</p>
       </div>
       <div class="settings-backup-body">
         ${statusHtml}
       </div>
     </div>
-    ${connected && online ? renderSyncCardHtml() : ''}
+    ${connected && token && online ? renderSyncCardHtml() : ''}
   `;
 
   attachEventListeners(container);
+
+  // Auto-enable sync when Drive is first connected
+  if (connected && token && online && !isSyncEnabled()) {
+    setSyncEnabled(true);
+  }
 }
 
 /**
- * Cloud Sync card (interop plan Workstream 3) — separate from the whole-vault `.comdb` backup
- * above. Lets the user turn on incremental multi-device sync (shifts/expenses/vehicles/etc.
- * pushed+pulled as change-logs through the same Drive appDataFolder), pick an auto-push
- * schedule, and trigger a manual sync. Requires the same backup password as `.comdb` backups
- * (shared crypto helper, see encryption.js).
+ * Cloud Sync controls card — shows schedule and sync-now only when connected.
  */
 function renderSyncCardHtml() {
   const enabled = isSyncEnabled();
   const schedule = getSyncSchedule();
-  const lastPushedAt = getLastPushedAt();
+  // WALL-CLOCK of the last sync run — NOT getLastPushedAt(), which is the LWW row cursor
+  // (the newest syncUpdatedAt we've pushed). Rendering that as a date showed the timestamp of
+  // the newest *record*, not when the sync happened, and it resets to 0 on a mode change.
+  const lastSyncAt = getLastPushRunAt();
+  const pwSet = hasBackupPassword();
+
   const scheduleOptions = SYNC_SCHEDULES.map(
     (s) => `<option value="${s}" ${s === schedule ? 'selected' : ''}>${SCHEDULE_LABELS[s]}</option>`,
   ).join('');
 
+  const advancedId = 'sync-advanced-details';
+
   return `
     <div class="settings-backup-card card card-raised" data-sync-card>
       <div class="settings-backup-header">
-        <h3 class="settings-subsection-title">${getIcon('google-drive', 24)} Cloud Sync</h3>
-        <p class="text-secondary text-xs">Keep this device and your phone's Comma app continuously in sync via the same Google Drive folder.</p>
+        <h3 class="settings-subsection-title">Sync controls</h3>
       </div>
       <div class="settings-backup-body">
+        <!-- Status & Sync now -->
         <div class="backup-status-item status-sync-toggle">
           <div class="status-content">
-            <p class="status-text">${enabled ? 'Sync is on' : 'Sync is off'}</p>
+            <p class="status-text">${enabled ? 'Syncing automatically' : 'Sync paused'}</p>
             <p class="status-subtext">${
-              lastPushedAt > 0
-                ? `Last pushed ${new Date(lastPushedAt).toLocaleString()}`
-                : 'Never pushed on this device yet.'
+              lastSyncAt > 0
+                ? `Last synced ${new Date(lastSyncAt).toLocaleString()}`
+                : 'Not synced from this browser yet.'
             }</p>
           </div>
-          <label class="toggle">
-            <input type="checkbox" data-action="toggle-sync" ${enabled ? 'checked' : ''} />
-            <span class="toggle-track"><span class="toggle-thumb"></span></span>
-          </label>
+          <button type="button" class="btn btn-primary btn-sm" data-action="sync-now">Sync now</button>
         </div>
-        ${
-          enabled
-            ? `<div class="backup-status-item status-sync-controls">
-                <div class="status-content">
-                  <label class="field">
-                    <span class="field-label">Auto-push schedule</span>
-                    <select class="input" data-action="set-schedule">${scheduleOptions}</select>
-                  </label>
-                </div>
-                <div class="backup-actions">
-                  <button type="button" class="btn btn-secondary btn-sm" data-action="sync-now">Sync now</button>
-                </div>
-              </div>`
-            : ''
-        }
+
+        <!-- Advanced (collapsible) -->
+        <details id="${advancedId}" class="sync-advanced">
+          <summary class="sync-advanced-toggle">Advanced settings</summary>
+          <div class="sync-advanced-body">
+            <!-- Auto-push schedule -->
+            <div class="backup-status-item" style="padding-top:var(--space-2)">
+              <div class="status-content">
+                <label class="field">
+                  <span class="field-label">Auto-backup schedule</span>
+                  <select class="input input-sm" data-action="set-schedule">${scheduleOptions}</select>
+                </label>
+              </div>
+            </div>
+
+            <!-- E2E Encryption toggle -->
+            <div class="backup-status-item">
+              <div class="status-content">
+                <p class="status-text">End-to-End Encryption</p>
+                <p class="status-subtext">${
+                  pwSet
+                    ? 'On — data encrypted with your password before leaving this device.'
+                    : 'Off — data protected by your Google Account (same as Google Drive).'
+                }</p>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" data-action="toggle-e2e" ${pwSet ? 'checked' : ''} />
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </label>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
   `;
@@ -219,39 +236,23 @@ function renderOfflineState() {
 
 function renderNotConnectedState() {
   return `
-    <div class="backup-status-item status-not-connected">
-      <span class="status-icon">${getIcon('google-drive', 24)}</span>
+    <div class="backup-status-item status-not-connected" style="flex-direction:column;align-items:center;text-align:center;gap:var(--space-4);padding:var(--space-5) 0;">
+      <span class="status-icon" style="font-size:2rem;">${getIcon('google-drive', 36)}</span>
       <div class="status-content">
-        <p class="status-text">${t('settings.backupConnectBtn')}</p>
-        <p class="status-subtext">${t('settings.backupConnectSub')}</p>
+        <p class="status-text" style="font-size:1.1rem;font-weight:600;">Connect Google Drive</p>
+        <p class="status-subtext" style="max-width:22rem;margin:0 auto;">Securely back up your data to your Google Account. Your GPS tracking data stays local on your phone.</p>
       </div>
-      <div class="backup-actions">
-        <button type="button" class="btn btn-primary btn-sm" data-action="connect-drive">${t('common.confirm') || 'Connect'}</button>
-      </div>
-    </div>
-  `;
-}
-
-function renderDisconnectedState() {
-  return `
-    <div class="backup-status-item status-reconnect">
-      <span class="status-icon">${getIcon('google-drive', 24)}</span>
-      <div class="status-content">
-        <p class="status-text">${t('settings.backupStatusDisconnected')}</p>
-        <p class="status-subtext">${t('settings.backupStatusDisconnectedSub')}</p>
-      </div>
-      <div class="backup-actions">
-        <button type="button" class="btn btn-primary btn-sm" data-action="connect-drive">${t('common.retry') || 'Reconnect'}</button>
-      </div>
+      <button type="button" class="btn btn-primary" data-action="connect-drive" style="width:100%;max-width:18rem;">
+        ${getIcon('google-drive', 18)} Connect Google Drive
+      </button>
     </div>
   `;
 }
 
 async function renderConnectedState(lastBackupAt) {
   const isDemo = store.get('demoMode');
-  let statusText = t('settings.backupStatusConnected');
-  let subtext = t('settings.backupStatusNone');
-  let icon = getIcon('google-drive', 24);
+  let statusText = 'Connected to Google Drive';
+  let subtext = 'Sync is active.';
   let overdue = false;
 
   if (lastBackupAt) {
@@ -259,41 +260,27 @@ async function renderConnectedState(lastBackupAt) {
     const now = new Date();
     const diffMs = now - date;
     const isToday = date.toDateString() === now.toDateString();
-
     statusText = isToday ? t('settings.backupStatusToday') : t('settings.backupStatusRecently');
     subtext = `${date.toLocaleDateString()} at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-
     if (diffMs > 24 * 60 * 60 * 1000) {
       overdue = true;
-      icon = getIcon('alert-circle', 18, 'text-warning');
       statusText = t('settings.backupStatusOverdue');
     }
   }
 
-  const pwSet = hasBackupPassword();
+  const userEmail = store.get('driveEmail') || '';
 
   return `
     <div class="backup-status-item status-connected ${overdue ? 'is-overdue' : ''}">
-      <span class="status-icon">${icon}</span>
+      <span class="status-icon">${getIcon('check-circle', 20, overdue ? 'text-warning' : 'text-success')}</span>
       <div class="status-content">
         <p class="status-text">${statusText}</p>
-        <p class="status-subtext">${subtext}</p>
+        <p class="status-subtext">${userEmail ? `Signed in as ${userEmail} · ` : ''}${subtext}</p>
         ${isDemo ? `<p class="text-warning text-xs mt-1">Backup disabled in Demo Mode</p>` : ''}
       </div>
       <div class="backup-actions">
-        <button type="button" class="btn btn-secondary btn-sm" data-action="backup-now" ${isDemo ? 'disabled title="Disabled in Demo Mode"' : ''}>${t('settings.backupNowBtn')}</button>
         <button type="button" class="btn btn-secondary btn-sm" data-action="show-restore">${t('settings.backupRestoreBtn')}</button>
         <button type="button" class="btn btn-ghost btn-xs" data-action="disconnect-drive" title="${t('settings.backupDisconnectBtn')}">${t('common.delete') || 'Disconnect'}</button>
-      </div>
-    </div>
-    <div class="backup-status-item status-password">
-      <span class="status-icon">${getIcon('shield', 18)}</span>
-      <div class="status-content">
-        <p class="status-text">Backup password</p>
-        <p class="status-subtext">${pwSet ? 'Set on this device.' : 'Not set — required before your first backup or sync.'}</p>
-      </div>
-      <div class="backup-actions">
-        <button type="button" class="btn btn-ghost btn-sm" data-action="set-password">${pwSet ? 'Change' : 'Set password'}</button>
       </div>
     </div>
   `;
@@ -316,77 +303,33 @@ function attachEventListeners(container) {
           return;
         }
         requestToken();
-        break;
-      case 'set-password': {
-        const pw = await promptBackupPassword('set');
-        if (pw) {
-          setBackupPassword(pw);
-          showToast({ type: 'success', message: 'Backup password saved on this device.' });
-          renderBackupStatus(container);
-        }
-        break;
-      }
-      case 'backup-now': {
-        const btn = e.target.closest('button');
-        const originalText = btn.textContent;
-        const passphrase = await resolveBackupPassword('set');
-        if (!passphrase) return;
-        btn.disabled = true;
-        btn.textContent = '...';
-        const res = await runBackup({ passphrase });
-        if (res.success) {
-          showToast({ type: 'success', message: t('settings.backupSuccessToast') });
-          renderBackupStatus(container);
-        } else {
-          showToast({ type: 'error', message: res.error || t('settings.backupFailToast') });
-          btn.disabled = false;
-          btn.textContent = originalText;
-        }
-        break;
-      }
-      case 'show-restore':
-        renderRestoreList(container);
-        break;
-      case 'disconnect-drive':
-        const confirmed = await showConfirm({
-          title: t('settings.backupDisconnectConfirmTitle'),
-          message: t('settings.backupDisconnectConfirmMessage'),
-          confirmText: t('settings.backupDisconnectBtn'),
-          danger: true
-        });
-        if (confirmed) {
-          disconnectDrive();
-          renderBackupStatus(container);
-        }
-        break;
-      case 'toggle-sync': {
-        const checkbox = /** @type {HTMLInputElement} */ (e.target);
-        if (checkbox.checked) {
-          const passphrase = await resolveBackupPassword('set');
-          if (!passphrase) {
-            checkbox.checked = false;
-            return;
-          }
+        // Listen for connect success and re-render
+        bus.once('drive:auth_success', () => {
           setSyncEnabled(true);
-          showToast({ type: 'success', message: 'Cloud Sync turned on.' });
-          const res = await syncNow(passphrase).catch((err) => ({ success: false, error: err.message }));
-          if (res && res.error) showToast({ type: 'error', message: res.error });
-        } else {
-          setSyncEnabled(false);
-          showToast({ type: 'info', message: 'Cloud Sync turned off.' });
-        }
-        renderBackupStatus(container);
+          renderBackupStatus(container);
+        });
         break;
-      }
+
       case 'sync-now': {
         const btn = e.target.closest('button');
-        const passphrase = await resolveBackupPassword('enter');
-        if (!passphrase) return;
         const originalText = btn.textContent;
         btn.disabled = true;
-        btn.textContent = '...';
+        btn.textContent = '…';
         try {
-          const res = await syncNow(passphrase);
+          // The stored password IS the mode: present → E2E, absent → plain (one-tap).
+          // An empty string is a legal passphrase; the engine writes a plain envelope.
+          let res = await syncNow(getBackupPassword() ?? '');
+
+          // Some files on Drive are E2E-encrypted and we couldn't open them. Everything else
+          // synced fine — ask for the password and re-run to pick up the rest.
+          if (res.needsPassphrase) {
+            const pw = await promptEncryptionPassword('enter');
+            if (pw) {
+              setBackupPassword(pw);
+              res = await syncNow(pw);
+            }
+          }
+
           showToast({
             type: 'success',
             message: `Synced — ${res.appliedRows} row(s) received, ${res.pushedRows} pushed.`,
@@ -399,15 +342,68 @@ function attachEventListeners(container) {
         renderBackupStatus(container);
         break;
       }
+
+      case 'show-restore':
+        renderRestoreList(container);
+        break;
+
+      case 'disconnect-drive': {
+        const confirmed = await showConfirm({
+          title: t('settings.backupDisconnectConfirmTitle'),
+          message: t('settings.backupDisconnectConfirmMessage'),
+          confirmText: t('settings.backupDisconnectBtn'),
+          danger: true
+        });
+        if (confirmed) {
+          setSyncEnabled(false);
+          disconnectDrive();
+          renderBackupStatus(container);
+        }
+        break;
+      }
     }
   });
 
   container.addEventListener('change', async (e) => {
     const action = e.target.closest('[data-action]')?.dataset.action;
+
     if (action === 'set-schedule') {
       const select = /** @type {HTMLSelectElement} */ (e.target);
       setSyncSchedule(/** @type {import('../../services/sync/schedule.js').SyncSchedule} */ (select.value));
       showToast({ type: 'success', message: 'Sync schedule updated.' });
+    }
+
+    if (action === 'toggle-e2e') {
+      const checkbox = /** @type {HTMLInputElement} */ (e.target);
+      if (checkbox.checked) {
+        // Full-page takeover, not a dialog: losing this password is the only unrecoverable
+        // action in the app, so the risk must be read and explicitly acknowledged first.
+        const pw = await showE2EESetup();
+        if (!pw) {
+          checkbox.checked = false;
+          return;
+        }
+        setBackupPassword(pw);
+        repushInNewMode();
+        showToast({ type: 'success', message: 'Encryption is on. Enter this same password on your other devices to keep them syncing.' });
+        renderBackupStatus(container);
+      } else {
+        // Disable E2E — confirm then clear
+        const confirmed = await showConfirm({
+          title: 'Disable E2E Encryption?',
+          message: 'Your backup will still be private and only accessible via your Google Account.',
+          confirmText: 'Disable',
+          danger: true
+        });
+        if (confirmed) {
+          clearBackupPassword();
+          repushInNewMode();
+          showToast({ type: 'info', message: 'End-to-End Encryption disabled.' });
+          renderBackupStatus(container);
+        } else {
+          checkbox.checked = true; // revert
+        }
+      }
     }
   });
 }
@@ -460,12 +456,13 @@ async function renderRestoreList(container) {
 
       if (!confirmed) return;
 
-      const passphrase = await resolveBackupPassword('enter');
-      if (!passphrase) return;
+      // Only need password if E2E encryption was enabled
+      const passphrase = hasBackupPassword() ? await promptEncryptionPassword('enter') : '';
+      if (passphrase === null) return; // user cancelled the password prompt
 
       btn.disabled = true;
       btn.textContent = 'Restoring...';
-      const res = await runRestore(fileId, passphrase);
+      const res = await runRestore(fileId, passphrase ?? '');
       if (res.success) {
         showToast({ type: 'success', message: t('settings.backupRestoreSuccessToast') });
         setTimeout(() => window.location.reload(), 1500);

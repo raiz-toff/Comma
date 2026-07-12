@@ -7,6 +7,8 @@
  * format is byte-compatible with the native helper. Lose the password = unrecoverable.
  */
 
+import { buildPlainEnvelope, readPlainEnvelope, PassphraseError } from "./cryptoEnvelope";
+
 const KDF_ITERATIONS = 210_000; // OWASP 2023 floor for PBKDF2-HMAC-SHA256
 const SALT_BYTES = 16;
 const IV_BYTES = 12;
@@ -49,7 +51,9 @@ async function deriveKey(passphrase: string, salt: BufferSource, iterations: num
 }
 
 export async function encryptBackup(plaintext: string, passphrase: string): Promise<string> {
-  if (!passphrase) throw new Error("A backup password is required.");
+  // No password = the DEFAULT one-tap mode: write a plain envelope. Privacy still comes from
+  // the Drive appDataFolder sandbox + the user's Google account (see cryptoEnvelope.ts).
+  if (!passphrase) return buildPlainEnvelope(plaintext);
 
   const enc = new TextEncoder();
   const salt = window.crypto.getRandomValues(new Uint8Array(SALT_BYTES));
@@ -78,7 +82,15 @@ export async function encryptBackup(plaintext: string, passphrase: string): Prom
 }
 
 export async function decryptBackup(envelopeJson: string, passphrase: string): Promise<string> {
-  if (!passphrase) throw new Error("A backup password is required.");
+  // A plain (unencrypted) envelope reads back with no password at all.
+  const plain = readPlainEnvelope(envelopeJson);
+  if (plain != null) return plain;
+
+  // From here the file IS encrypted. Missing password → PassphraseError (prompt), never a
+  // generic failure (which the caller would quarantine, hiding a good backup forever).
+  if (!passphrase) {
+    throw new PassphraseError("This backup is encrypted. Enter your encryption password to continue.");
+  }
 
   let env: BackupEnvelope;
   try {
@@ -105,7 +117,8 @@ export async function decryptBackup(envelopeJson: string, passphrase: string): P
     );
     return new TextDecoder().decode(decrypted);
   } catch {
-    // GCM tag mismatch — almost always the wrong password.
-    throw new Error("Wrong backup password, or the file is corrupted.");
+    // GCM tag mismatch — almost always the wrong password. Also a PassphraseError so the
+    // caller re-prompts instead of quarantining the file.
+    throw new PassphraseError("Wrong encryption password, or the file is corrupted.");
   }
 }

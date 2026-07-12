@@ -71,12 +71,22 @@ async function runSync(passphrase, opts) {
   let skippedRows = 0;
   let auditedRows = 0;
   let failedLogs = 0;
+  let needsPassphrase = false;
 
   // ── PULL + merge ──
   if (doPull) {
     const pulled = await pullChanges(passphrase);
-    pulledLogs = pulled.length;
-    for (const { log, filename } of pulled) {
+    pulledLogs = pulled.logs.length;
+    needsPassphrase = pulled.needsPassphrase;
+
+    // Files that failed to DOWNLOAD/DECODE (corrupt — not merely encrypted) still go through
+    // the quarantine counter, so a permanently-broken file stops being re-fetched forever.
+    for (const filename of pulled.failed) {
+      failedLogs += 1;
+      recordLogFailure(filename);
+    }
+
+    for (const { log, filename } of pulled.logs) {
       try {
         const { upserted, skipped, audited } = await applyChangeLog(log);
         appliedRows += upserted;
@@ -139,7 +149,7 @@ async function runSync(passphrase, opts) {
     bus.emit('sync:changed', { appliedRows, pushed, pushedRows });
   }
 
-  return { pulledLogs, appliedRows, skippedRows, auditedRows, failedLogs, pushed, pushedRows };
+  return { pulledLogs, appliedRows, skippedRows, auditedRows, failedLogs, pushed, pushedRows, needsPassphrase };
 }
 
 // Serialize all syncs: each call waits for the previous to settle, then runs its own.

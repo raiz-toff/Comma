@@ -729,6 +729,7 @@ export default function ShiftDetailScreen() {
           message="This shift could not be loaded. It may have been deleted."
           actionLabel="Go Back"
           onAction={handleBack}
+          className="flex-1"
         />
       </SafeAreaView>
     );

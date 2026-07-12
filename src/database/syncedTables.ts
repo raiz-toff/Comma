@@ -30,17 +30,18 @@ import { canonicalCategoryId } from "../registry/expenseCategories";
 
 export const SYNCED_TABLES = [
   // Synced user PROFILE (bucket b — per-key KV; the record engine gives per-key LWW free).
-  { name: "profile", table: profile },
-  { name: "vehicles", table: vehicles },
-  { name: "platforms", table: platforms },
-  { name: "merchants", table: merchants },
-  { name: "goals", table: goals },
-  { name: "taxHistory", table: taxHistory },
-  { name: "shifts", table: shifts },
-  { name: "maintenanceLogs", table: maintenanceLogs },
-  { name: "expenses", table: expenses },
-  { name: "shiftPlatforms", table: shiftPlatforms },
-  { name: "vehicleTaxProfiles", table: vehicleTaxProfiles },
+  // NOTE its primary key is `key`, not `id` — merge code must use `pk`, never assume `id`.
+  { name: "profile", table: profile, pk: "key" },
+  { name: "vehicles", table: vehicles, pk: "id" },
+  { name: "platforms", table: platforms, pk: "id" },
+  { name: "merchants", table: merchants, pk: "id" },
+  { name: "goals", table: goals, pk: "id" },
+  { name: "taxHistory", table: taxHistory, pk: "id" },
+  { name: "shifts", table: shifts, pk: "id" },
+  { name: "maintenanceLogs", table: maintenanceLogs, pk: "id" },
+  { name: "expenses", table: expenses, pk: "id" },
+  { name: "shiftPlatforms", table: shiftPlatforms, pk: "id" },
+  { name: "vehicleTaxProfiles", table: vehicleTaxProfiles, pk: "id" },
 ] as const;
 
 export type SyncedTableName = (typeof SYNCED_TABLES)[number]["name"];
@@ -48,6 +49,11 @@ export type SyncedTableName = (typeof SYNCED_TABLES)[number]["name"];
 /** Fast name → table lookup for applying incoming change-log rows. */
 export const SYNCED_TABLE_BY_NAME: Record<string, (typeof SYNCED_TABLES)[number]["table"]> =
   Object.fromEntries(SYNCED_TABLES.map((t) => [t.name, t.table]));
+
+/** name → primary-key COLUMN name. 'id' everywhere except the per-key profile KV. */
+export const SYNCED_PK_BY_NAME: Record<string, string> = Object.fromEntries(
+  SYNCED_TABLES.map((t) => [t.name, t.pk]),
+);
 
 /**
  * Drizzle `{ mode: 'timestamp' }` columns surface as `Date`, which JSON-serializes to an

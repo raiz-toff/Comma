@@ -39,6 +39,20 @@ export const CA: CountryDef = {
   hasSelfAssessmentTax: true,
   hasMileageDeduction: true,
   mileageDeductionLabel: "CRA Rate",
+  // CRA 2026: 73¢/km for the first 5,000 km, 67¢/km after. Automobiles only — the per-km
+  // allowance does not cover motorcycles or bicycles, so those categories are absent (= not
+  // eligible), and the driver is told to use actual expenses instead.
+  mileage: {
+    authority: "CRA",
+    rates: {
+      car: {
+        ratePrimary: 0.73,
+        rateSecondary: 0.67,
+        rateThreshold: 5000,
+        label: "CRA Automobile Allowance Rate (2026)",
+      },
+    },
+  },
   cashEconomyPrimary: false,
   expenseProfile: "cra",
   taxInstallmentDates: [

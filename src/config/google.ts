@@ -3,9 +3,13 @@
  *
  * - WEB client ID is the only one referenced in code: it's GoogleSignin's
  *   `webClientId` on native, and the expo-auth-session `clientId` on web.
- * - The ANDROID client (package `com.anonymous.comma` + signing SHA-1) is verified
+ * - The ANDROID client (package `app.comma.tracker` + signing SHA-1) is verified
  *   by Google Play Services automatically and is NOT referenced in code — it's listed
- *   here for documentation only.
+ *   here for documentation only. The SHA-1 on file in Cloud Console must include the
+ *   Play App Signing key's fingerprint (Play Console → Setup → App signing), not just
+ *   the local upload key — Play re-signs the app before delivering it to users, so an
+ *   Android OAuth client registered with only the upload key's SHA-1 will fail sign-in
+ *   for anyone who installed from the Play Store.
  * - The iOS client ID is added once an iOS OAuth client is created (it also provides
  *   the `iosUrlScheme` for app.json).
  */

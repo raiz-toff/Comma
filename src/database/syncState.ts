@@ -43,6 +43,7 @@ export const SYNC_KEYS = {
   schedule: "sync_schedule", // auto-push cadence: 'manual' | 'daily' | 'weekly'
   lastPushRunAt: "sync_last_push_run_at", // WALL-CLOCK ms of the last push run (schedule timer)
   failedLogs: "sync_failed_logs", // JSON object {filename: consecutive apply-failure count}
+  applyVersion: "sync_apply_version", // APPLY_LOGIC_VERSION last seen — quarantine resets on change
 } as const;
 
 /** A log that fails to apply this many times is QUARANTINED: pull stops re-downloading it. */
@@ -263,6 +264,20 @@ export async function clearLogFailure(filename: string): Promise<void> {
   if (!(filename in counts)) return;
   delete counts[filename];
   await writeSyncKey(SYNC_KEYS.failedLogs, JSON.stringify(counts));
+}
+
+/**
+ * Retry quarantined logs after the apply logic changes. Quarantine counts describe what a
+ * PARTICULAR build's merge code failed to apply — the "a later app update can clear the
+ * counter and retry" promise above. When APPLY_LOGIC_VERSION differs from the stored one,
+ * forget all failure counts so previously-poisoned logs get a fresh chance under the
+ * fixed code. Cheap no-op (one KV read) when the version matches.
+ */
+export async function resetQuarantineOnUpgrade(applyVersion: string): Promise<void> {
+  const stored = await readSyncKey(SYNC_KEYS.applyVersion);
+  if (stored === applyVersion) return;
+  await writeSyncKey(SYNC_KEYS.failedLogs, "{}");
+  await writeSyncKey(SYNC_KEYS.applyVersion, applyVersion);
 }
 
 /** Filenames pull should skip (failed ≥ LOG_QUARANTINE_THRESHOLD times). */

@@ -16,15 +16,18 @@ import {
   isSyncEnabled,
   isDemoModeActive,
   addAppliedLog,
+  getAppliedLogs,
+  getLastPushedAt,
   setLastPushRunAt,
   setLastCloudSaveAt,
   recordLogFailure,
   clearLogFailure,
+  resetQuarantineOnUpgrade,
   LOG_QUARANTINE_THRESHOLD,
 } from "../../database/syncState";
 import { pullChanges } from "./pullChanges";
 import { pushChanges } from "./pushChanges";
-import { applyChangeLog } from "./applyChangeLog";
+import { applyChangeLog, APPLY_LOGIC_VERSION } from "./applyChangeLog";
 import { maybeCompact } from "./compaction";
 import { exportLocalProfile, importSyncedProfile } from "./profileBridge";
 
@@ -45,6 +48,16 @@ export interface SyncResult {
   failedLogs: number;
   pushed: boolean;
   pushedRows: number;
+  /** true when the pull imported synced profile keys into the local KV (name, country,
+   *  onboarding flag…) — callers should re-hydrate the settings store so the UI (incl.
+   *  the onboarding gate) reflects the restored identity. */
+  profileImported: boolean;
+  /**
+   * true when at least one file on Drive is E2E-encrypted and this device couldn't open it
+   * (no password stored, or the wrong one). The sync itself still succeeded for everything
+   * else — the UI should prompt for the encryption password and re-run to get the rest.
+   */
+  needsPassphrase: boolean;
 }
 
 async function runSync(passphrase: string, opts: SyncOptions): Promise<SyncResult> {
@@ -58,15 +71,33 @@ async function runSync(passphrase: string, opts: SyncOptions): Promise<SyncResul
   if (!(await isSyncEnabled())) {
     throw new Error("Sync is not enabled. Unlock sync to use it.");
   }
-  const doPull = opts.pull !== false;
+
+  // The apply logic changed since the last run → give quarantined logs a fresh chance.
+  await resetQuarantineOnUpgrade(APPLY_LOGIC_VERSION);
+
+  // FIRST-SYNC GUARD (issue #11): a device that has never pulled or pushed must bootstrap
+  // FROM the cloud, never over it. Without this, a fresh install that just finished (or
+  // re-entered) onboarding stamps its blank profile with Date.now() below, out-stamps every
+  // key of the real cloud profile via LWW, and the next push permanently destroys the
+  // user's backup (compaction then bakes it into a snapshot).
+  const neverSynced =
+    (await getLastPushedAt()) === 0 && (await getAppliedLogs()).size === 0;
+
+  // A first sync always pulls, even when triggered as push-only (e.g. a scheduled
+  // background push) — pushing before ever pulling is exactly the overwrite hazard.
+  const doPull = opts.pull !== false || neverSynced;
   const doPush = opts.push !== false;
 
   // Mirror local profile → synced `profile` table BEFORE pulling, so fresh local edits carry
   // stamps and win/lose per-key LWW honestly instead of being clobbered by an older pull.
-  try {
-    await exportLocalProfile();
-  } catch (e) {
-    console.warn("[sync] profile export skipped:", e);
+  // Skipped on a first sync: there the cloud copy is authoritative and the local profile is
+  // exported AFTER the import instead, so only keys the cloud doesn't have get pushed.
+  if (!neverSynced) {
+    try {
+      await exportLocalProfile();
+    } catch (e) {
+      console.warn("[sync] profile export skipped:", e);
+    }
   }
 
   let pulledLogs = 0;
@@ -74,12 +105,23 @@ async function runSync(passphrase: string, opts: SyncOptions): Promise<SyncResul
   let skippedRows = 0;
   let auditedRows = 0;
   let failedLogs = 0;
+  let profileImported = false;
+  let needsPassphrase = false;
 
   // ── PULL + merge ──
   if (doPull) {
     const pulled = await pullChanges(passphrase);
-    pulledLogs = pulled.length;
-    for (const { log, filename } of pulled) {
+    pulledLogs = pulled.logs.length;
+    needsPassphrase = pulled.needsPassphrase;
+
+    // Files that failed to DOWNLOAD/DECODE (corrupt — not merely encrypted) still go through
+    // the quarantine counter, so a permanently-broken file stops being re-fetched forever.
+    for (const filename of pulled.failed) {
+      failedLogs += 1;
+      await recordLogFailure(filename);
+    }
+
+    for (const { log, filename } of pulled.logs) {
       try {
         const { upserted, skipped, audited } = await applyChangeLog(log);
         appliedRows += upserted;
@@ -106,9 +148,22 @@ async function runSync(passphrase: string, opts: SyncOptions): Promise<SyncResul
     // Newly-won profile rows → local settings (name, country, units, onboarding flag…),
     // so a joining device is fully set up straight from the cloud snapshot.
     try {
-      await importSyncedProfile();
+      profileImported = await importSyncedProfile();
     } catch (e) {
       console.warn("[sync] profile import skipped:", e);
+    }
+  }
+
+  // First sync only: NOW export the local profile — the cloud's values already won above,
+  // so this stamps (and later pushes) only genuinely local-only keys. Deferred to a later
+  // run if any log failed to apply OR any file was unreadable-because-encrypted: the cloud's
+  // profile rows haven't landed yet, and stamping local values now would out-stamp them on
+  // the retry — destroying the real profile via LWW (issue #11).
+  if (neverSynced && failedLogs === 0 && !needsPassphrase) {
+    try {
+      await exportLocalProfile();
+    } catch (e) {
+      console.warn("[sync] profile export skipped:", e);
     }
   }
 
@@ -137,7 +192,17 @@ async function runSync(passphrase: string, opts: SyncOptions): Promise<SyncResul
     }
   }
 
-  return { pulledLogs, appliedRows, skippedRows, auditedRows, failedLogs, pushed, pushedRows };
+  return {
+    pulledLogs,
+    appliedRows,
+    skippedRows,
+    auditedRows,
+    failedLogs,
+    pushed,
+    pushedRows,
+    profileImported,
+    needsPassphrase,
+  };
 }
 
 // Serialize all syncs: each call waits for the previous to settle, then runs its own.

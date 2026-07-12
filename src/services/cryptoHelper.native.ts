@@ -1,5 +1,6 @@
 import crypto from "react-native-quick-crypto";
 import { Buffer } from "@craftzdog/react-native-buffer";
+import { buildPlainEnvelope, readPlainEnvelope, PassphraseError } from "./cryptoEnvelope";
 
 /**
  * Cross-device backup encryption (native).
@@ -27,16 +28,25 @@ export interface BackupEnvelope {
   tag: string; // hex GCM auth tag
 }
 
-function deriveKey(passphrase: string, saltHex: string, iterations: number) {
-  return crypto.pbkdf2Sync(passphrase, Buffer.from(saltHex, "hex"), iterations, KEY_BYTES, "sha256");
+// Async PBKDF2 runs on a native thread instead of blocking JS; parameters are
+// byte-identical to the old pbkdf2Sync call, so existing envelopes still decrypt.
+function deriveKey(passphrase: string, saltHex: string, iterations: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    crypto.pbkdf2(passphrase, Buffer.from(saltHex, "hex"), iterations, KEY_BYTES, "sha256", (err, key) => {
+      if (err || !key) reject(err ?? new Error("Key derivation failed."));
+      else resolve(key);
+    });
+  });
 }
 
 export async function encryptBackup(plaintext: string, passphrase: string): Promise<string> {
-  if (!passphrase) throw new Error("A backup password is required.");
+  // No password = the DEFAULT one-tap mode: write a plain envelope. Privacy still comes from
+  // the Drive appDataFolder sandbox + the user's Google account (see cryptoEnvelope.ts).
+  if (!passphrase) return buildPlainEnvelope(plaintext);
 
   const salt = crypto.randomBytes(SALT_BYTES);
   const iv = crypto.randomBytes(IV_BYTES);
-  const key = deriveKey(passphrase, salt.toString("hex"), KDF_ITERATIONS);
+  const key = await deriveKey(passphrase, salt.toString("hex"), KDF_ITERATIONS);
 
   const cipher = crypto.createCipheriv("aes-256-gcm", key as any, iv as any);
   let content = cipher.update(plaintext, "utf8", "hex");
@@ -57,7 +67,15 @@ export async function encryptBackup(plaintext: string, passphrase: string): Prom
 }
 
 export async function decryptBackup(envelopeJson: string, passphrase: string): Promise<string> {
-  if (!passphrase) throw new Error("A backup password is required.");
+  // A plain (unencrypted) envelope reads back with no password at all.
+  const plain = readPlainEnvelope(envelopeJson);
+  if (plain != null) return plain;
+
+  // From here the file IS encrypted. Missing password → PassphraseError (prompt), never a
+  // generic failure (which the caller would quarantine, hiding a good backup forever).
+  if (!passphrase) {
+    throw new PassphraseError("This backup is encrypted. Enter your encryption password to continue.");
+  }
 
   let env: BackupEnvelope;
   try {
@@ -69,7 +87,7 @@ export async function decryptBackup(envelopeJson: string, passphrase: string): P
     throw new Error("Unrecognized backup format.");
   }
 
-  const key = deriveKey(passphrase, env.salt, env.iter || KDF_ITERATIONS);
+  const key = await deriveKey(passphrase, env.salt, env.iter || KDF_ITERATIONS);
   const decipher = crypto.createDecipheriv("aes-256-gcm", key as any, Buffer.from(env.iv, "hex") as any);
   decipher.setAuthTag(Buffer.from(env.tag, "hex") as any);
 
@@ -78,7 +96,8 @@ export async function decryptBackup(envelopeJson: string, passphrase: string): P
     decrypted += decipher.final("utf8");
     return decrypted;
   } catch {
-    // GCM tag mismatch — almost always the wrong password.
-    throw new Error("Wrong backup password, or the file is corrupted.");
+    // GCM tag mismatch — almost always the wrong password. Also a PassphraseError so the
+    // caller re-prompts instead of quarantining the file.
+    throw new PassphraseError("Wrong encryption password, or the file is corrupted.");
   }
 }

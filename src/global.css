@@ -5,51 +5,19 @@
 /*
  * COMMA Design Tokens — migrated from web PWA (src/css/tokens.css + themes.css).
  * These HSL variables are consumed by tailwind.config.js via hsl(var(--token)).
- * The dark class is the DEFAULT for this app (gig driver = night driving).
+ *
+ * DARK IS THE DEFAULT (:root) for this app (gig driver = night driving).
+ * Nothing in the native app ever toggled a `.dark` class, so tokens must
+ * resolve from :root directly. The light palette is preserved under
+ * `.light:root` for a future theme toggle.
+ * JS-side consumers (StyleSheet, SVG, charts) must use the hex mirror in
+ * src/theme/colors.ts — keep the two files in sync.
  */
 
 @layer base {
   :root {
-    /* ── Core Palette (Light Mode) ─────────────────────────────── */
-    --background: 40 13% 97%;          /* #fafaf8 */
-    --foreground: 44 8% 10%;           /* #1a1916 */
-
-    --card: 0 0% 100%;                 /* #ffffff */
-    --card-foreground: 44 8% 10%;      /* #1a1916 */
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 44 8% 10%;
-
-    --primary: 142 71% 45%;            /* #22c55e — standard semantic green */
-    --primary-foreground: 44 8% 10%;   /* dark text on green */
-
-    --secondary: 40 8% 93%;            /* #f2f0eb — surface-raised */
-    --secondary-foreground: 44 8% 10%;
-
-    --muted: 40 8% 93%;                /* #f2f0eb */
-    --muted-foreground: 40 5% 40%;     /* #6b6860 */
-
-    --accent: 40 8% 93%;
-    --accent-foreground: 44 8% 10%;
-
-    --destructive: 0 84% 60%;          /* #ef4444 */
-    --destructive-foreground: 0 0% 100%;
-
-    --success: 142 71% 45%;            /* #22c55e */
-    --warning: 38 92% 50%;             /* #f59e0b */
-    --info: 217 91% 60%;               /* #3b82f6 */
-
-    --border: 38 13% 88%;              /* #e5e2da */
-    --input: 38 13% 88%;
-    --ring: 160 72% 39%;               /* brand green ring */
-
-    /* ── Spacing (consumed as rem in Tailwind, reference only) ── */
-    --radius: 0.625rem;                /* 10px — md radius */
-  }
-
-  .dark {
     /*
-     * ── COMMA Design System — cool-neutral ramp (DEFAULT) ──────────
+     * ── COMMA Design System — cool-neutral ramp (DEFAULT, dark) ────
      * Single cool-neutral scale from true black up. Elevation = surface
      * steps + hairline borders, never heavy shadow. Hex in comments.
      */
@@ -104,5 +72,42 @@
     --ring: 240 8% 20%;                /* Border/Strong — focus ring */
 
     --radius: 0.75rem;                 /* 12px — md radius */
+  }
+
+  /* ── Light palette (unused today; kept for a future theme toggle) ── */
+  .light:root {
+    --background: 40 13% 97%;          /* #fafaf8 */
+    --foreground: 44 8% 10%;           /* #1a1916 */
+
+    --card: 0 0% 100%;                 /* #ffffff */
+    --card-foreground: 44 8% 10%;      /* #1a1916 */
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 44 8% 10%;
+
+    --primary: 142 71% 45%;            /* #22c55e — standard semantic green */
+    --primary-foreground: 44 8% 10%;   /* dark text on green */
+
+    --secondary: 40 8% 93%;            /* #f2f0eb — surface-raised */
+    --secondary-foreground: 44 8% 10%;
+
+    --muted: 40 8% 93%;                /* #f2f0eb */
+    --muted-foreground: 40 5% 40%;     /* #6b6860 */
+
+    --accent: 40 8% 93%;
+    --accent-foreground: 44 8% 10%;
+
+    --destructive: 0 84% 60%;          /* #ef4444 */
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;            /* #22c55e */
+    --warning: 38 92% 50%;             /* #f59e0b */
+    --info: 217 91% 60%;               /* #3b82f6 */
+
+    --border: 38 13% 88%;              /* #e5e2da */
+    --input: 38 13% 88%;
+    --ring: 160 72% 39%;               /* brand green ring */
+
+    --radius: 0.625rem;                /* 10px — md radius */
   }
 }

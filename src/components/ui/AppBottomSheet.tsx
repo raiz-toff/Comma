@@ -7,6 +7,7 @@ import {
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { COLORS } from "@/src/theme/colors";
 
 /**
  * AppBottomSheet — the single, consistent sheet surface for Comma.
@@ -36,9 +37,9 @@ export interface AppBottomSheetProps {
   enableDismiss?: boolean;
 }
 
-const SURFACE_03 = "#16161A";
-const BORDER_SUBTLE = "#1E1E23";
-const HANDLE = "#2E2E36"; // Border/Strong — visible grabber
+const SURFACE_03 = COLORS.surface03;
+const BORDER_SUBTLE = COLORS.lineSubtle;
+const HANDLE = COLORS.lineStrong; // Border/Strong — visible grabber
 
 export const AppBottomSheet = React.forwardRef<AppBottomSheetRef, AppBottomSheetProps>(
   function AppBottomSheet({ children, snapPoints, onDismiss, enableDismiss = true }, ref) {

@@ -2,6 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import { Zap } from "lucide-react-native";
 import { Text } from "../ui/text";
+import { COLORS, KPI, withAlpha } from "@/src/theme/colors";
 
 interface EffectiveRateWidgetProps {
   effectiveRate: number;
@@ -22,16 +23,16 @@ export default function EffectiveRateWidget({ effectiveRate, avgRate, country }:
   const subText = delta !== null
     ? `${delta >= 0 ? "+" : ""}${formatCurrency(delta)} vs gross rate`
     : "after expenses";
-  const color = delta !== null && delta < 0 ? "#FF5247" : "#22c55e";
+  const color = delta !== null && delta < 0 ? COLORS.destructive : COLORS.success;
 
   return (
     <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 16, gap: 12 }}>
-      <View style={{ backgroundColor: "#f59e0b20", padding: 12, borderRadius: 16 }}>
-        <Zap size={32} color="#f59e0b" strokeWidth={2.5} />
+      <View style={{ backgroundColor: withAlpha(KPI.rate, 0.12), padding: 12, borderRadius: 16 }}>
+        <Zap size={32} color={KPI.rate} strokeWidth={2.5} />
       </View>
       <View style={{ alignItems: "center" }}>
-        <Text style={{ fontSize: 32, fontWeight: "900", color: "#F6F6F7", letterSpacing: -1 }} numberOfLines={1} adjustsFontSizeToFit>{formatCurrency(effectiveRate)}<Text style={{ fontSize: 16, color: "#9B9BA4" }}>/hr</Text></Text>
-        <Text style={{ fontSize: 11, fontWeight: "700", color, textTransform: "uppercase", letterSpacing: 1, marginTop: 4 }}>{subText}</Text>
+        <Text variant="headingXl" tabular numberOfLines={1} adjustsFontSizeToFit>{formatCurrency(effectiveRate)}<Text variant="paragraphL">/hr</Text></Text>
+        <Text variant="labelXs" tabular style={{ color, marginTop: 4 }}>{subText}</Text>
       </View>
     </View>
   );

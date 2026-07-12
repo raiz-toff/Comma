@@ -10,13 +10,15 @@ import React, { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   View,
-  Text,
   TouchableOpacity,
   TextInput,
   ScrollView,
   Modal,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
+import { Text } from "@/src/components/ui/text";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import {
@@ -52,20 +54,21 @@ import {
 import { exportBackupFile, restoreBackupFile } from "@/src/services/backupFile";
 import { FeedbackDialog, BusyOverlay, type FeedbackVariant } from "@/src/components/ui/FeedbackDialog";
 import { GoogleDriveLogo } from "@/src/components/logos/GoogleDriveLogo";
+import { COLORS, withAlpha } from "@/src/theme/colors";
 
 // ─── Design tokens (match Settings) ───────────────────────────────────────────
 
 const DS = {
-  pageBg: "#000",
-  cardBg: "#0F0F12",
-  cardBorder: "#1E1E23",
-  inputBg: "#16161A",
-  inputBorder: "#2E2E36",
-  sep: "#1E1E23",
-  textPrimary: "#F6F6F7",
-  textSecondary: "#65656E",
-  textMuted: "#2E2E36",
-  textLabel: "#48473f",
+  pageBg: COLORS.background,
+  cardBg: COLORS.surface02,
+  cardBorder: COLORS.lineSubtle,
+  inputBg: COLORS.surface03,
+  inputBorder: COLORS.lineStrong,
+  sep: COLORS.lineSubtle,
+  textPrimary: COLORS.contentPrimary,
+  textSecondary: COLORS.contentSecondary,
+  textMuted: COLORS.contentMuted,
+  textLabel: COLORS.contentMuted,
 } as const;
 
 const MIN_PW = 6;
@@ -104,13 +107,16 @@ function PasswordPrompt({
 
   return (
     <Modal transparent visible animationType="fade" onRequestClose={onCancel}>
-      <View style={s.overlay}>
+      <KeyboardAvoidingView
+        style={s.overlay}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <View style={s.dialogCard}>
-          <View style={[s.dialogIcon, { backgroundColor: accentColor + "1f", borderColor: accentColor + "40" }]}>
+          <View style={[s.dialogIcon, { backgroundColor: withAlpha(accentColor, 0.12), borderColor: withAlpha(accentColor, 0.25) }]}>
             <KeyRound size={24} color={accentColor} />
           </View>
-          <Text style={s.dialogTitle}>{isSet ? "Set backup password" : "Enter backup password"}</Text>
-          <Text style={s.dialogMsg}>
+          <Text variant="headingS" style={{ textAlign: "center" }}>{isSet ? "Set backup password" : "Enter backup password"}</Text>
+          <Text variant="paragraphM" style={{ textAlign: "center" }}>
             {isSet
               ? "This password encrypts your backup. You'll need it to restore — even on a new phone. If you lose it, the backup can't be recovered."
               : "Enter the password you used when this backup was created."}
@@ -144,18 +150,26 @@ function PasswordPrompt({
               placeholderTextColor={DS.textMuted}
             />
           ) : null}
-          {err ? <Text style={s.dialogErr}>{err}</Text> : null}
+          {err ? <Text variant="paragraphS" className="text-destructive" style={{ alignSelf: "flex-start" }}>{err}</Text> : null}
 
           <View style={s.dialogRow}>
-            <TouchableOpacity onPress={onCancel} style={[s.dialogBtn, { backgroundColor: "#1C1C21" }]}>
-              <Text style={s.dialogBtnNeutral}>Cancel</Text>
+            <TouchableOpacity
+              onPress={onCancel}
+              accessibilityRole="button"
+              style={[s.dialogBtn, { backgroundColor: COLORS.surface04 }]}
+            >
+              <Text variant="labelM" className="text-content-secondary">Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={submit} style={[s.dialogBtn, { backgroundColor: accentColor }]}>
-              <Text style={[s.dialogBtnPrimary, { color: accentColorContrast }]}>{isSet ? "Save" : "Restore"}</Text>
+            <TouchableOpacity
+              onPress={submit}
+              accessibilityRole="button"
+              style={[s.dialogBtn, { backgroundColor: accentColor }]}
+            >
+              <Text variant="labelM" style={{ color: accentColorContrast }}>{isSet ? "Save" : "Restore"}</Text>
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -199,12 +213,12 @@ function Step({
           ) : locked ? (
             <Lock size={14} color={DS.textSecondary} />
           ) : (
-            <Text style={[s.badgeNum, { color: DS.textSecondary }]}>{index}</Text>
+            <Text variant="labelM" style={{ color: DS.textSecondary }}>{index}</Text>
           )}
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.stepTitle}>{title}</Text>
-          {subtitle ? <Text style={s.stepSub}>{subtitle}</Text> : null}
+          <Text variant="labelM">{title}</Text>
+          {subtitle ? <Text variant="paragraphS" className="text-content-secondary" style={s.stepSub}>{subtitle}</Text> : null}
         </View>
         {right ? <View style={{ marginLeft: 8 }}>{right}</View> : null}
       </View>
@@ -236,18 +250,21 @@ function PillBtn({
   const styleByVariant = {
     ghost: { bg: DS.inputBg, border: DS.inputBorder, text: DS.textSecondary },
     primary: { bg: accentDim, border: accentMid, text: accent },
-    danger: { bg: "rgba(244,63,94,0.07)", border: "rgba(244,63,94,0.22)", text: "#fb7185" },
+    danger: { bg: withAlpha(COLORS.destructive, 0.12), border: withAlpha(COLORS.destructive, 0.25), text: COLORS.destructive },
   }[variant];
   return (
     <TouchableOpacity
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      activeOpacity={0.7}
       style={[
         s.pill,
         { backgroundColor: styleByVariant.bg, borderColor: styleByVariant.border, opacity: disabled ? 0.4 : 1 },
       ]}
     >
-      <Text style={[s.pillText, { color: styleByVariant.text }]}>{label}</Text>
+      <Text variant="labelM" style={{ color: styleByVariant.text }}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -321,6 +338,23 @@ export default function SyncScreen() {
     }
   }, [ready, syncEnabled, isDemoMode]);
 
+  // Onboarding restore (issue #11): a user who reaches this screen BEFORE completing
+  // onboarding came to pull an existing backup — run the sync the moment everything is
+  // ready instead of leaving them to find "Sync now"; doSyncNow then redirects to the
+  // dashboard once the imported profile completes onboarding. Fires on ANY ready state,
+  // not just the auto-enable transition above, because password + sync-enabled may
+  // already be persisted from an earlier session. One-shot per mount (ref, not state) so
+  // a failed sync doesn't loop — the user can retry via "Sync now".
+  const restoreKicked = useRef(false);
+  useEffect(() => {
+    if (!ready || !syncEnabled || isDemoMode || restoreKicked.current) return;
+    if (useSettingsStore.getState().isOnboardingCompleted) return;
+    restoreKicked.current = true;
+    doSyncNow();
+    // doSyncNow is recreated every render; this effect must only react to readiness.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, syncEnabled, isDemoMode]);
+
   // ── Actions ───────────────────────────────────────────────────────────────
   const onConnect = () => {
     if (blockedByDemo()) return;
@@ -374,12 +408,28 @@ export default function SyncScreen() {
       openSetPassword();
       return;
     }
+    const wasOnboarded = useSettingsStore.getState().isOnboardingCompleted;
     try {
       const res = await triggerSync(pw);
       queryClient.invalidateQueries({ queryKey: ["backup", "status"] });
       // The pull may have applied synced PROFILE keys (name, country, onboarding flag…) —
       // re-hydrate the store so the app (and a joining device's onboarding gate) reflects it.
       await loadSettings();
+      // This sync just restored a cloud backup that completed onboarding — take the user
+      // straight to their dashboard instead of stranding them on this screen (issue #11).
+      if (!wasOnboarded && useSettingsStore.getState().isOnboardingCompleted) {
+        setDialog({
+          variant: "success",
+          title: "Welcome back",
+          message: "Your backup is restored and this device now stays in sync.",
+          confirmLabel: "Go to Dashboard",
+          onConfirm: () => {
+            setDialog(null);
+            router.replace("/");
+          },
+        });
+        return;
+      }
       const plural = (n: number) => (n === 1 ? "" : "s");
       setDialog({
         variant: "success",
@@ -455,30 +505,36 @@ export default function SyncScreen() {
     <SafeAreaView style={s.safe} edges={["bottom", "left", "right"]}>
       {/* Header */}
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          hitSlop={8}
+          style={s.backBtn}
+        >
           <ChevronLeft color={DS.textPrimary} size={20} />
         </TouchableOpacity>
         <View>
-          <Text style={s.headerTitle}>Cloud Sync</Text>
-          <Text style={s.headerSub}>Free · encrypted on your Google Drive</Text>
+          <Text variant="headingM">Cloud Sync</Text>
+          <Text variant="paragraphS" className="text-content-secondary" style={{ marginTop: 1 }}>Free · encrypted on your Google Drive</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         {/* Intro */}
         <View style={[s.card, s.intro]}>
-          <View style={[s.introIcon, { backgroundColor: "#16161A", borderColor: "#1E1E23" }]}>
+          <View style={[s.introIcon, { backgroundColor: COLORS.surface03, borderColor: COLORS.lineSubtle }]}>
             <GoogleDriveLogo size={26} />
           </View>
-          <Text style={s.introTitle}>One feature. Backup and sync.</Text>
-          <Text style={s.introText}>
+          <Text variant="headingS">One feature. Backup and sync.</Text>
+          <Text variant="paragraphM" style={{ textAlign: "center" }}>
             Connect Google Drive and you're done. On a single device your data is safely backed up; sign in on
             another and everything stays in sync — automatically, encrypted, only readable by you.
           </Text>
         </View>
 
         {/* Step 1 — Connect */}
-        <Text style={s.groupLabel}>STEP 1</Text>
+        <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>STEP 1</Text>
         <Step
           index={1}
           done={isAuthenticated}
@@ -499,7 +555,7 @@ export default function SyncScreen() {
         />
 
         {/* Step 2 — Password */}
-        <Text style={s.groupLabel}>STEP 2</Text>
+        <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>STEP 2</Text>
         <Step
           index={2}
           done={passwordSet}
@@ -515,17 +571,17 @@ export default function SyncScreen() {
         />
 
         {/* Cloud Sync status + controls (auto-on once steps 1 & 2 are done) */}
-        <Text style={s.groupLabel}>CLOUD SYNC</Text>
+        <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>CLOUD SYNC</Text>
         <View style={s.card}>
           <View style={s.stepRow}>
             <View style={[s.badge, { backgroundColor: DS.inputBg, borderColor: DS.inputBorder }]}>
               <RefreshCw size={15} color={ready && syncEnabled ? accentColor : DS.textSecondary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.stepTitle}>
+              <Text variant="labelM">
                 {ready && syncEnabled ? "Cloud Sync is on" : "Cloud Sync is off"}
               </Text>
-              <Text style={s.stepSub}>
+              <Text variant="paragraphS" className="text-content-secondary" style={s.stepSub}>
                 {!isAuthenticated
                   ? "Connect Google Drive to turn it on."
                   : !passwordSet
@@ -537,7 +593,7 @@ export default function SyncScreen() {
 
           {/* Auto-back-up cadence (WhatsApp-style). Pull always happens on app open. */}
           <View style={[s.syncSchedRow, { borderTopColor: DS.sep }]}>
-            <Text style={s.stepSub}>Auto-back up</Text>
+            <Text variant="paragraphS" className="text-content-secondary" style={s.stepSub}>Auto-back up</Text>
             <View style={s.segment}>
               {SYNC_SCHEDULES.map((opt) => {
                 const active = schedule === opt;
@@ -546,13 +602,15 @@ export default function SyncScreen() {
                     key={opt}
                     onPress={() => onPickSchedule(opt)}
                     disabled={!ready || !syncEnabled}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active, disabled: !ready || !syncEnabled }}
                     style={[
                       s.segmentBtn,
                       active && { backgroundColor: accentColorDim, borderColor: accentColorMid },
                       (!ready || !syncEnabled) && { opacity: 0.4 },
                     ]}
                   >
-                    <Text style={[s.segmentText, { color: active ? accentColor : DS.textSecondary }]}>
+                    <Text variant="labelM" style={{ color: active ? accentColor : DS.textSecondary }}>
                       {SCHEDULE_LABELS[opt]}
                     </Text>
                   </TouchableOpacity>
@@ -562,7 +620,7 @@ export default function SyncScreen() {
           </View>
 
           <View style={[s.syncActionRow, { borderTopColor: DS.sep }]}>
-            <Text style={s.stepSub}>
+            <Text variant="paragraphS" className="text-content-secondary" style={s.stepSub}>
               {ready && syncEnabled ? "Sync right now" : "Finish steps 1 & 2 first"}
             </Text>
             <PillBtn
@@ -579,22 +637,22 @@ export default function SyncScreen() {
         </View>
 
         {/* Backup file — offline copy you keep yourself (works without Google) */}
-        <Text style={s.groupLabel}>BACKUP FILE</Text>
+        <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>BACKUP FILE</Text>
         <View style={s.card}>
           <View style={s.stepRow}>
             <View style={[s.badge, { backgroundColor: DS.inputBg, borderColor: DS.inputBorder }]}>
               <FileDown size={15} color={DS.textSecondary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.stepTitle}>Backup file</Text>
-              <Text style={s.stepSub}>
+              <Text variant="labelM">Backup file</Text>
+              <Text variant="paragraphS" className="text-content-secondary" style={s.stepSub}>
                 An offline copy you keep yourself — save it to Files, Drive, or anywhere. Works without Google.
               </Text>
             </View>
           </View>
 
           <View style={[s.syncActionRow, { borderTopColor: DS.sep }]}>
-            <Text style={s.stepSub}>Download backup file</Text>
+            <Text variant="paragraphS" className="text-content-secondary" style={s.stepSub}>Download backup file</Text>
             <PillBtn
               label={fileBusy === "export" ? "Preparing…" : "Download"}
               variant="primary"
@@ -608,7 +666,7 @@ export default function SyncScreen() {
           </View>
 
           <View style={[s.syncActionRow, { borderTopColor: DS.sep }]}>
-            <Text style={s.stepSub}>Restore from a backup file</Text>
+            <Text variant="paragraphS" className="text-content-secondary" style={s.stepSub}>Restore from a backup file</Text>
             <PillBtn
               label={fileBusy === "restore" ? "Restoring…" : "Restore"}
               variant="ghost"
@@ -672,15 +730,13 @@ const s = StyleSheet.create({
   backBtn: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: DS.inputBg,
     borderWidth: 0.5,
     borderColor: DS.inputBorder,
     alignItems: "center",
     justifyContent: "center",
   },
-  headerTitle: { color: DS.textPrimary, fontSize: 18, fontWeight: "800" },
-  headerSub: { color: DS.textSecondary, fontSize: 12, fontWeight: "500", marginTop: 1 },
 
   scroll: { padding: 16, gap: 8 },
 
@@ -688,8 +744,8 @@ const s = StyleSheet.create({
     backgroundColor: DS.cardBg,
     borderWidth: 1,
     borderColor: DS.cardBorder,
-    borderRadius: 18,
-    padding: 15,
+    borderRadius: 16,
+    padding: 16,
   },
 
   intro: { alignItems: "center", gap: 8, paddingVertical: 20, marginBottom: 4 },
@@ -701,14 +757,8 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  introTitle: { color: DS.textPrimary, fontSize: 16, fontWeight: "800" },
-  introText: { color: DS.textSecondary, fontSize: 13, lineHeight: 19, textAlign: "center" },
 
   groupLabel: {
-    color: DS.textLabel,
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1,
     marginTop: 12,
     marginBottom: 4,
     marginLeft: 4,
@@ -723,20 +773,9 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  badgeNum: { fontSize: 13, fontWeight: "800" },
-  stepTitle: { color: DS.textPrimary, fontSize: 14, fontWeight: "700" },
-  stepSub: { color: DS.textSecondary, fontSize: 12, marginTop: 2, lineHeight: 16 },
+  stepSub: { marginTop: 2 },
 
   pill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
-  pillText: { fontSize: 13, fontWeight: "700" },
-
-  emptyWrap: { alignItems: "center", gap: 8, paddingVertical: 14 },
-  emptyText: { color: DS.textSecondary, fontSize: 12, fontStyle: "italic", textAlign: "center" },
-
-  backupRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12 },
-  rowDivider: { borderBottomWidth: 0.5, borderBottomColor: DS.sep },
-  backupDate: { color: DS.textPrimary, fontSize: 13, fontWeight: "600" },
-  backupAgo: { color: DS.textSecondary, fontSize: 11, marginTop: 2 },
 
   syncSchedRow: {
     flexDirection: "row",
@@ -751,12 +790,11 @@ const s = StyleSheet.create({
   segmentBtn: {
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 9,
+    borderRadius: 12,
     borderWidth: 1,
     backgroundColor: DS.inputBg,
     borderColor: DS.inputBorder,
   },
-  segmentText: { fontSize: 12, fontWeight: "700" },
   syncActionRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -766,23 +804,11 @@ const s = StyleSheet.create({
     paddingTop: 14,
     borderTopWidth: 0.5,
   },
-  restoreBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: DS.inputBg,
-    borderWidth: 1,
-    borderColor: DS.inputBorder,
-  },
-  restoreText: { color: DS.textSecondary, fontSize: 13, fontWeight: "700" },
 
   // Password prompt
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: COLORS.scrim,
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
@@ -790,10 +816,10 @@ const s = StyleSheet.create({
   dialogCard: {
     width: "100%",
     maxWidth: 360,
-    backgroundColor: "#1a1916",
-    borderRadius: 20,
+    backgroundColor: COLORS.surface03,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: "#2E2E36",
+    borderColor: COLORS.lineStrong,
     padding: 22,
     gap: 12,
     alignItems: "center",
@@ -806,22 +832,17 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  dialogTitle: { fontSize: 17, fontWeight: "800", color: "#F6F6F7", textAlign: "center" },
-  dialogMsg: { fontSize: 13, fontWeight: "500", color: "#9B9BA4", textAlign: "center", lineHeight: 19 },
   dialogInput: {
     alignSelf: "stretch",
     backgroundColor: DS.inputBg,
     borderWidth: 1,
     borderColor: DS.inputBorder,
-    borderRadius: 11,
+    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     color: DS.textPrimary,
     fontSize: 15,
   },
-  dialogErr: { color: "#fb7185", fontSize: 12, fontWeight: "600", alignSelf: "flex-start" },
   dialogRow: { flexDirection: "row", gap: 10, alignSelf: "stretch", marginTop: 4 },
-  dialogBtn: { flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: "center" },
-  dialogBtnNeutral: { color: "#9B9BA4", fontWeight: "700", fontSize: 14 },
-  dialogBtnPrimary: { fontWeight: "800", fontSize: 14 },
+  dialogBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center" },
 });

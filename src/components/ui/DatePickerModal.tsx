@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import { Modal, View, Text, Pressable, StyleSheet } from "react-native";
+import { Modal, View, Pressable, StyleSheet } from "react-native";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
+import { Text } from "@/src/components/ui/text";
+import { COLORS } from "@/src/theme/colors";
 
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MONTHS = [
@@ -16,6 +18,16 @@ interface Props {
   accentColor?: string;
 }
 
+/** Contrast text on an accent background (accent arrives as a prop, so no hook). */
+function getContrastColor(hex: string): string {
+  const clean = hex.replace("#", "");
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness > 155 ? "#1a1916" : "#ffffff";
+}
+
 function buildGrid(year: number, month: number): (number | null)[] {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -25,12 +37,14 @@ function buildGrid(year: number, month: number): (number | null)[] {
   return cells;
 }
 
-export function DatePickerModal({ visible, value, onChange, onClose, accentColor = "#10b981" }: Props) {
+export function DatePickerModal({ visible, value, onChange, onClose, accentColor = COLORS.primary }: Props) {
   // Note: accentColor is passed by callers from usePlatformTheme(); the literal default is a last-resort fallback only.
   const today = new Date();
   const [displayYear, setDisplayYear] = useState(value.getFullYear());
   const [displayMonth, setDisplayMonth] = useState(value.getMonth());
   const [selected, setSelected] = useState<Date>(value);
+
+  const accentContrast = getContrastColor(accentColor);
 
   const prevMonth = () => {
     if (displayMonth === 0) { setDisplayMonth(11); setDisplayYear(y => y - 1); }
@@ -72,19 +86,31 @@ export function DatePickerModal({ visible, value, onChange, onClose, accentColor
         <Pressable style={s.card} onPress={() => {}}>
           {/* Header */}
           <View style={s.header}>
-            <Pressable onPress={prevMonth} style={s.navBtn} hitSlop={12}>
-              <ChevronLeft size={20} color="#9B9BA4" />
+            <Pressable
+              onPress={prevMonth}
+              style={s.navBtn}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Previous month"
+            >
+              <ChevronLeft size={20} color={COLORS.contentSecondary} />
             </Pressable>
-            <Text style={s.monthLabel}>{MONTHS[displayMonth]} {displayYear}</Text>
-            <Pressable onPress={nextMonth} style={s.navBtn} hitSlop={12}>
-              <ChevronRight size={20} color="#9B9BA4" />
+            <Text variant="headingS">{MONTHS[displayMonth]} {displayYear}</Text>
+            <Pressable
+              onPress={nextMonth}
+              style={s.navBtn}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Next month"
+            >
+              <ChevronRight size={20} color={COLORS.contentSecondary} />
             </Pressable>
           </View>
 
           {/* Day-of-week row */}
           <View style={s.weekRow}>
             {DAYS.map(d => (
-              <Text key={d} style={s.dayName}>{d}</Text>
+              <Text key={d} variant="labelXs" className="text-content-muted" style={s.dayName}>{d}</Text>
             ))}
           </View>
 
@@ -97,14 +123,19 @@ export function DatePickerModal({ visible, value, onChange, onClose, accentColor
               return (
                 <Pressable
                   key={i}
-                  style={[s.cell, sel && { backgroundColor: accentColor, borderRadius: 10 }]}
+                  style={[s.cell, sel && { backgroundColor: accentColor, borderRadius: 12 }]}
                   onPress={() => handleDay(day)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${MONTHS[displayMonth]} ${day}, ${displayYear}`}
+                  accessibilityState={{ selected: sel }}
                 >
-                  <Text style={[
-                    s.dayNum,
-                    tod && !sel && { color: accentColor, fontWeight: "800" },
-                    sel && { color: "#000", fontWeight: "800" },
-                  ]}>
+                  <Text
+                    variant="paragraphM"
+                    style={[
+                      tod && !sel && { color: accentColor, fontWeight: "800" as const },
+                      sel && { color: accentContrast, fontWeight: "800" as const },
+                    ]}
+                  >
                     {day}
                   </Text>
                 </Pressable>
@@ -114,11 +145,19 @@ export function DatePickerModal({ visible, value, onChange, onClose, accentColor
 
           {/* Footer */}
           <View style={s.footer}>
-            <Pressable onPress={onClose} style={s.cancelBtn}>
-              <Text style={s.cancelText}>Cancel</Text>
+            <Pressable
+              onPress={onClose}
+              accessibilityRole="button"
+              style={s.cancelBtn}
+            >
+              <Text variant="labelM" className="text-content-secondary">Cancel</Text>
             </Pressable>
-            <Pressable onPress={handleDone} style={[s.doneBtn, { backgroundColor: accentColor }]}>
-              <Text style={s.doneText}>Done</Text>
+            <Pressable
+              onPress={handleDone}
+              accessibilityRole="button"
+              style={[s.doneBtn, { backgroundColor: accentColor }]}
+            >
+              <Text variant="labelM" style={{ color: accentContrast }}>Done</Text>
             </Pressable>
           </View>
         </Pressable>
@@ -129,39 +168,32 @@ export function DatePickerModal({ visible, value, onChange, onClose, accentColor
 
 const s = StyleSheet.create({
   overlay: {
-    flex: 1, backgroundColor: "rgba(0,0,0,0.7)",
+    flex: 1, backgroundColor: COLORS.scrim,
     justifyContent: "center", alignItems: "center", padding: 24,
   },
   card: {
     width: "100%", maxWidth: 360,
-    backgroundColor: "#16161A", borderRadius: 20,   // Surface/03, radius-xl
-    borderWidth: 1, borderColor: "#1E1E23",          // Border/Subtle
+    backgroundColor: COLORS.surface03, borderRadius: 28,   // Surface/03, DS modal radius
+    borderWidth: 1, borderColor: COLORS.lineSubtle,        // Border/Subtle
     padding: 20, gap: 12,
   },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
   },
   navBtn: { padding: 4 },
-  monthLabel: { fontSize: 16, fontWeight: "600", color: "#F6F6F7" },   // Heading/S, Text/Primary
   weekRow: { flexDirection: "row" },
-  dayName: {
-    flex: 1, textAlign: "center",
-    fontSize: 11, fontWeight: "700", color: "#65656E", textTransform: "uppercase",   // Text/Muted
-  },
+  dayName: { flex: 1, textAlign: "center" },
   grid: { flexDirection: "row", flexWrap: "wrap" },
   cell: {
     width: `${100 / 7}%`, aspectRatio: 1,
     justifyContent: "center", alignItems: "center",
   },
-  dayNum: { fontSize: 14, fontWeight: "500", color: "#9B9BA4" },   // Text/Secondary
   footer: { flexDirection: "row", gap: 10, marginTop: 4 },
   cancelBtn: {
-    flex: 1, paddingVertical: 12, borderRadius: 10,
-    backgroundColor: "#1C1C21", alignItems: "center",   // Surface/04
+    flex: 1, paddingVertical: 12, borderRadius: 12,
+    backgroundColor: COLORS.surface04, alignItems: "center",   // Surface/04
   },
-  cancelText: { color: "#9B9BA4", fontWeight: "600", fontSize: 14 },   // Text/Secondary
   doneBtn: {
-    flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center",
+    flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center",
   },
-  doneText: { color: "#000", fontWeight: "800", fontSize: 14 },
 });

@@ -2,6 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import { Sparkles } from "lucide-react-native";
 import { Text } from "../ui/text";
+import { COLORS, withAlpha } from "@/src/theme/colors";
 
 interface TipsTotalWidgetProps {
   tips: number;
@@ -22,14 +23,18 @@ export default function TipsTotalWidget({ tips, gross, country }: TipsTotalWidge
 
   return (
     <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 16, gap: 12 }}>
-      <View style={{ backgroundColor: "#3b82f620", padding: 12, borderRadius: 16 }}>
-        <Sparkles size={32} color="#3b82f6" strokeWidth={2.5} />
+      <View style={{ backgroundColor: withAlpha(COLORS.info, 0.12), padding: 12, borderRadius: 16 }}>
+        <Sparkles size={32} color={COLORS.info} strokeWidth={2.5} />
       </View>
       <View style={{ alignItems: "center" }}>
-        <Text style={{ fontSize: 32, fontWeight: "900", color: "#F6F6F7", letterSpacing: -1 }} numberOfLines={1} adjustsFontSizeToFit>{formatCurrency(tips)}</Text>
-        <Text style={{ fontSize: 11, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 1, marginTop: 4 }}>
-          {tipsPct > 0 ? `${tipsPct.toFixed(1)}% of total earnings` : "Awaiting tips"}
-        </Text>
+        <Text variant="headingXl" tabular style={{ color: COLORS.contentPrimary }} numberOfLines={1} adjustsFontSizeToFit>{formatCurrency(tips)}</Text>
+        {tipsPct > 0 ? (
+          <Text variant="labelXs" tabular style={{ color: COLORS.contentSecondary, marginTop: 4 }}>
+            {`${tipsPct.toFixed(1)}% of total earnings`}
+          </Text>
+        ) : (
+          <Text variant="paragraphS" style={{ marginTop: 4 }}>Awaiting tips</Text>
+        )}
       </View>
     </View>
   );

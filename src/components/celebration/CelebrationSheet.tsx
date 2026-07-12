@@ -11,6 +11,7 @@ import Animated, {
 import { Text } from "@/src/components/ui/text";
 import { AppBottomSheet, type AppBottomSheetRef } from "@/src/components/ui/AppBottomSheet";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { COLORS } from "@/src/theme/colors";
 import { BADGES } from "@/src/registry/badges";
 
 /**
@@ -81,7 +82,7 @@ export const CelebrationSheet = React.forwardRef<CelebrationSheetRef>(
     const sheetRef = React.useRef<AppBottomSheetRef>(null);
     const [badgeId, setBadgeId] = React.useState<string | null>(null);
     const [burstKey, setBurstKey] = React.useState(0);
-    const { accentColor, accentColorContrast } = usePlatformTheme();
+    const { accentColor, accentColorContrast, accentColorDim, accentColorMid } = usePlatformTheme();
 
     React.useImperativeHandle(ref, () => ({
       celebrate: (id: string) => {
@@ -102,7 +103,7 @@ export const CelebrationSheet = React.forwardRef<CelebrationSheetRef>(
     }, [badge]);
 
     // The semantic colors of the confetti — accent + success + warning for a festive mix.
-    const confettiColors = [accentColor, "#1FC16B", "#F5A623"];
+    const confettiColors = [accentColor, COLORS.success, COLORS.warning];
 
     return (
       <AppBottomSheet ref={sheetRef} onDismiss={() => setBadgeId(null)}>
@@ -119,13 +120,13 @@ export const CelebrationSheet = React.forwardRef<CelebrationSheetRef>(
             <View
               style={[
                 s.medallion,
-                { backgroundColor: accentColor + "1f", borderColor: accentColor + "55" },
+                { backgroundColor: accentColorDim, borderColor: accentColorMid },
               ]}
             >
               <Text style={{ fontSize: 44 }}>{badge.icon}</Text>
             </View>
 
-            <Text variant="labelXs" style={{ color: accentColor, letterSpacing: 1.5 }}>
+            <Text variant="labelXs" style={{ color: accentColor }}>
               {badge.category === "streak"
                 ? "STREAK UNLOCKED"
                 : badge.category === "record"
@@ -134,13 +135,14 @@ export const CelebrationSheet = React.forwardRef<CelebrationSheetRef>(
             </Text>
 
             {/* Display-size headline — the celebrated thing */}
-            <Text variant="display" style={{ color: "#F6F6F7", textAlign: "center" }}>
+            <Text variant="display" className="text-content-primary" style={{ textAlign: "center" }}>
               {badge.name}
             </Text>
 
             <Text
               variant="paragraphM"
-              style={{ color: "#9B9BA4", textAlign: "center", maxWidth: 280 }}
+              className="text-content-secondary"
+              style={{ textAlign: "center", maxWidth: 280 }}
             >
               {badge.description}
             </Text>
@@ -149,14 +151,19 @@ export const CelebrationSheet = React.forwardRef<CelebrationSheetRef>(
             <View style={{ width: "100%", gap: 10, marginTop: 12 }}>
               <Pressable
                 onPress={handleShare}
+                accessibilityRole="button"
                 style={[s.primaryBtn, { backgroundColor: accentColor }]}
               >
                 <Text variant="labelL" style={{ color: accentColorContrast }}>
                   Share
                 </Text>
               </Pressable>
-              <Pressable onPress={() => sheetRef.current?.dismiss()} style={s.secondaryBtn}>
-                <Text variant="labelL" style={{ color: "#9B9BA4" }}>
+              <Pressable
+                onPress={() => sheetRef.current?.dismiss()}
+                accessibilityRole="button"
+                style={s.secondaryBtn}
+              >
+                <Text variant="labelL" className="text-content-secondary">
                   Done
                 </Text>
               </Pressable>
@@ -187,13 +194,13 @@ const s = StyleSheet.create({
   },
   primaryBtn: {
     height: 52,
-    borderRadius: 16,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   secondaryBtn: {
     height: 52,
-    borderRadius: 16,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },

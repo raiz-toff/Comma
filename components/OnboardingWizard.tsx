@@ -1,9 +1,18 @@
 import React, { useState } from "react";
-import { View, Pressable, ActivityIndicator, Modal } from "react-native";
+import {
+  View,
+  Pressable,
+  ActivityIndicator,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { FileDown } from "lucide-react-native";
 import { Text } from "../src/components/ui/text";
+import { COLORS } from "../src/theme/colors";
 import { useSettingsStore, type DriverProfile, type VehicleDraft } from "../store/useSettingsStore";
 import { getCountryDef } from "../src/registry/countries/index";
 import { type FeatureKey } from "../src/registry/modules";
@@ -186,7 +195,8 @@ export default function OnboardingWizard() {
   const handleChooseGoogleSync = () => {
     // The cloud snapshot carries EVERYTHING — records AND the synced profile (name, country,
     // units, onboarding flag) — so no setup wizard: go straight to the Cloud Sync hub. Once
-    // the user connects + syncs, the profile import completes onboarding by itself.
+    // the user connects + sets the sync password, the hub runs the restore sync itself and
+    // redirects to the dashboard when the imported profile completes onboarding.
     setShowRestoreChooser(false);
     router.push("/settings/backup");
   };
@@ -217,7 +227,7 @@ export default function OnboardingWizard() {
       taxRegion: "ON",
       operationalModelId: "delivery_fixed",
       avatarType: "emoji",
-      avatarData: "#10b981",
+      avatarData: "#22c55e",
       selectedPlatforms: ["doordash", "ubereats", "skip"],
       workSchedulePreset: "flexible",
       weeklyGoal: 500,
@@ -227,7 +237,7 @@ export default function OnboardingWizard() {
       hstRegistered: false,
       distanceUnit: "km",
       theme: "dark",
-      accentColor: "#10b981",
+      accentColor: "#22c55e",
       locale: { weekStartDay: 1, timeFormat: "12h" },
     };
     const vehicle: VehicleDraft = {
@@ -264,43 +274,35 @@ export default function OnboardingWizard() {
             <View
               style={{
                 flex: 1,
-                backgroundColor: "rgba(0,0,0,0.72)",
+                backgroundColor: COLORS.scrim,
                 justifyContent: "center",
                 padding: 24,
               }}
             >
               <View
                 style={{
-                  backgroundColor: "#0F0F12",
-                  borderRadius: 20,
+                  backgroundColor: COLORS.card,
+                  borderRadius: 28,
                   borderWidth: 1,
-                  borderColor: "#1E1E23",
+                  borderColor: COLORS.lineSubtle,
                   padding: 20,
                   gap: 10,
                 }}
               >
-                <Text style={{ fontSize: 17, fontWeight: "800", color: "#F6F6F7" }}>Restore / Sync</Text>
-                <Text style={{ fontSize: 13, color: "#65656E", lineHeight: 19 }}>
+                <Text variant="headingS">Restore / Sync</Text>
+                <Text variant="paragraphS">
                   Bring your existing Comma data onto this phone.
                 </Text>
 
                 <Pressable
                   onPress={isRestoringFile ? undefined : handleChooseGoogleSync}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 12,
-                    backgroundColor: "#16161A",
-                    borderWidth: 1,
-                    borderColor: "#2E2E36",
-                    borderRadius: 14,
-                    padding: 14,
-                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: isRestoringFile }}
                 >
                   <GoogleDriveLogo size={22} />
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: "700", color: "#F6F6F7" }}>Google Cloud Sync</Text>
-                    <Text style={{ fontSize: 12, color: "#65656E", lineHeight: 17, marginTop: 2 }}>
+                    <Text variant="labelM">Google Cloud Sync</Text>
+                    <Text variant="paragraphS" style={{ marginTop: 2 }}>
                       Connect Drive — pulls your profile and all your data, no setup needed
                     </Text>
                   </View>
@@ -308,42 +310,33 @@ export default function OnboardingWizard() {
 
                 <Pressable
                   onPress={isRestoringFile ? undefined : handleChooseBackupFile}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 12,
-                    backgroundColor: "#16161A",
-                    borderWidth: 1,
-                    borderColor: "#2E2E36",
-                    borderRadius: 14,
-                    padding: 14,
-                    opacity: isRestoringFile ? 0.6 : 1,
-                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: isRestoringFile }}
                 >
                   {isRestoringFile ? (
-                    <ActivityIndicator size="small" color="#9B9BA4" />
+                    <ActivityIndicator size="small" color={COLORS.contentSecondary} />
                   ) : (
-                    <FileDown size={22} color="#9B9BA4" />
+                    <FileDown size={22} color={COLORS.contentSecondary} />
                   )}
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: "700", color: "#F6F6F7" }}>
+                    <Text variant="labelM">
                       {isRestoringFile ? "Restoring…" : "Backup file"}
                     </Text>
-                    <Text style={{ fontSize: 12, color: "#65656E", lineHeight: 17, marginTop: 2 }}>
+                    <Text variant="paragraphS" style={{ marginTop: 2 }}>
                       Restore a comma-backup .json file made on another phone
                     </Text>
                   </View>
                 </Pressable>
 
                 {restoreError ? (
-                  <Text style={{ color: "#fb7185", fontSize: 12, lineHeight: 17 }}>{restoreError}</Text>
+                  <Text variant="paragraphS" style={{ color: COLORS.destructive }}>{restoreError}</Text>
                 ) : null}
 
                 <Pressable
                   onPress={() => !isRestoringFile && setShowRestoreChooser(false)}
-                  style={{ alignItems: "center", paddingVertical: 10 }}
+                  accessibilityRole="button"
                 >
-                  <Text style={{ color: "#65656E", fontWeight: "600", fontSize: 14 }}>Cancel</Text>
+                  <Text variant="labelM" style={{ color: COLORS.contentMuted }}>Cancel</Text>
                 </Pressable>
               </View>
             </View>
@@ -459,11 +452,15 @@ export default function OnboardingWizard() {
     <View
       style={{
         flex: 1,
-        backgroundColor: "#000",
+        backgroundColor: COLORS.background,
         paddingTop: insets.top,
         paddingBottom: insets.bottom,
       }}
     >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
       {/* Progress bar */}
       <View
         style={{
@@ -484,7 +481,7 @@ export default function OnboardingWizard() {
                 flex: i === stepIndex ? 2 : 1,
                 borderRadius: 2,
                 // Filled segments borrow the chosen accent — theming starts during setup (§09-C).
-                backgroundColor: i <= stepIndex ? (accentColor || "#F6F6F7") : "#1C1C21",
+                backgroundColor: i <= stepIndex ? (accentColor || COLORS.contentPrimary) : COLORS.surface04,
               }}
             />
           ))}
@@ -502,8 +499,8 @@ export default function OnboardingWizard() {
               gap: 12,
             }}
           >
-            <ActivityIndicator size="large" color="#F6F6F7" />
-            <Text style={{ fontSize: 12, color: "#65656E" }}>
+            <ActivityIndicator size="large" color={COLORS.contentPrimary} />
+            <Text variant="paragraphS">
               Setting up your vault…
             </Text>
           </View>
@@ -521,36 +518,30 @@ export default function OnboardingWizard() {
             alignItems: "center",
             paddingHorizontal: 24,
             paddingVertical: 16,
-            borderTopWidth: 0.8,
-            borderTopColor: "#1E1E23",
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: COLORS.lineSubtle,
           }}
         >
           <Pressable
             onPress={handleBack}
-            style={{ paddingVertical: 12, paddingHorizontal: 4 }}
+            accessibilityRole="button"
           >
-            <Text style={{ fontSize: 14, fontWeight: "600", color: "#65656E" }}>
+            <Text variant="labelM" style={{ color: COLORS.contentMuted }}>
               {isFirst ? "Cancel" : "Back"}
             </Text>
           </Pressable>
 
           <Pressable
             onPress={handleNext}
-            style={{
-              backgroundColor: "#F6F6F7",
-              paddingVertical: 14,
-              paddingHorizontal: 36,
-              borderRadius: 14,
-            }}
+            accessibilityRole="button"
           >
-            <Text
-              style={{ fontSize: 15, fontWeight: "800", color: "#000" }}
-            >
+            <Text variant="labelL" style={{ color: COLORS.background }}>
               {isLast ? "Finish" : "Continue"}
             </Text>
           </Pressable>
         </View>
       )}
+      </KeyboardAvoidingView>
     </View>
   );
 }

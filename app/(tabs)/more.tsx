@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from "react";
-import { View, ScrollView, TouchableOpacity } from "react-native";
+import { View, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Target, BarChart3, Calendar, Car, Settings, Info, Calculator, ChevronRight } from "lucide-react-native";
 import { Text } from "../../src/components/ui/text";
+import { COLORS } from "../../src/theme/colors";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
 import { getCountryDef } from "@/src/registry/index";
@@ -18,19 +19,20 @@ interface MenuItemProps {
 
 const MenuItem = ({ title, subtitle, icon: Icon, onPress, accentColor }: MenuItemProps) => (
   <TouchableOpacity
+    accessibilityRole="button"
     onPress={onPress}
-    style={{ backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 20, marginBottom: 12, padding: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+    style={{ backgroundColor: COLORS.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, borderRadius: 16, marginBottom: 12, padding: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
   >
     <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#16161A", borderWidth: 0.8, borderColor: "#1C1C21", alignItems: "center", justifyContent: "center" }}>
+      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.surface03, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, alignItems: "center", justifyContent: "center" }}>
         <Icon size={20} color={accentColor} />
       </View>
       <View style={{ flexDirection: "column" }}>
-        <Text style={{ fontSize: 14, fontWeight: "800", color: "#F6F6F7" }}>{title}</Text>
-        <Text style={{ fontSize: 12, color: "#9B9BA4", marginTop: 2 }}>{subtitle}</Text>
+        <Text variant="labelL">{title}</Text>
+        <Text variant="paragraphS" className="text-content-secondary" style={{ marginTop: 2 }}>{subtitle}</Text>
       </View>
     </View>
-    <ChevronRight size={16} color="#2E2E36" strokeWidth={2} />
+    <ChevronRight size={16} color={COLORS.contentDisabled} strokeWidth={2} />
   </TouchableOpacity>
 );
 
@@ -63,7 +65,7 @@ export default function MoreScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#000" }} edges={["bottom", "left", "right"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }} edges={["bottom", "left", "right"]}>
       <ScrollView
         contentContainerStyle={{ paddingTop: insets.top + 64, paddingHorizontal: 16, paddingBottom: 48 }}
         showsVerticalScrollIndicator={false}
@@ -71,8 +73,8 @@ export default function MoreScreen() {
         scrollEventThrottle={16}
       >
         <View style={{ marginVertical: 16 }}>
-          <Text style={{ fontSize: 24, fontWeight: "900", color: "#F6F6F7", letterSpacing: -0.5 }}>More</Text>
-          <Text style={{ fontSize: 12, color: "#9B9BA4", fontWeight: "500", marginTop: 4 }}>Configure your workspace and preferences</Text>
+          <Text variant="headingL">More</Text>
+          <Text variant="paragraphS" className="text-content-secondary" style={{ marginTop: 4 }}>Configure your workspace and preferences</Text>
         </View>
 
         <View style={{ marginTop: 8 }}>

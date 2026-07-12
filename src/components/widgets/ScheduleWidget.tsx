@@ -2,6 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import { CalendarClock } from "lucide-react-native";
 import { Text } from "../ui/text";
+import { COLORS, withAlpha } from "@/src/theme/colors";
 
 /**
  * Stub / empty-state widget. Web has a shift-planning calendar sketch feature
@@ -12,10 +13,10 @@ import { Text } from "../ui/text";
 export default function ScheduleWidget() {
   return (
     <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 24, gap: 12 }}>
-      <View style={{ backgroundColor: "#65656E20", padding: 12, borderRadius: 16 }}>
-        <CalendarClock size={28} color="#65656E" strokeWidth={2} />
+      <View style={{ backgroundColor: withAlpha(COLORS.contentMuted, 0.12), padding: 12, borderRadius: 16 }}>
+        <CalendarClock size={28} color={COLORS.contentMuted} strokeWidth={2} />
       </View>
-      <Text style={{ fontSize: 12, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" }}>
+      <Text variant="labelXs" style={{ color: COLORS.contentSecondary, textAlign: "center" }}>
         No upcoming shifts scheduled
       </Text>
     </View>

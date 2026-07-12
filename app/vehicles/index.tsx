@@ -7,6 +7,7 @@ import {
   Alert,
   Platform,
   ActivityIndicator,
+  KeyboardAvoidingView,
   StyleSheet,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,6 +26,7 @@ import {
 
 import { Text } from "@/src/components/ui/text";
 import { EmptyState } from "@/src/components/ui/EmptyState";
+import { COLORS, withAlpha } from "@/src/theme/colors";
 import { getVehicles, insertVehicle } from "@/src/database/queries/vehicles";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
@@ -32,36 +34,36 @@ import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 // ─── Design tokens ──────────────────────────────────────────────────────────
 
 const DS = {
-  pageBg: "#000",
-  cardBg: "#0F0F12",
-  cardBorder: "#1E1E23",
-  inputBg: "#16161A",
-  inputBorder: "#2E2E36",
-  sep: "#1E1E23",
+  pageBg: COLORS.background,
+  cardBg: COLORS.surface02,
+  cardBorder: COLORS.lineSubtle,
+  inputBg: COLORS.surface03,
+  inputBorder: COLORS.lineStrong,
+  sep: COLORS.lineSubtle,
 
-  brand: "#F6F6F7",
-  brandSurface: "rgba(255, 255, 255, 0.08)",
-  brandBorder: "rgba(255, 255, 255, 0.18)",
-  brandText: "#F6F6F7",
+  brand: COLORS.contentPrimary,
+  brandSurface: COLORS.surface04,
+  brandBorder: COLORS.lineStrong,
+  brandText: COLORS.contentPrimary,
 
-  danger: "#FF5247",
-  dangerSurface: "rgba(244,63,94,0.07)",
-  dangerBorder: "rgba(244,63,94,0.22)",
-  dangerText: "#fb7185",
+  danger: COLORS.destructive,
+  dangerSurface: withAlpha(COLORS.destructive, 0.08),
+  dangerBorder: withAlpha(COLORS.destructive, 0.18),
+  dangerText: COLORS.destructive,
 
-  textPrimary: "#F6F6F7",
-  textSecondary: "#65656E",
-  textMuted: "#2E2E36",
-  textLabel: "#48473f",
+  textPrimary: COLORS.contentPrimary,
+  textSecondary: COLORS.contentSecondary,
+  textMuted: COLORS.contentMuted,
+  textLabel: COLORS.contentMuted,
 
-  rCard: 18,
-  rInput: 11,
+  rCard: 16,
+  rInput: 12,
   rChip: 8,
   rPill: 20,
 
   pagePad: 16,
-  cardPad: 15,
-  rowPad: 13,
+  cardPad: 16,
+  rowPad: 12,
 } as const;
 
 const VEHICLE_TYPES = [
@@ -162,188 +164,203 @@ export default function VehiclesScreen() {
       {/* Top Header */}
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
         <View style={s.headerLeft}>
-          <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={s.backBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <ChevronLeft color={DS.textPrimary} size={20} />
           </TouchableOpacity>
           <View>
-            <Text style={s.headerTitle}>Vehicles</Text>
-            <Text style={s.headerSub}>Manage your fleet</Text>
+            <Text variant="headingM">Vehicles</Text>
+            <Text variant="paragraphS" style={s.headerSub}>Manage your fleet</Text>
           </View>
         </View>
 
         <TouchableOpacity
           onPress={() => setShowAddForm((v) => !v)}
+          accessibilityRole="button"
           style={[
             s.saveBtn,
             { backgroundColor: accentColor },
             showAddForm && s.saveBtnCancel
           ]}
         >
-          <Text style={[s.saveBtnText, showAddForm ? { color: DS.dangerText } : { color: accentColorContrast }]}>
+          <Text variant="labelM" style={showAddForm ? { color: DS.dangerText } : { color: accentColorContrast }}>
             {showAddForm ? "Cancel" : "+ Add"}
           </Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-        {/* Add Vehicle Form */}
-        {showAddForm && (
-          <View style={s.card}>
-            <Text style={s.cardTitle}>New Vehicle</Text>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+          {/* Add Vehicle Form */}
+          {showAddForm && (
+            <View style={s.card}>
+              <Text variant="labelM" style={s.cardTitle}>New Vehicle</Text>
 
-            {/* Name */}
-            <View style={s.row}>
-              <Text style={s.rowLabel}>Name / Nickname *</Text>
-              <TextInput
-                value={name}
-                onChangeText={setName}
-                placeholder="e.g. Prius Prime"
-                placeholderTextColor={DS.textMuted}
-                style={s.input}
+              {/* Name */}
+              <View style={s.row}>
+                <Text variant="labelXs" style={s.rowLabel}>Name / Nickname *</Text>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="e.g. Prius Prime"
+                  placeholderTextColor={DS.textMuted}
+                  style={s.input}
+                />
+              </View>
+
+              {/* Type */}
+              <View style={s.row}>
+                <Text variant="labelXs" style={s.rowLabel}>Vehicle Type</Text>
+                <View style={s.chips}>
+                  {VEHICLE_TYPES.map((t) => {
+                    const on = vehicleType === t.id;
+                    return (
+                      <TouchableOpacity
+                        key={t.id}
+                        onPress={() => setVehicleType(t.id)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: on }}
+                        style={[s.chip, on && { borderColor: accentColorMid, backgroundColor: accentColorDim }]}
+                      >
+                        <Text variant="labelM" style={[s.chipText, on && { color: accentColor }]}>
+                          {t.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Make / Model */}
+              <View style={s.rowInline}>
+                <View style={s.col}>
+                  <Text variant="labelXs" style={s.rowLabel}>Make</Text>
+                  <TextInput
+                    value={make}
+                    onChangeText={setMake}
+                    placeholder="Toyota"
+                    placeholderTextColor={DS.textMuted}
+                    style={s.input}
+                  />
+                </View>
+                <View style={s.col}>
+                  <Text variant="labelXs" style={s.rowLabel}>Model</Text>
+                  <TextInput
+                    value={model}
+                    onChangeText={setModel}
+                    placeholder="Prius"
+                    placeholderTextColor={DS.textMuted}
+                    style={s.input}
+                  />
+                </View>
+              </View>
+
+              {/* Year / License */}
+              <View style={s.rowInline}>
+                <View style={s.col}>
+                  <Text variant="labelXs" style={s.rowLabel}>Year</Text>
+                  <TextInput
+                    value={year}
+                    onChangeText={setYear}
+                    placeholder="2021"
+                    keyboardType="numeric"
+                    placeholderTextColor={DS.textMuted}
+                    style={s.input}
+                  />
+                </View>
+                <View style={s.col}>
+                  <Text variant="labelXs" style={s.rowLabel}>License Plate</Text>
+                  <TextInput
+                    value={licensePlate}
+                    onChangeText={setLicensePlate}
+                    placeholder="ABC 123"
+                    placeholderTextColor={DS.textMuted}
+                    style={s.input}
+                  />
+                </View>
+              </View>
+
+              {/* Save Button */}
+              <TouchableOpacity
+                onPress={handleSave}
+                disabled={isSaving}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: isSaving }}
+                style={[s.actionBtn, { backgroundColor: accentColor }]}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color={accentColorContrast} />
+                ) : (
+                  <>
+                    <Plus size={16} color={accentColorContrast} />
+                    <Text variant="labelM" style={{ color: accentColorContrast }}>Save Vehicle</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Vehicle List */}
+          {isLoading ? (
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 40 }}>
+              <ActivityIndicator size="large" color={accentColor} />
+            </View>
+          ) : vehiclesList.length === 0 ? (
+            <View style={{ paddingVertical: 24 }}>
+              <EmptyState
+                icon="car"
+                title="No Vehicles"
+                message="Add your first vehicle to track mileage and expenses."
+                actionLabel="Add Vehicle"
+                onAction={() => setShowAddForm(true)}
               />
             </View>
+          ) : (
+            <View style={s.vehicleList}>
+              {vehiclesList.map((v: any) => (
+                <TouchableOpacity
+                  key={v.id}
+                  onPress={() => router.push(`/vehicles/${v.id}` as any)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${v.name}${v.isActive ? ", active vehicle" : ""}. View details`}
+                  style={[s.vehicleItem, v.isActive && { borderColor: accentColorMid }]}
+                >
+                  {/* Icon area */}
+                  <View style={[s.iconContainer, v.isActive && { backgroundColor: accentColorDim, borderColor: accentColorMid }]}>
+                    {getVehicleIcon(v.type, v.isActive)}
+                  </View>
 
-            {/* Type */}
-            <View style={s.row}>
-              <Text style={s.rowLabel}>Vehicle Type</Text>
-              <View style={s.chips}>
-                {VEHICLE_TYPES.map((t) => {
-                  const on = vehicleType === t.id;
-                  return (
-                    <TouchableOpacity
-                      key={t.id}
-                      onPress={() => setVehicleType(t.id)}
-                      style={[s.chip, on && { borderColor: accentColorMid, backgroundColor: accentColorDim }]}
-                    >
-                      <Text style={[s.chipText, on && { color: accentColor }]}>
-                        {t.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Make / Model */}
-            <View style={s.rowInline}>
-              <View style={s.col}>
-                <Text style={s.rowLabel}>Make</Text>
-                <TextInput
-                  value={make}
-                  onChangeText={setMake}
-                  placeholder="Toyota"
-                  placeholderTextColor={DS.textMuted}
-                  style={s.input}
-                />
-              </View>
-              <View style={s.col}>
-                <Text style={s.rowLabel}>Model</Text>
-                <TextInput
-                  value={model}
-                  onChangeText={setModel}
-                  placeholder="Prius"
-                  placeholderTextColor={DS.textMuted}
-                  style={s.input}
-                />
-              </View>
-            </View>
-
-            {/* Year / License */}
-            <View style={s.rowInline}>
-              <View style={s.col}>
-                <Text style={s.rowLabel}>Year</Text>
-                <TextInput
-                  value={year}
-                  onChangeText={setYear}
-                  placeholder="2021"
-                  keyboardType="numeric"
-                  placeholderTextColor={DS.textMuted}
-                  style={s.input}
-                />
-              </View>
-              <View style={s.col}>
-                <Text style={s.rowLabel}>License Plate</Text>
-                <TextInput
-                  value={licensePlate}
-                  onChangeText={setLicensePlate}
-                  placeholder="ABC 123"
-                  placeholderTextColor={DS.textMuted}
-                  style={s.input}
-                />
-              </View>
-            </View>
-
-            {/* Save Button */}
-            <TouchableOpacity
-              onPress={handleSave}
-              disabled={isSaving}
-              style={[s.actionBtn, { backgroundColor: accentColor }]}
-            >
-              {isSaving ? (
-                <ActivityIndicator size="small" color={accentColorContrast} />
-              ) : (
-                <>
-                  <Plus size={16} color={accentColorContrast} />
-                  <Text style={[s.actionBtnText, { color: accentColorContrast }]}>Save Vehicle</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Vehicle List */}
-        {isLoading ? (
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 40 }}>
-            <ActivityIndicator size="large" color={accentColor} />
-          </View>
-        ) : vehiclesList.length === 0 ? (
-          <View style={{ paddingVertical: 24 }}>
-            <EmptyState
-              icon="car"
-              title="No Vehicles"
-              message="Add your first vehicle to track mileage and expenses."
-              actionLabel="Add Vehicle"
-              onAction={() => setShowAddForm(true)}
-            />
-          </View>
-        ) : (
-          <View style={s.vehicleList}>
-            {vehiclesList.map((v: any) => (
-              <TouchableOpacity
-                key={v.id}
-                onPress={() => router.push(`/vehicles/${v.id}` as any)}
-                style={[s.vehicleItem, v.isActive && { borderColor: accentColorMid }]}
-              >
-                {/* Icon area */}
-                <View style={[s.iconContainer, v.isActive && { backgroundColor: accentColorDim, borderColor: accentColorMid }]}>
-                  {getVehicleIcon(v.type, v.isActive)}
-                </View>
-
-                {/* Info */}
-                <View style={s.vehicleInfo}>
-                  <View style={s.vehicleNameRow}>
-                    <Text style={s.vehicleName}>{v.name}</Text>
-                    {v.isActive && (
-                      <View style={[s.activeBadge, { backgroundColor: accentColorDim, borderColor: accentColorMid }]}>
-                        <Text style={[s.activeBadgeText, { color: accentColor }]}>Active</Text>
-                      </View>
+                  {/* Info */}
+                  <View style={s.vehicleInfo}>
+                    <View style={s.vehicleNameRow}>
+                      <Text variant="labelL">{v.name}</Text>
+                      {v.isActive && (
+                        <View style={[s.activeBadge, { backgroundColor: accentColorDim, borderColor: accentColorMid }]}>
+                          <Text variant="labelXs" style={{ color: accentColor }}>Active</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text variant="paragraphS" style={s.vehicleMeta}>
+                      {[v.year, v.make, v.model].filter(Boolean).join(" ") || v.type}
+                    </Text>
+                    {v.licensePlate && (
+                      <Text variant="labelXs" tabular style={s.vehiclePlate}>{v.licensePlate.toUpperCase()}</Text>
                     )}
                   </View>
-                  <Text style={s.vehicleMeta}>
-                    {[v.year, v.make, v.model].filter(Boolean).join(" ") || v.type}
-                  </Text>
-                  {v.licensePlate && (
-                    <Text style={s.vehiclePlate}>{v.licensePlate.toUpperCase()}</Text>
-                  )}
-                </View>
 
-                {/* Chevron */}
-                <ChevronRight size={18} color={DS.textSecondary} />
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+                  {/* Chevron */}
+                  <ChevronRight size={18} color={DS.textSecondary} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -351,22 +368,20 @@ export default function VehiclesScreen() {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: DS.pageBg },
   scroll: { paddingHorizontal: DS.pagePad, paddingBottom: 40 },
-  
+
   // Header
   header: { paddingHorizontal: DS.pagePad, paddingBottom: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
-  headerTitle: { color: DS.textPrimary, fontSize: 20, fontWeight: "800", letterSpacing: -0.5 },
-  headerSub: { color: DS.textSecondary, fontSize: 11, marginTop: 1 },
+  headerSub: { color: DS.textSecondary, marginTop: 1 },
   backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: DS.inputBg, borderWidth: 0.5, borderColor: DS.inputBorder, alignItems: "center", justifyContent: "center" },
   saveBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: DS.rPill, backgroundColor: DS.brand, minWidth: 64, alignItems: "center", justifyContent: "center" },
   saveBtnCancel: { backgroundColor: DS.dangerSurface, borderWidth: 0.5, borderColor: DS.dangerBorder },
-  saveBtnText: { color: "#000", fontSize: 12, fontWeight: "700" },
 
   // Card & row
   card: { backgroundColor: DS.cardBg, borderRadius: DS.rCard, borderWidth: 0.5, borderColor: DS.cardBorder, overflow: "hidden", padding: DS.cardPad, marginBottom: 16 },
-  cardTitle: { color: DS.textPrimary, fontSize: 14, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 },
+  cardTitle: { textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 },
   row: { marginBottom: 14 },
-  rowLabel: { color: DS.textSecondary, fontSize: 10, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 },
+  rowLabel: { color: DS.textSecondary, marginBottom: 6 },
   rowInline: { flexDirection: "row", gap: 12, marginBottom: 14 },
   col: { flex: 1 },
 
@@ -387,7 +402,7 @@ const s = StyleSheet.create({
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   chip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: DS.rChip, borderWidth: 0.5, borderColor: DS.inputBorder, backgroundColor: DS.inputBg },
   chipOn: { borderColor: DS.brandBorder, backgroundColor: DS.brandSurface },
-  chipText: { fontSize: 11, fontWeight: "600", color: DS.textSecondary },
+  chipText: { color: DS.textSecondary },
   chipTextOn: { color: DS.brandText },
 
   // Action button
@@ -401,7 +416,6 @@ const s = StyleSheet.create({
     gap: 8,
     marginTop: 6,
   },
-  actionBtnText: { color: "#000", fontSize: 14, fontWeight: "700" },
 
   // Vehicle List
   vehicleList: { gap: 10 },
@@ -434,21 +448,14 @@ const s = StyleSheet.create({
   },
   vehicleInfo: { flex: 1 },
   vehicleNameRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 },
-  vehicleName: { color: DS.textPrimary, fontSize: 15, fontWeight: "700" },
   activeBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
     backgroundColor: DS.brandSurface,
     borderWidth: 0.5,
     borderColor: DS.brandBorder,
-    borderRadius: 10,
+    borderRadius: 8,
   },
-  activeBadgeText: {
-    color: DS.brandText,
-    fontSize: 9,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  vehicleMeta: { color: DS.textSecondary, fontSize: 12 },
-  vehiclePlate: { color: DS.textSecondary, fontSize: 10, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", marginTop: 2 },
+  vehicleMeta: { color: DS.textSecondary },
+  vehiclePlate: { color: DS.textSecondary, marginTop: 2 },
 });

@@ -1,6 +1,7 @@
 import React from "react";
 import { View } from "react-native";
 import { Text } from "../ui/text";
+import { COLORS, KPI, withAlpha } from "@/src/theme/colors";
 
 interface BestDayData {
   day: number;
@@ -13,11 +14,11 @@ interface BestDayWidgetProps {
   maxDayAvg: number;
 }
 
-function MiniBar({ value, maxValue, color = "#22c55e", height = 60 }: { value: number; maxValue: number; color?: string; height?: number }) {
+function MiniBar({ value, maxValue, color = COLORS.success, height = 60 }: { value: number; maxValue: number; color?: string; height?: number }) {
   const pct = maxValue > 0 ? Math.max(8, (value / maxValue) * 100) : 8;
   return (
     <View style={{ flex: 1, height, justifyContent: "flex-end", alignItems: "center", paddingHorizontal: 2 }}>
-      <View style={{ width: "100%", height: `${pct}%`, backgroundColor: color, borderTopLeftRadius: 4, borderTopRightRadius: 4, opacity: value > 0 ? 1 : 0.15 }} />
+      <View style={{ width: "100%", height: `${pct}%`, backgroundColor: color, borderTopLeftRadius: 8, borderTopRightRadius: 8, opacity: value > 0 ? 1 : 0.15 }} />
     </View>
   );
 }
@@ -28,19 +29,23 @@ export default function BestDayWidget({ bestDayData, maxDayAvg }: BestDayWidgetP
   return (
     <View style={{ gap: 12 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-         <Text style={{ fontSize: 13, fontWeight: "600", color: "#9B9BA4" }}>Peak Performer</Text>
-         <View style={{ backgroundColor: "#6366f120", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-           <Text style={{ fontSize: 11, fontWeight: "800", color: "#6366f1" }}>{bestDay?.label || ""}</Text>
+         <Text variant="labelM" className="text-content-secondary">Peak Performer</Text>
+         <View style={{ backgroundColor: withAlpha(KPI.gross, 0.12), paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+           <Text variant="labelXs" style={{ color: KPI.gross }}>{bestDay?.label || ""}</Text>
          </View>
       </View>
-      <View style={{ flexDirection: "row", alignItems: "flex-end", height: 60, marginTop: 8 }}>
+      <View
+        accessible={true}
+        accessibilityLabel={`Average earnings by day of week. Best day ${bestDay?.label || "none"} at $${(bestDay?.avgEarnings || 0).toFixed(0)} average`}
+        style={{ flexDirection: "row", alignItems: "flex-end", height: 60, marginTop: 8 }}
+      >
         {bestDayData.map((d, i) => (
-          <MiniBar key={i} value={d.avgEarnings} maxValue={maxDayAvg} color={d.label === bestDay?.label ? "#6366f1" : "#6366f160"} />
+          <MiniBar key={i} value={d.avgEarnings} maxValue={maxDayAvg} color={d.label === bestDay?.label ? KPI.gross : withAlpha(KPI.gross, 0.38)} />
         ))}
       </View>
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
         {bestDayData.map((d) => (
-          <Text key={d.day} style={{ fontSize: 9, fontWeight: "800", color: "#9B9BA4", flex: 1, textAlign: "center" }}>
+          <Text key={d.day} variant="labelXs" className="text-content-secondary" style={{ flex: 1, textAlign: "center" }}>
             {d.label}
           </Text>
         ))}

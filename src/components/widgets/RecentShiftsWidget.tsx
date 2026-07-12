@@ -2,6 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import { Text } from "../ui/text";
 import { PlatformBadge } from "../ui/PlatformBadge";
+import { COLORS } from "@/src/theme/colors";
 import type { PlatformKey } from "@/src/registry/platforms";
 
 interface RecentShift {
@@ -31,7 +32,7 @@ export default function RecentShiftsWidget({ shifts, country }: RecentShiftsWidg
   if (!shifts || shifts.length === 0) {
     return (
       <View style={{ paddingVertical: 20, alignItems: "center" }}>
-        <Text style={{ fontSize: 13, color: "#9B9BA4", fontStyle: "italic" }}>No shifts logged yet</Text>
+        <Text variant="paragraphS">No shifts logged yet</Text>
       </View>
     );
   }
@@ -43,12 +44,16 @@ export default function RecentShiftsWidget({ shifts, country }: RecentShiftsWidg
         const d = new Date(s.startTime);
         const dateLabel = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
         return (
-          <View key={s.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#16161A", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }}>
+          <View
+            key={s.id}
+            accessibilityLabel={`${dateLabel}, ${s.platform}, ${formatCurrency(total)}`}
+            style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: COLORS.surface03, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 }}
+          >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <Text style={{ fontSize: 12, fontWeight: "800", color: "#F6F6F7", width: 48 }}>{dateLabel}</Text>
+              <Text variant="labelM" style={{ color: COLORS.contentPrimary, width: 48 }}>{dateLabel}</Text>
               <PlatformBadge platform={s.platform as PlatformKey} size="sm" />
             </View>
-            <Text style={{ fontSize: 13, fontWeight: "900", color: "#F6F6F7" }}>{formatCurrency(total)}</Text>
+            <Text variant="labelM" tabular style={{ color: COLORS.contentPrimary }}>{formatCurrency(total)}</Text>
           </View>
         );
       })}

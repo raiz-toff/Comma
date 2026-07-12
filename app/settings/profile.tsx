@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   View, TextInput, ScrollView, Pressable, Alert,
-  StyleSheet, Platform,
+  StyleSheet, Platform, KeyboardAvoidingView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -10,6 +10,7 @@ import { Text } from "@/src/components/ui/text";
 import { useSettingsStore, type DriverProfile } from "@/store/useSettingsStore";
 import { getCountryDef, getRegionsByCountry, listCaProvinceCodes, listUsStateCodes } from "@/src/registry/index";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { COLORS } from "@/src/theme/colors";
 
 const COUNTRIES = [
   { id: "CA", label: "🇨🇦 Canada" },
@@ -34,7 +35,7 @@ function getRegions(country: CountryId): string[] {
 
 export default function ProfileEditScreen() {
   const { profile, updateProfile } = useSettingsStore();
-  const { accentColor } = usePlatformTheme();
+  const { accentColor, accentColorContrast } = usePlatformTheme();
 
   const [name, setName] = useState(profile?.displayName ?? "");
   const [country, setCountry] = useState<CountryId>((profile?.country as CountryId) ?? "CA");
@@ -89,22 +90,32 @@ export default function ProfileEditScreen() {
     <SafeAreaView style={s.safe}>
       {/* Header */}
       <View style={s.header}>
-        <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={12}>
-          <ChevronLeft size={22} color="#9B9BA4" />
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          style={s.backBtn}
+          hitSlop={12}
+        >
+          <ChevronLeft size={22} color={COLORS.contentSecondary} />
         </Pressable>
-        <Text style={s.headerTitle}>Edit Profile</Text>
+        <Text variant="headingS">Edit Profile</Text>
         <Pressable
           onPress={handleSave}
           disabled={isSaving}
+          accessibilityRole="button"
+          accessibilityLabel="Save profile"
+          accessibilityState={{ disabled: isSaving }}
           style={[s.saveBtn, { backgroundColor: accentColor }]}
         >
           {isSaving
-            ? <Text style={s.saveBtnText}>Saving…</Text>
-            : <><Check size={14} color="#000" /><Text style={s.saveBtnText}>Save</Text></>
+            ? <Text variant="labelM" style={{ color: accentColorContrast }}>Saving…</Text>
+            : <><Check size={14} color={accentColorContrast} /><Text variant="labelM" style={{ color: accentColorContrast }}>Save</Text></>
           }
         </Pressable>
       </View>
 
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
 
         {/* Name */}
@@ -114,7 +125,7 @@ export default function ProfileEditScreen() {
             value={name}
             onChangeText={setName}
             placeholder="Your name"
-            placeholderTextColor="#65656E"
+            placeholderTextColor={COLORS.contentMuted}
             style={s.nameInput}
             autoCapitalize="words"
             returnKeyType="done"
@@ -130,9 +141,11 @@ export default function ProfileEditScreen() {
               <Pressable
                 key={c.id}
                 onPress={() => handleCountryChange(c.id as CountryId)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: sel }}
                 style={[s.optionRow, i < COUNTRIES.length - 1 && s.optionRowBorder]}
               >
-                <Text style={[s.optionText, sel && { color: accentColor, fontWeight: "700" }]}>{c.label}</Text>
+                <Text variant="labelL" style={[s.optionText, sel && { color: accentColor, fontWeight: "700" }]}>{c.label}</Text>
                 {sel && <Check size={16} color={accentColor} />}
               </Pressable>
             );
@@ -149,9 +162,11 @@ export default function ProfileEditScreen() {
                 <Pressable
                   key={r}
                   onPress={() => setRegion(r)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: sel }}
                   style={[s.chip, sel && { backgroundColor: accentColor }]}
                 >
-                  <Text style={[s.chipText, sel && { color: "#000", fontWeight: "700" }]}>{r}</Text>
+                  <Text variant="labelM" style={[s.chipText, sel && { color: accentColorContrast, fontWeight: "700" }]}>{r}</Text>
                 </Pressable>
               );
             })}
@@ -161,64 +176,60 @@ export default function ProfileEditScreen() {
         {/* Distance unit — locked, derived from country */}
         <SectionLabel text="Distance Unit" />
         <View style={[s.card, { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]}>
-          <Text style={s.lockedLabel}>{distanceUnit === "km" ? "Kilometres (km)" : "Miles (mi)"}</Text>
+          <Text variant="labelL" style={s.lockedLabel}>{distanceUnit === "km" ? "Kilometres (km)" : "Miles (mi)"}</Text>
           <View style={s.lockedBadge}>
-            <Text style={s.lockedBadgeText}>Auto · set by country</Text>
+            <Text variant="labelXs" className="text-content-secondary">Auto · set by country</Text>
           </View>
         </View>
 
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 function SectionLabel({ text }: { text: string }) {
-  return <Text style={s.sectionLabel}>{text}</Text>;
+  return <Text variant="labelXs" className="text-content-secondary" style={s.sectionLabel}>{text}</Text>;
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#0c0b09" },
+  safe: { flex: 1, backgroundColor: COLORS.background },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 0.5, borderBottomColor: "#1f1e1c",
+    borderBottomWidth: 0.5, borderBottomColor: COLORS.lineSubtle,
   },
   backBtn: { padding: 4, width: 40 },
-  headerTitle: { fontSize: 16, fontWeight: "700", color: "#F6F6F7" },
   saveBtn: {
     flexDirection: "row", alignItems: "center", gap: 4,
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12,
   },
-  saveBtnText: { fontSize: 13, fontWeight: "800", color: "#000" },
   scroll: { padding: 16, gap: 6, paddingBottom: 48 },
   sectionLabel: {
-    fontSize: 11, fontWeight: "700", color: "#9B9BA4",
-    textTransform: "uppercase", letterSpacing: 0.8,
     marginTop: 10, marginBottom: 4, marginLeft: 4,
   },
   card: {
-    backgroundColor: "#1a1916", borderRadius: 14,
-    borderWidth: 0.5, borderColor: "#2E2E36",
+    backgroundColor: COLORS.surface02, borderRadius: 16,
+    borderWidth: 0.5, borderColor: COLORS.lineStrong,
     overflow: "hidden",
   },
   nameInput: {
     paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 15, fontWeight: "600", color: "#F6F6F7",
+    fontSize: 15, fontWeight: "600", color: COLORS.contentPrimary,
   },
   optionRow: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 16, paddingVertical: 14,
   },
-  optionRowBorder: { borderBottomWidth: 0.5, borderBottomColor: "#2E2E36" },
-  optionText: { fontSize: 15, fontWeight: "500", color: "#9B9BA4" },
+  optionRowBorder: { borderBottomWidth: 0.5, borderBottomColor: COLORS.lineStrong },
+  optionText: { color: COLORS.contentSecondary },
   chip: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8,
-    backgroundColor: "#1C1C21", borderWidth: 0.5, borderColor: "#3a3835",
+    backgroundColor: COLORS.surface04, borderWidth: 0.5, borderColor: COLORS.lineStrong,
   },
-  chipText: { fontSize: 13, fontWeight: "600", color: "#9B9BA4" },
-  lockedLabel: { fontSize: 15, fontWeight: "600", color: "#9B9BA4", paddingHorizontal: 16, paddingVertical: 14 },
+  chipText: { color: COLORS.contentSecondary },
+  lockedLabel: { color: COLORS.contentSecondary, paddingHorizontal: 16, paddingVertical: 14 },
   lockedBadge: {
-    backgroundColor: "#1C1C21", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, marginRight: 16,
+    backgroundColor: COLORS.surface04, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, marginRight: 16,
   },
-  lockedBadgeText: { fontSize: 10, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 0.4 },
 });

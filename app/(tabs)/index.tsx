@@ -11,12 +11,15 @@ import {
   Modal,
   TextInput,
   Dimensions,
+  KeyboardAvoidingView,
   Animated as RNAnimated,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Text } from "../../src/components/ui/text";
+import { COLORS, withAlpha } from "../../src/theme/colors";
+import { EmptyState } from "../../src/components/ui/EmptyState";
 import { BlurView } from "expo-blur";
 import { ReceiptText, Calendar, Play, AlertCircle } from "lucide-react-native";
 import { useActiveShift, type GigPlatform } from "../../store/useActiveShift";
@@ -84,6 +87,7 @@ function ScalePressable({ onPress, style, children, android_ripple }: ScalePress
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
+      accessibilityRole="button"
       style={[style, animatedStyle]}
       android_ripple={android_ripple}
     >
@@ -93,19 +97,19 @@ function ScalePressable({ onPress, style, children, android_ripple }: ScalePress
 }
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
-const PlayIcon = ({ size = 14, color = "white" }: { size?: number; color?: string }) => (
+const PlayIcon = ({ size = 14, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
     <Path d="M8 5v14l11-7z" />
   </Svg>
 );
 
-const SquareIcon = ({ size = 14, color = "white" }: { size?: number; color?: string }) => (
+const SquareIcon = ({ size = 14, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
     <Path d="M6 6h12v12H6z" />
   </Svg>
 );
 
-const RouteIcon = ({ size = 16, color = "#F6F6F7" }: { size?: number; color?: string }) => (
+const RouteIcon = ({ size = 16, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
     <Circle cx="5.5" cy="18.5" r="2.5" />
     <Circle cx="18.5" cy="5.5" r="2.5" />
@@ -113,21 +117,21 @@ const RouteIcon = ({ size = 16, color = "#F6F6F7" }: { size?: number; color?: st
   </Svg>
 );
 
-const ClockIcon = ({ size = 16, color = "#F6F6F7" }: { size?: number; color?: string }) => (
+const ClockIcon = ({ size = 16, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
     <Circle cx="12" cy="12" r="10" />
     <Path d="M12 6v6l4 2" />
   </Svg>
 );
 
-const TrendIcon = ({ size = 16, color = "#F6F6F7" }: { size?: number; color?: string }) => (
+const TrendIcon = ({ size = 16, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
     <Path d="m22 7-8.5 8.5-5-5L2 17" />
     <Path d="M16 7h6v6" />
   </Svg>
 );
 
-const ReceiptIcon = ({ size = 16, color = "#F6F6F7" }: { size?: number; color?: string }) => (
+const ReceiptIcon = ({ size = 16, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 1024 1024" fill="none">
     <Path
       d="M731.15 585.97c-100.99 0-182.86 81.87-182.86 182.86s81.87 182.86 182.86 182.86 182.86-81.87 182.86-182.86-81.87-182.86-182.86-182.86z m0 292.57c-60.5 0-109.71-49.22-109.71-109.71s49.22-109.71 109.71-109.71c60.5 0 109.71 49.22 109.71 109.71s-49.21 109.71-109.71 109.71z"
@@ -144,7 +148,7 @@ const ReceiptIcon = ({ size = 16, color = "#F6F6F7" }: { size?: number; color?: 
   </Svg>
 );
 
-const BellIcon = ({ size = 18, color = "#F6F6F7" }: { size?: number; color?: string }) => (
+const BellIcon = ({ size = 18, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
     <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
     <Path d="M13.73 21a2 2 0 0 1-3.46 0" />
@@ -216,7 +220,7 @@ const RingProgress = ({ pct, color, size = 28 }: { pct: number; color: string; s
 
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Circle cx="12" cy="12" r={r} fill="none" stroke="#16161A" strokeWidth={stroke} />
+      <Circle cx="12" cy="12" r={r} fill="none" stroke={COLORS.surface03} strokeWidth={stroke} />
       <Circle
         cx="12"
         cy="12"
@@ -249,17 +253,17 @@ const HomeSkeleton = () => {
 
   return (
     <RNAnimated.View style={{ opacity: pulse, gap: 10, width: "100%" }}>
-      <View style={{ height: 40, width: 140, backgroundColor: "#1E1E23", borderRadius: 8 }} />
-      <View style={{ height: 160, backgroundColor: "#0F0F12", borderRadius: 12, borderWidth: 1, borderColor: "#1E1E23" }} />
+      <View style={{ height: 40, width: 140, backgroundColor: COLORS.lineSubtle, borderRadius: 8 }} />
+      <View style={{ height: 160, backgroundColor: COLORS.surface02, borderRadius: 12, borderWidth: 1, borderColor: COLORS.lineSubtle }} />
       <View style={{ flexDirection: "row", gap: 8 }}>
-        <View style={{ height: 100, flex: 1, backgroundColor: "#0F0F12", borderRadius: 12, borderWidth: 0.5, borderColor: "#1E1E23" }} />
-        <View style={{ height: 100, flex: 1, backgroundColor: "#0F0F12", borderRadius: 12, borderWidth: 0.5, borderColor: "#1E1E23" }} />
+        <View style={{ height: 100, flex: 1, backgroundColor: COLORS.surface02, borderRadius: 12, borderWidth: 0.5, borderColor: COLORS.lineSubtle }} />
+        <View style={{ height: 100, flex: 1, backgroundColor: COLORS.surface02, borderRadius: 12, borderWidth: 0.5, borderColor: COLORS.lineSubtle }} />
       </View>
       <View style={{ flexDirection: "row", gap: 8 }}>
-        <View style={{ height: 100, flex: 1, backgroundColor: "#0F0F12", borderRadius: 12, borderWidth: 0.5, borderColor: "#1E1E23" }} />
-        <View style={{ height: 100, flex: 1, backgroundColor: "#0F0F12", borderRadius: 12, borderWidth: 0.5, borderColor: "#1E1E23" }} />
+        <View style={{ height: 100, flex: 1, backgroundColor: COLORS.surface02, borderRadius: 12, borderWidth: 0.5, borderColor: COLORS.lineSubtle }} />
+        <View style={{ height: 100, flex: 1, backgroundColor: COLORS.surface02, borderRadius: 12, borderWidth: 0.5, borderColor: COLORS.lineSubtle }} />
       </View>
-      <View style={{ height: 90, backgroundColor: "#0F0F12", borderRadius: 12, borderWidth: 0.5, borderColor: "#1E1E23" }} />
+      <View style={{ height: 90, backgroundColor: COLORS.surface02, borderRadius: 12, borderWidth: 0.5, borderColor: COLORS.lineSubtle }} />
     </RNAnimated.View>
   );
 };
@@ -308,8 +312,8 @@ const formatTime = (total: number) => {
 const LiveRouteMap = ({ points, strokeColor }: { points: Array<{ latitude: number; longitude: number }>; strokeColor: string }) => {
   if (!points || points.length < 2) {
     return (
-      <View style={{ height: 120, width: "85%", backgroundColor: "#0A0A0C", borderRadius: 12, borderWidth: 0.5, borderColor: "#1E1E23", justifyContent: "center", alignItems: "center", gap: 6, marginVertical: 8 }}>
-        <Text style={{ color: "#65656E", fontSize: 11, fontWeight: "600" }}>Waiting for GPS coordinates...</Text>
+      <View style={{ height: 120, width: "85%", backgroundColor: COLORS.surface01, borderRadius: 12, borderWidth: 0.5, borderColor: COLORS.lineSubtle, justifyContent: "center", alignItems: "center", gap: 6, marginVertical: 8 }}>
+        <Text variant="paragraphS">Waiting for GPS coordinates...</Text>
       </View>
     );
   }
@@ -345,14 +349,14 @@ const LiveRouteMap = ({ points, strokeColor }: { points: Array<{ latitude: numbe
   const endY = padding + (1 - (endPoint.latitude - minLat) / latRange) * (height - 2 * padding);
 
   return (
-    <View style={{ height: height, width: "85%", backgroundColor: "#0A0A0C", borderRadius: 12, borderWidth: 0.5, borderColor: "#1E1E23", overflow: "hidden", marginVertical: 8 }}>
+    <View style={{ height: height, width: "85%", backgroundColor: COLORS.surface01, borderRadius: 12, borderWidth: 0.5, borderColor: COLORS.lineSubtle, overflow: "hidden", marginVertical: 8 }}>
       <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
-        <Line x1="0" y1="30" x2="300" y2="30" stroke="#0F0F12" strokeWidth="0.5" />
-        <Line x1="0" y1="60" x2="300" y2="60" stroke="#0F0F12" strokeWidth="0.5" />
-        <Line x1="0" y1="90" x2="300" y2="90" stroke="#0F0F12" strokeWidth="0.5" />
-        <Line x1="75" y1="0" x2="75" y2="120" stroke="#0F0F12" strokeWidth="0.5" />
-        <Line x1="150" y1="0" x2="150" y2="120" stroke="#0F0F12" strokeWidth="0.5" />
-        <Line x1="225" y1="0" x2="225" y2="120" stroke="#0F0F12" strokeWidth="0.5" />
+        <Line x1="0" y1="30" x2="300" y2="30" stroke={COLORS.surface02} strokeWidth="0.5" />
+        <Line x1="0" y1="60" x2="300" y2="60" stroke={COLORS.surface02} strokeWidth="0.5" />
+        <Line x1="0" y1="90" x2="300" y2="90" stroke={COLORS.surface02} strokeWidth="0.5" />
+        <Line x1="75" y1="0" x2="75" y2="120" stroke={COLORS.surface02} strokeWidth="0.5" />
+        <Line x1="150" y1="0" x2="150" y2="120" stroke={COLORS.surface02} strokeWidth="0.5" />
+        <Line x1="225" y1="0" x2="225" y2="120" stroke={COLORS.surface02} strokeWidth="0.5" />
         
         <Polyline
           points={svgPoints}
@@ -363,8 +367,8 @@ const LiveRouteMap = ({ points, strokeColor }: { points: Array<{ latitude: numbe
           strokeLinejoin="round"
         />
 
-        <Circle cx={startX} cy={startY} r="4" fill="#22c55e" />
-        <Circle cx={endX} cy={endY} r="5" fill={strokeColor} stroke="#F6F6F7" strokeWidth="1" />
+        <Circle cx={startX} cy={startY} r="4" fill={COLORS.primary} />
+        <Circle cx={endX} cy={endY} r="5" fill={strokeColor} stroke={COLORS.contentPrimary} strokeWidth="1" />
       </Svg>
     </View>
   );
@@ -408,12 +412,12 @@ const RouteMinimap = ({ routePathJson, strokeColor }: { routePathJson: string; s
   const endY = padding + (1 - (endPoint.latitude - minLat) / latRange) * (height - 2 * padding);
 
   return (
-    <View style={{ width: 100, height: 60, backgroundColor: "#0A0A0C", borderRadius: 8, borderWidth: 0.5, borderColor: "#1E1E23", overflow: "hidden", marginLeft: 12 }}>
+    <View style={{ width: 100, height: 60, backgroundColor: COLORS.surface01, borderRadius: 8, borderWidth: 0.5, borderColor: COLORS.lineSubtle, overflow: "hidden", marginLeft: 12 }}>
       <Svg width={width} height={height}>
-        <Line x1="0" y1="20" x2="100" y2="20" stroke="#0F0F12" strokeWidth="0.5" />
-        <Line x1="0" y1="40" x2="100" y2="40" stroke="#0F0F12" strokeWidth="0.5" />
-        <Line x1="33" y1="0" x2="33" y2="60" stroke="#0F0F12" strokeWidth="0.5" />
-        <Line x1="66" y1="0" x2="66" y2="60" stroke="#0F0F12" strokeWidth="0.5" />
+        <Line x1="0" y1="20" x2="100" y2="20" stroke={COLORS.surface02} strokeWidth="0.5" />
+        <Line x1="0" y1="40" x2="100" y2="40" stroke={COLORS.surface02} strokeWidth="0.5" />
+        <Line x1="33" y1="0" x2="33" y2="60" stroke={COLORS.surface02} strokeWidth="0.5" />
+        <Line x1="66" y1="0" x2="66" y2="60" stroke={COLORS.surface02} strokeWidth="0.5" />
         
         <Polyline
           points={svgPoints}
@@ -424,8 +428,8 @@ const RouteMinimap = ({ routePathJson, strokeColor }: { routePathJson: string; s
           strokeLinejoin="round"
         />
 
-        <Circle cx={startX} cy={startY} r="3" fill="#22c55e" />
-        <Circle cx={endX} cy={endY} r="3.5" fill="#FF5247" stroke="#000" strokeWidth="0.8" />
+        <Circle cx={startX} cy={startY} r="3" fill={COLORS.primary} />
+        <Circle cx={endX} cy={endY} r="3.5" fill={COLORS.destructive} stroke={COLORS.background} strokeWidth="0.8" />
       </Svg>
     </View>
   );
@@ -435,7 +439,7 @@ const CircularProgress = ({
   progressPct,
   size = 80,
   strokeWidth = 8,
-  color = "#F6F6F7",
+  color = COLORS.contentPrimary,
 }: {
   progressPct: number;
   size?: number;
@@ -450,7 +454,7 @@ const CircularProgress = ({
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
       <Svg width={size} height={size}>
         <Circle
-          stroke="#16161A"
+          stroke={COLORS.surface03}
           fill="none"
           cx={size / 2}
           cy={size / 2}
@@ -471,7 +475,7 @@ const CircularProgress = ({
         />
       </Svg>
       <View style={{ position: "absolute", alignItems: "center", justifyContent: "center" }}>
-        <Text style={{ fontSize: 16, fontWeight: "900", color: "#F6F6F7" }}>
+        <Text variant="headingS" tabular>
           {Math.round(progressPct)}%
         </Text>
       </View>
@@ -514,7 +518,7 @@ const SwipeToEnd = ({ onEnd }: { onEnd: () => void }) => {
 
   return (
     <View style={sliderStyles.container}>
-      <Text style={sliderStyles.backgroundText}>SWIPE TO END</Text>
+      <Text variant="labelM" style={sliderStyles.backgroundText}>SWIPE TO END</Text>
       
       <Animated.View style={[sliderStyles.progressFill, progressStyle]} />
       
@@ -531,10 +535,10 @@ const sliderStyles = StyleSheet.create({
   container: {
     width: SLIDE_WIDTH,
     height: 64,
-    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    backgroundColor: withAlpha(COLORS.destructive, 0.1),
     borderRadius: 32,
     borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.25)",
+    borderColor: withAlpha(COLORS.destructive, 0.25),
     justifyContent: "center",
     alignSelf: "center",
     overflow: "hidden",
@@ -544,9 +548,7 @@ const sliderStyles = StyleSheet.create({
     position: "absolute",
     width: "100%",
     textAlign: "center",
-    color: "#FF5247",
-    fontWeight: "900",
-    fontSize: 14,
+    color: COLORS.destructive,
     letterSpacing: 1.5,
     zIndex: 1,
   },
@@ -555,7 +557,7 @@ const sliderStyles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: "rgba(239, 68, 68, 0.2)",
+    backgroundColor: withAlpha(COLORS.destructive, 0.2),
     zIndex: 2,
     borderRadius: 32,
   },
@@ -563,18 +565,14 @@ const sliderStyles = StyleSheet.create({
     width: KNOB_WIDTH,
     height: KNOB_WIDTH,
     borderRadius: KNOB_WIDTH / 2,
-    backgroundColor: "#FF5247",
+    backgroundColor: COLORS.destructive,
     justifyContent: "center",
     alignItems: "center",
     marginLeft: 4,
     zIndex: 3,
-    shadowColor: "#FF5247",
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 6,
   },
   knobText: {
-    color: "#F6F6F7",
+    color: COLORS.contentPrimary,
     fontSize: 28,
     fontWeight: "900",
     marginTop: -2,
@@ -614,10 +612,10 @@ export default function HomeScreen() {
   const isGoalsEnabled = useFeatureEnabled("goals");
 
   const platformTextColor = React.useMemo(() => {
-    if (!activePlatformFilter || activePlatformFilter === "all") return "#F6F6F7";
+    if (!activePlatformFilter || activePlatformFilter === "all") return COLORS.contentPrimary;
     const first = activePlatformFilter.split(",")[0];
     const cfg = PLATFORMS[first as keyof typeof PLATFORMS];
-    return cfg?.textColor ?? "#F6F6F7";
+    return cfg?.textColor ?? COLORS.contentPrimary;
   }, [activePlatformFilter]);
 
   // Wizard state
@@ -836,7 +834,7 @@ export default function HomeScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={[S.root, { justifyContent: "center", alignItems: "center" }]}>
-        <ActivityIndicator size="large" color="#F6F6F7" />
+        <ActivityIndicator size="large" color={COLORS.contentSecondary} />
       </SafeAreaView>
     );
   }
@@ -1037,13 +1035,13 @@ export default function HomeScreen() {
         <View style={S.header}>
           <View style={S.headerLeft}>
             <View style={S.avatar}>
-              <Text style={S.avatarText}>
+              <Text variant="labelM">
                 {profile?.displayName ? profile.displayName.substring(0, 1).toUpperCase() : "D"}
               </Text>
             </View>
             <View style={{ gap: 2 }}>
-              <Text style={S.headerTitle}>{getGreeting()}, {profile?.displayName || "Driver"}</Text>
-              <Text style={S.headerSub}>{getFormattedHeaderDate()}</Text>
+              <Text variant="headingM" style={S.headerTitle}>{getGreeting()}, {profile?.displayName || "Driver"}</Text>
+              <Text variant="paragraphS" className="text-content-secondary">{getFormattedHeaderDate()}</Text>
             </View>
           </View>
         </View>
@@ -1052,29 +1050,30 @@ export default function HomeScreen() {
         {!isActive && unreconciledShifts.length > 0 && (
           <Pressable
             onPress={() => router.push({ pathname: "/shift/add", params: { shiftId: unreconciledShifts[0].id } })}
+            accessibilityRole="button"
             style={{
-              backgroundColor: "rgba(217, 119, 6, 0.08)",
-              borderWidth: 0.8,
-              borderColor: "rgba(217, 119, 6, 0.3)",
+              backgroundColor: withAlpha(COLORS.warning, 0.12),
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: withAlpha(COLORS.warning, 0.3),
               borderRadius: 16,
               padding: 16,
               marginHorizontal: 16,
               marginBottom: 16,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
+              flexDirection: "row" as const,
+              alignItems: "center" as const,
+              justifyContent: "space-between" as const,
               gap: 12
             }}
           >
             <View style={{ flex: 1, gap: 4 }}>
-              <Text style={{ color: "#f59e0b", fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <Text variant="labelXs" style={{ color: COLORS.warning }}>
                 Action Required
               </Text>
-              <Text style={{ color: "#F6F6F7", fontSize: 13, fontWeight: "600", lineHeight: 18 }}>
+              <Text variant="labelM" style={{ lineHeight: 18 }}>
                 You have {unreconciledShifts.length} un-reconciled shift{unreconciledShifts.length > 1 ? "s" : ""} from {new Date(unreconciledShifts[0].startTime).toLocaleDateString([], { weekday: 'long' })}. Tap to enter earnings.
               </Text>
             </View>
-            <Text style={{ color: "#f59e0b", fontSize: 16, fontWeight: "800" }}>›</Text>
+            <Text variant="headingS" style={{ color: COLORS.warning }}>›</Text>
           </Pressable>
         )}
 
@@ -1083,25 +1082,26 @@ export default function HomeScreen() {
         {!isActive && backupStatus?.isOverdue && !backupBannerDismissed && recentShifts.length > 0 && (
           <Pressable
             onPress={() => router.push("/settings/backup")}
+            accessibilityRole="button"
             style={{
-              backgroundColor: "rgba(59, 130, 246, 0.08)",
-              borderWidth: 0.8,
-              borderColor: "rgba(59, 130, 246, 0.3)",
+              backgroundColor: withAlpha(COLORS.info, 0.12),
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: withAlpha(COLORS.info, 0.3),
               borderRadius: 16,
               padding: 16,
               marginHorizontal: 16,
               marginBottom: 16,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
+              flexDirection: "row" as const,
+              alignItems: "center" as const,
+              justifyContent: "space-between" as const,
               gap: 12,
             }}
           >
             <View style={{ flex: 1, gap: 4 }}>
-              <Text style={{ color: "#3b82f6", fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <Text variant="labelXs" style={{ color: COLORS.info }}>
                 Protect your data
               </Text>
-              <Text style={{ color: "#F6F6F7", fontSize: 13, fontWeight: "600", lineHeight: 18 }}>
+              <Text variant="labelM" style={{ lineHeight: 18 }}>
                 {backupStatus.daysSince === null
                   ? "Your data lives only on this device. Turn on Cloud Sync to keep it safe on Google Drive."
                   : `It's been ${backupStatus.daysSince} day${backupStatus.daysSince === 1 ? "" : "s"} since your data synced. Tap to open Cloud Sync.`}
@@ -1112,10 +1112,12 @@ export default function HomeScreen() {
                 e.stopPropagation?.();
                 setBackupBannerDismissed(true);
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss"
               hitSlop={10}
               style={{ paddingHorizontal: 4 }}
             >
-              <Text style={{ color: "#65656E", fontSize: 18, fontWeight: "700" }}>✕</Text>
+              <Text style={{ color: COLORS.contentMuted, fontSize: 18, fontWeight: "700" }}>✕</Text>
             </Pressable>
           </Pressable>
         )}
@@ -1127,22 +1129,23 @@ export default function HomeScreen() {
         ) : (
           <>
             {/* ── Today / Week Hero Card ─────────────────────────────────────── */}
-            <View style={{ backgroundColor: "#0F0F12", borderRadius: 20, borderWidth: 0.8, borderColor: "#1E1E23", paddingVertical: 24, paddingHorizontal: 20, flexDirection: "row", alignItems: "stretch", gap: 16 }}>
+            <View style={{ backgroundColor: COLORS.surface02, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, paddingVertical: 24, paddingHorizontal: 20, flexDirection: "row", alignItems: "stretch", gap: 16 }}>
               {/* Left: content */}
               <View style={{ flex: 1, gap: 12 }}>
-                <Text style={{ fontSize: 11, fontWeight: "700", color: "#65656E", textTransform: "uppercase", letterSpacing: 1 }}>
+                <Text variant="labelXs" className="text-content-muted">
                   {heroTab === "T" ? "TODAY · EARNED" : "THIS WEEK · EARNED"}
                 </Text>
                 <Text
+                  variant="display"
                   numberOfLines={1}
                   adjustsFontSizeToFit
                   minimumFontScale={0.6}
                   tabular
-                  style={{ fontSize: 44, fontWeight: "800", color: "#F6F6F7", letterSpacing: -1, lineHeight: 48 }}
+                  style={{ letterSpacing: -1 }}
                 >
                   {heroTab === "T" ? fmt(netEarnings) : fmt(weeklyNet)}
                 </Text>
-                <Text tabular style={{ fontSize: 13, color: "#9B9BA4", fontWeight: "600" }}>
+                <Text variant="labelM" className="text-content-secondary" tabular>
                   {heroTab === "T"
                     ? `${fmt(weeklyNet)} this week · ${weeklyShiftsCount} ${weeklyShiftsCount === 1 ? vocab('session') : vocab('session_plural')}`
                     : `${fmt(netEarnings)} today · ${weeklyShiftsCount} ${weeklyShiftsCount === 1 ? vocab('session') : vocab('session_plural')}`}
@@ -1151,7 +1154,7 @@ export default function HomeScreen() {
 
               {/* Right: T / W vertical tab strip inside a pill container */}
               <View style={{ justifyContent: "center" }}>
-                <View style={{ backgroundColor: "#0A0A0C", borderRadius: 14, borderWidth: 0.8, borderColor: "#1E1E23", padding: 4, gap: 4 }}>
+                <View style={{ backgroundColor: COLORS.surface01, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, padding: 4, gap: 4 }}>
                   {/* Sliding active indicator */}
                   <RNAnimated.View
                     style={{
@@ -1160,7 +1163,7 @@ export default function HomeScreen() {
                       left: 4,
                       width: 30,
                       height: 30,
-                      borderRadius: 10,
+                      borderRadius: 12,
                       backgroundColor: accentColor,
                       transform: [{ translateY: heroTabAnim }],
                     }}
@@ -1169,9 +1172,11 @@ export default function HomeScreen() {
                     <Pressable
                       key={tab}
                       onPress={() => setHeroTab(tab)}
-                      style={{ width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center" }}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: heroTab === tab }}
+                      style={{ width: 30, height: 30, borderRadius: 12, alignItems: "center", justifyContent: "center" }}
                     >
-                      <Text style={{ fontSize: 12, fontWeight: "800", color: heroTab === tab ? accentColorContrast : "#65656E" }}>
+                      <Text variant="labelM" style={{ color: heroTab === tab ? accentColorContrast : COLORS.contentMuted }}>
                         {tab}
                       </Text>
                     </Pressable>
@@ -1183,29 +1188,29 @@ export default function HomeScreen() {
             {/* ── 3-Column Stats Row ───────────────────────────────────────── */}
             <View style={{ flexDirection: "row", gap: 10, marginVertical: 4 }}>
               {/* Card 1: Time */}
-              <View style={{ flex: 1, backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 16, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
-                <Text tabular style={{ fontSize: 20, fontWeight: "800", color: "#F6F6F7", textAlign: "center" }}>
+              <View style={{ flex: 1, backgroundColor: COLORS.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, borderRadius: 16, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
+                <Text variant="headingM" tabular style={{ textAlign: "center" }}>
                   {(displayStats.duration / 3600).toFixed(1)}h
                 </Text>
-                <Text style={{ fontSize: 11, color: "#65656E", fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" }}>
+                <Text variant="labelXs" className="text-content-muted" style={{ textAlign: "center" }}>
                   {vocab('session').charAt(0).toUpperCase() + vocab('session').slice(1) + " time"}
                 </Text>
               </View>
 
               {/* Card 2: Distance */}
-              <View style={{ flex: 1, backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 16, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
-                <Text tabular style={{ fontSize: 20, fontWeight: "800", color: "#F6F6F7", textAlign: "center" }}>
+              <View style={{ flex: 1, backgroundColor: COLORS.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, borderRadius: 16, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
+                <Text variant="headingM" tabular style={{ textAlign: "center" }}>
                   {displayStats.miles.toFixed(1)}{profile?.distanceUnit ?? "km"}
                 </Text>
-                <Text style={{ fontSize: 11, color: "#65656E", fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" }}>Driven</Text>
+                <Text variant="labelXs" className="text-content-muted" style={{ textAlign: "center" }}>Driven</Text>
               </View>
 
               {/* Card 3: Hourly rate */}
-              <View style={{ flex: 1, backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 16, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
-                <Text tabular style={{ fontSize: 20, fontWeight: "800", color: "#F6F6F7", textAlign: "center" }}>
+              <View style={{ flex: 1, backgroundColor: COLORS.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, borderRadius: 16, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", gap: 4 }}>
+                <Text variant="headingM" tabular style={{ textAlign: "center" }}>
                   {fmt(displayStats.rate)}
                 </Text>
-                <Text style={{ fontSize: 11, color: "#65656E", fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" }}>Per hour</Text>
+                <Text variant="labelXs" className="text-content-muted" style={{ textAlign: "center" }}>Per hour</Text>
               </View>
             </View>
 
@@ -1218,26 +1223,27 @@ export default function HomeScreen() {
                 <Pressable
                   key={g.id}
                   onPress={() => router.push("/goals")}
-                  style={{ backgroundColor: "#0F0F12", borderRadius: 20, borderWidth: 0.8, borderColor: "#1E1E23", padding: 16, gap: 12 }}
+                  accessibilityRole="button"
+                  style={{ backgroundColor: COLORS.surface02, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, padding: 16, gap: 12 }}
                 >
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                     <View style={{ flex: 1, gap: 4 }}>
-                      <Text style={{ fontSize: 10, fontWeight: "900", color: accentColor, textTransform: "uppercase", letterSpacing: 1.5 }}>
+                      <Text variant="labelXs" style={{ color: accentColor }}>
                         Weekly Thermometer
                       </Text>
-                      <Text style={{ fontSize: 20, fontWeight: "900", color: "#F6F6F7", letterSpacing: -0.5 }}>
+                      <Text variant="headingM" style={{ letterSpacing: -0.5 }}>
                         {g.label}
                       </Text>
-                      <Text style={{ fontSize: 13, color: "#9B9BA4", fontWeight: "600", marginTop: 2 }}>
+                      <Text variant="labelM" className="text-content-secondary" tabular style={{ marginTop: 2 }}>
                         {g.unit === "currency" ? fmt(current) : `${current.toFixed(1)} hrs`} of {g.unit === "currency" ? fmt(target) : `${target} hrs`}
                       </Text>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(249, 115, 22, 0.15)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 0.5, borderColor: "rgba(249, 115, 22, 0.3)" }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: withAlpha(COLORS.warning, 0.12), paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 0.5, borderColor: withAlpha(COLORS.warning, 0.3) }}>
                           <Text style={{ fontSize: 12, marginRight: 2 }}>🔥</Text>
-                          <Text style={{ fontSize: 11, fontWeight: "800", color: "#f97316" }}>{streakDays} DAY STREAK</Text>
+                          <Text variant="labelXs" tabular style={{ color: COLORS.warning }}>{streakDays} DAY STREAK</Text>
                         </View>
-                        <View style={{ backgroundColor: percent >= 100 ? accentColor + "26" : "rgba(255, 255, 255, 0.08)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 0.5, borderColor: percent >= 100 ? accentColor + "40" : "rgba(255, 255, 255, 0.12)" }}>
-                          <Text style={{ fontSize: 11, fontWeight: "800", color: percent >= 100 ? accentColor : "#9B9BA4" }}>{percent}% DONE</Text>
+                        <View style={{ backgroundColor: percent >= 100 ? withAlpha(accentColor, 0.15) : COLORS.surface04, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 0.5, borderColor: percent >= 100 ? withAlpha(accentColor, 0.25) : COLORS.lineStrong }}>
+                          <Text variant="labelXs" tabular style={{ color: percent >= 100 ? accentColor : COLORS.contentSecondary }}>{percent}% DONE</Text>
                         </View>
                       </View>
                     </View>
@@ -1250,12 +1256,12 @@ export default function HomeScreen() {
             {/* ── Recent Sessions ────────────────────────────────────────── */}
             <View style={{ gap: 10, marginTop: 4 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 4 }}>
-                <Text style={{ fontSize: 13, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                <Text variant="labelXs" className="text-content-secondary">
                   Recent {vocab('session_plural')}
                 </Text>
                 {recentShifts && recentShifts.length > 0 && (
-                  <Pressable onPress={() => router.push("/shifts")}>
-                    <Text style={{ fontSize: 13, color: accentColor, fontWeight: "600" }}>View All</Text>
+                  <Pressable onPress={() => router.push("/shifts")} accessibilityRole="button">
+                    <Text variant="labelM" style={{ color: accentColor }}>View All</Text>
                   </Pressable>
                 )}
               </View>
@@ -1272,34 +1278,35 @@ export default function HomeScreen() {
                     <Pressable
                       key={shift.id}
                       onPress={() => router.push({ pathname: "/shifts/[id]", params: { id: shift.id, from: "dashboard" } })}
+                      accessibilityRole="button"
                       style={{
-                        backgroundColor: "#0F0F12",
+                        backgroundColor: COLORS.surface02,
                         borderRadius: 12,
                         borderWidth: 0.5,
-                        borderColor: "#1E1E23",
+                        borderColor: COLORS.lineSubtle,
                         padding: 14,
-                        flexDirection: "row",
-                        justifyContent: "space-between",
-                        alignItems: "center"
+                        flexDirection: "row" as const,
+                        justifyContent: "space-between" as const,
+                        alignItems: "center" as const
                       }}
                     >
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1, marginRight: 8 }}>
                         <PlatformBadge platform={shift.platform} size="md" />
                         <View style={{ gap: 2, flex: 1 }}>
-                          <Text style={{ fontSize: 14, fontWeight: "700", color: "#F6F6F7" }} numberOfLines={1}>
+                          <Text variant="labelM" numberOfLines={1}>
                             {PLATFORMS[shift.platform as GigPlatform] ? PLATFORMS[shift.platform as GigPlatform]?.label : (shift.platform || "Trip")}
                           </Text>
-                          <Text style={{ fontSize: 12, color: "#9B9BA4", fontWeight: "500" }} numberOfLines={1}>
+                          <Text variant="paragraphS" className="text-content-secondary" tabular numberOfLines={1}>
                             {durationHours}h • {totalMiles} {profile?.distanceUnit ?? "mi"}
                           </Text>
                         </View>
                       </View>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                         <View style={{ alignItems: "flex-end", gap: 2 }}>
-                          <Text style={{ fontSize: 15, fontWeight: "800", color: accentColor }}>
+                          <Text variant="labelL" tabular style={{ color: accentColor }}>
                             {new Intl.NumberFormat("en-US", { style: "currency", currency: profile?.locale?.currency || "USD" }).format(totalRevenue)}
                           </Text>
-                          <Text style={{ fontSize: 11, color: "#65656E", fontWeight: "600" }}>
+                          <Text variant="paragraphS" tabular>
                             {new Intl.NumberFormat("en-US", { style: "currency", currency: profile?.locale?.currency || "USD" }).format(totalRevenue / (shift.durationSeconds / 3600 || 1))}/hr
                           </Text>
                         </View>
@@ -1314,25 +1321,12 @@ export default function HomeScreen() {
                   );
                 })
               ) : (
-                <View style={{
-                  backgroundColor: "#0F0F12",
-                  borderRadius: 16,
-                  borderWidth: 0.8,
-                  borderColor: "#1E1E23",
-                  padding: 20,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  paddingVertical: 32,
-                }}>
-                  <Text style={{ fontSize: 24 }}>📭</Text>
-                  <Text style={{ fontSize: 14, fontWeight: "700", color: "#F6F6F7", textAlign: "center" }}>
-                    {vocab('no_sessions_yet')}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: "#9B9BA4", textAlign: "center", maxWidth: 220, lineHeight: 18 }}>
-                    {`Start a new ${vocab('session')} below or log a past drive to see your summary statistics.`}
-                  </Text>
-                </View>
+                <EmptyState
+                  icon="clock"
+                  title={vocab('no_sessions_yet')}
+                  message={`Start a new ${vocab('session')} below or log a past drive to see your summary statistics.`}
+                  className="bg-surface-02 border border-line-subtle rounded-lg py-8"
+                />
               )}
             </View>
 
@@ -1346,8 +1340,8 @@ export default function HomeScreen() {
             {currentStats.miles > 0 && mileageRate?.deductionMethod === "standard_mileage" && writeOff > 0 && (
               <View style={S.tipCard}>
                 <Text style={{ fontSize: 13 }}>🚗</Text>
-                <Text style={{ fontSize: 12, color: "#9B9BA4", flex: 1, lineHeight: 18 }}>
-                  At {mileageRate.ratePrimary != null ? `$${mileageRate.ratePrimary}` : ""}/{profile?.distanceUnit ?? "mi"} you've got an est. <Text style={{ color: "#f59e0b", fontWeight: "bold" }}>{fmt(writeOff)}</Text> tax write-off on <Text style={{ fontWeight: "bold", color: "#F6F6F7" }}>{currentStats.miles.toFixed(1)}</Text> {profile?.distanceUnit ?? "mi"} today.
+                <Text variant="paragraphS" className="text-content-secondary" style={{ flex: 1, lineHeight: 18 }}>
+                  At {mileageRate.ratePrimary != null ? `$${mileageRate.ratePrimary}` : ""}/{profile?.distanceUnit ?? "mi"} you've got an est. <Text variant="paragraphS" tabular style={{ color: COLORS.warning, fontWeight: "bold" }}>{fmt(writeOff)}</Text> tax write-off on <Text variant="paragraphS" tabular style={{ fontWeight: "bold", color: COLORS.contentPrimary }}>{currentStats.miles.toFixed(1)}</Text> {profile?.distanceUnit ?? "mi"} today.
                 </Text>
               </View>
             )}
@@ -1356,7 +1350,7 @@ export default function HomeScreen() {
             {isDemoMode && (
               <View style={S.demoBanner}>
                 <Text style={S.demoText}>Demo Mode Active (Sample Data)</Text>
-                <Pressable onPress={clearSampleData} style={S.demoBtn}>
+                <Pressable onPress={clearSampleData} accessibilityRole="button" style={S.demoBtn}>
                   <Text style={S.demoBtnText}>Clear Data</Text>
                 </Pressable>
               </View>
@@ -1366,16 +1360,16 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* ── Fixed Bottom Action Bar ────────────────────────────────────────── */}
-      <View style={{ borderTopWidth: 1, borderTopColor: "#1E1E23", backgroundColor: "#000", paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 }}>
-        <View style={{ flexDirection: "row", backgroundColor: "#0F0F12", borderRadius: 16, borderWidth: 1, borderColor: "#1E1E23", padding: 4, gap: 4 }}>
-          
+      <View style={{ borderTopWidth: 1, borderTopColor: COLORS.lineSubtle, backgroundColor: COLORS.background, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 }}>
+        <View style={{ flexDirection: "row", backgroundColor: COLORS.surface02, borderRadius: 16, borderWidth: 1, borderColor: COLORS.lineSubtle, padding: 4, gap: 4 }}>
+
           {/* Left: Log Expense */}
           <ScalePressable
             onPress={() => router.push("/expense/add")}
             style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: "transparent" }}
           >
-            <ReceiptText color="#9B9BA4" size={13} strokeWidth={2} />
-            <Text style={{ fontSize: 11, fontWeight: "600", color: "#9B9BA4", letterSpacing: 0.1 }}>Expense</Text>
+            <ReceiptText color={COLORS.contentSecondary} size={13} strokeWidth={2} />
+            <Text style={{ fontSize: 11, fontWeight: "600", color: COLORS.contentSecondary, letterSpacing: 0.1 }}>Expense</Text>
           </ScalePressable>
 
           {/* Center: Start Shift or Active Shift */}
@@ -1383,10 +1377,10 @@ export default function HomeScreen() {
             unreconciledShifts.length > 0 ? (
               <ScalePressable
                 onPress={() => router.push({ pathname: "/shift/add", params: { shiftId: unreconciledShifts[0].id } })}
-                style={{ flex: 1.2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: "rgba(217, 119, 6, 0.2)", borderWidth: 1, borderColor: "#d97706" }}
+                style={{ flex: 1.2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: withAlpha(COLORS.warning, 0.2), borderWidth: 1, borderColor: COLORS.warning }}
               >
-                <AlertCircle color="#f59e0b" size={13} strokeWidth={2.5} />
-                <Text style={{ fontSize: 11, fontWeight: "800", color: "#f59e0b", letterSpacing: 0.1 }}>Reconcile</Text>
+                <AlertCircle color={COLORS.warning} size={13} strokeWidth={2.5} />
+                <Text style={{ fontSize: 11, fontWeight: "800", color: COLORS.warning, letterSpacing: 0.1 }}>Reconcile</Text>
               </ScalePressable>
             ) : (
               <ScalePressable
@@ -1400,10 +1394,10 @@ export default function HomeScreen() {
           ) : (
             <ScalePressable
               onPress={() => setShowClockOverlay(true)}
-              style={{ flex: 1.2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: "#1C1C21", borderWidth: 1, borderColor: "#1E1E23" }}
+              style={{ flex: 1.2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: COLORS.surface04, borderWidth: 1, borderColor: COLORS.lineSubtle }}
             >
               <View style={[S.pulseDot, { backgroundColor: accentColor }]} />
-              <Text style={{ fontSize: 11, fontWeight: "800", color: "#F6F6F7", letterSpacing: 0.1 }}>{formatTime(elapsedSeconds)}</Text>
+              <Text tabular style={{ fontSize: 11, fontWeight: "800", color: COLORS.contentPrimary, letterSpacing: 0.1 }}>{formatTime(elapsedSeconds)}</Text>
             </ScalePressable>
           )}
 
@@ -1412,8 +1406,8 @@ export default function HomeScreen() {
             onPress={() => router.push("/shift/add")}
             style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: "transparent" }}
           >
-            <Calendar color="#9B9BA4" size={13} strokeWidth={2} />
-            <Text style={{ fontSize: 11, fontWeight: "600", color: "#9B9BA4", letterSpacing: 0.1 }}>
+            <Calendar color={COLORS.contentSecondary} size={13} strokeWidth={2} />
+            <Text style={{ fontSize: 11, fontWeight: "600", color: COLORS.contentSecondary, letterSpacing: 0.1 }}>
               Log {vocab('session').charAt(0).toUpperCase() + vocab('session').slice(1)}
             </Text>
           </ScalePressable>
@@ -1422,13 +1416,13 @@ export default function HomeScreen() {
       </View>
 
       {/* ── Fullscreen Clock Overlay ── */}
-      <Animated.View style={[StyleSheet.absoluteFill, { zIndex: 10000, backgroundColor: "#000" }, animatedSheetStyle]}>
+      <Animated.View style={[StyleSheet.absoluteFill, { zIndex: 10000, backgroundColor: COLORS.background }, animatedSheetStyle]}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <SafeAreaView style={S.clockOverlay}>
             <View style={S.clockHeader}>
-              <Text style={{ fontSize: 16, fontWeight: "700", color: "#F6F6F7" }}>{vocab('session').charAt(0).toUpperCase() + vocab('session').slice(1)} Console</Text>
+              <Text variant="headingS">{vocab('session').charAt(0).toUpperCase() + vocab('session').slice(1)} Console</Text>
               <ScalePressable onPress={() => setShowClockOverlay(false)} style={S.clockCloseBtn}>
-                <Text style={{ color: "#F6F6F7", fontSize: 13, fontWeight: "600" }}>Minimize</Text>
+                <Text variant="labelM">Minimize</Text>
               </ScalePressable>
             </View>
 
@@ -1436,37 +1430,38 @@ export default function HomeScreen() {
               <View style={{ alignItems: "center", gap: 14, paddingVertical: 8 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   {activePlatform && PLATFORMS[activePlatform as GigPlatform] && <PlatformLogo id={activePlatform as string} size={16} />}
-                  <Text style={{ fontSize: 12, color: "#9B9BA4", fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8 }}>
+                  <Text variant="labelXs" className="text-content-secondary">
                     {PLATFORMS[activePlatform as GigPlatform]?.label ?? activePlatform ?? `Active ${vocab('session')}`}
                   </Text>
                 </View>
                 <Text
+                  tabular
                   style={[S.clockDigits, { fontSize: 56, lineHeight: 68, paddingVertical: 4, includeFontPadding: true }]}
                   numberOfLines={1}
                 >
                   {formatTime(elapsedSeconds)}
                 </Text>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: isPaused ? "#f59e0b" : accentColor }} />
-                  <Text style={[S.clockLabel, { color: isPaused ? "#f59e0b" : "#9B9BA4" }]}>{isPaused ? "Paused" : "Tracking"}</Text>
-                  <Text style={{ fontSize: 12, color: "#65656E", fontWeight: "500" }}>
+                  <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: isPaused ? COLORS.warning : accentColor }} />
+                  <Text variant="labelXs" style={{ color: isPaused ? COLORS.warning : COLORS.contentSecondary }}>{isPaused ? "Paused" : "Tracking"}</Text>
+                  <Text variant="paragraphS">
                     · since {startTime ? new Date(startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: profile?.locale?.timeFormat !== "24h" }) : "—"}
                   </Text>
                 </View>
               </View>
 
-              <View style={{ width: "92%", backgroundColor: "#0F0F12", borderRadius: 16, borderWidth: 1, borderColor: "#16161A", padding: 16, gap: 14 }}>
+              <View style={{ width: "92%", backgroundColor: COLORS.surface02, borderRadius: 16, borderWidth: 1, borderColor: COLORS.lineSubtle, padding: 16, gap: 14 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <Text style={{ fontSize: 11, fontWeight: "800", color: "#65656E", textTransform: "uppercase" }}>Current Mileage</Text>
+                  <Text variant="labelXs" className="text-content-muted">Current Mileage</Text>
                   <View style={{
-                    backgroundColor: isFirstOrderReceived ? accentColor + "1a" : "rgba(245,158,11,.1)",
-                    borderRadius: 4,
+                    backgroundColor: isFirstOrderReceived ? withAlpha(accentColor, 0.12) : withAlpha(COLORS.warning, 0.12),
+                    borderRadius: 8,
                     paddingHorizontal: 8,
                     paddingVertical: 3,
                     borderWidth: 0.5,
-                    borderColor: isFirstOrderReceived ? accentColor + "40" : "rgba(245,158,11,.25)"
+                    borderColor: isFirstOrderReceived ? withAlpha(accentColor, 0.25) : withAlpha(COLORS.warning, 0.25)
                   }}>
-                    <Text style={{ fontSize: 9, fontWeight: "800", color: isFirstOrderReceived ? accentColor : "#f59e0b", textTransform: "uppercase" }}>
+                    <Text variant="labelXs" style={{ color: isFirstOrderReceived ? accentColor : COLORS.warning }}>
                       {isFirstOrderReceived ? vocab('active_miles') : vocab('dead_miles')}
                     </Text>
                   </View>
@@ -1474,35 +1469,35 @@ export default function HomeScreen() {
 
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
                   <View>
-                    <Text style={{ fontSize: 28, fontWeight: "bold", color: "#F6F6F7", paddingVertical: 2 }}>
+                    <Text variant="headingXl" tabular style={{ paddingVertical: 2 }}>
                       {totalMiles.toFixed(2)}
-                      <Text style={{ fontSize: 14, fontWeight: "500", color: "#9B9BA4" }}> {profile?.distanceUnit ?? "mi"}</Text>
+                      <Text variant="paragraphM"> {profile?.distanceUnit ?? "mi"}</Text>
                     </Text>
-                    <Text style={{ fontSize: 11, color: "#9B9BA4", fontWeight: "600", marginTop: 2 }}>
-                      {vocab('active_miles').charAt(0).toUpperCase() + vocab('active_miles').slice(1)}: <Text style={{ color: "#F6F6F7", fontWeight: "bold" }}>{(activeMileage - deadMilesAtFirstOrder).toFixed(1)}</Text> | {vocab('dead_miles').charAt(0).toUpperCase() + vocab('dead_miles').slice(1)}: <Text style={{ color: "#F6F6F7", fontWeight: "bold" }}>{deadMilesAtFirstOrder.toFixed(1)}</Text>
+                    <Text variant="paragraphS" className="text-content-secondary" style={{ marginTop: 2 }}>
+                      {vocab('active_miles').charAt(0).toUpperCase() + vocab('active_miles').slice(1)}: <Text variant="paragraphS" tabular style={{ color: COLORS.contentPrimary, fontWeight: "bold" }}>{(activeMileage - deadMilesAtFirstOrder).toFixed(1)}</Text> | {vocab('dead_miles').charAt(0).toUpperCase() + vocab('dead_miles').slice(1)}: <Text variant="paragraphS" tabular style={{ color: COLORS.contentPrimary, fontWeight: "bold" }}>{deadMilesAtFirstOrder.toFixed(1)}</Text>
                     </Text>
                   </View>
                   <View style={{ alignItems: "flex-end" }}>
-                    <Text style={{ fontSize: 18, fontWeight: "bold", color: "#F6F6F7", paddingVertical: 1 }}>{fmt(sessionWriteOff)}</Text>
-                    <Text style={{ fontSize: 10, color: "#9B9BA4", fontWeight: "500" }}>write-off value</Text>
+                    <Text variant="headingM" tabular style={{ paddingVertical: 1 }}>{fmt(sessionWriteOff)}</Text>
+                    <Text variant="paragraphS" className="text-content-secondary">write-off value</Text>
                   </View>
                 </View>
 
                 <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
                   <ScalePressable onPress={() => isPaused ? resumeShift() : pauseShift()} style={[S.clockSecBtn, { flex: 1 }]}>
                     {isPaused
-                      ? <><PlayIcon size={10} color="#F6F6F7" /><Text style={S.clockSecBtnText}>Resume</Text></>
-                      : <><View style={{ width: 8, height: 8, backgroundColor: "#f59e0b", borderRadius: 1 }} /><Text style={[S.clockSecBtnText, { color: "#f59e0b" }]}>Pause</Text></>
+                      ? <><PlayIcon size={10} color={COLORS.contentPrimary} /><Text variant="labelM" style={S.clockSecBtnText}>Resume</Text></>
+                      : <><View style={{ width: 8, height: 8, backgroundColor: COLORS.warning, borderRadius: 1 }} /><Text variant="labelM" style={[S.clockSecBtnText, { color: COLORS.warning }]}>Pause</Text></>
                     }
                   </ScalePressable>
-                  
+
                   {isFirstOrderReceived ? (
                       <View
-                        style={[S.clockSecBtn, { flex: 1, borderColor: "#2E2E36", backgroundColor: "rgba(63, 63, 70, 0.2)", opacity: 0.8, flexDirection: "column", gap: 2 }]}
+                        style={[S.clockSecBtn, { flex: 1, borderColor: COLORS.lineStrong, backgroundColor: COLORS.surface04, opacity: 0.8, flexDirection: "column", gap: 2 }]}
                       >
-                        <Text style={{ color: accentColor, fontSize: 11, fontWeight: "900" }}>✓ Active Mode On</Text>
+                        <Text style={{ fontSize: 11, fontWeight: "800", color: accentColor }}>✓ Active Mode On</Text>
                         {deadMilesAtFirstOrder > 0 && (
-                          <Text style={{ fontSize: 10, color: "#9B9BA4", fontWeight: "600" }}>
+                          <Text variant="paragraphS" className="text-content-secondary" tabular>
                             {deadMilesAtFirstOrder.toFixed(1)} {profile?.distanceUnit ?? "mi"} dead
                           </Text>
                         )}
@@ -1513,10 +1508,10 @@ export default function HomeScreen() {
                           setDeadMilesAtFirstOrder(activeMileage);
                           markFirstOrderReceived();
                         }}
-                        style={[S.clockSecBtn, { flex: 1, borderColor: accentColor, backgroundColor: accentColor + "0d" }]}
+                        style={[S.clockSecBtn, { flex: 1, borderColor: accentColor, backgroundColor: withAlpha(accentColor, 0.12) }]}
                       >
                         <View style={{ width: 8, height: 8, backgroundColor: accentColor, borderRadius: 4 }} />
-                        <Text style={[S.clockSecBtnText, { color: accentColor }]}>Got First Order</Text>
+                        <Text variant="labelM" style={[S.clockSecBtnText, { color: accentColor }]}>Got First Order</Text>
                       </ScalePressable>
                     )
                   }
@@ -1527,7 +1522,7 @@ export default function HomeScreen() {
             <View style={{ padding: 14, gap: 10 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 8 }}>
                 <View style={[S.pulseDot, { backgroundColor: accentColor, width: 6, height: 6, borderRadius: 3 }]} />
-                <Text style={{ color: "#9B9BA4", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>GPS is collecting data</Text>
+                <Text variant="labelXs" className="text-content-secondary">GPS is collecting data</Text>
               </View>
               <SwipeToEnd key={sessionId || "idle"} onEnd={handleEndShift} />
             </View>
@@ -1539,12 +1534,12 @@ export default function HomeScreen() {
       <Modal visible={!!endedShiftId} transparent animationType="fade">
         <View style={S.wizardOverlay}>
           <View style={[S.wizardContent, { alignItems: "center", paddingVertical: 32, gap: 20 }]}>
-            <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: accentColor + "1a", justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: accentColor + "33" }}>
+            <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: withAlpha(accentColor, 0.12), justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: withAlpha(accentColor, 0.25) }}>
               <SquareIcon size={24} color={accentColor} />
             </View>
             <View style={{ alignItems: "center", gap: 8 }}>
-              <Text style={{ fontSize: 22, fontWeight: "900", color: "#F6F6F7", letterSpacing: 0.5 }}>Shift Completed</Text>
-              <Text style={{ fontSize: 13, color: "#9B9BA4", textAlign: "center", paddingHorizontal: 20, lineHeight: 20 }}>
+              <Text variant="headingL" style={{ letterSpacing: 0.5 }}>Shift Completed</Text>
+              <Text variant="paragraphM" style={{ textAlign: "center", paddingHorizontal: 20, lineHeight: 20 }}>
                 Your GPS tracking data, mileage, and duration have been securely saved to the local database.
               </Text>
             </View>
@@ -1558,15 +1553,17 @@ export default function HomeScreen() {
                     params: { shiftId: sId }
                   });
                 }}
+                accessibilityRole="button"
                 style={[S.primBtn, { width: "100%", marginHorizontal: 0, height: 54, borderRadius: 16, backgroundColor: accentColor }]}
               >
-                <Text style={[S.primBtnText, { color: accentColorContrast, fontSize: 15, fontWeight: "800" }]}>Add Earnings & Details</Text>
+                <Text variant="labelL" style={[S.primBtnText, { color: accentColorContrast }]}>Add Earnings & Details</Text>
               </Pressable>
               <Pressable
                 onPress={() => setEndedShiftId(null)}
+                accessibilityRole="button"
                 style={[S.secBtn, { width: "100%", marginHorizontal: 0, height: 54, backgroundColor: "transparent", borderWidth: 0 }]}
               >
-                <Text style={[S.secBtnText, { color: "#9B9BA4", fontWeight: "700", fontSize: 15 }]}>Save As Is</Text>
+                <Text variant="labelL" style={S.secBtnText}>Save As Is</Text>
               </Pressable>
             </View>
           </View>
@@ -1575,23 +1572,24 @@ export default function HomeScreen() {
 
       {/* ── Odometer Anchor Prompt Modal ───────────────────────────────── */}
       <Modal visible={showOdoPrompt} transparent animationType="fade">
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={S.wizardOverlay}>
           <View style={[S.wizardContent, { paddingVertical: 28, gap: 16 }]}>
             <View style={{ alignItems: "center", gap: 6 }}>
-              <Text style={{ fontSize: 18, fontWeight: "900", color: "#F6F6F7", letterSpacing: 0.5 }}>Quick Audit Required</Text>
-              <Text style={{ fontSize: 13, color: "#9B9BA4", textAlign: "center", lineHeight: 18 }}>
+              <Text variant="headingM" style={{ letterSpacing: 0.5 }}>Quick Audit Required</Text>
+              <Text variant="paragraphM" style={{ textAlign: "center", lineHeight: 18 }}>
                 To maintain tax audit compliance, please enter your vehicle's current dashboard odometer reading.
               </Text>
             </View>
 
             {odoError ? (
-              <View style={{ backgroundColor: "rgba(239, 68, 68, 0.08)", borderWidth: 0.5, borderColor: "rgba(239, 68, 68, 0.2)", padding: 10, borderRadius: 10 }}>
-                <Text style={{ color: "#FF5247", fontSize: 12, textAlign: "center", fontWeight: "600" }}>{odoError}</Text>
+              <View style={{ backgroundColor: withAlpha(COLORS.destructive, 0.1), borderWidth: 0.5, borderColor: withAlpha(COLORS.destructive, 0.2), padding: 10, borderRadius: 12 }}>
+                <Text variant="paragraphS" style={{ color: COLORS.destructive, textAlign: "center" }}>{odoError}</Text>
               </View>
             ) : null}
 
             <View style={{ gap: 8 }}>
-              <Text style={{ fontSize: 10, fontWeight: "800", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <Text variant="labelXs" className="text-content-secondary">
                 Current Odometer
               </Text>
               <TextInput
@@ -1602,15 +1600,15 @@ export default function HomeScreen() {
                 }}
                 keyboardType="numeric"
                 placeholder="e.g. 45210"
-                placeholderTextColor="#65656E"
+                placeholderTextColor={COLORS.contentMuted}
                 style={{
-                  backgroundColor: "#0F0F12",
-                  borderWidth: 0.8,
-                  borderColor: "#1E1E23",
+                  backgroundColor: COLORS.surface02,
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderColor: COLORS.lineSubtle,
                   borderRadius: 12,
                   paddingVertical: 12,
                   paddingHorizontal: 16,
-                  color: "#F6F6F7",
+                  color: COLORS.contentPrimary,
                   fontSize: 15,
                   fontWeight: "700",
                   textAlign: "center"
@@ -1641,9 +1639,10 @@ export default function HomeScreen() {
                     }
                   }
                 }}
+                accessibilityRole="button"
                 style={[S.primBtn, { width: "100%", marginHorizontal: 0, height: 48, borderRadius: 12, backgroundColor: accentColor }]}
               >
-                <Text style={[S.primBtnText, { color: accentColorContrast, fontSize: 14, fontWeight: "800" }]}>Save & Reconcile</Text>
+                <Text variant="labelM" style={[S.primBtnText, { color: accentColorContrast }]}>Save & Reconcile</Text>
               </Pressable>
               <Pressable
                 onPress={() => {
@@ -1651,13 +1650,15 @@ export default function HomeScreen() {
                   setOdoInput("");
                   setOdoPromptVehicleId(null);
                 }}
+                accessibilityRole="button"
                 style={[S.secBtn, { width: "100%", marginHorizontal: 0, height: 44, backgroundColor: "transparent", borderWidth: 0 }]}
               >
-                <Text style={[S.secBtnText, { color: "#9B9BA4", fontWeight: "700", fontSize: 14 }]}>Remind Me Later</Text>
+                <Text variant="labelM" style={S.secBtnText}>Remind Me Later</Text>
               </Pressable>
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ── Start Shift Wizard Modal ──────────────────────────────────── */}
@@ -1666,15 +1667,21 @@ export default function HomeScreen() {
           <View style={{ gap: 16 }}>
 
             <View style={S.wizardHeader}>
-              <Text style={S.wizardTitle}>Start {vocab('session').charAt(0).toUpperCase() + vocab('session').slice(1)} Wizard</Text>
-              <Pressable onPress={() => wizardSheetRef.current?.dismiss()} style={S.wizardCloseBtn}>
+              <Text variant="labelL">Start {vocab('session').charAt(0).toUpperCase() + vocab('session').slice(1)} Wizard</Text>
+              <Pressable
+                onPress={() => wizardSheetRef.current?.dismiss()}
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss"
+                hitSlop={8}
+                style={S.wizardCloseBtn}
+              >
                 <Text style={S.wizardCloseText}>✕</Text>
               </Pressable>
             </View>
 
             {wizardStep === "vehicle" && (
               <View style={{ gap: 10 }}>
-                <Text style={S.wizardLabel}>Which vehicle are you driving today?</Text>
+                <Text variant="labelM">Which vehicle are you driving today?</Text>
                 {vehicles.map((v: any) => {
                   const icon = v.type === "ev" ? "⚡" : v.type === "bicycle" || v.type === "ebike" ? "🚲" : "🚗";
                   const sel = selectedVehicleId === v.id;
@@ -1685,14 +1692,16 @@ export default function HomeScreen() {
                         setSelectedVehicleId(v.id);
                         setWizardStep("target");
                       }}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: sel }}
                       style={[S.wizardRow, sel && S.wizardRowSel]}
                     >
                       <Text style={{ fontSize: 20 }}>{icon}</Text>
                       <View style={{ flex: 1 }}>
-                        <Text style={S.wizardRowTitle}>{v.nickname || "Unnamed vehicle"}</Text>
-                        <Text style={S.wizardRowSub}>{v.make} {v.model}</Text>
+                        <Text variant="labelM">{v.nickname || "Unnamed vehicle"}</Text>
+                        <Text variant="paragraphS">{v.make} {v.model}</Text>
                       </View>
-                      <Text style={{ color: "#65656E" }}>›</Text>
+                      <Text style={{ color: COLORS.contentMuted }}>›</Text>
                     </Pressable>
                   );
                 })}
@@ -1702,27 +1711,29 @@ export default function HomeScreen() {
             {wizardStep === "platform" && (
               <View style={{ gap: 10 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <Text style={[S.wizardLabel, { flex: 1, marginRight: 8 }]}>On which platform you are going to work today?</Text>
+                  <Text variant="labelM" style={{ flex: 1, marginRight: 8 }}>On which platform you are going to work today?</Text>
                   <Pressable
                     onPress={() => {
                       const allPlats = profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"];
                       setSelectedPlatformIds(allPlats as GigPlatform[]);
                     }}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: selectedPlatformIds.length === (profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).length }}
                     style={{
-                      backgroundColor: selectedPlatformIds.length === (profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).length ? accentColor : "#16161A",
+                      backgroundColor: selectedPlatformIds.length === (profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).length ? accentColor : COLORS.surface03,
                       paddingHorizontal: 12,
                       paddingVertical: 6,
                       borderRadius: 8,
                       borderWidth: 0.5,
-                      borderColor: "#2E2E36"
+                      borderColor: COLORS.lineStrong
                     }}
                   >
-                    <Text style={{ color: selectedPlatformIds.length === (profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).length ? accentColorContrast : "#9B9BA4", fontSize: 11, fontWeight: "800" }}>All</Text>
+                    <Text style={{ fontSize: 11, fontWeight: "800", color: selectedPlatformIds.length === (profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).length ? accentColorContrast : COLORS.contentSecondary }}>All</Text>
                   </Pressable>
                 </View>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                   {(profile?.selectedPlatforms ?? ["doordash", "ubereats", "skip"]).map((pId: string) => {
-                    const pColor = PLATFORMS[pId as GigPlatform]?.color ?? "#65656E";
+                    const pColor = PLATFORMS[pId as GigPlatform]?.color ?? COLORS.contentMuted;
                     const sel = selectedPlatformIds.includes(pId as GigPlatform);
                     return (
                       <Pressable
@@ -1737,14 +1748,16 @@ export default function HomeScreen() {
                             }
                           });
                         }}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: sel }}
                         style={[
                           S.wizardRow,
                           { flex: 1, minWidth: "45%", justifyContent: "center", paddingVertical: 14, gap: 8 },
-                          sel && { borderColor: pColor, backgroundColor: "rgba(255,255,255,0.02)" }
+                          sel && { borderColor: pColor, backgroundColor: COLORS.surface03 }
                         ]}
                       >
                         <PlatformLogo id={pId} size={16} />
-                        <Text style={{ color: sel ? "#F6F6F7" : "#9B9BA4", fontSize: 13, fontWeight: "700" }}>
+                        <Text variant="labelM" style={{ color: sel ? COLORS.contentPrimary : COLORS.contentSecondary }}>
                           {PLATFORMS[pId as GigPlatform]?.label ?? pId}
                         </Text>
                       </Pressable>
@@ -1756,38 +1769,43 @@ export default function HomeScreen() {
 
             {wizardStep === "target" && (
               <View style={{ gap: 14 }}>
-                <Text style={S.wizardLabel}>Do you want to set a duration target for this {vocab('session')}?</Text>
-                
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#0F0F12", padding: 12, borderRadius: 8, borderWidth: 0.5, borderColor: "#1E1E23" }}>
-                  <Text style={{ fontSize: 13, fontWeight: "600", color: "#F6F6F7" }}>Enable {vocab('session').charAt(0).toUpperCase() + vocab('session').slice(1)} Goal</Text>
-                  <Pressable 
+                <Text variant="labelM">Do you want to set a duration target for this {vocab('session')}?</Text>
+
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: COLORS.surface02, padding: 12, borderRadius: 8, borderWidth: 0.5, borderColor: COLORS.lineSubtle }}>
+                  <Text variant="labelM">Enable {vocab('session').charAt(0).toUpperCase() + vocab('session').slice(1)} Goal</Text>
+                  <Pressable
                     onPress={() => setTargetMode(!targetMode)}
+                    accessibilityRole="switch"
+                    accessibilityState={{ checked: targetMode }}
+                    accessibilityLabel={`Enable ${vocab('session')} goal`}
                     style={{
                       width: 44,
                       height: 24,
                       borderRadius: 12,
-                      backgroundColor: targetMode ? accentColor : "#1E1E23",
+                      backgroundColor: targetMode ? accentColor : COLORS.lineSubtle,
                       justifyContent: "center",
                       paddingHorizontal: 2,
                       alignItems: targetMode ? "flex-end" : "flex-start"
                     }}
                   >
-                    <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: "#F6F6F7" }} />
+                    <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: COLORS.contentPrimary }} />
                   </Pressable>
                 </View>
 
                 {targetMode && (
                   <View style={{ gap: 10 }}>
-                    <Text style={S.wizardSubLabel}>Set Target Duration</Text>
-                    
+                    <Text variant="paragraphS" className="text-content-secondary">Set Target Duration</Text>
+
                     <View style={{ flexDirection: "row", gap: 8 }}>
                       {[4, 8, 10].map((h) => (
-                        <Pressable 
+                        <Pressable
                           key={h}
                           onPress={() => { setCustomHours(h); setCustomMinutes(0); }}
-                          style={{ flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: customHours === h && customMinutes === 0 ? accentColor : "#2E2E36", backgroundColor: customHours === h && customMinutes === 0 ? "rgba(16,185,129,0.1)" : "#0F0F12", alignItems: "center" }}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: customHours === h && customMinutes === 0 }}
+                          style={{ flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: customHours === h && customMinutes === 0 ? accentColor : COLORS.lineStrong, backgroundColor: customHours === h && customMinutes === 0 ? withAlpha(accentColor, 0.12) : COLORS.surface02, alignItems: "center" }}
                         >
-                          <Text style={{ color: customHours === h && customMinutes === 0 ? accentColor : "#9B9BA4", fontWeight: "700" }}>{h} hrs</Text>
+                          <Text variant="labelM" tabular style={{ color: customHours === h && customMinutes === 0 ? accentColor : COLORS.contentSecondary }}>{h} hrs</Text>
                         </Pressable>
                       ))}
                     </View>
@@ -1800,8 +1818,8 @@ export default function HomeScreen() {
                         style={S.wizardInput}
                         maxLength={2}
                       />
-                      <Text style={{ color: "#F6F6F7", fontSize: 13, fontWeight: "600" }}>hr</Text>
-                      
+                      <Text variant="labelM">hr</Text>
+
                       <TextInput
                         keyboardType="number-pad"
                         value={String(customMinutes)}
@@ -1809,7 +1827,7 @@ export default function HomeScreen() {
                         style={S.wizardInput}
                         maxLength={2}
                       />
-                      <Text style={{ color: "#F6F6F7", fontSize: 13, fontWeight: "600" }}>min</Text>
+                      <Text variant="labelM">min</Text>
                     </View>
                   </View>
                 )}
@@ -1818,16 +1836,17 @@ export default function HomeScreen() {
 
             <View style={S.wizardFooter}>
               {!isFirstWizardStep && (
-                <Pressable onPress={prevStep} style={S.wizardBackBtn}>
-                  <Text style={{ color: "#9B9BA4", fontSize: 12, fontWeight: "600" }}>Back</Text>
+                <Pressable onPress={prevStep} accessibilityRole="button" style={S.wizardBackBtn}>
+                  <Text variant="labelM" className="text-content-secondary">Back</Text>
                 </Pressable>
               )}
               <View style={{ flex: 1 }} />
-              <Pressable 
+              <Pressable
                 onPress={nextStep}
+                accessibilityRole="button"
                 style={[S.wizardNextBtn, { backgroundColor: accentColor }]}
               >
-                <Text style={[S.wizardNextBtnText, { color: accentColorContrast }]}>
+                <Text variant="labelM" style={{ color: accentColorContrast }}>
                   {wizardStep === "target" ? "Start " + vocab('session').charAt(0).toUpperCase() + vocab('session').slice(1) : "Next"}
                 </Text>
               </Pressable>
@@ -1845,158 +1864,44 @@ export default function HomeScreen() {
 }
 
 const S = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#000" },
+  root: { flex: 1, backgroundColor: COLORS.background },
   scroll: { padding: 14, paddingTop: 76, gap: 10, paddingBottom: 110 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
-  headerTitle: { fontSize: 18, fontWeight: "bold", color: "#F6F6F7", letterSpacing: -0.2 },
-  headerSub: { fontSize: 13, color: "#9B9BA4" },
-  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#1e3a8a", alignItems: "center", justifyContent: "center" },
-  avatarText: { color: "#F6F6F7", fontSize: 14, fontWeight: "800" },
-  bellBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#16161A", borderWidth: 0.5, borderColor: "#2E2E36", alignItems: "center", justifyContent: "center" },
+  headerTitle: { letterSpacing: -0.2 },
+  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.surface04, alignItems: "center", justifyContent: "center" },
 
-  hero: { backgroundColor: "#0F0F12", borderRadius: 20, borderWidth: 0.8, borderColor: "#1E1E23" },
-  heroLabel: { fontSize: 12, fontWeight: "800", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 0.5 },
-  heroValueRow: { flexDirection: "row", alignItems: "flex-start", flexWrap: "nowrap" },
-  heroCurrency: { fontSize: 24, fontWeight: "600", color: "#F6F6F7", lineHeight: 30, marginTop: 10, marginRight: 4 },
-  heroValue: { flexShrink: 1, fontSize: 40, fontWeight: "800", color: "#F6F6F7", letterSpacing: -0.5, lineHeight: 48, includeFontPadding: false },
-  trendBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 14, backgroundColor: "rgba(255, 255, 255, 0.08)" },
-  trendText: { fontSize: 12, fontWeight: "700", color: "#9B9BA4" },
-  heroColumns: { flexDirection: "row", flexWrap: "wrap", gap: 14, marginTop: 10, paddingBottom: 10 },
-  heroCol: { gap: 4 },
-  heroColLabel: { fontSize: 12, color: "#9B9BA4", fontWeight: "500" },
-  heroColValue: { fontSize: 14, color: "#F6F6F7", fontWeight: "700" },
+  tipCard: { flexDirection: "row", gap: 10, backgroundColor: COLORS.surface01, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, padding: 12, alignItems: "center" },
 
-  presetRow: { flexDirection: "row", backgroundColor: "#0F0F12", borderRadius: 12, borderWidth: 0.5, borderColor: "#1E1E23", padding: 4, marginVertical: 14, alignItems: "center" },
-  presetBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-  presetBtnAct: { backgroundColor: "#26262C" },
-  presetText: { fontSize: 13, fontWeight: "600", color: "#9B9BA4" },
-  presetTextAct: { color: "#F6F6F7", fontWeight: "700" },
-
-  statGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 10 },
-  statCard: { width: "48.5%", backgroundColor: "#0F0F12", borderRadius: 20, borderWidth: 0.8, borderColor: "#1E1E23", padding: 16, gap: 6 },
-  gridIconBg: { width: 28, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center", marginBottom: 4 },
-  statLabel: { fontSize: 11, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 0.8, marginTop: 4 },
-  statValue: { fontSize: 20, fontWeight: "800", color: "#F6F6F7", marginTop: 2, paddingVertical: 1 },
-  statSub: { fontSize: 12, color: "#65656E", fontWeight: "500", marginTop: 2 },
-  statTrend: { fontSize: 12, fontWeight: "600", marginTop: 2 },
-
-  card: { backgroundColor: "#0F0F12", borderRadius: 20, borderWidth: 0.8, borderColor: "#1E1E23", padding: 16, gap: 12 },
-  cardHeader: { fontSize: 14, fontWeight: "700", color: "#F6F6F7" },
-  progressBarBg: { height: 6, borderRadius: 3, backgroundColor: "#16161A", overflow: "hidden" },
-  progressBarFill: { height: "100%", borderRadius: 3 },
-
-  tipCard: { flexDirection: "row", gap: 10, backgroundColor: "#0A0A0C", borderRadius: 14, borderWidth: 0.8, borderColor: "#1E1E23", padding: 12, alignItems: "center" },
-
-  activeBanner: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#0F0F12", borderRadius: 20, borderWidth: 0.8, borderColor: "#1E1E23", padding: 16 },
-  activeBannerTitle: { fontSize: 13, fontWeight: "700", color: "#F6F6F7" },
-  activeBannerSub: { fontSize: 11, color: "#9B9BA4" },
   pulseDot: { width: 8, height: 8, borderRadius: 4 },
-
-  actionBar: {
-    position: "absolute",
-    left: 20,
-    right: 20,
-    height: 64,
-    borderRadius: 32,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    backgroundColor: "rgba(10, 10, 10, 0.75)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
-    zIndex: 1000,
-    overflow: "hidden",
-  },
-  iconActionBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderWidth: 0.5,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  centerActionBtn: {
-    flex: 1,
-    height: 46,
-    borderRadius: 23,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-    marginHorizontal: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  centerActionText: {
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  centerActionBtnActive: {
-    flex: 1,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "#16161A",
-    borderWidth: 0.5,
-    borderColor: "rgba(255, 255, 255, 0.12)",
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-    marginHorizontal: 12,
-  },
-  centerActionTextActive: {
-    fontSize: 14,
-    fontWeight: "800",
-    fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace",
-  },
 
   primBtn: { justifyContent: "center", alignItems: "center" },
   primBtnText: { textAlign: "center" },
   secBtn: { justifyContent: "center", alignItems: "center" },
-  secBtnText: { color: "#9B9BA4" },
+  secBtnText: { color: COLORS.contentSecondary },
 
-  clockOverlay: { flex: 1, backgroundColor: "#000" },
-  clockHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 18, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#16161A" },
-  clockCloseBtn: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, backgroundColor: "#16161A", borderWidth: 1, borderColor: "#1E1E23" },
+  clockOverlay: { flex: 1, backgroundColor: COLORS.background },
+  clockHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 18, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.lineSubtle },
+  clockCloseBtn: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 12, backgroundColor: COLORS.surface03, borderWidth: 1, borderColor: COLORS.lineSubtle },
   clockBody: { flex: 1, justifyContent: "center", alignItems: "center", gap: 20 },
-  clockDigits: { fontSize: 52, fontWeight: "bold", color: "#F6F6F7", fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace", paddingVertical: 8, textAlign: "center", textAlignVertical: "center", includeFontPadding: false },
-  clockLabel: { fontSize: 12, color: "#9B9BA4", textTransform: "uppercase", fontWeight: "700", letterSpacing: 1 },
-  clockSecBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 46, borderRadius: 12, backgroundColor: "#0F0F12", borderWidth: 1, borderColor: "#26262C" },
-  clockSecBtnText: { fontSize: 12, fontWeight: "700", color: "#F6F6F7" },
+  clockDigits: { fontSize: 52, fontWeight: "bold", color: COLORS.contentPrimary, paddingVertical: 8, textAlign: "center", textAlignVertical: "center", includeFontPadding: false },
+  clockSecBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 46, borderRadius: 12, backgroundColor: COLORS.surface02, borderWidth: 1, borderColor: COLORS.lineStrong },
+  clockSecBtnText: { color: COLORS.contentPrimary },
 
-  wizardOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "center", padding: 20 },
-  wizardContent: { backgroundColor: "#0A0A0C", borderRadius: 20, borderWidth: 1, borderColor: "#1E1E23", padding: 16, gap: 16 },
-  wizardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 0.5, borderBottomColor: "#1E1E23", paddingBottom: 10 },
-  wizardTitle: { fontSize: 15, fontWeight: "800", color: "#F6F6F7" },
+  wizardOverlay: { flex: 1, backgroundColor: COLORS.scrim, justifyContent: "center", padding: 20 },
+  wizardContent: { backgroundColor: COLORS.surface01, borderRadius: 20, borderWidth: 1, borderColor: COLORS.lineSubtle, padding: 16, gap: 16 },
+  wizardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 0.5, borderBottomColor: COLORS.lineSubtle, paddingBottom: 10 },
   wizardCloseBtn: { padding: 4 },
-  wizardCloseText: { fontSize: 18, color: "#65656E" },
-  wizardLabel: { fontSize: 14, fontWeight: "700", color: "#F6F6F7" },
-  wizardSubLabel: { fontSize: 12, fontWeight: "600", color: "#9B9BA4" },
-  wizardRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 10, backgroundColor: "#0F0F12", borderWidth: 0.5, borderColor: "#1E1E23" },
-  wizardRowSel: { borderColor: "#F6F6F7" },
-  wizardRowTitle: { fontSize: 13, fontWeight: "700", color: "#F6F6F7" },
-  wizardRowSub: { fontSize: 11, color: "#65656E" },
-  wizardInput: { flex: 1, height: 40, backgroundColor: "#0F0F12", borderWidth: 0.5, borderColor: "#1E1E23", borderRadius: 8, paddingHorizontal: 10, color: "#F6F6F7", fontSize: 13, fontWeight: "600" },
-  wizardInputFull: { width: "100%", height: 44, backgroundColor: "#0F0F12", borderWidth: 0.5, borderColor: "#1E1E23", borderRadius: 8, paddingHorizontal: 12, color: "#F6F6F7", fontSize: 14, fontWeight: "600", marginTop: 6 },
-  wizardFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 0.5, borderTopColor: "#1E1E23", paddingTop: 14, marginTop: 2 },
+  wizardCloseText: { fontSize: 18, color: COLORS.contentMuted },
+  wizardRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 12, backgroundColor: COLORS.surface02, borderWidth: 0.5, borderColor: COLORS.lineSubtle },
+  wizardRowSel: { borderColor: COLORS.contentPrimary },
+  wizardInput: { flex: 1, height: 40, backgroundColor: COLORS.surface02, borderWidth: 0.5, borderColor: COLORS.lineSubtle, borderRadius: 8, paddingHorizontal: 10, color: COLORS.contentPrimary, fontSize: 13, fontWeight: "600" },
+  wizardFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 0.5, borderTopColor: COLORS.lineSubtle, paddingTop: 14, marginTop: 2 },
   wizardBackBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
   wizardNextBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8 },
-  wizardNextBtnText: { fontSize: 12, fontWeight: "700" },
 
-  demoBanner: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "rgba(245, 158, 11, 0.1)", borderWidth: 0.8, borderColor: "rgba(245, 158, 11, 0.2)", padding: 12, borderRadius: 20, marginBottom: 12, marginHorizontal: 16 },
-  demoText: { fontSize: 11, fontWeight: "800", color: "#f59e0b" },
-  demoBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: "rgba(245, 158, 11, 0.2)" },
-  demoBtnText: { fontSize: 11, fontWeight: "800", color: "#f59e0b" },
+  demoBanner: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: withAlpha(COLORS.warning, 0.12), borderWidth: StyleSheet.hairlineWidth, borderColor: withAlpha(COLORS.warning, 0.2), padding: 12, borderRadius: 20, marginBottom: 12, marginHorizontal: 16 },
+  demoText: { fontSize: 11, fontWeight: "800", color: COLORS.warning },
+  demoBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: withAlpha(COLORS.warning, 0.2) },
+  demoBtnText: { fontSize: 11, fontWeight: "800", color: COLORS.warning },
 });

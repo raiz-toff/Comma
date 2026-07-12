@@ -3,7 +3,8 @@ import { View } from "react-native";
 import { Text } from "./text";
 import { Button } from "./button";
 import { cn } from "@/src/lib/utils";
-import * as LucideIcons from "lucide-react-native";
+import { lucideIconMap } from "./lucideIconMap";
+import { COLORS } from "@/src/theme/colors";
 
 export interface EmptyStateProps {
   icon: string | React.ComponentType<any>;
@@ -14,7 +15,7 @@ export interface EmptyStateProps {
   className?: string;
 }
 
-const iconMapping: Record<string, keyof typeof LucideIcons> = {
+const iconMapping: Record<string, keyof typeof lucideIconMap> = {
   home: "Home",
   clock: "Clock",
   "clock-play": "Clock",
@@ -38,18 +39,21 @@ const iconMapping: Record<string, keyof typeof LucideIcons> = {
 const mapIconName = (name: string): React.ComponentType<any> | null => {
   const cleanName = name.replace(/^ti-/, "").toLowerCase();
   const lucideKey = iconMapping[cleanName];
-  if (lucideKey && LucideIcons[lucideKey]) {
-    return LucideIcons[lucideKey] as React.ComponentType<any>;
+  if (lucideKey && lucideIconMap[lucideKey]) {
+    return lucideIconMap[lucideKey] as React.ComponentType<any>;
   }
-  
+
   // Try direct lookup with casing
   const capitalized = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
-  if (LucideIcons[capitalized as keyof typeof LucideIcons]) {
-    return LucideIcons[capitalized as keyof typeof LucideIcons] as React.ComponentType<any>;
+  if (lucideIconMap[capitalized]) {
+    return lucideIconMap[capitalized] as React.ComponentType<any>;
   }
 
   // Fallback
-  return LucideIcons.Info as React.ComponentType<any>;
+  if (__DEV__) {
+    console.warn(`EmptyState: unknown icon "${name}", falling back to Info`);
+  }
+  return lucideIconMap.Info as React.ComponentType<any>;
 };
 
 export function EmptyState({
@@ -71,7 +75,7 @@ export function EmptyState({
     >
       {/* Icon Wrapper */}
       <View className="w-16 h-16 rounded-lg bg-surface-03 border border-line-subtle items-center justify-center mb-4">
-        {IconComponent && <IconComponent size={32} color="hsl(240 4% 41%)" />}
+        {IconComponent && <IconComponent size={32} color={COLORS.contentMuted} />}
       </View>
 
       {/* Copy */}

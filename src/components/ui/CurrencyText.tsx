@@ -62,7 +62,9 @@ export function CurrencyText({
 
   return (
     <Text
-      className={cn(colorClass, sizeClasses[size], className)}
+      // When an explicit `variant` is passed it owns the type ramp — don't
+      // also apply the size classes or the two would conflict.
+      className={cn(colorClass, variant ? undefined : sizeClasses[size], className)}
       variant={variant}
       tabular
       {...props}

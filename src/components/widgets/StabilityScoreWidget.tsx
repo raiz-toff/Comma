@@ -2,6 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import Svg, { Path, Defs, LinearGradient, Stop, Circle } from "react-native-svg";
 import { Text } from "../ui/text";
+import { COLORS, KPI, TIERS, withAlpha } from "@/src/theme/colors";
 
 interface StabilityScoreWidgetProps {
   score: number;
@@ -9,9 +10,9 @@ interface StabilityScoreWidgetProps {
 }
 
 function tierFor(score: number): { label: string; color: string } {
-  if (score >= 75) return { label: "Highly Stable", color: "#22c55e" };
-  if (score >= 45) return { label: "Moderate Variance", color: "#f59e0b" };
-  return { label: "Highly Volatile", color: "#FF5247" };
+  if (score >= 75) return { label: "Highly Stable", color: TIERS.elite };
+  if (score >= 45) return { label: "Moderate Variance", color: TIERS.pro };
+  return { label: "Highly Volatile", color: COLORS.destructive };
 }
 
 export default function StabilityScoreWidget({ score, weeklyGross }: StabilityScoreWidgetProps) {
@@ -40,30 +41,34 @@ export default function StabilityScoreWidget({ score, weeklyGross }: StabilitySc
     <View style={{ gap: 16 }}>
       <View>
         <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
-          <Text style={{ fontSize: 36, fontWeight: "900", color: tier.color, letterSpacing: -1, lineHeight: 42, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>{clampedScore}</Text>
-          <Text style={{ fontSize: 14, fontWeight: "700", color: "#9B9BA4", lineHeight: 18, includeFontPadding: false }}>/ 100</Text>
+          <Text variant="headingXl" tabular style={{ color: tier.color, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>{clampedScore}</Text>
+          <Text variant="labelM" tabular style={{ color: COLORS.contentSecondary, includeFontPadding: false }}>/ 100</Text>
         </View>
         <View style={{ flexDirection: "row", marginTop: 6 }}>
-          <View style={{ backgroundColor: tier.color + "20", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-            <Text style={{ fontSize: 11, fontWeight: "800", color: tier.color, textTransform: "uppercase", letterSpacing: 0.5 }}>{tier.label}</Text>
+          <View style={{ backgroundColor: withAlpha(tier.color, 0.12), paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+            <Text variant="labelXs" style={{ color: tier.color }}>{tier.label}</Text>
           </View>
         </View>
       </View>
 
-      <View style={{ height: 50 }}>
+      <View
+        accessible={true}
+        accessibilityLabel={`Stability score ${clampedScore} of 100, ${tier.label}. Weekly gross trend sparkline, all-time.`}
+        style={{ height: 50 }}
+      >
         <Svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
           <Defs>
             <LinearGradient id="stab-grad" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0%" stopColor={tier.color} stopOpacity={0.3} />
-              <Stop offset="100%" stopColor={tier.color} stopOpacity={0} />
+              <Stop offset="0%" stopColor={KPI.gross} stopOpacity={0.3} />
+              <Stop offset="100%" stopColor={KPI.gross} stopOpacity={0} />
             </LinearGradient>
           </Defs>
           <Path d={areaD} fill="url(#stab-grad)" />
-          <Path d={pathD} fill="none" stroke={tier.color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-          {last && <Circle cx={last.x} cy={last.y} r={2.5} fill={tier.color} />}
+          <Path d={pathD} fill="none" stroke={KPI.gross} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+          {last && <Circle cx={last.x} cy={last.y} r={2.5} fill={KPI.gross} />}
         </Svg>
       </View>
-      <Text style={{ fontSize: 10, fontWeight: "700", color: "#65656E", textTransform: "uppercase", letterSpacing: 0.5 }}>
+      <Text variant="labelXs" style={{ color: COLORS.contentMuted }}>
         Weekly gross trend, all-time
       </Text>
     </View>

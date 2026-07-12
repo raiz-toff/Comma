@@ -15,7 +15,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   Switch,
@@ -25,7 +24,9 @@ import {
   ActivityIndicator,
   StyleSheet,
   Platform,
+  KeyboardAvoidingView,
 } from "react-native";
+import { Text } from "@/src/components/ui/text";
 import * as Sharing from "expo-sharing";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
@@ -50,41 +51,42 @@ import { generateShiftsCSV, generateExpensesCSV } from "@/utils/reportGenerator"
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { notify } from "@/src/services/notify";
 import { FeedbackDialog, BusyOverlay, type FeedbackVariant } from "@/src/components/ui/FeedbackDialog";
+import { COLORS, withAlpha } from "@/src/theme/colors";
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
 
-/** Single source of truth for all colours and radii. */
+/** Single source of truth for all colours and radii — values come from the DS COLORS mirror. */
 const DS = {
-  pageBg: "#000",
-  cardBg: "#0F0F12",
-  cardBorder: "#1E1E23",
-  inputBg: "#16161A",
-  inputBorder: "#2E2E36",
-  sep: "#1E1E23",
+  pageBg: COLORS.background,
+  cardBg: COLORS.surface02,
+  cardBorder: COLORS.lineSubtle,
+  inputBg: COLORS.surface03,
+  inputBorder: COLORS.lineStrong,
+  sep: COLORS.lineSubtle,
 
-  brand: "#F6F6F7",
-  brandSurface: "rgba(255, 255, 255, 0.08)",
-  brandBorder: "rgba(255, 255, 255, 0.18)",
-  brandText: "#F6F6F7",
+  brand: COLORS.contentPrimary,
+  brandSurface: COLORS.surface04,
+  brandBorder: COLORS.lineStrong,
+  brandText: COLORS.contentPrimary,
 
-  danger: "#FF5247",
-  dangerSurface: "rgba(244,63,94,0.07)",
-  dangerBorder: "rgba(244,63,94,0.22)",
-  dangerText: "#fb7185",
+  danger: COLORS.destructive,
+  dangerSurface: withAlpha(COLORS.destructive, 0.12),
+  dangerBorder: withAlpha(COLORS.destructive, 0.25),
+  dangerText: COLORS.destructive,
 
-  textPrimary: "#F6F6F7",
-  textSecondary: "#65656E",
-  textMuted: "#2E2E36",
-  textLabel: "#48473f",   // floating section labels
+  textPrimary: COLORS.contentPrimary,
+  textSecondary: COLORS.contentSecondary,
+  textMuted: COLORS.contentMuted,
+  textLabel: COLORS.contentMuted,   // floating section labels
 
-  rCard: 18,
-  rInput: 11,
+  rCard: 16,
+  rInput: 12,
   rChip: 8,
   rPill: 20,
 
   pagePad: 16,
-  cardPad: 15,
-  rowPad: 13,
+  cardPad: 16,
+  rowPad: 12,
 } as const;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -112,7 +114,7 @@ async function readSetting(key: string): Promise<string> {
 
 /** Floating uppercase label above a card group — matches PWA `settings-section-title`. */
 function GroupLabel({ text }: { text: string }) {
-  return <Text style={s.groupLabel}>{text.toUpperCase()}</Text>;
+  return <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>{text.toUpperCase()}</Text>;
 }
 
 /** Rounded card surface. Pass `danger` for the red-tinted danger zone variant. */
@@ -169,15 +171,15 @@ function Row({
     <>
       {block ? (
         <View style={s.rowBlock}>
-          <Text style={s.rowLabel}>{label}</Text>
-          {hint ? <Text style={s.rowHint}>{hint}</Text> : null}
+          <Text variant="labelM">{label}</Text>
+          {hint ? <Text variant="paragraphS" className="text-content-secondary" style={s.rowHint}>{hint}</Text> : null}
           <View style={s.rowBlockBody}>{children}</View>
         </View>
       ) : (
         <View style={s.rowInline}>
           <View style={s.rowInlineLabel}>
-            <Text style={s.rowLabel}>{label}</Text>
-            {hint ? <Text style={s.rowHint}>{hint}</Text> : null}
+            <Text variant="labelM">{label}</Text>
+            {hint ? <Text variant="paragraphS" className="text-content-secondary" style={s.rowHint}>{hint}</Text> : null}
           </View>
           <View style={s.rowInlineControl}>{children}</View>
         </View>
@@ -207,6 +209,8 @@ function Segmented<T extends string>({
           <TouchableOpacity
             key={opt.value}
             onPress={() => onChange(opt.value)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
             style={[s.segBtn, on && s.segBtnOn]}
           >
             <Text style={[s.segText, on && s.segTextOn]}>{opt.label}</Text>
@@ -240,6 +244,8 @@ function Chips<T extends string>({
           <TouchableOpacity
             key={opt.value}
             onPress={() => onChange(opt.value)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
             style={[
               s.chip,
               on && (danger ? s.chipDangerOn : { borderColor: accentColorMid, backgroundColor: accentColorDim }),
@@ -276,7 +282,7 @@ function InlineInput(props: React.ComponentProps<typeof TextInput>) {
       placeholderTextColor={DS.textMuted}
       selectionColor={DS.textPrimary}
       cursorColor={DS.textPrimary}
-      style={[s.inlineInput, style, { color: "#FFFFFF" }]}
+      style={[s.inlineInput, style, { color: COLORS.contentPrimary }]}
       {...restProps}
     />
   );
@@ -290,7 +296,7 @@ function FullInput(props: React.ComponentProps<typeof TextInput>) {
       placeholderTextColor={DS.textMuted}
       selectionColor={DS.textPrimary}
       cursorColor={DS.textPrimary}
-      style={[s.fullInput, style, { color: "#FFFFFF" }]}
+      style={[s.fullInput, style, { color: COLORS.contentPrimary }]}
       {...restProps}
     />
   );
@@ -319,6 +325,9 @@ function Btn({
     <TouchableOpacity
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      activeOpacity={0.7}
       style={[s.btn, { backgroundColor: v.bg, borderColor: v.border, opacity: disabled ? 0.5 : 1 }]}
     >
       <Text style={[s.btnText, { color: v.text }]}>{label}</Text>
@@ -377,6 +386,10 @@ function ColorPicker({ selectedColor, onSelectColor }: { selectedColor: string; 
           <TouchableOpacity
             key={c}
             onPress={() => onSelectColor(c)}
+            accessibilityRole="button"
+            accessibilityLabel={`Color ${c}`}
+            accessibilityState={{ selected: isSelected }}
+            hitSlop={8}
             style={[
               {
                 width: 28,
@@ -386,17 +399,17 @@ function ColorPicker({ selectedColor, onSelectColor }: { selectedColor: string; 
                 alignItems: "center",
                 justifyContent: "center",
                 borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.1)",
+                borderColor: COLORS.lineStrong,
               },
               isSelected && {
                 borderWidth: 2.5,
-                borderColor: "#F6F6F7",
+                borderColor: COLORS.contentPrimary,
                 transform: [{ scale: 1.1 }],
               }
             ]}
           >
             {isSelected && (
-              <Check size={12} color={c.toLowerCase() === "#F6F6F7" ? "#000" : "#F6F6F7"} strokeWidth={3.5} />
+              <Check size={12} color={c.toLowerCase() === "#F6F6F7" ? "#000" : COLORS.contentPrimary} strokeWidth={3.5} />
             )}
           </TouchableOpacity>
         );
@@ -414,6 +427,10 @@ function EmojiPicker({ selectedEmoji, onSelectEmoji }: { selectedEmoji: string; 
           <TouchableOpacity
             key={e}
             onPress={() => onSelectEmoji(e)}
+            accessibilityRole="button"
+            accessibilityLabel={`Emoji ${e}`}
+            accessibilityState={{ selected: isSelected }}
+            hitSlop={6}
             style={[
               {
                 width: 34,
@@ -426,8 +443,8 @@ function EmojiPicker({ selectedEmoji, onSelectEmoji }: { selectedEmoji: string; 
                 borderColor: DS.inputBorder,
               },
               isSelected && {
-                borderColor: "#F6F6F7",
-                backgroundColor: "rgba(255,255,255,0.08)",
+                borderColor: COLORS.contentPrimary,
+                backgroundColor: COLORS.surface04,
                 transform: [{ scale: 1.1 }],
               }
             ]}
@@ -843,18 +860,28 @@ export default function SettingsScreen() {
       {/* ── Header ── */}
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
         <View style={s.headerLeft}>
-          <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            hitSlop={8}
+            style={s.backBtn}
+          >
             <ChevronLeft color={DS.textPrimary} size={20} />
           </TouchableOpacity>
           <View>
-            <Text style={s.headerTitle}>Settings</Text>
-            <Text style={s.headerSub}>Configure your vault</Text>
+            <Text variant="headingS">Settings</Text>
+            <Text variant="paragraphS" className="text-content-secondary" style={{ marginTop: 1 }}>Configure your vault</Text>
           </View>
         </View>
 
         <TouchableOpacity
           onPress={handleSave}
           disabled={isSaving}
+          accessibilityRole="button"
+          accessibilityLabel="Save settings"
+          accessibilityState={{ disabled: isSaving }}
+          activeOpacity={0.8}
           style={[
             s.saveBtn,
             { backgroundColor: accentColor },
@@ -866,7 +893,7 @@ export default function SettingsScreen() {
           ) : savedFeedback ? (
             <Check size={14} color={accentColor} />
           ) : (
-            <Text style={[s.saveBtnText, { color: accentColorContrast }]}>Save</Text>
+            <Text variant="labelM" style={{ color: accentColorContrast }}>Save</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -884,18 +911,22 @@ export default function SettingsScreen() {
             <TouchableOpacity
               key={id}
               onPress={() => setActiveTab(id)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: on }}
+              hitSlop={{ top: 8, bottom: 8 }}
               style={[
                 s.tab,
                 on && { backgroundColor: accentColorDim, borderColor: accentColorMid }
               ]}
             >
-              <Text style={[s.tabText, on && { color: accentColor }]}>{label}</Text>
+              <Text variant="labelM" style={[s.tabText, on && { color: accentColor }]}>{label}</Text>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
       {/* ── Tab content ── */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView
         style={s.scroll}
         contentContainerStyle={s.scrollContent}
@@ -928,9 +959,10 @@ export default function SettingsScreen() {
             <GroupLabel text="Profile" />
             <TouchableOpacity
               onPress={() => router.push("/settings/profile")}
+              accessibilityRole="button"
               style={{
                 backgroundColor: DS.inputBg,
-                borderRadius: 14,
+                borderRadius: 12,
                 borderWidth: 0.5,
                 borderColor: DS.inputBorder,
                 paddingHorizontal: 16,
@@ -946,15 +978,15 @@ export default function SettingsScreen() {
                 backgroundColor: accentColorDim, borderWidth: 1, borderColor: accentColorMid,
                 justifyContent: "center", alignItems: "center",
               }}>
-                <Text style={{ fontSize: 16, fontWeight: "800", color: accentColor }}>
+                <Text variant="headingS" style={{ color: accentColor }}>
                   {(profile?.displayName || "D").charAt(0).toUpperCase()}
                 </Text>
               </View>
               <View style={{ flex: 1, gap: 2 }}>
-                <Text style={{ fontSize: 15, fontWeight: "700", color: DS.textPrimary }}>
+                <Text variant="labelL">
                   {profile?.displayName || "Driver"}
                 </Text>
-                <Text style={{ fontSize: 12, color: DS.textSecondary, fontWeight: "500" }}>
+                <Text variant="paragraphS" className="text-content-secondary">
                   {COUNTRIES.find(c => c.id === profile?.country)?.label?.replace(/^\S+\s/, "") || profile?.country} · {profile?.taxRegion} · {profile?.distanceUnit ?? "km"}
                 </Text>
               </View>
@@ -983,26 +1015,27 @@ export default function SettingsScreen() {
                   <View key={feature.key}>
                     <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 4, gap: 12 }}>
                       {meta && (
-                        <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: active ? accentColor + "1a" : DS.inputBorder + "44", justifyContent: "center", alignItems: "center" }}>
+                        <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: active ? accentColorDim : withAlpha(COLORS.lineStrong, 0.25), justifyContent: "center", alignItems: "center" }}>
                           <meta.Icon size={18} color={active ? accentColor : DS.textSecondary} />
                         </View>
                       )}
                       <View style={{ flex: 1, gap: 2 }}>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                          <Text style={{ fontSize: 14, fontWeight: "600", color: DS.textPrimary }}>{feature.label}</Text>
+                          <Text variant="labelM">{feature.label}</Text>
                           {meta && (
-                            <View style={{ backgroundColor: DS.inputBorder + "66", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
-                              <Text style={{ fontSize: 10, fontWeight: "700", color: DS.textSecondary, textTransform: "uppercase", letterSpacing: 0.4 }}>{meta.where}</Text>
+                            <View style={{ backgroundColor: withAlpha(COLORS.lineStrong, 0.4), borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                              <Text variant="labelXs" className="text-content-secondary">{meta.where}</Text>
                             </View>
                           )}
                         </View>
-                        <Text style={{ fontSize: 12, color: DS.textSecondary, lineHeight: 16 }}>{feature.description}</Text>
+                        <Text variant="paragraphS" className="text-content-secondary">{feature.description}</Text>
                       </View>
                       <Switch
                         value={active}
                         onValueChange={(val) => updateFeatureOverride(feature.key, val)}
+                        accessibilityLabel={feature.label}
                         trackColor={{ false: DS.inputBorder, true: accentColor }}
-                        thumbColor="#F6F6F7"
+                        thumbColor={COLORS.contentPrimary}
                       />
                     </View>
                     {idx < arr.length - 1 && <Sep />}
@@ -1038,10 +1071,14 @@ export default function SettingsScreen() {
                         <TouchableOpacity
                           key={hex}
                           onPress={() => setSelectedAccent(hex)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Accent color ${hex}`}
+                          accessibilityState={{ selected: on }}
+                          hitSlop={8}
                           style={[
                             s.swatch,
                             { backgroundColor: hex },
-                            on && { borderWidth: 2.5, borderColor: hex === "#F6F6F7" ? "#65656E" : "#F6F6F7" }
+                            on && { borderWidth: 2.5, borderColor: hex === "#F6F6F7" ? COLORS.contentMuted : COLORS.contentPrimary }
                           ]}
                         />
                       );
@@ -1054,7 +1091,7 @@ export default function SettingsScreen() {
             <GroupLabel text="Regional & Locale" />
             <Card>
               <Row label="Currency" hint={`Locked to your country currency (${currency})`} last={false}>
-                <Text style={{ color: DS.textSecondary, fontSize: 14, fontWeight: "500" }}>
+                <Text variant="labelM" className="text-content-secondary">
                   {currency}
                 </Text>
               </Row>
@@ -1111,9 +1148,9 @@ export default function SettingsScreen() {
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
                     <PlatformBadge platform={pKey} size="sm" />
                     <View style={{ flex: 1 }}>
-                      <Text style={s.rowLabel}>{resolvedLabel}</Text>
+                      <Text variant="labelM">{resolvedLabel}</Text>
                       {cfg.active && (
-                        <Text style={[s.rowHint, { color: accentColor }]}>
+                        <Text variant="paragraphS" style={[s.rowHint, { color: accentColor }]}>
                           {isExpanded ? "Hide settings" : "Configure settings"}
                         </Text>
                       )}
@@ -1137,8 +1174,9 @@ export default function SettingsScreen() {
                           setExpandedPlatforms((prev) => ({ ...prev, [pKey]: true }));
                         }
                       }}
+                      accessibilityLabel={resolvedLabel}
                       trackColor={{ false: DS.inputBorder, true: accentColor }}
-                      thumbColor="#F6F6F7"
+                      thumbColor={COLORS.contentPrimary}
                     />
                   </View>
                 </TouchableOpacity>
@@ -1158,7 +1196,7 @@ export default function SettingsScreen() {
                         <Row label="Theme Color" last={false} block>
                           <View style={{ gap: 6 }}>
                             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                              <Text style={{ color: DS.textSecondary, fontSize: 12 }}>Hex Color Code</Text>
+                              <Text variant="paragraphS" className="text-content-secondary">Hex Color Code</Text>
                               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                                 <InlineInput
                                   value={cfg.customColor ?? ""}
@@ -1178,7 +1216,7 @@ export default function SettingsScreen() {
                         <Row label="Logo/Emoji" last={false} block>
                           <View style={{ gap: 6 }}>
                             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                              <Text style={{ color: DS.textSecondary, fontSize: 12 }}>Custom Emoji</Text>
+                              <Text variant="paragraphS" className="text-content-secondary">Custom Emoji</Text>
                               <InlineInput
                                 value={cfg.customEmoji ?? ""}
                                 placeholder="e.g. 🚲"
@@ -1269,13 +1307,7 @@ export default function SettingsScreen() {
                 paddingHorizontal: 12,
                 marginBottom: 4,
               }}>
-                <Text style={{
-                  color: DS.textSecondary,
-                  fontSize: 10,
-                  fontWeight: "800",
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                }}>
+                <Text variant="labelXs" className="text-content-secondary">
                   Platforms available in your region ({countryDef.label})
                 </Text>
               </View>
@@ -1283,7 +1315,7 @@ export default function SettingsScreen() {
               {activeKeys.length === 0 ? (
                 <Card>
                   <View style={{ padding: 16, alignItems: "center" }}>
-                    <Text style={{ color: DS.textSecondary, fontSize: 12, fontStyle: "italic", textAlign: "center" }}>
+                    <Text variant="paragraphS" className="text-content-secondary" style={{ textAlign: "center" }}>
                       No active platforms. Enable one below to get started.
                     </Text>
                   </View>
@@ -1302,6 +1334,8 @@ export default function SettingsScreen() {
                   <Card>
                     <TouchableOpacity
                       onPress={() => setShowOtherPlatforms(!showOtherPlatforms)}
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: showOtherPlatforms }}
                       style={{
                         flexDirection: "row",
                         justifyContent: "space-between",
@@ -1310,7 +1344,7 @@ export default function SettingsScreen() {
                         paddingHorizontal: 16,
                       }}
                     >
-                      <Text style={{ color: DS.textPrimary, fontSize: 13, fontWeight: "600" }}>
+                      <Text variant="labelM">
                         {showOtherPlatforms ? "Hide other platforms" : `Show other platforms (${inactiveKeys.length} available)`}
                       </Text>
                       <Text style={{ color: accentColor, fontSize: 16, fontWeight: "700" }}>
@@ -1341,15 +1375,16 @@ export default function SettingsScreen() {
                             >
                               <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                                 <PlatformBadge platform={pKey} size="sm" />
-                                <Text style={{ color: DS.textPrimary, fontSize: 13, fontWeight: "600" }}>
+                                <Text variant="labelM">
                                   {cfg.customLabel || dbPlatforms.find((p) => p.id === pKey)?.label || PLATFORMS[pKey]?.label || pKey}
                                 </Text>
                               </View>
                               <Switch
                                 value={cfg.active}
                                 onValueChange={(v) => updateCfg({ active: v })}
+                                accessibilityLabel={cfg.customLabel || dbPlatforms.find((p) => p.id === pKey)?.label || PLATFORMS[pKey]?.label || pKey}
                                 trackColor={{ false: DS.inputBorder, true: accentColor }}
-                                thumbColor="#F6F6F7"
+                                thumbColor={COLORS.contentPrimary}
                               />
                             </View>
                           );
@@ -1367,6 +1402,7 @@ export default function SettingsScreen() {
                   {!isAddingCustom ? (
                     <TouchableOpacity
                       onPress={() => setIsAddingCustom(true)}
+                      accessibilityRole="button"
                       style={{
                         flexDirection: "row",
                         justifyContent: "center",
@@ -1376,19 +1412,19 @@ export default function SettingsScreen() {
                         gap: 8,
                       }}
                     >
-                      <Text style={{ color: accentColor, fontSize: 13, fontWeight: "700" }}>
+                      <Text variant="labelM" style={{ color: accentColor }}>
                         + Create Custom Platform
                       </Text>
                     </TouchableOpacity>
                   ) : (
                     <View style={{ padding: 16, gap: 16 }}>
-                      <Text style={{ color: DS.textPrimary, fontSize: 14, fontWeight: "700" }}>
+                      <Text variant="labelM">
                         New Custom Platform
                       </Text>
 
                       {/* Platform Name */}
                       <View style={{ gap: 6 }}>
-                        <Text style={{ color: DS.textSecondary, fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>Platform Name</Text>
+                        <Text variant="labelXs" className="text-content-secondary">Platform Name</Text>
                         <TextInput
                           value={newPlatformLabel}
                           onChangeText={setNewPlatformLabel}
@@ -1404,7 +1440,7 @@ export default function SettingsScreen() {
                       {/* Theme Color */}
                       <View style={{ gap: 8 }}>
                         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                          <Text style={{ color: DS.textSecondary, fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>Theme Color</Text>
+                          <Text variant="labelXs" className="text-content-secondary">Theme Color</Text>
                           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                             <TextInput
                               value={newPlatformColor}
@@ -1413,7 +1449,7 @@ export default function SettingsScreen() {
                               placeholderTextColor={DS.textMuted}
                               style={[s.inlineInput, { width: 95 }]}
                             />
-                            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: newPlatformColor || "#9B9BA4", borderWidth: 1, borderColor: "rgba(255,255,255,0.15)" }} />
+                            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: newPlatformColor || "#9B9BA4", borderWidth: 1, borderColor: COLORS.lineStrong }} />
                           </View>
                         </View>
                         <ColorPicker
@@ -1425,7 +1461,7 @@ export default function SettingsScreen() {
                       {/* Emoji Logo */}
                       <View style={{ gap: 8 }}>
                         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                          <Text style={{ color: DS.textSecondary, fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>Emoji Logo</Text>
+                          <Text variant="labelXs" className="text-content-secondary">Emoji Logo</Text>
                           <TextInput
                             value={newPlatformEmoji}
                             onChangeText={setNewPlatformEmoji}
@@ -1447,15 +1483,17 @@ export default function SettingsScreen() {
                             setIsAddingCustom(false);
                             setNewPlatformLabel("");
                           }}
+                          accessibilityRole="button"
+                          activeOpacity={0.7}
                           style={{
                             paddingVertical: 8,
                             paddingHorizontal: 12,
-                            borderRadius: 6,
+                            borderRadius: 8,
                             borderWidth: 1,
                             borderColor: DS.inputBorder,
                           }}
                         >
-                          <Text style={{ color: DS.textSecondary, fontSize: 12, fontWeight: "600" }}>Cancel</Text>
+                          <Text variant="labelM" className="text-content-secondary">Cancel</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -1505,14 +1543,16 @@ export default function SettingsScreen() {
                             setNewPlatformColor("#a855f7");
                             setNewPlatformEmoji("🚲");
                           }}
+                          accessibilityRole="button"
+                          activeOpacity={0.8}
                           style={{
                             paddingVertical: 8,
                             paddingHorizontal: 16,
-                            borderRadius: 6,
+                            borderRadius: 8,
                             backgroundColor: accentColor,
                           }}
                         >
-                          <Text style={{ color: accentColorContrast, fontSize: 12, fontWeight: "700" }}>Add Platform</Text>
+                          <Text variant="labelM" style={{ color: accentColorContrast }}>Add Platform</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -1541,8 +1581,9 @@ export default function SettingsScreen() {
                   <Switch
                     value={notifs[key]}
                     onValueChange={(v) => setNotifs((p) => ({ ...p, [key]: v }))}
+                    accessibilityLabel={label}
                     trackColor={{ false: DS.inputBorder, true: accentColor }}
-                    thumbColor="#F6F6F7"
+                    thumbColor={COLORS.contentPrimary}
                   />
                 </Row>
               ))}
@@ -1662,6 +1703,7 @@ export default function SettingsScreen() {
 
         <View style={{ height: 48 }} />
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* ── Keyboard shortcuts modal ── */}
       <Modal visible={showShortcuts} transparent animationType="fade">
@@ -1672,14 +1714,20 @@ export default function SettingsScreen() {
         >
           <TouchableOpacity activeOpacity={1} style={s.overlayCard}>
             <View style={s.overlayHeader}>
-              <Text style={s.overlayTitle}>Keyboard Shortcuts</Text>
-              <TouchableOpacity onPress={() => setShowShortcuts(false)} style={s.overlayClose}>
+              <Text variant="labelM">Keyboard Shortcuts</Text>
+              <TouchableOpacity
+                onPress={() => setShowShortcuts(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                hitSlop={8}
+                style={s.overlayClose}
+              >
                 <Text style={{ color: DS.textSecondary, fontSize: 16, lineHeight: 16, fontWeight: "700" }}>×</Text>
               </TouchableOpacity>
             </View>
             {KEYBOARD_SHORTCUTS.map((sc) => (
               <View key={sc.keys} style={s.shortcutRow}>
-                <Text style={s.shortcutDesc}>{sc.desc}</Text>
+                <Text variant="paragraphS" className="text-content-secondary">{sc.desc}</Text>
                 <View style={s.kbdBadge}>
                   <Text style={s.kbdText}>{sc.keys}</Text>
                 </View>
@@ -1726,23 +1774,20 @@ const s = StyleSheet.create({
   // ── Header ──────────────────────────────────────────────────────────────────
   header: { paddingHorizontal: DS.pagePad, paddingBottom: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
-  headerTitle: { color: DS.textPrimary, fontSize: 17, fontWeight: "700", letterSpacing: -0.3 },
-  headerSub: { color: DS.textSecondary, fontSize: 10, marginTop: 1 },
   backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: DS.inputBg, borderWidth: 0.5, borderColor: DS.inputBorder, alignItems: "center", justifyContent: "center" },
   saveBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: DS.rPill, backgroundColor: DS.brand, minWidth: 64, alignItems: "center", justifyContent: "center" },
   saveBtnDone: { backgroundColor: DS.brandSurface, borderWidth: 0.5, borderColor: DS.brandBorder },
-  saveBtnText: { color: "#000", fontSize: 12, fontWeight: "700" },
 
   // ── Tab bar ─────────────────────────────────────────────────────────────────
   tabScroll: { flexGrow: 0, marginBottom: 10 },
   tabRow: { paddingHorizontal: DS.pagePad, gap: 6, flexDirection: "row" },
   tab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: DS.rPill, backgroundColor: DS.inputBg, borderWidth: 0.5, borderColor: DS.inputBorder },
   tabOn: { backgroundColor: DS.brandSurface, borderColor: DS.brandBorder },
-  tabText: { fontSize: 12, fontWeight: "600", color: DS.textSecondary },
+  tabText: { color: DS.textSecondary },
   tabTextOn: { color: DS.brandText },
 
   // ── Section label ───────────────────────────────────────────────────────────
-  groupLabel: { fontSize: 10, fontWeight: "700", color: DS.textLabel, letterSpacing: 0.9, marginBottom: 6, marginTop: 20, textTransform: "uppercase", paddingHorizontal: 2 },
+  groupLabel: { marginBottom: 6, marginTop: 20, paddingHorizontal: 2 },
 
   // ── Card ─────────────────────────────────────────────────────────────────────
   card: { backgroundColor: DS.cardBg, borderRadius: DS.rCard, borderWidth: 0.5, borderColor: DS.cardBorder, overflow: "hidden" },
@@ -1759,15 +1804,14 @@ const s = StyleSheet.create({
   rowBlock: { paddingHorizontal: DS.cardPad, paddingTop: DS.rowPad, paddingBottom: DS.rowPad },
   rowBlockBody: { marginTop: 10 },
 
-  rowLabel: { color: DS.textPrimary, fontSize: 14, fontWeight: "500" },
-  rowHint: { color: DS.textSecondary, fontSize: 10.5, marginTop: 2 },
+  rowHint: { marginTop: 2 },
 
   // ── Segmented control ───────────────────────────────────────────────────────
   segmented: { flexDirection: "row", backgroundColor: DS.inputBg, borderRadius: DS.rInput, borderWidth: 0.5, borderColor: DS.inputBorder, padding: 3, minWidth: 140 },
   segBtn: { flex: 1, paddingVertical: 5, borderRadius: DS.rInput - 2, alignItems: "center" },
   segBtnOn: { backgroundColor: DS.cardBg, borderWidth: 0.5, borderColor: DS.cardBorder },
-  segText: { fontSize: 11, fontWeight: "600", color: "#FFFFFF" },
-  segTextOn: { color: "#FFFFFF" },
+  segText: { fontSize: 11, fontWeight: "600", color: DS.textSecondary },
+  segTextOn: { color: DS.textPrimary },
 
   // ── Chips ────────────────────────────────────────────────────────────────────
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
@@ -1784,7 +1828,7 @@ const s = StyleSheet.create({
     borderRadius: DS.rInput,
     borderWidth: 0.5,
     borderColor: DS.inputBorder,
-    color: "#FFFFFF",
+    color: DS.textPrimary,
     fontSize: 14,
     fontWeight: "500" as const,
     paddingHorizontal: 12,
@@ -1797,7 +1841,7 @@ const s = StyleSheet.create({
     borderRadius: DS.rInput,
     borderWidth: 0.5,
     borderColor: DS.inputBorder,
-    color: "#FFFFFF",
+    color: DS.textPrimary,
     fontSize: 14,
     fontWeight: "500" as const,
     paddingHorizontal: 14,
@@ -1812,28 +1856,26 @@ const s = StyleSheet.create({
   // ── Accent swatches ─────────────────────────────────────────────────────────
   swatches: { flexDirection: "row", gap: 8, paddingVertical: 2 },
   swatch: { width: 26, height: 26, borderRadius: 13 },
-  swatchOn: { borderWidth: 2.5, borderColor: "#F6F6F7" },
+  swatchOn: { borderWidth: 2.5, borderColor: DS.textPrimary },
 
   // ── Widget list (Appearance tab) ─────────────────────────────────────────────
   widgetList: { gap: 6 },
-  widgetRow: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: DS.inputBg, borderRadius: 10, borderWidth: 0.5, borderColor: DS.inputBorder, paddingHorizontal: 10, paddingVertical: 8 },
+  widgetRow: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: DS.inputBg, borderRadius: 12, borderWidth: 0.5, borderColor: DS.inputBorder, paddingHorizontal: 10, paddingVertical: 8 },
   widgetDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: DS.brand },
   widgetLabel: { flex: 1, color: DS.textPrimary, fontSize: 12, fontWeight: "500" },
   widgetActions: { flexDirection: "row", gap: 4 },
-  iconBtn: { width: 24, height: 24, borderRadius: 6, backgroundColor: DS.cardBg, borderWidth: 0.5, borderColor: DS.cardBorder, alignItems: "center", justifyContent: "center" },
+  iconBtn: { width: 24, height: 24, borderRadius: 8, backgroundColor: DS.cardBg, borderWidth: 0.5, borderColor: DS.cardBorder, alignItems: "center", justifyContent: "center" },
 
   // ── Pre/code block (integrity output) ───────────────────────────────────────
   preBlock: { backgroundColor: DS.inputBg, borderRadius: DS.rCard, borderWidth: 0.5, borderColor: DS.inputBorder, padding: 14, marginTop: 8 },
   preText: { color: DS.textSecondary, fontSize: 11, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", lineHeight: 17 },
 
   // ── Shortcuts modal ─────────────────────────────────────────────────────────
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "center", alignItems: "center", padding: 20 },
+  overlay: { flex: 1, backgroundColor: COLORS.scrim, justifyContent: "center", alignItems: "center", padding: 20 },
   overlayCard: { width: "100%", maxWidth: 360, backgroundColor: DS.cardBg, borderRadius: DS.rCard, borderWidth: 0.5, borderColor: DS.cardBorder, padding: 18, gap: 12 },
   overlayHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: DS.sep },
-  overlayTitle: { color: DS.textPrimary, fontSize: 14, fontWeight: "700" },
   overlayClose: { width: 28, height: 28, borderRadius: 14, backgroundColor: DS.inputBg, borderWidth: 0.5, borderColor: DS.inputBorder, alignItems: "center", justifyContent: "center" },
   shortcutRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 2 },
-  shortcutDesc: { color: DS.textSecondary, fontSize: 12 },
-  kbdBadge: { backgroundColor: DS.inputBg, borderWidth: 0.5, borderColor: DS.inputBorder, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  kbdBadge: { backgroundColor: DS.inputBg, borderWidth: 0.5, borderColor: DS.inputBorder, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
   kbdText: { color: DS.brandText, fontSize: 11, fontWeight: "700", fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" },
 });

@@ -2,6 +2,7 @@ import React from "react";
 import { Modal, View, Pressable, ActivityIndicator, StyleSheet } from "react-native";
 import { Text } from "@/src/components/ui/text";
 import { CheckCircle2, AlertTriangle, Info } from "lucide-react-native";
+import { COLORS, withAlpha } from "@/src/theme/colors";
 
 export type FeedbackVariant = "success" | "error" | "info";
 
@@ -36,12 +37,23 @@ interface FeedbackDialogProps {
   accentColor?: string;
 }
 
-// Semantic tints (fixed). Success = #1FC16B, Danger = #FF5247. Info falls back to user accent.
+// Semantic tints (fixed). Success = COLORS.success, Danger = COLORS.destructive,
+// Info = COLORS.info (falls back to user accent when provided).
 const VARIANT_COLORS: Record<FeedbackVariant, string> = {
-  success: "#1FC16B",
-  error: "#FF5247",
-  info: "#1FC16B",
+  success: COLORS.success,
+  error: COLORS.destructive,
+  info: COLORS.info,
 };
+
+/** Contrast text on a tint background (tint may be any caller-supplied accent). */
+function getContrastColor(hex: string): string {
+  const clean = hex.replace("#", "");
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness > 155 ? "#1a1916" : "#ffffff";
+}
 
 function VariantIcon({ variant, color }: { variant: FeedbackVariant; color: string }) {
   if (variant === "success") return <CheckCircle2 size={26} color={color} />;
@@ -65,18 +77,20 @@ export function FeedbackDialog({
   const tint = variant === "info" ? accentColor || VARIANT_COLORS.info : VARIANT_COLORS[variant];
   const confirmTint = confirmDanger ? VARIANT_COLORS.error : tint;
   const handleConfirm = onConfirm ?? onClose;
+  const tintContrast = getContrastColor(tint);
+  const confirmContrast = confirmDanger ? COLORS.contentPrimary : getContrastColor(confirmTint);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.overlay} onPress={onClose}>
         {/* Stop propagation so taps inside the card don't dismiss */}
         <Pressable style={s.card} onPress={() => {}}>
-          <View style={[s.iconWrap, { backgroundColor: tint + "1f", borderColor: tint + "40" }]}>
+          <View style={[s.iconWrap, { backgroundColor: withAlpha(tint, 0.12), borderColor: withAlpha(tint, 0.25) }]}>
             <VariantIcon variant={variant} color={tint} />
           </View>
 
-          <Text style={s.title}>{title}</Text>
-          {message ? <Text style={s.message}>{message}</Text> : null}
+          <Text variant="headingS" style={s.centered}>{title}</Text>
+          {message ? <Text variant="paragraphM" style={s.centered}>{message}</Text> : null}
 
           {actions && actions.length > 0 ? (
             <View style={s.stack}>
@@ -84,27 +98,41 @@ export function FeedbackDialog({
                 <Pressable
                   key={a.label}
                   onPress={a.onPress}
-                  style={[
-                    s.stackBtn,
-                    a.variant === "neutral" ? { backgroundColor: "#1C1C21" } : { backgroundColor: tint },
-                  ]}
+                  accessibilityRole="button"
+                  style={[s.stackBtn, a.variant === "neutral" ? { backgroundColor: COLORS.surface04 } : { backgroundColor: tint }]}
                 >
-                  <Text style={a.variant === "neutral" ? s.cancelText : s.confirmText}>{a.label}</Text>
+                  {a.variant === "neutral" ? (
+                    <Text variant="labelL" className="text-content-secondary">{a.label}</Text>
+                  ) : (
+                    <Text variant="labelL" style={{ color: tintContrast }}>{a.label}</Text>
+                  )}
                 </Pressable>
               ))}
-              <Pressable onPress={onClose} style={[s.stackBtn, { backgroundColor: "#1C1C21" }]}>
-                <Text style={s.cancelText}>{cancelLabel ?? "Cancel"}</Text>
+              <Pressable
+                onPress={onClose}
+                accessibilityRole="button"
+                style={[s.stackBtn, { backgroundColor: COLORS.surface04 }]}
+              >
+                <Text variant="labelL" className="text-content-secondary">{cancelLabel ?? "Cancel"}</Text>
               </Pressable>
             </View>
           ) : (
             <View style={s.footer}>
               {cancelLabel ? (
-                <Pressable onPress={onClose} style={s.cancelBtn}>
-                  <Text style={s.cancelText} numberOfLines={1}>{cancelLabel}</Text>
+                <Pressable
+                  onPress={onClose}
+                  accessibilityRole="button"
+                  style={s.cancelBtn}
+                >
+                  <Text variant="labelL" className="text-content-secondary" numberOfLines={1}>{cancelLabel}</Text>
                 </Pressable>
               ) : null}
-              <Pressable onPress={handleConfirm} style={[s.confirmBtn, { backgroundColor: confirmTint }]}>
-                <Text style={[s.confirmText, confirmDanger && { color: "#fff" }]} numberOfLines={1}>{confirmLabel}</Text>
+              <Pressable
+                onPress={handleConfirm}
+                accessibilityRole="button"
+                style={[s.confirmBtn, { backgroundColor: confirmTint }]}
+              >
+                <Text variant="labelL" style={{ color: confirmContrast }} numberOfLines={1}>{confirmLabel}</Text>
               </Pressable>
             </View>
           )}
@@ -115,13 +143,13 @@ export function FeedbackDialog({
 }
 
 /** Standalone blocking spinner overlay, themed to match the app. */
-export function BusyOverlay({ visible, label, accentColor = "#10b981" }: { visible: boolean; label?: string; accentColor?: string }) {
+export function BusyOverlay({ visible, label, accentColor = COLORS.primary }: { visible: boolean; label?: string; accentColor?: string }) {
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={s.overlay}>
         <View style={[s.card, { alignItems: "center", gap: 14 }]}>
           <ActivityIndicator size="large" color={accentColor} />
-          {label ? <Text style={s.message}>{label}</Text> : null}
+          {label ? <Text variant="paragraphM" style={s.centered}>{label}</Text> : null}
         </View>
       </View>
     </Modal>
@@ -131,7 +159,7 @@ export function BusyOverlay({ visible, label, accentColor = "#10b981" }: { visib
 const s = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: COLORS.scrim,
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
@@ -139,10 +167,10 @@ const s = StyleSheet.create({
   card: {
     width: "100%",
     maxWidth: 340,
-    backgroundColor: "#16161A",   // Surface/03
-    borderRadius: 20,             // radius-xl (sheets)
+    backgroundColor: COLORS.surface03,   // Surface/03
+    borderRadius: 28,                    // DS modal radius
     borderWidth: 1,
-    borderColor: "#1E1E23",       // Border/Subtle
+    borderColor: COLORS.lineSubtle,      // Border/Subtle
     padding: 24,
     gap: 14,
     alignItems: "center",
@@ -155,19 +183,16 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  title: { fontSize: 16, fontWeight: "600", color: "#F6F6F7", textAlign: "center" },     // Heading/S, Text/Primary
-  message: { fontSize: 14, fontWeight: "400", color: "#9B9BA4", textAlign: "center", lineHeight: 20 }, // Paragraph/M, Text/Secondary
+  centered: { textAlign: "center" },
   footer: { flexDirection: "row", gap: 10, marginTop: 4, alignSelf: "stretch" },
   stack: { gap: 10, marginTop: 4, alignSelf: "stretch" },
-  stackBtn: { paddingVertical: 13, borderRadius: 12, alignItems: "center" },
+  stackBtn: { paddingVertical: 12, borderRadius: 12, alignItems: "center" },
   cancelBtn: {
     flex: 1,
-    paddingVertical: 13,
+    paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: "#1C1C21",   // Surface/04
+    backgroundColor: COLORS.surface04,   // Surface/04
     alignItems: "center",
   },
-  cancelText: { color: "#9B9BA4", fontWeight: "600", fontSize: 14 },   // Text/Secondary
-  confirmBtn: { flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: "center" },
-  confirmText: { color: "#000", fontWeight: "800", fontSize: 14 },     // dark text on tint (contrast)
+  confirmBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center" },
 });

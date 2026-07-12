@@ -1,8 +1,7 @@
 import React from "react";
 import { View } from "react-native";
 import { Text } from "../ui/text";
-
-const TEXT_MUTED = "#9B9BA4";
+import { COLORS } from "@/src/theme/colors";
 
 interface BestDayData { day: number; label: string; avgEarnings: number }
 interface BestHourData { hour: number; avgEarnings: number }
@@ -21,8 +20,8 @@ function formatHour(h: number) {
 function Cell({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ flex: 1, minWidth: "45%", gap: 4 }}>
-      <Text style={{ fontSize: 10, fontWeight: "800", color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</Text>
-      <Text style={{ fontSize: 18, fontWeight: "900", color: "#F6F6F7", letterSpacing: -0.3 }} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+      <Text variant="labelXs" style={{ color: COLORS.contentSecondary }}>{label}</Text>
+      <Text variant="headingS" tabular style={{ color: COLORS.contentPrimary }} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
     </View>
   );
 }
@@ -33,7 +32,7 @@ export default function WorkRhythmWidget({ bestDayData, bestHourData, streak, ze
   const bestHour = bestHourData.reduce((p, c) => (p && p.avgEarnings > c.avgEarnings ? p : c), bestHourData[0]);
 
   return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", rowGap: 18, columnGap: 12 }}>
+    <View style={{ flexDirection: "row", flexWrap: "wrap", rowGap: 16, columnGap: 12 }}>
       <Cell label="Best Day" value={bestDay?.label || "—"} />
       <Cell label="Best Hour" value={bestHour ? formatHour(bestHour.hour) : "—"} />
       <Cell label="Streak" value={`${streak.current}d`} />

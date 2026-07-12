@@ -1,13 +1,22 @@
 import * as React from "react";
 import {
   View,
-  Text,
   Pressable,
   StyleSheet,
   Platform,
   Animated,
   PanResponder,
 } from "react-native";
+import { Text } from "@/src/components/ui/text";
+import { COLORS, withAlpha } from "@/src/theme/colors";
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  interpolate,
+  runOnJS,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, usePathname } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
@@ -79,8 +88,8 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
 
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [showDropdown, setShowDropdown] = React.useState(false);
-  const dropdownAnim = React.useRef(new Animated.Value(0)).current;
-  const heightAnim = React.useRef(new Animated.Value(0)).current;
+  const dropdownAnim = useSharedValue(0);
+  const heightAnim = useSharedValue(0);
 
 
 
@@ -120,34 +129,23 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
   React.useEffect(() => {
     if (isExpanded) {
       setShowDropdown(true);
-      Animated.parallel([
-        Animated.spring(dropdownAnim, {
-          toValue: 1,
-          tension: 80,
-          friction: 12,
-          useNativeDriver: false,
-        }),
-        Animated.spring(heightAnim, {
-          toValue: 1,
-          tension: 80,
-          friction: 12,
-          useNativeDriver: false,
-        }),
-      ]).start();
+      // Legacy Animated.spring tension 80 / friction 12 → stiffness 375 / damping 37
+      // (RN's Origami conversion), same rest thresholds. Runs on the UI thread.
+      const spring = {
+        stiffness: 375,
+        damping: 37,
+        mass: 1,
+        restDisplacementThreshold: 0.001,
+        restSpeedThreshold: 0.001,
+      };
+      dropdownAnim.value = withSpring(1, spring);
+      heightAnim.value = withSpring(1, spring);
     } else {
-      Animated.parallel([
-        Animated.timing(dropdownAnim, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver: false,
-        }),
-        Animated.timing(heightAnim, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver: false,
-        }),
-      ]).start(() => {
-        setShowDropdown(false);
+      dropdownAnim.value = withTiming(0, { duration: 180 });
+      heightAnim.value = withTiming(0, { duration: 180 }, (finished) => {
+        if (finished) {
+          runOnJS(setShowDropdown)(false);
+        }
       });
     }
   }, [isExpanded]);
@@ -174,28 +172,28 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
 
   const accentColor = React.useMemo(() => {
     if (isDoubleSelected) {
-      const c1 = PLATFORMS[doublePlatforms[0] as PlatformKey]?.color ?? "#F6F6F7";
-      const c2 = PLATFORMS[doublePlatforms[1] as PlatformKey]?.color ?? "#F6F6F7";
+      const c1 = PLATFORMS[doublePlatforms[0] as PlatformKey]?.color ?? COLORS.contentPrimary;
+      const c2 = PLATFORMS[doublePlatforms[1] as PlatformKey]?.color ?? COLORS.contentPrimary;
       try {
         return blendColors(c1, c2);
       } catch (e) {
         return c1;
       }
     }
-    return activePlatformConfig?.color ?? "#F6F6F7"; // white when "all"
+    return activePlatformConfig?.color ?? COLORS.contentPrimary; // white when "all"
   }, [isDoubleSelected, doublePlatforms, activePlatformConfig]);
 
   const borderPillColor = React.useMemo(() => {
     if (isDoubleSelected) {
-      const c1 = PLATFORMS[doublePlatforms[0] as PlatformKey]?.color ?? "#F6F6F7";
-      const c2 = PLATFORMS[doublePlatforms[1] as PlatformKey]?.color ?? "#F6F6F7";
+      const c1 = PLATFORMS[doublePlatforms[0] as PlatformKey]?.color ?? COLORS.contentPrimary;
+      const c2 = PLATFORMS[doublePlatforms[1] as PlatformKey]?.color ?? COLORS.contentPrimary;
       try {
-        return blendColors(c1, c2) + "66"; // blended border with opacity
+        return withAlpha(blendColors(c1, c2), 0.4); // blended border with opacity
       } catch (e) {
-        return c1 + "66";
+        return withAlpha(c1, 0.4);
       }
     }
-    return accentColor + "44";
+    return withAlpha(accentColor, 0.25);
   }, [isDoubleSelected, doublePlatforms, accentColor]);
 
   const activeLabel = React.useMemo(() => {
@@ -272,46 +270,33 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
     }
   };
 
-  const maxHeightVal = heightAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 390],
-  });
+  const backdropAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: dropdownAnim.value,
+  }));
 
-  const marginTopVal = heightAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 8],
-  });
-
-  const paddingVal = heightAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 12],
-  });
-
-  const borderVal = heightAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
+  const dropdownPanelAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: dropdownAnim.value,
+    maxHeight: interpolate(heightAnim.value, [0, 1], [0, 390]),
+    marginTop: interpolate(heightAnim.value, [0, 1], [0, 8]),
+    paddingTop: interpolate(heightAnim.value, [0, 1], [0, 12]),
+    paddingBottom: interpolate(heightAnim.value, [0, 1], [0, 12]),
+    borderWidth: interpolate(heightAnim.value, [0, 1], [0, 1]),
+    transform: [
+      { translateY: interpolate(dropdownAnim.value, [0, 1], [-10, 0]) },
+      { scale: interpolate(dropdownAnim.value, [0, 1], [0.97, 1]) },
+    ],
+  }));
 
   return (
     <Animated.View style={[styles.container, { paddingTop: Math.max(insets.top, 8), transform: [{ translateY: headerTranslateY }] }]} pointerEvents={isTaxTab ? "box-none" : "auto"}>
       {/* ── Backdrop for closing switcher when clicked outside ── */}
       {showDropdown && (
-        <Animated.View
-          style={[
-            styles.backdropOverlay,
-            {
-              opacity: dropdownAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 1],
-              }),
-            },
-          ]}
-        >
+        <Reanimated.View style={[styles.backdropOverlay, backdropAnimatedStyle]}>
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={() => setIsExpanded(false)}
           />
-        </Animated.View>
+        </Reanimated.View>
       )}
 
       {/* ── Main header row ── */}
@@ -320,14 +305,20 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
         <Pressable
           style={styles.hamburgerBtn}
           onPress={onMenuPress}
+          accessibilityRole="button"
+          accessibilityLabel="Open menu"
+          hitSlop={8}
         >
-          <Menu size={22} color="#9B9BA4" strokeWidth={2} />
+          <Menu size={22} color={COLORS.contentSecondary} strokeWidth={2} />
         </Pressable>
 
         {/* Centre: collapsed platform switcher trigger (Pill 2) — hidden on tax tab */}
         {!isTaxTab && <Pressable
           style={[styles.filterPill, { borderColor: borderPillColor }]}
           onPress={handleToggleExpand}
+          accessibilityRole="button"
+          accessibilityLabel={`Platform filter: ${activeLabel}`}
+          accessibilityState={{ expanded: isExpanded }}
           {...pillPanResponder.panHandlers}
         >
           {isDoubleSelected ? (
@@ -338,19 +329,19 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
               </View>
 
               {/* Name 1 */}
-              <Text style={{ color: "#F6F6F7", fontSize: 14, fontWeight: "600" }} numberOfLines={1}>
+              <Text variant="labelM" numberOfLines={1}>
                 {PLATFORMS[doublePlatforms[0] as PlatformKey]?.label ||
                   dbPlatforms.find((p) => p.id === doublePlatforms[0])?.label ||
                   doublePlatforms[0]}
               </Text>
 
               {/* Centered Plus */}
-              <Text style={{ color: "#65656E", fontSize: 14, fontWeight: "600", marginHorizontal: 6 }}>
+              <Text variant="labelM" className="text-content-muted" style={{ marginHorizontal: 6 }}>
                 +
               </Text>
 
               {/* Name 2 */}
-              <Text style={{ color: "#F6F6F7", fontSize: 14, fontWeight: "600" }} numberOfLines={1}>
+              <Text variant="labelM" numberOfLines={1}>
                 {PLATFORMS[doublePlatforms[1] as PlatformKey]?.label ||
                   dbPlatforms.find((p) => p.id === doublePlatforms[1])?.label ||
                   doublePlatforms[1]}
@@ -367,7 +358,7 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
               <View style={[styles.swatchDot, { backgroundColor: accentColor }]} />
 
               {/* Active label */}
-              <Text style={styles.filterPillLabel} numberOfLines={1}>
+              <Text variant="labelM" style={styles.filterPillLabel} numberOfLines={1}>
                 {activeLabel}
               </Text>
 
@@ -382,19 +373,25 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
 
           {/* Chevron */}
           {isExpanded
-            ? <ChevronUp size={16} color="#9B9BA4" strokeWidth={2.5} style={{ marginLeft: 2 }} />
-            : <ChevronDown size={16} color="#9B9BA4" strokeWidth={2.5} style={{ marginLeft: 2 }} />
+            ? <ChevronUp size={16} color={COLORS.contentSecondary} strokeWidth={2.5} style={{ marginLeft: 2 }} />
+            : <ChevronDown size={16} color={COLORS.contentSecondary} strokeWidth={2.5} style={{ marginLeft: 2 }} />
           }
         </Pressable>}
 
         {/* Right notification button (Pill 3) — hidden on tax tab */}
         {!isTaxTab && (
           <View style={styles.rightIcons}>
-            <Pressable style={styles.iconBtn} onPress={onNotificationsPress || (() => router.push("/notifications"))}>
-              <Bell size={20} color="#F6F6F7" strokeWidth={2} />
+            <Pressable
+              style={styles.iconBtn}
+              onPress={onNotificationsPress || (() => router.push("/notifications"))}
+              accessibilityRole="button"
+              accessibilityLabel={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
+              hitSlop={8}
+            >
+              <Bell size={20} color={COLORS.contentPrimary} strokeWidth={2} />
               {unreadCount > 0 && (
                 <View style={styles.notifBadge}>
-                  <Text style={styles.notifBadgeText}>
+                  <Text variant="labelXs" style={styles.notifBadgeText}>
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </Text>
                 </View>
@@ -406,37 +403,16 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
 
       {/* ── Expanded platform + vehicle picker — hidden on tax tab ── */}
       {showDropdown && !isTaxTab && (
-        <Animated.View
+        <Reanimated.View
           {...panelPanResponder.panHandlers}
           style={[
             styles.dropdownPanel,
-            {
-              opacity: dropdownAnim,
-              maxHeight: maxHeightVal,
-              marginTop: marginTopVal,
-              paddingTop: paddingVal,
-              paddingBottom: paddingVal,
-              borderWidth: borderVal,
-              overflow: "hidden",
-              transform: [
-                {
-                  translateY: dropdownAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-10, 0],
-                  }),
-                },
-                {
-                  scale: dropdownAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.97, 1],
-                  }),
-                },
-              ],
-            },
+            { overflow: "hidden" },
+            dropdownPanelAnimatedStyle,
           ]}
         >
           {/* Section: Platforms */}
-          <Text style={styles.panelSectionLabel}>PLATFORM</Text>
+          <Text variant="labelXs" className="text-content-secondary" style={styles.panelSectionLabel}>PLATFORM</Text>
           <View style={styles.platformGrid}>
             {allPlatformIds.map((pId) => {
               const isAll = pId === "all";
@@ -446,39 +422,35 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
                    (selectedPlatformsList.length === 1 && activePlatformFilter === "all"));
               const cfg = !isAll ? PLATFORMS[pId as PlatformKey] : null;
               const dbCfg = !isAll && !cfg ? dbPlatforms.find((p) => p.id === pId) : null;
-              const pColor = cfg?.color ?? dbCfg?.color ?? "#F6F6F7";
+              const pColor = cfg?.color ?? dbCfg?.color ?? COLORS.contentPrimary;
               const pLabel = cfg?.label ?? dbCfg?.label ?? pId;
 
               return (
                 <Pressable
                   key={pId}
                   onPress={() => handleSelectFilter(pId)}
-                  style={[
-                    styles.platformGridPill,
-                    isSelected
-                      ? { borderColor: pColor, backgroundColor: pColor + "18" }
-                      : styles.dropdownPillInactive,
-                  ]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  style={[styles.platformGridPill, isSelected
+                      ? { borderColor: pColor, backgroundColor: withAlpha(pColor, 0.12) }
+                      : styles.dropdownPillInactive]}
                 >
                   <View style={[
                     styles.dropdownPillLogo,
                     {
                       backgroundColor: isAll
-                        ? (isSelected ? "#ffffff33" : "#2E2E36")
-                        : isSelected ? pColor + "33" : "#1E1E23",
-                      borderColor: isSelected ? pColor + "44" : "transparent",
+                        ? (isSelected ? withAlpha(COLORS.contentPrimary, 0.2) : COLORS.surface05)
+                        : isSelected ? withAlpha(pColor, 0.2) : COLORS.surface04,
+                      borderColor: isSelected ? withAlpha(pColor, 0.25) : "transparent",
                       borderWidth: 1,
                     },
                   ]}>
                     {isAll
-                      ? <Text style={[styles.dropdownPillLogoText, { color: isSelected ? "#F6F6F7" : "#9B9BA4" }]}>∞</Text>
+                      ? <Text variant="headingS" className="font-extrabold" style={{ color: isSelected ? COLORS.contentPrimary : COLORS.contentSecondary }}>∞</Text>
                       : <PlatformLogo id={pId} size={18} />
                     }
                   </View>
-                  <Text style={[
-                    styles.dropdownPillLabel,
-                    { color: isSelected ? "#F6F6F7" : "#9B9BA4", flex: 1 },
-                  ]} numberOfLines={1}>
+                  <Text variant="labelM" style={{ color: isSelected ? COLORS.contentPrimary : COLORS.contentSecondary, flex: 1 }} numberOfLines={1}>
                     {isAll ? "All" : pLabel}
                   </Text>
                   {isSelected && (
@@ -493,10 +465,10 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
           <View style={styles.panelDivider} />
 
           {/* Section: Vehicle */}
-          <Text style={styles.panelSectionLabel}>VEHICLE</Text>
+          <Text variant="labelXs" className="text-content-secondary" style={styles.panelSectionLabel}>VEHICLE</Text>
           <View style={styles.platformGrid}>
             {vehiclesList.length === 0 ? (
-              <Text style={{ color: "#65656E", fontSize: 12, paddingHorizontal: 4 }}>No vehicles set up</Text>
+              <Text variant="paragraphS" style={{ paddingHorizontal: 4 }}>No vehicles set up</Text>
             ) : (
               vehiclesList.map((v: any) => {
                 const isSelected = (preferredVehicleId || vehiclesList[0]?.id) === v.id;
@@ -509,23 +481,22 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
                       await setPreferredVehicle(v.id);
                       setIsExpanded(false);
                     }}
-                    style={[
-                      styles.platformGridPill,
-                      isSelected
-                        ? { borderColor: "#F6F6F7", backgroundColor: "#ffffff18" }
-                        : styles.dropdownPillInactive,
-                    ]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
+                    style={[styles.platformGridPill, isSelected
+                        ? { borderColor: COLORS.contentPrimary, backgroundColor: COLORS.surface04 }
+                        : styles.dropdownPillInactive]}
                   >
                     <View style={[
                       styles.dropdownPillLogo,
                       {
-                        backgroundColor: isSelected ? "#ffffff33" : "#1E1E23",
-                        borderColor: isSelected ? "#ffffff44" : "transparent",
+                        backgroundColor: isSelected ? withAlpha(COLORS.contentPrimary, 0.2) : COLORS.surface04,
+                        borderColor: isSelected ? withAlpha(COLORS.contentPrimary, 0.25) : "transparent",
                         borderWidth: 1,
                       },
                     ]}>
                       <Svg width={16} height={16} viewBox="0 0 24 24" fill="none"
-                        stroke={isSelected ? "#F6F6F7" : "#9B9BA4"}
+                        stroke={isSelected ? COLORS.contentPrimary : COLORS.contentSecondary}
                         strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                         <Path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2" />
                         <Rect x="7" y="14" width="10" height="6" rx="1" />
@@ -534,14 +505,11 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
                         <Path d="M5 9V5a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v4" />
                       </Svg>
                     </View>
-                    <Text style={[
-                      styles.dropdownPillLabel,
-                      { color: isSelected ? "#F6F6F7" : "#9B9BA4", flex: 1 },
-                    ]} numberOfLines={1}>
+                    <Text variant="labelM" style={{ color: isSelected ? COLORS.contentPrimary : COLORS.contentSecondary, flex: 1 }} numberOfLines={1}>
                       {year}{label}
                     </Text>
                     {isSelected && (
-                      <View style={[styles.checkDot, { backgroundColor: "#F6F6F7" }]} />
+                      <View style={[styles.checkDot, { backgroundColor: COLORS.contentPrimary }]} />
                     )}
                   </Pressable>
                 );
@@ -549,7 +517,7 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
             )}
           </View>
 
-        </Animated.View>
+        </Reanimated.View>
       )}
     </Animated.View>
   );
@@ -572,14 +540,8 @@ const styles = StyleSheet.create({
     left: -100,
     right: -100,
     height: 3000,
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    backgroundColor: COLORS.scrim,
     zIndex: 90,
-  },
-
-  // 2-px accent strip at very top
-  accentStrip: {
-    height: 0,
-    width: 0,
   },
 
   // Header row
@@ -598,32 +560,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#16161A",
+    backgroundColor: COLORS.surface03,
     borderWidth: 1,
-    borderColor: "#1C1C21",
+    borderColor: COLORS.lineSubtle,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
-  },
-  // Avatar
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: "#064e3b",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1.5,
-  },
-  avatarText: {
-    color: "#F6F6F7",
-    fontSize: 15,
-    fontWeight: "bold",
-    letterSpacing: 0.5,
   },
 
   // Collapsed filter pill (centre, takes remaining space)
@@ -632,16 +573,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
-    backgroundColor: "#16161A",
+    backgroundColor: COLORS.surface03,
     borderWidth: 1,
     borderRadius: 22,
     paddingHorizontal: 14,
     height: 44,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
   },
   swatchDot: {
     width: 8,
@@ -650,9 +586,6 @@ const styles = StyleSheet.create({
   },
   filterPillLabel: {
     flex: 1,
-    color: "#F6F6F7",
-    fontSize: 14,
-    fontWeight: "600",
   },
   pillLogoWrap: {
     justifyContent: "center",
@@ -668,16 +601,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#16161A",
+    backgroundColor: COLORS.surface03,
     borderWidth: 1,
-    borderColor: "#1C1C21",
+    borderColor: COLORS.lineSubtle,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
   },
   notifBadge: {
     position: "absolute",
@@ -687,41 +615,28 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     paddingHorizontal: 4,
-    backgroundColor: "#FF5247",
+    backgroundColor: COLORS.destructive,
     borderWidth: 1.5,
-    borderColor: "#16161A",
+    borderColor: COLORS.surface03,
     justifyContent: "center",
     alignItems: "center",
   },
   notifBadgeText: {
-    color: "#F6F6F7",
-    fontSize: 9,
-    fontWeight: "800",
     lineHeight: 11,
   },
 
   dropdownPanel: {
-    backgroundColor: "#0F0F12",
+    backgroundColor: COLORS.surface02,
     borderRadius: 16,
-    borderColor: "#2E2E36",
+    borderColor: COLORS.lineStrong,
     borderWidth: 1,
     marginHorizontal: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
     zIndex: 100,
   },
   panelSectionLabel: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#9B9BA4",
-    letterSpacing: 1,
     marginTop: 14,
     marginBottom: 8,
     marginHorizontal: 16,
-    textTransform: "uppercase",
   },
   platformGrid: {
     flexDirection: "row",
@@ -735,16 +650,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     width: "48%", // 2 columns layout
-    backgroundColor: "#16161A",
-    borderColor: "#1C1C21",
+    backgroundColor: COLORS.surface03,
+    borderColor: COLORS.lineSubtle,
   },
   dropdownPillInactive: {
-    borderColor: "#1C1C21",
-    backgroundColor: "#16161A",
+    borderColor: COLORS.lineSubtle,
+    backgroundColor: COLORS.surface03,
   },
   dropdownPillLogo: {
     width: 28,
@@ -752,14 +667,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
-  },
-  dropdownPillLogoText: {
-    fontSize: 16,
-    fontWeight: "900",
-  },
-  dropdownPillLabel: {
-    fontSize: 13,
-    fontWeight: "700",
   },
   checkDot: {
     width: 6,
@@ -769,42 +676,8 @@ const styles = StyleSheet.create({
   },
   panelDivider: {
     height: 1,
-    backgroundColor: "#2E2E36",
+    backgroundColor: COLORS.lineStrong,
     marginHorizontal: 16,
     marginTop: 14,
   },
-
-  filterInfoBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: 12,
-    marginTop: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 8,
-  },
-  filterInfoDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  filterInfoText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  clearFilterBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 6,
-  },
-  clearFilterText: {
-    color: "#9B9BA4",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
 });

@@ -14,6 +14,10 @@ export interface PlatformBadgeProps {
 const HAS_LOGO = ["doordash", "ubereats", "instacart", "skip", "amazonflex", "amazon", "foodora", "lyft"];
 
 export function PlatformBadge({ platform, size = "md", style, className }: PlatformBadgeProps) {
+  // Hook must run unconditionally — the comma-branch early return below would
+  // otherwise change the hook count when `platform` switches shapes.
+  const dbPlatforms = useSettingsStore((state) => state.dbPlatforms || []);
+
   if (typeof platform === "string" && platform.includes(",")) {
     const parts = platform.split(",");
     return (
@@ -25,7 +29,6 @@ export function PlatformBadge({ platform, size = "md", style, className }: Platf
     );
   }
 
-  const dbPlatforms = useSettingsStore((state) => state.dbPlatforms || []);
   const dbPlatform = dbPlatforms.find(p => p.id === platform);
 
   const config = {

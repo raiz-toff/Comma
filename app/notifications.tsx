@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView, View, TouchableOpacity, StyleSheet } from "react-native";
+import { SectionList, View, TouchableOpacity, StyleSheet } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Text } from "@/src/components/ui/text";
@@ -17,6 +17,8 @@ import {
 } from "lucide-react-native";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { COLORS, withAlpha } from "@/src/theme/colors";
+import { EmptyState } from "@/src/components/ui/EmptyState";
 import { BadgeSvg } from "@/src/registry/badges/BadgeSvgs";
 import type { NotificationItem } from "@/src/services/gamification";
 
@@ -55,6 +57,108 @@ function groupByDay(items: NotificationItem[]): Bucket[] {
   ].filter((b) => b.items.length > 0);
 }
 
+type NotificationSection = { title: string; data: NotificationItem[]; isFirst: boolean };
+
+// ─── Row ──────────────────────────────────────────────────────────────────────
+
+function renderIcon(item: NotificationItem, accentColor: string) {
+  if (item.badgeId) {
+    return <BadgeSvg id={item.badgeId} size={24} />;
+  }
+  const c = item.read ? COLORS.contentMuted : accentColor;
+  switch (item.iconKey) {
+    case "backup":
+      return <Upload size={18} color={c} />;
+    case "restore":
+    case "export":
+      return <Download size={18} color={c} />;
+    case "wipe":
+      return <Trash2 size={18} color={item.read ? COLORS.contentMuted : COLORS.destructive} />;
+    case "error":
+      return <XCircle size={18} color={item.read ? COLORS.contentMuted : COLORS.destructive} />;
+  }
+  switch (item.type) {
+    case "success":
+      return <Trophy size={18} color={c} />;
+    case "warning":
+      return <AlertCircle size={18} color={item.read ? COLORS.contentMuted : COLORS.warning} />;
+    default:
+      return <Info size={18} color={c} />;
+  }
+}
+
+type NotificationRowProps = {
+  item: NotificationItem;
+  accentColor: string;
+  onDismiss: (id: string) => void;
+};
+
+const NotificationRow = React.memo(function NotificationRow({
+  item,
+  accentColor,
+  onDismiss,
+}: NotificationRowProps) {
+  return (
+    <TouchableOpacity
+      activeOpacity={item.actionUrl ? 0.7 : 1}
+      onPress={() => {
+        if (item.actionUrl) router.push(item.actionUrl as any);
+      }}
+      style={[styles.card, item.read ? styles.cardRead : styles.cardUnread]}
+    >
+      {/* Icon */}
+      <View style={[styles.iconBox, item.read && { opacity: 0.6 }]}>
+        {renderIcon(item, accentColor)}
+      </View>
+
+      {/* Content */}
+      <View style={{ flex: 1 }}>
+        <View style={styles.titleRow}>
+          <Text
+            variant="labelM"
+            style={[
+              styles.cardTitle,
+              { color: item.read ? COLORS.contentSecondary : COLORS.contentPrimary },
+            ]}
+          >
+            {item.title}
+          </Text>
+          {!item.read && (
+            <View style={[styles.unreadDot, { backgroundColor: accentColor }]} />
+          )}
+        </View>
+
+        <Text variant="paragraphS" className="text-content-secondary" style={styles.cardDesc}>{item.description}</Text>
+
+        <View style={styles.metaRow}>
+          <Text variant="labelXs" className="text-content-muted">{item.time}</Text>
+          {item.actionUrl && (
+            <Text variant="labelXs" style={{ color: accentColor }}>
+              View details →
+            </Text>
+          )}
+        </View>
+      </View>
+
+      {/* Dismiss */}
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss notification"
+        onPress={(e) => {
+          e.stopPropagation();
+          onDismiss(item.id);
+        }}
+        hitSlop={8}
+        style={styles.dismissBtn}
+      >
+        <X size={12} color={COLORS.contentSecondary} />
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+});
+
+const ItemSeparator = () => <View style={styles.itemSeparator} />;
+
 export default function NotificationsScreen() {
   const { accentColor } = usePlatformTheme();
   const insets = useSafeAreaInsets();
@@ -68,41 +172,20 @@ export default function NotificationsScreen() {
   const hasItems = notifications && notifications.length > 0;
   const unreadCount = hasItems ? notifications.filter((n) => !n.read).length : 0;
   const buckets = hasItems ? groupByDay(notifications) : [];
-
-  const renderIcon = (item: NotificationItem) => {
-    if (item.badgeId) {
-      return <BadgeSvg id={item.badgeId} size={24} />;
-    }
-    const c = item.read ? "#65656E" : accentColor;
-    switch (item.iconKey) {
-      case "backup":
-        return <Upload size={18} color={c} />;
-      case "restore":
-      case "export":
-        return <Download size={18} color={c} />;
-      case "wipe":
-        return <Trash2 size={18} color={item.read ? "#65656E" : "#FF5247"} />;
-      case "error":
-        return <XCircle size={18} color={item.read ? "#65656E" : "#FF5247"} />;
-    }
-    switch (item.type) {
-      case "success":
-        return <Trophy size={18} color={c} />;
-      case "warning":
-        return <AlertCircle size={18} color={item.read ? "#65656E" : "#f59e0b"} />;
-      default:
-        return <Info size={18} color={c} />;
-    }
-  };
+  const sections: NotificationSection[] = buckets.map((bucket, index) => ({
+    title: bucket.label,
+    data: bucket.items,
+    isFirst: index === 0,
+  }));
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#000" }} edges={["bottom", "left", "right"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }} edges={["bottom", "left", "right"]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top ? insets.top + 12 : 24 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
-          <ArrowLeft size={22} color="#F6F6F7" />
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back" onPress={() => router.back()} style={styles.iconBtn}>
+          <ArrowLeft size={22} color={COLORS.contentPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <Text variant="headingS">Notifications</Text>
         <View style={{ width: 44 }} />
       </View>
 
@@ -113,123 +196,72 @@ export default function NotificationsScreen() {
             style={[
               styles.pill,
               {
-                backgroundColor: unreadCount > 0 ? `${accentColor}22` : "#16161A",
-                borderColor: unreadCount > 0 ? `${accentColor}55` : "#1C1C21",
+                backgroundColor: unreadCount > 0 ? withAlpha(accentColor, 0.13) : COLORS.surface03,
+                borderColor: unreadCount > 0 ? withAlpha(accentColor, 0.33) : COLORS.lineSubtle,
               },
             ]}
           >
             <Text
-              style={[
-                styles.pillText,
-                { color: unreadCount > 0 ? accentColor : "#9B9BA4" },
-              ]}
+              variant="labelXs"
+              style={{ color: unreadCount > 0 ? accentColor : COLORS.contentSecondary }}
             >
               {unreadCount > 0 ? `${unreadCount} unread` : "All read"}
             </Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 20 }}>
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityState={{ disabled: unreadCount === 0 }}
               onPress={markAllNotificationsRead}
               hitSlop={8}
               disabled={unreadCount === 0}
             >
               <Text
-                style={[
-                  styles.actionText,
-                  { color: unreadCount > 0 ? accentColor : "#65656E" },
-                ]}
+                variant="labelM"
+                style={{ color: unreadCount > 0 ? accentColor : COLORS.contentMuted }}
               >
                 Mark all read
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={clearAllNotifications} hitSlop={8}>
-              <Text style={[styles.actionText, { color: "#9B9BA4" }]}>Clear all</Text>
+            <TouchableOpacity accessibilityRole="button" onPress={clearAllNotifications} hitSlop={8}>
+              <Text variant="labelM" style={{ color: COLORS.contentSecondary }}>Clear all</Text>
             </TouchableOpacity>
           </View>
         </View>
       )}
 
-      <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100, gap: 24 }}
+      <SectionList<NotificationItem, NotificationSection>
+        sections={sections}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
-      >
-        {hasItems ? (
-          buckets.map((bucket) => (
-            <View key={bucket.label} style={{ gap: 12 }}>
-              <Text style={styles.sectionLabel}>{bucket.label}</Text>
-
-              {bucket.items.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  activeOpacity={item.actionUrl ? 0.7 : 1}
-                  onPress={() => {
-                    if (item.actionUrl) router.push(item.actionUrl as any);
-                  }}
-                  style={[styles.card, item.read ? styles.cardRead : styles.cardUnread]}
-                >
-                  {/* Icon */}
-                  <View style={[styles.iconBox, item.read && { opacity: 0.6 }]}>
-                    {renderIcon(item)}
-                  </View>
-
-                  {/* Content */}
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.titleRow}>
-                      <Text
-                        style={[
-                          styles.cardTitle,
-                          { color: item.read ? "#9B9BA4" : "#F6F6F7" },
-                        ]}
-                      >
-                        {item.title}
-                      </Text>
-                      {!item.read && (
-                        <View style={[styles.unreadDot, { backgroundColor: accentColor }]} />
-                      )}
-                    </View>
-
-                    <Text style={styles.cardDesc}>{item.description}</Text>
-
-                    <View style={styles.metaRow}>
-                      <Text style={styles.cardTime}>{item.time}</Text>
-                      {item.actionUrl && (
-                        <Text style={[styles.viewDetails, { color: accentColor }]}>
-                          View details →
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-
-                  {/* Dismiss */}
-                  <TouchableOpacity
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      dismissNotification(item.id);
-                    }}
-                    hitSlop={8}
-                    style={styles.dismissBtn}
-                  >
-                    <X size={12} color="#9B9BA4" />
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ))
-        ) : (
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconCircle}>
-              <BellOff size={28} color="#65656E" />
-            </View>
-            <View style={{ alignItems: "center" }}>
-              <Text style={styles.emptyTitle}>All caught up!</Text>
-              <Text style={styles.emptySub}>
-                You have no new notifications. We'll alert you here when goals are reached,
-                streaks are at risk, or backups and exports complete.
-              </Text>
-            </View>
-          </View>
+        stickySectionHeadersEnabled={false}
+        renderSectionHeader={({ section }) => (
+          <Text
+            variant="labelXs"
+            className="text-content-muted"
+            style={[styles.sectionLabel, !section.isFirst && styles.sectionLabelSpacing]}
+          >
+            {section.title}
+          </Text>
         )}
-      </ScrollView>
+        renderItem={({ item }) => (
+          <NotificationRow
+            item={item}
+            accentColor={accentColor}
+            onDismiss={dismissNotification}
+          />
+        )}
+        ItemSeparatorComponent={ItemSeparator}
+        ListEmptyComponent={
+          <EmptyState
+            icon={BellOff}
+            title="All caught up!"
+            message="You have no new notifications. We'll alert you here when goals are reached, streaks are at risk, or backups and exports complete."
+            className="py-24"
+          />
+        }
+      />
     </SafeAreaView>
   );
 }
@@ -246,18 +278,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: -8,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: "900",
-    color: "#F6F6F7",
-    letterSpacing: -0.3,
   },
   actionBar: {
     flexDirection: "row",
@@ -272,46 +298,40 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
   },
-  pillText: {
-    fontSize: 11,
-    fontWeight: "800",
-  },
-  actionText: {
-    fontSize: 12,
-    fontWeight: "800",
-  },
   sectionLabel: {
-    fontSize: 11,
-    color: "#65656E",
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
     paddingHorizontal: 4,
+    marginBottom: 12,
+  },
+  sectionLabelSpacing: {
+    marginTop: 24,
+  },
+  itemSeparator: {
+    height: 12,
   },
   card: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 14,
-    borderWidth: 0.8,
-    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
     padding: 16,
   },
   cardUnread: {
-    backgroundColor: "#0F0F12",
-    borderColor: "#1E1E23",
+    backgroundColor: COLORS.surface02,
+    borderColor: COLORS.lineSubtle,
   },
   cardRead: {
-    backgroundColor: "#0a0a0a",
-    borderColor: "#16161A",
+    backgroundColor: COLORS.surface01,
+    borderColor: COLORS.lineSubtle,
     opacity: 0.7,
   },
   iconBox: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "#16161A",
+    backgroundColor: COLORS.surface03,
     borderWidth: 1,
-    borderColor: "#1C1C21",
+    borderColor: COLORS.lineSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -323,9 +343,6 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: "800",
-    letterSpacing: -0.2,
   },
   unreadDot: {
     width: 8,
@@ -334,10 +351,6 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   cardDesc: {
-    fontSize: 12,
-    color: "#9B9BA4",
-    lineHeight: 18,
-    fontWeight: "500",
     marginTop: 3,
   },
   metaRow: {
@@ -346,54 +359,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 10,
   },
-  cardTime: {
-    fontSize: 10,
-    color: "#65656E",
-    fontWeight: "700",
-  },
-  viewDetails: {
-    fontSize: 10,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
   dismissBtn: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     alignItems: "center",
     justifyContent: "center",
-  },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 96,
-    gap: 16,
-  },
-  emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#0F0F12",
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#d4d0c8",
-  },
-  emptySub: {
-    fontSize: 12,
-    color: "#65656E",
-    textAlign: "center",
-    marginTop: 6,
-    maxWidth: 260,
-    lineHeight: 18,
   },
 });

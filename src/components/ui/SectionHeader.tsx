@@ -31,6 +31,8 @@ export function SectionHeader({
       {action && (
         <Pressable
           onPress={action.onPress}
+          accessibilityRole="button"
+          hitSlop={8}
           className="active:opacity-70 px-2 py-1 -mr-2"
         >
           <Text variant="labelXs" className="text-primary">

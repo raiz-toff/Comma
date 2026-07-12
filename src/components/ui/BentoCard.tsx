@@ -32,8 +32,10 @@ export function BentoCard({
   return (
     <CardComponent
       onPress={onPress}
+      accessibilityRole={onPress ? "button" : undefined}
       className={cn(
         "border border-line-subtle bg-card rounded-lg p-4 flex flex-col justify-between overflow-hidden",
+        onPress && "active:opacity-90",
         sizeClasses[size],
         className
       )}

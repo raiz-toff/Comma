@@ -17,24 +17,25 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { Text } from "@/src/components/ui/text";
 import { Image } from "expo-image";
-import { ChevronLeft, Heart, Share2, Terminal, Globe, Coffee, BookOpen } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, Heart, Share2, Terminal, Globe, Coffee, BookOpen } from "lucide-react-native";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { COLORS } from "@/src/theme/colors";
 import { notify } from "@/src/services/notify";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 
 const DS = {
-  pageBg: "#000",
-  cardBg: "#0F0F12",
-  cardBorder: "#1E1E23",
-  inputBg: "#16161A",
-  inputBorder: "#2E2E36",
-  sep: "#1E1E23",
-  textPrimary: "#F6F6F7",
-  textSecondary: "#65656E",
-  textLabel: "#3a3a3a",
-  rCard: 18,
+  pageBg: COLORS.background,
+  cardBg: COLORS.surface02,
+  cardBorder: COLORS.lineSubtle,
+  inputBg: COLORS.surface03,
+  inputBorder: COLORS.lineStrong,
+  sep: COLORS.lineSubtle,
+  textPrimary: COLORS.contentPrimary,
+  textSecondary: COLORS.contentSecondary,
+  textLabel: COLORS.contentMuted,
+  rCard: 16,
   pagePad: 16,
-  cardPad: 15,
+  cardPad: 16,
 } as const;
 
 const isWeb = Platform.OS === "web";
@@ -104,7 +105,13 @@ export default function AboutScreen() {
     <SafeAreaView style={s.safe} edges={["bottom", "left", "right"]}>
       {/* Header */}
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          hitSlop={8}
+          style={s.backBtn}
+        >
           <ChevronLeft color={DS.textPrimary} size={20} />
         </TouchableOpacity>
       </View>
@@ -115,14 +122,19 @@ export default function AboutScreen() {
       >
         {/* Hero */}
         <Animated.View style={[s.hero, heroStyle]}>
-          <TouchableOpacity onPress={handleVersionTap} activeOpacity={0.8}>
+          <TouchableOpacity
+            onPress={handleVersionTap}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Comma logo"
+          >
             <Image
               source={require("../../assets/logo-with-text.png")}
               style={s.logoImage}
               contentFit="contain"
             />
           </TouchableOpacity>
-          <Text style={s.tagline}>Gig earnings tracker.{"\n"}Local-first. Open source.</Text>
+          <Text variant="paragraphL" style={s.tagline}>Gig earnings tracker.{"\n"}Local-first. Open source.</Text>
           <View style={s.versionPill}>
             <Text style={s.versionText}>v{appVersion}</Text>
           </View>
@@ -130,8 +142,8 @@ export default function AboutScreen() {
 
         {/* Creator */}
         <View style={s.creatorBlock}>
-          <Text style={s.creatorLabel}>BUILT BY</Text>
-          <Text style={s.creatorName}>Rajkumar Neupane</Text>
+          <Text variant="labelXs" className="text-content-muted">BUILT BY</Text>
+          <Text variant="headingM">Rajkumar Neupane</Text>
         </View>
 
         {/* Divider */}
@@ -180,9 +192,9 @@ export default function AboutScreen() {
 
         {/* Footer */}
         <View style={s.footer}>
-          <Text style={s.footerText}>Made with </Text>
+          <Text variant="paragraphS" className="text-content-secondary">Made with </Text>
           <Heart size={11} color={accentColor} fill={accentColor} />
-          <Text style={s.footerText}> by a gig driver, for gig drivers</Text>
+          <Text variant="paragraphS" className="text-content-secondary"> by a gig driver, for gig drivers</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -203,13 +215,20 @@ function LinkRow({
   disabled?: boolean;
 }) {
   return (
-    <TouchableOpacity onPress={onPress} disabled={disabled} style={s.linkRow} activeOpacity={0.6}>
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="link"
+      accessibilityState={{ disabled }}
+      style={s.linkRow}
+      activeOpacity={0.6}
+    >
       <View style={s.linkIcon}>{icon}</View>
       <View style={{ flex: 1 }}>
-        <Text style={s.linkLabel}>{label}</Text>
-        <Text style={s.linkSub}>{sub}</Text>
+        <Text variant="labelM">{label}</Text>
+        <Text variant="paragraphS" className="text-content-secondary" style={{ marginTop: 2 }}>{sub}</Text>
       </View>
-      <View style={s.chevron} />
+      <ChevronRight size={16} color={COLORS.contentMuted} />
     </TouchableOpacity>
   );
 }
@@ -240,11 +259,7 @@ const s = StyleSheet.create({
     height: 260,
   },
   tagline: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: DS.textSecondary,
     textAlign: "center",
-    lineHeight: 22,
   },
   versionPill: {
     marginTop: 4,
@@ -263,16 +278,6 @@ const s = StyleSheet.create({
     alignItems: "center",
     paddingBottom: 28,
     gap: 4,
-  },
-  creatorLabel: {
-    fontSize: 10, fontWeight: "800",
-    color: DS.textLabel,
-    letterSpacing: 2,
-  },
-  creatorName: {
-    fontSize: 18, fontWeight: "700",
-    color: DS.textPrimary,
-    letterSpacing: -0.3,
   },
 
   divider: {
@@ -304,15 +309,7 @@ const s = StyleSheet.create({
     borderWidth: 0.5, borderColor: DS.inputBorder,
     alignItems: "center", justifyContent: "center",
   },
-  linkLabel: { fontSize: 13, fontWeight: "700", color: DS.textPrimary },
-  linkSub: { fontSize: 10, color: DS.textSecondary, marginTop: 2 },
   linkSep: { height: 0.5, backgroundColor: DS.sep, marginHorizontal: DS.cardPad },
-  chevron: {
-    width: 7, height: 7,
-    borderTopWidth: 1.5, borderRightWidth: 1.5,
-    borderColor: DS.textLabel,
-    transform: [{ rotate: "45deg" }],
-  },
 
   footer: {
     flexDirection: "row",
@@ -320,9 +317,5 @@ const s = StyleSheet.create({
     justifyContent: "center",
     paddingBottom: 24,
     paddingTop: 28,
-  },
-  footerText: {
-    fontSize: 11, color: DS.textSecondary,
-    fontWeight: "600",
   },
 });

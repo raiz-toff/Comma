@@ -2,6 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import { Truck } from "lucide-react-native";
 import { Text } from "../ui/text";
+import { KPI, withAlpha } from "@/src/theme/colors";
 
 interface PerDeliveryWidgetProps {
   perDelivery: number;
@@ -20,12 +21,12 @@ export default function PerDeliveryWidget({ perDelivery, count, country }: PerDe
 
   return (
     <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 16, gap: 12 }}>
-      <View style={{ backgroundColor: "#0ea5e920", padding: 12, borderRadius: 16 }}>
-        <Truck size={32} color="#0ea5e9" strokeWidth={2.5} />
+      <View style={{ backgroundColor: withAlpha(KPI.gross, 0.12), padding: 12, borderRadius: 16 }}>
+        <Truck size={32} color={KPI.gross} strokeWidth={2.5} />
       </View>
       <View style={{ alignItems: "center" }}>
-        <Text style={{ fontSize: 32, fontWeight: "900", color: "#F6F6F7", letterSpacing: -1 }} numberOfLines={1} adjustsFontSizeToFit>{formatCurrency(perDelivery)}</Text>
-        <Text style={{ fontSize: 11, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 1, marginTop: 4 }}>
+        <Text variant="headingXl" tabular numberOfLines={1} adjustsFontSizeToFit>{formatCurrency(perDelivery)}</Text>
+        <Text variant="labelXs" className="text-content-secondary" tabular style={{ marginTop: 4 }}>
           {count > 0 ? `Across ${count} Deliveries` : "Avg Per Delivery"}
         </Text>
       </View>

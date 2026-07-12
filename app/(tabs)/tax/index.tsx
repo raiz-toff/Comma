@@ -7,6 +7,8 @@ import {
   Pressable,
   Modal,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
@@ -15,6 +17,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-na
 import { AlertTriangle, Settings, Calculator, Calendar, ChevronRight } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
 import { CurrencyText } from "@/src/components/ui/CurrencyText";
+import { COLORS, withAlpha } from "@/src/theme/colors";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
@@ -44,11 +47,11 @@ import { getEarningsByPlatform } from "@/src/database/queries/analytics";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-function ScalePressable({ onPress, style, children }: {
+function ScalePressable({ onPress, style, children, ...rest }: {
   onPress: () => void;
   style?: object | object[];
   children: React.ReactNode;
-}) {
+} & Omit<React.ComponentProps<typeof Pressable>, "onPress" | "style" | "children">) {
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   return (
@@ -57,6 +60,7 @@ function ScalePressable({ onPress, style, children }: {
       onPressIn={() => { scale.value = withSpring(0.96, { damping: 15 }); }}
       onPressOut={() => { scale.value = withSpring(1, { damping: 15 }); }}
       style={[style, animatedStyle]}
+      {...rest}
     >
       {children}
     </AnimatedPressable>
@@ -74,8 +78,6 @@ export default function TaxScreen() {
   useEffect(() => {
     if (!isTaxEnabled && isOnboardingCompleted) router.replace("/");
   }, [isTaxEnabled, isOnboardingCompleted]);
-
-  if (!isTaxEnabled) return null;
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isJarModalOpen, setIsJarModalOpen] = useState(false);
@@ -300,19 +302,23 @@ export default function TaxScreen() {
 
   const isLoading = loadingStats || loadingExpenses;
 
+  // Guard AFTER all hooks — an early return between hooks changes the hook
+  // count across renders and crashes when the feature flag flips.
+  if (!isTaxEnabled) return null;
+
   if (countryDef.hasSelfAssessmentTax === false) {
     return (
       <SafeAreaView style={S.root} edges={["left", "right"]}>
         <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8, paddingLeft: 70, height: Math.max(insets.top, 8) + 64 }]}>
-          <Text style={S.headerTitle}>Tax · {currentYear}</Text>
+          <Text variant="headingM">Tax · {currentYear}</Text>
         </View>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20, backgroundColor: "#000" }}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20, backgroundColor: COLORS.background }}>
           <View style={S.card}>
             <View style={S.emptyIcon}>
               <Calculator size={26} color={accentColor} />
             </View>
-            <Text style={S.emptyTitle}>No Self-Assessment Required</Text>
-            <Text style={S.emptyBody}>
+            <Text variant="labelL" style={S.emptyTitle}>No Self-Assessment Required</Text>
+            <Text variant="paragraphM" style={S.emptyBody}>
               In {countryDef.label}, gig platform earnings are handled directly by the platforms. Independent self-assessment is not required.
             </Text>
           </View>
@@ -326,11 +332,17 @@ export default function TaxScreen() {
       {/* ── Header — sits in-line with the hamburger row ── */}
       <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8, paddingLeft: 70, height: Math.max(insets.top, 8) + 64 }]}>
         <View style={{ flex: 1 }}>
-          <Text style={S.headerTitle}>Tax · {currentYear}</Text>
-          <Text style={S.headerSub}>{regionLabel} · {profile?.taxWithholdingPct || 0}% saved for taxes</Text>
+          <Text variant="headingM">Tax · {currentYear}</Text>
+          <Text variant="paragraphS" style={S.headerSub}>{regionLabel} · {profile?.taxWithholdingPct || 0}% saved for taxes</Text>
         </View>
-        <ScalePressable onPress={() => setIsSettingsOpen(true)} style={S.gearBtn}>
-          <Settings size={14} color="#9B9BA4" />
+        <ScalePressable
+          onPress={() => setIsSettingsOpen(true)}
+          style={S.gearBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Tax settings"
+          hitSlop={8}
+        >
+          <Settings size={14} color={COLORS.contentSecondary} />
         </ScalePressable>
       </View>
 
@@ -348,22 +360,22 @@ export default function TaxScreen() {
           {/* ── Threshold Alert Strips ── */}
           {thresholdAlerts.map((alert, idx) => (
             <View key={idx} style={S.alertStrip}>
-              <AlertTriangle size={12} color="#f59e0b" />
-              <Text style={S.alertText}>{alert.message}</Text>
+              <AlertTriangle size={12} color={COLORS.warning} />
+              <Text variant="paragraphS" style={S.alertText}>{alert.message}</Text>
             </View>
           ))}
 
           {/* ── Tax Jar Card ── */}
           <View style={S.card}>
-            <Text style={S.cardLabel}>SAVED THIS YEAR</Text>
+            <Text variant="labelXs" style={S.cardLabel}>SAVED THIS YEAR</Text>
             <View style={S.jarRow}>
               <CurrencyText
                 amount={taxJarBalance}
                 size="xl"
-                style={{ color: accentColor, fontWeight: "900", fontSize: 34, letterSpacing: -0.5 }}
+                style={{ color: accentColor, fontWeight: "800", fontSize: 34, letterSpacing: -0.5 }}
               />
               <View style={{ alignItems: "flex-end" }}>
-                <Text style={S.cardLabel}>TARGET</Text>
+                <Text variant="labelXs" style={S.cardLabel}>TARGET</Text>
                 <CurrencyText amount={taxJarTarget} size="sm" style={S.mutedValue} />
               </View>
             </View>
@@ -377,13 +389,13 @@ export default function TaxScreen() {
                 ]}
               />
             </View>
-            <Text style={S.progressLabel}>
+            <Text variant="paragraphS" tabular style={S.progressLabel}>
               {jarCoveragePct.toFixed(0)}% of {profile?.taxWithholdingPct || 0}% target saved
             </Text>
 
             <View style={S.jarFooter}>
               {todaySuggestion > 0 ? (
-                <Text style={S.suggestText}>
+                <Text variant="paragraphS" style={S.suggestText}>
                   Suggested today:{" "}
                   <CurrencyText amount={todaySuggestion} size="sm" style={{ color: accentColor, fontWeight: "800" }} />
                 </Text>
@@ -392,16 +404,22 @@ export default function TaxScreen() {
               )}
               <Pressable
                 onPress={() => setIsJarModalOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Log tax jar deposit"
                 style={[S.pill, { borderColor: accentColor, backgroundColor: accentColorDim }]}
               >
-                <Text style={[S.pillText, { color: accentColor }]}>+ Log</Text>
+                <Text variant="labelM" style={{ color: accentColor }}>+ Log</Text>
               </Pressable>
             </View>
           </View>
 
           {/* ── Obligations Card ── */}
-          <ScalePressable onPress={() => router.push("/tax/center" as any)} style={S.card}>
-            <Text style={S.cardLabel}>ESTIMATED TAXES YOU OWE</Text>
+          <ScalePressable
+            onPress={() => router.push("/tax/center" as any)}
+            style={S.card}
+            accessibilityRole="button"
+          >
+            <Text variant="labelXs" style={S.cardLabel}>ESTIMATED TAXES YOU OWE</Text>
             <CurrencyText
               amount={taxData.totalEstimatedTax}
               size="xl"
@@ -413,7 +431,7 @@ export default function TaxScreen() {
               <View style={S.pillRow}>
                 {obligationPills.map((pill) => (
                   <View key={pill.label} style={S.pillMuted}>
-                    <Text style={S.pillMutedText}>
+                    <Text variant="labelM" style={S.pillMutedText}>
                       {pill.label}{" "}
                       <CurrencyText amount={pill.amount} size="sm" style={S.pillMutedText} />
                     </Text>
@@ -423,18 +441,22 @@ export default function TaxScreen() {
             )}
 
             <View style={S.breakdownLink}>
-              <Text style={[S.breakdownText, { color: accentColor }]}>See full breakdown</Text>
+              <Text variant="labelM" style={{ color: accentColor }}>See full breakdown</Text>
               <ChevronRight size={12} color={accentColor} />
             </View>
           </ScalePressable>
 
           {/* ── Next Installment Row ── */}
           {nextInstallment && (
-            <Pressable onPress={() => router.push("/tax/center" as any)} style={S.installmentRow}>
+            <Pressable
+              onPress={() => router.push("/tax/center" as any)}
+              accessibilityRole="button"
+              style={S.installmentRow}
+            >
               <View style={S.installmentLeft}>
-                <Calendar size={13} color="#9B9BA4" />
-                <Text style={S.installmentLabel}>{nextInstallment.label}</Text>
-                <Text style={S.installmentDate}>
+                <Calendar size={13} color={COLORS.contentSecondary} />
+                <Text variant="labelM" style={S.installmentLabel}>{nextInstallment.label}</Text>
+                <Text variant="labelM" style={S.installmentDate}>
                   {nextInstallment.date.toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
@@ -442,14 +464,14 @@ export default function TaxScreen() {
                 </Text>
               </View>
               <View style={S.installmentRight}>
-                <Text style={S.installmentDays}>{nextInstallment.daysUntil} days</Text>
-                <ChevronRight size={12} color="#65656E" />
+                <Text variant="labelM" tabular style={S.installmentDays}>{nextInstallment.daysUntil} days</Text>
+                <ChevronRight size={12} color={COLORS.contentMuted} />
               </View>
             </Pressable>
           )}
 
           {/* ── Disclaimer ── */}
-          <Text style={S.disclaimer}>
+          <Text variant="paragraphS" style={S.disclaimer}>
             Estimates only — standard rates, no bracket or credit adjustments. Consult a tax professional for your actual filing.
           </Text>
         </ScrollView>
@@ -464,21 +486,24 @@ export default function TaxScreen() {
           >
             <View style={S.sheetHandle} />
             <View style={S.sheetHeader}>
-              <Text style={S.sheetTitle}>Tax Profile</Text>
-              <Text style={S.sheetSub}>{regionLabel}</Text>
+              <Text variant="headingS">Tax Profile</Text>
+              <Text variant="paragraphS" style={S.sheetSub}>{regionLabel}</Text>
             </View>
 
             {/* HST toggle */}
             {countryDef.tax.hstOnboarding && (
               <View style={S.settingRow}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={S.settingRowLabel}>GST/HST Registered</Text>
-                  <Text style={S.settingRowDesc}>
+                  <Text variant="labelM">GST/HST Registered</Text>
+                  <Text variant="paragraphS" style={S.settingRowDesc}>
                     Required if gig earnings exceed $30k/yr in Canada.
                   </Text>
                 </View>
                 <Pressable
                   onPress={() => updateProfile({ hstRegistered: !profile?.hstRegistered })}
+                  accessibilityRole="switch"
+                  accessibilityLabel="GST/HST Registered"
+                  accessibilityState={{ checked: !!profile?.hstRegistered }}
                   style={[
                     S.toggleBtn,
                     profile?.hstRegistered
@@ -487,10 +512,12 @@ export default function TaxScreen() {
                   ]}
                 >
                   <Text
-                    style={[
-                      S.toggleBtnText,
-                      profile?.hstRegistered ? { color: accentColorContrast } : { color: "#9B9BA4" },
-                    ]}
+                    variant="labelXs"
+                    style={
+                      profile?.hstRegistered
+                        ? { color: accentColorContrast }
+                        : { color: COLORS.contentSecondary }
+                    }
                   >
                     {profile?.hstRegistered ? "Registered" : "No"}
                   </Text>
@@ -501,28 +528,34 @@ export default function TaxScreen() {
             {/* Withholding stepper */}
             <View style={S.settingRow}>
               <View style={{ flex: 1, paddingRight: 12 }}>
-                <Text style={S.settingRowLabel}>Tax Savings Rate</Text>
-                <Text style={S.settingRowDesc}>% of your earnings (after expenses) to set aside for taxes.</Text>
+                <Text variant="labelM">Tax Savings Rate</Text>
+                <Text variant="paragraphS" style={S.settingRowDesc}>% of your earnings (after expenses) to set aside for taxes.</Text>
               </View>
               <View style={S.stepper}>
                 <Pressable
                   onPress={() =>
                     updateProfile({ taxWithholdingPct: Math.max(0, (profile?.taxWithholdingPct || 0) - 1) })
                   }
+                  accessibilityRole="button"
+                  accessibilityLabel="Decrease tax rate"
+                  hitSlop={8}
                   style={S.stepBtn}
                 >
-                  <Text style={S.stepBtnText}>−</Text>
+                  <Text variant="headingM" style={S.stepBtnText}>−</Text>
                 </Pressable>
                 <View style={S.stepValue}>
-                  <Text style={S.stepValueText}>{profile?.taxWithholdingPct || 0}%</Text>
+                  <Text variant="labelM" tabular>{profile?.taxWithholdingPct || 0}%</Text>
                 </View>
                 <Pressable
                   onPress={() =>
                     updateProfile({ taxWithholdingPct: Math.min(100, (profile?.taxWithholdingPct || 0) + 1) })
                   }
+                  accessibilityRole="button"
+                  accessibilityLabel="Increase tax rate"
+                  hitSlop={8}
                   style={S.stepBtn}
                 >
-                  <Text style={S.stepBtnText}>+</Text>
+                  <Text variant="headingM" style={S.stepBtnText}>+</Text>
                 </Pressable>
               </View>
             </View>
@@ -530,13 +563,13 @@ export default function TaxScreen() {
             {/* Region change history */}
             {taxHistoryList && taxHistoryList.length > 0 && (
               <View style={S.historyBlock}>
-                <Text style={S.settingBlockLabel}>Region Change History</Text>
+                <Text variant="labelXs" style={S.settingBlockLabel}>Region Change History</Text>
                 {taxHistoryList.slice(0, 3).map((hist) => (
                   <View key={hist.id} style={S.historyRow}>
-                    <Text style={S.historyText}>
+                    <Text variant="labelM" style={S.historyText}>
                       {hist.oldRegion || "—"} → {hist.newRegion}
                     </Text>
-                    <Text style={S.historyDate}>
+                    <Text variant="paragraphS">
                       {hist.changedAt.toLocaleDateString(undefined, {
                         month: "short",
                         day: "numeric",
@@ -553,51 +586,71 @@ export default function TaxScreen() {
 
       {/* ── Tax Jar Deposit Modal ── */}
       <Modal visible={isJarModalOpen} transparent animationType="fade">
-        <Pressable style={S.overlay} onPress={() => setIsJarModalOpen(false)}>
-          <Pressable style={S.overlayCard} onPress={(e) => e.stopPropagation()}>
-            <View style={S.overlayHeader}>
-              <Text style={S.overlayTitle}>Log Tax Jar Deposit</Text>
-              <Pressable onPress={() => setIsJarModalOpen(false)} style={S.overlayClose}>
-                <Text style={{ color: "#9B9BA4", fontSize: 16, fontWeight: "700" }}>×</Text>
-              </Pressable>
-            </View>
-            <Text style={S.overlayBody}>Amount you're setting aside for taxes.</Text>
-            <TextInput
-              value={jarDepositInput}
-              onChangeText={setJarDepositInput}
-              placeholder="0.00"
-              placeholderTextColor="#65656E"
-              keyboardType="decimal-pad"
-              style={S.jarInput}
-            />
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              {[25, 50, 100, 200].map((amt) => (
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <Pressable style={S.overlay} onPress={() => setIsJarModalOpen(false)}>
+            <Pressable style={S.overlayCard} onPress={(e) => e.stopPropagation()}>
+              <View style={S.overlayHeader}>
+                <Text variant="labelL">Log Tax Jar Deposit</Text>
                 <Pressable
-                  key={amt}
-                  onPress={() => setJarDepositInput(String(amt))}
-                  style={[S.chip, S.chipInactive, { flex: 1, paddingHorizontal: 4 }]}
+                  onPress={() => setIsJarModalOpen(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close"
+                  hitSlop={8}
+                  style={S.overlayClose}
                 >
-                  <Text style={[S.chipText, { color: "#9B9BA4" }]}>${amt}</Text>
+                  <Text variant="headingS" style={{ color: COLORS.contentSecondary }}>×</Text>
                 </Pressable>
-              ))}
-            </View>
-            <View style={S.overlayActions}>
-              <Pressable onPress={() => setIsJarModalOpen(false)} style={S.cancelBtn}>
-                <Text style={S.cancelBtnText}>Cancel</Text>
-              </Pressable>
-              <Pressable onPress={handleJarDeposit} style={[S.confirmBtn, { backgroundColor: accentColor }]}>
-                <Text style={[S.confirmBtnText, { color: accentColorContrast }]}>Add to Jar</Text>
-              </Pressable>
-            </View>
+              </View>
+              <Text variant="paragraphM">Amount you're setting aside for taxes.</Text>
+              <TextInput
+                value={jarDepositInput}
+                onChangeText={setJarDepositInput}
+                placeholder="0.00"
+                placeholderTextColor={COLORS.contentMuted}
+                keyboardType="decimal-pad"
+                style={S.jarInput}
+              />
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                {[25, 50, 100, 200].map((amt) => (
+                  <Pressable
+                    key={amt}
+                    onPress={() => setJarDepositInput(String(amt))}
+                    accessibilityRole="button"
+                    style={[S.chip, S.chipInactive, { flex: 1, paddingHorizontal: 4 }]}
+                  >
+                    <Text variant="labelM" tabular style={{ color: COLORS.contentSecondary }}>${amt}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <View style={S.overlayActions}>
+                <Pressable
+                  onPress={() => setIsJarModalOpen(false)}
+                  accessibilityRole="button"
+                  style={S.cancelBtn}
+                >
+                  <Text variant="labelM" style={S.cancelBtnText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleJarDeposit}
+                  accessibilityRole="button"
+                  style={[S.confirmBtn, { backgroundColor: accentColor }]}
+                >
+                  <Text variant="labelM" style={{ color: accentColorContrast }}>Add to Jar</Text>
+                </Pressable>
+              </View>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
 }
 
 const S = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#000" },
+  root: { flex: 1, backgroundColor: COLORS.background },
   loader: { flex: 1, alignItems: "center", justifyContent: "center" },
   scroll: { padding: 16, paddingTop: 8, gap: 10 },
 
@@ -608,27 +661,17 @@ const S = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: "#000",
+    backgroundColor: COLORS.background,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "900",
-    color: "#F6F6F7",
-    letterSpacing: -0.4,
-  },
-  headerSub: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#65656E",
-    marginTop: 2,
-  },
+  headerSub: { marginTop: 2 },
   gearBtn: {
     width: 36,
     height: 36,
+    // circular: diameter / 2
     borderRadius: 18,
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -638,37 +681,28 @@ const S = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "rgba(245, 158, 11, 0.06)",
-    borderWidth: 0.8,
-    borderColor: "rgba(245, 158, 11, 0.2)",
+    backgroundColor: withAlpha(COLORS.warning, 0.06),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: withAlpha(COLORS.warning, 0.2),
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   alertText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#9B9BA4",
+    color: COLORS.contentSecondary,
     flex: 1,
-    lineHeight: 15,
   },
 
   // Cards
   card: {
-    backgroundColor: "#0F0F12",
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
+    backgroundColor: COLORS.surface02,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     borderRadius: 20,
     padding: 18,
     gap: 12,
   },
-  cardLabel: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#65656E",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
+  cardLabel: { color: COLORS.contentMuted },
 
   // Tax Jar card internals
   jarRow: {
@@ -676,61 +710,43 @@ const S = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-end",
   },
-  jarAmount: {
-    fontSize: 34,
-    fontWeight: "900",
-    letterSpacing: -0.5,
-  },
   mutedValue: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#9B9BA4",
+    color: COLORS.contentSecondary,
     marginTop: 2,
   },
   progressTrack: {
     height: 6,
-    backgroundColor: "#1E1E23",
+    backgroundColor: COLORS.lineSubtle,
+    // pill: height / 2
     borderRadius: 3,
   },
   progressFill: {
     height: 6,
     borderRadius: 3,
   },
-  progressLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#65656E",
-    marginTop: -4,
-  },
+  progressLabel: { marginTop: -4 },
   jarFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 2,
   },
-  suggestText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#9B9BA4",
-  },
+  suggestText: { color: COLORS.contentSecondary },
   pill: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    borderWidth: 0.8,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
     justifyContent: "center",
-  },
-  pillText: {
-    fontSize: 12,
-    fontWeight: "800",
   },
 
   // Obligations card internals
   obligationTotal: {
+    // hero money — no exact variant; explicit size, DS token color
     fontSize: 36,
-    fontWeight: "900",
-    color: "#F6F6F7",
+    fontWeight: "800",
+    color: COLORS.contentPrimary,
     letterSpacing: -0.6,
   },
   pillRow: {
@@ -740,28 +756,20 @@ const S = StyleSheet.create({
     marginTop: -2,
   },
   pillMuted: {
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  pillMutedText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#9B9BA4",
-  },
+  pillMutedText: { color: COLORS.contentSecondary },
   breakdownLink: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     justifyContent: "flex-end",
     marginTop: 2,
-  },
-  breakdownText: {
-    fontSize: 12,
-    fontWeight: "700",
   },
 
   // Next installment row
@@ -777,34 +785,18 @@ const S = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  installmentLabel: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#9B9BA4",
-  },
-  installmentDate: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#65656E",
-  },
+  installmentLabel: { color: COLORS.contentSecondary },
+  installmentDate: { color: COLORS.contentMuted },
   installmentRight: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
-  installmentDays: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#65656E",
-  },
+  installmentDays: { color: COLORS.contentMuted },
 
   // Disclaimer
   disclaimer: {
-    fontSize: 10,
-    fontWeight: "500",
-    color: "#2E2E36",
     textAlign: "center",
-    lineHeight: 15,
     paddingHorizontal: 8,
     marginTop: 4,
   },
@@ -813,40 +805,31 @@ const S = StyleSheet.create({
   emptyIcon: {
     width: 52,
     height: 52,
+    // circular: diameter / 2
     borderRadius: 26,
-    backgroundColor: "rgba(34, 197, 94, 0.08)",
+    backgroundColor: withAlpha(COLORS.primary, 0.08),
     borderWidth: 1,
     borderStyle: "dashed",
-    borderColor: "rgba(34, 197, 94, 0.25)",
+    borderColor: withAlpha(COLORS.primary, 0.25),
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "center",
   },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: "900",
-    color: "#F6F6F7",
-    textAlign: "center",
-  },
-  emptyBody: {
-    fontSize: 13,
-    color: "#9B9BA4",
-    textAlign: "center",
-    lineHeight: 18,
-  },
+  emptyTitle: { textAlign: "center" },
+  emptyBody: { textAlign: "center" },
 
   // Settings bottom sheet
   sheetOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: COLORS.scrim,
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: "#0F0F12",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderTopWidth: 0.8,
-    borderColor: "#1E1E23",
+    backgroundColor: COLORS.surface02,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     padding: 20,
     gap: 18,
   },
@@ -854,91 +837,53 @@ const S = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#2E2E36",
+    backgroundColor: COLORS.lineStrong,
     alignSelf: "center",
     marginBottom: 4,
   },
   sheetHeader: { gap: 2 },
-  sheetTitle: {
-    fontSize: 16,
-    fontWeight: "900",
-    color: "#F6F6F7",
-    letterSpacing: -0.3,
-  },
-  sheetSub: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#9B9BA4",
-  },
-  settingBlock: { gap: 8 },
-  settingBlockLabel: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#9B9BA4",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
+  sheetSub: { color: COLORS.contentSecondary },
+  settingBlockLabel: { color: COLORS.contentSecondary },
   settingRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     borderTopWidth: 0.5,
-    borderTopColor: "#16161A",
+    borderTopColor: COLORS.lineSubtle,
     paddingTop: 14,
   },
-  settingRowLabel: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#F6F6F7",
-  },
-  settingRowDesc: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#65656E",
-    marginTop: 2,
-    lineHeight: 14,
-  },
+  settingRowDesc: { marginTop: 2 },
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 14,
-    borderWidth: 0.8,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
     justifyContent: "center",
   },
   chipInactive: {
-    borderColor: "#1C1C21",
-    backgroundColor: "#16161A",
-  },
-  chipText: {
-    fontSize: 12,
-    fontWeight: "700",
+    borderColor: COLORS.lineSubtle,
+    backgroundColor: COLORS.surface03,
   },
   toggleBtn: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 14,
-    borderWidth: 0.8,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
     minWidth: 90,
     alignItems: "center",
   },
   toggleBtnOff: {
-    borderColor: "#1C1C21",
-    backgroundColor: "#16161A",
-  },
-  toggleBtnText: {
-    fontSize: 11,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
+    borderColor: COLORS.lineSubtle,
+    backgroundColor: COLORS.surface03,
   },
   stepper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
-    borderRadius: 14,
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
+    borderRadius: 12,
     overflow: "hidden",
   },
   stepBtn: {
@@ -947,23 +892,14 @@ const S = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  stepBtnText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#9B9BA4",
-  },
+  stepBtnText: { color: COLORS.contentSecondary },
   stepValue: {
     width: 44,
     alignItems: "center",
   },
-  stepValueText: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#F6F6F7",
-  },
   historyBlock: {
     borderTopWidth: 0.5,
-    borderTopColor: "#16161A",
+    borderTopColor: COLORS.lineSubtle,
     paddingTop: 14,
     gap: 8,
   },
@@ -971,26 +907,17 @@ const S = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#16161A",
-    borderRadius: 10,
+    backgroundColor: COLORS.surface03,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  historyText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#9B9BA4",
-  },
-  historyDate: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#65656E",
-  },
+  historyText: { color: COLORS.contentSecondary },
 
   // Modals
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.85)",
+    backgroundColor: COLORS.scrim,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
@@ -998,10 +925,10 @@ const S = StyleSheet.create({
   overlayCard: {
     width: "100%",
     maxWidth: 360,
-    backgroundColor: "#0F0F12",
-    borderRadius: 24,
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
+    backgroundColor: COLORS.surface02,
+    borderRadius: 28,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     padding: 20,
     gap: 16,
   },
@@ -1011,61 +938,18 @@ const S = StyleSheet.create({
     alignItems: "center",
     paddingBottom: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#1E1E23",
-  },
-  overlayTitle: {
-    color: "#F6F6F7",
-    fontSize: 15,
-    fontWeight: "900",
-    letterSpacing: -0.3,
+    borderBottomColor: COLORS.lineSubtle,
   },
   overlayClose: {
     width: 28,
     height: 28,
+    // circular: diameter / 2
     borderRadius: 14,
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     alignItems: "center",
     justifyContent: "center",
-  },
-  overlayBody: {
-    color: "#9B9BA4",
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "500",
-  },
-  compRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#16161A",
-    borderRadius: 16,
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
-    padding: 14,
-  },
-  compCol: {
-    flex: 1,
-    alignItems: "center",
-    gap: 4,
-  },
-  compLabel: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#9B9BA4",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  compCode: {
-    fontSize: 20,
-    fontWeight: "900",
-    color: "#F6F6F7",
-  },
-  compRate: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#9B9BA4",
   },
   overlayActions: {
     flexDirection: "row",
@@ -1074,34 +958,26 @@ const S = StyleSheet.create({
   cancelBtn: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
+    borderRadius: 12,
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     alignItems: "center",
   },
-  cancelBtnText: {
-    color: "#9B9BA4",
-    fontSize: 12,
-    fontWeight: "800",
-  },
+  cancelBtnText: { color: COLORS.contentSecondary },
   confirmBtn: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: "center",
   },
-  confirmBtnText: {
-    fontSize: 12,
-    fontWeight: "800",
-  },
   jarInput: {
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
-    borderRadius: 14,
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
+    borderRadius: 12,
     padding: 14,
-    color: "#F6F6F7",
+    color: COLORS.contentPrimary,
     fontSize: 18,
     fontWeight: "800",
     textAlign: "center",

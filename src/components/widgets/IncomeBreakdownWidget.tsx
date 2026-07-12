@@ -1,6 +1,7 @@
 import React from "react";
 import { View } from "react-native";
 import { Text } from "../ui/text";
+import { COLORS, KPI } from "@/src/theme/colors";
 
 interface IncomeBreakdownWidgetProps {
   totalRevenue: number;
@@ -35,36 +36,40 @@ export default function IncomeBreakdownWidget({
   return (
     <View style={{ gap: 16, paddingTop: 4 }}>
       {/* Stacked Bar */}
-      <View style={{ height: 12, flexDirection: "row", borderRadius: 6, overflow: "hidden", backgroundColor: "#1C1C21" }}>
-        <View style={{ width: `${netPct}%`, backgroundColor: "#3b82f6" }} />
-        <View style={{ width: `${taxPct}%`, backgroundColor: "#0ea5e9" }} />
-        <View style={{ width: `${expPct}%`, backgroundColor: "#06b6d4" }} />
+      <View
+        accessible={true}
+        accessibilityLabel={`Income breakdown: true net ${formatCurrency(takeHome)}, estimated taxes ${formatCurrency(taxWithholding)}, expenses ${formatCurrency(expenseClaim)}`}
+        style={{ height: 12, flexDirection: "row", borderRadius: 8, overflow: "hidden", backgroundColor: COLORS.surface04 }}
+      >
+        <View style={{ width: `${netPct}%`, backgroundColor: KPI.net }} />
+        <View style={{ width: `${taxPct}%`, backgroundColor: KPI.tax }} />
+        <View style={{ width: `${expPct}%`, backgroundColor: KPI.expenses }} />
       </View>
 
       {/* Legend */}
       <View style={{ gap: 12 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#3b82f6" }} />
-            <Text style={{ fontSize: 13, fontWeight: "600", color: "#9B9BA4" }}>True Net</Text>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: KPI.net }} />
+            <Text variant="labelM" className="text-content-secondary">True Net</Text>
           </View>
-          <Text style={{ fontSize: 14, fontWeight: "800", color: "#F6F6F7" }}>{formatCurrency(takeHome)}</Text>
+          <Text variant="labelM" tabular>{formatCurrency(takeHome)}</Text>
         </View>
 
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#0ea5e9" }} />
-            <Text style={{ fontSize: 13, fontWeight: "600", color: "#9B9BA4" }}>Est. Taxes</Text>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: KPI.tax }} />
+            <Text variant="labelM" className="text-content-secondary">Est. Taxes</Text>
           </View>
-          <Text style={{ fontSize: 14, fontWeight: "800", color: "#F6F6F7" }}>{formatCurrency(taxWithholding)}</Text>
+          <Text variant="labelM" tabular>{formatCurrency(taxWithholding)}</Text>
         </View>
 
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#06b6d4" }} />
-            <Text style={{ fontSize: 13, fontWeight: "600", color: "#9B9BA4" }}>Expenses</Text>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: KPI.expenses }} />
+            <Text variant="labelM" className="text-content-secondary">Expenses</Text>
           </View>
-          <Text style={{ fontSize: 14, fontWeight: "800", color: "#F6F6F7" }}>{formatCurrency(expenseClaim)}</Text>
+          <Text variant="labelM" tabular>{formatCurrency(expenseClaim)}</Text>
         </View>
       </View>
     </View>

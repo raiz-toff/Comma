@@ -2,6 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { Text } from "../ui/text";
+import { COLORS, KPI, withAlpha } from "@/src/theme/colors";
 
 interface TaxJarWidgetProps {
   taxWithholdingPct: number;
@@ -13,29 +14,34 @@ export default function TaxJarWidget({ taxWithholdingPct }: TaxJarWidgetProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (taxWithholdingPct / 100) * circumference;
+  const pct = Math.round(taxWithholdingPct);
 
   return (
     <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 12, gap: 16 }}>
-      <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+      <View
+        accessible={true}
+        accessibilityLabel={`Tax jar ${pct}% funded`}
+        style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}
+      >
         <Svg width={size} height={size} style={{ position: "absolute" }}>
-          <Circle cx={size/2} cy={size/2} r={radius} stroke="#0ea5e920" strokeWidth={strokeWidth} fill="none" />
-          <Circle 
-            cx={size/2} 
-            cy={size/2} 
-            r={radius} 
-            stroke="#0ea5e9" 
-            strokeWidth={strokeWidth} 
-            fill="none" 
-            strokeDasharray={circumference} 
-            strokeDashoffset={strokeDashoffset} 
-            strokeLinecap="round" 
-            transform={`rotate(-90 ${size/2} ${size/2})`} 
+          <Circle cx={size/2} cy={size/2} r={radius} stroke={withAlpha(KPI.tax, 0.12)} strokeWidth={strokeWidth} fill="none" />
+          <Circle
+            cx={size/2}
+            cy={size/2}
+            r={radius}
+            stroke={KPI.tax}
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            transform={`rotate(-90 ${size/2} ${size/2})`}
           />
         </Svg>
-        <Text style={{ fontSize: 24, fontWeight: "900", color: "#F6F6F7" }}>{taxWithholdingPct}%</Text>
+        <Text variant="headingL" tabular style={{ color: COLORS.contentPrimary }}>{pct}%</Text>
       </View>
-      
-      <Text style={{ fontSize: 11, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 1, textAlign: "center" }}>
+
+      <Text variant="labelXs" style={{ color: COLORS.contentSecondary, textAlign: "center" }}>
         Current Target Rate
       </Text>
     </View>

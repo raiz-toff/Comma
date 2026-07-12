@@ -26,7 +26,7 @@ interface ShiftCardProps {
 export function ShiftCard({ shift, distanceUnit }: ShiftCardProps) {
   const totalEarnings = shift.grossRevenue + shift.tipsRevenue + (shift.bonusAmount || 0);
   const durationHrs = (shift.durationSeconds / 3600).toFixed(1);
-  
+
   const dateObj = new Date(shift.startTime);
   const dateStr = dateObj.toLocaleDateString(undefined, {
     weekday: "short",
@@ -39,30 +39,31 @@ export function ShiftCard({ shift, distanceUnit }: ShiftCardProps) {
   return (
     <TouchableOpacity
       onPress={() => router.push(`/shifts/${shift.id}` as any)}
-      className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex-row justify-between items-center transition-all duration-200 active:border-slate-700/80"
+      accessibilityRole="button"
+      className="bg-card border border-line-subtle rounded-lg p-4 flex-row justify-between items-center active:border-line-strong"
     >
       {/* Left: Platform Badge, Date, Details */}
       <View className="flex flex-col gap-2 flex-1 pr-3">
         <View className="flex-row items-center gap-2 flex-wrap">
           <PlatformBadge platform={shift.platform as PlatformKey} size="sm" />
-          <Text className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+          <Text variant="labelXs" className="text-content-muted">
             {dateStr}
           </Text>
         </View>
-        
+
         <View className="flex-row gap-4 mt-0.5">
-          <Text className="text-xs text-slate-300 font-medium">
-            Hours: <Text className="font-bold text-slate-100">{durationHrs} hrs</Text>
+          <Text variant="paragraphS" className="text-content-secondary">
+            Hours: <Text variant="paragraphS" tabular className="font-bold text-content-primary">{durationHrs} hrs</Text>
           </Text>
-          <Text className="text-xs text-slate-300 font-medium">
-            Distance: <Text className="font-bold text-slate-100">
+          <Text variant="paragraphS" className="text-content-secondary">
+            Distance: <Text variant="paragraphS" tabular className="font-bold text-content-primary">
               {((shift.activeMileage || 0) + (shift.deadMileage || 0)).toFixed(1)} {distanceUnit}
             </Text>
           </Text>
         </View>
-        
+
         {shift.notes ? (
-          <Text className="text-[11px] text-slate-400 italic mt-0.5" numberOfLines={1}>
+          <Text variant="paragraphS" className="text-content-secondary italic mt-0.5" numberOfLines={1}>
             "{shift.notes}"
           </Text>
         ) : null}
@@ -70,15 +71,17 @@ export function ShiftCard({ shift, distanceUnit }: ShiftCardProps) {
 
       {/* Right: Total Earnings & Tips badge */}
       <View className="items-end gap-1">
-        <CurrencyText amount={totalEarnings} size="md" className="font-extrabold text-slate-100" />
+        <CurrencyText amount={totalEarnings} size="md" className="font-extrabold" />
         {shift.tipsRevenue > 0 ? (
-          <Text className="text-[9px] text-emerald-400 font-bold uppercase tracking-wide bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
-            +${shift.tipsRevenue.toFixed(2)} tips
+          <Text variant="labelXs" className="text-success bg-success/10 border border-success/20 px-1.5 py-0.5 rounded-full">
+            <CurrencyText amount={shift.tipsRevenue} showSign size="sm" className="text-label-xs font-bold text-success" />
+            {" tips"}
           </Text>
         ) : null}
         {shift.bonusAmount ? (
-          <Text className="text-[9px] text-amber-400 font-bold uppercase tracking-wide bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
-            +${shift.bonusAmount.toFixed(2)} bonus
+          <Text variant="labelXs" className="text-warning bg-warning/10 border border-warning/20 px-1.5 py-0.5 rounded-full">
+            <CurrencyText amount={shift.bonusAmount} showSign size="sm" className="text-label-xs font-bold text-warning" />
+            {" bonus"}
           </Text>
         ) : null}
       </View>

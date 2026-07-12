@@ -2,7 +2,7 @@ import * as React from "react";
 import { View } from "react-native";
 import { Text } from "./text";
 import { cn } from "@/src/lib/utils";
-import * as LucideIcons from "lucide-react-native";
+import { lucideIconMap } from "./lucideIconMap";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 
 export interface StatCardProps {
@@ -13,7 +13,7 @@ export interface StatCardProps {
   className?: string;
 }
 
-const iconMapping: Record<string, keyof typeof LucideIcons> = {
+const iconMapping: Record<string, keyof typeof lucideIconMap> = {
   home: "Home",
   clock: "Clock",
   "clock-play": "Clock",
@@ -37,18 +37,21 @@ const iconMapping: Record<string, keyof typeof LucideIcons> = {
 const mapIconName = (name: string): React.ComponentType<any> | null => {
   const cleanName = name.replace(/^ti-/, "").toLowerCase();
   const lucideKey = iconMapping[cleanName];
-  if (lucideKey && LucideIcons[lucideKey]) {
-    return LucideIcons[lucideKey] as React.ComponentType<any>;
+  if (lucideKey && lucideIconMap[lucideKey]) {
+    return lucideIconMap[lucideKey] as React.ComponentType<any>;
   }
-  
+
   // Try direct lookup with casing
   const capitalized = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
-  if (LucideIcons[capitalized as keyof typeof LucideIcons]) {
-    return LucideIcons[capitalized as keyof typeof LucideIcons] as React.ComponentType<any>;
+  if (lucideIconMap[capitalized]) {
+    return lucideIconMap[capitalized] as React.ComponentType<any>;
   }
 
   // Fallback
-  return LucideIcons.Info as React.ComponentType<any>;
+  if (__DEV__) {
+    console.warn(`StatCard: unknown icon "${name}", falling back to Info`);
+  }
+  return lucideIconMap.Info as React.ComponentType<any>;
 };
 
 export function StatCard({
@@ -106,7 +109,7 @@ export function StatCard({
 
       {/* Value & Label Section */}
       <View className="mt-3">
-        <Text tabular className="text-heading-l font-extrabold text-content-primary tracking-tight">
+        <Text tabular variant="headingL">
           {value}
         </Text>
         <Text variant="labelXs" className="text-content-muted mt-0.5">

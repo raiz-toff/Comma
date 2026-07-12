@@ -5,12 +5,15 @@ import {
   StyleSheet,
   ActivityIndicator,
   ScrollView,
+  FlatList,
   Modal,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Text } from "@/src/components/ui/text";
+import { EmptyState } from "@/src/components/ui/EmptyState";
+import { COLORS } from "@/src/theme/colors";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { parseRoutePath } from "@/utils/polyline";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
@@ -19,13 +22,13 @@ import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 import Svg, { Path, Polyline, Circle, Line, Rect } from "react-native-svg";
 
 // ─── Custom Icons ────────────────────────────────────────────────────────────
-const ChevronLeft = ({ size = 22, color = "#F6F6F7" }) => (
+const ChevronLeft = ({ size = 22, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
     <Path d="m15 18-6-6 6-6" />
   </Svg>
 );
 
-const ChevronRight = ({ size = 22, color = "#F6F6F7" }) => (
+const ChevronRight = ({ size = 22, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
     <Path d="m9 18 6-6-6-6" />
   </Svg>
@@ -92,7 +95,7 @@ const PlatformLogo = ({ id, size = 16 }: { id: string; size?: number }) => {
       );
     default:
       return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#9B9BA4" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={COLORS.contentSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <Rect x={2} y={7} width={20} height={14} rx={2} ry={2} />
           <Path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
         </Svg>
@@ -170,13 +173,13 @@ const RouteMinimap = React.memo(function RouteMinimap({ routePathJson, strokeCol
   const endY = padding + (1 - (endPoint.latitude - minLat) / latRange) * (height - 2 * padding);
 
   return (
-    <View style={{ width: 100, height: 60, backgroundColor: "#0A0A0C", borderRadius: 8, borderWidth: 0.5, borderColor: "#1E1E23", overflow: "hidden", marginLeft: 12 }}>
+    <View style={{ width: 100, height: 60, backgroundColor: COLORS.surface01, borderRadius: 8, borderWidth: 0.5, borderColor: COLORS.lineSubtle, overflow: "hidden", marginLeft: 12 }}>
       <Svg width={width} height={height}>
-        <Line x1="0" y1="20" x2="100" y2="20" stroke="#0F0F12" strokeWidth="0.5" />
-        <Line x1="0" y1="40" x2="100" y2="40" stroke="#0F0F12" strokeWidth="0.5" />
-        <Line x1="33" y1="0" x2="33" y2="60" stroke="#0F0F12" strokeWidth="0.5" />
-        <Line x1="66" y1="0" x2="66" y2="60" stroke="#0F0F12" strokeWidth="0.5" />
-        
+        <Line x1="0" y1="20" x2="100" y2="20" stroke={COLORS.surface02} strokeWidth="0.5" />
+        <Line x1="0" y1="40" x2="100" y2="40" stroke={COLORS.surface02} strokeWidth="0.5" />
+        <Line x1="33" y1="0" x2="33" y2="60" stroke={COLORS.surface02} strokeWidth="0.5" />
+        <Line x1="66" y1="0" x2="66" y2="60" stroke={COLORS.surface02} strokeWidth="0.5" />
+
         <Polyline
           points={svgPoints}
           fill="none"
@@ -186,8 +189,8 @@ const RouteMinimap = React.memo(function RouteMinimap({ routePathJson, strokeCol
           strokeLinejoin="round"
         />
 
-        <Circle cx={startX} cy={startY} r="3" fill="#22c55e" />
-        <Circle cx={endX} cy={endY} r="3.5" fill="#FF5247" stroke="#000" strokeWidth="0.8" />
+        <Circle cx={startX} cy={startY} r="3" fill={COLORS.success} />
+        <Circle cx={endX} cy={endY} r="3.5" fill={COLORS.destructive} stroke={COLORS.background} strokeWidth="0.8" />
       </Svg>
     </View>
   );
@@ -199,11 +202,81 @@ const VEHICLE_LOOKUP: Record<string, { name: string; icon: string }> = {
   demo_vehicle_ebike: { name: "RadCity", icon: "🚲" }
 };
 
+// ─── Shift row ───────────────────────────────────────────────────────────────
+// Module-level so FlatList rows keep a stable component identity across screen
+// re-renders (rows re-render but never remount).
+const ShiftCard = ({
+  shift,
+  distanceUnit,
+  formatCurrency,
+}: {
+  shift: any;
+  distanceUnit: string;
+  formatCurrency: (val: number) => string;
+}) => {
+  const totalShiftEarnings = (shift.grossRevenue || 0) + (shift.tipsRevenue || 0) + (shift.bonusAmount || 0);
+  const durationHrs = (shift.durationSeconds || 0) / 3600;
+  return (
+    <Pressable
+      onPress={() => router.push(`/shifts/${shift.id}` as any)}
+      accessibilityRole="button"
+      style={styles.shiftCard}
+    >
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <View style={{ flex: 1 }}>
+          <View style={styles.shiftHeader}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 }}>
+              <PlatformIcon id={shift.platform} />
+              <Text variant="labelM" numberOfLines={1}>
+                {formatDayName(shift.startTime)}
+              </Text>
+            </View>
+            <Text variant="labelL" tabular style={{ flexShrink: 0, marginLeft: 8 }} numberOfLines={1} adjustsFontSizeToFit>
+              {formatCurrency(totalShiftEarnings)}
+            </Text>
+          </View>
+
+          <View style={styles.shiftMeta}>
+            <Text variant="paragraphS" className="text-content-secondary" tabular>
+              Duration: {durationHrs.toFixed(1)} hrs
+            </Text>
+            {shift.activeMileage !== undefined && (
+              <Text variant="paragraphS" className="text-content-secondary" tabular>
+                Mileage: {shift.activeMileage} {distanceUnit}
+              </Text>
+            )}
+            {!!shift.bonusAmount && (
+              <Text variant="paragraphS" className="text-content-secondary" tabular>
+                • Bonus: {formatCurrency(shift.bonusAmount)}
+              </Text>
+            )}
+            {shift.vehicleId && VEHICLE_LOOKUP[shift.vehicleId] && (
+              <Text variant="paragraphS" className="text-content-secondary">
+                • {VEHICLE_LOOKUP[shift.vehicleId].icon} {VEHICLE_LOOKUP[shift.vehicleId].name}
+              </Text>
+            )}
+          </View>
+        </View>
+
+        {shift.routePath && (
+          <RouteMinimap
+            routePathJson={shift.routePath}
+            strokeColor={PLATFORMS[shift.platform as PlatformKey]?.color || COLORS.info}
+          />
+        )}
+      </View>
+    </Pressable>
+  );
+};
+
+// Replaces the old `gap: 12` on the shifts column with an explicit separator.
+const ShiftSeparator = () => <View style={{ height: 12 }} />;
+
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function ShiftsScreen() {
   const insets = useSafeAreaInsets();
   const { activePlatformFilter, profile, setHeaderVisible } = useSettingsStore();
-  const { platformColor } = usePlatformTheme();
+  const { platformColor, accentColor } = usePlatformTheme();
 
   // Selected week tracker
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -497,205 +570,174 @@ export default function ShiftsScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["bottom", "left", "right"]}>
-      <ScrollView
+      <FlatList
+        data={isLoading ? [] : displayedShifts}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <ShiftCard
+            shift={item}
+            distanceUnit={profile?.distanceUnit || "mi"}
+            formatCurrency={formatCurrency}
+          />
+        )}
+        ItemSeparatorComponent={ShiftSeparator}
         contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 64 }]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-      >
-        {/* ─── Week Selection & Header ────────────────────────────────────────── */}
-        <View style={styles.header}>
-          <Pressable onPress={() => setIsWeekSelectorOpen(true)} style={styles.weekLabelContainer} accessibilityRole="button" accessibilityLabel="Select week">
-            <Text style={styles.weekLabel}>
-              {displayedLabel}
-            </Text>
-            <View style={styles.dropdownChevron}>
-              <Svg width={10} height={6} viewBox="0 0 10 6" fill="none">
-                <Path d="M1 1L5 5L9 1" stroke="#9B9BA4" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-              </Svg>
-            </View>
-          </Pressable>
-
-          <View style={styles.navigationRow}>
-            <Pressable onPress={handlePrevWeek} style={styles.arrowBtn} accessibilityRole="button" accessibilityLabel="Previous week">
-              <ChevronLeft color="#F6F6F7" />
-            </Pressable>
-
-            <View style={styles.amountRow}>
-              <Text style={styles.amountSymbol}>
-                {formatCurrencyParts(displayedTotal).symbol}
-              </Text>
-              <Text style={styles.amountText} numberOfLines={1} adjustsFontSizeToFit>
-                {formatCurrencyParts(displayedTotal).value}
-              </Text>
-            </View>
-
-            <Pressable
-              onPress={handleNextWeek}
-              disabled={isCurrentOrFutureWeek}
-              accessibilityRole="button"
-              accessibilityLabel="Next week"
-              style={[styles.arrowBtn, isCurrentOrFutureWeek && styles.arrowBtnDisabled]}
-            >
-              <ChevronRight color={isCurrentOrFutureWeek ? "#2E2E36" : "#F6F6F7"} />
-            </Pressable>
-          </View>
-        </View>
-
-        {/* ─── Bar Chart Graph ────────────────────────────────────────────────── */}
-        <View style={styles.chartContainer}>
-          {maxDayTotal > 0 && (
-            <View style={styles.highLineOverlay} pointerEvents="none">
-              <View style={styles.dashedLine} />
-              <View style={styles.highBadge}>
-                <Text style={styles.highBadgeText}>HIGH: {formatCurrency(maxDayTotal)}</Text>
-              </View>
-            </View>
-          )}
-
-          <View style={styles.chartRow}>
-            {shiftsByDay.map((dayData, idx) => {
-              const isSelected = selectedDayIndex === idx;
-              const barHeightPct = maxDayTotal > 0 ? (dayData.total / maxDayTotal) * 100 : 0;
-              const barColor = platformColor || "#3b82f6";
-              
-              return (
-                <Pressable
-                  key={idx}
-                  onPress={() => setSelectedDayIndex(selectedDayIndex === idx ? null : idx)}
-                  style={styles.chartCol}
-                >
-                  <View style={styles.barTrack}>
-                    <View
-                      style={[
-                        styles.barFill,
-                        {
-                          height: `${Math.max(barHeightPct, dayData.total > 0 ? 8 : 2)}%`,
-                          backgroundColor: barColor,
-                          opacity: selectedDayIndex === null || isSelected ? 1 : 0.35,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.chartDayLabel,
-                      {
-                        color: isSelected ? (platformColor || "#3b82f6") : "#9B9BA4",
-                        fontWeight: isSelected ? "800" : "500",
-                      },
-                    ]}
-                  >
-                    {dayData.label.slice(0, 1)}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* ─── Weekly Stats Section ───────────────────────────────────────────── */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Online</Text>
-              <Text style={styles.statValue}>{(totalOnlineSeconds / 3600).toFixed(1)} hrs</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Active</Text>
-              <Text style={styles.statValue}>{(totalActiveSeconds / 3600).toFixed(1)} hrs</Text>
-            </View>
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Deadmile / Total Miles</Text>
-              <Text style={styles.statValue}>
-                {totalDeadMileage.toFixed(1)} / {totalMiles.toFixed(1)} {profile?.distanceUnit || "mi"}
-              </Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Orders</Text>
-              <Text style={styles.statValue}>{displayedShifts.length > 0 ? totalOrders : 0}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ─── Shifts List ────────────────────────────────────────────────────── */}
-        <View style={styles.listContainer}>
-          <Text style={styles.sectionTitle}>{listTitle}</Text>
-
-          {isLoading ? (
-            <ActivityIndicator size="small" color={platformColor || "#3b82f6"} style={{ marginTop: 24 }} />
-          ) : displayedShifts.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>
-                {selectedDayIndex !== null 
-                  ? "No shifts logged on this day."
-                  : "No shifts logged for this week."}
-              </Text>
+        ListEmptyComponent={
+          isLoading ? (
+            <View style={{ paddingVertical: 48, alignItems: "center", justifyContent: "center" }}>
+              <ActivityIndicator size="small" color={COLORS.contentSecondary} />
             </View>
           ) : (
-            <View style={styles.shiftsList}>
-              {displayedShifts.map((shift) => {
-                const totalShiftEarnings = (shift.grossRevenue || 0) + (shift.tipsRevenue || 0) + (shift.bonusAmount || 0);
-                const durationHrs = (shift.durationSeconds || 0) / 3600;
-                return (
-                  <Pressable
-                    key={shift.id}
-                    onPress={() => router.push(`/shifts/${shift.id}` as any)}
-                    style={styles.shiftCard}
-                  >
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                      <View style={{ flex: 1 }}>
-                        <View style={styles.shiftHeader}>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 }}>
-                            <PlatformIcon id={shift.platform} />
-                            <Text style={styles.shiftDay} numberOfLines={1}>
-                              {formatDayName(shift.startTime)}
-                            </Text>
-                          </View>
-                          <Text style={[styles.shiftAmount, { flexShrink: 0, marginLeft: 8 }]} numberOfLines={1} adjustsFontSizeToFit>
-                            {formatCurrency(totalShiftEarnings)}
-                          </Text>
-                        </View>
+            <EmptyState
+              icon="calendar"
+              title="No shifts"
+              message={
+                selectedDayIndex !== null
+                  ? "No shifts logged on this day."
+                  : "No shifts logged for this week."
+              }
+            />
+          )
+        }
+        ListHeaderComponent={
+          <>
+            {/* ─── Week Selection & Header ──────────────────────────────────── */}
+            <View style={styles.header}>
+              <Pressable
+                onPress={() => setIsWeekSelectorOpen(true)}
+                style={styles.weekLabelContainer}
+                accessibilityRole="button"
+                accessibilityLabel="Select week"
+              >
+                <Text variant="labelXs" className="text-content-secondary">
+                  {displayedLabel}
+                </Text>
+                <View style={styles.dropdownChevron}>
+                  <Svg width={10} height={6} viewBox="0 0 10 6" fill="none">
+                    <Path d="M1 1L5 5L9 1" stroke={COLORS.contentSecondary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                </View>
+              </Pressable>
 
-                        <View style={styles.shiftMeta}>
-                          <Text style={styles.metaText}>
-                            Duration: {durationHrs.toFixed(1)} hrs
-                          </Text>
-                          {shift.activeMileage !== undefined && (
-                            <Text style={styles.metaText}>
-                              Mileage: {shift.activeMileage} {profile?.distanceUnit || "mi"}
-                            </Text>
-                          )}
-                          {!!shift.bonusAmount && (
-                            <Text style={styles.metaText}>
-                              • Bonus: {formatCurrency(shift.bonusAmount)}
-                            </Text>
-                          )}
-                          {shift.vehicleId && VEHICLE_LOOKUP[shift.vehicleId] && (
-                            <Text style={styles.metaText}>
-                              • {VEHICLE_LOOKUP[shift.vehicleId].icon} {VEHICLE_LOOKUP[shift.vehicleId].name}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
+              <View style={styles.navigationRow}>
+                <Pressable
+                  onPress={handlePrevWeek}
+                  style={styles.arrowBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Previous week"
+                >
+                  <ChevronLeft color={COLORS.contentPrimary} />
+                </Pressable>
 
-                      {shift.routePath && (
-                        <RouteMinimap
-                          routePathJson={shift.routePath}
-                          strokeColor={PLATFORMS[shift.platform as PlatformKey]?.color || "#3b82f6"}
-                        />
-                      )}
-                    </View>
-                  </Pressable>
-                );
-              })}
+                <View style={styles.amountRow}>
+                  <Text style={styles.amountSymbol}>
+                    {formatCurrencyParts(displayedTotal).symbol}
+                  </Text>
+                  <Text tabular style={styles.amountText} numberOfLines={1} adjustsFontSizeToFit>
+                    {formatCurrencyParts(displayedTotal).value}
+                  </Text>
+                </View>
+
+                <Pressable
+                  onPress={handleNextWeek}
+                  disabled={isCurrentOrFutureWeek}
+                  accessibilityRole="button"
+                  accessibilityLabel="Next week"
+                  accessibilityState={{ disabled: isCurrentOrFutureWeek }}
+                  style={[styles.arrowBtn, isCurrentOrFutureWeek && styles.arrowBtnDisabled]}
+                >
+                  <ChevronRight color={isCurrentOrFutureWeek ? COLORS.contentDisabled : COLORS.contentPrimary} />
+                </Pressable>
+              </View>
             </View>
-          )}
-        </View>
-      </ScrollView>
+
+            {/* ─── Bar Chart Graph ──────────────────────────────────────────── */}
+            <View style={styles.chartContainer}>
+              {maxDayTotal > 0 && (
+                <View style={styles.highLineOverlay} pointerEvents="none">
+                  <View style={styles.dashedLine} />
+                  <View style={styles.highBadge}>
+                    <Text variant="labelXs" className="text-content-secondary" tabular>HIGH: {formatCurrency(maxDayTotal)}</Text>
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.chartRow}>
+                {shiftsByDay.map((dayData, idx) => {
+                  const isSelected = selectedDayIndex === idx;
+                  const barHeightPct = maxDayTotal > 0 ? (dayData.total / maxDayTotal) * 100 : 0;
+                  const barColor = platformColor || accentColor;
+
+                  return (
+                    <Pressable
+                      key={idx}
+                      onPress={() => setSelectedDayIndex(selectedDayIndex === idx ? null : idx)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${dayData.label}, ${formatCurrency(dayData.total)}`}
+                      accessibilityState={{ selected: isSelected }}
+                      style={styles.chartCol}
+                    >
+                      <View style={styles.barTrack}>
+                        <View
+                          style={[
+                            styles.barFill,
+                            {
+                              height: `${Math.max(barHeightPct, dayData.total > 0 ? 8 : 2)}%`,
+                              backgroundColor: barColor,
+                              opacity: selectedDayIndex === null || isSelected ? 1 : 0.35,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text
+                        variant="labelXs"
+                        style={{ color: isSelected ? (platformColor || accentColor) : COLORS.contentSecondary }}
+                      >
+                        {dayData.label.slice(0, 1)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* ─── Weekly Stats Section ─────────────────────────────────────── */}
+            <View style={styles.statsContainer}>
+              <View style={styles.statsRow}>
+                <View style={styles.statCard}>
+                  <Text variant="labelXs" className="text-content-secondary" style={{ marginBottom: 6 }}>Online</Text>
+                  <Text variant="headingM" tabular>{(totalOnlineSeconds / 3600).toFixed(1)} hrs</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text variant="labelXs" className="text-content-secondary" style={{ marginBottom: 6 }}>Active</Text>
+                  <Text variant="headingM" tabular>{(totalActiveSeconds / 3600).toFixed(1)} hrs</Text>
+                </View>
+              </View>
+
+              <View style={styles.statsRow}>
+                <View style={styles.statCard}>
+                  <Text variant="labelXs" className="text-content-secondary" style={{ marginBottom: 6 }}>Deadmile / Total Miles</Text>
+                  <Text variant="headingM" tabular>
+                    {totalDeadMileage.toFixed(1)} / {totalMiles.toFixed(1)} {profile?.distanceUnit || "mi"}
+                  </Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text variant="labelXs" className="text-content-secondary" style={{ marginBottom: 6 }}>Orders</Text>
+                  <Text variant="headingM" tabular>{displayedShifts.length > 0 ? totalOrders : 0}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* ─── Shifts List ──────────────────────────────────────────────── */}
+            <View style={styles.listContainer}>
+              <Text variant="labelXs" className="text-content-secondary" style={{ marginBottom: 12 }}>{listTitle}</Text>
+            </View>
+          </>
+        }
+      />
 
       {/* ─── Week Selector Dropdown Modal ────────────────────────────────────── */}
       {/* Conditionally mount (not just hide) the Modal so its native root does not
@@ -709,21 +751,26 @@ export default function ShiftsScreen() {
       >
         <SafeAreaView style={styles.modalRoot} edges={["top", "bottom", "left", "right"]}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select week ({selectorYear})</Text>
-            <Pressable onPress={() => setIsWeekSelectorOpen(false)}>
-              <Text style={[styles.closeBtnText, { color: platformColor || "#3b82f6" }]}>Cancel</Text>
+            <Text variant="headingM" tabular>Select week ({selectorYear})</Text>
+            <Pressable
+              onPress={() => setIsWeekSelectorOpen(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text variant="labelM" style={{ color: platformColor || accentColor }}>Cancel</Text>
             </Pressable>
           </View>
 
           <View style={styles.tableHeader}>
-            <Text style={styles.tableHeaderLeft}>Weekly Earnings</Text>
-            <Text style={styles.tableHeaderRight}>{weekdayHeaderLetters}</Text>
+            <Text variant="labelXs" className="text-content-secondary">Weekly Earnings</Text>
+            <Text variant="labelXs" className="text-content-secondary">{weekdayHeaderLetters}</Text>
           </View>
 
           {isYearShiftsLoading ? (
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-              <ActivityIndicator size="large" color={platformColor || "#3b82f6"} />
-              <Text style={{ color: "#9B9BA4", fontSize: 13, marginTop: 12, fontWeight: "600" }}>Loading earnings data...</Text>
+              <ActivityIndicator size="large" color={COLORS.contentSecondary} />
+              <Text variant="labelM" className="text-content-secondary" style={{ marginTop: 12 }}>Loading earnings data...</Text>
             </View>
           ) : (
             <ScrollView contentContainerStyle={styles.modalScroll} showsVerticalScrollIndicator={false}>
@@ -739,14 +786,14 @@ export default function ShiftsScreen() {
                       setSelectedDayIndex(null);
                       setIsWeekSelectorOpen(false);
                     }}
-                    style={[
-                      styles.weekCard,
-                      isSelected && { borderColor: platformColor || "#3b82f6", borderWidth: 1 }
-                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Week ${formattedRange}, ${formatCurrency(week.total)}`}
+                    accessibilityState={{ selected: isSelected }}
+                    style={[styles.weekCard, isSelected && { borderColor: platformColor || accentColor, borderWidth: 1 }]}
                   >
                     <View style={styles.weekInfo}>
-                      <Text style={styles.weekRangeText}>{formattedRange}</Text>
-                      <Text style={styles.weekAmountText}>{formatCurrency(week.total)}</Text>
+                      <Text variant="paragraphS" className="text-content-secondary">{formattedRange}</Text>
+                      <Text variant="headingM" tabular>{formatCurrency(week.total)}</Text>
                     </View>
 
                     <View style={styles.miniGraph}>
@@ -760,12 +807,12 @@ export default function ShiftsScreen() {
                                   styles.miniBarFill,
                                   {
                                     height: `${Math.max(barHeightPct, day.total > 0 ? 10 : 2)}%`,
-                                    backgroundColor: platformColor || "#3b82f6",
+                                    backgroundColor: platformColor || accentColor,
                                   },
                                 ]}
                               />
                             </View>
-                            <Text style={styles.miniDateText}>{day.dateNum}</Text>
+                            <Text variant="labelXs" className="text-content-secondary" tabular>{day.dateNum}</Text>
                           </View>
                         );
                       })}
@@ -780,24 +827,26 @@ export default function ShiftsScreen() {
           <View style={styles.modalFooter}>
             <Pressable
               onPress={handleModalNextPage}
+              accessibilityRole="button"
+              accessibilityLabel="Older weeks"
               style={styles.pageBtn}
             >
-              <Text style={styles.pageBtnText}>← Older</Text>
+              <Text variant="labelM">← Older</Text>
             </Pressable>
 
-            <Text style={styles.pageIndicator}>
+            <Text variant="paragraphS" className="text-content-secondary" tabular>
               Page {selectorPage + 1} of {totalPages}
             </Text>
 
             <Pressable
               onPress={handleModalPrevPage}
               disabled={selectorPage === 0 && selectorYear >= new Date().getFullYear()}
-              style={[
-                styles.pageBtn,
-                (selectorPage === 0 && selectorYear >= new Date().getFullYear()) && styles.pageBtnDisabled
-              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Newer weeks"
+              accessibilityState={{ disabled: selectorPage === 0 && selectorYear >= new Date().getFullYear() }}
+              style={[styles.pageBtn, (selectorPage === 0 && selectorYear >= new Date().getFullYear()) && styles.pageBtnDisabled]}
             >
-              <Text style={styles.pageBtnText}>Newer →</Text>
+              <Text variant="labelM">Newer →</Text>
             </Pressable>
           </View>
         </SafeAreaView>
@@ -811,7 +860,7 @@ export default function ShiftsScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: COLORS.background,
   },
   scroll: {
     padding: 16,
@@ -828,17 +877,10 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
-  },
-  weekLabel: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#9B9BA4",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+    borderRadius: 999,
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
   },
   dropdownChevron: {
     justifyContent: "center",
@@ -855,15 +897,15 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     justifyContent: "center",
     alignItems: "center",
   },
   arrowBtnDisabled: {
     opacity: 0.35,
-    borderColor: "#16161A",
+    borderColor: COLORS.lineSubtle,
   },
   amountRow: {
     flexDirection: "row",
@@ -871,10 +913,11 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     minWidth: 0,
   },
+  // Money hero — no variant fits 24/40px, so explicit sizes stay (tokens for color).
   amountSymbol: {
     fontSize: 24,
     fontWeight: "600",
-    color: "#F6F6F7",
+    color: COLORS.contentPrimary,
     lineHeight: 30,
     marginTop: 10,
     marginRight: 4,
@@ -883,17 +926,17 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 40,
     fontWeight: "800",
-    color: "#F6F6F7",
+    color: COLORS.contentPrimary,
     letterSpacing: -0.5,
     lineHeight: 48,
     paddingVertical: 2,
     includeFontPadding: false,
   },
   chartContainer: {
-    backgroundColor: "#0F0F12",
+    backgroundColor: COLORS.surface02,
     borderRadius: 20,
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     padding: 16,
     marginVertical: 10,
   },
@@ -912,17 +955,11 @@ const styles = StyleSheet.create({
     height: 1,
     borderStyle: "dashed",
     borderWidth: 1,
-    borderColor: "rgba(113, 113, 122, 0.25)",
+    borderColor: COLORS.lineSubtle,
   },
   highBadge: {
-    backgroundColor: "#0F0F12",
+    backgroundColor: COLORS.surface02,
     paddingLeft: 8,
-  },
-  highBadgeText: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: "#9B9BA4",
-    letterSpacing: 0.5,
   },
   chartRow: {
     flexDirection: "row",
@@ -940,47 +977,23 @@ const styles = StyleSheet.create({
   barTrack: {
     width: 14,
     height: 64,
-    backgroundColor: "#16161A",
-    borderRadius: 7,
+    backgroundColor: COLORS.surface03,
+    borderRadius: 8,
     overflow: "hidden",
     justifyContent: "flex-end",
   },
   barFill: {
     width: "100%",
-    borderRadius: 7,
-  },
-  chartDayLabel: {
-    fontSize: 11,
-    fontWeight: "600",
+    borderRadius: 8,
   },
   listContainer: {
     marginTop: 20,
   },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#9B9BA4",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: 12,
-  },
-  emptyState: {
-    paddingVertical: 32,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyText: {
-    fontSize: 13,
-    color: "#65656E",
-  },
-  shiftsList: {
-    gap: 12,
-  },
   shiftCard: {
-    backgroundColor: "#0F0F12",
+    backgroundColor: COLORS.surface02,
     borderRadius: 20,
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     padding: 16,
     gap: 12,
   },
@@ -993,40 +1006,25 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: "#16161A",
+    backgroundColor: COLORS.surface03,
     borderWidth: 1,
-    borderColor: "#1C1C21",
+    borderColor: COLORS.lineSubtle,
     justifyContent: "center",
     alignItems: "center",
-  },
-  shiftDay: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#F6F6F7",
-  },
-  shiftAmount: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#F6F6F7",
   },
   shiftMeta: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     borderTopWidth: 0.5,
-    borderTopColor: "#1E1E23",
+    borderTopColor: COLORS.lineSubtle,
     paddingTop: 8,
-  },
-  metaText: {
-    fontSize: 12,
-    color: "#9B9BA4",
-    fontWeight: "500",
   },
 
   // Modal styles
   modalRoot: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: COLORS.background,
   },
   modalHeader: {
     flexDirection: "row",
@@ -1035,16 +1033,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#1E1E23",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#F6F6F7",
-  },
-  closeBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
+    borderBottomColor: COLORS.lineSubtle,
   },
   tableHeader: {
     flexDirection: "row",
@@ -1053,20 +1042,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#0F0F12",
-  },
-  tableHeaderLeft: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#9B9BA4",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  tableHeaderRight: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#9B9BA4",
-    letterSpacing: 0.4,
+    borderBottomColor: COLORS.lineSubtle,
   },
   modalScroll: {
     paddingVertical: 8,
@@ -1076,26 +1052,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: 16,
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
-    backgroundColor: "#0F0F12",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
+    backgroundColor: COLORS.surface02,
     borderRadius: 20,
     marginHorizontal: 16,
     marginVertical: 6,
   },
   weekInfo: {
     gap: 4,
-  },
-  weekRangeText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#9B9BA4",
-  },
-  weekAmountText: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#F6F6F7",
-    letterSpacing: -0.4,
   },
   miniGraph: {
     flexDirection: "row",
@@ -1109,19 +1074,14 @@ const styles = StyleSheet.create({
   miniBarTrack: {
     width: 8,
     height: 32,
-    backgroundColor: "#16161A",
-    borderRadius: 4,
+    backgroundColor: COLORS.surface03,
+    borderRadius: 8,
     overflow: "hidden",
     justifyContent: "flex-end",
   },
   miniBarFill: {
     width: "100%",
-    borderRadius: 4,
-  },
-  miniDateText: {
-    fontSize: 8,
-    fontWeight: "700",
-    color: "#9B9BA4",
+    borderRadius: 8,
   },
 
   // Modal Footer styles
@@ -1132,29 +1092,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderTopWidth: 0.5,
-    borderTopColor: "#1E1E23",
-    backgroundColor: "#000",
+    borderTopColor: COLORS.lineSubtle,
+    backgroundColor: COLORS.background,
   },
   pageBtn: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
+    borderRadius: 12,
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
   },
   pageBtnDisabled: {
     opacity: 0.35,
-  },
-  pageBtnText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#F6F6F7",
-  },
-  pageIndicator: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#9B9BA4",
   },
   statsContainer: {
     marginVertical: 10,
@@ -1166,23 +1116,10 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: "#0F0F12",
+    backgroundColor: COLORS.surface02,
     borderRadius: 20,
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     padding: 16,
-  },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#9B9BA4",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: 6,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#F6F6F7",
   },
 });

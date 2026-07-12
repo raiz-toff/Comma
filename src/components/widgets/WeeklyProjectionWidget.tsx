@@ -2,6 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import { TrendingUp } from "lucide-react-native";
 import { Text } from "../ui/text";
+import { COLORS, KPI, withAlpha } from "@/src/theme/colors";
 
 interface DailyData {
   date: string;
@@ -28,18 +29,18 @@ export default function WeeklyProjectionWidget({ dailyData, country }: WeeklyPro
 
   return (
     <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 16, gap: 12 }}>
-      <View style={{ backgroundColor: "#818cf820", padding: 12, borderRadius: 16 }}>
-        <TrendingUp size={32} color="#818cf8" strokeWidth={2.5} />
+      <View style={{ backgroundColor: withAlpha(KPI.net, 0.12), padding: 12, borderRadius: 16 }}>
+        <TrendingUp size={32} color={KPI.net} strokeWidth={2.5} />
       </View>
-      
+
       <View style={{ alignItems: "center" }}>
-        <Text style={{ fontSize: 32, fontWeight: "900", color: "#F6F6F7", letterSpacing: -1, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>{formatCurrency(projection)}</Text>
-        <Text style={{ fontSize: 11, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 1, marginTop: 4 }}>Weekly Projection</Text>
+        <Text variant="headingXl" tabular style={{ color: COLORS.contentPrimary, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>{formatCurrency(projection)}</Text>
+        <Text variant="labelXs" style={{ color: COLORS.contentSecondary, marginTop: 4 }}>Weekly Projection</Text>
       </View>
-      
+
       <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", alignItems: "center", marginTop: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: "500", color: "#9B9BA4" }}>Based on your current daily average of </Text>
-        <Text style={{ fontSize: 13, color: "#F6F6F7", fontWeight: "700" }}>{formatCurrency(dayAvg)}</Text>
+        <Text variant="paragraphM" style={{ color: COLORS.contentSecondary }}>Based on your current daily average of </Text>
+        <Text variant="labelM" tabular style={{ color: COLORS.contentPrimary }}>{formatCurrency(dayAvg)}</Text>
       </View>
     </View>
   );

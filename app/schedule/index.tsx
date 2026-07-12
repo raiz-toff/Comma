@@ -29,41 +29,43 @@ import { settings } from "@/src/database/schema";
 import { eq } from "drizzle-orm";
 import { ChevronLeft, ChevronRight, Trash2, Bell, Clock } from "lucide-react-native";
 import { TimePickerModal } from "@/src/components/ui/TimePickerModal";
+import { EmptyState } from "@/src/components/ui/EmptyState";
+import { COLORS, withAlpha } from "@/src/theme/colors";
 
 const isWeb = Platform.OS === "web";
 
-// ─── Design tokens ──────────────────────────────────────────────────────────
+// ─── Design tokens (local aliases — every value comes from COLORS) ──────────
 const DS = {
-  pageBg: "#000",
-  cardBg: "#0F0F12",
-  cardBorder: "#1E1E23",
-  inputBg: "#16161A",
-  inputBorder: "#2E2E36",
-  sep: "#1E1E23",
+  pageBg: COLORS.background,
+  cardBg: COLORS.surface02,
+  cardBorder: COLORS.lineSubtle,
+  inputBg: COLORS.surface03,
+  inputBorder: COLORS.lineStrong,
+  sep: COLORS.lineSubtle,
 
-  brand: "#F6F6F7",
-  brandSurface: "rgba(255, 255, 255, 0.08)",
-  brandBorder: "rgba(255, 255, 255, 0.18)",
-  brandText: "#F6F6F7",
+  brand: COLORS.contentPrimary,
+  brandSurface: COLORS.surface04,
+  brandBorder: COLORS.lineStrong,
+  brandText: COLORS.contentPrimary,
 
-  textPrimary: "#F6F6F7",
-  textSecondary: "#65656E",
-  textMuted: "#2E2E36",
-  textLabel: "#48473f",
+  textPrimary: COLORS.contentPrimary,
+  textSecondary: COLORS.contentSecondary,
+  textMuted: COLORS.contentMuted,
+  textLabel: COLORS.contentMuted,
 
-  danger: "#FF5247",
-  dangerSurface: "rgba(244,63,94,0.07)",
-  dangerBorder: "rgba(244,63,94,0.22)",
-  dangerText: "#fb7185",
+  danger: COLORS.destructive,
+  dangerSurface: withAlpha(COLORS.destructive, 0.1),
+  dangerBorder: withAlpha(COLORS.destructive, 0.2),
+  dangerText: COLORS.destructive,
 
-  rCard: 18,
-  rInput: 11,
+  rCard: 16,
+  rInput: 12,
   rChip: 8,
   rPill: 20,
 
   pagePad: 16,
-  cardPad: 15,
-  rowPad: 13,
+  cardPad: 16,
+  rowPad: 12,
 } as const;
 
 interface ShiftTemplate {
@@ -584,7 +586,8 @@ export default function ScheduleScreen() {
           id: s.id,
           left: `${leftPct}%`,
           width: `${widthPct}%`,
-          color: pCfg?.color || "#cbd5e1",
+          // Platform brand color identifies the platform (sanctioned); neutral token fallback.
+          color: pCfg?.color || COLORS.contentSecondary,
           isTemplate: false,
           label: pCfg?.label || s.platform,
         });
@@ -616,7 +619,7 @@ export default function ScheduleScreen() {
           id: t.id,
           left: `${leftPct}%`,
           width: `${widthPct}%`,
-          color: "#475569",
+          color: COLORS.contentMuted,
           isTemplate: true,
           label: `Plan: ${t.startTime}-${t.endTime}`,
         });
@@ -634,7 +637,13 @@ export default function ScheduleScreen() {
       {/* Header */}
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
         <View style={s.headerLeft}>
-          <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={s.backBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            hitSlop={8}
+          >
             <ChevronLeft color={DS.textPrimary} size={20} />
           </TouchableOpacity>
           <View>
@@ -644,6 +653,7 @@ export default function ScheduleScreen() {
         </View>
         <TouchableOpacity
           onPress={() => setIsPlanning(!isPlanning)}
+          accessibilityRole="button"
           style={[
             s.headerBtn,
             { backgroundColor: accentColorDim, borderColor: accentColorMid },
@@ -671,6 +681,8 @@ export default function ScheduleScreen() {
               <View style={s.segmented}>
                 <TouchableOpacity
                   onPress={() => setPlanType("single")}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: planType === "single" }}
                   style={[s.segBtn, planType === "single" && s.segBtnOn, { flex: 1 }]}
                 >
                   <Text style={[s.segText, planType === "single" && s.segTextOn]}>
@@ -679,6 +691,8 @@ export default function ScheduleScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setPlanType("recurring")}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: planType === "recurring" }}
                   style={[s.segBtn, planType === "recurring" && s.segBtnOn, { flex: 1 }]}
                 >
                   <Text style={[s.segText, planType === "recurring" && s.segTextOn]}>
@@ -706,6 +720,8 @@ export default function ScheduleScreen() {
                       <TouchableOpacity
                         key={pKey}
                         onPress={() => setPlanPlatform(pKey)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: isSel }}
                         style={[s.platformChip, isSel && { borderColor: accentColorMid, backgroundColor: accentColorDim }]}
                       >
                         <PlatformBadge platform={pKey} size="sm" />
@@ -720,7 +736,7 @@ export default function ScheduleScreen() {
               <View style={s.formGroup}>
                 <Text style={s.formLabel}>Target Date</Text>
                 <View style={[s.input, { backgroundColor: DS.inputBg, opacity: 0.85, paddingVertical: 10, justifyContent: "center" }]}>
-                  <Text style={{ fontSize: 13, color: DS.textPrimary, fontWeight: "600" }}>
+                  <Text variant="labelM">
                     {selectedDate.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
                   </Text>
                 </View>
@@ -735,6 +751,8 @@ export default function ScheduleScreen() {
                       <TouchableOpacity
                         key={idx}
                         onPress={() => togglePlanDay(idx)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: isSelected }}
                         style={[s.segBtn, isSelected && s.segBtnOn]}
                       >
                         <Text style={[s.segText, isSelected && s.segTextOn]}>
@@ -751,7 +769,13 @@ export default function ScheduleScreen() {
             <View style={s.formRow}>
               <View style={[s.formGroup, { flex: 1 }]}>
                 <Text style={s.formLabel}>Start Time</Text>
-                <TouchableOpacity onPress={() => setShowPickerType("start")} activeOpacity={0.7} style={{ width: "100%" }}>
+                <TouchableOpacity
+                  onPress={() => setShowPickerType("start")}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Select start time"
+                  style={{ width: "100%" }}
+                >
                   <View style={{ position: "relative", justifyContent: "center" }}>
                     <TextInput
                       value={planStart}
@@ -781,7 +805,13 @@ export default function ScheduleScreen() {
               </View>
               <View style={[s.formGroup, { flex: 1 }]}>
                 <Text style={s.formLabel}>End Time</Text>
-                <TouchableOpacity onPress={() => setShowPickerType("end")} activeOpacity={0.7} style={{ width: "100%" }}>
+                <TouchableOpacity
+                  onPress={() => setShowPickerType("end")}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Select end time"
+                  style={{ width: "100%" }}
+                >
                   <View style={{ position: "relative", justifyContent: "center" }}>
                     <TextInput
                       value={planEnd}
@@ -821,13 +851,18 @@ export default function ScheduleScreen() {
                 <Switch
                   value={planReminder}
                   onValueChange={setPlanReminder}
+                  accessibilityLabel="Alert reminder"
                   trackColor={{ false: DS.inputBorder, true: accentColor }}
-                  thumbColor="#F6F6F7"
+                  thumbColor={COLORS.contentPrimary}
                 />
               </View>
             )}
 
-            <TouchableOpacity onPress={handleSavePlan} style={[s.saveBtn, { backgroundColor: accentColor, borderWidth: 0 }]}>
+            <TouchableOpacity
+              onPress={handleSavePlan}
+              accessibilityRole="button"
+              style={[s.saveBtn, { backgroundColor: accentColor, borderWidth: 0 }]}
+            >
               <Text style={[s.saveBtnText, { color: accentColorContrast }]}>Save Schedule</Text>
             </TouchableOpacity>
 
@@ -853,6 +888,8 @@ export default function ScheduleScreen() {
                 <TouchableOpacity
                   key={idx}
                   onPress={() => handleSelectDay(day)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
                   style={[
                     s.weekCell,
                     isSelected && { borderColor: accentColorMid, backgroundColor: accentColorDim },
@@ -870,7 +907,7 @@ export default function ScheduleScreen() {
                     <CurrencyText
                       amount={dayEarnings}
                       size="sm"
-                      className="font-extrabold mt-1 text-[9px]"
+                      className="font-extrabold mt-1 text-[10px]"
                       style={{ color: isSelected ? accentColor : DS.textPrimary }}
                     />
                   ) : (
@@ -885,13 +922,25 @@ export default function ScheduleScreen() {
         {/* Month Calendar Card */}
         <View style={s.card}>
           <View style={s.monthHeader}>
-            <TouchableOpacity onPress={prevMonth} style={s.navBtn}>
+            <TouchableOpacity
+              onPress={prevMonth}
+              style={s.navBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Previous month"
+              hitSlop={8}
+            >
               <ChevronLeft color={DS.textPrimary} size={16} />
             </TouchableOpacity>
             <Text style={s.monthTitle}>
               {currentDate.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
             </Text>
-            <TouchableOpacity onPress={nextMonth} style={s.navBtn}>
+            <TouchableOpacity
+              onPress={nextMonth}
+              style={s.navBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Next month"
+              hitSlop={8}
+            >
               <ChevronRight color={DS.textPrimary} size={16} />
             </TouchableOpacity>
           </View>
@@ -924,6 +973,8 @@ export default function ScheduleScreen() {
                   <TouchableOpacity
                     key={idx}
                     onPress={() => handleSelectDay(day)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
                     style={[
                       s.calendarDayCell,
                       isSelected && { borderColor: accentColorMid, borderWidth: 0.5, backgroundColor: accentColorDim },
@@ -945,7 +996,8 @@ export default function ScheduleScreen() {
                     {shiftsOnDay.length > 0 && (
                       <View style={s.calendarDots}>
                         {shiftsOnDay.slice(0, 3).map((s, sIdx) => {
-                          const brandColor = PLATFORMS[s.platform as PlatformKey]?.color || "#cbd5e1";
+                          // Platform brand dot (sanctioned); neutral token fallback.
+                          const brandColor = PLATFORMS[s.platform as PlatformKey]?.color || COLORS.contentSecondary;
                           return (
                             <View
                               key={sIdx}
@@ -973,6 +1025,8 @@ export default function ScheduleScreen() {
             </View>
             <TouchableOpacity
               onPress={() => handleToggleOffDay(selectedDateKey)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: offDays.includes(selectedDateKey) }}
               style={[s.offDayBtn, offDays.includes(selectedDateKey) && s.offDayBtnOn]}
             >
               <Text style={[s.offDayBtnText, offDays.includes(selectedDateKey) && s.offDayBtnOnText]}>
@@ -1036,14 +1090,17 @@ export default function ScheduleScreen() {
 
           {/* Shifts logged list */}
           {selectedDayShifts.length === 0 ? (
-            <View style={s.emptyBox}>
-              <Text style={s.emptyBoxText}>No shifts logged on this date.</Text>
-            </View>
+            <EmptyState
+              icon="calendar"
+              title="No shifts"
+              message="No shifts logged on this date."
+              className="py-4"
+            />
           ) : (
             <View style={s.shiftList}>
               <View style={[s.earningsBanner, { backgroundColor: accentColorDim, borderColor: accentColorMid }]}>
                 <Text style={s.earningsBannerLabel}>Total Earnings</Text>
-                <CurrencyText amount={selectedDayEarnings} size="sm" className="font-extrabold text-emerald-400" />
+                <CurrencyText amount={selectedDayEarnings} size="sm" className="font-extrabold text-success" />
               </View>
               {selectedDayShifts.map((sItem) => {
                 const isExp = expandedShiftId === sItem.id;
@@ -1058,6 +1115,8 @@ export default function ScheduleScreen() {
                   <View key={sItem.id} style={s.shiftItem}>
                     <TouchableOpacity
                       onPress={() => setExpandedShiftId(isExp ? null : sItem.id)}
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: isExp }}
                       style={s.shiftItemHeader}
                     >
                       <View style={s.shiftInfoLeft}>
@@ -1078,7 +1137,7 @@ export default function ScheduleScreen() {
                       <CurrencyText
                         amount={(sItem.grossRevenue || 0) + (sItem.tipsRevenue || 0) + (sItem.bonusAmount || 0)}
                         size="sm"
-                        className="font-extrabold text-slate-100"
+                        className="font-extrabold text-content-primary"
                       />
                     </TouchableOpacity>
 
@@ -1088,41 +1147,41 @@ export default function ScheduleScreen() {
                         <View style={s.overviewGrid}>
                           <View style={s.overviewCell}>
                             <Text style={s.overviewLabel}>Hourly Rate</Text>
-                            <Text style={[s.overviewValueBrand, { color: accentColor }]}>
+                            <Text tabular style={[s.overviewValueBrand, { color: accentColor }]}>
                               ${hourlyRate.toFixed(2)}/h
                             </Text>
                           </View>
                           <View style={s.overviewCell}>
                             <Text style={s.overviewLabel}>Base Pay</Text>
-                            <Text style={s.overviewValue}>${basePay.toFixed(2)}</Text>
+                            <Text tabular style={s.overviewValue}>${basePay.toFixed(2)}</Text>
                           </View>
                           <View style={s.overviewCell}>
                             <Text style={s.overviewLabel}>Tips</Text>
-                            <Text style={s.overviewValueSuccess}>
+                            <Text tabular style={s.overviewValueSuccess}>
                               ${(sItem.tipsRevenue || 0).toFixed(2)}
                             </Text>
                           </View>
                           {!!sItem.bonusAmount && (
                             <View style={s.overviewCell}>
                               <Text style={s.overviewLabel}>Bonus</Text>
-                              <Text style={s.overviewValueSuccess}>
+                              <Text tabular style={s.overviewValueSuccess}>
                                 ${(sItem.bonusAmount || 0).toFixed(2)}
                               </Text>
                             </View>
                           )}
                           <View style={s.overviewCell}>
                             <Text style={s.overviewLabel}>Deliveries</Text>
-                            <Text style={s.overviewValue}>{sItem.deliveriesCount || 0}</Text>
+                            <Text tabular style={s.overviewValue}>{sItem.deliveriesCount || 0}</Text>
                           </View>
                           <View style={s.overviewCell}>
                             <Text style={s.overviewLabel}>Distance</Text>
-                            <Text style={s.overviewValue}>
+                            <Text tabular style={s.overviewValue}>
                               {sItem.trackedMileage || 0} {profile.distanceUnit || "mi"}
                             </Text>
                           </View>
                           <View style={s.overviewCell}>
                             <Text style={s.overviewLabel}>Duration</Text>
-                            <Text style={s.overviewValue}>{durHrs.toFixed(1)} hrs</Text>
+                            <Text tabular style={s.overviewValue}>{durHrs.toFixed(1)} hrs</Text>
                           </View>
                         </View>
                         {sItem.notes ? (
@@ -1146,9 +1205,12 @@ export default function ScheduleScreen() {
         <View style={s.card}>
           <Text style={s.cardTitle}>Planned Shifts & Templates</Text>
           {templates.length === 0 ? (
-            <View style={s.emptyBox}>
-              <Text style={s.emptyBoxText}>No planned shifts or templates. Tap on any day to plan.</Text>
-            </View>
+            <EmptyState
+              icon="calendar"
+              title="No planned shifts"
+              message="No planned shifts or templates. Tap on any day to plan."
+              className="py-4"
+            />
           ) : (
             <View style={s.templateList}>
               {templates.map((t) => {
@@ -1163,14 +1225,14 @@ export default function ScheduleScreen() {
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                           <Text style={s.templateDay}>{dayName}</Text>
                           <View style={{
-                            backgroundColor: t.date ? "rgba(59, 130, 246, 0.1)" : "rgba(16, 185, 129, 0.1)",
-                            borderColor: t.date ? "rgba(59, 130, 246, 0.3)" : "rgba(16, 185, 129, 0.3)",
+                            backgroundColor: t.date ? withAlpha(COLORS.info, 0.15) : withAlpha(COLORS.success, 0.15),
+                            borderColor: t.date ? withAlpha(COLORS.info, 0.3) : withAlpha(COLORS.success, 0.3),
                             borderWidth: 0.5,
-                            borderRadius: 4,
+                            borderRadius: 8,
                             paddingHorizontal: 4,
                             paddingVertical: 1,
                           }}>
-                            <Text style={{ fontSize: 7.5, fontWeight: "700", color: t.date ? "#60a5fa" : "#34d399", textTransform: "uppercase" }}>
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: t.date ? COLORS.info : COLORS.success, textTransform: "uppercase" }}>
                               {t.date ? "Single" : "Weekly"}
                             </Text>
                           </View>
@@ -1182,6 +1244,9 @@ export default function ScheduleScreen() {
                     </View>
                     <TouchableOpacity
                       onPress={() => handleDeleteTemplate(t.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Delete planned shift"
+                      hitSlop={8}
                       style={s.removeBtn}
                     >
                       <Trash2 color={DS.dangerText} size={15} />
@@ -1196,7 +1261,7 @@ export default function ScheduleScreen() {
         {/* Work Schedule Preset Card */}
         <View style={s.card}>
           <Text style={s.cardTitle}>Work Schedule Preset</Text>
-          <Text style={{ fontSize: 10, color: DS.textSecondary, marginBottom: 12 }}>
+          <Text variant="paragraphS" style={{ marginBottom: 12 }}>
             Choose a recurring preset to help shape your weekly goals and targets.
           </Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -1213,13 +1278,15 @@ export default function ScheduleScreen() {
                   onPress={async () => {
                     await updateProfile({ workSchedulePreset: preset.value as any });
                   }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSel }}
                   style={[
                     s.platformChip,
                     { flex: 1, minWidth: "45%", paddingVertical: 10, alignItems: "center" },
                     isSel && { borderColor: accentColorMid, backgroundColor: accentColorDim }
                   ]}
                 >
-                  <Text style={{ fontSize: 12, fontWeight: "600", color: isSel ? accentColor : DS.textPrimary }}>
+                  <Text variant="labelM" style={{ color: isSel ? accentColor : DS.textPrimary }}>
                     {preset.label}
                   </Text>
                 </TouchableOpacity>
@@ -1235,17 +1302,25 @@ export default function ScheduleScreen() {
         <View style={s.modalOverlay}>
           <View style={s.modalContent}>
             <View style={s.modalIconContainer}>
-              <Bell size={26} color="#F6F6F7" />
+              <Bell size={26} color={COLORS.contentPrimary} />
             </View>
             <Text style={s.modalTitle}>Enable Shift Reminders</Text>
             <Text style={s.modalText}>
               Receive smart notifications 30 minutes before your planned shifts so you never miss high-earnings windows.
             </Text>
             <View style={s.modalButtonGroup}>
-              <TouchableOpacity style={s.modalPrimaryBtn} onPress={handleRequestNotifPermission}>
+              <TouchableOpacity
+                style={s.modalPrimaryBtn}
+                onPress={handleRequestNotifPermission}
+                accessibilityRole="button"
+              >
                 <Text style={s.modalPrimaryBtnText}>Allow Alerts</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={s.modalSecondaryBtn} onPress={handleSkipNotifPermission}>
+              <TouchableOpacity
+                style={s.modalSecondaryBtn}
+                onPress={handleSkipNotifPermission}
+                accessibilityRole="button"
+              >
                 <Text style={s.modalSecondaryBtnText}>Maybe Later</Text>
               </TouchableOpacity>
             </View>
@@ -1354,7 +1429,7 @@ const s = StyleSheet.create({
     color: DS.textPrimary,
   },
   groupLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "700",
     color: DS.textLabel,
     letterSpacing: 0.9,
@@ -1372,7 +1447,7 @@ const s = StyleSheet.create({
     gap: 12,
   },
   formLabel: {
-    fontSize: 9.5,
+    fontSize: 11,
     fontWeight: "700",
     color: DS.textSecondary,
     textTransform: "uppercase",
@@ -1390,8 +1465,8 @@ const s = StyleSheet.create({
     fontWeight: "600",
   },
   saveBtn: {
-    backgroundColor: DS.brandText === "#F6F6F7" ? "#16161A" : DS.brand,
-    borderWidth: DS.brandText === "#F6F6F7" ? 0.5 : 0,
+    backgroundColor: DS.inputBg,
+    borderWidth: 0.5,
     borderColor: DS.brandBorder,
     borderRadius: DS.rInput,
     paddingVertical: 12,
@@ -1400,7 +1475,7 @@ const s = StyleSheet.create({
     marginTop: 6,
   },
   saveBtnText: {
-    color: "#F6F6F7",
+    color: DS.textPrimary,
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
@@ -1422,7 +1497,7 @@ const s = StyleSheet.create({
     color: DS.textPrimary,
   },
   switchSub: {
-    fontSize: 9,
+    fontSize: 10,
     color: DS.textSecondary,
     marginTop: 1,
   },
@@ -1454,7 +1529,7 @@ const s = StyleSheet.create({
   segBtn: {
     flex: 1,
     paddingVertical: 6,
-    borderRadius: DS.rInput - 2,
+    borderRadius: 8,
     alignItems: "center",
   },
   segBtnOn: {
@@ -1497,7 +1572,7 @@ const s = StyleSheet.create({
     backgroundColor: DS.dangerSurface,
   },
   weekDayName: {
-    fontSize: 8.5,
+    fontSize: 10,
     fontWeight: "700",
     color: DS.textSecondary,
     textTransform: "uppercase",
@@ -1515,7 +1590,7 @@ const s = StyleSheet.create({
     color: DS.brandText,
   },
   weekDayEmpty: {
-    fontSize: 9,
+    fontSize: 10,
     color: DS.textMuted,
     marginTop: 4,
   },
@@ -1528,7 +1603,7 @@ const s = StyleSheet.create({
   },
   monthTitle: {
     color: DS.textPrimary,
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: "800",
   },
   navBtn: {
@@ -1550,7 +1625,7 @@ const s = StyleSheet.create({
   },
   calendarWeekdayText: {
     flex: 1,
-    fontSize: 9,
+    fontSize: 10,
     color: DS.textSecondary,
     fontWeight: "700",
     textTransform: "uppercase",
@@ -1614,12 +1689,12 @@ const s = StyleSheet.create({
     paddingBottom: 4,
   },
   detailTitle: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: "800",
     color: DS.textPrimary,
   },
   detailSub: {
-    fontSize: 9.5,
+    fontSize: 10,
     color: DS.textSecondary,
     marginTop: 1,
   },
@@ -1636,7 +1711,7 @@ const s = StyleSheet.create({
     borderColor: DS.dangerBorder,
   },
   offDayBtnText: {
-    fontSize: 9.5,
+    fontSize: 10,
     fontWeight: "700",
     color: DS.textPrimary,
   },
@@ -1647,12 +1722,12 @@ const s = StyleSheet.create({
     backgroundColor: DS.inputBg,
     borderColor: DS.inputBorder,
     borderWidth: 0.5,
-    borderRadius: DS.rCard - 2,
+    borderRadius: 12,
     padding: 10,
     gap: 8,
   },
   timelineLabel: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "700",
     color: DS.textSecondary,
     textTransform: "uppercase",
@@ -1666,7 +1741,7 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
   },
   timelineInfoText: {
-    fontSize: 8.5,
+    fontSize: 10,
     color: DS.textSecondary,
     fontWeight: "600",
   },
@@ -1684,7 +1759,7 @@ const s = StyleSheet.create({
   },
   timelineBlockPlan: {
     borderWidth: 0.5,
-    borderColor: "rgba(255,255,255,0.2)",
+    borderColor: COLORS.lineStrong,
     borderStyle: "dashed",
   },
   timelineHours: {
@@ -1693,23 +1768,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 2,
   },
   timelineHourText: {
-    fontSize: 8,
+    fontSize: 10,
     color: DS.textMuted,
-    fontWeight: "500",
-  },
-  emptyBox: {
-    backgroundColor: "rgba(255,255,255,0.02)",
-    borderColor: DS.cardBorder,
-    borderWidth: 0.5,
-    borderStyle: "dashed",
-    borderRadius: DS.rCard - 2,
-    padding: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyBoxText: {
-    fontSize: 11,
-    color: DS.textSecondary,
     fontWeight: "500",
   },
   shiftList: {
@@ -1722,7 +1782,7 @@ const s = StyleSheet.create({
     backgroundColor: DS.brandSurface,
     borderColor: DS.brandBorder,
     borderWidth: 0.5,
-    borderRadius: DS.rCard - 4,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -1735,7 +1795,7 @@ const s = StyleSheet.create({
     backgroundColor: DS.inputBg,
     borderColor: DS.inputBorder,
     borderWidth: 0.5,
-    borderRadius: DS.rCard - 4,
+    borderRadius: 12,
     overflow: "hidden",
   },
   shiftItemHeader: {
@@ -1755,7 +1815,7 @@ const s = StyleSheet.create({
     color: DS.textPrimary,
   },
   shiftSubtext: {
-    fontSize: 8.5,
+    fontSize: 10,
     color: DS.textSecondary,
     marginTop: 1,
   },
@@ -1777,7 +1837,7 @@ const s = StyleSheet.create({
     padding: 8,
   },
   overviewLabel: {
-    fontSize: 8.5,
+    fontSize: 10,
     color: DS.textSecondary,
     fontWeight: "600",
   },
@@ -1795,7 +1855,7 @@ const s = StyleSheet.create({
   },
   overviewValueSuccess: {
     fontSize: 11,
-    color: "#22c55e",
+    color: COLORS.success,
     fontWeight: "700",
     marginTop: 2,
   },
@@ -1806,7 +1866,7 @@ const s = StyleSheet.create({
     padding: 8,
   },
   notesTitle: {
-    fontSize: 9,
+    fontSize: 10,
     color: DS.textSecondary,
     fontWeight: "700",
   },
@@ -1830,7 +1890,7 @@ const s = StyleSheet.create({
     backgroundColor: DS.inputBg,
     borderColor: DS.inputBorder,
     borderWidth: 0.5,
-    borderRadius: DS.rCard - 4,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
@@ -1845,17 +1905,17 @@ const s = StyleSheet.create({
     color: DS.textPrimary,
   },
   templateTime: {
-    fontSize: 9,
+    fontSize: 10,
     color: DS.textSecondary,
     marginTop: 1,
   },
   removeBtn: {
     width: 28,
     height: 28,
-    borderRadius: 6,
-    backgroundColor: "rgba(244,63,94,0.05)",
+    borderRadius: 8,
+    backgroundColor: DS.dangerSurface,
     borderWidth: 0.5,
-    borderColor: "rgba(244,63,94,0.15)",
+    borderColor: withAlpha(COLORS.destructive, 0.15),
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1865,7 +1925,7 @@ const s = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    backgroundColor: COLORS.scrim,
     justifyContent: "center",
     alignItems: "center",
     zIndex: 9999,
@@ -1874,10 +1934,10 @@ const s = StyleSheet.create({
   modalContent: {
     width: "100%",
     maxWidth: 320,
-    backgroundColor: "#0F0F12",
+    backgroundColor: COLORS.surface02,
     borderRadius: 20,
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     padding: 24,
     alignItems: "center",
   },
@@ -1885,23 +1945,23 @@ const s = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: COLORS.surface04,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 16,
-    borderWidth: 0.8,
-    borderColor: "rgba(255, 255, 255, 0.15)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineStrong,
   },
   modalTitle: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#F6F6F7",
+    color: COLORS.contentPrimary,
     marginBottom: 8,
     textAlign: "center",
   },
   modalText: {
     fontSize: 12,
-    color: "#65656E",
+    color: COLORS.contentMuted,
     lineHeight: 17,
     textAlign: "center",
     marginBottom: 24,
@@ -1914,12 +1974,12 @@ const s = StyleSheet.create({
     width: "100%",
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#F6F6F7",
+    backgroundColor: COLORS.contentPrimary,
     justifyContent: "center",
     alignItems: "center",
   },
   modalPrimaryBtnText: {
-    color: "#000",
+    color: COLORS.background,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -1927,23 +1987,23 @@ const s = StyleSheet.create({
     width: "100%",
     height: 40,
     borderRadius: 20,
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     justifyContent: "center",
     alignItems: "center",
   },
   modalSecondaryBtnText: {
-    color: "#65656E",
+    color: COLORS.contentMuted,
     fontSize: 12,
     fontWeight: "600",
   },
   iosPickerContainer: {
     width: "100%",
     maxWidth: 320,
-    backgroundColor: "#0F0F12",
+    backgroundColor: COLORS.surface02,
     borderRadius: 20,
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     padding: 16,
   },
   iosPickerHeader: {
@@ -1956,11 +2016,11 @@ const s = StyleSheet.create({
   iosPickerTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#F6F6F7",
+    color: COLORS.contentPrimary,
   },
   iosPickerDone: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#F6F6F7",
+    color: COLORS.contentPrimary,
   },
 });

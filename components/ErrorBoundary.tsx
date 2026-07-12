@@ -1,5 +1,7 @@
 import React from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Pressable } from "react-native";
+import { Text } from "../src/components/ui/text";
+import { COLORS } from "../src/theme/colors";
 
 interface Props {
   children: React.ReactNode;
@@ -39,25 +41,22 @@ export class AppErrorBoundary extends React.Component<Props, State> {
             alignItems: "center",
             justifyContent: "center",
             padding: 24,
-            backgroundColor: "#0F0F12",
+            backgroundColor: COLORS.background,
           }}
         >
-          <Text style={{ color: "#F6F6F7", fontSize: 18, fontWeight: "700", marginBottom: 8 }}>
+          <Text variant="headingS" style={{ marginBottom: 8 }}>
             Something went wrong
           </Text>
-          <Text style={{ color: "#9B9BA4", textAlign: "center", marginBottom: 20 }}>
+          <Text variant="paragraphM" style={{ textAlign: "center", marginBottom: 20 }}>
             The app hit an unexpected error. You can try again.
           </Text>
           <Pressable
             onPress={this.reset}
-            style={{
-              backgroundColor: "#10b981",
-              paddingHorizontal: 24,
-              paddingVertical: 12,
-              borderRadius: 12,
-            }}
+            accessibilityRole="button"
           >
-            <Text style={{ color: "#000", fontWeight: "700" }}>Try again</Text>
+            <Text variant="labelM" style={{ color: COLORS.background }}>
+              Try again
+            </Text>
           </Pressable>
         </View>
       );

@@ -16,68 +16,69 @@ module.exports = {
        * ──────────────────────────────────────────────────────────────
        */
       colors: {
-        // Core semantic colors (HSL variable references)
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
+        // Core semantic colors (HSL variable references).
+        // `/ <alpha-value>` lets opacity modifiers work: bg-primary/90, bg-destructive/10.
+        background: "hsl(var(--background) / <alpha-value>)",
+        foreground: "hsl(var(--foreground) / <alpha-value>)",
         card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
+          DEFAULT: "hsl(var(--card) / <alpha-value>)",
+          foreground: "hsl(var(--card-foreground) / <alpha-value>)",
         },
         popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
+          DEFAULT: "hsl(var(--popover) / <alpha-value>)",
+          foreground: "hsl(var(--popover-foreground) / <alpha-value>)",
         },
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: "hsl(var(--primary) / <alpha-value>)",
+          foreground: "hsl(var(--primary-foreground) / <alpha-value>)",
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+          DEFAULT: "hsl(var(--secondary) / <alpha-value>)",
+          foreground: "hsl(var(--secondary-foreground) / <alpha-value>)",
         },
         muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
+          DEFAULT: "hsl(var(--muted) / <alpha-value>)",
+          foreground: "hsl(var(--muted-foreground) / <alpha-value>)",
         },
         accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
+          DEFAULT: "hsl(var(--accent) / <alpha-value>)",
+          foreground: "hsl(var(--accent-foreground) / <alpha-value>)",
         },
         destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
+          DEFAULT: "hsl(var(--destructive) / <alpha-value>)",
+          foreground: "hsl(var(--destructive-foreground) / <alpha-value>)",
         },
         success: {
-          DEFAULT: "hsl(var(--success))",
+          DEFAULT: "hsl(var(--success) / <alpha-value>)",
         },
         warning: {
-          DEFAULT: "hsl(var(--warning))",
+          DEFAULT: "hsl(var(--warning) / <alpha-value>)",
         },
         info: {
-          DEFAULT: "hsl(var(--info))",
+          DEFAULT: "hsl(var(--info) / <alpha-value>)",
         },
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
+        border: "hsl(var(--border) / <alpha-value>)",
+        input: "hsl(var(--input) / <alpha-value>)",
+        ring: "hsl(var(--ring) / <alpha-value>)",
 
         // ── Cool-neutral design-system ramp (Comma) ──
         // Use these directly: bg-surface-02, text-content-secondary, border-subtle, etc.
         surface: {
-          "01": "hsl(var(--surface-01))",
-          "02": "hsl(var(--surface-02))",
-          "03": "hsl(var(--surface-03))",
-          "04": "hsl(var(--surface-04))",
-          "05": "hsl(var(--surface-05))",
+          "01": "hsl(var(--surface-01) / <alpha-value>)",
+          "02": "hsl(var(--surface-02) / <alpha-value>)",
+          "03": "hsl(var(--surface-03) / <alpha-value>)",
+          "04": "hsl(var(--surface-04) / <alpha-value>)",
+          "05": "hsl(var(--surface-05) / <alpha-value>)",
         },
         content: {
-          primary: "hsl(var(--text-primary))",
-          secondary: "hsl(var(--text-secondary))",
-          muted: "hsl(var(--text-muted))",
-          disabled: "hsl(var(--text-disabled))",
+          primary: "hsl(var(--text-primary) / <alpha-value>)",
+          secondary: "hsl(var(--text-secondary) / <alpha-value>)",
+          muted: "hsl(var(--text-muted) / <alpha-value>)",
+          disabled: "hsl(var(--text-disabled) / <alpha-value>)",
         },
         line: {
-          subtle: "hsl(var(--border-subtle))",
-          strong: "hsl(var(--border-strong))",
+          subtle: "hsl(var(--border-subtle) / <alpha-value>)",
+          strong: "hsl(var(--border-strong) / <alpha-value>)",
         },
 
         // ── Platform brand colors (static, no CSS var needed) ──

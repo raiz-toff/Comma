@@ -1,8 +1,11 @@
 import "../src/global.css";
 import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { SQLiteProvider } from "expo-sqlite";
 import { Suspense } from "react";
-import { ActivityIndicator, Text, View, Platform } from "react-native";
+import { ActivityIndicator, View, Platform } from "react-native";
+import { Text } from "../src/components/ui/text";
+import { COLORS } from "../src/theme/colors";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
@@ -45,20 +48,22 @@ export default function RootLayout() {
   useStudio();
   if (error) {
     return (
-      <View className="flex-1 items-center justify-center bg-red-50">
-        <Text className="mb-2 text-lg font-bold text-red-600">
+      <View className="flex-1 items-center justify-center bg-background px-6">
+        <StatusBar style="light" />
+        <Text variant="headingS" className="mb-2 text-destructive">
           Database Error
         </Text>
-        <Text className="text-red-500">{error.message}</Text>
+        <Text variant="paragraphM" className="text-center">{error.message}</Text>
       </View>
     );
   }
 
   if (!success) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" color="#3b82f6" />
-        <Text className="mt-4 text-gray-600">Initializing database...</Text>
+      <View className="flex-1 items-center justify-center bg-background">
+        <StatusBar style="light" />
+        <ActivityIndicator size="large" color={COLORS.contentSecondary} />
+        <Text variant="paragraphM" className="mt-4">Initializing database...</Text>
       </View>
     );
   }
@@ -68,16 +73,29 @@ export default function RootLayout() {
       <BottomSheetModalProvider>
         <AppErrorBoundary>
           <ShiftBackgroundServices />
-          <Stack screenOptions={{ headerShown: false }} />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              // Dark scene background — prevents the white flash between screens.
+              contentStyle: { backgroundColor: COLORS.background },
+            }}
+          />
         </AppErrorBoundary>
       </BottomSheetModalProvider>
     </SafeAreaProvider>
   );
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: COLORS.background }}>
+      <StatusBar style="light" />
       <QueryProvider>
-        <Suspense fallback={<ActivityIndicator size="large" />}>
+        <Suspense
+          fallback={
+            <View className="flex-1 items-center justify-center bg-background">
+              <ActivityIndicator size="large" color={COLORS.contentSecondary} />
+            </View>
+          }
+        >
           {Platform.OS === "web" ? (
             stackContent
           ) : (

@@ -18,6 +18,8 @@ import { TimePickerModal } from "../../src/components/ui/TimePickerModal";
 import { Button } from "../../src/components/ui/button";
 import { Text } from "../../src/components/ui/text";
 import { PlatformBadge } from "../../src/components/ui/PlatformBadge";
+import { EmptyState } from "../../src/components/ui/EmptyState";
+import { COLORS } from "../../src/theme/colors";
 import { PLATFORM_REGISTRY } from "../../src/registry/platforms";
 import { getPlatformContext } from "../../src/hooks/usePlatformContext";
 import { getVehicles } from "../../src/database/queries/vehicles";
@@ -86,29 +88,29 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
     const endY = PAD + (1 - (points[points.length - 1].latitude - minLat) / latRange) * (H - 2 * PAD);
 
     return (
-      <View style={{ marginVertical: 8, backgroundColor: "#0F0F12", borderRadius: 16, borderWidth: 0.5, borderColor: "#1E1E23", overflow: "hidden" }}>
-        <View style={{ height: H, backgroundColor: "#0A0A0C", justifyContent: "center", alignItems: "center" }}>
+      <View style={{ marginVertical: 8, backgroundColor: COLORS.surface02, borderRadius: 16, borderWidth: 0.5, borderColor: COLORS.lineSubtle, overflow: "hidden" }}>
+        <View style={{ height: H, backgroundColor: COLORS.surface01, justifyContent: "center", alignItems: "center" }}>
           <Svg width="100%" height={H} viewBox={"0 0 " + W + " " + H}>
-            <Line x1="0" y1="50" x2="340" y2="50" stroke="#121216" strokeWidth="0.8" />
-            <Line x1="0" y1="100" x2="340" y2="100" stroke="#121216" strokeWidth="0.8" />
-            <Line x1="0" y1="150" x2="340" y2="150" stroke="#121216" strokeWidth="0.8" />
-            <Line x1="85" y1="0" x2="85" y2="200" stroke="#121216" strokeWidth="0.8" />
-            <Line x1="170" y1="0" x2="170" y2="200" stroke="#121216" strokeWidth="0.8" />
-            <Line x1="255" y1="0" x2="255" y2="200" stroke="#121216" strokeWidth="0.8" />
+            <Line x1="0" y1="50" x2="340" y2="50" stroke={COLORS.surface02} strokeWidth="0.8" />
+            <Line x1="0" y1="100" x2="340" y2="100" stroke={COLORS.surface02} strokeWidth="0.8" />
+            <Line x1="0" y1="150" x2="340" y2="150" stroke={COLORS.surface02} strokeWidth="0.8" />
+            <Line x1="85" y1="0" x2="85" y2="200" stroke={COLORS.surface02} strokeWidth="0.8" />
+            <Line x1="170" y1="0" x2="170" y2="200" stroke={COLORS.surface02} strokeWidth="0.8" />
+            <Line x1="255" y1="0" x2="255" y2="200" stroke={COLORS.surface02} strokeWidth="0.8" />
             <Polyline points={svgPoints} fill="none" stroke={strokeColor} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-            <Circle cx={startX} cy={startY} r="5" fill="#22c55e" />
-            <Circle cx={endX} cy={endY} r="6" fill="#FF5247" stroke="#000" strokeWidth="1" />
+            <Circle cx={startX} cy={startY} r="5" fill={COLORS.success} />
+            <Circle cx={endX} cy={endY} r="6" fill={COLORS.destructive} stroke={COLORS.background} strokeWidth="1" />
           </Svg>
         </View>
         <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 8 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#22c55e" }} />
-            <Text style={{ color: "#9B9BA4", fontSize: 11, fontWeight: "600" }}>Start</Text>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.success }} />
+            <Text variant="paragraphS" className="text-content-secondary font-semibold">Start</Text>
           </View>
-          <Text style={{ color: "#65656E", fontSize: 11, fontWeight: "600" }}>{points.length} GPS points</Text>
+          <Text variant="paragraphS" className="text-content-muted font-semibold" tabular>{points.length} GPS points</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Text style={{ color: "#9B9BA4", fontSize: 11, fontWeight: "600" }}>End</Text>
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#FF5247" }} />
+            <Text variant="paragraphS" className="text-content-secondary font-semibold">End</Text>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.destructive }} />
           </View>
         </View>
       </View>
@@ -210,11 +212,11 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
   `;
 
   return (
-    <View style={{ marginVertical: 8, backgroundColor: "#0F0F12", borderRadius: 16, borderWidth: 0.5, borderColor: "#1E1E23", overflow: "hidden", height: 240 }}>
+    <View style={{ marginVertical: 8, backgroundColor: COLORS.surface02, borderRadius: 16, borderWidth: 0.5, borderColor: COLORS.lineSubtle, overflow: "hidden", height: 240 }}>
       <WebView
         originWhitelist={["*"]}
         source={{ html: htmlContent }}
-        style={{ flex: 1, backgroundColor: "#0F0F12" }}
+        style={{ flex: 1, backgroundColor: COLORS.surface02 }}
         javaScriptEnabled={true}
         domStorageEnabled={true}
         scalesPageToFit={true}
@@ -233,7 +235,7 @@ export default function AddShiftModal() {
   const { profile, isDemoMode } = useSettingsStore();
   const { shiftId } = useLocalSearchParams<{ shiftId: string }>();
 
-  const { accentColor, accentColorDim, accentColorContrast } = usePlatformTheme();
+  const { accentColor, accentColorDim } = usePlatformTheme();
 
   // Form State
   const [selectedPlatformsList, setSelectedPlatformsList] = useState<string[]>([]);
@@ -561,30 +563,31 @@ export default function AddShiftModal() {
   const currentStep = stepsSequence[stepIndex] || { type: "context" };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#000]">
+    <SafeAreaView className="flex-1 bg-background">
       <Stack.Screen options={SCREEN_OPTIONS} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
       >
         {/* Header Bar */}
-        <View className="flex flex-row items-center px-5 py-4 border-b border-[#1E1E23] bg-[#0F0F12]">
+        <View className="flex flex-row items-center px-5 py-4 border-b border-line-subtle bg-surface-02">
           <TouchableOpacity
             onPress={() => router.back()}
+            accessibilityRole="button"
             className="p-1 flex-row items-center min-w-[70px]"
           >
-            <Text className="text-zinc-400 text-sm font-medium tracking-wide">
+            <Text variant="labelM" className="text-content-secondary tracking-wide">
               Cancel
             </Text>
           </TouchableOpacity>
-          <Text className="flex-1 text-white text-base font-bold tracking-tight text-center">
+          <Text variant="labelL" className="flex-1 text-content-primary tracking-tight text-center">
             {shiftId ? "Reconcile Shift" : "Log Shift"}
           </Text>
           <View className="min-w-[70px]" />
         </View>
 
         {/* Progress Bar */}
-        <View className="flex flex-row items-center justify-between px-5 pt-4 pb-2 bg-[#000]">
+        <View className="flex flex-row items-center justify-between px-5 pt-4 pb-2 bg-background">
           <View className="flex flex-row gap-1.5 items-center flex-1">
             {stepsSequence.map((step, i) => (
               <View
@@ -592,13 +595,13 @@ export default function AddShiftModal() {
                 style={{
                   flex: 1,
                   height: 4,
-                  backgroundColor: i <= stepIndex ? accentColor : "#26262C",
+                  backgroundColor: i <= stepIndex ? accentColor : COLORS.surface05,
                   borderRadius: 2,
                 }}
               />
             ))}
           </View>
-          <Text className="text-zinc-500 text-[10px] font-extrabold tracking-wider uppercase ml-4">
+          <Text variant="labelXs" className="text-content-muted ml-4" tabular>
             Step {stepIndex + 1} / {stepsSequence.length}
           </Text>
         </View>
@@ -611,8 +614,8 @@ export default function AddShiftModal() {
           showsVerticalScrollIndicator={false}
         >
           {errorMessage ? (
-            <View className="bg-rose-500/10 border border-rose-500/20 p-3.5 rounded-xl">
-              <Text className="text-rose-400 text-xs font-semibold">{errorMessage}</Text>
+            <View className="bg-destructive/10 border border-destructive/20 p-4 rounded-xl">
+              <Text variant="paragraphS" className="text-destructive font-semibold">{errorMessage}</Text>
             </View>
           ) : null}
 
@@ -621,8 +624,8 @@ export default function AddShiftModal() {
             <View className="flex flex-col gap-5">
               {/* Platform Field */}
               <View className="flex flex-col gap-2">
-                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Platform(s)</Text>
-                <View className="flex-row flex-wrap gap-2.5">
+                <Text variant="labelXs" className="text-content-secondary">Platform(s)</Text>
+                <View className="flex-row flex-wrap gap-3">
                   {displayPlatforms.length > 0 ? (
                     displayPlatforms.map((pKey: string) => {
                       const isSelected = selectedPlatformsList.includes(pKey);
@@ -631,10 +634,12 @@ export default function AddShiftModal() {
                           key={pKey}
                           onPress={() => togglePlatform(pKey)}
                           activeOpacity={0.85}
-                          className="rounded-xl border-2 p-2"
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: isSelected }}
+                          className="rounded-xl border p-2"
                           style={{
-                            borderColor: isSelected ? accentColor : "#26262C",
-                            backgroundColor: isSelected ? accentColorDim : "#16161A",
+                            borderColor: isSelected ? accentColor : COLORS.lineStrong,
+                            backgroundColor: isSelected ? accentColorDim : COLORS.surface03,
                           }}
                         >
                           <PlatformBadge platform={pKey} size="md" />
@@ -642,15 +647,15 @@ export default function AddShiftModal() {
                       );
                     })
                   ) : (
-                    <View className="flex-1 p-4 bg-[#16161A] border border-[#1C1C21] rounded-xl flex-row justify-between items-center">
-                      <Text className="text-zinc-400 text-xs font-semibold">No active platforms. Enable them in settings.</Text>
-                      <TouchableOpacity
+                    <View className="flex-1 p-4 bg-surface-03 border border-line-subtle rounded-xl flex-row justify-between items-center">
+                      <Text variant="paragraphS" className="text-content-secondary font-semibold flex-1">No active platforms. Enable them in settings.</Text>
+                      <Button
+                        size="sm"
                         onPress={() => router.push("/settings?tab=platforms")}
-                        style={{ backgroundColor: accentColor }}
-                        className="py-1.5 px-3 rounded-lg"
+                        className="ml-2"
                       >
-                        <Text style={{ color: accentColorContrast }} className="text-xs font-bold">Go to Settings</Text>
-                      </TouchableOpacity>
+                        <Text>Go to Settings</Text>
+                      </Button>
                     </View>
                   )}
                 </View>
@@ -658,13 +663,15 @@ export default function AddShiftModal() {
 
               {/* Vehicle Selector */}
               <View className="flex flex-col gap-2">
-                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Vehicle</Text>
+                <Text variant="labelXs" className="text-content-secondary">Vehicle</Text>
                 {isLoadingVehicles ? (
                   <ActivityIndicator size="small" color={accentColor} className="self-start mt-2" />
                 ) : vehiclesList.length === 0 ? (
-                  <View className="p-3 border border-dashed border-[#1C1C21] rounded-xl bg-[#0F0F12]">
-                    <Text className="text-zinc-400 text-xs">No vehicles registered. Please add a vehicle in settings.</Text>
-                  </View>
+                  <EmptyState
+                    icon="car"
+                    title="No vehicles"
+                    message="No vehicles registered. Please add a vehicle in settings."
+                  />
                 ) : (
                   <View className="flex flex-col gap-2">
                     {vehiclesList.map((vehicle: any) => {
@@ -676,10 +683,12 @@ export default function AddShiftModal() {
                           key={vehicle.id}
                           onPress={() => setSelectedVehicleId(vehicle.id)}
                           activeOpacity={0.85}
-                          className="p-3.5 rounded-xl border flex-row items-center gap-3"
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: isSelected }}
+                          className="p-4 rounded-xl border flex-row items-center gap-3"
                           style={{
-                            borderColor: isSelected ? accentColor : "#1E1E23",
-                            backgroundColor: isSelected ? accentColorDim : "#0F0F12",
+                            borderColor: isSelected ? accentColor : COLORS.lineSubtle,
+                            backgroundColor: isSelected ? accentColorDim : COLORS.surface02,
                           }}
                         >
                           <View
@@ -688,7 +697,7 @@ export default function AddShiftModal() {
                               height: 20,
                               borderRadius: 10,
                               borderWidth: 2,
-                              borderColor: isSelected ? accentColor : "#2E2E36",
+                              borderColor: isSelected ? accentColor : COLORS.lineStrong,
                               alignItems: "center",
                               justifyContent: "center",
                             }}
@@ -698,9 +707,9 @@ export default function AddShiftModal() {
                             )}
                           </View>
                           <View className="flex-1">
-                            <Text className="text-sm font-bold text-white">{vehicle.name}</Text>
+                            <Text variant="labelM">{vehicle.name}</Text>
                             {subtitle ? (
-                              <Text className="text-xs text-zinc-400 mt-0.5">{subtitle}</Text>
+                              <Text variant="paragraphS" className="text-content-secondary mt-0.5">{subtitle}</Text>
                             ) : null}
                           </View>
                         </TouchableOpacity>
@@ -715,11 +724,11 @@ export default function AddShiftModal() {
           {/* ── STEP 2: DURATION ───────────────────────────────────────── */}
           {currentStep.type === "duration" && (
             <View className="flex flex-col gap-3">
-              <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Date & Duration</Text>
-              
+              <Text variant="labelXs" className="text-content-secondary">Date & Duration</Text>
+
               {/* Shift Date */}
               <View className="flex flex-col gap-1.5">
-                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Shift Date</Text>
+                <Text variant="labelXs" className="text-content-secondary pl-1">Shift Date</Text>
                 {Platform.OS === "web" ? (
                   <input
                     type="date"
@@ -729,15 +738,16 @@ export default function AddShiftModal() {
                         setDate(new Date(e.target.value + "T00:00:00"));
                       }
                     }}
-                    className="bg-[#0F0F12] border border-[#1E1E23] rounded-xl p-3.5 text-white text-sm w-full outline-none focus:border-white"
+                    className="bg-surface-02 border border-line-subtle rounded-xl p-4 text-content-primary text-sm w-full outline-none focus:border-line-strong"
                   />
                 ) : (
                   <TouchableOpacity
                     onPress={() => setShowDatePicker(true)}
-                    className="bg-[#0F0F12] border border-[#1E1E23] rounded-xl p-3.5 flex-row justify-between items-center"
+                    accessibilityRole="button"
+                    className="bg-surface-02 border border-line-subtle rounded-xl p-4 flex-row justify-between items-center"
                   >
-                    <Text className="text-white text-sm font-semibold">{date.toLocaleDateString(undefined, { dateStyle: "medium" })}</Text>
-                    <Text style={{ color: accentColor }} className="text-[10px] uppercase font-bold tracking-wider">Select</Text>
+                    <Text variant="labelM" tabular>{date.toLocaleDateString(undefined, { dateStyle: "medium" })}</Text>
+                    <Text variant="labelXs" style={{ color: accentColor }}>Select</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -745,7 +755,7 @@ export default function AddShiftModal() {
               {/* Times Row */}
               <View className="flex flex-row gap-3">
                 <View className="flex-1 flex flex-col gap-1.5">
-                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Start Time</Text>
+                  <Text variant="labelXs" className="text-content-secondary pl-1">Start Time</Text>
                   {Platform.OS === "web" ? (
                     <input
                       type="time"
@@ -759,23 +769,24 @@ export default function AddShiftModal() {
                           setStartTime(newTime);
                         }
                       }}
-                      className="bg-[#0F0F12] border border-[#1E1E23] rounded-xl p-3.5 text-white text-sm w-full outline-none focus:border-white"
+                      className="bg-surface-02 border border-line-subtle rounded-xl p-4 text-content-primary text-sm w-full outline-none focus:border-line-strong"
                     />
                   ) : (
                     <TouchableOpacity
                       onPress={() => setShowStartTimePicker(true)}
-                      className="bg-[#0F0F12] border border-[#1E1E23] rounded-xl p-3.5 flex-row justify-between items-center"
+                      accessibilityRole="button"
+                      className="bg-surface-02 border border-line-subtle rounded-xl p-4 flex-row justify-between items-center"
                     >
-                      <Text className="text-white text-sm font-semibold">
+                      <Text variant="labelM" tabular>
                         {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: profile?.locale?.timeFormat !== "24h" })}
                       </Text>
-                      <Text style={{ color: accentColor }} className="text-[10px] uppercase font-bold tracking-wider">Select</Text>
+                      <Text variant="labelXs" style={{ color: accentColor }}>Select</Text>
                     </TouchableOpacity>
                   )}
                 </View>
 
                 <View className="flex-1 flex flex-col gap-1.5">
-                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">End Time</Text>
+                  <Text variant="labelXs" className="text-content-secondary pl-1">End Time</Text>
                   {Platform.OS === "web" ? (
                     <input
                       type="time"
@@ -789,17 +800,18 @@ export default function AddShiftModal() {
                           setEndTime(newTime);
                         }
                       }}
-                      className="bg-[#0F0F12] border border-[#1E1E23] rounded-xl p-3.5 text-white text-sm w-full outline-none focus:border-white"
+                      className="bg-surface-02 border border-line-subtle rounded-xl p-4 text-content-primary text-sm w-full outline-none focus:border-line-strong"
                     />
                   ) : (
                     <TouchableOpacity
                       onPress={() => setShowEndTimePicker(true)}
-                      className="bg-[#0F0F12] border border-[#1E1E23] rounded-xl p-3.5 flex-row justify-between items-center"
+                      accessibilityRole="button"
+                      className="bg-surface-02 border border-line-subtle rounded-xl p-4 flex-row justify-between items-center"
                     >
-                      <Text className="text-white text-sm font-semibold">
+                      <Text variant="labelM" tabular>
                         {endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: profile?.locale?.timeFormat !== "24h" })}
                       </Text>
-                      <Text style={{ color: accentColor }} className="text-[10px] uppercase font-bold tracking-wider">Select</Text>
+                      <Text variant="labelXs" style={{ color: accentColor }}>Select</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -845,38 +857,38 @@ export default function AddShiftModal() {
             };
 
             return (
-              <View key={pKey} className="bg-[#0F0F12] border border-[#1E1E23] rounded-2xl p-4 flex flex-col gap-4 mb-2">
-                <View className="flex-row justify-between items-center border-b border-[#1E1E23] pb-3">
+              <View key={pKey} className="bg-surface-02 border border-line-subtle rounded-lg p-4 flex flex-col gap-4 mb-2">
+                <View className="flex-row justify-between items-center border-b border-line-subtle pb-3">
                   <PlatformBadge platform={pKey} size="md" />
-                  <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider">Platform Ledger</Text>
+                  <Text variant="labelXs" className="text-content-muted">Platform Ledger</Text>
                 </View>
 
                 {/* Online Duration — only needed when splitting time across multiple platforms */}
                 {selectedPlatformsList.length > 1 && (
                   <View className="flex flex-col gap-1.5">
-                    <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Online Duration</Text>
+                    <Text variant="labelXs" className="text-content-secondary pl-1">Online Duration</Text>
                     <View className="flex-row gap-3">
-                      <View className="flex-1 flex flex-row items-center bg-[#000] border border-[#1E1E23] rounded-xl px-3">
+                      <View className="flex-1 flex flex-row items-center bg-background border border-line-subtle rounded-xl px-3">
                         <TextInput
                           value={form.onlineHours}
                           onChangeText={(val) => updateForm("onlineHours", val.replace(/[^0-9]/g, ""))}
                           keyboardType="numeric"
                           placeholder="0"
-                          placeholderTextColor="#65656E"
-                          className="flex-1 text-white text-sm py-3 font-semibold"
+                          placeholderTextColor={COLORS.contentMuted}
+                          className="flex-1 text-content-primary text-sm py-3 font-semibold"
                         />
-                        <Text className="text-zinc-500 text-xs font-bold ml-1">hrs</Text>
+                        <Text variant="paragraphS" className="text-content-muted font-bold ml-1">hrs</Text>
                       </View>
-                      <View className="flex-1 flex flex-row items-center bg-[#000] border border-[#1E1E23] rounded-xl px-3">
+                      <View className="flex-1 flex flex-row items-center bg-background border border-line-subtle rounded-xl px-3">
                         <TextInput
                           value={form.onlineMinutes}
                           onChangeText={(val) => updateForm("onlineMinutes", val.replace(/[^0-9]/g, ""))}
                           keyboardType="numeric"
                           placeholder="0"
-                          placeholderTextColor="#65656E"
-                          className="flex-1 text-white text-sm py-3 font-semibold"
+                          placeholderTextColor={COLORS.contentMuted}
+                          className="flex-1 text-content-primary text-sm py-3 font-semibold"
                         />
-                        <Text className="text-zinc-500 text-xs font-bold ml-1">min</Text>
+                        <Text variant="paragraphS" className="text-content-muted font-bold ml-1">min</Text>
                       </View>
                     </View>
                   </View>
@@ -884,29 +896,29 @@ export default function AddShiftModal() {
 
                 {/* Active Duration — time spent on active deliveries (always shown) */}
                 <View className="flex flex-col gap-1.5">
-                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Active Duration</Text>
+                  <Text variant="labelXs" className="text-content-secondary pl-1">Active Duration</Text>
                   <View className="flex-row gap-3">
-                    <View className="flex-1 flex flex-row items-center bg-[#000] border border-[#1E1E23] rounded-xl px-3">
+                    <View className="flex-1 flex flex-row items-center bg-background border border-line-subtle rounded-xl px-3">
                       <TextInput
                         value={form.activeHours}
                         onChangeText={(val) => updateForm("activeHours", val.replace(/[^0-9]/g, ""))}
                         keyboardType="numeric"
                         placeholder="0"
-                        placeholderTextColor="#65656E"
-                        className="flex-1 text-white text-sm py-3 font-semibold"
+                        placeholderTextColor={COLORS.contentMuted}
+                        className="flex-1 text-content-primary text-sm py-3 font-semibold"
                       />
-                      <Text className="text-zinc-500 text-xs font-bold ml-1">hrs</Text>
+                      <Text variant="paragraphS" className="text-content-muted font-bold ml-1">hrs</Text>
                     </View>
-                    <View className="flex-1 flex flex-row items-center bg-[#000] border border-[#1E1E23] rounded-xl px-3">
+                    <View className="flex-1 flex flex-row items-center bg-background border border-line-subtle rounded-xl px-3">
                       <TextInput
                         value={form.activeMinutes}
                         onChangeText={(val) => updateForm("activeMinutes", val.replace(/[^0-9]/g, ""))}
                         keyboardType="numeric"
                         placeholder="0"
-                        placeholderTextColor="#65656E"
-                        className="flex-1 text-white text-sm py-3 font-semibold"
+                        placeholderTextColor={COLORS.contentMuted}
+                        className="flex-1 text-content-primary text-sm py-3 font-semibold"
                       />
-                      <Text className="text-zinc-500 text-xs font-bold ml-1">min</Text>
+                      <Text variant="paragraphS" className="text-content-muted font-bold ml-1">min</Text>
                     </View>
                   </View>
                 </View>
@@ -914,7 +926,7 @@ export default function AddShiftModal() {
                 {/* Dynamic revenue fields from registry */}
                 {pCtx.revenueFields.map((field: any) => (
                   <View key={field.key} className="flex flex-col gap-1.5">
-                    <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">
+                    <Text variant="labelXs" className="text-content-secondary pl-1">
                       {field.label} ({profile.locale?.currency || "$"})
                       {field.required ? " *" : ""}
                     </Text>
@@ -928,8 +940,8 @@ export default function AddShiftModal() {
                       }}
                       keyboardType="numeric"
                       placeholder="0.00"
-                      placeholderTextColor="#65656E"
-                      className="bg-[#000] border border-[#1E1E23] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
+                      placeholderTextColor={COLORS.contentMuted}
+                      className="bg-background border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm focus:border-line-strong font-semibold"
                     />
                   </View>
                 ))}
@@ -937,7 +949,7 @@ export default function AddShiftModal() {
                 {/* Bonus — shift-level (not split per-platform), shown once on the first platform */}
                 {pKey === selectedPlatformsList[0] && (
                   <View className="flex flex-col gap-1.5">
-                    <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">
+                    <Text variant="labelXs" className="text-content-secondary pl-1">
                       Bonus ({profile.locale?.currency || "$"})
                     </Text>
                     <TextInput
@@ -949,22 +961,22 @@ export default function AddShiftModal() {
                       }}
                       keyboardType="numeric"
                       placeholder="0.00"
-                      placeholderTextColor="#65656E"
-                      className="bg-[#000] border border-[#1E1E23] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
+                      placeholderTextColor={COLORS.contentMuted}
+                      className="bg-background border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm focus:border-line-strong font-semibold"
                     />
                   </View>
                 )}
 
                 {/* Trips Count */}
                 <View className="flex flex-col gap-1.5">
-                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Trips Completed</Text>
+                  <Text variant="labelXs" className="text-content-secondary pl-1">Trips Completed</Text>
                   <TextInput
                     value={form.tripsCount}
                     onChangeText={(val) => updateForm("tripsCount", val.replace(/[^0-9]/g, ""))}
                     keyboardType="numeric"
                     placeholder="0"
-                    placeholderTextColor="#65656E"
-                    className="bg-[#000] border border-[#1E1E23] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
+                    placeholderTextColor={COLORS.contentMuted}
+                    className="bg-background border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm focus:border-line-strong font-semibold"
                   />
                 </View>
               </View>
@@ -973,17 +985,17 @@ export default function AddShiftModal() {
 
           {/* ── STEP 4: MILEAGE & ROUTE ────────────────────────────────── */}
           {currentStep.type === "mileage" && (
-            <View className="bg-[#0F0F12] border border-[#1E1E23] rounded-2xl p-4 flex flex-col gap-3.5 mb-2">
-              <View className="flex-row justify-between items-center border-b border-[#1E1E23] pb-3">
-                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">
+            <View className="bg-surface-02 border border-line-subtle rounded-lg p-4 flex flex-col gap-3.5 mb-2">
+              <View className="flex-row justify-between items-center border-b border-line-subtle pb-3">
+                <Text variant="labelXs" className="text-content-secondary">
                   Unified Distance ({profile.distanceUnit})
                 </Text>
-                <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider">Odometer</Text>
+                <Text variant="labelXs" className="text-content-muted">Odometer</Text>
               </View>
 
               <View className="flex-row gap-3">
                 <View className="flex-1 flex flex-col gap-1.5">
-                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Active Distance</Text>
+                  <Text variant="labelXs" className="text-content-secondary pl-1">Active Distance</Text>
                   <TextInput
                     value={activeMileage}
                     onChangeText={(text) => {
@@ -993,13 +1005,13 @@ export default function AddShiftModal() {
                     }}
                     keyboardType="numeric"
                     placeholder="0.0"
-                    placeholderTextColor="#65656E"
-                    className="bg-[#000] border border-[#1E1E23] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
+                    placeholderTextColor={COLORS.contentMuted}
+                    className="bg-background border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm focus:border-line-strong font-semibold"
                   />
                 </View>
 
                 <View className="flex-1 flex flex-col gap-1.5">
-                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">Dead Distance</Text>
+                  <Text variant="labelXs" className="text-content-secondary pl-1">Dead Distance</Text>
                   <TextInput
                     value={deadMileage}
                     onChangeText={(text) => {
@@ -1009,8 +1021,8 @@ export default function AddShiftModal() {
                     }}
                     keyboardType="numeric"
                     placeholder="0.0"
-                    placeholderTextColor="#65656E"
-                    className="bg-[#000] border border-[#1E1E23] rounded-xl px-4 py-3.5 text-white text-sm focus:border-white font-semibold"
+                    placeholderTextColor={COLORS.contentMuted}
+                    className="bg-background border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm focus:border-line-strong font-semibold"
                   />
                 </View>
               </View>
@@ -1019,7 +1031,7 @@ export default function AddShiftModal() {
               {existingShift?.routePath && typeof existingShift.routePath === "string" && existingShift.routePath.trim().length > 0 && (
                 <RouteLargeMap
                   routePathJson={existingShift.routePath}
-                  strokeColor={PLATFORM_REGISTRY[selectedPlatformsList[0]]?.color || "#3b82f6"}
+                  strokeColor={PLATFORM_REGISTRY[selectedPlatformsList[0]]?.color || accentColor}
                 />
               )}
             </View>
@@ -1028,23 +1040,26 @@ export default function AddShiftModal() {
           {/* ── STEP 5: NOTES ──────────────────────────────────────────── */}
           {currentStep.type === "notes" && (
             <View className="flex flex-col gap-2">
-              <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Notes</Text>
+              <Text variant="labelXs" className="text-content-secondary">Notes</Text>
               <TextInput
                 value={notes}
                 onChangeText={setNotes}
                 multiline
                 numberOfLines={3}
                 placeholder="Add details about your shift (traffic, weather, peak pay details)..."
-                placeholderTextColor="#65656E"
-                className="bg-[#0F0F12] border border-[#1E1E23] rounded-xl px-4 py-3.5 text-white text-sm h-24 focus:border-white text-left align-top leading-relaxed font-semibold"
+                placeholderTextColor={COLORS.contentMuted}
+                className="bg-surface-02 border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm h-24 focus:border-line-strong text-left align-top leading-relaxed font-semibold"
               />
             </View>
           )}
         </ScrollView>
 
         {/* Navigation Footer */}
-        <View className="flex flex-row justify-between items-center px-5 py-4 border-t border-[#1E1E23] bg-[#0F0F12]">
-          <TouchableOpacity
+        <View className="flex flex-row justify-between items-center px-5 py-4 border-t border-line-subtle bg-surface-02">
+          <Button
+            variant="secondary"
+            size="lg"
+            className="min-w-[100px]"
             onPress={() => {
               if (stepIndex > 0) {
                 setStepIndex(stepIndex - 1);
@@ -1052,15 +1067,15 @@ export default function AddShiftModal() {
                 router.back();
               }
             }}
-            className="py-3 px-6 rounded-xl bg-[#1E1E23] border border-[#26262C] items-center justify-center min-w-[100px]"
           >
-            <Text className="text-zinc-300 font-bold text-sm">
-              {stepIndex === 0 ? "Cancel" : "Back"}
-            </Text>
-          </TouchableOpacity>
+            <Text>{stepIndex === 0 ? "Cancel" : "Back"}</Text>
+          </Button>
 
-          <TouchableOpacity
+          <Button
+            size="lg"
+            className="min-w-[120px]"
             disabled={isSaving}
+            accessibilityState={{ disabled: isSaving }}
             onPress={() => {
               if (isSaving) return;
               // Validate Step 1 Context
@@ -1079,15 +1094,15 @@ export default function AddShiftModal() {
                 const finalStartDate = new Date(date);
                 finalStartDate.setHours(startTime.getHours());
                 finalStartDate.setMinutes(startTime.getMinutes());
-                
+
                 const finalEndDate = new Date(date);
                 finalEndDate.setHours(endTime.getHours());
                 finalEndDate.setMinutes(endTime.getMinutes());
-                
+
                 if (finalEndDate < finalStartDate) {
                   finalEndDate.setDate(finalEndDate.getDate() + 1);
                 }
-                
+
                 const durationSeconds = Math.max(0, Math.floor((finalEndDate.getTime() - finalStartDate.getTime()) / 1000));
                 if (durationSeconds <= 0) {
                   setErrorMessage("End time must be after start time.");
@@ -1103,17 +1118,15 @@ export default function AddShiftModal() {
                 handleSave();
               }
             }}
-            style={{ backgroundColor: accentColor, opacity: isSaving ? 0.6 : 1 }}
-            className="py-3 px-6 rounded-xl items-center justify-center min-w-[120px] flex-row gap-1"
           >
             {isSaving ? (
-              <ActivityIndicator size="small" color={accentColorContrast} />
+              <ActivityIndicator size="small" color={COLORS.contentPrimary} />
             ) : (
-              <Text style={{ color: accentColorContrast }} className="font-bold text-sm">
+              <Text>
                 {stepIndex === stepsSequence.length - 1 ? "Finish" : "Continue"}
               </Text>
             )}
-          </TouchableOpacity>
+          </Button>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { View } from "react-native";
 import Svg, { Circle, Line } from "react-native-svg";
 import { Text } from "../ui/text";
+import { COLORS, KPI, withAlpha } from "@/src/theme/colors";
 
 interface ScatterPoint {
   x: number; // hours
@@ -41,9 +42,9 @@ function calculateStatistics(data: ScatterPoint[]) {
 
 function correlationTier(r: number): { label: string; color: string } {
   const abs = Math.abs(r);
-  if (abs >= 0.7) return { label: r >= 0 ? "Strong positive correlation" : "Strong negative correlation", color: "#22c55e" };
-  if (abs >= 0.4) return { label: r >= 0 ? "Moderate positive correlation" : "Moderate negative correlation", color: "#f59e0b" };
-  return { label: "Weak correlation", color: "#65656E" };
+  if (abs >= 0.7) return { label: r >= 0 ? "Strong positive correlation" : "Strong negative correlation", color: COLORS.success };
+  if (abs >= 0.4) return { label: r >= 0 ? "Moderate positive correlation" : "Moderate negative correlation", color: KPI.rate };
+  return { label: "Weak correlation", color: COLORS.contentMuted };
 }
 
 export default function ScatterWidget({ data }: ScatterWidgetProps) {
@@ -52,7 +53,7 @@ export default function ScatterWidget({ data }: ScatterWidgetProps) {
   if (points.length === 0) {
     return (
       <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 24 }}>
-        <Text style={{ fontSize: 13, color: "#9B9BA4", fontStyle: "italic" }}>Awaiting shift data</Text>
+        <Text variant="paragraphS">Awaiting shift data</Text>
       </View>
     );
   }
@@ -81,13 +82,17 @@ export default function ScatterWidget({ data }: ScatterWidgetProps) {
   return (
     <View style={{ gap: 12 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 13, fontWeight: "600", color: "#9B9BA4" }}>{points.length} Shifts Analyzed</Text>
-        <View style={{ backgroundColor: tier.color + "20", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-          <Text style={{ fontSize: 10, fontWeight: "800", color: tier.color, textTransform: "uppercase", letterSpacing: 0.3 }}>{tier.label}</Text>
+        <Text variant="labelM" tabular style={{ color: COLORS.contentSecondary }}>{points.length} Shifts Analyzed</Text>
+        <View style={{ backgroundColor: withAlpha(tier.color, 0.12), paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+          <Text variant="labelXs" style={{ color: tier.color }}>{tier.label}</Text>
         </View>
       </View>
 
-      <View style={{ height: svgH, width: "100%" }}>
+      <View
+        accessible={true}
+        accessibilityLabel={`Scatter chart of ${points.length} shifts, hours worked versus earnings. ${tier.label}.`}
+        style={{ height: svgH, width: "100%" }}
+      >
         <Svg width="100%" height="100%" viewBox={`0 0 ${svgW} ${svgH}`} preserveAspectRatio="xMidYMid meet">
           {showLine && (
             <Line
@@ -95,21 +100,21 @@ export default function ScatterWidget({ data }: ScatterWidgetProps) {
               y1={toPy(Math.max(0, Math.min(maxY, y1)))}
               x2={toPx(x2)}
               y2={toPy(Math.max(0, Math.min(maxY, y2)))}
-              stroke="#8b5cf6"
+              stroke={KPI.gross}
               strokeWidth={2}
               strokeDasharray="6 4"
             />
           )}
           {points.map((p, i) => (
-            <Circle key={i} cx={toPx(p.x)} cy={toPy(Math.min(maxY, p.y))} r={4} fill="#8b5cf6" opacity={0.75} />
+            <Circle key={i} cx={toPx(p.x)} cy={toPy(Math.min(maxY, p.y))} r={4} fill={KPI.gross} opacity={0.75} />
           ))}
         </Svg>
       </View>
 
       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 10, fontWeight: "800", color: "#65656E", textTransform: "uppercase" }}>0 hrs</Text>
-        <Text style={{ fontSize: 10, fontWeight: "800", color: "#8b5cf6", textTransform: "uppercase" }}>r = {stats.r.toFixed(2)}</Text>
-        <Text style={{ fontSize: 10, fontWeight: "800", color: "#65656E", textTransform: "uppercase" }}>{maxX.toFixed(1)} hrs</Text>
+        <Text variant="labelXs" tabular style={{ color: COLORS.contentMuted }}>0 hrs</Text>
+        <Text variant="labelXs" tabular style={{ color: KPI.gross }}>r = {stats.r.toFixed(2)}</Text>
+        <Text variant="labelXs" tabular style={{ color: COLORS.contentMuted }}>{maxX.toFixed(1)} hrs</Text>
       </View>
     </View>
   );

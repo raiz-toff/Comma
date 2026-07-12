@@ -30,6 +30,7 @@ import { getExpenseCategories, getCategoryMeta, getCategoryDefaultPct, type Expe
 import { ExpenseCategoryIcon } from "@/src/components/ui/ExpenseCategoryIcon";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { COLORS, withAlpha } from "@/src/theme/colors";
 import { cn } from "@/src/lib/utils";
 import { type PlatformKey } from "@/src/registry/platforms";
 import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
@@ -404,9 +405,9 @@ export default function AddExpenseModal() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#000]">
+    <SafeAreaView className="flex-1 bg-background">
       <Stack.Screen options={{ presentation: "fullScreenModal", headerShown: false }} />
-      <View className="flex flex-row items-center px-5 py-4 border-b border-[#1E1E23] bg-[#0F0F12]">
+      <View className="flex flex-row items-center px-5 py-4 border-b border-line-subtle bg-surface-02">
         <TouchableOpacity
           onPress={() => {
             if (step > 1) {
@@ -415,20 +416,21 @@ export default function AddExpenseModal() {
               router.back();
             }
           }}
+          accessibilityRole="button"
           className="p-1 flex-row items-center min-w-[70px]"
         >
-          <Text className="text-zinc-400 text-sm font-medium tracking-wide">
+          <Text variant="labelM" className="text-content-secondary tracking-wide">
             {step > 1 ? "← Back" : "Cancel"}
           </Text>
         </TouchableOpacity>
-        <Text className="flex-1 text-white text-base font-bold tracking-tight text-center">
+        <Text variant="headingS" className="flex-1 text-center">
           {isEditing ? "Edit Expense" : "Add Expense"}
         </Text>
         <View className="min-w-[70px]" />
       </View>
 
       {/* ── Step Indicator ────────────────────────────────────────────── */}
-      <View className="px-4 py-3 bg-[#0F0F12] border-b border-[#1E1E23] flex-row items-center justify-between">
+      <View className="px-4 py-3 bg-surface-02 border-b border-line-subtle flex-row items-center justify-between">
         <View className="flex-row gap-1.5 items-center">
           {[1, 2, 3, 4].map((s) => (
             <View
@@ -437,12 +439,12 @@ export default function AddExpenseModal() {
                 width: 28,
                 height: 4,
                 borderRadius: 2,
-                backgroundColor: step >= s ? accentColor : "#1C1C21",
+                backgroundColor: step >= s ? accentColor : COLORS.surface04,
               }}
             />
           ))}
         </View>
-        <Text className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider font-mono">
+        <Text variant="labelXs" tabular className="text-content-secondary">
           Step {step} of 4: {
             step === 1 ? "Amount & Date" :
             step === 2 ? "Category" :
@@ -452,11 +454,15 @@ export default function AddExpenseModal() {
         </Text>
       </View>
 
-      <ScrollView contentContainerClassName="p-4 pb-16 flex flex-col gap-5">
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="p-4 pb-16 flex flex-col gap-5">
         {/* Error */}
         {errorMessage ? (
-          <View className="bg-rose-500/10 border border-rose-500/20 p-3.5 rounded-xl">
-            <Text className="text-rose-400 text-xs font-semibold">{errorMessage}</Text>
+          <View className="bg-destructive/10 border border-destructive/20 p-4 rounded-md">
+            <Text variant="paragraphS" className="text-destructive">{errorMessage}</Text>
           </View>
         ) : null}
 
@@ -464,8 +470,8 @@ export default function AddExpenseModal() {
         {step === 1 && (
           <View className="flex flex-col gap-5">
             {/* Amount Input */}
-            <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl py-10 flex flex-col items-center justify-center">
-              <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest mb-2">Expense Amount</Text>
+            <View className="bg-surface-03 border border-line-subtle rounded-lg py-10 flex flex-col items-center justify-center">
+              <Text variant="labelXs" className="text-content-secondary mb-2">Expense Amount</Text>
               <View className="flex flex-row items-center justify-center">
                 <Text style={{ fontSize: 44, fontWeight: "800", color: accentColor, marginRight: 6, lineHeight: 52, includeFontPadding: false }}>$</Text>
                 <TextInput
@@ -477,15 +483,15 @@ export default function AddExpenseModal() {
                   }}
                   keyboardType="decimal-pad"
                   placeholder="0.00"
-                  placeholderTextColor="#65656E"
-                  style={{ fontSize: 44, fontWeight: "900", color: "#F6F6F7", textAlign: "center", minWidth: 160 }}
+                  placeholderTextColor={COLORS.contentMuted}
+                  style={{ fontSize: 44, fontWeight: "900", color: COLORS.contentPrimary, textAlign: "center", minWidth: 160, fontVariant: ["tabular-nums"] }}
                 />
               </View>
             </View>
 
             {/* Date Selection */}
-            <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-1.5">
-              <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Expense Date</Text>
+            <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-1.5">
+              <Text variant="labelXs" className="text-content-secondary">Expense Date</Text>
               {isWeb ? (
                 <input
                   type="date"
@@ -493,18 +499,19 @@ export default function AddExpenseModal() {
                   onChange={(e) => {
                     if (e.target.value) setDate(new Date(e.target.value + "T12:00:00"));
                   }}
-                  className="bg-[#0F0F12] border border-[#1C1C21] rounded-xl p-3.5 text-white text-sm font-semibold outline-none w-full"
+                  className="bg-surface-02 border border-line-subtle rounded-md p-4 text-content-primary text-sm font-semibold outline-none w-full"
                   style={{ outlineColor: accentColor }}
                 />
               ) : (
                 <TouchableOpacity
                   onPress={() => setShowDatePicker(true)}
-                  className="bg-[#0F0F12] border border-[#1C1C21] rounded-xl px-4 py-3.5 flex-row justify-between items-center"
+                  accessibilityRole="button"
+                  className="bg-surface-02 border border-line-subtle rounded-md px-4 py-4 flex-row justify-between items-center"
                 >
-                  <Text className="text-white text-sm font-semibold">
+                  <Text variant="labelM">
                     {date.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
                   </Text>
-                  <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: accentColor }}>Change</Text>
+                  <Text variant="labelXs" style={{ color: accentColor }}>Change</Text>
                 </TouchableOpacity>
               )}
               {!isWeb && (
@@ -518,17 +525,17 @@ export default function AddExpenseModal() {
             </View>
 
             {/* Merchant Autocomplete Card */}
-            <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-2" style={{ zIndex: 1000 }}>
-              <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Merchant / Vendor</Text>
+            <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-2" style={{ zIndex: 1000 }}>
+              <Text variant="labelXs" className="text-content-secondary">Merchant / Vendor</Text>
               <TextInput
                 value={merchant}
                 onChangeText={setMerchant}
                 onFocus={() => setIsMerchantFocused(true)}
                 onBlur={() => setTimeout(() => setIsMerchantFocused(false), 150)}
                 placeholder="e.g. Shell, McDonald's, Chevron"
-                placeholderTextColor="#65656E"
+                placeholderTextColor={COLORS.contentMuted}
                 returnKeyType="done"
-                className="bg-[#0F0F12] border border-[#1C1C21] rounded-xl px-4 py-3.5 text-white text-sm font-semibold focus:border-zinc-400"
+                className="bg-surface-02 border border-line-subtle rounded-md px-4 py-4 text-content-primary text-sm font-semibold focus:border-line-strong"
               />
 
               {/* Suggestions: show filtered list when typing, or recent 6 on focus with empty field */}
@@ -543,20 +550,21 @@ export default function AddExpenseModal() {
                 if (!isMerchantFocused || suggestions.length === 0) return null;
 
                 return (
-                  <View className="bg-[#0F0F12] border border-[#1C1C21] rounded-xl overflow-hidden">
+                  <View className="bg-surface-02 border border-line-subtle rounded-md overflow-hidden">
                     {q.length === 0 && (
                       <View className="px-4 pt-3 pb-1">
-                        <Text className="text-zinc-600 text-[10px] font-bold uppercase tracking-widest">Recent</Text>
+                        <Text variant="labelXs" className="text-content-muted">Recent</Text>
                       </View>
                     )}
                     {suggestions.map((m: string, i: number) => (
                       <TouchableOpacity
                         key={m}
                         onPress={() => { setMerchant(m); setIsMerchantFocused(false); }}
-                        className="px-4 py-3 active:bg-zinc-800"
-                        style={i < suggestions.length - 1 ? { borderBottomWidth: 0.5, borderBottomColor: "#1C1C21" } : undefined}
+                        accessibilityRole="button"
+                        className="px-4 py-3 active:bg-surface-04"
+                        style={i < suggestions.length - 1 ? { borderBottomWidth: 0.5, borderBottomColor: COLORS.lineSubtle } : undefined}
                       >
-                        <Text className="text-white text-sm font-semibold">{m}</Text>
+                        <Text variant="labelM">{m}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -565,17 +573,18 @@ export default function AddExpenseModal() {
             </View>
 
             {/* Recurring Expense Toggle */}
-            <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-3">
+            <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-3">
               <View className="flex-row justify-between items-center">
                 <View>
-                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Recurring Expense</Text>
-                  <Text className="text-zinc-500 text-[10px] mt-0.5">Automatically log this expense</Text>
+                  <Text variant="labelXs" className="text-content-secondary">Recurring Expense</Text>
+                  <Text variant="paragraphS" className="text-content-muted mt-0.5">Automatically log this expense</Text>
                 </View>
                 <Switch
                   value={isRecurring}
                   onValueChange={setIsRecurring}
-                  trackColor={{ false: "#1C1C21", true: accentColor }}
-                  thumbColor="#F6F6F7"
+                  accessibilityLabel="Recurring expense"
+                  trackColor={{ false: COLORS.surface04, true: accentColor }}
+                  thumbColor={COLORS.contentPrimary}
                 />
               </View>
               {isRecurring && (
@@ -584,22 +593,19 @@ export default function AddExpenseModal() {
                     <TouchableOpacity
                       key={interval}
                       onPress={() => setRecurringInterval(interval)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: recurringInterval === interval }}
                       style={{
                         flex: 1,
                         paddingVertical: 10,
-                        borderRadius: 10,
-                        backgroundColor: recurringInterval === interval ? accentColor + "20" : "#0F0F12",
+                        borderRadius: 12,
+                        backgroundColor: recurringInterval === interval ? accentColorDim : COLORS.surface02,
                         borderWidth: 1,
-                        borderColor: recurringInterval === interval ? accentColor : "#1C1C21",
+                        borderColor: recurringInterval === interval ? accentColor : COLORS.lineSubtle,
                         alignItems: "center"
                       }}
                     >
-                      <Text style={{
-                        color: recurringInterval === interval ? accentColor : "#9B9BA4",
-                        fontSize: 12,
-                        fontWeight: "800",
-                        textTransform: "uppercase"
-                      }}>
+                      <Text variant="labelXs" style={{ color: recurringInterval === interval ? accentColor : COLORS.contentSecondary }}>
                         {interval}
                       </Text>
                     </TouchableOpacity>
@@ -619,10 +625,11 @@ export default function AddExpenseModal() {
                 setErrorMessage("");
                 setStep(2);
               }}
+              accessibilityRole="button"
               style={{ backgroundColor: accentColor }}
-              className="py-4 rounded-xl items-center mt-2 shadow-lg"
+              className="py-4 rounded-md items-center mt-2"
             >
-              <Text className="font-bold text-sm" style={{ color: accentColorContrast }}>Next: Choose Category →</Text>
+              <Text variant="labelM" style={{ color: accentColorContrast }}>Next: Choose Category →</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -631,8 +638,8 @@ export default function AddExpenseModal() {
         {step === 2 && (
           <View className="flex flex-col gap-5">
             {/* Category Grid */}
-            <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-2">
-              <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide mb-2">Category Selection</Text>
+            <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-2">
+              <Text variant="labelXs" className="text-content-secondary mb-2">Category Selection</Text>
               <View className="flex flex-row flex-wrap gap-2 justify-start">
                 {expenseCategories.map((cat) => {
                   const isSelected = category === cat.id;
@@ -646,19 +653,21 @@ export default function AddExpenseModal() {
                         setDeductiblePct(pct);
                       }}
                       onLongPress={() => isCustom && handleLongPressCategory(cat)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSelected }}
                       style={{
                         width: "31.5%",
-                        borderColor: isSelected ? accentColor : "#1C1C21",
-                        backgroundColor: isSelected ? accentColorDim : "#0F0F12",
+                        borderColor: isSelected ? accentColor : COLORS.lineSubtle,
+                        backgroundColor: isSelected ? accentColorDim : COLORS.surface02,
                       }}
-                      className="flex-row items-center gap-1.5 px-2.5 py-2.5 rounded-xl border mb-1"
+                      className="flex-row items-center gap-1.5 px-2.5 py-2.5 rounded-md border mb-1"
                     >
-                      <ExpenseCategoryIcon id={cat.id} size={18} color={isSelected ? accentColor : "#9B9BA4"} />
+                      <ExpenseCategoryIcon id={cat.id} size={18} color={isSelected ? accentColor : COLORS.contentSecondary} />
                       <Text
                         numberOfLines={1}
                         className="text-[11px] font-bold flex-1"
                         style={{
-                          color: isSelected ? accentColor : "#9B9BA4",
+                          color: isSelected ? accentColor : COLORS.contentSecondary,
                         }}
                       >
                         {cat.label}
@@ -670,53 +679,58 @@ export default function AddExpenseModal() {
                 {customCategories.length < 3 && (
                   <TouchableOpacity
                     onPress={() => setShowCustomModal(true)}
+                    accessibilityRole="button"
                     style={{
                       width: "31.5%",
-                      borderColor: "#1C1C21",
-                      backgroundColor: "#0F0F12",
+                      borderColor: COLORS.lineSubtle,
+                      backgroundColor: COLORS.surface02,
                     }}
-                    className="flex-row items-center justify-center gap-1.5 px-2.5 py-2.5 rounded-xl border border-dashed mb-1"
+                    className="flex-row items-center justify-center gap-1.5 px-2.5 py-2.5 rounded-md border border-dashed mb-1"
                   >
                     <Text className="text-sm leading-none">➕</Text>
-                    <Text numberOfLines={1} className="text-[11px] font-bold text-zinc-500">
+                    <Text numberOfLines={1} className="text-[11px] font-bold text-content-muted">
                       + Custom
                     </Text>
                   </TouchableOpacity>
                 )}
               </View>
-              <Text className="text-[10px] text-zinc-500 mt-1 italic font-semibold">
+              <Text variant="paragraphS" className="text-content-muted mt-1 italic">
                 * Long-press a custom category to delete it.
               </Text>
             </View>
 
             {/* Deductible toggle */}
-            <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-3">
-              <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Tax Deductible</Text>
-              <View className="flex-row bg-[#0F0F12] p-1 rounded-xl border border-[#1C1C21]">
+            <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-3">
+              <Text variant="labelXs" className="text-content-secondary">Tax Deductible</Text>
+              <View className="flex-row bg-surface-02 p-1 rounded-md border border-line-subtle">
                 <TouchableOpacity
                   onPress={() => setIsDeductible(true)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isDeductible }}
                   style={{
                     backgroundColor: isDeductible ? accentColorDim : "transparent",
                     borderColor: isDeductible ? accentColorMid : "transparent",
                     borderWidth: 1,
                   }}
-                  className="flex-1 py-3 rounded-lg items-center justify-center"
+                  className="flex-1 py-3 rounded-sm items-center justify-center"
                 >
                   <Text
-                    style={{ color: isDeductible ? accentColor : "#9B9BA4" }}
-                    className="text-xs font-bold"
+                    variant="labelM"
+                    style={{ color: isDeductible ? accentColor : COLORS.contentSecondary }}
                   >
                     Yes (Business)
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setIsDeductible(false)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: !isDeductible }}
                   className={cn(
-                    "flex-1 py-3 rounded-lg items-center justify-center",
-                    !isDeductible ? "bg-rose-500/10 border border-rose-500/20" : "border-transparent"
+                    "flex-1 py-3 rounded-sm items-center justify-center",
+                    !isDeductible ? "bg-destructive/10 border border-destructive/20" : "border-transparent"
                   )}
                 >
-                  <Text className={cn("text-xs font-bold", !isDeductible ? "text-rose-400" : "text-zinc-500")}>
+                  <Text variant="labelM" className={!isDeductible ? "text-destructive" : "text-content-muted"}>
                     No (Personal)
                   </Text>
                 </TouchableOpacity>
@@ -731,16 +745,16 @@ export default function AddExpenseModal() {
                 ? (parsedAmt * deductiblePct / 100).toFixed(2)
                 : null;
               return (
-                <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-3">
+                <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-3">
                   {/* Tax code hint */}
                   {meta.taxCode && (
                     <View className="flex-row items-center gap-2">
-                      <View style={{ backgroundColor: accentColor + "18", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: accentColor + "30" }}>
-                        <Text style={{ color: accentColor, fontSize: 10, fontWeight: "800", letterSpacing: 0.5, fontVariant: ["tabular-nums"] }}>
+                      <View style={{ backgroundColor: accentColorDim, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: accentColorMid }}>
+                        <Text variant="labelXs" tabular style={{ color: accentColor }}>
                           {meta.taxCode}
                         </Text>
                       </View>
-                      <Text className="text-zinc-400 text-[11px] font-semibold flex-1" numberOfLines={2}>
+                      <Text variant="paragraphS" className="text-content-secondary flex-1" numberOfLines={2}>
                         {meta.taxCodeLabel}
                       </Text>
                     </View>
@@ -748,9 +762,9 @@ export default function AddExpenseModal() {
 
                   {/* Partial deductibility warning */}
                   {deductiblePct < 100 && (
-                    <View style={{ backgroundColor: "rgba(245,158,11,0.08)", borderWidth: 1, borderColor: "rgba(245,158,11,0.2)", borderRadius: 12, padding: 12, flexDirection: "row", gap: 8 }}>
+                    <View style={{ backgroundColor: withAlpha(COLORS.warning, 0.12), borderWidth: 1, borderColor: withAlpha(COLORS.warning, 0.25), borderRadius: 12, padding: 12, flexDirection: "row", gap: 8 }}>
                       <Text style={{ fontSize: 13 }}>⚠️</Text>
-                      <Text style={{ color: "#fcd34d", fontSize: 11, fontWeight: "600", flex: 1, lineHeight: 16 }}>
+                      <Text variant="paragraphS" style={{ color: COLORS.warning, flex: 1 }}>
                         {meta.deductibleNote ?? `This expense is ${deductiblePct}% deductible. Only the deductible portion counts toward your tax summary.`}
                       </Text>
                     </View>
@@ -758,8 +772,8 @@ export default function AddExpenseModal() {
 
                   {/* Business use % label row */}
                   <View className="flex-row justify-between items-center">
-                    <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Business Use %</Text>
-                    <Text style={{ color: accentColor, fontSize: 13, fontWeight: "800" }}>{deductiblePct}%</Text>
+                    <Text variant="labelXs" className="text-content-secondary">Business Use %</Text>
+                    <Text variant="labelM" tabular style={{ color: accentColor }}>{deductiblePct}%</Text>
                   </View>
 
                   {/* Quick-pick segments */}
@@ -768,17 +782,19 @@ export default function AddExpenseModal() {
                       <TouchableOpacity
                         key={pct}
                         onPress={() => setDeductiblePct(pct)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: deductiblePct === pct }}
                         style={{
                           flex: 1,
                           paddingVertical: 9,
-                          borderRadius: 10,
-                          backgroundColor: deductiblePct === pct ? accentColor + "20" : "#0F0F12",
+                          borderRadius: 12,
+                          backgroundColor: deductiblePct === pct ? accentColorDim : COLORS.surface02,
                           borderWidth: 1,
-                          borderColor: deductiblePct === pct ? accentColor : "#1C1C21",
+                          borderColor: deductiblePct === pct ? accentColor : COLORS.lineSubtle,
                           alignItems: "center",
                         }}
                       >
-                        <Text style={{ color: deductiblePct === pct ? accentColor : "#9B9BA4", fontSize: 12, fontWeight: "800" }}>
+                        <Text variant="labelM" tabular style={{ color: deductiblePct === pct ? accentColor : COLORS.contentSecondary }}>
                           {pct}%
                         </Text>
                       </TouchableOpacity>
@@ -795,27 +811,28 @@ export default function AddExpenseModal() {
                     }}
                     keyboardType="number-pad"
                     placeholder="100"
-                    placeholderTextColor="#65656E"
+                    placeholderTextColor={COLORS.contentMuted}
                     maxLength={3}
                     style={{
-                      backgroundColor: "#0F0F12",
+                      backgroundColor: COLORS.surface02,
                       borderWidth: 1,
-                      borderColor: "#1C1C21",
+                      borderColor: COLORS.lineSubtle,
                       borderRadius: 12,
                       paddingHorizontal: 16,
                       paddingVertical: 12,
-                      color: "#F6F6F7",
+                      color: COLORS.contentPrimary,
                       fontSize: 14,
                       fontWeight: "700",
                       textAlign: "center",
+                      fontVariant: ["tabular-nums"],
                     }}
                   />
 
                   {/* Deductible amount preview */}
                   {deductibleAmount && (
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#0F0F12", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: "#1C1C21" }}>
-                      <Text style={{ color: "#9B9BA4", fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 }}>Deductible Amount</Text>
-                      <Text style={{ color: "#34d399", fontSize: 13, fontWeight: "800" }}>${deductibleAmount}</Text>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: COLORS.surface02, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: COLORS.lineSubtle }}>
+                      <Text variant="labelXs" className="text-content-secondary">Deductible Amount</Text>
+                      <Text variant="labelM" tabular className="text-success">${deductibleAmount}</Text>
                     </View>
                   )}
                 </View>
@@ -826,16 +843,18 @@ export default function AddExpenseModal() {
             <View className="flex-row gap-3 mt-2">
               <TouchableOpacity
                 onPress={() => setStep(1)}
-                className="flex-1 py-4 bg-[#1E1E23] border border-[#1C1C21] rounded-xl items-center"
+                accessibilityRole="button"
+                className="flex-1 py-4 bg-surface-04 border border-line-subtle rounded-md items-center"
               >
-                <Text className="text-zinc-400 font-bold text-sm">← Back</Text>
+                <Text variant="labelM" className="text-content-secondary">← Back</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setStep(3)}
+                accessibilityRole="button"
                 style={{ backgroundColor: accentColor }}
-                className="flex-1 py-4 rounded-xl items-center"
+                className="flex-1 py-4 rounded-md items-center"
               >
-                <Text className="font-bold text-sm" style={{ color: accentColorContrast }}>Next: Link Context →</Text>
+                <Text variant="labelM" style={{ color: accentColorContrast }}>Next: Link Context →</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -846,21 +865,23 @@ export default function AddExpenseModal() {
           <View className="flex flex-col gap-5">
             {/* Vehicle Linkage */}
             {vehiclesList.length > 0 && (
-              <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-3">
-                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Vehicle Link</Text>
+              <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-3">
+                <Text variant="labelXs" className="text-content-secondary">Vehicle Link</Text>
                 <View className="flex-row flex-wrap gap-2">
                   {/* None option */}
                   <TouchableOpacity
                     onPress={() => setLinkedVehicleId("")}
-                    className="px-3.5 py-2.5 rounded-xl border min-w-[65px] items-center justify-center"
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: !linkedVehicleId }}
+                    className="px-4 py-2.5 rounded-md border min-w-[65px] items-center justify-center"
                     style={{
-                      borderColor: !linkedVehicleId ? accentColor : "#1C1C21",
-                      backgroundColor: !linkedVehicleId ? accentColorDim : "#0F0F12",
+                      borderColor: !linkedVehicleId ? accentColor : COLORS.lineSubtle,
+                      backgroundColor: !linkedVehicleId ? accentColorDim : COLORS.surface02,
                     }}
                   >
                     <Text
-                      style={{ color: !linkedVehicleId ? accentColor : "#9B9BA4" }}
-                      className="text-xs font-bold"
+                      variant="labelM"
+                      style={{ color: !linkedVehicleId ? accentColor : COLORS.contentSecondary }}
                     >
                       None
                     </Text>
@@ -871,16 +892,18 @@ export default function AddExpenseModal() {
                       <TouchableOpacity
                         key={v.id}
                         onPress={() => setLinkedVehicleId(isSelected ? "" : v.id)}
-                        className="px-3.5 py-2.5 rounded-xl border flex-row items-center gap-2 justify-center"
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: isSelected }}
+                        className="px-4 py-2.5 rounded-md border flex-row items-center gap-2 justify-center"
                         style={{
-                          borderColor: isSelected ? accentColor : "#1C1C21",
-                          backgroundColor: isSelected ? accentColorDim : "#0F0F12",
+                          borderColor: isSelected ? accentColor : COLORS.lineSubtle,
+                          backgroundColor: isSelected ? accentColorDim : COLORS.surface02,
                         }}
                       >
-                        <Text className="text-xs font-bold" style={{ color: isSelected ? accentColor : "#F6F6F7" }}>
+                        <Text variant="labelM" style={{ color: isSelected ? accentColor : COLORS.contentPrimary }}>
                           {v.name}
                         </Text>
-                        <Text className="text-[9px] text-zinc-500 font-semibold">{v.year} {v.make}</Text>
+                        <Text variant="labelXs" tabular className="text-content-muted">{v.year} {v.make}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -889,19 +912,19 @@ export default function AddExpenseModal() {
             )}
 
             {/* Shift Linkage */}
-            <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-3">
+            <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-3">
               <View className="flex-row justify-between items-center mb-0.5">
-                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Link to Shift (Recommended)</Text>
+                <Text variant="labelXs" className="text-content-secondary">Link to Shift (Recommended)</Text>
                 {linkedShiftId ? (
-                  <TouchableOpacity onPress={() => setLinkedShiftId("")}>
-                    <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider">Clear Selection</Text>
+                  <TouchableOpacity onPress={() => setLinkedShiftId("")} accessibilityRole="button">
+                    <Text variant="labelXs" className="text-content-muted">Clear Selection</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
 
               {sortedShifts.length === 0 ? (
-                <View className="py-6 border border-dashed border-[#1C1C21] rounded-xl items-center justify-center">
-                  <Text className="text-zinc-500 text-xs font-medium text-center px-4">
+                <View className="py-6 border border-dashed border-line-subtle rounded-md items-center justify-center">
+                  <Text variant="paragraphS" className="text-content-muted text-center px-4">
                     No shifts found near this date (+/- 7 days).
                   </Text>
                 </View>
@@ -917,23 +940,25 @@ export default function AddExpenseModal() {
                       <TouchableOpacity
                         key={s.id}
                         onPress={() => setLinkedShiftId(isSelected ? "" : s.id)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: isSelected }}
                         style={{
                           width: 210,
                           height: 96,
-                          borderColor: isSelected ? accentColor : "#1C1C21",
-                          backgroundColor: isSelected ? accentColorDim : "#0F0F12",
+                          borderColor: isSelected ? accentColor : COLORS.lineSubtle,
+                          backgroundColor: isSelected ? accentColorDim : COLORS.surface02,
                         }}
-                        className="p-3.5 rounded-xl border flex flex-col justify-between"
+                        className="p-4 rounded-md border flex flex-col justify-between"
                       >
                         <View className="flex-row items-center justify-between">
                           <PlatformBadge platform={s.platform as PlatformKey} size="sm" />
-                          <Text className="text-[10px] text-zinc-500 font-semibold">
+                          <Text variant="labelXs" tabular className="text-content-muted">
                             {new Date(s.startTime).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                           </Text>
                         </View>
                         <View className="flex-row items-center justify-between">
-                          <Text className="text-sm font-extrabold text-white">${totalRevenue.toFixed(2)}</Text>
-                          <Text className="text-[10px] text-zinc-400 font-bold">
+                          <Text variant="labelL" tabular>${totalRevenue.toFixed(2)}</Text>
+                          <Text variant="labelXs" tabular className="text-content-secondary">
                             {durationHours}h • {totalMiles} {profile.distanceUnit}
                           </Text>
                         </View>
@@ -948,16 +973,18 @@ export default function AddExpenseModal() {
             <View className="flex-row gap-3 mt-2">
               <TouchableOpacity
                 onPress={() => setStep(2)}
-                className="flex-1 py-4 bg-[#1E1E23] border border-[#1C1C21] rounded-xl items-center"
+                accessibilityRole="button"
+                className="flex-1 py-4 bg-surface-04 border border-line-subtle rounded-md items-center"
               >
-                <Text className="text-zinc-400 font-bold text-sm">← Back</Text>
+                <Text variant="labelM" className="text-content-secondary">← Back</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setStep(4)}
+                accessibilityRole="button"
                 style={{ backgroundColor: accentColor }}
-                className="flex-1 py-4 rounded-xl items-center"
+                className="flex-1 py-4 rounded-md items-center"
               >
-                <Text className="font-bold text-sm" style={{ color: accentColorContrast }}>Next: Documentation →</Text>
+                <Text variant="labelM" style={{ color: accentColorContrast }}>Next: Documentation →</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -967,53 +994,59 @@ export default function AddExpenseModal() {
         {step === 4 && (
           <View className="flex flex-col gap-5">
             {/* Notes & Receipt Upload */}
-            <View className="bg-[#16161A] border border-[#1C1C21] rounded-2xl p-4 flex flex-col gap-5">
+            <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-5">
               <View className="flex flex-col gap-1.5">
-                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Notes</Text>
+                <Text variant="labelXs" className="text-content-secondary">Notes</Text>
                 <TextInput
                   value={notes}
                   onChangeText={setNotes}
                   multiline
                   numberOfLines={3}
                   placeholder="Details or notes..."
-                  placeholderTextColor="#65656E"
+                  placeholderTextColor={COLORS.contentMuted}
                   onFocus={() => setIsNotesFocused(true)}
                   onBlur={() => setIsNotesFocused(false)}
-                  className="bg-[#0F0F12] border rounded-xl px-3.5 py-2.5 text-white text-sm h-[96px] font-semibold text-left align-top leading-relaxed"
+                  className="bg-surface-02 border rounded-md px-4 py-2.5 text-content-primary text-sm h-[96px] font-semibold text-left align-top leading-relaxed"
                   style={{
-                    borderColor: isNotesFocused ? accentColor : "#1C1C21",
+                    borderColor: isNotesFocused ? accentColor : COLORS.lineSubtle,
                   }}
                 />
               </View>
 
               <View className="flex flex-col gap-2">
-                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wide">Receipt Picture</Text>
+                <Text variant="labelXs" className="text-content-secondary">Receipt Picture</Text>
                 {receiptUri ? (
                   <View className="flex flex-col gap-3">
-                    <View className="w-[120px] h-[120px] relative rounded-xl border border-[#1C1C21] overflow-hidden bg-[#0F0F12]">
+                    <View className="w-[120px] h-[120px] relative rounded-md border border-line-subtle overflow-hidden bg-surface-02">
                       <Image source={{ uri: receiptUri }} className="w-full h-full" resizeMode="cover" />
                       <TouchableOpacity
                         onPress={() => setReceiptUri(null)}
-                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/70 items-center justify-center border border-white/10"
+                        accessibilityRole="button"
+                        accessibilityLabel="Remove receipt photo"
+                        hitSlop={10}
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full items-center justify-center border border-line-strong"
+                        style={{ backgroundColor: COLORS.scrim }}
                       >
-                        <Text className="text-white text-xs font-bold leading-none">×</Text>
+                        <Text className="text-content-primary text-xs font-bold leading-none">×</Text>
                       </TouchableOpacity>
                     </View>
                     <TouchableOpacity
                       onPress={handleSimulateOCR}
                       disabled={isScanningOCR}
-                      style={{ backgroundColor: isScanningOCR ? "#26262C" : accentColor }}
-                      className="w-full py-3.5 rounded-xl flex-row items-center justify-center gap-2 border border-zinc-800"
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: isScanningOCR, busy: isScanningOCR }}
+                      style={{ backgroundColor: isScanningOCR ? COLORS.surface05 : accentColor }}
+                      className="w-full py-4 rounded-md flex-row items-center justify-center gap-2 border border-line-strong"
                     >
                       {isScanningOCR ? (
                         <>
-                          <ActivityIndicator size="small" color="#F6F6F7" />
-                          <Text className="text-zinc-300 text-xs font-bold uppercase tracking-wider">Scanning Receipt...</Text>
+                          <ActivityIndicator size="small" color={COLORS.contentSecondary} />
+                          <Text variant="labelXs" className="text-content-secondary">Scanning Receipt...</Text>
                         </>
                       ) : (
                         <>
                           <Text className="text-sm">🔍</Text>
-                          <Text style={{ color: accentColorContrast }} className="text-xs font-bold uppercase tracking-wider">Scan & Auto-Fill Form</Text>
+                          <Text variant="labelXs" style={{ color: accentColorContrast }}>Scan & Auto-Fill Form</Text>
                         </>
                       )}
                     </TouchableOpacity>
@@ -1021,10 +1054,11 @@ export default function AddExpenseModal() {
                 ) : (
                   <TouchableOpacity
                     onPress={handleAddPhoto}
-                    className="w-full py-5 border border-dashed border-[#1C1C21] rounded-xl items-center justify-center bg-[#0F0F12] flex-row gap-2"
+                    accessibilityRole="button"
+                    className="w-full py-5 border border-dashed border-line-subtle rounded-md items-center justify-center bg-surface-02 flex-row gap-2"
                   >
                     <Text className="text-xl">📷</Text>
-                    <Text className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Attach Receipt Photo</Text>
+                    <Text variant="labelXs" className="text-content-secondary">Attach Receipt Photo</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -1034,26 +1068,30 @@ export default function AddExpenseModal() {
             <View className="flex-row gap-3 mt-2">
               <TouchableOpacity
                 onPress={() => setStep(3)}
-                className="flex-1 py-4 bg-[#1E1E23] border border-[#1C1C21] rounded-xl items-center"
+                accessibilityRole="button"
+                className="flex-1 py-4 bg-surface-04 border border-line-subtle rounded-md items-center"
               >
-                <Text className="text-zinc-400 font-bold text-sm">← Back</Text>
+                <Text variant="labelM" className="text-content-secondary">← Back</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSave}
                 disabled={isSaving}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: isSaving, busy: isSaving }}
                 style={{ backgroundColor: accentColor }}
-                className="flex-1 py-4 rounded-xl items-center justify-center"
+                className="flex-1 py-4 rounded-md items-center justify-center"
               >
                 {isSaving ? (
                   <ActivityIndicator size="small" color={accentColorContrast} />
                 ) : (
-                  <Text className="font-bold text-sm" style={{ color: accentColorContrast }}>Save Expense</Text>
+                  <Text variant="labelM" style={{ color: accentColorContrast }}>Save Expense</Text>
                 )}
               </TouchableOpacity>
             </View>
           </View>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* ── Custom Category Add Modal ────────────────────────────────── */}
       <Modal
@@ -1062,37 +1100,37 @@ export default function AddExpenseModal() {
         transparent={true}
         onRequestClose={() => setShowCustomModal(false)}
       >
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "flex-end", alignItems: "center" }}
+          style={{ flex: 1, backgroundColor: COLORS.scrim, justifyContent: "flex-end", alignItems: "center" }}
         >
-          <View className="w-full max-w-md bg-[#16161A] border-t border-x border-[#1C1C21] rounded-t-3xl p-6 pb-12 flex flex-col gap-5 shadow-2xl">
+          <View className="w-full max-w-md bg-surface-03 border-t border-x border-line-subtle rounded-t-xl p-6 pb-12 flex flex-col gap-5">
             <View>
-              <Text className="text-white font-extrabold text-lg tracking-tight">Create Custom Category</Text>
-              <Text className="text-zinc-500 text-xs mt-1">Add a personalized category (up to 3 total).</Text>
+              <Text variant="headingM">Create Custom Category</Text>
+              <Text variant="paragraphS" className="text-content-muted mt-1">Add a personalized category (up to 3 total).</Text>
             </View>
 
             <View className="flex flex-col gap-4">
               <View className="flex flex-col gap-1.5">
-                <Text className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Emoji Icon</Text>
+                <Text variant="labelXs" className="text-content-secondary">Emoji Icon</Text>
                 <TextInput
                   value={customEmoji}
                   onChangeText={setCustomEmoji}
                   placeholder="🏷️"
-                  placeholderTextColor="#65656E"
+                  placeholderTextColor={COLORS.contentMuted}
                   maxLength={5}
-                  className="bg-[#0F0F12] border border-[#1C1C21] rounded-xl px-4 py-3 text-white text-base font-semibold w-20 text-center"
+                  className="bg-surface-02 border border-line-subtle rounded-md px-4 py-3 text-content-primary text-base font-semibold w-20 text-center"
                 />
               </View>
 
               <View className="flex flex-col gap-1.5">
-                <Text className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Category Name</Text>
+                <Text variant="labelXs" className="text-content-secondary">Category Name</Text>
                 <TextInput
                   value={customName}
                   onChangeText={setCustomName}
                   placeholder="e.g. Car Wash, Detailing"
-                  placeholderTextColor="#65656E"
-                  className="bg-[#0F0F12] border border-[#1C1C21] rounded-xl px-4 py-3 text-white text-sm font-semibold"
+                  placeholderTextColor={COLORS.contentMuted}
+                  className="bg-surface-02 border border-line-subtle rounded-md px-4 py-3 text-content-primary text-sm font-semibold"
                 />
               </View>
             </View>
@@ -1100,16 +1138,18 @@ export default function AddExpenseModal() {
             <View className="flex-row gap-3 mt-2">
               <TouchableOpacity
                 onPress={() => setShowCustomModal(false)}
-                className="flex-1 py-3 bg-[#0F0F12] border border-[#1C1C21] rounded-xl items-center"
+                accessibilityRole="button"
+                className="flex-1 py-3 bg-surface-02 border border-line-subtle rounded-md items-center"
               >
-                <Text className="text-zinc-400 font-bold text-xs">Cancel</Text>
+                <Text variant="labelM" className="text-content-secondary">Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSaveCustomCategory}
+                accessibilityRole="button"
                 style={{ backgroundColor: accentColor }}
-                className="flex-1 py-3 rounded-xl items-center"
+                className="flex-1 py-3 rounded-md items-center"
               >
-                <Text className="font-bold text-xs" style={{ color: accentColorContrast }}>Create</Text>
+                <Text variant="labelM" style={{ color: accentColorContrast }}>Create</Text>
               </TouchableOpacity>
             </View>
           </View>

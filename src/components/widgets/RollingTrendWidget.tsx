@@ -2,6 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
 import { Text } from "../ui/text";
+import { COLORS, KPI } from "@/src/theme/colors";
 
 interface DailyData {
   date: string;
@@ -12,7 +13,7 @@ interface RollingTrendWidgetProps {
   dailyData: DailyData[];
 }
 
-function Sparkline({ points, color, height = 70 }: { points: number[]; color: string; height?: number }) {
+function Sparkline({ points, color, height = 70, accessibilityLabel }: { points: number[]; color: string; height?: number; accessibilityLabel?: string }) {
   const safePoints = points && points.length >= 2 ? points : [0, 0];
   const max = Math.max(...safePoints, 1);
   const min = Math.min(...safePoints);
@@ -30,7 +31,7 @@ function Sparkline({ points, color, height = 70 }: { points: number[]; color: st
   const areaD = `${pathD} L ${width} ${height} L 0 ${height} Z`;
 
   return (
-    <View style={{ height, width: "100%", marginTop: 8 }}>
+    <View accessible={true} accessibilityLabel={accessibilityLabel} style={{ height, width: "100%", marginTop: 8 }}>
       <Svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
         <Defs>
           <LinearGradient id={`spark-grad-${color.replace("#", "")}`} x1="0" y1="0" x2="0" y2="1">
@@ -56,15 +57,19 @@ export default function RollingTrendWidget({ dailyData }: RollingTrendWidgetProp
   return (
     <View style={{ gap: 8 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-         <Text style={{ fontSize: 13, fontWeight: "600", color: "#9B9BA4" }}>Earnings Trajectory</Text>
-         <Text style={{ fontSize: 11, fontWeight: "700", color: "#22c55e", textTransform: "uppercase", letterSpacing: 0.5 }}>Trend</Text>
+         <Text variant="labelM" style={{ color: COLORS.contentSecondary }}>Earnings Trajectory</Text>
+         <Text variant="labelXs" style={{ color: KPI.gross }}>Trend</Text>
       </View>
-      <Sparkline points={hasData ? dailyData.map((d) => d.total) : [0, 0]} color="#22c55e" />
+      <Sparkline
+        points={hasData ? dailyData.map((d) => d.total) : [0, 0]}
+        color={KPI.gross}
+        accessibilityLabel={hasData ? `Earnings trend chart across ${dailyData.length} days` : "Earnings trend chart, no data yet"}
+      />
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
-        <Text style={{ fontSize: 10, fontWeight: "800", color: "#65656E", textTransform: "uppercase", letterSpacing: 0.5 }}>
+        <Text variant="labelXs" tabular style={{ color: COLORS.contentMuted }}>
           {hasData ? formatDate(dailyData[0]?.date) : ""}
         </Text>
-        <Text style={{ fontSize: 10, fontWeight: "800", color: "#65656E", textTransform: "uppercase", letterSpacing: 0.5 }}>
+        <Text variant="labelXs" tabular style={{ color: COLORS.contentMuted }}>
           {hasData ? formatDate(dailyData[dailyData.length - 1]?.date) : ""}
         </Text>
       </View>

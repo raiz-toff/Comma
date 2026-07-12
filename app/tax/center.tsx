@@ -14,6 +14,7 @@ import { router } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Calculator, Clock, Download } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
+import { COLORS, withAlpha } from "@/src/theme/colors";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { notifyExport } from "@/src/services/notify";
@@ -50,11 +51,12 @@ function ScalePressable({
   onPress,
   style,
   children,
+  ...rest
 }: {
   onPress: () => void;
   style?: object | object[];
   children: React.ReactNode;
-}) {
+} & Omit<React.ComponentProps<typeof Pressable>, "onPress" | "style" | "children">) {
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -69,6 +71,7 @@ function ScalePressable({
         scale.value = withSpring(1, { damping: 15 });
       }}
       style={[style, animatedStyle]}
+      {...rest}
     >
       {children}
     </AnimatedPressable>
@@ -482,18 +485,24 @@ export default function TaxCenterScreen() {
     return (
       <SafeAreaView style={S.root}>
         <View style={S.header}>
-          <Pressable onPress={() => router.back()} style={S.backBtn}>
-            <ArrowLeft size={16} color="#9B9BA4" />
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            hitSlop={8}
+            style={S.backBtn}
+          >
+            <ArrowLeft size={16} color={COLORS.contentSecondary} />
           </Pressable>
-          <Text style={[S.headerTitle, { marginLeft: 12 }]}>Tax Center</Text>
+          <Text variant="headingM" style={{ marginLeft: 12 }}>Tax Center</Text>
         </View>
         <View style={[S.loader, { padding: 24 }]}>
           <View style={S.card}>
             <View style={S.emptyIcon}>
               <Calculator size={24} color={accentColor} />
             </View>
-            <Text style={S.emptyTitle}>No Self-Assessment Required</Text>
-            <Text style={S.emptyBody}>
+            <Text variant="labelL" style={S.emptyTitle}>No Self-Assessment Required</Text>
+            <Text variant="paragraphM" style={S.emptyBody}>
               In {countryDef.label}, gig platform earnings are handled directly
               by platforms. Independent self-assessment is not required.
             </Text>
@@ -509,12 +518,18 @@ export default function TaxCenterScreen() {
     <SafeAreaView style={S.root}>
       {/* Header */}
       <View style={S.header}>
-        <Pressable onPress={() => router.back()} style={S.backBtn}>
-          <ArrowLeft size={16} color="#9B9BA4" />
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          hitSlop={8}
+          style={S.backBtn}
+        >
+          <ArrowLeft size={16} color={COLORS.contentSecondary} />
         </Pressable>
         <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={S.headerTitle}>Tax Center</Text>
-          <Text style={S.headerSub}>Full breakdown · {selectedYear}</Text>
+          <Text variant="headingM">Tax Center</Text>
+          <Text variant="paragraphS" style={S.headerSub}>Full breakdown · {selectedYear}</Text>
         </View>
         {/* Year selector */}
         <View style={S.yearPicker}>
@@ -525,6 +540,9 @@ export default function TaxCenterScreen() {
               <Pressable
                 key={year}
                 onPress={() => setSelectedYear(year)}
+                accessibilityRole="button"
+                accessibilityLabel={`Show ${year}`}
+                accessibilityState={{ selected: active }}
                 style={[
                   S.yearChip,
                   active
@@ -533,10 +551,9 @@ export default function TaxCenterScreen() {
                 ]}
               >
                 <Text
-                  style={[
-                    S.yearChipText,
-                    { color: active ? accentColorContrast : "#9B9BA4" },
-                  ]}
+                  variant="labelXs"
+                  tabular
+                  style={{ color: active ? accentColorContrast : COLORS.contentSecondary }}
                 >
                   {year}
                 </Text>
@@ -552,8 +569,8 @@ export default function TaxCenterScreen() {
       >
         {/* ── Virtual Tax Jar ── */}
         <View style={S.card}>
-          <Text style={S.cardLabel}>TAX SAVINGS JAR</Text>
-          <Text style={[S.heroAmount, { color: accentColor, marginTop: 8 }]}>
+          <Text variant="labelXs" style={S.cardLabel}>TAX SAVINGS JAR</Text>
+          <Text variant="headingXl" tabular style={{ color: accentColor, marginTop: 8 }}>
             {fmt(localJarValue)}
           </Text>
 
@@ -570,10 +587,10 @@ export default function TaxCenterScreen() {
           </View>
 
           <View style={S.jarStats}>
-            <Text style={S.progressLabel}>
+            <Text variant="paragraphS" tabular style={S.progressLabel}>
               {jarCoveragePct.toFixed(0)}% covered
             </Text>
-            <Text style={S.progressLabel}>
+            <Text variant="paragraphS" tabular style={S.progressLabel}>
               Target: {fmt(targetSetAside)}
             </Text>
           </View>
@@ -584,24 +601,27 @@ export default function TaxCenterScreen() {
               <ScalePressable
                 key={amt}
                 onPress={() => handleAdjustJar(amt)}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  amt < 0 ? `Remove $${-amt} from tax jar` : `Add $${amt} to tax jar`
+                }
                 style={[
                   S.adjustBtn,
                   amt < 0
                     ? {
-                        borderColor: "rgba(239,68,68,0.3)",
-                        backgroundColor: "rgba(239,68,68,0.06)",
+                        borderColor: withAlpha(COLORS.destructive, 0.3),
+                        backgroundColor: withAlpha(COLORS.destructive, 0.06),
                       }
                     : {
-                        borderColor: "rgba(16,185,129,0.3)",
-                        backgroundColor: "rgba(16,185,129,0.06)",
+                        borderColor: withAlpha(COLORS.success, 0.3),
+                        backgroundColor: withAlpha(COLORS.success, 0.06),
                       },
                 ]}
               >
                 <Text
-                  style={[
-                    S.adjustBtnText,
-                    { color: amt < 0 ? "#f87171" : accentColor },
-                  ]}
+                  variant="labelM"
+                  tabular
+                  style={{ color: amt < 0 ? COLORS.destructive : accentColor }}
                 >
                   {amt > 0 ? `+${amt}` : amt}
                 </Text>
@@ -613,18 +633,18 @@ export default function TaxCenterScreen() {
         {/* ── Income snapshot ── */}
         <View style={S.twoCol}>
           <View style={[S.card, { flex: 1 }]}>
-            <Text style={S.cardLabel}>TOTAL EARNINGS</Text>
-            <Text style={[S.medAmount, { marginTop: 8 }]}>
+            <Text variant="labelXs" style={S.cardLabel}>TOTAL EARNINGS</Text>
+            <Text variant="headingS" tabular style={{ marginTop: 8 }}>
               {fmt(summary?.gross || 0)}
             </Text>
-            <Text style={S.miniNote}>Pay + tips + bonuses</Text>
+            <Text variant="paragraphS" style={S.miniNote}>Pay + tips + bonuses</Text>
           </View>
           <View style={[S.card, { flex: 1 }]}>
-            <Text style={S.cardLabel}>EXPENSES</Text>
-            <Text style={[S.medAmount, { marginTop: 8, color: "#f87171" }]}>
+            <Text variant="labelXs" style={S.cardLabel}>EXPENSES</Text>
+            <Text variant="headingS" tabular style={{ marginTop: 8, color: COLORS.destructive }}>
               {fmt(summary?.businessExpenses || 0)}
             </Text>
-            <Text style={S.miniNote}>Money you spent to do the work</Text>
+            <Text variant="paragraphS" style={S.miniNote}>Money you spent to do the work</Text>
           </View>
         </View>
 
@@ -632,19 +652,21 @@ export default function TaxCenterScreen() {
         <View style={S.card}>
           <View style={S.rowBetween}>
             <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={S.cardLabel}>WHAT YOU'LL BE TAXED ON</Text>
+              <Text variant="labelXs" style={S.cardLabel}>WHAT YOU'LL BE TAXED ON</Text>
               <Text
-                style={[S.heroAmount, { color: accentColor, marginTop: 8 }]}
+                variant="headingXl"
+                tabular
+                style={{ color: accentColor, marginTop: 8 }}
               >
                 {fmt(netIncome)}
               </Text>
             </View>
             <View style={{ alignItems: "flex-end" }}>
-              <Text style={S.cardLabel}>YOURS TO KEEP</Text>
-              <Text style={[S.mutedValue, { marginTop: 6 }]}>
+              <Text variant="labelXs" style={S.cardLabel}>YOURS TO KEEP</Text>
+              <Text variant="labelM" tabular style={[S.mutedValue, { marginTop: 6 }]}>
                 {fmt(Math.max(0, netIncome - targetSetAside))}
               </Text>
-              <Text style={[S.miniNote, { marginTop: 2, textAlign: "right" }]}>
+              <Text variant="paragraphS" style={[S.miniNote, { marginTop: 2, textAlign: "right" }]}>
                 after setting aside for taxes
               </Text>
             </View>
@@ -653,7 +675,7 @@ export default function TaxCenterScreen() {
 
         {/* ── Estimated obligations ── */}
         <View style={S.card}>
-          <Text style={S.cardLabel}>
+          <Text variant="labelXs" style={S.cardLabel}>
             ESTIMATED TAXES YOU OWE · {selectedYear}
           </Text>
 
@@ -663,33 +685,33 @@ export default function TaxCenterScreen() {
               <>
                 <View style={S.oblRow}>
                   <View style={S.oblLeft}>
-                    <Text style={S.oblLabel}>
+                    <Text variant="labelM">
                       {pensionResult.planType === "QPP"
                         ? "Quebec Pension Plan"
                         : "Canada Pension Plan"}
                     </Text>
-                    <Text style={S.oblNote}>
+                    <Text variant="paragraphS" style={S.oblNote}>
                       Required for self-employed workers ·{" "}
                       {pensionResult.planType === "QPP" ? "12.8%" : "11.9%"} of income
                     </Text>
                   </View>
-                  <Text style={S.oblAmount}>
+                  <Text variant="labelM" tabular>
                     {fmt(pensionResult.cpp1Total)}
                   </Text>
                 </View>
                 {pensionResult.cpp2Total > 0 && (
                   <View style={[S.oblRow, S.oblSep]}>
                     <View style={S.oblLeft}>
-                      <Text style={S.oblLabel}>
+                      <Text variant="labelM">
                         {pensionResult.planType === "QPP"
                           ? "Quebec Pension Plan — extra"
                           : "Canada Pension Plan — extra"}
                       </Text>
-                      <Text style={S.oblNote}>
+                      <Text variant="paragraphS" style={S.oblNote}>
                         8% more on your higher earnings
                       </Text>
                     </View>
-                    <Text style={S.oblAmount}>
+                    <Text variant="labelM" tabular>
                       {fmt(pensionResult.cpp2Total)}
                     </Text>
                   </View>
@@ -701,12 +723,12 @@ export default function TaxCenterScreen() {
             {profile.country === "US" && (
               <View style={S.oblRow}>
                 <View style={S.oblLeft}>
-                  <Text style={S.oblLabel}>Self-Employment Tax</Text>
-                  <Text style={S.oblNote}>
+                  <Text variant="labelM">Self-Employment Tax</Text>
+                  <Text variant="paragraphS" style={S.oblNote}>
                     Covers Social Security & Medicare
                   </Text>
                 </View>
-                <Text style={S.oblAmount}>{fmt(seTaxEstimate)}</Text>
+                <Text variant="labelM" tabular>{fmt(seTaxEstimate)}</Text>
               </View>
             )}
 
@@ -714,12 +736,12 @@ export default function TaxCenterScreen() {
             {stateIncomeTax > 0 && (
               <View style={[S.oblRow, S.oblSep]}>
                 <View style={S.oblLeft}>
-                  <Text style={S.oblLabel}>
+                  <Text variant="labelM">
                     {profile.taxRegion} State Tax
                   </Text>
-                  <Text style={S.oblNote}>Rough estimate for your state</Text>
+                  <Text variant="paragraphS" style={S.oblNote}>Rough estimate for your state</Text>
                 </View>
-                <Text style={S.oblAmount}>{fmt(stateIncomeTax)}</Text>
+                <Text variant="labelM" tabular>{fmt(stateIncomeTax)}</Text>
               </View>
             )}
 
@@ -728,24 +750,24 @@ export default function TaxCenterScreen() {
               <>
                 <View style={S.oblRow}>
                   <View style={S.oblLeft}>
-                    <Text style={S.oblLabel}>National Insurance</Text>
-                    <Text style={S.oblNote}>
+                    <Text variant="labelM">National Insurance</Text>
+                    <Text variant="paragraphS" style={S.oblNote}>
                       {ukNI.isExemptClass2
                         ? "Exempt (below threshold)"
                         : "£3.45/week flat rate"}
                     </Text>
                   </View>
-                  <Text style={S.oblAmount}>{fmt(ukNI.class2Annual)}</Text>
+                  <Text variant="labelM" tabular>{fmt(ukNI.class2Annual)}</Text>
                 </View>
                 {ukNI.class4 > 0 && (
                   <View style={[S.oblRow, S.oblSep]}>
                     <View style={S.oblLeft}>
-                      <Text style={S.oblLabel}>National Insurance — extra</Text>
-                      <Text style={S.oblNote}>
+                      <Text variant="labelM">National Insurance — extra</Text>
+                      <Text variant="paragraphS" style={S.oblNote}>
                         9% of profit between £12,570–£50,270
                       </Text>
                     </View>
-                    <Text style={S.oblAmount}>{fmt(ukNI.class4)}</Text>
+                    <Text variant="labelM" tabular>{fmt(ukNI.class4)}</Text>
                   </View>
                 )}
               </>
@@ -754,26 +776,26 @@ export default function TaxCenterScreen() {
             {/* Income tax reserve */}
             <View style={[S.oblRow, S.oblSep]}>
               <View style={S.oblLeft}>
-                <Text style={S.oblLabel}>Income Tax</Text>
-                <Text style={S.oblNote}>
+                <Text variant="labelM">Income Tax</Text>
+                <Text variant="paragraphS" style={S.oblNote}>
                   {profile.taxWithholdingPct}% of what you'll be taxed on
                 </Text>
               </View>
-              <Text style={S.oblAmount}>{fmt(estimatedIncomeTax)}</Text>
+              <Text variant="labelM" tabular>{fmt(estimatedIncomeTax)}</Text>
             </View>
 
             {/* Mileage deduction */}
             {mileageDeduction > 0 && (
               <View style={[S.oblRow, S.oblSep]}>
                 <View style={S.oblLeft}>
-                  <Text style={S.oblLabel}>Mileage Tax Savings</Text>
-                  <Text style={S.oblNote}>
+                  <Text variant="labelM">Mileage Tax Savings</Text>
+                  <Text variant="paragraphS" style={S.oblNote}>
                     Based on the {totalDistance.toFixed(0)}{" "}
                     {distanceUnit === "mi" ? "mi" : "km"} you drove — not tied to
                     any expenses you've logged
                   </Text>
                 </View>
-                <Text style={[S.oblAmount, { color: accentColor }]}>
+                <Text variant="labelM" tabular style={{ color: accentColor }}>
                   −{fmt(mileageDeduction)}
                 </Text>
               </View>
@@ -782,8 +804,8 @@ export default function TaxCenterScreen() {
 
           {/* Total row */}
           <View style={S.oblTotal}>
-            <Text style={S.oblTotalLabel}>Total Estimated Tax</Text>
-            <Text style={[S.oblAmount, { color: "#f59e0b", fontSize: 14 }]}>
+            <Text variant="labelM" style={S.oblTotalLabel}>Total Estimated Tax</Text>
+            <Text variant="labelM" tabular style={{ color: COLORS.warning }}>
               {fmt(totalObligations)}
             </Text>
           </View>
@@ -792,36 +814,36 @@ export default function TaxCenterScreen() {
         {/* ── HST Tracker — CA registered only ── */}
         {profile.country === "CA" && profile.hstRegistered && (
           <View style={S.card}>
-            <Text style={S.cardLabel}>SALES TAX (HST) TRACKER</Text>
+            <Text variant="labelXs" style={S.cardLabel}>SALES TAX (HST) TRACKER</Text>
             <View style={{ marginTop: 14 }}>
               <View style={S.oblRow}>
                 <View style={S.oblLeft}>
-                  <Text style={S.oblLabel}>Sales Tax You Collected</Text>
-                  <Text style={S.oblNote}>
+                  <Text variant="labelM">Sales Tax You Collected</Text>
+                  <Text variant="paragraphS" style={S.oblNote}>
                     Doesn't include tax the platform already collected for you
                   </Text>
                 </View>
-                <Text style={S.oblAmount}>
+                <Text variant="labelM" tabular>
                   {fmt(summary?.hstCollected || 0)}
                 </Text>
               </View>
               <View style={[S.oblRow, S.oblSep]}>
                 <View style={S.oblLeft}>
-                  <Text style={S.oblLabel}>Sales Tax You Can Claim Back</Text>
-                  <Text style={S.oblNote}>
+                  <Text variant="labelM">Sales Tax You Can Claim Back</Text>
+                  <Text variant="paragraphS" style={S.oblNote}>
                     Tax you paid on your business expenses
                   </Text>
                 </View>
-                <Text style={[S.oblAmount, { color: "#f87171" }]}>
+                <Text variant="labelM" tabular style={{ color: COLORS.destructive }}>
                   −{fmt(summary?.itcTotal || 0)}
                 </Text>
               </View>
               <View style={[S.oblRow, S.oblSep]}>
                 <View style={S.oblLeft}>
-                  <Text style={S.oblLabel}>What You Owe the Tax Office</Text>
-                  <Text style={S.oblNote}>For this filing period</Text>
+                  <Text variant="labelM">What You Owe the Tax Office</Text>
+                  <Text variant="paragraphS" style={S.oblNote}>For this filing period</Text>
                 </View>
-                <Text style={[S.oblAmount, { color: "#f59e0b" }]}>
+                <Text variant="labelM" tabular style={{ color: COLORS.warning }}>
                   {fmt(summary?.hstRemittable || 0)}
                 </Text>
               </View>
@@ -832,12 +854,12 @@ export default function TaxCenterScreen() {
         {/* ── Quarterly run-rate ── */}
         {quarterlyProjection && (
           <View style={S.card}>
-            <Text style={S.cardLabel}>
+            <Text variant="labelXs" style={S.cardLabel}>
               Q{quarterlyProjection.currentQuarter} ESTIMATE FOR THE YEAR
             </Text>
             {quarterlyProjection.isLimitedData && (
               <View style={S.warnStrip}>
-                <Text style={S.warnText}>
+                <Text variant="paragraphS" style={S.warnText}>
                   ⚠ Based on just {quarterlyProjection.dayOfYear} days of data —
                   this might not be accurate yet
                 </Text>
@@ -846,29 +868,31 @@ export default function TaxCenterScreen() {
             <View style={{ marginTop: 14 }}>
               <View style={S.oblRow}>
                 <View style={S.oblLeft}>
-                  <Text style={S.oblLabel}>Estimated Yearly Earnings</Text>
+                  <Text variant="labelM">Estimated Yearly Earnings</Text>
                 </View>
-                <Text style={S.oblAmount}>
+                <Text variant="labelM" tabular>
                   {fmt(quarterlyProjection.projectedAnnualGross)}
                 </Text>
               </View>
               <View style={[S.oblRow, S.oblSep]}>
                 <View style={S.oblLeft}>
-                  <Text style={S.oblLabel}>Estimated Yearly Take-Home</Text>
+                  <Text variant="labelM">Estimated Yearly Take-Home</Text>
                 </View>
-                <Text style={S.oblAmount}>
+                <Text variant="labelM" tabular>
                   {fmt(quarterlyProjection.projectedAnnualNet)}
                 </Text>
               </View>
               <View style={[S.oblRow, S.oblSep]}>
                 <View style={S.oblLeft}>
-                  <Text style={[S.oblLabel, { color: accentColor }]}>
+                  <Text variant="labelM" style={{ color: accentColor }}>
                     Suggested {quarterlyProjection.nextInstallmentLabel} Payment
                   </Text>
-                  <Text style={S.oblNote}>About a quarter of your yearly tax</Text>
+                  <Text variant="paragraphS" style={S.oblNote}>About a quarter of your yearly tax</Text>
                 </View>
                 <Text
-                  style={[S.oblAmount, { color: accentColor, fontSize: 14 }]}
+                  variant="labelM"
+                  tabular
+                  style={{ color: accentColor }}
                 >
                   {fmt(quarterlyProjection.nextInstallmentAmount)}
                 </Text>
@@ -879,16 +903,16 @@ export default function TaxCenterScreen() {
 
         {/* ── Installment deadlines ── */}
         <View style={S.card}>
-          <Text style={S.cardLabel}>UPCOMING TAX PAYMENT DATES</Text>
+          <Text variant="labelXs" style={S.cardLabel}>UPCOMING TAX PAYMENT DATES</Text>
           <View style={{ marginTop: 14 }}>
             {deadlines.map((d, idx) => {
               const overdue = d.daysUntil < 0;
               const urgent = !overdue && d.daysUntil <= 14;
               const accentHex = overdue
-                ? "#FF5247"
+                ? COLORS.destructive
                 : urgent
-                ? "#f59e0b"
-                : "#2E2E36";
+                ? COLORS.warning
+                : COLORS.contentMuted;
               return (
                 <View
                   key={idx}
@@ -896,21 +920,21 @@ export default function TaxCenterScreen() {
                     S.deadlineRow,
                     idx > 0 && {
                       borderTopWidth: 0.5,
-                      borderTopColor: "#1E1E23",
+                      borderTopColor: COLORS.lineSubtle,
                     },
                   ]}
                 >
                   <View
                     style={[
                       S.deadlineIcon,
-                      { borderColor: accentHex + "44" },
+                      { borderColor: withAlpha(accentHex, 0.27) },
                     ]}
                   >
                     <Clock size={14} color={accentHex} />
                   </View>
                   <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={S.oblLabel}>{d.label}</Text>
-                    <Text style={S.oblNote}>
+                    <Text variant="labelM">{d.label}</Text>
+                    <Text variant="paragraphS" style={S.oblNote}>
                       {d.date.toLocaleDateString(undefined, {
                         month: "short",
                         day: "numeric",
@@ -922,20 +946,21 @@ export default function TaxCenterScreen() {
                     style={[
                       S.daysPill,
                       {
-                        borderColor: accentHex + "33",
-                        backgroundColor: accentHex + "0D",
+                        borderColor: withAlpha(accentHex, 0.2),
+                        backgroundColor: withAlpha(accentHex, 0.05),
                       },
                     ]}
                   >
                     <Text
+                      tabular
                       style={[
                         S.daysPillText,
                         {
                           color: overdue
-                            ? "#FF5247"
+                            ? COLORS.destructive
                             : urgent
-                            ? "#f59e0b"
-                            : "#65656E",
+                            ? COLORS.warning
+                            : COLORS.contentMuted,
                         },
                       ]}
                     >
@@ -950,30 +975,34 @@ export default function TaxCenterScreen() {
 
         {/* ── Export ── */}
         <View style={S.card}>
-          <Text style={S.cardLabel}>EXPORT TAX SUMMARY</Text>
+          <Text variant="labelXs" style={S.cardLabel}>EXPORT TAX SUMMARY</Text>
           <View style={S.exportRow}>
             <ScalePressable
               onPress={() => handleExport("json")}
+              accessibilityRole="button"
+              accessibilityLabel="Export tax summary as JSON"
               style={S.exportBtn}
             >
               <Download size={13} color={accentColor} />
-              <Text style={[S.exportBtnText, { color: accentColor }]}>
+              <Text variant="labelM" style={{ color: accentColor }}>
                 JSON
               </Text>
             </ScalePressable>
             <ScalePressable
               onPress={() => handleExport("csv")}
+              accessibilityRole="button"
+              accessibilityLabel="Export tax summary as CSV"
               style={S.exportBtn}
             >
               <Download size={13} color={accentColor} />
-              <Text style={[S.exportBtnText, { color: accentColor }]}>
+              <Text variant="labelM" style={{ color: accentColor }}>
                 CSV
               </Text>
             </ScalePressable>
           </View>
         </View>
 
-        <Text style={S.disclaimer}>
+        <Text variant="paragraphS" style={S.disclaimer}>
           These are rough estimates using flat rates — they don't account for
           tax brackets or credits. Talk to a tax professional before filing.
         </Text>
@@ -985,7 +1014,7 @@ export default function TaxCenterScreen() {
 // ─── Styles — matches tax/index.tsx design tokens ────────────────────────────
 
 const S = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#000" },
+  root: { flex: 1, backgroundColor: COLORS.background },
   loader: { flex: 1, alignItems: "center", justifyContent: "center" },
   scroll: { padding: 16, paddingTop: 8, gap: 10, paddingBottom: 60 },
 
@@ -995,29 +1024,19 @@ const S = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: "#000",
+    backgroundColor: COLORS.background,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#1E1E23",
+    borderBottomColor: COLORS.lineSubtle,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#F6F6F7",
-    letterSpacing: -0.4,
-  },
-  headerSub: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#65656E",
-    marginTop: 2,
-  },
+  headerSub: { marginTop: 2 },
   backBtn: {
     width: 36,
     height: 36,
+    // circular: diameter / 2
     borderRadius: 18,
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1026,17 +1045,17 @@ const S = StyleSheet.create({
   yearPicker: {
     flexDirection: "row",
     gap: 4,
-    backgroundColor: "#0F0F12",
+    backgroundColor: COLORS.surface02,
     borderRadius: 12,
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     padding: 3,
   },
   yearChip: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
-    borderWidth: 0.8,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1044,23 +1063,16 @@ const S = StyleSheet.create({
     borderColor: "transparent",
     backgroundColor: "transparent",
   },
-  yearChipText: { fontSize: 11, fontWeight: "800" },
 
   // Cards
   card: {
-    backgroundColor: "#0F0F12",
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
+    backgroundColor: COLORS.surface02,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     borderRadius: 20,
     padding: 18,
   },
-  cardLabel: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#65656E",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
+  cardLabel: { color: COLORS.contentMuted },
   twoCol: { flexDirection: "row", gap: 10 },
   rowBetween: {
     flexDirection: "row",
@@ -1069,27 +1081,8 @@ const S = StyleSheet.create({
   },
 
   // Typography
-  heroAmount: {
-    fontSize: 26,
-    fontWeight: "900",
-    color: "#F6F6F7",
-  },
-  medAmount: {
-    fontSize: 16,
-    fontWeight: "900",
-    color: "#F6F6F7",
-  },
-  mutedValue: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#9B9BA4",
-  },
-  miniNote: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#2E2E36",
-    marginTop: 4,
-  },
+  mutedValue: { color: COLORS.contentSecondary },
+  miniNote: { marginTop: 4 },
 
   // Jar
   jarStats: {
@@ -1099,17 +1092,13 @@ const S = StyleSheet.create({
   },
   progressTrack: {
     height: 5,
-    backgroundColor: "#1E1E23",
+    backgroundColor: COLORS.lineSubtle,
+    // pill: ~height / 2
     borderRadius: 3,
     marginTop: 12,
   },
   progressFill: { height: 5, borderRadius: 3 },
-  progressLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#65656E",
-    marginTop: 6,
-  },
+  progressLabel: { marginTop: 6 },
   jarAdjust: {
     flexDirection: "row",
     gap: 8,
@@ -1119,11 +1108,10 @@ const S = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    borderWidth: 0.8,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
     justifyContent: "center",
   },
-  adjustBtnText: { fontSize: 13, fontWeight: "800" },
 
   // Obligation rows
   oblRow: {
@@ -1134,45 +1122,34 @@ const S = StyleSheet.create({
   },
   oblSep: {
     borderTopWidth: 0.5,
-    borderTopColor: "#1E1E23",
+    borderTopColor: COLORS.lineSubtle,
   },
   oblLeft: { flex: 1, paddingRight: 12 },
-  oblLabel: { fontSize: 12, fontWeight: "700", color: "#F6F6F7" },
-  oblNote: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#65656E",
-    marginTop: 2,
-  },
-  oblAmount: { fontSize: 13, fontWeight: "800", color: "#F6F6F7" },
+  oblNote: { marginTop: 2 },
   oblTotal: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     borderRadius: 12,
-    borderWidth: 0.8,
-    borderColor: "rgba(245,158,11,0.2)",
-    backgroundColor: "rgba(245,158,11,0.05)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: withAlpha(COLORS.warning, 0.2),
+    backgroundColor: withAlpha(COLORS.warning, 0.05),
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginTop: 8,
   },
-  oblTotalLabel: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#f59e0b",
-  },
+  oblTotalLabel: { color: COLORS.warning },
 
   // Warn strip
   warnStrip: {
-    backgroundColor: "rgba(245,158,11,0.06)",
-    borderWidth: 0.8,
-    borderColor: "rgba(245,158,11,0.18)",
-    borderRadius: 10,
+    backgroundColor: withAlpha(COLORS.warning, 0.06),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: withAlpha(COLORS.warning, 0.18),
+    borderRadius: 12,
     padding: 10,
     marginTop: 10,
   },
-  warnText: { fontSize: 10, fontWeight: "600", color: "#9B9BA4" },
+  warnText: { color: COLORS.contentSecondary },
 
   // Deadlines
   deadlineRow: {
@@ -1183,9 +1160,9 @@ const S = StyleSheet.create({
   deadlineIcon: {
     width: 34,
     height: 34,
-    borderRadius: 10,
-    borderWidth: 0.8,
-    backgroundColor: "#16161A",
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: COLORS.surface03,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1193,11 +1170,12 @@ const S = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
-    borderWidth: 0.8,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
     justifyContent: "center",
     minWidth: 44,
   },
+  // micro badge — labelXs would uppercase the "45d" copy, so size stays explicit
   daysPillText: { fontSize: 10, fontWeight: "800" },
 
   // Export
@@ -1208,49 +1186,37 @@ const S = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    paddingVertical: 13,
-    borderRadius: 14,
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
   },
-  exportBtnText: { fontSize: 12, fontWeight: "800" },
 
   // Empty state
   emptyIcon: {
     width: 48,
     height: 48,
+    // circular: diameter / 2
     borderRadius: 24,
-    backgroundColor: "rgba(16,185,129,0.08)",
+    backgroundColor: withAlpha(COLORS.success, 0.08),
     borderWidth: 1,
     borderStyle: "dashed",
-    borderColor: "rgba(16,185,129,0.25)",
+    borderColor: withAlpha(COLORS.success, 0.25),
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "center",
     marginBottom: 12,
   },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: "900",
-    color: "#F6F6F7",
-    textAlign: "center",
-  },
+  emptyTitle: { textAlign: "center" },
   emptyBody: {
-    fontSize: 13,
-    color: "#9B9BA4",
     textAlign: "center",
-    lineHeight: 18,
     marginTop: 6,
   },
 
   // Disclaimer
   disclaimer: {
-    fontSize: 10,
-    fontWeight: "500",
-    color: "#2E2E36",
     textAlign: "center",
-    lineHeight: 15,
     paddingHorizontal: 8,
     marginTop: 4,
   },

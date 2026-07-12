@@ -19,13 +19,14 @@ import {
   Settings as SettingsIcon,
 } from "lucide-react-native";
 import { Text } from "../../src/components/ui/text";
+import { COLORS, withAlpha } from "../../src/theme/colors";
 import { PLATFORMS, PLATFORM_REGISTRY, type PlatformKey } from "@/src/registry/platforms";
 import { getCountryDef } from "@/src/registry/index";
 import { useFeatureEnabled } from "../../hooks/useFeatureEnabled";
 import Svg, { Path, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import { PlatformLogo, PLATFORM_LOGO_IDS } from "@/src/components/GlobalTopHeader";
 
-const DashboardIcon = ({ size = 22, color = "#9B9BA4", strokeWidth = 1.5 }: { size?: number; color?: string; strokeWidth?: number }) => {
+const DashboardIcon = ({ size = 22, color = COLORS.contentSecondary, strokeWidth = 1.5 }: { size?: number; color?: string; strokeWidth?: number }) => {
   const finalStroke = strokeWidth ? strokeWidth * 0.85 : 1.7;
   const adjustedSize = size * 1.35;
   return (
@@ -70,7 +71,7 @@ const DashboardIcon = ({ size = 22, color = "#9B9BA4", strokeWidth = 1.5 }: { si
   );
 };
 
-const AnalyticsIcon = ({ size = 22, color = "#9B9BA4" }: { size?: number; color?: string }) => (
+const AnalyticsIcon = ({ size = 22, color = COLORS.contentSecondary }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M21.6702 6.94942C21.0302 4.77942 19.2202 2.96942 17.0502 2.32942C15.4002 1.84942 14.2602 1.88942 13.4702 2.47942C12.5202 3.18942 12.4102 4.46942 12.4102 5.37942V7.86942C12.4102 10.3294 13.5302 11.5794 15.7302 11.5794H18.6002C19.5002 11.5794 20.7902 11.4694 21.5002 10.5194C22.1102 9.73942 22.1602 8.59942 21.6702 6.94942Z"
@@ -83,7 +84,7 @@ const AnalyticsIcon = ({ size = 22, color = "#9B9BA4" }: { size?: number; color?
   </Svg>
 );
 
-const ExpensesIcon = ({ size = 22, color = "#9B9BA4" }: { size?: number; color?: string }) => (
+const ExpensesIcon = ({ size = 22, color = COLORS.contentSecondary }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 1024 1024" fill="none">
     <Path
       d="M731.15 585.97c-100.99 0-182.86 81.87-182.86 182.86s81.87 182.86 182.86 182.86 182.86-81.87 182.86-182.86-81.87-182.86-182.86-182.86z m0 292.57c-60.5 0-109.71-49.22-109.71-109.71s49.22-109.71 109.71-109.71c60.5 0 109.71 49.22 109.71 109.71s-49.21 109.71-109.71 109.71z"
@@ -100,7 +101,7 @@ const ExpensesIcon = ({ size = 22, color = "#9B9BA4" }: { size?: number; color?:
   </Svg>
 );
 
-const AboutIcon = ({ size = 18, color = "#9B9BA4" }: { size?: number; color?: string }) => (
+const AboutIcon = ({ size = 18, color = COLORS.contentSecondary }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 1024 1024" fill="none">
     <Path
       d="M927.4 273.5v-95.4h-87.9V82.8h-201v95.3h-87.9v95.4h-78.5v-95.4h-88V82.8H183.2v95.3H95.3v95.4H16.7v190.6h78.6v95.4h75.3v95.3H246v95.3h87.9v95.4h100.5v95.3h153.9v-95.3h100.4v-95.4h88v-95.3H852.1v-95.3h75.3v-95.4h78.5V273.5z"
@@ -137,7 +138,7 @@ const HomeIcon = ({ color, size = 20 }: { color: ColorValue; size?: number }) =>
         alignItems: "center",
       }}
     >
-      <View style={{ width: size * 0.25, height: size * 0.25, backgroundColor: "#0F0F12", borderTopLeftRadius: 1, borderTopRightRadius: 1 }} />
+      <View style={{ width: size * 0.25, height: size * 0.25, backgroundColor: COLORS.surface02, borderTopLeftRadius: 1, borderTopRightRadius: 1 }} />
     </View>
   </View>
 );
@@ -414,7 +415,7 @@ export default function TabLayout() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#000" }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.background }}>
       {/* Drawer Panel - Hidden behind/side-by-side with lower z-index */}
       <Animated.View
         style={[
@@ -429,7 +430,7 @@ export default function TabLayout() {
       >
         {/* Profile Info Section */}
         <View style={styles.profileSectionContainer}>
-          <Text style={styles.sidebarName} numberOfLines={1}>
+          <Text variant="headingM" style={styles.sidebarName} numberOfLines={1}>
             {profile?.displayName || "Driver"}
           </Text>
           <View style={styles.sidebarPlatformRow}>
@@ -441,7 +442,7 @@ export default function TabLayout() {
                 return (
                   <View
                     key={pid}
-                    style={[styles.sidebarPlatformPill, { backgroundColor: def?.color ? def.color + "22" : "#ffffff12", borderColor: def?.color ? def.color + "40" : "#ffffff20" }]}
+                    style={[styles.sidebarPlatformPill, { backgroundColor: def?.color ? withAlpha(def.color, 0.12) : COLORS.surface04, borderColor: def?.color ? withAlpha(def.color, 0.25) : COLORS.lineStrong }]}
                   >
                     <PlatformLogo id={pid} size={16} />
                   </View>
@@ -463,10 +464,12 @@ export default function TabLayout() {
               <Pressable
                 key={item.path}
                 onPress={() => handleNavigate(item.path)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
                 style={[
                   styles.menuItem,
                   active
-                    ? { backgroundColor: accentColor + "1A", borderWidth: 0.8, borderColor: accentColor + "40" }
+                    ? { backgroundColor: accentColorDim, borderWidth: StyleSheet.hairlineWidth, borderColor: accentColorMid }
                     : styles.menuItemInactive,
                 ]}
               >
@@ -486,11 +489,12 @@ export default function TabLayout() {
                 <View style={styles.menuIconContainer}>
                   <Icon
                     size={20}
-                    color={active ? accentColor : "#65656E"}
+                    color={active ? accentColor : COLORS.contentMuted}
                     strokeWidth={active ? 2.5 : 1.8}
                   />
                 </View>
                 <Text
+                  variant="headingS"
                   style={[
                     styles.menuText,
                     active ? styles.menuTextActive : styles.menuTextInactive,
@@ -507,29 +511,32 @@ export default function TabLayout() {
         <View style={styles.drawerFooter}>
           <Pressable
             onPress={() => handleNavigate("/about")}
+            accessibilityRole="button"
+            accessibilityLabel="About Comma"
+            accessibilityState={{ selected: isRouteActive("/about") }}
             style={[
               styles.aboutFooterBtn,
               isRouteActive("/about")
-                ? { backgroundColor: accentColorDim, borderColor: accentColorMid, borderWidth: 0.8 }
+                ? { backgroundColor: accentColorDim, borderColor: accentColorMid, borderWidth: StyleSheet.hairlineWidth }
                 : { backgroundColor: "transparent" }
             ]}
           >
             <View style={styles.menuIconContainer}>
               <AboutIcon
                 size={18}
-                color={isRouteActive("/about") ? accentColor : "#9B9BA4"}
+                color={isRouteActive("/about") ? accentColor : COLORS.contentSecondary}
               />
             </View>
             <Text
-              style={[
-                styles.aboutFooterText,
-                isRouteActive("/about") ? { color: accentColor } : { color: "#9B9BA4" }
-              ]}
+              variant="labelM"
+              style={
+                isRouteActive("/about") ? { color: accentColor } : { color: COLORS.contentSecondary }
+              }
             >
               About Comma
             </Text>
           </Pressable>
-          <Text style={styles.footerText}>COMMA APP · LOCAL & PRIVATE</Text>
+          <Text variant="labelXs" className="text-content-muted">COMMA APP · LOCAL & PRIVATE</Text>
         </View>
       </Animated.View>
 
@@ -614,6 +621,8 @@ export default function TabLayout() {
         {/* Transparent click catcher over the remaining page area when the drawer is open */}
         {isDrawerOpen && (
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close menu"
             style={styles.mainContentOverlay}
             onPress={() => {
               setIsDrawerOpen(false);
@@ -626,42 +635,28 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
-    zIndex: 999,
-  },
   drawer: {
     position: "absolute",
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: "#0F0F12",
-    borderRightWidth: 0.8,
-    borderRightColor: "#1E1E23",
+    backgroundColor: COLORS.surface02,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: COLORS.lineSubtle,
     zIndex: 1,
     flexDirection: "column",
   },
   mainContentContainer: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: COLORS.background,
     zIndex: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: -4, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 20,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: COLORS.lineStrong,
   },
   mainContentOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: "rgba(0, 0, 0, 0.35)",
+    backgroundColor: withAlpha(COLORS.background, 0.35),
     zIndex: 9999,
-  },
-  drawerBrand: {
-    fontSize: 20,
-    fontWeight: "900",
-    color: "#F6F6F7",
-    letterSpacing: 1,
   },
 
   profileSectionContainer: {
@@ -671,9 +666,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sidebarName: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#F6F6F7",
     letterSpacing: -0.3,
     lineHeight: 26,
     includeFontPadding: false,
@@ -686,7 +678,7 @@ const styles = StyleSheet.create({
   sidebarPlatformPill: {
     width: 24,
     height: 24,
-    borderRadius: 6,
+    borderRadius: 8,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -704,7 +696,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 14,
+    borderRadius: 12,
     marginBottom: 6,
     gap: 12,
     position: "relative",
@@ -719,20 +711,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   menuText: {
-    fontSize: 17,
-    fontWeight: "700",
     flex: 1,
   },
   menuTextActive: {
-    color: "#F6F6F7",
+    color: COLORS.contentPrimary,
   },
   menuTextInactive: {
-    color: "#9B9BA4",
+    color: COLORS.contentSecondary,
   },
   drawerFooter: {
     padding: 16,
-    borderTopWidth: 0.8,
-    borderTopColor: "#1E1E23",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.lineSubtle,
     alignItems: "center",
     width: "100%",
   },
@@ -746,16 +736,5 @@ const styles = StyleSheet.create({
     gap: 8,
     width: "100%",
     marginBottom: 10,
-  },
-  aboutFooterText: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  footerText: {
-    fontSize: 10,
-    color: "#65656E",
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
 });

@@ -2,6 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react-native";
 import { Text } from "../ui/text";
+import { COLORS, withAlpha } from "@/src/theme/colors";
 
 interface WeekCompareWidgetProps {
   thisWeek: number;
@@ -12,7 +13,7 @@ interface WeekCompareWidgetProps {
 export default function WeekCompareWidget({ thisWeek, lastWeek, country }: WeekCompareWidgetProps) {
   const delta = thisWeek - lastWeek;
   const isUp = delta >= 0;
-  const color = delta === 0 ? "#9B9BA4" : isUp ? "#22c55e" : "#FF5247";
+  const color = delta === 0 ? COLORS.contentSecondary : isUp ? COLORS.success : COLORS.destructive;
   const Icon = delta === 0 ? Minus : isUp ? TrendingUp : TrendingDown;
 
   const formatCurrency = (val: number) => {
@@ -26,27 +27,27 @@ export default function WeekCompareWidget({ thisWeek, lastWeek, country }: WeekC
 
   return (
     <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 16, gap: 12 }}>
-      <View style={{ backgroundColor: color + "20", padding: 12, borderRadius: 16 }}>
+      <View style={{ backgroundColor: withAlpha(color, 0.12), padding: 12, borderRadius: 16 }}>
         <Icon size={32} color={color} strokeWidth={2.5} />
       </View>
 
       <View style={{ alignItems: "center" }}>
-        <Text style={{ fontSize: 32, fontWeight: "900", color, letterSpacing: -1, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
+        <Text variant="headingXl" tabular style={{ color, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
           {delta > 0 ? "+" : ""}{formatCurrency(delta)}
         </Text>
-        <Text style={{ fontSize: 11, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 1, marginTop: 4 }}>
+        <Text variant="labelXs" style={{ color: COLORS.contentSecondary, marginTop: 4 }}>
           vs Last Week
         </Text>
       </View>
 
       <View style={{ flexDirection: "row", gap: 16, marginTop: 4 }}>
         <View style={{ alignItems: "center" }}>
-          <Text style={{ fontSize: 13, fontWeight: "800", color: "#F6F6F7" }}>{formatCurrency(thisWeek)}</Text>
-          <Text style={{ fontSize: 10, fontWeight: "600", color: "#65656E", textTransform: "uppercase" }}>This Week</Text>
+          <Text variant="labelM" tabular style={{ color: COLORS.contentPrimary }}>{formatCurrency(thisWeek)}</Text>
+          <Text variant="labelXs" style={{ color: COLORS.contentMuted }}>This Week</Text>
         </View>
         <View style={{ alignItems: "center" }}>
-          <Text style={{ fontSize: 13, fontWeight: "800", color: "#F6F6F7" }}>{formatCurrency(lastWeek)}</Text>
-          <Text style={{ fontSize: 10, fontWeight: "600", color: "#65656E", textTransform: "uppercase" }}>Last Week</Text>
+          <Text variant="labelM" tabular style={{ color: COLORS.contentPrimary }}>{formatCurrency(lastWeek)}</Text>
+          <Text variant="labelXs" style={{ color: COLORS.contentMuted }}>Last Week</Text>
         </View>
       </View>
     </View>

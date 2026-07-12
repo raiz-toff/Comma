@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import {
+  FlatList,
   ScrollView,
   View,
   ActivityIndicator,
@@ -30,6 +31,7 @@ import {
   type ExpenseCategory,
 } from "@/src/registry/expenseCategories";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { COLORS, withAlpha } from "@/src/theme/colors";
 
 export { getExpenseCategories, getCategoryMeta, type ExpenseCategory };
 export type ExpenseCategoryId = string;
@@ -37,13 +39,13 @@ export type ExpenseCategoryId = string;
 const isWeb = Platform.OS === "web";
 
 // ─── Custom Icons ────────────────────────────────────────────────────────────
-const ChevronLeft = ({ size = 22, color = "#F6F6F7" }) => (
+const ChevronLeft = ({ size = 22, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
     <Path d="m15 18-6-6 6-6" />
   </Svg>
 );
 
-const ChevronRight = ({ size = 22, color = "#F6F6F7" }) => (
+const ChevronRight = ({ size = 22, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
     <Path d="m9 18 6-6-6-6" />
   </Svg>
@@ -117,10 +119,10 @@ function ExpenseRow({
         flexDirection: "row",
         alignItems: "center",
         gap: 14,
-        backgroundColor: "#0F0F12",
-        borderWidth: 0.8,
-        borderColor: "#1E1E23",
-        borderRadius: 20,
+        backgroundColor: COLORS.surface02,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: COLORS.lineSubtle,
+        borderRadius: 12,
         paddingHorizontal: 16,
         paddingVertical: 14,
         marginBottom: 10,
@@ -130,20 +132,20 @@ function ExpenseRow({
         style={{
           width: 46,
           height: 46,
-          backgroundColor: "#16161A",
+          backgroundColor: COLORS.surface03,
           borderWidth: 1,
-          borderColor: "#1C1C21",
-          borderRadius: 14,
+          borderColor: COLORS.lineSubtle,
+          borderRadius: 12,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <ExpenseCategoryIcon id={expense.category} size={20} color="#9B9BA4" />
+        <ExpenseCategoryIcon id={expense.category} size={20} color={COLORS.contentSecondary} />
       </View>
 
       <View style={{ flex: 1, gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <Text style={{ fontSize: 14, fontWeight: "700", color: "#F6F6F7" }}>
+          <Text variant="labelM">
             {cat.label}
           </Text>
           {expense.isDeductible && (
@@ -151,45 +153,51 @@ function ExpenseRow({
               style={{
                 paddingHorizontal: 6,
                 paddingVertical: 2,
-                backgroundColor: "#052e16",
+                backgroundColor: withAlpha(COLORS.success, 0.12),
                 borderWidth: 1,
-                borderColor: "#166534",
-                borderRadius: 6,
+                borderColor: withAlpha(COLORS.success, 0.25),
+                borderRadius: 8,
               }}
             >
-              <Text style={{ fontSize: 9, fontWeight: "900", color: "#4ade80", textTransform: "uppercase" }}>
+              <Text variant="labelXs" className="text-success">
                 Tax Deductible
               </Text>
             </View>
           )}
         </View>
-        <Text style={{ fontSize: 12, color: "#9B9BA4", fontWeight: "500" }}>
+        <Text variant="paragraphS" className="text-content-secondary">
           {dateLabel}
           {expense.notes ? ` · ${expense.notes}` : ""}
         </Text>
       </View>
 
       <View style={{ alignItems: "flex-end", gap: 6 }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: "#f87171", letterSpacing: -0.5 }}>
+        <Text variant="labelL" tabular className="text-destructive">
           -{formatCurrency(expense.amount, country)}
         </Text>
         <TouchableOpacity
           onPress={onDelete}
-          hitSlop={10}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Delete expense"
           style={{
             padding: 6,
             borderRadius: 8,
-            backgroundColor: "#2e0f0f",
+            backgroundColor: withAlpha(COLORS.destructive, 0.12),
             borderWidth: 1,
-            borderColor: "#451a1a",
+            borderColor: withAlpha(COLORS.destructive, 0.25),
           }}
         >
-          <Trash2 size={12} color="#f87171" strokeWidth={2.5} />
+          <Trash2 size={12} color={COLORS.destructive} strokeWidth={2.5} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
 }
+
+const keyExtractor = (item: ExpenseItem) => item.id;
+
+const ItemSeparator = () => <View style={{ height: 10 }} />;
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
@@ -388,244 +396,283 @@ export default function ExpensesScreen() {
 
   const isCurrentOrFutureMonth = selectedMonth.getFullYear() === new Date().getFullYear() && selectedMonth.getMonth() >= new Date().getMonth();
 
+  const renderExpenseItem = ({ item }: { item: ExpenseItem }) => (
+    <View style={{ paddingHorizontal: 16 }}>
+      <ExpenseRow
+        expense={item}
+        country={country}
+        customCategories={customCategories}
+        onPress={() => router.push({ pathname: "/expense/[id]", params: { id: item.id } })}
+        onDelete={() => handleDelete(item.id)}
+      />
+    </View>
+  );
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#000" }} edges={["bottom", "left", "right"]}>
-      <ScrollView
+    <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }} edges={["bottom", "left", "right"]}>
+      <FlatList
+        data={displayedExpenses}
+        keyExtractor={keyExtractor}
+        renderItem={renderExpenseItem}
+        ItemSeparatorComponent={ItemSeparator}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100, paddingTop: insets.top + 64 }}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-      >
+        ListHeaderComponent={
+          <>
         
-        {/* ── Screen header ── */}
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 }}>
-          <View>
-            <Text style={{ fontSize: 24, fontWeight: "900", color: "#F6F6F7", letterSpacing: -0.5 }}>Expenses</Text>
-            <Text style={{ fontSize: 12, color: "#9B9BA4", fontWeight: "500", marginTop: 2 }}>Track deductible costs</Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => router.push("/expense/add")}
-            style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: accentColor, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14 }}
-          >
-            <Plus size={16} color={accentColorContrast} strokeWidth={3} />
-            <Text style={{ fontSize: 13, fontWeight: "800", color: accentColorContrast, letterSpacing: 0.5, textTransform: "uppercase" }}>Add</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Header & Nav (Similar to Shifts) ── */}
-        <View style={styles.headerContainer}>
-          <Pressable onPress={() => { setSelectorYear(selectedMonth.getFullYear()); setIsMonthSelectorOpen(true); }} style={styles.weekLabelContainer}>
-            <Text style={styles.weekLabel}>
-              {selectedMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-            </Text>
-            <View style={{ justifyContent: "center", alignItems: "center", marginLeft: 6 }}>
-              <Svg width={10} height={6} viewBox="0 0 10 6" fill="none">
-                <Path d="M1 1L5 5L9 1" stroke="#9B9BA4" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-              </Svg>
-            </View>
-          </Pressable>
-
-          <View style={styles.navigationRow}>
-            <Pressable onPress={handlePrevMonth} style={styles.arrowBtn}>
-              <ChevronLeft color="#F6F6F7" />
-            </Pressable>
-
-            <View style={styles.amountRow}>
-              <Text style={styles.amountSymbol}>{formatCurrencyParts(totalMonthAmount, country).symbol}</Text>
-              <Text style={styles.amountText} numberOfLines={1} adjustsFontSizeToFit>
-                {formatCurrencyParts(totalMonthAmount, country).value}
-              </Text>
-            </View>
-
-            <Pressable
-              onPress={handleNextMonth}
-              disabled={isCurrentOrFutureMonth}
-              style={[styles.arrowBtn, isCurrentOrFutureMonth && { opacity: 0.35 }]}
-            >
-              <ChevronRight color={isCurrentOrFutureMonth ? "#2E2E36" : "#F6F6F7"} />
-            </Pressable>
-          </View>
-        </View>
-
-        {/* ── Bar Chart Graph ── */}
-        <View style={styles.chartContainer}>
-          {maxWeekTotal > 0 && (
-            <View style={styles.highLineOverlay} pointerEvents="none">
-              <View style={styles.dashedLine} />
-              <View style={styles.highBadge}>
-                <Text style={styles.highBadgeText}>HIGH: {formatCurrency(maxWeekTotal, country)}</Text>
+            {/* ── Screen header ── */}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 }}>
+              <View>
+                <Text variant="headingL">Expenses</Text>
+                <Text variant="paragraphS" className="text-content-secondary" style={{ marginTop: 2 }}>Track deductible costs</Text>
               </View>
+              <TouchableOpacity
+                onPress={() => router.push("/expense/add")}
+                accessibilityRole="button"
+                activeOpacity={0.8}
+                style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: accentColor, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 }}
+              >
+                <Plus size={16} color={accentColorContrast} strokeWidth={3} />
+                <Text variant="labelM" className="uppercase" style={{ color: accentColorContrast, letterSpacing: 0.5 }}>Add</Text>
+              </TouchableOpacity>
             </View>
-          )}
 
-          <View style={styles.chartRow}>
-            {weeks.map((week, idx) => {
-              const isSelected = selectedWeekIndex === idx;
-              const barHeightPct = maxWeekTotal > 0 ? (week.total / maxWeekTotal) * 100 : 0;
-              return (
-                <Pressable key={idx} onPress={() => setSelectedWeekIndex(isSelected ? null : idx)} style={styles.chartCol}>
-                  <View style={styles.barTrack}>
-                    <View
-                      style={[
-                        styles.barFill,
-                        {
-                          height: `${Math.max(barHeightPct, week.total > 0 ? 8 : 2)}%`,
-                          backgroundColor: accentColor,
-                          opacity: selectedWeekIndex === null || isSelected ? 1 : 0.35,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text style={[styles.chartDayLabel, {
-                    color: isSelected ? accentColor : "#9B9BA4",
-                    fontWeight: isSelected ? "800" : "600",
-                  }]}>W{idx + 1}</Text>
+            {/* ── Header & Nav (Similar to Shifts) ── */}
+            <View style={styles.headerContainer}>
+              <Pressable
+                onPress={() => { setSelectorYear(selectedMonth.getFullYear()); setIsMonthSelectorOpen(true); }}
+                accessibilityRole="button"
+                accessibilityLabel="Change month"
+                style={styles.weekLabelContainer}
+              >
+                <Text variant="labelXs" className="text-content-secondary">
+                  {selectedMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                </Text>
+                <View style={{ justifyContent: "center", alignItems: "center", marginLeft: 6 }}>
+                  <Svg width={10} height={6} viewBox="0 0 10 6" fill="none">
+                    <Path d="M1 1L5 5L9 1" stroke={COLORS.contentSecondary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                </View>
+              </Pressable>
+
+              <View style={styles.navigationRow}>
+                <Pressable
+                  onPress={handlePrevMonth}
+                  accessibilityRole="button"
+                  accessibilityLabel="Previous month"
+                  style={styles.arrowBtn}
+                >
+                  <ChevronLeft color={COLORS.contentPrimary} />
                 </Pressable>
-              );
-            })}
-          </View>
-        </View>
 
-        {/* ── YTD summary Bento ── */}
-        <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            <View style={{ flex: 1, backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 20, padding: 16 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                <View style={{ backgroundColor: "#052e16", padding: 4, borderRadius: 8 }}>
-                  <ArrowDownRight size={14} color="#4ade80" />
+                <View style={styles.amountRow}>
+                  <Text style={styles.amountSymbol}>{formatCurrencyParts(totalMonthAmount, country).symbol}</Text>
+                  <Text style={styles.amountText} tabular numberOfLines={1} adjustsFontSizeToFit>
+                    {formatCurrencyParts(totalMonthAmount, country).value}
+                  </Text>
                 </View>
-                <Text style={{ fontSize: 10, fontWeight: "800", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 1 }}>Deductible YTD</Text>
+
+                <Pressable
+                  onPress={handleNextMonth}
+                  disabled={isCurrentOrFutureMonth}
+                  accessibilityRole="button"
+                  accessibilityLabel="Next month"
+                  accessibilityState={{ disabled: isCurrentOrFutureMonth }}
+                  style={[styles.arrowBtn, isCurrentOrFutureMonth && { opacity: 0.35 }]}
+                >
+                  <ChevronRight color={isCurrentOrFutureMonth ? COLORS.contentDisabled : COLORS.contentPrimary} />
+                </Pressable>
               </View>
-              <Text style={{ fontSize: 32, fontWeight: "800", color: "#F6F6F7", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
-                {formatCurrency(ytdSummary?.deductible ?? 0, country)}
-              </Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: "#0F0F12", borderWidth: 0.8, borderColor: "#1E1E23", borderRadius: 20, padding: 16 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                <View style={{ backgroundColor: "#2e0f0f", padding: 4, borderRadius: 8 }}>
-                  <ArrowUpRight size={14} color="#f87171" />
+
+            {/* ── Bar Chart Graph ── */}
+            <View style={styles.chartContainer}>
+              {maxWeekTotal > 0 && (
+                <View style={styles.highLineOverlay} pointerEvents="none">
+                  <View style={styles.dashedLine} />
+                  <View style={styles.highBadge}>
+                    <Text variant="labelXs" tabular className="text-content-secondary">HIGH: {formatCurrency(maxWeekTotal, country)}</Text>
+                  </View>
                 </View>
-                <Text style={{ fontSize: 10, fontWeight: "800", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 1 }}>Standard YTD</Text>
+              )}
+
+              <View style={styles.chartRow}>
+                {weeks.map((week, idx) => {
+                  const isSelected = selectedWeekIndex === idx;
+                  const barHeightPct = maxWeekTotal > 0 ? (week.total / maxWeekTotal) * 100 : 0;
+                  return (
+                    <Pressable
+                      key={idx}
+                      onPress={() => setSelectedWeekIndex(isSelected ? null : idx)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Week ${idx + 1}`}
+                      accessibilityState={{ selected: isSelected }}
+                      style={styles.chartCol}
+                    >
+                      <View style={styles.barTrack}>
+                        <View
+                          style={[
+                            styles.barFill,
+                            {
+                              height: `${Math.max(barHeightPct, week.total > 0 ? 8 : 2)}%`,
+                              backgroundColor: accentColor,
+                              opacity: selectedWeekIndex === null || isSelected ? 1 : 0.35,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text variant="labelXs" style={{ color: isSelected ? accentColor : COLORS.contentSecondary }}>W{idx + 1}</Text>
+                    </Pressable>
+                  );
+                })}
               </View>
-              <Text style={{ fontSize: 32, fontWeight: "800", color: "#F6F6F7", letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
-                {formatCurrency(ytdSummary?.nonDeductible ?? 0, country)}
-              </Text>
             </View>
-          </View>
-        </View>
 
-        {/* ── Transactions Header & Filter Toggle ── */}
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, marginBottom: 12 }}>
-          <Text style={{ fontSize: 18, fontWeight: "800", color: "#F6F6F7", letterSpacing: -0.5 }}>Transactions</Text>
-          <TouchableOpacity
-            onPress={() => setIsFiltersVisible(!isFiltersVisible)}
-            style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: "#16161A", borderWidth: 1, borderColor: isFiltersVisible ? accentColor : "#1C1C21" }}
-          >
-            <Text style={{ fontSize: 11, fontWeight: "800", color: isFiltersVisible ? accentColor : "#9B9BA4", textTransform: "uppercase" }}>Filters</Text>
-          </TouchableOpacity>
-        </View>
+            {/* ── YTD summary Bento ── */}
+            <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+              <View style={{ flexDirection: "row", gap: 12 }}>
+                <View style={{ flex: 1, backgroundColor: COLORS.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, borderRadius: 16, padding: 16 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <View style={{ backgroundColor: withAlpha(COLORS.success, 0.12), padding: 4, borderRadius: 8 }}>
+                      <ArrowDownRight size={14} color={COLORS.success} />
+                    </View>
+                    <Text variant="labelXs" className="text-content-secondary">Deductible YTD</Text>
+                  </View>
+                  <Text tabular style={{ fontSize: 32, fontWeight: "800", color: COLORS.contentPrimary, letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
+                    {formatCurrency(ytdSummary?.deductible ?? 0, country)}
+                  </Text>
+                </View>
+                <View style={{ flex: 1, backgroundColor: COLORS.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, borderRadius: 16, padding: 16 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <View style={{ backgroundColor: withAlpha(COLORS.destructive, 0.12), padding: 4, borderRadius: 8 }}>
+                      <ArrowUpRight size={14} color={COLORS.destructive} />
+                    </View>
+                    <Text variant="labelXs" className="text-content-secondary">Standard YTD</Text>
+                  </View>
+                  <Text tabular style={{ fontSize: 32, fontWeight: "800", color: COLORS.contentPrimary, letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
+                    {formatCurrency(ytdSummary?.nonDeductible ?? 0, country)}
+                  </Text>
+                </View>
+              </View>
+            </View>
 
-        {/* ── Filters ── */}
-        {isFiltersVisible && (
-          <View style={{ paddingBottom: 12 }}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingBottom: 8 }}>
-            <TouchableOpacity
-              onPress={() => setFilterCategory("")}
-              style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, backgroundColor: !filterCategory ? accentColor + "20" : "#16161A", borderColor: !filterCategory ? accentColor : "#1C1C21" }}
-            >
-              <Text style={{ fontSize: 12, fontWeight: "800", color: !filterCategory ? accentColor : "#9B9BA4" }}>All Categories</Text>
-            </TouchableOpacity>
-            {expenseCategories.map((cat) => {
-              const active = filterCategory === cat.id;
-              return (
+            {/* ── Transactions Header & Filter Toggle ── */}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, marginBottom: 12 }}>
+              <Text variant="headingM">Transactions</Text>
+              <TouchableOpacity
+                onPress={() => setIsFiltersVisible(!isFiltersVisible)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: isFiltersVisible }}
+                style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: COLORS.surface03, borderWidth: 1, borderColor: isFiltersVisible ? accentColor : COLORS.lineSubtle }}
+              >
+                <Text variant="labelXs" style={{ color: isFiltersVisible ? accentColor : COLORS.contentSecondary }}>Filters</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* ── Filters ── */}
+            {isFiltersVisible && (
+              <View style={{ paddingBottom: 12 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingBottom: 8 }}>
                 <TouchableOpacity
-                  key={cat.id}
-                  onPress={() => setFilterCategory(active ? "" : cat.id)}
-                  style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, backgroundColor: active ? accentColor + "20" : "#16161A", borderColor: active ? accentColor : "#1C1C21" }}
+                  onPress={() => setFilterCategory("")}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: !filterCategory }}
+                  style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, borderWidth: 1, backgroundColor: !filterCategory ? withAlpha(accentColor, 0.12) : COLORS.surface03, borderColor: !filterCategory ? accentColor : COLORS.lineSubtle }}
                 >
-                  <ExpenseCategoryIcon id={cat.id} size={14} color={active ? accentColor : "#9B9BA4"} />
-                  <Text style={{ fontSize: 12, fontWeight: "800", color: active ? accentColor : "#9B9BA4" }}>{cat.label}</Text>
+                  <Text variant="labelM" style={{ color: !filterCategory ? accentColor : COLORS.contentSecondary }}>All Categories</Text>
                 </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 16, marginTop: 4 }}>
-            {([{ key: "all" as const, label: "All Types" }, { key: "yes" as const, label: "Deductible Only" }, { key: "no" as const, label: "Standard Only" }]).map(({ key, label }) => {
-              const active = filterDeductible === key;
-              return (
-                <TouchableOpacity
-                  key={key}
-                  onPress={() => setFilterDeductible(key)}
-                  style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, backgroundColor: active ? (key === "yes" ? "#052e16" : key === "no" ? "#2e0f0f" : "#1C1C21") : "#16161A", borderColor: active ? (key === "yes" ? "#166534" : key === "no" ? "#451a1a" : "#2E2E36") : "#1C1C21" }}
-                >
-                  <Text style={{ fontSize: 10, fontWeight: "800", textTransform: "uppercase", color: active ? (key === "yes" ? "#4ade80" : key === "no" ? "#f87171" : "#F6F6F7") : "#65656E" }}>{label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-        )}
+                {expenseCategories.map((cat) => {
+                  const active = filterCategory === cat.id;
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      onPress={() => setFilterCategory(active ? "" : cat.id)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, backgroundColor: active ? withAlpha(accentColor, 0.12) : COLORS.surface03, borderColor: active ? accentColor : COLORS.lineSubtle }}
+                    >
+                      <ExpenseCategoryIcon id={cat.id} size={14} color={active ? accentColor : COLORS.contentSecondary} />
+                      <Text variant="labelM" style={{ color: active ? accentColor : COLORS.contentSecondary }}>{cat.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 16, marginTop: 4 }}>
+                {([{ key: "all" as const, label: "All Types" }, { key: "yes" as const, label: "Deductible Only" }, { key: "no" as const, label: "Standard Only" }]).map(({ key, label }) => {
+                  const active = filterDeductible === key;
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      onPress={() => setFilterDeductible(key)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, backgroundColor: active ? (key === "yes" ? withAlpha(COLORS.success, 0.12) : key === "no" ? withAlpha(COLORS.destructive, 0.12) : COLORS.surface04) : COLORS.surface03, borderColor: active ? (key === "yes" ? withAlpha(COLORS.success, 0.25) : key === "no" ? withAlpha(COLORS.destructive, 0.25) : COLORS.lineStrong) : COLORS.lineSubtle }}
+                    >
+                      <Text variant="labelXs" style={{ color: active ? (key === "yes" ? COLORS.success : key === "no" ? COLORS.destructive : COLORS.contentPrimary) : COLORS.contentMuted }}>{label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+            )}
 
-        {/* ── List Content ── */}
-        {isLoading ? (
-          <View style={{ padding: 40, alignItems: "center" }}>
-            <ActivityIndicator size="large" color={accentColor} />
-          </View>
-        ) : displayedExpenses.length === 0 ? (
-          <View style={{ padding: 20 }}>
-            <EmptyState icon="receipt" title="No expenses found" message={selectedWeekIndex !== null ? "No expenses were recorded for this week." : "No expenses were recorded for this month with the current filters."} actionLabel="Add Expense" onAction={() => router.push("/expense/add")} />
-          </View>
-        ) : (
-          <View style={{ paddingHorizontal: 16, gap: 10, paddingBottom: 40 }}>
-            {displayedExpenses.map((expense) => (
-              <ExpenseRow
-                key={expense.id}
-                expense={expense}
-                country={country}
-                customCategories={customCategories}
-                onPress={() => router.push({ pathname: "/expense/[id]", params: { id: expense.id } })}
-                onDelete={() => handleDelete(expense.id)}
-              />
-            ))}
-          </View>
-        )}
-      </ScrollView>
+          </>
+        }
+        ListEmptyComponent={
+          isLoading ? (
+            <View style={{ padding: 40, alignItems: "center" }}>
+              <ActivityIndicator size="large" color={COLORS.contentSecondary} />
+            </View>
+          ) : (
+            <View style={{ padding: 20 }}>
+              <EmptyState icon="receipt" title="No expenses found" message={selectedWeekIndex !== null ? "No expenses were recorded for this week." : "No expenses were recorded for this month with the current filters."} actionLabel="Add Expense" onAction={() => router.push("/expense/add")} />
+            </View>
+          )
+        }
+        ListFooterComponent={displayedExpenses.length > 0 ? <View style={{ height: 40 }} /> : null}
+      />
 
       {/* ── Month Selector Modal ── */}
       <Modal visible={isMonthSelectorOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setIsMonthSelectorOpen(false)}>
         <View style={styles.modalRoot}>
           <View style={[styles.modalHeader, { paddingTop: Platform.OS === 'ios' ? 16 : insets.top + 16 }]}>
-            <Text style={styles.modalTitle}>{selectorYear} Expenses</Text>
-            <Pressable onPress={() => setIsMonthSelectorOpen(false)}>
-              <Text style={[styles.closeBtnText, { color: accentColor }]}>Done</Text>
+            <Text variant="headingM">{selectorYear} Expenses</Text>
+            <Pressable onPress={() => setIsMonthSelectorOpen(false)} accessibilityRole="button">
+              <Text variant="labelM" style={{ color: accentColor }}>Done</Text>
             </Pressable>
           </View>
 
           <View style={styles.tableHeader}>
-            <Text style={styles.tableHeaderLeft}>MONTH</Text>
-            <Text style={styles.tableHeaderRight}>YTD DEDUCTIBLE: {formatCurrency(ytdSummary?.deductible ?? 0, country)}</Text>
+            <Text variant="labelXs" className="text-content-secondary">MONTH</Text>
+            <Text variant="labelXs" tabular className="text-content-secondary">YTD DEDUCTIBLE: {formatCurrency(ytdSummary?.deductible ?? 0, country)}</Text>
           </View>
 
           <ScrollView contentContainerStyle={styles.modalScroll}>
-            {modalMonthsList.map((m, idx) => (
+            {modalMonthsList.map((m, idx) => {
+              const isSelectedMonth = selectedMonth.getFullYear() === m.date.getFullYear() && selectedMonth.getMonth() === m.date.getMonth();
+              return (
               <Pressable
                 key={idx}
                 onPress={() => {
                   setSelectedMonth(m.date);
                   setIsMonthSelectorOpen(false);
                 }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelectedMonth }}
                 style={[
                   styles.weekCard,
-                  selectedMonth.getFullYear() === m.date.getFullYear() && selectedMonth.getMonth() === m.date.getMonth()
-                    ? { borderColor: accentColor, backgroundColor: accentColor + "10" }
+                  isSelectedMonth
+                    ? { borderColor: accentColor, backgroundColor: withAlpha(accentColor, 0.12) }
                     : {}
                 ]}
               >
                 <View style={styles.weekInfo}>
-                  <Text style={styles.weekRangeText}>{m.label} {selectorYear}</Text>
-                  <Text style={styles.weekAmountText}>{formatCurrency(m.total, country)}</Text>
+                  <Text variant="paragraphS" className="text-content-secondary">{m.label} {selectorYear}</Text>
+                  <Text variant="headingM" tabular>{formatCurrency(m.total, country)}</Text>
                 </View>
-                
+
                 <View style={styles.miniGraph}>
                   {m.weeks.map((week, wIdx) => {
                     const barHeightPct = m.maxWeek > 0 ? (week.total / m.maxWeek) * 100 : 0;
@@ -642,26 +689,29 @@ export default function ExpensesScreen() {
                             ]}
                           />
                         </View>
-                        <Text style={styles.miniDateText}>W{wIdx + 1}</Text>
+                        <Text variant="labelXs" className="text-content-secondary">W{wIdx + 1}</Text>
                       </View>
                     );
                   })}
                 </View>
               </Pressable>
-            ))}
+              );
+            })}
           </ScrollView>
 
           <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-            <Pressable onPress={() => setSelectorYear(y => y - 1)} style={styles.pageBtn}>
-              <Text style={styles.pageBtnText}>Previous Year</Text>
+            <Pressable onPress={() => setSelectorYear(y => y - 1)} accessibilityRole="button" style={styles.pageBtn}>
+              <Text variant="labelM">Previous Year</Text>
             </Pressable>
-            <Text style={styles.pageIndicator}>{selectorYear}</Text>
+            <Text variant="labelM" tabular className="text-content-secondary">{selectorYear}</Text>
             <Pressable
               onPress={() => setSelectorYear(y => y + 1)}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: selectorYear >= new Date().getFullYear() }}
               style={[styles.pageBtn, selectorYear >= new Date().getFullYear() && styles.pageBtnDisabled]}
               disabled={selectorYear >= new Date().getFullYear()}
             >
-              <Text style={styles.pageBtnText}>Next Year</Text>
+              <Text variant="labelM">Next Year</Text>
             </Pressable>
           </View>
         </View>
@@ -682,21 +732,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#16161A",
+    backgroundColor: COLORS.surface03,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     marginBottom: 20,
     alignSelf: "center",
-  },
-  weekLabel: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#9B9BA4",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
   navigationRow: {
     flexDirection: "row",
@@ -708,9 +751,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -723,7 +766,7 @@ const styles = StyleSheet.create({
   amountSymbol: {
     fontSize: 24,
     fontWeight: "600",
-    color: "#f87171",
+    color: COLORS.destructive,
     lineHeight: 30,
     marginTop: 10,
     marginRight: 4,
@@ -732,17 +775,17 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 40,
     fontWeight: "800",
-    color: "#F6F6F7",
+    color: COLORS.contentPrimary,
     letterSpacing: -0.5,
     lineHeight: 48,
     paddingVertical: 2,
     includeFontPadding: false,
   },
   chartContainer: {
-    backgroundColor: "#0F0F12",
-    borderRadius: 20,
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
+    backgroundColor: COLORS.surface02,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     padding: 16,
     marginHorizontal: 16,
     marginBottom: 20,
@@ -762,17 +805,11 @@ const styles = StyleSheet.create({
     height: 1,
     borderStyle: "dashed",
     borderWidth: 1,
-    borderColor: "rgba(113, 113, 122, 0.25)",
+    borderColor: COLORS.lineSubtle,
   },
   highBadge: {
-    backgroundColor: "#0F0F12",
+    backgroundColor: COLORS.surface02,
     paddingLeft: 8,
-  },
-  highBadgeText: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: "#9B9BA4",
-    letterSpacing: 0.5,
   },
   chartRow: {
     flexDirection: "row",
@@ -790,40 +827,26 @@ const styles = StyleSheet.create({
   barTrack: {
     width: 14,
     height: 64,
-    backgroundColor: "#16161A",
-    borderRadius: 7,
+    backgroundColor: COLORS.surface03,
+    borderRadius: 8,
     overflow: "hidden",
     justifyContent: "flex-end",
   },
   barFill: {
     width: "100%",
-    borderRadius: 7,
+    borderRadius: 8,
   },
-  chartDayLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#9B9BA4",
-  },
-  modalRoot: { flex: 1, backgroundColor: "#000" },
-  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 0.5, borderBottomColor: "#1E1E23" },
-  modalTitle: { fontSize: 18, fontWeight: "800", color: "#F6F6F7" },
-  closeBtnText: { fontSize: 14, fontWeight: "600" },
-  tableHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 22, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: "#0F0F12" },
-  tableHeaderLeft: { fontSize: 11, fontWeight: "700", color: "#9B9BA4", textTransform: "uppercase", letterSpacing: 0.5 },
-  tableHeaderRight: { fontSize: 10, fontWeight: "800", color: "#9B9BA4", letterSpacing: 0.4 },
+  modalRoot: { flex: 1, backgroundColor: COLORS.background },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 0.5, borderBottomColor: COLORS.lineSubtle },
+  tableHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 22, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: COLORS.lineSubtle },
   modalScroll: { paddingVertical: 8 },
-  weekCard: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderWidth: 0.8, borderColor: "#1E1E23", backgroundColor: "#0F0F12", borderRadius: 20, marginHorizontal: 16, marginVertical: 6 },
+  weekCard: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, backgroundColor: COLORS.surface02, borderRadius: 12, marginHorizontal: 16, marginVertical: 6 },
   weekInfo: { gap: 4 },
-  weekRangeText: { fontSize: 12, fontWeight: "600", color: "#9B9BA4" },
-  weekAmountText: { fontSize: 18, fontWeight: "900", color: "#F6F6F7", letterSpacing: -0.4 },
   miniGraph: { flexDirection: "row", alignItems: "flex-end", gap: 4 },
   miniGraphCol: { alignItems: "center", gap: 4 },
-  miniBarTrack: { width: 8, height: 32, backgroundColor: "#16161A", borderRadius: 4, overflow: "hidden", justifyContent: "flex-end" },
-  miniBarFill: { width: "100%", borderRadius: 4 },
-  miniDateText: { fontSize: 8, fontWeight: "700", color: "#9B9BA4" },
-  modalFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 0.5, borderTopColor: "#1E1E23", backgroundColor: "#000" },
-  pageBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#16161A", borderWidth: 0.8, borderColor: "#1C1C21" },
+  miniBarTrack: { width: 8, height: 32, backgroundColor: COLORS.surface03, borderRadius: 8, overflow: "hidden", justifyContent: "flex-end" },
+  miniBarFill: { width: "100%", borderRadius: 8 },
+  modalFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 0.5, borderTopColor: COLORS.lineSubtle, backgroundColor: COLORS.background },
+  pageBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, backgroundColor: COLORS.surface03, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle },
   pageBtnDisabled: { opacity: 0.35 },
-  pageBtnText: { fontSize: 12, fontWeight: "700", color: "#F6F6F7" },
-  pageIndicator: { fontSize: 12, fontWeight: "600", color: "#9B9BA4" },
 });

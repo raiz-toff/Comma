@@ -43,7 +43,7 @@ export function ActiveShiftWidget({
         <TextWidget
           text="COMMA"
           style={{
-            color: '#ffffff',
+            color: '#F6F6F7',
             fontSize: 13,
             fontWeight: 'bold',
             fontFamily: 'sans-serif-medium',
@@ -51,8 +51,8 @@ export function ActiveShiftWidget({
         />
         <FlexWidget
           style={{
-            backgroundColor: isActive ? 'rgba(34, 197, 94, 0.2)' : 'rgba(100, 116, 139, 0.2)',
-            borderRadius: 6,
+            backgroundColor: isActive ? 'rgba(34, 197, 94, 0.2)' : 'rgba(101, 101, 110, 0.2)',
+            borderRadius: 8,
             paddingHorizontal: 8,
             paddingVertical: 3,
           }}
@@ -60,7 +60,7 @@ export function ActiveShiftWidget({
           <TextWidget
             text={isActive ? 'TRACKING' : 'OFFLINE'}
             style={{
-              color: isActive ? '#22c55e' : '#94a3b8',
+              color: isActive ? '#22c55e' : '#9B9BA4',
               fontSize: 9,
               fontWeight: 'bold',
             }}
@@ -72,12 +72,12 @@ export function ActiveShiftWidget({
         <FlexWidget style={{ flexDirection: 'column', marginTop: 4 }}>
           <TextWidget
             text={platform ? platform.toUpperCase() : 'ACTIVE SHIFT'}
-            style={{ color: '#94a3b8', fontSize: 10, fontWeight: 'bold' }}
+            style={{ color: '#9B9BA4', fontSize: 10, fontWeight: 'bold' }}
           />
           <TextWidget
             text={formatTime(elapsedSeconds)}
             style={{
-              color: '#ffffff',
+              color: '#F6F6F7',
               fontSize: 26,
               fontWeight: 'bold',
               fontFamily: 'sans-serif-condensed',
@@ -86,18 +86,18 @@ export function ActiveShiftWidget({
           />
           <TextWidget
             text={`${mileage.toFixed(1)} miles tracked`}
-            style={{ color: '#64748b', fontSize: 10, marginTop: 4 }}
+            style={{ color: '#65656E', fontSize: 10, marginTop: 4 }}
           />
         </FlexWidget>
       ) : (
         <FlexWidget style={{ flexDirection: 'column', marginTop: 8 }}>
           <TextWidget
             text="No active shift"
-            style={{ color: '#94a3b8', fontSize: 12, fontWeight: '500' }}
+            style={{ color: '#9B9BA4', fontSize: 12, fontWeight: '500' }}
           />
           <TextWidget
             text="Tap to log dynamic metrics"
-            style={{ color: '#64748b', fontSize: 10, marginTop: 4 }}
+            style={{ color: '#65656E', fontSize: 10, marginTop: 4 }}
           />
         </FlexWidget>
       )}

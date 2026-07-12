@@ -2,8 +2,6 @@ import React from "react";
 import { View } from "react-native";
 import { Text } from "../ui/text";
 
-const TEXT_MUTED = "#9B9BA4";
-
 interface OrderEconomicsWidgetProps {
   count: number;
   perDelivery: number;
@@ -22,8 +20,8 @@ function formatCurrency(val: number, country?: string) {
 function Cell({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ flex: 1, alignItems: "center", gap: 4 }}>
-      <Text style={{ fontSize: 9, fontWeight: "800", color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</Text>
-      <Text style={{ fontSize: 16, fontWeight: "900", color: "#F6F6F7", letterSpacing: -0.3 }} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+      <Text variant="labelXs" className="text-content-secondary">{label}</Text>
+      <Text variant="headingS" tabular numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
     </View>
   );
 }

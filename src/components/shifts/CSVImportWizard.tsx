@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
-  Alert,
   Platform,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
@@ -18,6 +17,7 @@ import { insertManyShifts } from "../../database/queries/shifts";
 import { notifyImport } from "../../services/notify";
 import { PLATFORM_REGISTRY } from "../../registry/platforms";
 import { usePlatformTheme } from "../../hooks/usePlatformTheme";
+import { COLORS } from "../../theme/colors";
 import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 
@@ -374,7 +374,7 @@ export function CSVImportWizard() {
   return (
     <ScrollView contentContainerClassName="flex flex-col gap-5 pb-8">
       {/* Step progress */}
-      <View className="flex-row items-center justify-between bg-[#0F0F12] p-4 border border-[#1E1E23] rounded-2xl">
+      <View className="flex-row items-center justify-between bg-surface-02 p-4 border border-line-subtle rounded-lg">
         {[1, 2, 3, 4].map((num) => {
           const reached = step >= num;
           return (
@@ -382,19 +382,20 @@ export function CSVImportWizard() {
               <View
                 className="w-7 h-7 rounded-full items-center justify-center border-2"
                 style={{
-                  borderColor: reached ? accentColor : "#26262C",
-                  backgroundColor: step > num ? accentColor : reached ? accentColorDim : "#000",
+                  borderColor: reached ? accentColor : COLORS.lineStrong,
+                  backgroundColor: step > num ? accentColor : reached ? accentColorDim : COLORS.background,
                 }}
               >
                 <Text
-                  className="text-xs font-bold"
-                  style={{ color: step > num ? accentColorContrast : reached ? accentColor : "#65656E" }}
+                  variant="labelM"
+                  tabular
+                  style={{ color: step > num ? accentColorContrast : reached ? accentColor : COLORS.contentMuted }}
                 >
                   {num}
                 </Text>
               </View>
               {num < 4 && (
-                <View className="h-0.5 flex-1 mx-2" style={{ backgroundColor: step > num ? accentColor : "#1E1E23" }} />
+                <View className="h-0.5 flex-1 mx-2" style={{ backgroundColor: step > num ? accentColor : COLORS.lineSubtle }} />
               )}
             </View>
           );
@@ -402,24 +403,24 @@ export function CSVImportWizard() {
       </View>
 
       {errorMessage ? (
-        <View className="bg-rose-500/10 border border-rose-500/20 p-3.5 rounded-xl">
-          <Text className="text-rose-400 text-xs font-semibold">{errorMessage}</Text>
+        <View className="bg-destructive/10 border border-destructive/20 p-4 rounded-lg">
+          <Text variant="paragraphS" className="text-destructive">{errorMessage}</Text>
         </View>
       ) : null}
 
       {/* STEP 1: UPLOAD */}
       {step === 1 && (
-        <View className="bg-[#0F0F12] border border-[#1E1E23] rounded-2xl p-5 flex flex-col gap-4 items-center justify-center py-10">
+        <View className="bg-surface-02 border border-line-subtle rounded-lg p-5 flex flex-col gap-4 items-center justify-center py-10">
           <View
-            className="w-14 h-14 rounded-2xl items-center justify-center border"
+            className="w-14 h-14 rounded-lg items-center justify-center border"
             style={{ backgroundColor: accentColorDim, borderColor: accentColor }}
           >
-            <Text className="text-[11px] font-extrabold tracking-widest" style={{ color: accentColor }}>
+            <Text variant="labelXs" style={{ color: accentColor }}>
               CSV
             </Text>
           </View>
-          <Text className="text-white font-bold text-base tracking-tight mt-2">Upload CSV File</Text>
-          <Text className="text-zinc-500 text-xs text-center px-4 leading-relaxed font-medium">
+          <Text variant="headingS" className="mt-2">Upload CSV File</Text>
+          <Text variant="paragraphS" className="text-center px-4 leading-relaxed">
             Select a CSV export from your gig platform. The file must include a header row with column names.
           </Text>
 
@@ -428,18 +429,19 @@ export function CSVImportWizard() {
           ) : (
             <TouchableOpacity
               onPress={pickCSV}
+              accessibilityRole="button"
               style={{ backgroundColor: accentColor }}
-              className="mt-6 px-6 py-3.5 rounded-xl"
+              className="mt-6 px-6 py-4 rounded-md"
             >
-              <Text style={{ color: accentColorContrast }} className="text-xs font-bold uppercase tracking-wider">
+              <Text variant="labelXs" style={{ color: accentColorContrast }}>
                 Choose CSV Document
               </Text>
             </TouchableOpacity>
           )}
 
-          <View className="w-full mt-4 bg-[#000] border border-[#1E1E23] rounded-xl p-3.5">
-            <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-1">Expected columns</Text>
-            <Text className="text-zinc-400 text-[11px] font-medium leading-relaxed">
+          <View className="w-full mt-4 bg-background border border-line-subtle rounded-md p-4">
+            <Text variant="labelXs" className="text-content-muted mb-1">Expected columns</Text>
+            <Text variant="paragraphS" className="text-content-secondary leading-relaxed">
               Platform, Start date/time, End date/time, Gross earnings, Tips, Active distance, Dead distance.
               You map them on the next step.
             </Text>
@@ -449,10 +451,10 @@ export function CSVImportWizard() {
 
       {/* STEP 2: COLUMN MAPPING */}
       {step === 2 && (
-        <View className="bg-[#0F0F12] border border-[#1E1E23] rounded-2xl p-5 flex flex-col gap-4">
+        <View className="bg-surface-02 border border-line-subtle rounded-lg p-5 flex flex-col gap-4">
           <View className="flex-col gap-1 mb-1">
-            <Text className="text-white font-bold text-sm tracking-tight">Map CSV Columns</Text>
-            <Text className="text-zinc-500 text-xs font-medium">
+            <Text variant="labelM">Map CSV Columns</Text>
+            <Text variant="paragraphS">
               Link your CSV columns to shift fields. Fields marked * are required.
             </Text>
           </View>
@@ -466,11 +468,11 @@ export function CSVImportWizard() {
           <ColumnSelect label="Dead Distance" headers={csvHeaders} value={mapping.deadMileage} accentColor={accentColor} onChange={(v) => setMapping((m) => ({ ...m, deadMileage: v }))} />
 
           <View className="flex-row gap-3 mt-3">
-            <TouchableOpacity onPress={() => { setErrorMessage(""); setStep(1); }} className="flex-1 py-3.5 bg-[#1E1E23] border border-[#26262C] rounded-xl items-center">
-              <Text className="text-zinc-300 text-xs font-bold uppercase tracking-wider">Back</Text>
+            <TouchableOpacity onPress={() => { setErrorMessage(""); setStep(1); }} accessibilityRole="button" className="flex-1 py-4 bg-surface-04 border border-line-strong rounded-md items-center">
+              <Text variant="labelXs" className="text-content-primary">Back</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={processMapping} style={{ backgroundColor: accentColor }} className="flex-1 py-3.5 rounded-xl items-center">
-              <Text style={{ color: accentColorContrast }} className="text-xs font-bold uppercase tracking-wider">Preview</Text>
+            <TouchableOpacity onPress={processMapping} accessibilityRole="button" style={{ backgroundColor: accentColor }} className="flex-1 py-4 rounded-md items-center">
+              <Text variant="labelXs" style={{ color: accentColorContrast }}>Preview</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -478,30 +480,30 @@ export function CSVImportWizard() {
 
       {/* STEP 3: PREVIEW */}
       {step === 3 && (
-        <View className="bg-[#0F0F12] border border-[#1E1E23] rounded-2xl p-5 flex flex-col gap-4">
+        <View className="bg-surface-02 border border-line-subtle rounded-lg p-5 flex flex-col gap-4">
           <View className="flex-col gap-1 mb-1">
-            <Text className="text-white font-bold text-sm tracking-tight">Data Preview</Text>
-            <Text className="text-zinc-500 text-xs font-medium">Review parsed shifts before importing.</Text>
+            <Text variant="labelM">Data Preview</Text>
+            <Text variant="paragraphS">Review parsed shifts before importing.</Text>
           </View>
 
-          <View className="flex-row justify-between bg-[#000] p-3 rounded-xl border border-[#1E1E23]">
-            <View className="items-center flex-1 border-r border-[#1E1E23]">
-              <Text className="text-base font-extrabold" style={{ color: accentColor }}>{validRows.length}</Text>
-              <Text className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">Valid Shifts</Text>
+          <View className="flex-row justify-between bg-background p-3 rounded-md border border-line-subtle">
+            <View className="items-center flex-1 border-r border-line-subtle">
+              <Text variant="headingS" tabular style={{ color: accentColor }}>{validRows.length}</Text>
+              <Text variant="labelXs" className="text-content-muted mt-0.5">Valid Shifts</Text>
             </View>
             <View className="items-center flex-1">
-              <Text className="text-base font-extrabold text-rose-400">{invalidRowCount}</Text>
-              <Text className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">Skipped Rows</Text>
+              <Text variant="headingS" tabular className="text-destructive">{invalidRowCount}</Text>
+              <Text variant="labelXs" className="text-content-muted mt-0.5">Skipped Rows</Text>
             </View>
           </View>
 
           {reasonEntries.length > 0 && (
-            <View className="bg-[#000] border border-[#1E1E23] rounded-xl p-3 flex flex-col gap-1.5">
-              <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider">Why rows were skipped</Text>
+            <View className="bg-background border border-line-subtle rounded-md p-3 flex flex-col gap-1.5">
+              <Text variant="labelXs" className="text-content-muted">Why rows were skipped</Text>
               {reasonEntries.map(([reason, count]) => (
                 <View key={reason} className="flex-row justify-between items-center">
-                  <Text className="text-zinc-400 text-[11px] font-medium">{reason}</Text>
-                  <Text className="text-rose-400 text-[11px] font-bold">{count}</Text>
+                  <Text variant="paragraphS" className="text-content-secondary">{reason}</Text>
+                  <Text variant="paragraphS" tabular className="font-bold text-destructive">{count}</Text>
                 </View>
               ))}
             </View>
@@ -509,20 +511,20 @@ export function CSVImportWizard() {
 
           {validRows.length > 0 && (
             <>
-              <Text className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1 mt-1">First 5 Sample Records</Text>
+              <Text variant="labelXs" className="text-content-muted pl-1 mt-1">First 5 Sample Records</Text>
               <View className="flex flex-col gap-2">
                 {validRows.slice(0, 5).map((row) => (
-                  <View key={row.id} className="bg-[#000] border border-[#1E1E23] p-3 rounded-xl flex-row justify-between items-center">
+                  <View key={row.id} className="bg-background border border-line-subtle p-3 rounded-md flex-row justify-between items-center">
                     <View className="flex-col gap-1.5 flex-1 pr-2">
                       <PlatformBadge platform={row.platform} size="sm" />
-                      <Text className="text-[11px] text-zinc-300 font-medium">
+                      <Text variant="paragraphS" className="text-content-primary">
                         {row.startTime.toLocaleDateString(undefined, { dateStyle: "medium" })}
                       </Text>
-                      <Text className="text-[10px] text-zinc-500 font-medium">
+                      <Text variant="paragraphS" tabular>
                         {(row.durationSeconds / 3600).toFixed(1)} hrs · {row.activeMileage} active · {row.deadMileage} dead
                       </Text>
                     </View>
-                    <CurrencyText amount={row.grossRevenue + row.tipsRevenue} size="sm" className="font-bold text-white" />
+                    <CurrencyText amount={row.grossRevenue + row.tipsRevenue} size="sm" className="font-bold" />
                   </View>
                 ))}
               </View>
@@ -530,19 +532,21 @@ export function CSVImportWizard() {
           )}
 
           <View className="flex-row gap-3 mt-3">
-            <TouchableOpacity onPress={() => { setErrorMessage(""); setStep(2); }} className="flex-1 py-3.5 bg-[#1E1E23] border border-[#26262C] rounded-xl items-center">
-              <Text className="text-zinc-300 text-xs font-bold uppercase tracking-wider">Back</Text>
+            <TouchableOpacity onPress={() => { setErrorMessage(""); setStep(2); }} accessibilityRole="button" className="flex-1 py-4 bg-surface-04 border border-line-strong rounded-md items-center">
+              <Text variant="labelXs" className="text-content-primary">Back</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={executeImport}
               disabled={isImporting || validRows.length === 0}
-              style={{ backgroundColor: validRows.length === 0 ? "#26262C" : accentColor }}
-              className="flex-1 py-3.5 rounded-xl items-center justify-center"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: isImporting || validRows.length === 0 }}
+              style={{ backgroundColor: validRows.length === 0 ? COLORS.surface05 : accentColor }}
+              className="flex-1 py-4 rounded-md items-center justify-center"
             >
               {isImporting ? (
                 <ActivityIndicator size="small" color={accentColorContrast} />
               ) : (
-                <Text style={{ color: validRows.length === 0 ? "#9B9BA4" : accentColorContrast }} className="text-xs font-bold uppercase tracking-wider">
+                <Text variant="labelXs" style={{ color: validRows.length === 0 ? COLORS.contentSecondary : accentColorContrast }}>
                   Import {validRows.length} Shifts
                 </Text>
               )}
@@ -553,31 +557,31 @@ export function CSVImportWizard() {
 
       {/* STEP 4: SUMMARY */}
       {step === 4 && (
-        <View className="bg-[#0F0F12] border border-[#1E1E23] rounded-2xl p-5 flex flex-col gap-4 items-center justify-center py-10">
+        <View className="bg-surface-02 border border-line-subtle rounded-lg p-5 flex flex-col gap-4 items-center justify-center py-10">
           <View
-            className="w-14 h-14 rounded-2xl items-center justify-center border"
+            className="w-14 h-14 rounded-lg items-center justify-center border"
             style={{ backgroundColor: accentColorDim, borderColor: accentColor }}
           >
-            <Text className="text-2xl font-bold" style={{ color: accentColor }}>✓</Text>
+            <Text variant="headingL" style={{ color: accentColor }}>✓</Text>
           </View>
-          <Text className="text-white font-bold text-base tracking-tight mt-2">Import Complete</Text>
-          <Text className="text-zinc-500 text-xs text-center px-4 leading-relaxed font-medium">
+          <Text variant="headingS" className="mt-2">Import Complete</Text>
+          <Text variant="paragraphS" className="text-center px-4 leading-relaxed">
             Your CSV data has been written to your local database.
           </Text>
 
           <View className="w-full flex flex-col gap-2 mt-4">
-            <View className="flex-row justify-between items-center bg-[#000] px-4 py-3 rounded-xl border border-[#1E1E23]">
-              <Text className="text-xs text-zinc-400 font-bold uppercase tracking-wide">Imported</Text>
-              <Text className="text-xs font-extrabold" style={{ color: accentColor }}>{importResult?.success ?? 0} shifts</Text>
+            <View className="flex-row justify-between items-center bg-background px-4 py-3 rounded-md border border-line-subtle">
+              <Text variant="labelXs" className="text-content-secondary">Imported</Text>
+              <Text variant="labelM" tabular style={{ color: accentColor }}>{importResult?.success ?? 0} shifts</Text>
             </View>
-            <View className="flex-row justify-between items-center bg-[#000] px-4 py-3 rounded-xl border border-[#1E1E23]">
-              <Text className="text-xs text-zinc-400 font-bold uppercase tracking-wide">Skipped / invalid</Text>
-              <Text className="text-xs font-extrabold text-rose-400">{importResult?.skipped ?? 0} rows</Text>
+            <View className="flex-row justify-between items-center bg-background px-4 py-3 rounded-md border border-line-subtle">
+              <Text variant="labelXs" className="text-content-secondary">Skipped / invalid</Text>
+              <Text variant="labelM" tabular className="text-destructive">{importResult?.skipped ?? 0} rows</Text>
             </View>
           </View>
 
-          <TouchableOpacity onPress={() => router.back()} style={{ backgroundColor: accentColor }} className="w-full py-4 rounded-xl items-center mt-4">
-            <Text style={{ color: accentColorContrast }} className="text-xs font-bold uppercase tracking-wider">Finish & Close</Text>
+          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ backgroundColor: accentColor }} className="w-full py-4 rounded-md items-center mt-4">
+            <Text variant="labelXs" style={{ color: accentColorContrast }}>Finish & Close</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -603,15 +607,15 @@ function ColumnSelect({
 
   return (
     <View className="flex flex-col gap-1.5">
-      <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider pl-1">{label}</Text>
-      <View className="bg-[#000] border border-[#1E1E23] rounded-xl overflow-hidden">
+      <Text variant="labelXs" className="text-content-secondary pl-1">{label}</Text>
+      <View className="bg-background border border-line-subtle rounded-md overflow-hidden">
         {Platform.OS === "web" ? (
           <select
             value={value}
             onChange={(e) => onChange(e.target.value)}
             style={{
               background: "transparent",
-              color: "#F6F6F7",
+              color: COLORS.contentPrimary,
               border: "none",
               padding: "12px 16px",
               fontSize: "13px",
@@ -620,17 +624,17 @@ function ColumnSelect({
               outline: "none",
             }}
           >
-            <option value="" style={{ background: "#0F0F12" }}>— Skip —</option>
+            <option value="" style={{ background: COLORS.surface02 }}>— Skip —</option>
             {headers.map((h) => (
-              <option key={h} value={h} style={{ background: "#0F0F12" }}>{h}</option>
+              <option key={h} value={h} style={{ background: COLORS.surface02 }}>{h}</option>
             ))}
           </select>
         ) : (
-          <TouchableOpacity onPress={() => setOpen(true)} className="px-4 py-3.5 flex-row justify-between items-center">
-            <Text className="text-zinc-200 text-sm font-semibold" numberOfLines={1}>
+          <TouchableOpacity onPress={() => setOpen(true)} accessibilityRole="button" className="px-4 py-4 flex-row justify-between items-center">
+            <Text variant="labelM" numberOfLines={1}>
               {value || "— Skip —"}
             </Text>
-            <Text style={{ color: accentColor }} className="text-[10px] uppercase font-bold tracking-wider ml-2">Choose</Text>
+            <Text variant="labelXs" style={{ color: accentColor }} className="ml-2">Choose</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -638,27 +642,31 @@ function ColumnSelect({
       {/* Native picker modal — scrollable, no Alert button limit */}
       {Platform.OS !== "web" && (
         <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-          <TouchableOpacity activeOpacity={1} onPress={() => setOpen(false)} className="flex-1 bg-black/70 justify-center px-6">
-            <View className="bg-[#0F0F12] border border-[#1E1E23] rounded-2xl overflow-hidden max-h-[70%]">
-              <View className="px-4 py-3.5 border-b border-[#1E1E23]">
-                <Text className="text-white text-sm font-bold tracking-tight">{label}</Text>
+          <TouchableOpacity activeOpacity={1} onPress={() => setOpen(false)} className="flex-1 bg-background/70 justify-center px-6">
+            <View className="bg-surface-02 border border-line-subtle rounded-2xl overflow-hidden max-h-[70%]">
+              <View className="px-4 py-4 border-b border-line-subtle">
+                <Text variant="labelM">{label}</Text>
               </View>
               <ScrollView>
                 <TouchableOpacity
                   onPress={() => { onChange(""); setOpen(false); }}
-                  className="px-4 py-3.5 border-b border-[#16161A] flex-row justify-between items-center"
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: value === "" }}
+                  className="px-4 py-4 border-b border-line-subtle flex-row justify-between items-center"
                 >
-                  <Text className="text-zinc-400 text-sm font-medium">— Skip —</Text>
-                  {value === "" && <Text style={{ color: accentColor }} className="text-xs font-bold">✓</Text>}
+                  <Text variant="paragraphM">— Skip —</Text>
+                  {value === "" && <Text variant="labelM" style={{ color: accentColor }}>✓</Text>}
                 </TouchableOpacity>
                 {headers.map((h) => (
                   <TouchableOpacity
                     key={h}
                     onPress={() => { onChange(h); setOpen(false); }}
-                    className="px-4 py-3.5 border-b border-[#16161A] flex-row justify-between items-center"
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: value === h }}
+                    className="px-4 py-4 border-b border-line-subtle flex-row justify-between items-center"
                   >
-                    <Text className="text-zinc-200 text-sm font-semibold flex-1 pr-2" numberOfLines={1}>{h}</Text>
-                    {value === h && <Text style={{ color: accentColor }} className="text-xs font-bold">✓</Text>}
+                    <Text variant="labelM" className="flex-1 pr-2" numberOfLines={1}>{h}</Text>
+                    {value === h && <Text variant="labelM" style={{ color: accentColor }}>✓</Text>}
                   </TouchableOpacity>
                 ))}
               </ScrollView>

@@ -19,6 +19,8 @@ import { FeedbackDialog, BusyOverlay, type FeedbackVariant } from "@/src/compone
 import { X, FileText, Table, BarChart2, Download, CalendarDays, Settings } from "lucide-react-native";
 import Svg, { Path } from "react-native-svg";
 import { Text } from "@/src/components/ui/text";
+import { EmptyState } from "@/src/components/ui/EmptyState";
+import { COLORS, withAlpha } from "@/src/theme/colors";
 import { getPeriodStats, getMonthlyStatsForYear, getNetIncome } from "@/src/database/queries/analytics";
 import { generateShiftsCSV, generateExpensesCSV, generatePDFSummary } from "@/utils/reportGenerator";
 import { useSettingsStore } from "@/store/useSettingsStore";
@@ -28,23 +30,23 @@ import { notifyExport } from "@/src/services/notify";
 
 const isWeb = Platform.OS === "web";
 
-// ─── Design tokens ────────────────────────────────────────────────────────────
-const BG      = "#000";
-const SURFACE = "#0F0F12";
-const PILL    = "#16161A";
-const BORDER  = "#1E1E23";
-const BORDER2 = "#1C1C21";
-const MUTED   = "#9B9BA4";
-const DIM     = "#65656E";
+// ─── Design tokens (mirrors Comma DS COLORS) ──────────────────────────────────
+const BG      = COLORS.background;
+const SURFACE = COLORS.surface02;
+const PILL    = COLORS.surface03;
+const BORDER  = COLORS.lineSubtle;
+const BORDER2 = COLORS.lineSubtle;
+const MUTED   = COLORS.contentSecondary;
+const DIM     = COLORS.contentMuted;
 
 // ─── Custom Icons ─────────────────────────────────────────────────────────────
-const ChevronLeft = ({ size = 22, color = "#F6F6F7" }) => (
+const ChevronLeft = ({ size = 22, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
     <Path d="m15 18-6-6 6-6" />
   </Svg>
 );
 
-const ChevronRight = ({ size = 22, color = "#F6F6F7" }) => (
+const ChevronRight = ({ size = 22, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
     <Path d="m9 18 6-6-6-6" />
   </Svg>
@@ -416,11 +418,13 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
       <View style={styles.screenHeader}>
         <TouchableOpacity
           onPress={() => onClose ? onClose() : router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Close reports"
           style={styles.backBtn}
         >
-          <X size={20} color="#F6F6F7" strokeWidth={2.5} />
+          <X size={20} color={COLORS.contentPrimary} strokeWidth={2.5} />
         </TouchableOpacity>
-        <Text style={styles.screenTitle}>Reports & Export</Text>
+        <Text variant="headingM">Reports & Export</Text>
         <View style={{ width: 44 }} />
       </View>
 
@@ -428,11 +432,16 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
 
         {/* ── Period Navigation ── */}
         <View style={styles.periodNav}>
-          <Pressable onPress={() => { setSelectorYear(selectedMonth.getFullYear()); setIsModalOpen(true); }} style={styles.periodPill}>
-            <Text style={styles.periodPillText}>{periodLabel}</Text>
+          <Pressable
+            onPress={() => { setSelectorYear(selectedMonth.getFullYear()); setIsModalOpen(true); }}
+            accessibilityRole="button"
+            accessibilityLabel="Select period"
+            style={styles.periodPill}
+          >
+            <Text variant="labelXs" style={styles.periodPillText}>{periodLabel}</Text>
             <View style={{ justifyContent: "center", alignItems: "center", marginLeft: 6 }}>
               <Svg width={10} height={6} viewBox="0 0 10 6" fill="none">
-                <Path d="M1 1L5 5L9 1" stroke="#9B9BA4" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M1 1L5 5L9 1" stroke={COLORS.contentSecondary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </View>
           </Pressable>
@@ -441,14 +450,17 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
             <Pressable
               onPress={handlePrevPeriod}
               disabled={arrowsDisabled}
+              accessibilityRole="button"
+              accessibilityLabel="Previous month"
+              accessibilityState={{ disabled: arrowsDisabled }}
               style={[styles.arrowBtn, arrowsDisabled && styles.arrowBtnDisabled]}
             >
-              <ChevronLeft color={arrowsDisabled ? "#2E2E36" : "#F6F6F7"} />
+              <ChevronLeft color={arrowsDisabled ? COLORS.contentDisabled : COLORS.contentPrimary} />
             </Pressable>
 
             <View style={styles.amountRow}>
-              <Text style={styles.amountSymbol}>{formatCurrencyParts(grossRevenue).symbol}</Text>
-              <Text style={styles.amountText} numberOfLines={1} adjustsFontSizeToFit>
+              <Text tabular style={styles.amountSymbol}>{formatCurrencyParts(grossRevenue).symbol}</Text>
+              <Text tabular style={styles.amountText} numberOfLines={1} adjustsFontSizeToFit>
                 {formatCurrencyParts(grossRevenue).value}
               </Text>
             </View>
@@ -456,9 +468,12 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
             <Pressable
               onPress={handleNextPeriod}
               disabled={arrowsDisabled || isCurrentOrFutureMonth}
+              accessibilityRole="button"
+              accessibilityLabel="Next month"
+              accessibilityState={{ disabled: arrowsDisabled || isCurrentOrFutureMonth }}
               style={[styles.arrowBtn, (arrowsDisabled || isCurrentOrFutureMonth) && styles.arrowBtnDisabled]}
             >
-              <ChevronRight color={(arrowsDisabled || isCurrentOrFutureMonth) ? "#2E2E36" : "#F6F6F7"} />
+              <ChevronRight color={(arrowsDisabled || isCurrentOrFutureMonth) ? COLORS.contentDisabled : COLORS.contentPrimary} />
             </Pressable>
           </View>
         </View>
@@ -469,48 +484,58 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
             <View style={styles.highLineOverlay} pointerEvents="none">
               <View style={styles.dashedLine} />
               <View style={styles.highBadge}>
-                <Text style={styles.highBadgeText}>HIGH: {formatCurrency(barMaxTotal)}</Text>
+                <Text variant="labelXs" tabular style={styles.highBadgeText}>HIGH: {formatCurrency(barMaxTotal)}</Text>
               </View>
             </View>
           )}
 
-          <View style={styles.chartRow}>
-            {barData.map((bar, idx) => {
-              const isSelected = selectedBarIndex === idx;
-              const barHeightPct = barMaxTotal > 0 ? (bar.total / barMaxTotal) * 100 : 0;
-              return (
-                <Pressable
-                  key={idx}
-                  onPress={() => setSelectedBarIndex(selectedBarIndex === idx ? null : idx)}
-                  style={styles.chartCol}
-                >
-                  <View style={styles.barTrack}>
-                    <View
-                      style={[
-                        styles.barFill,
-                        {
-                          height: `${Math.max(barHeightPct, bar.total > 0 ? 8 : 2)}%`,
-                          backgroundColor: accentColor,
-                          opacity: selectedBarIndex === null || isSelected ? 1 : 0.35,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.chartLabel,
-                      {
+          {barData.length > 0 && barMaxTotal === 0 ? (
+            <EmptyState
+              icon="chart-bar"
+              title="No earnings this period"
+              message="Shifts you log in this period will show up here."
+              className="flex-none py-4"
+            />
+          ) : (
+            <View style={styles.chartRow}>
+              {barData.map((bar, idx) => {
+                const isSelected = selectedBarIndex === idx;
+                const barHeightPct = barMaxTotal > 0 ? (bar.total / barMaxTotal) * 100 : 0;
+                return (
+                  <Pressable
+                    key={idx}
+                    onPress={() => setSelectedBarIndex(selectedBarIndex === idx ? null : idx)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${bar.label}: ${formatCurrency(bar.total)}`}
+                    accessibilityState={{ selected: isSelected }}
+                    style={styles.chartCol}
+                  >
+                    <View style={styles.barTrack}>
+                      <View
+                        style={[
+                          styles.barFill,
+                          {
+                            height: `${Math.max(barHeightPct, bar.total > 0 ? 8 : 2)}%`,
+                            backgroundColor: accentColor,
+                            opacity: selectedBarIndex === null || isSelected ? 1 : 0.35,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text
+                      variant="paragraphS"
+                      style={{
                         color: isSelected ? accentColor : MUTED,
                         fontWeight: isSelected ? "800" : "600",
-                      },
-                    ]}
-                  >
-                    {bar.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+                      }}
+                    >
+                      {bar.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
         </View>
 
         {/* ── Summary Stat Grid ── */}
@@ -522,24 +547,28 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
           <View style={styles.statGrid}>
             <View style={styles.statsRow}>
               <View style={styles.statCard}>
-                <Text style={styles.statLabel}>Gross Revenue</Text>
-                <Text style={styles.statValue}>{formatCurrency(grossRevenue)}</Text>
+                <Text variant="labelXs" style={styles.statLabel}>Gross Revenue</Text>
+                <Text variant="headingM" tabular>{formatCurrency(grossRevenue)}</Text>
               </View>
               <View style={styles.statCard}>
-                <Text style={styles.statLabel}>Net Earnings</Text>
-                <Text style={[styles.statValue, { color: netIncome >= 0 ? "#F6F6F7" : "#f87171" }]}>
+                <Text variant="labelXs" style={styles.statLabel}>Net Earnings</Text>
+                <Text
+                  variant="headingM"
+                  tabular
+                  style={netIncome < 0 && { color: COLORS.destructive }}
+                >
                   {formatCurrency(netIncome)}
                 </Text>
               </View>
             </View>
             <View style={styles.statsRow}>
               <View style={styles.statCard}>
-                <Text style={styles.statLabel}>Total Shifts</Text>
-                <Text style={styles.statValue}>{stats?.count ?? 0}</Text>
+                <Text variant="labelXs" style={styles.statLabel}>Total Shifts</Text>
+                <Text variant="headingM" tabular>{stats?.count ?? 0}</Text>
               </View>
               <View style={styles.statCard}>
-                <Text style={styles.statLabel}>Mileage Logged</Text>
-                <Text style={styles.statValue}>
+                <Text variant="labelXs" style={styles.statLabel}>Mileage Logged</Text>
+                <Text variant="headingM" tabular>
                   {totalMileage.toFixed(1)} {profile?.distanceUnit ?? "km"}
                 </Text>
               </View>
@@ -549,29 +578,41 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
 
         {/* ── Export Actions ── */}
         <View style={styles.exportSection}>
-          <Text style={styles.sectionLabel}>Export Actions</Text>
+          <Text variant="labelXs" style={styles.sectionLabel}>Export Actions</Text>
 
-          <TouchableOpacity onPress={handleExportShifts} disabled={!!busyExport} style={[styles.exportRow, !!busyExport && { opacity: 0.6 }]}>
+          <TouchableOpacity
+            onPress={handleExportShifts}
+            disabled={!!busyExport}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !!busyExport }}
+            style={[styles.exportRow, !!busyExport && { opacity: 0.6 }]}
+          >
             <View style={styles.exportRowLeft}>
               <View style={styles.exportIconWrap}>
                 <Table size={20} color={accentColor} />
               </View>
               <View style={{ gap: 2 }}>
-                <Text style={styles.exportRowTitle}>Export Shifts CSV</Text>
-                <Text style={styles.exportRowSub}>Platform earnings, tips, dates and mileage</Text>
+                <Text variant="labelM">Export Shifts CSV</Text>
+                <Text variant="paragraphS" style={styles.exportRowSub}>Platform earnings, tips, dates and mileage</Text>
               </View>
             </View>
             {busyExport === "shifts" ? <ActivityIndicator size="small" color={accentColor} /> : <Download size={16} color={MUTED} />}
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={handleExportExpenses} disabled={!!busyExport} style={[styles.exportRow, !!busyExport && { opacity: 0.6 }]}>
+          <TouchableOpacity
+            onPress={handleExportExpenses}
+            disabled={!!busyExport}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !!busyExport }}
+            style={[styles.exportRow, !!busyExport && { opacity: 0.6 }]}
+          >
             <View style={styles.exportRowLeft}>
               <View style={styles.exportIconWrap}>
                 <BarChart2 size={20} color={accentColor} />
               </View>
               <View style={{ gap: 2 }}>
-                <Text style={styles.exportRowTitle}>Export Expenses CSV</Text>
-                <Text style={styles.exportRowSub}>Expense log, deductible markings and notes</Text>
+                <Text variant="labelM">Export Expenses CSV</Text>
+                <Text variant="paragraphS" style={styles.exportRowSub}>Expense log, deductible markings and notes</Text>
               </View>
             </View>
             {busyExport === "expenses" ? <ActivityIndicator size="small" color={accentColor} /> : <Download size={16} color={MUTED} />}
@@ -579,6 +620,8 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
 
           <TouchableOpacity
             disabled={!!busyExport}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !!busyExport }}
             onPress={() => {
               if (!isPdfEnabled) {
                 router.push("/settings");
@@ -595,15 +638,15 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
             <View style={styles.exportRowLeft}>
               <View style={[
                 styles.exportIconWrap,
-                isPdfEnabled && { backgroundColor: "rgba(0,0,0,0.15)", borderWidth: 0 },
+                isPdfEnabled && { backgroundColor: withAlpha(COLORS.background, 0.15), borderWidth: 0 },
               ]}>
                 <FileText size={20} color={isPdfEnabled ? accentColorContrast : accentColor} />
               </View>
               <View style={{ gap: 2 }}>
-                <Text style={[styles.exportRowTitle, isPdfEnabled && { color: accentColorContrast }]}>
+                <Text variant="labelM" style={isPdfEnabled && { color: accentColorContrast }}>
                   Generate PDF Summary
                 </Text>
-                <Text style={[styles.exportRowSub, isPdfEnabled && { color: accentColorContrast, opacity: 0.7 }]}>
+                <Text variant="paragraphS" style={[styles.exportRowSub, isPdfEnabled && { color: accentColorContrast, opacity: 0.7 }]}>
                   {isPdfEnabled ? "Print-safe tax summary report" : "Unlock in Settings to enable"}
                 </Text>
               </View>
@@ -629,9 +672,14 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
           <SafeAreaView style={styles.modalRoot} edges={["top", "bottom", "left", "right"]}>
             {/* Modal header */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Period</Text>
-              <Pressable onPress={() => setIsModalOpen(false)}>
-                <Text style={[styles.closeBtnText, { color: accentColor }]}>Done</Text>
+              <Text variant="headingM">Select Period</Text>
+              <Pressable
+                onPress={() => setIsModalOpen(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Done"
+                hitSlop={8}
+              >
+                <Text variant="labelM" style={{ color: accentColor }}>Done</Text>
               </Pressable>
             </View>
 
@@ -647,13 +695,15 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                   <Pressable
                     key={p.mode}
                     onPress={() => handlePresetSelect(p.mode)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
                     style={[
                       styles.presetChip,
                       { flexShrink: 0 },
-                      active && { backgroundColor: accentColor + "20", borderColor: accentColorMid },
+                      active && { backgroundColor: withAlpha(accentColor, 0.12), borderColor: accentColorMid },
                     ]}
                   >
-                    <Text style={[styles.presetChipText, active && { color: accentColor }]} numberOfLines={1}>
+                    <Text variant="labelM" style={[styles.presetChipText, active && { color: accentColor }]} numberOfLines={1}>
                       {p.label}
                     </Text>
                   </Pressable>
@@ -663,8 +713,8 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
 
             {/* Table sub-header */}
             <View style={styles.tableHeader}>
-              <Text style={styles.tableHeaderLeft}>Month</Text>
-              <Text style={styles.tableHeaderRight}>Gross Revenue</Text>
+              <Text variant="labelXs" style={styles.tableHeaderLeft}>Month</Text>
+              <Text variant="labelXs" style={styles.tableHeaderRight}>Gross Revenue</Text>
             </View>
 
             {/* Month list + custom range */}
@@ -679,14 +729,16 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                   <Pressable
                     key={idx}
                     onPress={() => handleMonthSelect(m.date)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isActive }}
                     style={[
                       styles.monthCard,
-                      isActive && { borderColor: accentColor, backgroundColor: accentColor + "10" },
+                      isActive && { borderColor: accentColor, backgroundColor: withAlpha(accentColor, 0.06) },
                     ]}
                   >
                     <View style={styles.monthInfo}>
-                      <Text style={styles.monthRangeText}>{m.label} {selectorYear}</Text>
-                      <Text style={styles.monthAmountText}>{formatCurrency(m.total)}</Text>
+                      <Text variant="paragraphS" style={styles.monthRangeText}>{m.label} {selectorYear}</Text>
+                      <Text variant="headingM" tabular>{formatCurrency(m.total)}</Text>
                     </View>
 
                     <View style={styles.miniBarContainer}>
@@ -696,7 +748,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                             styles.miniBarFill,
                             {
                               height: `${Math.max(m.barPct, m.total > 0 ? 10 : 2)}%`,
-                              backgroundColor: isActive ? accentColor : accentColor + "80",
+                              backgroundColor: isActive ? accentColor : withAlpha(accentColor, 0.5),
                             },
                           ]}
                         />
@@ -709,9 +761,11 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
               {/* Custom Range collapsible */}
               <Pressable
                 onPress={() => setIsCustomExpanded((v) => !v)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: isCustomExpanded }}
                 style={styles.customToggleBtn}
               >
-                <Text style={styles.customToggleText}>
+                <Text variant="labelM" style={styles.customToggleText}>
                   {isCustomExpanded ? "▾" : "▸"}{"  "}Custom Date Range
                 </Text>
               </Pressable>
@@ -721,7 +775,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                   <View style={{ flexDirection: "row", gap: 12 }}>
                     {/* Start date */}
                     <View style={{ flex: 1, gap: 6 }}>
-                      <Text style={styles.customDateLabel}>Start</Text>
+                      <Text variant="labelXs" style={styles.customDateLabel}>Start</Text>
                       {isWeb ? (
                         <input
                           type="date"
@@ -730,11 +784,11 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                             if (e.target.value) setCustomStart(new Date(e.target.value + "T12:00:00"));
                           }}
                           style={{
-                            background: "#16161A",
-                            border: "1px solid #1C1C21",
+                            background: COLORS.surface03,
+                            border: `1px solid ${COLORS.lineSubtle}`,
                             borderRadius: 12,
                             padding: "8px 12px",
-                            color: "#F6F6F7",
+                            color: COLORS.contentPrimary,
                             fontSize: 12,
                             outline: "none",
                             width: "100%",
@@ -743,9 +797,11 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                       ) : (
                         <Pressable
                           onPress={() => setShowStartPicker(true)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Choose start date"
                           style={styles.datePickerBtn}
                         >
-                          <Text style={styles.datePickerText}>
+                          <Text variant="labelM">
                             {customStart.toLocaleDateString(undefined, { dateStyle: "medium" })}
                           </Text>
                           <CalendarDays size={14} color={accentColor} />
@@ -755,7 +811,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
 
                     {/* End date */}
                     <View style={{ flex: 1, gap: 6 }}>
-                      <Text style={styles.customDateLabel}>End</Text>
+                      <Text variant="labelXs" style={styles.customDateLabel}>End</Text>
                       {isWeb ? (
                         <input
                           type="date"
@@ -764,11 +820,11 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                             if (e.target.value) setCustomEnd(new Date(e.target.value + "T12:00:00"));
                           }}
                           style={{
-                            background: "#16161A",
-                            border: "1px solid #1C1C21",
+                            background: COLORS.surface03,
+                            border: `1px solid ${COLORS.lineSubtle}`,
                             borderRadius: 12,
                             padding: "8px 12px",
-                            color: "#F6F6F7",
+                            color: COLORS.contentPrimary,
                             fontSize: 12,
                             outline: "none",
                             width: "100%",
@@ -777,9 +833,11 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                       ) : (
                         <Pressable
                           onPress={() => setShowEndPicker(true)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Choose end date"
                           style={styles.datePickerBtn}
                         >
-                          <Text style={styles.datePickerText}>
+                          <Text variant="labelM">
                             {customEnd.toLocaleDateString(undefined, { dateStyle: "medium" })}
                           </Text>
                           <CalendarDays size={14} color={accentColor} />
@@ -790,9 +848,10 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
 
                   <TouchableOpacity
                     onPress={handleApplyCustomRange}
+                    accessibilityRole="button"
                     style={[styles.applyBtn, { backgroundColor: accentColor }]}
                   >
-                    <Text style={[styles.applyBtnText, { color: accentColorContrast }]}>
+                    <Text variant="labelM" style={[styles.applyBtnText, { color: accentColorContrast }]}>
                       Apply Custom Range
                     </Text>
                   </TouchableOpacity>
@@ -822,16 +881,22 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
 
             {/* Modal footer: year navigation */}
             <View style={styles.modalFooter}>
-              <Pressable onPress={() => setSelectorYear((y) => y - 1)} style={styles.pageBtn}>
-                <Text style={styles.pageBtnText}>Previous Year</Text>
+              <Pressable
+                onPress={() => setSelectorYear((y) => y - 1)}
+                accessibilityRole="button"
+                style={styles.pageBtn}
+              >
+                <Text variant="labelM">Previous Year</Text>
               </Pressable>
-              <Text style={styles.pageIndicator}>{selectorYear}</Text>
+              <Text variant="labelM" tabular style={styles.pageIndicator}>{selectorYear}</Text>
               <Pressable
                 onPress={() => setSelectorYear((y) => y + 1)}
                 disabled={selectorYear >= new Date().getFullYear()}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: selectorYear >= new Date().getFullYear() }}
                 style={[styles.pageBtn, selectorYear >= new Date().getFullYear() && styles.pageBtnDisabled]}
               >
-                <Text style={styles.pageBtnText}>Next Year</Text>
+                <Text variant="labelM">Next Year</Text>
               </Pressable>
             </View>
           </SafeAreaView>
@@ -868,18 +933,13 @@ const styles = StyleSheet.create({
   backBtn: {
     width: 44,
     height: 44,
+    // circular: diameter / 2
     borderRadius: 22,
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     alignItems: "center",
     justifyContent: "center",
-  },
-  screenTitle: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#F6F6F7",
-    letterSpacing: -0.3,
   },
   scroll: {
     paddingBottom: 60,
@@ -896,22 +956,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#16161A",
+    backgroundColor: COLORS.surface03,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     marginBottom: 20,
     alignSelf: "center",
   },
-  periodPillText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#9B9BA4",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
+  periodPillText: { color: COLORS.contentSecondary },
   navRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -921,16 +975,17 @@ const styles = StyleSheet.create({
   arrowBtn: {
     width: 44,
     height: 44,
+    // circular: diameter / 2
     borderRadius: 22,
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     justifyContent: "center",
     alignItems: "center",
   },
   arrowBtnDisabled: {
     opacity: 0.35,
-    borderColor: "#16161A",
+    borderColor: COLORS.surface03,
   },
   amountRow: {
     flexDirection: "row",
@@ -941,16 +996,17 @@ const styles = StyleSheet.create({
   amountSymbol: {
     fontSize: 24,
     fontWeight: "600",
-    color: "#F6F6F7",
+    color: COLORS.contentPrimary,
     lineHeight: 30,
     marginTop: 10,
     marginRight: 4,
   },
   amountText: {
+    // hero money — no exact variant; explicit size, DS token color
     flexShrink: 1,
     fontSize: 40,
     fontWeight: "800",
-    color: "#F6F6F7",
+    color: COLORS.contentPrimary,
     letterSpacing: -0.5,
     lineHeight: 48,
     paddingVertical: 2,
@@ -959,10 +1015,10 @@ const styles = StyleSheet.create({
 
   // Bar chart
   chartContainer: {
-    backgroundColor: "#0F0F12",
+    backgroundColor: COLORS.surface02,
     borderRadius: 20,
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     padding: 16,
     marginHorizontal: 16,
     marginBottom: 20,
@@ -982,18 +1038,13 @@ const styles = StyleSheet.create({
     height: 1,
     borderStyle: "dashed",
     borderWidth: 1,
-    borderColor: "rgba(113, 113, 122, 0.25)",
+    borderColor: COLORS.lineSubtle,
   },
   highBadge: {
-    backgroundColor: "#0F0F12",
+    backgroundColor: COLORS.surface02,
     paddingLeft: 8,
   },
-  highBadgeText: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: "#9B9BA4",
-    letterSpacing: 0.5,
-  },
+  highBadgeText: { color: COLORS.contentSecondary },
   chartRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1010,18 +1061,14 @@ const styles = StyleSheet.create({
   barTrack: {
     width: 14,
     height: 64,
-    backgroundColor: "#16161A",
-    borderRadius: 7,
+    backgroundColor: COLORS.surface03,
+    borderRadius: 8,
     overflow: "hidden",
     justifyContent: "flex-end",
   },
   barFill: {
     width: "100%",
-    borderRadius: 7,
-  },
-  chartLabel: {
-    fontSize: 11,
-    fontWeight: "600",
+    borderRadius: 8,
   },
 
   // Stat grid
@@ -1036,24 +1083,15 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: "#0F0F12",
+    backgroundColor: COLORS.surface02,
     borderRadius: 20,
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     padding: 16,
   },
   statLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#9B9BA4",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
+    color: COLORS.contentSecondary,
     marginBottom: 6,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#F6F6F7",
   },
 
   // Export section
@@ -1062,17 +1100,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionLabel: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#9B9BA4",
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    color: COLORS.contentSecondary,
     marginBottom: 2,
   },
   exportRow: {
-    backgroundColor: "#0F0F12",
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
+    backgroundColor: COLORS.surface02,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     borderRadius: 20,
     padding: 16,
     flexDirection: "row",
@@ -1088,27 +1122,20 @@ const styles = StyleSheet.create({
   exportIconWrap: {
     width: 44,
     height: 44,
+    // circular: diameter / 2
     borderRadius: 22,
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
-  exportRowTitle: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#F6F6F7",
-  },
-  exportRowSub: {
-    fontSize: 11,
-    color: "#9B9BA4",
-  },
+  exportRowSub: { color: COLORS.contentSecondary },
 
   // Modal
   modalRoot: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: COLORS.background,
   },
   modalHeader: {
     flexDirection: "row",
@@ -1117,16 +1144,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#1E1E23",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#F6F6F7",
-  },
-  closeBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
+    borderBottomColor: COLORS.lineSubtle,
   },
   presetRow: {
     flexDirection: "row",
@@ -1139,14 +1157,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    backgroundColor: "#16161A",
-    borderColor: "#1C1C21",
+    backgroundColor: COLORS.surface03,
+    borderColor: COLORS.lineSubtle,
   },
-  presetChipText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#9B9BA4",
-  },
+  presetChipText: { color: COLORS.contentSecondary },
   tableHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1154,21 +1168,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#0F0F12",
+    borderBottomColor: COLORS.surface02,
   },
-  tableHeaderLeft: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#9B9BA4",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  tableHeaderRight: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#9B9BA4",
-    letterSpacing: 0.4,
-  },
+  tableHeaderLeft: { color: COLORS.contentSecondary },
+  tableHeaderRight: { color: COLORS.contentSecondary },
   modalScroll: {
     paddingVertical: 8,
   },
@@ -1177,9 +1180,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: 16,
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
-    backgroundColor: "#0F0F12",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
+    backgroundColor: COLORS.surface02,
     borderRadius: 20,
     marginHorizontal: 16,
     marginVertical: 6,
@@ -1187,17 +1190,7 @@ const styles = StyleSheet.create({
   monthInfo: {
     gap: 4,
   },
-  monthRangeText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#9B9BA4",
-  },
-  monthAmountText: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#F6F6F7",
-    letterSpacing: -0.4,
-  },
+  monthRangeText: { color: COLORS.contentSecondary },
   miniBarContainer: {
     alignItems: "center",
     justifyContent: "flex-end",
@@ -1205,7 +1198,8 @@ const styles = StyleSheet.create({
   miniBarTrack: {
     width: 8,
     height: 36,
-    backgroundColor: "#16161A",
+    backgroundColor: COLORS.surface03,
+    // pill: width / 2
     borderRadius: 4,
     overflow: "hidden",
     justifyContent: "flex-end",
@@ -1223,56 +1217,39 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 20,
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
-    backgroundColor: "#16161A",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
+    backgroundColor: COLORS.surface03,
   },
-  customToggleText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#9B9BA4",
-  },
+  customToggleText: { color: COLORS.contentSecondary },
   customRangeCard: {
     marginHorizontal: 16,
     marginTop: 8,
-    backgroundColor: "#0F0F12",
-    borderWidth: 0.8,
-    borderColor: "#1E1E23",
+    backgroundColor: COLORS.surface02,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     borderRadius: 20,
     padding: 16,
     gap: 12,
   },
-  customDateLabel: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#65656E",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
+  customDateLabel: { color: COLORS.contentMuted },
   datePickerBtn: {
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
     borderRadius: 12,
     padding: 12,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  datePickerText: {
-    color: "#F6F6F7",
-    fontSize: 12,
-    fontWeight: "600",
-  },
   applyBtn: {
-    borderRadius: 14,
+    borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
     marginTop: 4,
   },
   applyBtnText: {
-    fontSize: 13,
-    fontWeight: "800",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -1285,28 +1262,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderTopWidth: 0.5,
-    borderTopColor: "#1E1E23",
-    backgroundColor: "#000",
+    borderTopColor: COLORS.lineSubtle,
+    backgroundColor: COLORS.background,
   },
   pageBtn: {
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: "#16161A",
-    borderWidth: 0.8,
-    borderColor: "#1C1C21",
+    backgroundColor: COLORS.surface03,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.lineSubtle,
   },
   pageBtnDisabled: {
     opacity: 0.35,
   },
-  pageBtnText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#F6F6F7",
-  },
-  pageIndicator: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#9B9BA4",
-  },
+  pageIndicator: { color: COLORS.contentSecondary },
 });

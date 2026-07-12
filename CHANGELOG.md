@@ -2,6 +2,14 @@
 
 All notable changes to Comma are documented here.
 
+## [1.3.1] — 2026-07-12 (versionCode 7)
+
+### Added
+- **Over-the-air updates**: builds now carry the `production` update channel, so JS-only fixes and improvements arrive automatically on next app launch — no store update or reinstall needed. Native changes still ship as regular releases.
+
+### Fixed
+- **Invisible text in release builds**: the experimental Metro tree-shaking used for 1.3.0 stripped NativeWind's runtime styles, leaving most text unreadable in the production APK (debug builds were unaffected). Tree-shaking is permanently disabled for release builds. (The 1.3.0 download was replaced in-place with a fixed build; 1.3.1 supersedes both.)
+
 ## [1.3.0] — 2026-07-12 (versionCode 5)
 
 ### Added

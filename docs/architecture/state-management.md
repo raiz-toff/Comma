@@ -1,184 +1,177 @@
 # State Management
 
-Comma uses two complementary state systems: **Zustand** for synchronous global UI state, and **TanStack React Query** for async database-backed state with caching.
+The phone app uses two complementary systems: **Zustand** for synchronous global state, and **TanStack React Query** for asynchronous, database-backed state with caching.
 
 ---
 
 ## The split
 
-| Concern | Tool | Why |
-|---|---|---|
-| Active shift (running timer, live mileage) | Zustand | Real-time, needs to persist across app restarts, drives UI reactively |
-| User profile, preferences, gamification | Zustand | Global, synchronous, rarely changes |
-| Shift history, expenses, analytics | React Query | Async DB reads with caching, background refresh, stale-while-revalidate |
-| Vehicles, goals, platforms | React Query | Same — read-heavy, cache-able |
+| Concern | Tool |
+|---|---|
+| The running shift (timer, live distance, pause) | Zustand (`useActiveShift`) |
+| Profile, preferences, gamification, feature flags | Zustand (`useSettingsStore`) |
+| Shift history, expenses, analytics, reports | React Query |
+| Vehicles, goals, platforms, tax profiles | React Query |
+
+Rule of thumb: if it comes from a database query, it belongs in React Query; if it is small, global, and synchronous, it belongs in Zustand.
 
 ---
 
-## Zustand stores
+## `useActiveShift`
 
-### `useActiveShift` — [`store/useActiveShift.ts`](../../store/useActiveShift.ts)
+[`store/useActiveShift.ts`](../../store/useActiveShift.ts) — the currently running shift. Every state change is persisted to the `settings` key-value table under `active_shift_state` (via an upsert) and, on Android, pushes an update to the home-screen widget, so a shift survives an app restart.
 
-Tracks the currently running shift. Persists to SQLite (`settings` KV table, key `active_shift_state`) so the shift survives app restarts.
+**State:**
 
-**State shape:**
 ```ts
 {
   isActive: boolean
-  platform: string
-  vehicleId: string
-  startTime: number           // epoch ms
-  elapsedSeconds: number      // updated every second by a timer
-  activeMileage: number       // km/miles in active-delivery mode
-  deadMileage: number         // km/miles in commute mode
-  targetTime: number | null   // target duration in minutes (optional)
+  platform: GigPlatform | null   // comma-joined ids for multi-platform shifts
+  vehicleId: string | null
+  startTime: number | null       // epoch ms
+  elapsedSeconds: number         // ticked each second while running
+  activeMileage: number
+  deadMileage: number
+  targetTime: number | null      // epoch ms of the shift target, if set
   isPaused: boolean
-  isFirstOrderReceived: boolean  // false = dead-mile mode, true = active
-  sessionId: string           // links GPS locationPoints to this session
+  isAutoPaused: boolean          // paused by the auto-pause heuristic vs by hand
+  pausedSeconds: number
+  isFirstOrderReceived: boolean  // false = dead-distance mode, true = active
+  sessionId: string | null       // links locationPoints to this session
 }
 ```
 
-**Key actions:**
-- `startShift(platform, vehicleId, targetTime?)` — initializes state, writes to SQLite
-- `endShift()` — clears active state, triggers final GPS route calculation
-- `pauseShift()` / `resumeShift()` — toggle timer pause, GPS continues
-- `updateMileage(active, dead)` — called by GPS tracking hook
-- `incrementTimer()` — called every second by a `setInterval` in the hook
+**Actions:**
 
-**Hydration:** On app launch, `_layout.tsx` calls `loadSettings()` which reads `active_shift_state` from SQLite. If a shift was in progress when the app closed, it resumes (potentially showing a reconciliation screen).
+| Action | Purpose |
+|---|---|
+| `startShift(platform, vehicleId, targetTime)` | Clears native scratch points, initializes state, persists |
+| `endShift()` | Stops native tracking, reads `tempNativePoints`, filters jitter, splits active/dead distance, simplifies the route, writes the shift and its platform rows; returns a `CompletedShiftPayload` or null |
+| `incrementTimer()` | Adds a second to `elapsedSeconds`, or to `pausedSeconds` while paused |
+| `updateMileage(activeMiles, deadMiles)` | Adds to the running totals |
+| `pauseShift()` / `resumeShift()` | Toggle pause by hand |
+| `setAutoPaused(paused)` | Toggle the auto-pause state |
+| `markFirstOrderReceived()` | Switch classification from dead to active distance |
+| `reset()` | Clear state and the persisted snapshot |
+| `hydrateShift(partial)` | Merge a partial state in (rehydration and live GPS updates) |
 
-**Android widget sync:** After every state change, Comma calls the Android widget update API to reflect current shift status on the home screen widget.
+The live distance shown during a shift is fed by `hooks/useGPSTracking.ts`, which polls the native service and calls `hydrateShift({ activeMileage })`. The authoritative active/dead split is computed from raw points in `endShift()`.
 
 ---
 
-### `useSettingsStore` — [`store/useSettingsStore.ts`](../../store/useSettingsStore.ts)
+## `useSettingsStore`
 
-The main settings and profile store. Persists the entire state to SQLite (`settings` KV table, key `profile` and others).
+[`store/useSettingsStore.ts`](../../store/useSettingsStore.ts) — profile, preferences, and gamification. It persists to the `settings` table on native (keys `onboarding_completed`, `profile`, `app_config`, `preferred_vehicle_id`, `demo_mode`, `shift_templates`) and to `localStorage` on web. Gamification state is persisted separately by `GamificationService`.
 
-**State includes:**
+**State (selected fields):**
+
 ```ts
 {
-  // Onboarding
   isOnboardingCompleted: boolean
-
-  // Profile
-  profile: {
-    name: string
-    country: 'US' | 'CA' | 'UK' | 'NP'
-    province: string
-    currency: string
-    distanceUnit: 'miles' | 'km'
-    weekStartDay: number
-    timeFormat: '12h' | '24h'
-    activePlatforms: string[]
-  }
-
-  // UI state
-  activePlatformFilter: string | null   // current platform filter
-  isHeaderVisible: boolean              // scrolled header state
+  profile: DriverProfile
+  activeVehicle: VehicleDraft | null
+  isLoading: boolean
   isDemoMode: boolean
+  activePlatformFilter: string          // "all" or a platform id
+  preferredVehicleId: string | null
+  isHeaderVisible: boolean              // scroll-driven header state
+  dbPlatforms: DBPlatform[]             // activated platforms from the DB
 
-  // Derived from profile (loaded at startup)
-  countryDef: CountryDefinition
-  provinceDef: ProvinceDefinition
-  marketContext: MarketContext
-  dbPlatforms: Platform[]              // active platforms from DB
+  // Derived from the country registry, re-synced on every profile load/update
+  countryDef: CountryDef | null
+  provinceDef: ProvinceDef | null
+  marketContext: MarketContext | null
 
   // Gamification
-  xpTotal: number
-  xpLevel: number
-  streakDays: number
-  streakFrozenDays: number[]
+  xpTotal, xpLevel: number
+  streakDays, streakFrozenCount, bestStreak: number
   unlockedBadgeIds: string[]
   challenges: Challenge[]
+  notifications: NotificationItem[]
   personalRecords: PersonalRecords
+  lastEvaluationMonth: string | null
 
-  // Notifications (in-app)
-  notifications: AppNotification[]
-
-  // Feature overrides (dev/testing)
-  featureOverrides: Record<string, boolean>
+  // Feature flag overrides (developer / persona)
+  featureOverrides: Partial<Record<FeatureKey, boolean>>
 }
 ```
 
-**Key actions:**
-- `loadSettings()` — reads profile and gamification state from SQLite on startup
-- `updateProfile(partial)` — partial profile update, persists to DB
-- `resetSettings()` — wipes all settings (part of Reset App flow)
-- `evaluateGamification(context)` — checks for new badge unlocks, XP awards, streak updates
-- `addNotification(n)` / `dismissNotification(id)` — in-app notification queue
-- `setActivePlatformFilter(id)` — updates platform filter header (not persisted — resets on restart)
+`DriverProfile` holds `displayName`, `country`, `taxRegion`, `avatarType`/`avatarData`, `selectedPlatforms`, `workSchedulePreset`, `weeklyGoal`/`monthlyGoal`/`annualGoal`, `taxWithholdingPct`, `hstRegistered`, `distanceUnit`, `theme`, an optional `operationalModelId`, and a `locale` block (currency, date format, week-start day, time format). The `country` field is typed for `CA`, `US`, `UK`, and `NP`, but only `CA` is a registered, selectable country — the default profile is Canada.
+
+**Actions:** `loadSettings`, `completeOnboarding`, `resetSettings`, `loadSampleData`, `clearSampleData`, `setActivePlatformFilter`, `setPreferredVehicle`, `setHeaderVisible`, `updateProfile`, `applyTaxPreset`, `updateFeatureOverride`, `evaluateGamification`, `addNotification`, `dismissNotification`, `markAllNotificationsRead`, `clearAllNotifications`.
+
+Notes on a few:
+
+- `updateProfile(patch)` re-derives `countryDef` / `provinceDef` / `marketContext`, and when the country changes it also resets units, currency, region, the withholding preset, and filters `selectedPlatforms` to those valid in the new country.
+- `resetSettings()` hard-wipes the local database and re-mints the sync device id (it does not touch the cloud copy). See [Cloud Sync](../backup-and-sync/cloud-sync.md).
+- `evaluateGamification()` returns the badge ids newly unlocked in that pass, for the celebration sheet. Reads and writes to the shared gamification blob are serialized behind a lock so concurrent notification writes can't clobber awarded XP.
 
 ---
 
 ## TanStack React Query
 
-React Query manages all async data — anything that requires a database read.
+React Query manages everything that requires a database read. The client is set up in [`providers/QueryProvider.tsx`](../../providers/QueryProvider.tsx):
 
-### Setup
-
-```tsx
-// providers/QueryProvider.tsx
-const queryClient = new QueryClient({
+```ts
+new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error, query) => console.error("[QueryError]", query.queryKey, error),
+  }),
   defaultOptions: {
     queries: {
-      staleTime: 30_000,      // data is fresh for 30 seconds
-      gcTime: 5 * 60_000,     // keep unused cache for 5 minutes
-    }
-  }
+      retry: 1,                    // queries hit local SQLite; extra retries just delay failures
+      refetchOnWindowFocus: false,
+      staleTime: 30_000,           // fresh for 30 seconds
+    },
+  },
 })
 ```
 
-### Query key conventions
+Because queries read local SQLite rather than the network, retries are cut to one and focus refetching is off. A single `QueryCache.onError` is the one place errors surface.
 
-| Domain | Key pattern | Example |
-|---|---|---|
-| Shifts | `['shifts', scope]` | `['shifts', 'recent']`, `['shifts', 'list', { platform }]` |
-| Shift detail | `['shifts', id]` | `['shifts', 'abc-123']` |
-| Analytics | `['analytics', period]` | `['analytics', 'today']`, `['analytics', 'weekly']` |
-| Expenses | `['expenses', scope]` | `['expenses', 'list']` |
-| Vehicles | `['vehicles']` | |
-| Goals | `['goals']` | |
-| Platforms | `['platforms']` | |
+### Query keys
 
-### Invalidation pattern
+Keys are string arrays. Analytics keys append the active platform filter and the date range so React Query caches a distinct view per filter and window.
 
-After a mutation succeeds, invalidate the relevant query keys:
+| Domain | Example keys |
+|---|---|
+| Shifts | `["shifts"]`, `["shift", shiftId]`, `["shift-expenses", shiftId]` |
+| Expenses | `["expenses"]`, `["expense", id]`, `["expenses", "by-month", year]` |
+| Analytics | `["analytics", "today", activePlatformFilter]`, `["analytics", "week-stats", "this", start, end, activePlatformFilter]` |
+| Goals | `["goals"]`, `["goals", "progress"]`, `["goals", "best-shift"]` |
+| Vehicles / tax | `["vehicles"]`, `["taxProfiles", id]`, `["maintenance", id]` |
+| Reports | `["reports", "bars", periodMode, start, end]` |
+| Backup | `["backup", "status"]` |
+
+### Invalidation
+
+After a mutation succeeds, invalidate the affected keys and React Query refetches in the background:
 
 ```ts
 const mutation = useMutation({
   mutationFn: (data) => syncedInsert(db, expenses, data),
   onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['expenses'] })
-    queryClient.invalidateQueries({ queryKey: ['analytics'] })
-  }
+    queryClient.invalidateQueries({ queryKey: ["expenses"] })
+    queryClient.invalidateQueries({ queryKey: ["analytics"] })
+  },
 })
 ```
 
-React Query will refetch in the background; components using those queries re-render automatically.
-
-### Stale-while-revalidate
-
-Comma uses the default stale-while-revalidate behavior: data is served from cache immediately (even if stale) while a background refetch runs. This keeps the UI snappy — screens open instantly from cache, then update if the data changed.
+Invalidating a prefix such as `["analytics"]` refreshes every analytics view at once. `loadSampleData` and `clearSampleData` call `invalidateQueries()` with no key to refresh the whole dashboard when demo data is swapped in or out.
 
 ---
 
-## Interaction between Zustand and React Query
+## Where the two systems meet
 
-The two systems rarely interact directly, but there are two coordination points:
-
-1. **Shift end:** `endShift()` (Zustand) writes the final shift record to SQLite, then calls `queryClient.invalidateQueries(['shifts'])` to refresh the list.
-
-2. **Platform filter:** `activePlatformFilter` lives in Zustand (fast, synchronous, drives header UI). Analytics queries read the filter from the store and include it as a query key parameter, so React Query correctly caches per-filter views.
+- **Ending a shift.** `endShift()` (Zustand) writes the final shift record, and the caller invalidates `["shifts"]` and `["analytics"]` so the lists refresh.
+- **The platform filter.** `activePlatformFilter` lives in Zustand because it drives header UI synchronously. Analytics queries fold it into their query keys, so React Query caches a correct per-filter view.
 
 ---
 
-## What NOT to put in Zustand
+## What not to put in Zustand
 
-Zustand stores are for state that needs to be **globally accessible and synchronous**. Do not add to Zustand:
+- Fetched data (shift lists, totals) — use React Query.
+- Local component state (a modal's open flag, an input's value) — use `useState`.
+- Values derivable from DB data — compute them in a React Query `select`.
 
-- Fetched data (shift lists, expense totals) — use React Query
-- Local component state (modal open/closed, text input value) — use `useState`
-- Derived values that can be computed from DB data — put them in React Query `select` transforms
-
-Keeping Zustand stores small makes them predictable and prevents unnecessary global re-renders.
+Keeping the two stores small keeps them predictable and avoids needless global re-renders.

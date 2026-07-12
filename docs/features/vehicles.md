@@ -1,113 +1,68 @@
 # Vehicles
 
-Comma supports multiple vehicles. Each shift is associated with one vehicle, enabling per-vehicle mileage tracking, expense allocation, and tax deduction calculations.
+Each shift is driven in one vehicle, and each vehicle carries its own tax treatment. This page covers the default vehicle Comma creates for you, adding your real one, and the tax profile that decides how your driving is deducted.
 
 ---
 
-## Adding a vehicle
+## The default vehicle
 
-Go to **Vehicles** in the navigation drawer (or **Settings → Vehicles**) and tap **+ Add Vehicle**.
-
-Fields:
-
-| Field | Required | Notes |
-|---|---|---|
-| **Name** | Yes | Display name — e.g. "My Civic", "Work Truck" |
-| **Type** | Yes | Car / Bike / Scooter / Van / Other |
-| **Make** | No | e.g. "Honda" |
-| **Model** | No | e.g. "Civic" |
-| **Year** | No | Manufacturing year |
-| **Fuel type** | No | Gas / Electric / Hybrid / Other |
-| **License plate** | No | For your own records |
-| **Current odometer** | No | Starting odometer (used as baseline for business-use calculations) |
+So nothing blocks you at setup, Comma auto-creates a petrol car called **"My Car"**. You can start tracking immediately without answering a single vehicle question. Later, the activation checklist prompts **"tell us your real vehicle"** — because your actual vehicle decides whether the mileage write-off applies at all. A bike, for instance, doesn't qualify for the CRA automobile rate, so replacing the placeholder matters.
 
 ---
 
-## Default vehicle
+## Adding or editing a vehicle
 
-One vehicle is your **active vehicle**. It auto-selects in the shift creation wizard. You can change the default in **Vehicles → [Vehicle] → Set as Default**.
+Open Vehicles and add or edit one. The fields:
+
+| Field | Detail |
+|---|---|
+| Nickname | Required. How the vehicle appears throughout the app. |
+| Type | Gas, Hybrid, EV, Motorcycle, Bicycle, E-bike, Scooter, or Walking. |
+| Make | Optional. |
+| Model | Optional. |
+| Year | Optional. |
+| License plate | Optional, for your own records. |
+
+You can set an **active vehicle** — the one selected by default on a new shift — and **delete** a vehicle you no longer use.
 
 ---
 
-## Vehicle detail screen
+## Annual tax profiles
 
-Tap any vehicle to open its detail screen. You'll see:
+Each vehicle carries a tax profile per tax year, which tells the Tax Center how to deduct it:
 
-- Total lifetime miles tracked through Comma
-- Total lifetime active miles vs. dead miles
-- All shifts associated with this vehicle (filterable)
-- Maintenance logs
-- Tax profile link
+| Setting | Detail |
+|---|---|
+| Deduction method | Standard mileage or Actual expenses. |
+| Primary rate | The per-km rate applied to your distance. |
+| Secondary rate | Optional. A second rate for distance beyond a threshold. |
+| Rate threshold distance | Optional. The distance at which the secondary rate takes over. |
+
+A saved profile always **overrides** the researched default — including an explicit opt-out. If you decide a vehicle takes no mileage deduction and save that choice, Comma respects it rather than reapplying a default.
+
+---
+
+## Eligibility
+
+Under CRA rules a **bicycle, e-bike, or scooter is not an automobile**, so it does not get the automobile mileage rate. Comma knows this and will not offer a deduction you can't take. If you set one of those vehicle types, the standard automobile rate is not presented. See the [Tax Center](./tax-center.md) for how the deduction is calculated.
 
 ---
 
 ## Maintenance logs
 
-Track your vehicle's maintenance history to support actual-expense deduction claims and to stay on top of service intervals.
+Keep a service record per vehicle. Each maintenance entry has a type and a few fields:
 
-Tap **+ Log Maintenance** on the vehicle detail screen.
-
-Fields:
-
-| Field | Notes |
+| Field | Detail |
 |---|---|
-| **Type** | Oil change · Tires · Brakes · Fuel fill · Car wash · Other |
-| **Cost** | Total cost in local currency |
-| **Date** | Date of service |
-| **Odometer** | Reading at time of service (optional, for interval tracking) |
-| **Notes** | Mechanic name, shop, any details |
-
-Maintenance logs are included in the **Google Drive backup** and in cloud sync (when enabled).
+| Type | Oil change, Tires, Brakes, Fuel, Wash, or Other. |
+| Cost | Amount in CAD. |
+| Date | When the work was done. |
+| Odometer | Reading at the time, for interval tracking. |
+| Notes | Shop, part numbers, anything worth remembering. |
 
 ---
 
-## Odometer tracking
+## Related
 
-Comma can track your odometer automatically if you enter readings at the start and end of each shift. This gives you:
-
-- **Annual miles driven** — total odometer delta for the year
-- **Business miles** — sum of all shift mileage
-- **Business-use percentage** — business miles ÷ total miles (used for actual-expense deduction)
-
-For best accuracy:
-1. Enter your vehicle's **current odometer** when you add the vehicle.
-2. Set a **start odometer** on each shift.
-3. Set an **end odometer** when ending the shift.
-
-If you prefer GPS-only tracking and don't want to enter odometer readings, leave those fields blank — Comma will use GPS mileage for deduction calculations instead.
-
----
-
-## Vehicle Tax Profile
-
-Each vehicle needs a **Tax Profile** per tax year for the Tax Center to generate accurate deduction estimates. See [Tax Center](./tax-center.md#vehicle-tax-profile) for full details.
-
-Quick summary:
-- Standard mileage rate: the IRS (or CRA/HMRC) rate × business miles
-- Actual expenses: total vehicle expenses × business-use percentage
-
-Set your profile at **Vehicles → [Vehicle] → Tax Profile**.
-
----
-
-## Multiple vehicles
-
-If you use different vehicles on different days or shifts:
-
-- Each shift records which vehicle was used
-- Analytics can break down earnings and mileage per vehicle
-- Tax Center shows a separate deduction calculation per vehicle per year
-- Expenses can be associated with a specific vehicle
-
-This is useful if you have a car and a bike, or switch between a personal vehicle and a cargo van for different platforms.
-
----
-
-## Deactivating a vehicle
-
-If you sell or stop using a vehicle, tap **Deactivate** on its detail screen. Deactivated vehicles:
-- No longer appear in the shift creation wizard
-- Still appear in historical analytics (their past shifts are unchanged)
-- Can be reactivated at any time
-
-To permanently delete a vehicle and all its associated shifts and expenses, tap **Delete** (destructive — use with caution).
+- [Tax Center](./tax-center.md) — how a vehicle's profile drives its deduction
+- [Expenses](./expenses.md) — logging vehicle costs against the standard-mileage guardrail

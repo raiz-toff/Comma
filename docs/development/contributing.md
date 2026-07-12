@@ -1,133 +1,144 @@
 # Contributing
 
-Thanks for contributing to Comma. This document covers the conventions, patterns, and process.
+Thanks for contributing to Comma. This document covers the conventions, patterns, and process across both apps in the monorepo.
 
 ---
 
 ## Code style
 
-### TypeScript
+### TypeScript (phone app)
 
-- **Strict mode.** No `any`. TypeScript is set to `strict: true` in `tsconfig.json`. If you can't avoid a dynamic type, use `unknown` and narrow it.
-- **No type assertions without justification.** `as SomeType` is acceptable when you're feeding output from a runtime source (e.g. SQLite results). Document why if it's non-obvious.
-- **Prefer `type` over `interface`** for data shapes. Use `interface` only when you need declaration merging.
+- **Strict mode.** No `any`. `tsconfig.json` sets `strict: true`. If a type is genuinely dynamic, use `unknown` and narrow it.
+- **No type assertions without justification.** `as SomeType` is acceptable when feeding output from a runtime source (e.g. SQLite results); document why if it is non-obvious.
+- **Prefer `type` over `interface`** for data shapes; use `interface` only when you need declaration merging.
 
 ### Database
 
-- **All queries in `src/database/queries/`.** No raw SQL in screen components or hooks.
-- **No array-level filtering on DB results.** If you can write it as a `WHERE` clause or `JOIN`, do that instead. Fetching 10,000 rows and filtering to 10 in JS is a performance bug.
-- **Mutations via `syncedInsert/syncedUpdate/syncedDelete`.** These are in `src/database/syncedWrites.ts`. They stamp `syncUpdatedAt` automatically. Direct `db.insert()` / `db.update()` are only acceptable for tables that are explicitly not synced (e.g. `locationPoints`, `tempNativePoints`).
-- **Soft deletes for synced tables.** Call `syncedDelete()` — never a hard `DELETE` on a synced table, as that loses the tombstone.
+- **All queries in `src/database/queries/`.** No raw SQL in screens or hooks.
+- **No array-level filtering of DB results.** If it can be a `WHERE` or a `JOIN`, write it as one. Fetching 10,000 rows to keep 10 is a performance bug.
+- **Mutations via `syncedInsert` / `syncedUpdate` / `syncedDelete`** (`src/database/syncedWrites.ts`). They stamp `syncUpdatedAt` automatically. Direct `db.insert()` / `db.update()` are only acceptable on tables that are not synced (`locationPoints`, `tempNativePoints`, `settings`, `syncOverwriteLog`).
+- **Soft deletes on synced tables.** Call `syncedDelete()`; never a hard `DELETE` on a synced table, or the tombstone is lost and the row resurrects on the next sync.
 
 ### React components
 
 - **Function components only.** No class components.
-- **Hooks for logic, components for rendering.** Extract non-trivial business logic to a custom hook before a component grows long.
-- **NativeWind for styles.** Use Tailwind classes. Avoid raw `StyleSheet.create` unless you have a reason (e.g. complex animations where StyleSheet is required).
-- **No inline `style={{}}` props** except for dynamic values (e.g. `style={{ width: animated.value }}`).
+- **Hooks for logic, components for rendering.** Extract non-trivial logic to a custom hook before a component grows long.
+- **NativeWind for styles.** Use Tailwind classes; avoid raw `StyleSheet.create` unless you have a reason (e.g. complex animation).
+- **No inline `style={{}}`** except for dynamic values.
 
 ### State
 
-- **React Query for async data.** If data comes from a DB query, put it in a React Query hook. Don't put fetched data in Zustand.
-- **Zustand for synchronous global state only.** The two stores are `useActiveShift` and `useSettingsStore`. Add to them sparingly — most features don't need global state.
-- **`useState` for local component state.** Modal open/close, text input values, etc.
+- **React Query for async data**, Zustand for synchronous global state only, `useState` for local component state. The two stores are `useActiveShift` and `useSettingsStore` — add to them sparingly. See [State Management](../architecture/state-management.md).
 
 ### Naming
 
-- **Files:** `PascalCase.tsx` for components, `camelCase.ts` for everything else.
-- **Hooks:** `use` prefix, camelCase — e.g. `useActiveShift`, `useGPSTracking`.
-- **Query keys:** arrays of strings — `['shifts', 'recent']`, `['analytics', 'today']`.
+- **Files:** `PascalCase.tsx` for components, `camelCase.ts` otherwise.
+- **Hooks:** `use` prefix — `useActiveShift`, `useGPSTracking`.
+- **Query keys:** string arrays — `["shifts", "recent"]`, `["analytics", "today"]`.
 
 ---
 
 ## Comments
 
-Default to **no comments**. Write self-documenting code (clear names, small functions). Add a comment only when the *why* is non-obvious:
+Default to **no comments**. Write self-documenting code and add a comment only when the *why* is non-obvious:
 
 ```ts
-// GPS jitter: >150 km/h implies a spike, not a real movement
+// GPS jitter: >150 km/h implies a spike, not real movement
 if (impliedSpeedKmH > 150) continue
 ```
 
-Do not add comments that describe what the code does (the code already does that):
-```ts
-// BAD: increment the counter
-count++
-
-// BAD: loop through shifts
-shifts.forEach(shift => { ... })
-```
+Do not add comments that restate what the code does.
 
 ---
 
-## Pull requests
+## Adding a supported country
 
-1. **Open an issue first** for non-trivial changes. Alignment on design before a large PR saves everyone time.
-2. **One logical change per PR.** Avoid bundling unrelated fixes or refactors.
-3. **TypeScript must pass.** `npx tsc --noEmit` must exit with no errors.
-4. **Lint must pass.** `npm run lint` must exit with no errors.
-5. **Test what you build.** If you add a query function, test it on a device or emulator with real data. Type checking verifies shape, not behavior.
+Comma ships **Canada only**. The US, UK, and Nepal are written and type-checked but deliberately **not registered** — the app must never offer a country whose tax rules haven't been signed off. Nothing in the app branches on the country id; every tax, mileage, currency, and onboarding path reads from the country definition, so adding a market is data, not new logic.
 
-### PR description checklist
+A country is **one registry file per app**, and both must agree.
 
-- What changed and why
-- How to test it
-- Screenshots / recordings for UI changes
-- Any database migration included (describe what it does)
+1. **Write the phone definition** at `src/registry/countries/<CC>/index.ts` (a directory: `index.ts`, plus `provinces/` and `tax/` as needed). It must define:
+   - `currency` and `symbol`
+   - `distanceUnit` (`km` or `mi`)
+   - `tax` rules (default withholding, region preset type, region label, and so on)
+   - `mileage` — a rate table, or explicitly `null` for "no researched rates" (the key must be present, so a new country makes a deliberate choice)
+   - `defaultAvailablePlatforms`
+2. **Write the web definition** at `web/src/registry/countries/<CC>.country.js` with the same fields (see `web/src/registry/countries/_TEMPLATE.country.js`).
+3. **Register it on both sides.** This is the step that actually turns a country on:
+   - phone: add it to `COUNTRY_MAP` in `src/registry/countries/index.ts`, and add its regions to `ALL_REGIONS`
+   - web: add it to the `COUNTRIES` array in `web/src/registry/countries/index.js`
+4. **Keep the two in parity.** Run `node scripts/check-country-parity.mjs` — it verifies the phone and web registries define the same countries with matching shapes. A country registered on one app but not the other, or with mismatched fields, fails the check.
 
----
-
-## Database migrations
-
-If your change requires a schema migration:
-
-1. Add a new migration entry in `src/database/client.ts`.
-2. Increment the version number.
-3. Write idempotent SQL:
-   ```sql
-   ALTER TABLE shifts ADD COLUMN foo TEXT;
-   -- Safe: SQLite allows re-running ADD COLUMN if the column already exists in some versions,
-   -- or use: SELECT COUNT(*) FROM pragma_table_info('shifts') WHERE name='foo'
-   ```
-4. Test the migration on a fresh database AND on an existing database with real data.
-5. Note the migration in your PR description.
+The registries fail loudly on a half-added country: `assertCountryRegistryValid()` throws if a registered country is missing a required field, and an unregistered country requested at runtime logs an error and falls back to Canada rather than silently serving the wrong tax rate.
 
 ---
 
 ## Adding a supported platform
 
-Platforms are defined in `src/registry/platforms/`. Each country has its own file.
+Platforms are defined in `src/registry/platforms/` (phone) and `web/src/registry/` (web), grouped by country.
 
-1. Add an entry to the appropriate country file (or create a new one):
+1. Add an entry to the appropriate country's platform list:
    ```ts
    {
      id: 'new_platform',
      label: 'New Platform',
      color: '#FF6B00',
      textColor: '#FFFFFF',
-     country: 'US',
-     logoEmoji: '🚚',
+     country: 'CA',
+     logoEmoji: '',            // optional
      defaultHourlyRate: '20',
-     defaultMileageRate: '0.67',
+     defaultMileageRate: '0.70',
      sortPriority: 10,
    }
    ```
-2. The platform will automatically appear in the activation list for users in that country.
+2. Mirror it on the other app so both offer the same platforms in that country.
+3. The platform then appears automatically in the activation list for drivers in that country — there is no separate wiring.
+
+Drivers can also add their own custom platforms at runtime; a built-in definition is only needed to offer one out of the box.
 
 ---
 
 ## Feature flags
 
-New features that aren't ready for all users should be gated:
+Features not ready for everyone should be gated:
 
 1. Add the flag name to the type in `src/hooks/useFeatureEnabled.ts`.
-2. Set its default value in `src/registry/countries/` (per country default).
+2. Set its per-country default in `src/registry/countries/`.
 3. Wrap the feature:
    ```tsx
    const isEnabled = useFeatureEnabled('my_feature')
    if (!isEnabled) return null
    ```
-4. Add it to the developer feature override list in `app/settings/developer.tsx`.
+4. Expose it in the developer override list so it can be toggled while testing.
+
+---
+
+## Pull requests
+
+1. **Open an issue first** for non-trivial changes.
+2. **One logical change per PR.** Don't bundle unrelated fixes.
+3. **TypeScript must pass:** `npx tsc --noEmit` with no errors.
+4. **Lint must pass:** `npm run lint` with no errors.
+5. **Test what you build.** If you add a query, run it on a device or emulator with real data — type checking verifies shape, not behavior.
+6. **Touching a country?** Run `node scripts/check-country-parity.mjs`.
+
+### PR description checklist
+
+- What changed and why
+- How to test it
+- Screenshots or recordings for UI changes
+- Any database migration, and what it does
+
+---
+
+## Database migrations
+
+If a change needs a schema migration:
+
+1. Add a migration entry in `src/database/client.ts` and increment the version.
+2. Write idempotent SQL (guard `ADD COLUMN` with a `pragma_table_info` check).
+3. Test on a fresh database and on an existing one with real data.
+4. Note the migration in your PR.
 
 ---
 
@@ -137,9 +148,9 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
 feat: add expense receipt photo
-fix: GPS jitter filter threshold too aggressive
-refactor: extract mileage calculation to pure function
-docs: update GPS engine architecture doc
+fix: GPS jitter threshold too aggressive
+refactor: extract mileage calc to a pure function
+docs: update GPS engine doc
 ```
 
 Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`.
@@ -148,12 +159,13 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`.
 
 ## Reporting bugs
 
-Open a GitHub issue with:
-- App version (visible in **About**)
-- Device model and OS version
+Open an issue at [github.com/raiz-toff/Comma](https://github.com/raiz-toff/Comma) with:
+
+- App version (from About)
+- Which app (phone or web), device model, and OS version
 - Steps to reproduce
-- Expected vs. actual behavior
-- Logs if available (Android: `adb logcat`, iOS: Xcode console)
+- Expected versus actual behavior
+- Logs if available
 
 ---
 

@@ -1,39 +1,40 @@
 # Cloud Sync
 
-> **Status: in development.** Cloud Sync is designed but not yet built. This document describes the final design. The manual backup feature described in [Google Drive Backup](./google-drive-backup.md) is fully working today.
+Sync keeps every device you use in step, through your own Google Drive, with no server in between. It is built, shipped, and on by default the moment you connect Drive.
+
+Log a shift on the phone. Open the browser. It's there.
 
 ---
 
-## What cloud sync is
+## Setup
 
-Cloud Sync keeps your data consistent across multiple devices automatically. Log a shift on your iPhone, open Comma on your Android tablet, and the shift is there — without pressing any buttons.
+**Settings → Data → Cloud Sync → Connect Google Drive.**
 
-Unlike the current backup (which is a destructive restore — last one wins), sync is **non-destructive and bi-directional**. Both devices stay current. Neither is ever wiped.
+Sync turns itself on when the connection succeeds. There is no password to set and no second toggle to find. If you want end-to-end encryption on top, that's an opt-in under **Advanced** — see [Encryption](./encryption.md).
 
 ---
 
-## Mental model
+## The model
 
 ```
-  Phone A                          Google Drive                     Phone B
-  ┌──────────────┐                 (appDataFolder)                  ┌──────────────┐
-  │ local SQLite │ ──push delta──▶ │ change-log    │ ◀──push delta─ │ local SQLite │
-  │  + updatedAt │ ◀──pull delta── │ files (.cmlog)│ ──pull delta─▶ │  + updatedAt │
-  │  + deletedAt │                 │ (encrypted)   │                │  + deletedAt │
-  └──────────────┘                 └────────────────┘               └──────────────┘
+  Phone A                      Google Drive                      Browser
+  ┌──────────────┐            (appDataFolder)                ┌──────────────┐
+  │ local vault  │ ──push──▶  ┌────────────────┐  ◀──push──  │ local vault  │
+  │ + updatedAt  │            │ change-log     │             │ + updatedAt  │
+  │ + deletedAt  │ ◀──pull──  │ files (.cmlog) │  ──pull──▶  │ + deletedAt  │
+  └──────────────┘            └────────────────┘             └──────────────┘
 ```
 
-Google Drive is **dumb encrypted storage** — not a sync engine. All sync logic runs on your devices. No server, no cloud compute, no Comma servers involved.
+Google Drive is **storage, not a sync engine**. It holds files. Every decision about what wins, what merges, and what gets deleted is made on your devices. Comma runs no server and sees none of this.
+
+The files live in `appDataFolder` — a per-app private folder. It does not appear in your Drive, and the OAuth scope Comma requests (`drive.appdata`) cannot reach anything else in your account.
 
 ---
 
-## How it works
+## Change-logs
 
-### Change-logs
+Every row Comma writes carries a `syncUpdatedAt` stamp. When a device pushes, it collects the rows that changed since its last push and uploads them as one change-log file:
 
-When you modify a record (create a shift, log an expense, edit a vehicle), Comma stamps the row with `syncUpdatedAt = now()`. When your device syncs, it collects all rows changed since its last push and uploads them as an encrypted **change-log file** (`.cmlog`) to Drive.
-
-A change-log file contains:
 ```json
 {
   "v": 1,
@@ -41,152 +42,109 @@ A change-log file contains:
   "createdAt": 1750000000000,
   "sinceCursor": 1749900000000,
   "rows": {
-    "shifts": [ ...changed rows... ],
-    "expenses": [ ...changed rows... ]
+    "shifts":   [ …changed rows… ],
+    "expenses": [ …changed rows… ]
   }
 }
 ```
 
-The file is encrypted with your backup passphrase before upload.
+Pulling is the mirror image: fetch the files this device hasn't applied yet, and apply them.
 
-### Merge (Last-Write-Wins)
+Each device remembers the filenames it has already applied. That makes the whole thing order-independent and self-healing — a pull that dies halfway just leaves the file unapplied, and the next sync picks it up.
 
-When your device pulls change-logs from Drive, it applies them using **Last-Write-Wins (LWW)** merge: for each incoming row, if the incoming `syncUpdatedAt` is newer than the local row's `syncUpdatedAt`, the incoming row wins.
+---
+
+## Merge: last write wins
+
+For each incoming row: if its `syncUpdatedAt` is newer than the local copy's, it wins.
 
 ```
-if (incoming.syncUpdatedAt > local.syncUpdatedAt) {
-  UPSERT incoming row
-}
-// else: my local copy is newer — keep it, ignore incoming
+if (incoming.syncUpdatedAt > local.syncUpdatedAt) upsert(incoming)
+else                                              keep local
 ```
 
-This is simple, predictable, and requires no server to arbitrate conflicts.
+Simple, predictable, and it needs no server to arbitrate.
 
-### Deletions (soft deletes)
+**The known limitation:** last-write-wins works on whole rows. Edit a shift's *notes* on the phone and the same shift's *earnings* in the browser, and the newer of the two rows survives intact — the other edit is lost, even though the two changes didn't overlap. For an app where you're realistically editing one device at a time, that is an acceptable trade for having no server.
 
-Deleting a record doesn't remove it from the database. Instead, it sets `syncDeletedAt = now()`. Soft-deleted rows are excluded from all queries (`WHERE syncDeletedAt IS NULL`) but remain in the database so the deletion can propagate to other devices via the normal LWW merge.
-
-### Applied-set cursor
-
-Each device tracks which change-log files it has already applied, stored as a JSON array of filenames (`sync_applied_logs`). When pulling, the device applies any file not in this set. This design is order-independent and self-healing — a failed pull just means the file isn't in the set yet, so the next sync retries it automatically.
+Clock skew matters here, in principle. In practice phones and laptops are NTP-synced to within a second.
 
 ---
 
-## Sync triggers
+## Deletions
 
-Sync runs automatically at session boundaries, not continuously:
+Deleting doesn't remove the row. It stamps `syncDeletedAt`, and the row stays in the database as a tombstone — excluded from every query, but still able to travel.
 
-| Trigger | Action |
+Without this, deletion doesn't propagate: the other device, which still has the row, would happily push it back and resurrect it.
+
+---
+
+## Money is treated differently
+
+Silently overwriting a shift's `notes` is a nuisance. Silently overwriting **earnings** is not acceptable.
+
+For financial data — expenses, tax history, and the revenue fields on shifts — when an incoming row overwrites a local row that had real edits, the superseded version is written to a local overwrite log **before** it is replaced. No financial edit is ever lost without a trace; it's recoverable from that log.
+
+---
+
+## When it syncs
+
+| Trigger | What happens |
 |---|---|
-| **App opens / foreground** | Pull — check Drive for new change-logs and apply them |
-| **App closes / background** | Push — if your schedule allows, upload your changes |
-| **Manual "Sync Now"** | Full push + pull, ignores schedule |
+| App opens / comes to foreground | Pull — apply anything new |
+| App closes / backgrounds | Push, if your schedule allows |
+| **Sync now** | Full push + pull, ignores the schedule |
 
-The push frequency is controlled by your schedule setting:
+The push schedule is under **Advanced**:
 
-| Schedule | Behavior |
+| Schedule | Behaviour |
 |---|---|
-| **Manual** | Only syncs when you tap "Sync Now" |
-| **Daily** | Auto-pushes at most once per day |
-| **Weekly** | Auto-pushes at most once per week |
+| Manual | Only when you press Sync now |
+| **Daily** (default) | At most once a day |
+| Weekly | At most once a week |
 
-Pull always runs on every app open regardless of schedule — it's cheap (just checks if there are new files).
-
----
-
-## What syncs
-
-| Data | Syncs? | Notes |
-|---|---|---|
-| Shifts | Yes | Full record sync |
-| Expenses | Yes | Full record sync |
-| Vehicles | Yes | Full record sync |
-| Maintenance logs | Yes | Full record sync |
-| Goals | Yes | Full record sync |
-| Platforms | Yes | Your custom platform settings |
-| Tax history | Yes | Append-only audit log |
-| Profile / preferences | Separately | Name, country, currency, units — lightweight sync |
-| GPS scratch (`locationPoints`, `tempNativePoints`) | No | Local ephemeral data, too large to sync |
-| Device state (`sync_enabled`, sync cursors) | No | Per-device settings, never synced |
+Pull runs on every open regardless — it's cheap, and it's what makes the other device's work show up.
 
 ---
 
-## Financial data protection
+## Your profile syncs too
 
-Silent data overwrite is acceptable for a shift's `notes` field. It is not acceptable for money.
+Name, country, province, units, currency, goals, tax rate. This is why signing into a fresh device doesn't dump you into setup: the profile arrives with the data and the app comes up already configured.
 
-For financial tables (`expenses`, `taxHistory`, and the revenue fields on `shifts`), Comma records a conflict audit trail: when an incoming row overwrites a local financial row that had real edits, the superseded version is saved to a local `sync_overwrite_log` table before the overwrite. This means no financial edit is ever silently lost — it's recoverable from the audit log.
-
----
-
-## Conflict resolution
-
-**Scenario:** You edit a shift on Phone A while offline. Phone B also edits the same shift while offline. Both devices then sync.
-
-**Result:** The edit with the later `syncUpdatedAt` timestamp wins. The older edit is recorded in `sync_overwrite_log` for recovery if needed.
-
-**Known limitation:** LWW operates at the row level. If you edited the `notes` field on Phone A and the `grossRevenue` on Phone B (different fields, same row), only the whole newer row survives — the other field's edit is lost. For a no-server consumer app, this trade-off is acceptable given that most gig workers edit records on one device at a time.
-
-Clock skew: LWW trusts device clocks. Phones are NTP-synced and skew is typically <1 second, so this is fine in practice.
-
----
-
-## Reset under sync
-
-**Resetting the app wipes your local device only. It never touches your cloud data.**
-
-What happens on reset:
-1. Sync is turned off (before the wipe — critical ordering).
-2. Local database is wiped.
-3. Sync cursors are reset.
-4. A new device ID is minted.
-5. Cloud change-logs are untouched.
-
-The new device ID is essential: without it, the re-enabled device would see all of its old change-logs as "authored by me" and skip them, resulting in an empty database even though the data is sitting on Drive. By re-minting the ID, old logs look like they came from a different device and are pulled down normally.
-
-To recover data after a reset: re-enable sync. The device will pull all existing change-logs from Drive and restore your history.
+There's a guard on this. A brand-new device has a blank profile with a fresh timestamp — under naive last-write-wins, that blank would be "newer" than your real profile and wipe it. Comma detects the first sync on an empty device and refuses to let it out-stamp the cloud.
 
 ---
 
 ## Compaction
 
-As you use Comma over months and years, change-log files accumulate on Drive. Compaction periodically collapses many small change-logs into a single snapshot file, then removes the individual logs. This keeps Drive storage manageable.
+Change-log files pile up over months. Compaction periodically collapses many small logs into one snapshot and deletes the originals, so Drive doesn't fill with thousands of tiny files.
 
-Compaction runs lazily — not on every sync, only when the number of log files exceeds a threshold. It is designed to be safe: a log is never deleted from Drive until its data is confirmed in the snapshot.
-
----
-
-## Setup
-
-Cloud Sync shares its setup with Google Drive Backup:
-
-1. Connect a Google account in **Settings → Backup & Sync**.
-2. Set a backup passphrase (same passphrase encrypts both backups and sync change-logs).
-3. Enable sync in **Settings → Backup & Sync → Cloud Sync: On**.
-
-That's it. Sync starts automatically on the next app open.
+It runs lazily — only past a threshold — and never deletes a log until its contents are confirmed in the snapshot.
 
 ---
 
-## Privacy
+## Resetting a device
 
-Cloud Sync is zero-knowledge. Comma's encrypted change-logs on Drive contain:
-- Your rows in JSON format, encrypted with your passphrase-derived key
-- A device ID (a random UUID, not tied to your identity)
-- Timestamps
+**Resetting wipes the device. It never touches your cloud data.**
 
-Google cannot read the contents. Comma's developers cannot read the contents. Only a device with your passphrase can decrypt the data.
+In order: sync is turned off, the local database is wiped, cursors are reset, and **a new device ID is minted**.
+
+That last step is the one that matters. Change-logs record who wrote them, and a device skips its own. Without a fresh ID, a reset device would look at every log it ever pushed, think "that's mine, already applied", and skip them all — leaving you with an empty app and a full Drive.
+
+To get your data back after a reset: reconnect. The device pulls everything down.
 
 ---
 
-## Build phases
+## Demo mode
 
-For contributors tracking development progress:
+Sync is disabled while demo data is loaded. Sample shifts never reach your Drive.
 
-| Phase | Description | Status |
-|---|---|---|
-| **P1** | Schema — add `syncUpdatedAt`/`syncDeletedAt`, soft-delete wrappers | In progress |
-| **P2** | Change-log push/pull on Drive | Not started |
-| **P3** | Merge engine (LWW, audit log) | Not started |
-| **P4** | Sync triggers (auto on app open/close) | Not started |
-| **P5** | Compaction | Not started |
+---
+
+## Troubleshooting
+
+**"No synced data found yet"** when joining from a second device — that device has nothing to pull because the first one hasn't pushed. On the phone: Settings → Cloud Sync → **Sync now**, then retry.
+
+**It asks for a password you didn't set** — your other device has end-to-end encryption switched on. Its files can only be read with that password. Enter it, or turn E2E off on the original device.
+
+**A number is wrong after syncing two devices** — see *Money is treated differently* above; the superseded version is in the overwrite log.

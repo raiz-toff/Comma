@@ -1,104 +1,101 @@
 # Troubleshooting
 
-Fixes for the most common issues on the **phone app** (Android/iOS) and the **web app** (PWA). Each section notes which app it applies to.
+Fixes for the most common issues on the phone app (Android) and the web app (PWA), in problem-then-fix form, with the app each one applies to noted.
 
-Before anything else: make a [Google Drive backup](../backup-and-sync/google-drive-backup.md) if you can. Almost every fix below is safe, but a backup means nothing you do here can cost you data.
-
----
-
-## GPS & mileage *(phone app)*
-
-### My shift ran but recorded 0 miles
-
-1. **Check location permission.** Comma needs **"Allow all the time"** (Android) or **"Always"** (iOS) to track in the background. If it's set to "While using," tracking stops the moment you leave the app. Fix it in your device's system settings → Apps → Comma → Location.
-2. **Check that location/GPS is on** at the system level.
-3. **Disable battery optimization for Comma** (Android). Aggressive battery savers can kill the background service. In system settings, set Comma to "Unrestricted" / exclude it from optimization.
-4. Make sure you tapped **Start Shift** (not just opened the app) — tracking only runs during an active shift.
-
-### Mileage looks too low or too high
-
-- Comma reconstructs your route from GPS samples; tunnels, parking garages, and dense urban canyons can briefly lose signal. Small gaps are normal.
-- If a number is clearly wrong, edit the shift's mileage manually from the Shifts list — your entry overrides the GPS estimate.
-
-### The live timer or tracking stopped mid-shift
-
-- This is almost always the OS killing the background service to save power. Exclude Comma from battery optimization (see above) and keep the phone on its charger during shifts.
-- Avoid "clear all" / swiping the app away from recents while a shift is running.
-
-### GPS doesn't work in the web app
-
-That's expected. Browsers suspend location access for backgrounded tabs, so the web app can't run continuous tracking. **Log mileage manually** when you save a shift in the web app, or use the phone app for automatic tracking.
+If you can, make a [Google Drive backup](../backup-and-sync/google-drive-backup.md) before you change settings — almost every fix here is safe, but a backup means nothing you try can cost you data.
 
 ---
 
-## Installation & updates
+## GPS and mileage (phone app)
 
-### The web app won't install / no "Install" option *(web app)*
+### My shift ran but recorded no distance
 
-- The install prompt only appears on supported browsers (Chrome, Edge, Android Chrome; Safari via **Share → Add to Home Screen**). Some in-app browsers (inside Facebook, Instagram, etc.) don't support installing — open the site in your real browser instead.
+Background GPS depends on a short ladder of permissions. Work down it in order:
+
+1. **Location permission.** Comma needs "Allow all the time" to track when the screen is off. If it is set to "While using the app", tracking stops the moment you leave Comma. Fix it in your device settings, under Apps, then Comma, then Location.
+2. **Location is on at the system level.** If the device's location or GPS toggle is off, the shift records nothing with no other symptom. Turn it on.
+3. **Battery optimization exemption.** Aggressive OEM battery savers (Samsung, Xiaomi, and others) will kill the foreground service when you swipe the app away. Set Comma to "Unrestricted" or exclude it from optimization. Comma requests this exemption when you start a shift, but some devices need it set by hand.
+4. **Notifications.** On Android 13 and later, the "recording mileage" notification only shows if notification permission is granted. Without the notification the service can be culled sooner. Allow notifications for Comma.
+5. **Confirm you started a shift.** Tracking only runs during an active shift, not merely when the app is open.
+
+### The distance looks too high or too low
+
+- Comma filters GPS jitter: a single glitchy fix implying a speed over about 150 km/h is discarded, so a spike cannot inflate your distance. Small gaps in tunnels, garages, and dense downtown blocks are normal and usually wash out.
+- If a number is still clearly wrong, edit the shift and correct the distance by hand, or enter start and end odometer readings. An odometer reading reconciles the shift and overrides the GPS estimate.
+
+### The timer or tracking stopped mid-shift
+
+This is almost always the OS reclaiming the background service for power. Exclude Comma from battery optimization (see above), keep the phone on its charger, and avoid using "clear all" in recents while a shift is running.
+
+---
+
+## GPS and mileage (web app)
+
+### Tracking stopped when I switched tabs or locked the screen
+
+Expected. The web app tracks only while its tab is open and in the foreground; a browser suspends a backgrounded tab, and there is no background service it can fall back on. Keep the Comma tab open and in front while you drive, or use the phone app, which does track in the background.
+
+---
+
+## Installation and updates
+
+### The web app is showing an old version (web app)
+
+The PWA caches itself so it can work offline, so an update can take one reload to apply. Close every Comma tab and window and reopen, or pull to refresh. As a last resort, clear the site's cache in your browser settings — this does not delete your data, but back up first to be safe.
+
+### The web app won't install, or there's no Install option (web app)
+
+- Installing is supported in Chrome and Edge (desktop and Android) and, on iOS, via Share, then Add to Home Screen. In-app browsers inside apps like Facebook or Instagram cannot install — open the site in your real browser.
 - You may need to interact with the app once before the browser offers to install it.
-- You can also trigger it from **Settings → About → Install COMMA**.
 
-### The web app is showing an old version *(web app)*
+### Android says "install unknown apps" or "app not installed" (phone app)
 
-The PWA caches itself to work offline, so an update may take one reload to apply. Close all Comma tabs/windows and reopen, or pull-to-refresh. As a last resort, clear the site's cache in your browser settings (this does **not** delete your data, but back up first to be safe).
-
-### Android says "app not installed" for the APK *(phone app)*
-
-- Enable **install from unknown sources** for your browser/file manager (Android settings → Apps → special access).
-- If a different signed build is already installed, uninstall it first, then install the new APK.
-- Make sure you downloaded the APK from the official [GitHub Releases page](https://github.com/raiz-toff/CommaApp/releases/latest).
+- The APK is sideloaded, so Android asks you to allow "Install unknown apps" for the browser or file manager you downloaded it with. Grant it under Settings, then Apps, then special access, then Install unknown apps.
+- If a build with a different signature is already installed, uninstall it first, then install the new APK.
+- Download the APK only from the official [GitHub Releases page](https://github.com/raiz-toff/Comma/releases/latest).
 
 ---
 
-## Data, backup & restore
+## Cloud sync
 
-### I can't connect Google Drive
+### A second device says there's nothing to pull
 
-- Make sure you complete the full Google sign-in and **grant the Drive permission** Comma requests — if you decline it, backup can't work.
-- If sign-in fails on the web app, disable pop-up blockers for the site and retry.
-- Try again on a stable connection; the OAuth handshake needs network.
+The second device has nothing to pull because the first one hasn't pushed yet. On the first device, open Settings, then Cloud Sync, and press **Sync now** to push. Then retry the sync on the second device.
 
-### My backup won't restore / "wrong passphrase"
+### Sync is asking for a password I never set
 
-- The passphrase is **case-sensitive** and must match exactly what you set when the backup was created. There is no reset — if it's truly forgotten, that encrypted data can't be recovered. See [Encryption](../backup-and-sync/encryption.md).
-- Make sure you're signed into the **same Google account** that holds the backup.
+Your other device has **end-to-end encryption** switched on, and its files can only be read with that password. Enter the password you set on that device, or turn end-to-end encryption off there so the files upload in plain form again.
 
-### Restoring wiped data I wanted to keep
+### I forgot my end-to-end encryption password
 
-A backup **restore replaces** the target device's data — it's a snapshot, not a merge. Always restore onto a fresh install or a device you're happy to overwrite. (Non-destructive merging is what [Cloud Sync](../backup-and-sync/cloud-sync.md) will provide once it ships.)
+The cloud copy encrypted with that password is **unrecoverable** — there is no reset, by design. Your original device is unaffected: the data on it was never encrypted locally. On that device, turn end-to-end encryption off, which re-uploads your data in the default (no-password) form, and sync becomes readable again on your other devices. See [Encryption](../backup-and-sync/encryption.md).
 
-### Data on my web app and phone app don't match
+### A number changed after syncing two devices
 
-They're separate local vaults and don't sync automatically yet. Move data deliberately with a backup/restore (or export/import). Continuous [Cloud Sync](../backup-and-sync/cloud-sync.md) is in development.
+Sync merges whole rows by last write wins, so the newer edit of a row wins. For financial data — earnings, expenses, tax history — the version that was overwritten is written to a local recovery log first, so it is never lost without a trace. See [Cloud Sync](../backup-and-sync/cloud-sync.md).
 
 ---
 
-## Taxes & numbers
+## Taxes and numbers
 
-### Tax estimate seems off
+### The tax estimate looks off
 
-- Confirm your **country** is set correctly (Settings) — it drives every rate.
-- Confirm you're using the intended method (**standard mileage rate** vs **actual expenses**) in **Tax Center → Vehicle Tax Profile**.
-- Remember estimates are running approximations to bring to your accountant, not a filed return. See [Tax Center](../features/tax-center.md).
-
-### A platform I use isn't in the list
-
-Add it as a custom platform: **Settings → Platforms → + Add Custom Platform**. It works exactly like a built-in one. See [Supported Platforms](../features/platforms.md).
+- Confirm your **province** is set correctly in Settings — it drives the rates.
+- Confirm you are using the intended method, standard mileage rate or actual expenses, in the vehicle's tax profile.
+- Remember the figure is a running estimate to bring to an accountant, not a filed return. See [Tax Center](../features/tax-center.md).
 
 ---
 
-## App behaves oddly / crashes
+## The app behaves oddly or crashes
 
-1. **Restart the app** (fully close and reopen).
-2. **Update to the latest version** — the version number is on **Settings → About** (phone) or the About tab (web).
-3. On the phone app, **Settings → About → Export Diagnostics** produces a system log you can share when reporting a bug.
-4. If a screen fails to load, back out and re-enter it; the app isolates screen errors so the rest keeps working.
+1. Fully close and reopen the app.
+2. Update to the latest version — the version number is under Settings, then About (phone), or the About view (web).
+3. On the phone, Settings, then About, then Export Diagnostics produces a log you can attach to a bug report.
+4. If one screen fails to load, back out and re-enter it; the app isolates screen errors so the rest keeps working.
 
 ---
 
 ## Still stuck?
 
 - Read the relevant [feature guide](../features/shift-tracking.md) — many "bugs" are a setting.
-- Open an issue on [GitHub](https://github.com/raiz-toff/CommaApp).
-- Reach the maintainer via the links in **Settings → About**.
+- Open an issue on [GitHub](https://github.com/raiz-toff/Comma).

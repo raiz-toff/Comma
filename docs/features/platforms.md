@@ -1,125 +1,63 @@
-# Supported Platforms
+# Platforms
 
-Comma ships with a registry of major gig platforms. Each platform has a name, color scheme, country availability, and default rate settings.
-
----
-
-## Managing platforms
-
-Go to **Settings → Platforms** to see all available platforms. Toggle each one on or off. Only active platforms appear in:
-- The shift creation wizard
-- The platform filter
-- Analytics breakdowns
+A platform is a delivery app you work. Comma tracks each one separately so you can see which apps actually pay, and adapts its wording to match the app you're driving for.
 
 ---
 
 ## Built-in platforms
 
-### United States 🇺🇸
+In Canada, Comma ships with these built in, plus a catch-all **Other**:
 
-| Platform | Type |
-|---|---|
-| DoorDash | Food delivery |
-| Uber Eats | Food delivery |
-| Instacart | Grocery delivery |
-| Amazon Flex | Package delivery |
-| Gopuff | Convenience delivery |
-| Shipt | Grocery delivery |
-| Walmart Spark | Grocery delivery |
-| Roadie | Package/large item delivery |
-| Postmates | Food/goods delivery |
-| Uber | Rideshare |
-| Lyft | Rideshare |
-| Via | Rideshare |
-| TaskRabbit | Gig tasks |
-| HopSkipDrive | Rideshare (school routes) |
-
-### Canada 🇨🇦
-
-| Platform | Type |
-|---|---|
-| DoorDash | Food delivery |
-| Uber Eats | Food delivery |
-| SkipTheDishes | Food delivery |
-| Instacart | Grocery delivery |
-| Cornershop | Grocery delivery |
-| Amazon Flex | Package delivery |
-| Uber | Rideshare |
-| Lyft | Rideshare |
-| InDriver | Rideshare |
-
-### United Kingdom 🇬🇧
-
-| Platform | Type |
-|---|---|
-| Deliveroo | Food delivery |
-| Uber Eats | Food delivery |
-| Just Eat | Food delivery |
-| Amazon Flex | Package delivery |
-| Stuart | Courier |
-| Uber | Rideshare |
-| Bolt | Rideshare |
-
-### Nepal 🇳🇵
-
-| Platform | Type |
-|---|---|
-| Bhoj Delivery | Food delivery |
-| Foodmandu | Food delivery |
-| PathaoFood | Food delivery |
-| InDrive | Rideshare |
-| Pathao | Rideshare |
-| Tootle | Rideshare |
+| Platform |
+|---|
+| DoorDash |
+| Uber Eats |
+| SkipTheDishes |
+| Foodora |
+| Instacart |
+| Amazon Flex |
+| Other |
 
 ---
 
-## Adding a custom platform
+## Custom platforms
 
-If you work on a platform not in the list:
-
-1. Go to **Settings → Platforms → + Add Custom Platform**.
-2. Enter a name, choose a color, and set your target hourly rate.
-3. Activate it.
-
-Custom platforms work exactly like built-in ones. They appear in all filters, shift creation, and analytics.
+Work somewhere that isn't listed? Create a custom platform with a name, a colour, and an emoji or logo. It behaves exactly like a built-in one across shifts, filters, and analytics.
 
 ---
 
-## Per-platform settings
+## Managing platforms
 
-For each active platform you can configure:
+Open **Settings → Platforms** to manage them:
 
-| Setting | Description |
+| Action | Detail |
 |---|---|
-| **Target hourly rate** | Your personal goal — used in hourly-rate widgets |
-| **Mileage rate** | Per-mile rate for this platform (overrides default if set) |
-| **Display color** | Used in charts and badges |
-| **Sort priority** | Order in the platform picker |
+| Activate / deactivate | Only active platforms appear in the switcher and the shift wizard. |
+| Default hourly target | Your personal per-hour goal for that platform. |
+| Default per-km mileage rate | The rate applied when this platform drives a shift. |
+| Sort priority | The order platforms appear in the picker. |
+| Name, colour, logo | Editable on custom platforms. |
 
-Edit these in **Settings → Platforms → [Platform Name]**.
+---
+
+## The platform switcher
+
+The switcher in the header filters the whole app to a single platform or to **All**. Set it to one app and the dashboard, analytics, shifts, and expenses all narrow to that platform — so you can judge DoorDash on its own numbers rather than a blended average.
+
+---
+
+## Setup and the activation checklist
+
+Setup captures exactly **one** platform, to keep the first run short. Add the rest later from the activation checklist item **"Add your other apps"**. Comparing platforms only works once more than one is active, so this is worth doing early.
+
+---
+
+## Adaptive wording
+
+Comma follows each platform's own language rather than imposing its own. Amazon Flex drivers say **"block"**, not "shift", so that's the word Comma uses when you're working Flex. The vocabulary bends to the app you're on.
 
 ---
 
 ## Multi-platform shifts
 
-You can work multiple platforms simultaneously during a single shift. Each platform's sub-record independently tracks:
-
-- **Online seconds** — how long you were active on that app
-- **Gross revenue** — earnings attributed to that platform
-- **Tips** — tips from that platform
-- **Trips count** — number of deliveries
-
-The parent shift's total mileage covers all platforms combined — Comma doesn't split miles per platform since GPS can't know which app you were "on" for any given mile.
-
----
-
-## Platform analytics
-
-The **Platform Report** (in the Reports panel) and the **platform breakdown widgets** on the Dashboard show:
-
-- Earnings per platform for any date range
-- Effective hourly rate per platform
-- Shifts per platform
-- Platform share (% of total earnings from each)
-
-This helps you identify which platforms are most profitable for your market and schedule.
+A single shift can span **multiple platforms** at once. Each one keeps its own online time, earnings, and trips as a sub-record, so a night spent double-apping is recorded honestly and you can see which app carried the shift.

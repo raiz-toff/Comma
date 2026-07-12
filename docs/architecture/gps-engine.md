@@ -1,155 +1,125 @@
 # GPS Engine
 
-Comma's GPS tracking is handled by a combination of a **native module** (Kotlin/Swift) and a **JavaScript tracking hook**. The split exists because mobile OSes aggressively kill background JS processes — reliable GPS during a shift requires a native foreground service.
+Comma reconstructs a shift's route from GPS: on the phone through a native Kotlin foreground service driven by a JavaScript hook, and on the web through a foreground, tab-open geolocation tracker.
+
+The split on the phone exists because mobile OSes aggressively suspend background JavaScript. Reliable tracking when the screen is off needs a native foreground service; JavaScript only orchestrates and post-processes.
 
 ---
 
-## Architecture
+## Phone architecture
 
 ```
 ┌──────────────────────────────────────────────────────┐
 │ JavaScript (React Native)                             │
-│                                                       │
-│  useGPSTracking hook                                  │
-│    ├─ starts/stops native module                      │
-│    ├─ polls tempNativePoints (SQLite) every N seconds │
-│    ├─ applies jitter filter                           │
-│    ├─ writes clean points to locationPoints           │
-│    └─ updates mileage in useActiveShift store         │
+│   hooks/useGPSTracking.ts                             │
+│     ├─ walks the permission ladder                    │
+│     ├─ starts / stops the native service              │
+│     ├─ polls active distance every 10s                │
+│     └─ feeds live distance into useActiveShift        │
+│   store/useActiveShift.ts (on end)                    │
+│     ├─ reads tempNativePoints                          │
+│     ├─ filters jitter, splits active / dead           │
+│     └─ simplifies the route, writes the shift         │
 └──────────────────────────┬───────────────────────────┘
-                           │ Native Bridge (Expo Modules API)
+                           │ Expo Modules bridge
 ┌──────────────────────────▼───────────────────────────┐
-│ Native Module: comma-tracker                          │
-│                                                       │
-│  Android (Kotlin)                                     │
-│    └─ Foreground Service                              │
-│         ├─ LocationManager / FusedLocationClient      │
-│         ├─ Persists GPS points to tempNativePoints    │
-│         └─ Shows persistent notification              │
-│                                                       │
-│  iOS (Swift)                                          │
-│    └─ Background Location Task                        │
-│         ├─ CLLocationManager                          │
-│         └─ Persists GPS points to tempNativePoints    │
+│ Native module: comma-tracker (Kotlin)                 │
+│   Foreground service                                  │
+│     ├─ FusedLocationProviderClient                    │
+│     ├─ writes raw points to tempNativePoints          │
+│     ├─ ticks its own shift clock (survives JS freeze) │
+│     └─ shows the ongoing notification + live overlay  │
 └──────────────────────────────────────────────────────┘
 ```
 
+**Module:** [`modules/comma-tracker/`](../../modules/comma-tracker/)
+**Hook:** [`hooks/useGPSTracking.ts`](../../hooks/useGPSTracking.ts)
+
 ---
 
-## Native module: `comma-tracker`
+## The native service
 
-**Location:** [`modules/comma-tracker/`](../../modules/comma-tracker/)
+A foreground service runs while a shift is active. Android does not kill foreground services — they carry an ongoing notification — so tracking continues with the screen off. It uses `FusedLocationProviderClient` for best-available location, sampling on the order of every 10 seconds or 20 meters, and is movement-gated: when activity recognition reports the driver as still, the service can idle the GPS radio to save power.
 
-Built with the **Expo Modules API** — a modern TypeScript-first way to write Expo native modules. It exposes a simple interface to JavaScript:
+The native code is deliberately thin. It writes raw coordinates straight into the `tempNativePoints` table and does nothing clever; all classification and simplification happen later, in JavaScript, at shift end. The service also ticks its own copy of the shift clock, so the live time keeps moving even when the JavaScript thread is frozen in the background.
+
+Bridge surface used by the hook:
 
 ```ts
-CommaTracker.startTracking()   // start the foreground service / background task
-CommaTracker.stopTracking()    // stop and clean up
-CommaTracker.isTracking()      // check if running
+CommaTracker.startTracking()
+CommaTracker.stopTracking()
+CommaTracker.getActiveDistanceMeters()
+CommaTracker.setDistanceUnit(unit)
+CommaTracker.setShiftTiming(startTime, pausedSeconds, isPaused, elapsedSeconds)
+CommaTracker.hasOverlayPermission() / requestOverlayPermission()
+CommaTracker.requestBatteryOptimizationExemption()
 ```
 
-Internally, the module writes GPS coordinates directly to the `tempNativePoints` SQLite table. This is intentionally simple — the native code is as thin as possible, doing only what JS cannot reliably do in the background.
+### Live overlay
 
-### Android implementation
-
-A **Foreground Service** runs continuously while tracking is active. The Android OS is not allowed to kill foreground services (they show a persistent notification). The service uses `FusedLocationProviderClient` (Google Play Services) for best-available location, requesting updates every few seconds.
-
-Required permissions (declared in `app.json`):
-- `ACCESS_FINE_LOCATION` — precise GPS
-- `ACCESS_BACKGROUND_LOCATION` — background GPS (Android 10+)
-- `FOREGROUND_SERVICE` — run as foreground service
-- `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` — request exemption from battery saver
-
-### iOS implementation
-
-A background location task using `CLLocationManager` with `allowsBackgroundLocationUpdates = true`. iOS's "background location" capability must be enabled in the app's entitlements (`UIBackgroundModes: location`).
+When the "display over other apps" permission is granted, the service floats a compact live time-and-distance overlay over other apps such as Maps and the delivery app, so the driver can glance at the shift without switching back to Comma.
 
 ---
 
-## JavaScript: `useGPSTracking`
+## The permission ladder
 
-**Location:** [`hooks/useGPSTracking.ts`](../../hooks/useGPSTracking.ts)
+`useGPSTracking.startTracking()` requests permissions in order, and is careful never to hard-gate tracking on anything but the first rung:
 
-This hook manages the tracking lifecycle from the JavaScript side:
+1. **Foreground location** (`ACCESS_FINE_LOCATION`) — the only hard requirement. If permanently denied, Comma deep-links to system settings instead of silently doing nothing.
+2. **Location services on.** Even with permission, if the system GPS toggle is off the shift would record nothing, so Comma checks and prompts.
+3. **Display-over-other-apps** — offered before the background prompts (which would background the app and hide it), for the live overlay.
+4. **Background location** (`ACCESS_BACKGROUND_LOCATION`, "Allow all the time") — requested with a plain-language disclosure first, but **not required**: a foreground service with its notification can collect location on a while-in-use grant. On Android 11+ this can only be granted from Settings, so hard-gating on it would break tracking for most users.
+5. **Notifications** (`POST_NOTIFICATIONS`, Android 13+) — so the ongoing service notification is actually visible.
+6. **Activity recognition** (`ACTIVITY_RECOGNITION`, Android 10+) — powers the movement-gated GPS. If denied, the service falls back to GPS-on for the whole shift.
+7. **Battery-optimization exemption** — requested so OEM battery killers (Samsung, Xiaomi, and others) cannot terminate the service when the app is swiped from recents.
 
-1. **Start tracking:** calls `CommaTracker.startTracking()` via the native bridge.
-2. **Poll loop:** every few seconds, runs a query to fetch new rows from `tempNativePoints`.
-3. **Jitter filter:** applies two filters:
-   - **Speed filter:** if the implied speed between consecutive points exceeds 150 km/h, discard the newer point as a GPS spike.
-   - **Accuracy filter:** points with accuracy > threshold (configurable) are marked `isFiltered = true`.
-4. **Write to `locationPoints`:** clean points are inserted with the current `sessionId` and `shiftId`.
-5. **Update mileage:** calls `useActiveShift.updateMileage(activeMiles, deadMiles)` with the new totals. The active vs. dead classification is based on the current `isFirstOrderReceived` state.
-6. **Stop tracking:** on shift end, calls `CommaTracker.stopTracking()` and runs a final mileage calculation.
-
----
-
-## Distance calculation
-
-Comma uses the **Haversine formula** to compute the great-circle distance between consecutive GPS points:
-
-```ts
-function haversineDistance(lat1, lon1, lat2, lon2): number {
-  const R = 6371e3 // Earth's radius in meters
-  const φ1 = lat1 * Math.PI / 180
-  const φ2 = lat2 * Math.PI / 180
-  const Δφ = (lat2 - lat1) * Math.PI / 180
-  const Δλ = (lon2 - lon1) * Math.PI / 180
-
-  const a = Math.sin(Δφ/2)² + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2)²
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
-  return R * c  // meters
-}
-```
-
-The sum of all segment distances (filtered points only) gives the total route distance.
+The tracking effect intentionally has no cleanup that stops the service on unmount: the foreground service must survive JavaScript remounts (fast refresh, navigation resets) while a shift is active. Tracking is stopped explicitly only when the shift ends or `isActive` flips to false.
 
 ---
 
-## Route storage
+## Processing at shift end
 
-The GPS route is stored in two ways:
+`useActiveShift.endShift()` reads the raw points from `tempNativePoints` in timestamp order and, for each consecutive pair:
 
-1. **`locationPoints` table** — individual filtered points with full metadata (lat, lon, altitude, accuracy, speed, timestamp). Used for detailed route replay and distance recalculation.
+1. **Distance** via the Haversine great-circle formula, in meters.
+2. **Jitter filter.** If the implied speed exceeds roughly 150 km/h, the segment is discarded as a GPS spike (`isGPSJitter`), so one bad fix cannot inflate distance.
+3. **Active / dead split.** Each surviving segment is classified by `classifyMiles(speedKmh)` and added to either active or dead distance. The `isFirstOrderReceived` flag marks the live transition from dead-distance mode to active during the shift.
+4. **Unit conversion.** Meters are converted once per shift using 1609.344 (miles) or 1000 (km), from the driver's `distanceUnit`.
 
-2. **`shifts.routePath`** — an encoded **polyline** (Google's Encoded Polyline Algorithm) of the route, stored directly on the shift record. This compact representation is used for the route minimap in the shift list and the SVG route visualization on the shift detail screen.
+The totals are rounded and written to the shift's `activeMileage` and `deadMileage`.
 
-The polyline is generated from the filtered location points using `simplify-js` (Douglas-Peucker algorithm) to reduce point count before encoding — a 2-hour shift might generate 1,000+ raw GPS points but the simplified polyline might have 50–200, sufficient for visualization.
+### Route simplification and storage
+
+The route is simplified with `simplify-js` (Ramer–Douglas–Peucker) at a tolerance of about 10 meters, carrying each point's timestamp through the simplification, and stored on `shifts.routePath` as a JSON array of `{ latitude, longitude, timestamp }`. A two-hour shift's thousand-plus raw points collapse to a few dozen — enough for the route minimap and the detail-screen route view. The individual filtered points also live in the device-local `locationPoints` table for replay and recalculation.
 
 ---
 
 ## Wake lock
 
-**Location:** [`hooks/useWakeLock.ts`](../../hooks/useWakeLock.ts)
-
-While a shift is active, Comma acquires a **wake lock** — a request to the OS to keep the CPU running and prevent deep sleep. Without a wake lock, the device may enter a low-power state that pauses the JS timer (causing the displayed elapsed time to drift) or slows GPS polling.
-
-On Android: `PowerManager.WakeLock` via `expo-keep-awake`.  
-On iOS: `UIApplication.shared.isIdleTimerDisabled = true`.
-
-The wake lock is acquired on shift start and released on shift end. It does not prevent the screen from turning off — only prevents the CPU from sleeping.
+While a shift is active Comma holds a wake lock (`hooks/useWakeLock.ts`) so the CPU does not enter a deep-sleep state that would pause the JavaScript timer or slow polling. It is acquired on shift start and released on shift end, and does not keep the screen on.
 
 ---
 
-## Battery considerations
+## Battery
 
-GPS tracking + wake lock is the single biggest contributor to battery drain while Comma is running. Practical guidance:
+GPS plus the wake lock are the biggest draw while a shift runs. Practical guidance:
 
-- Use a car charger or power bank while tracking.
-- Android: battery optimization exemption prevents the OS from throttling GPS when the screen is off. Comma requests this permission during onboarding.
-- iOS: background location requires the "Location" background mode — iOS is generally better at keeping location services alive than background JS tasks.
-- If battery is a concern and you don't need GPS, switch to **manual mileage mode** in Settings — no GPS is used, you enter odometer readings manually.
+- Keep the phone on a car charger or power bank during shifts.
+- Grant the battery-optimization exemption so the OS does not throttle GPS with the screen off.
+- Movement-gated sampling and the ~10s/20m cadence keep the radio off when the driver is stationary.
+- A driver who does not want GPS can enter odometer readings instead; a shift with odometer start and end reconciles without any GPS.
 
 ---
 
-## Permissions
+## The web counterpart
 
-Comma requests location permissions at shift start:
+The web app has its own tracker, [`web/src/core/gps-tracker.js`](../../web/src/core/gps-tracker.js), and it is **foreground and tab-open only** — there is no background service a browser can offer. It uses `navigator.geolocation.watchPosition` with high accuracy and, on each update:
 
-| Permission | Platform | Required for |
-|---|---|---|
-| `ACCESS_FINE_LOCATION` | Android | Precise GPS |
-| `ACCESS_BACKGROUND_LOCATION` | Android 10+ | GPS while screen is off |
-| `NSLocationWhenInUseUsageDescription` | iOS | GPS during active use |
-| `NSLocationAlwaysAndWhenInUseUsageDescription` | iOS | GPS in background |
+- ignores updates while the shift timer is paused or stopped;
+- discards fixes with accuracy worse than 25 meters;
+- applies the same guardrails as the phone — a minimum movement of about 10 meters and a maximum speed of 150 km/h;
+- classifies distance as dead before the first order is marked and active afterward (`markFirstOrderReceived`).
 
-If permissions are denied, Comma falls back to manual mileage mode for the shift and prompts the user to grant permissions in device Settings.
+Accumulated distance, the active/dead splits, and the route points are persisted to `localStorage` (route points capped at 2000) so the tracker survives a reload mid-shift. The recorded route uses the same `{ latitude, longitude, timestamp }` point shape the phone app's route parser accepts, so a shift moved between the apps renders the same way. `stop()` returns the final `{ total, dead, active, routePoints }`.
+
+The practical rule stands: track on the phone while driving; use the web tracker while the app stays open in front, or enter distance manually.

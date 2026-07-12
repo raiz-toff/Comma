@@ -1,125 +1,86 @@
 # Tax Center
 
-The Tax Center gives gig workers a running estimate of their self-employment tax liability — the numbers you'd need to file Schedule C (US), T2125 (Canada), or SA103 (UK).
-
-> Comma provides estimates, not tax advice. Always verify your final numbers with a qualified tax professional before filing.
+Comma estimates what you'll owe so nothing is a surprise at filing time. These are estimates to bring to an accountant, **not tax advice and not a filing service** — always verify with a professional before you file.
 
 ---
 
-## Accessing Tax Center
+## What it estimates
 
-The Tax Center is available in the main navigation drawer and as a tab (if the `tax_workspace` feature flag is enabled for your region). It is available in: 🇺🇸 US · 🇨🇦 Canada · 🇬🇧 UK · 🇳🇵 Nepal.
+Comma builds your estimate from your own records, using CRA rules. The starting point is taxable income:
+
+```
+  taxable income = gross + tips + bonus
+                 − deductible expenses (each weighted by its business-use %)
+                 − mileage deduction
+```
+
+From that taxable income, Comma estimates the pieces below.
 
 ---
 
-## What the Tax Center shows
+## CPP and QPP
 
-### 1. Income summary
+Canada Pension Plan contributions on your self-employment income, including the **CPP2** upper tier for earnings above the first ceiling. If your province is **Quebec**, Comma uses the Quebec Pension Plan (QPP) instead.
 
-| Line | Calculation |
+---
+
+## Income tax
+
+Estimated as your taxable income multiplied by the **set-aside / withholding rate** you set. This is a planning figure, not a bracket-by-bracket return — it tells you roughly how much to hold back from each dollar.
+
+---
+
+## HST / GST
+
+Remittable sales tax is estimated **only if you mark yourself HST-registered**. When you do, Comma estimates what you owe as tax collected minus your input tax credits. In Ontario the rate is 13%. If you're not registered, this section stays out of your way.
+
+---
+
+## The mileage write-off is a deduction, never cash
+
+The mileage write-off **reduces your taxable income** and appears as a deduction line. It is never presented as money earned. Driving 100 km at the CRA rate lowers the income you're taxed on — it does not add to your take-home. This distinction is load-bearing throughout Comma; see [Standard mileage vs actual](../getting-started/core-concepts.md#standard-mileage-vs-actual-expenses).
+
+---
+
+## The Tax Jar
+
+The Tax Jar is a manual set-aside balance you keep per year. Its **target** is your gross earnings times your rate — the amount you should have parked for taxes. A **quick-add** button lets you record money as you move it aside, and the jar shows how close you are to the target. Nothing moves real money; it's a tracker for the habit of setting tax aside.
+
+---
+
+## Deadlines
+
+Comma tracks the Canadian dates and reminds you roughly ten days ahead of each:
+
+| Deadline | Date |
 |---|---|
-| Gross earnings | Sum of all shift gross revenue for the period |
-| Tips | Sum of all tips |
-| Total income | Gross + tips |
-| Deductible expenses | Sum of all expenses × their deductible % |
-| **Net profit** | Total income − deductible expenses |
-
-### 2. Mileage deduction
-
-Depending on your vehicle tax profile, you'll see either:
-
-**Standard mileage:** `total business miles × current rate = deduction`
-
-**Actual expenses:** The sum of vehicle-specific expenses (fuel, insurance, maintenance) × your business-use percentage.
-
-The mileage deduction is subtracted from net profit to arrive at **adjusted net profit**.
-
-### 3. Self-employment tax estimate
-
-Self-employment tax in the US is 15.3% on the first $168,600 of net self-employment income (2024 threshold), plus Medicare tax above that. Comma calculates:
-
-```
-SE income = net profit × 0.9235        (×92.35% per IRS: you deduct half of SE tax)
-SE tax    = SE income × 0.153          (up to the SS wage base)
-```
-
-For Canada, Comma calculates the CPP contribution rate applied to net self-employment income, plus federal/provincial marginal income tax.
-
-### 4. Quarterly estimates (US)
-
-If you're expected to owe more than $1,000 in taxes, you're required to make quarterly estimated tax payments to the IRS. The Tax Center shows:
-
-- Your estimated annual tax liability
-- Suggested quarterly payment (÷4)
-- Due dates for Q1–Q4
-
-### 5. 1099-K threshold tracker (US)
-
-Starting 2024, payment processors report earnings above $5,000 to the IRS on Form 1099-K. Comma tracks your year-to-date platform earnings and alerts you when you approach this threshold.
+| Quarterly instalment | March 15 |
+| Quarterly instalment | June 15 |
+| Quarterly instalment | September 15 |
+| Quarterly instalment | December 15 |
+| Self-employed filing | June 15 the following year |
 
 ---
 
-## Vehicle Tax Profile
+## Threshold alerts
 
-Each vehicle needs a tax profile set for the current year. To configure:
-
-1. Go to **Tax Center → Vehicle Tax Profiles** (or **Vehicles → [Your Vehicle] → Tax Profile**).
-2. Set:
-   - **Tax year** — defaults to current year
-   - **Country** — inherited from your profile
-   - **Deduction method** — Standard Mileage Rate or Actual Expenses
-   - **Standard rate** — pre-filled with the current IRS/CRA/HMRC rate
-   - **Beginning/ending odometer** — for calculating total annual miles driven
-
-### Deduction method comparison
-
-| Method | Best for | Required records |
-|---|---|---|
-| Standard mileage | Most gig workers with older vehicles | Just mileage logs |
-| Actual expenses | High-cost vehicles (new car, high insurance) | All vehicle receipts |
-
-You cannot switch methods mid-year for the same vehicle. If you start the year on standard mileage, you're locked in for that vehicle for that tax year.
+When a platform that issues a **T4A** passes **CAD 500** in earnings for the year, Comma flags it — that's the point the slip becomes relevant to your return.
 
 ---
 
-## Tax rates by country
+## Export
 
-### United States 🇺🇸
-- Standard mileage rate: IRS-published annually (e.g. $0.67/mile for 2024)
-- SE tax rate: 15.3% (12.4% Social Security + 2.9% Medicare)
-- Additional Medicare tax: 0.9% on income above $200,000
-- Quarterly deadlines: April 15, June 15, September 15, January 15
-
-### Canada 🇨🇦
-- CRA mileage rate: varies by province (e.g. $0.70/km for first 5,000 km, $0.64 thereafter)
-- CPP self-employment rate: 11.9% on net earnings above the basic exemption ($3,500)
-- Provincial income tax applied separately based on province
-
-### United Kingdom 🇬🇧
-- HMRC mileage rate: £0.45/mile (first 10,000 miles), £0.25/mile after
-- National Insurance Class 2 & 4: Class 2 flat rate + Class 4 on profits above threshold
-- Self Assessment filing deadline: January 31
-
-### Nepal 🇳🇵
-- Vehicle allowance rates per IRD guidelines
-- Income tax brackets as published by Inland Revenue Department
+Export a tax summary as **JSON** or **CSV** to hand to an accountant or keep for your records.
 
 ---
 
-## Tax history
+## A note on other countries
 
-Comma keeps a log of every time your tax region or rate was changed (in the `taxHistory` table). This audit trail is valuable if you moved provinces/states mid-year or if rates changed.
-
-View the history in **Tax Center → History**.
+Tax logic for the US and UK exists in the codebase but is **not enabled** in shipped builds. Comma ships for Canada only, and every number above uses CRA rules.
 
 ---
 
-## Exporting for your accountant
+## Related
 
-From Tax Center, tap **Export → PDF Summary** to generate a one-page summary of:
-
-- Income, expenses, mileage, and net profit for the year
-- Vehicle tax profile settings
-- Monthly breakdown
-
-You can also export raw shift and expense data as CSV from **Settings → Export**.
+- [Vehicles](./vehicles.md) — tax profiles and deduction methods per vehicle
+- [Core Concepts](../getting-started/core-concepts.md) — standard mileage vs actual expenses

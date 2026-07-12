@@ -1,304 +1,305 @@
 # Database
 
-Comma stores all data in a local SQLite database, accessed through Drizzle ORM.
+The phone app stores all data in a local SQLite database, defined with Drizzle ORM and reached only through query helpers.
 
-**Database file:** `comma.db` in the app sandbox.  
-**Schema location:** [`src/database/schema.ts`](../../src/database/schema.ts)  
-**Queries:** [`src/database/queries/`](../../src/database/queries/)  
-**Client init:** [`src/database/client.ts`](../../src/database/client.ts)
+**Schema:** [`src/database/schema.ts`](../../src/database/schema.ts) (the source of truth)
+**Queries:** [`src/database/queries/`](../../src/database/queries/)
+**Client and migrations:** [`src/database/client.ts`](../../src/database/client.ts)
+
+Every column below is taken from the schema. Eleven tables carry the two sync columns and participate in cloud sync; four (`settings`, `locationPoints`, `tempNativePoints`, `syncOverwriteLog`) are deliberately device-local.
 
 ---
 
-## Schema
+## `shifts`
 
-### `vehicles`
+One row per shift.
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | TEXT (PK) | UUID |
-| `name` | TEXT | Display name |
-| `type` | TEXT | `car` \| `bike` \| `scooter` \| `van` \| `other` |
-| `isActive` | BOOLEAN | Soft-delete for UI |
-| `createdAt` | TIMESTAMP | |
-| `make` | TEXT | Optional |
-| `model` | TEXT | Optional |
-| `year` | INTEGER | Optional |
-| `fuelType` | TEXT | `gas` \| `electric` \| `hybrid` \| `other` |
-| `licensePlate` | TEXT | Optional |
-| `currentOdometer` | INTEGER | Running total, in miles/km |
-| `syncUpdatedAt` | INTEGER | epoch ms — LWW sync clock |
-| `syncDeletedAt` | INTEGER | epoch ms — soft-delete tombstone |
+| `id` | text (PK) | |
+| `vehicleId` | text (FK → vehicles) | Nullable |
+| `platform` | text | Primary platform id (comma-joined for multi-platform shifts) |
+| `startTime` | timestamp | |
+| `endTime` | timestamp | |
+| `grossRevenue` | real | Base pay, default 0 |
+| `tipsRevenue` | real | Tips, default 0 |
+| `bonusAmount` | real | Bonuses and promotions, default 0 |
+| `trackedMileage` | real | Deprecated — superseded by `activeMileage`, kept for backward compatibility |
+| `deadMileage` | real | GPS distance while not on a delivery, default 0 |
+| `activeMileage` | real | GPS delivery distance, default 0 |
+| `durationSeconds` | integer | Total elapsed shift time, default 0 |
+| `pausedSeconds` | integer | Paused time; net active time = `durationSeconds` − `pausedSeconds` |
+| `notes` | text | Nullable |
+| `routePath` | text | Encoded route (JSON array of simplified lat/lng/timestamp points) |
+| `reconciliationStatus` | text | `tracking` \| `pending_reconciliation` \| `reconciled` (default `reconciled`) |
+| `startOdometer` | integer | Optional manual odometer reading |
+| `endOdometer` | integer | Optional manual odometer reading |
+| `distanceSource` | text | `gps_only` (default) \| `odometer` \| `manual` |
+| `syncUpdatedAt` | integer | Sync clock |
+| `syncDeletedAt` | integer | Tombstone |
 
 ---
 
-### `shifts`
+## `shiftPlatforms`
+
+Per-platform sub-record for a shift run across more than one platform. Cascades on shift delete.
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | TEXT (PK) | UUID |
-| `vehicleId` | TEXT (FK → vehicles) | |
-| `platform` | TEXT | Primary platform ID |
-| `startTime` | TIMESTAMP | |
-| `endTime` | TIMESTAMP | |
-| `grossRevenue` | REAL | Base pay (not including tips) |
-| `tipsRevenue` | REAL | Tips |
-| `activeMileage` | REAL | GPS-tracked delivery miles |
-| `deadMileage` | REAL | GPS-tracked commute/wait miles |
-| `trackedMileage` | REAL | Deprecated — kept for backward compat |
-| `durationSeconds` | INTEGER | Total elapsed seconds |
-| `pausedSeconds` | INTEGER | Paused seconds (net = duration - paused) |
-| `notes` | TEXT | Optional |
-| `routePath` | TEXT | Encoded polyline (GPS route) |
-| `reconciliationStatus` | TEXT | `tracking` \| `pending_reconciliation` \| `reconciled` |
-| `startOdometer` | INTEGER | Optional manual odometer |
-| `endOdometer` | INTEGER | Optional manual odometer |
-| `distanceSource` | TEXT | `gps_only` \| `odometer` \| `manual` |
-| `syncUpdatedAt` | INTEGER | |
-| `syncDeletedAt` | INTEGER | |
+| `id` | text (PK) | |
+| `shiftId` | text (FK → shifts, cascade) | |
+| `platform` | text | Platform id |
+| `platformOnlineSeconds` | integer | Online time on this platform, default 0 |
+| `platformActiveSeconds` | integer | On-delivery time on this platform, default 0 |
+| `grossRevenue` | real | Earnings from this platform, default 0 |
+| `tipsRevenue` | real | Tips from this platform, default 0 |
+| `tripsCount` | integer | Deliveries, default 0 |
+| `syncUpdatedAt` | integer | |
+| `syncDeletedAt` | integer | |
 
 ---
 
-### `shiftPlatforms`
-
-Per-platform sub-record for multi-platform shifts.
+## `expenses`
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | TEXT (PK) | |
-| `shiftId` | TEXT (FK → shifts, CASCADE) | |
-| `platform` | TEXT | Platform ID |
-| `platformOnlineSeconds` | INTEGER | Online time for this platform |
-| `grossRevenue` | REAL | Earnings from this platform |
-| `tipsRevenue` | REAL | Tips from this platform |
-| `tripsCount` | INTEGER | Number of deliveries |
-| `syncUpdatedAt` | INTEGER | |
-| `syncDeletedAt` | INTEGER | |
+| `id` | text (PK) | |
+| `shiftId` | text (FK → shifts) | Optional link to a shift |
+| `category` | text | Expense category key |
+| `amount` | real | Total cost |
+| `date` | timestamp | |
+| `isDeductible` | boolean | Default true |
+| `deductiblePct` | real | 0–100; deductible amount = `amount` × `deductiblePct` / 100 (default 100) |
+| `vehicleId` | text (FK → vehicles) | Optional |
+| `notes` | text | Nullable |
+| `receiptUri` | text | Local file URI for a receipt photo |
+| `isRecurring` | boolean | Default false |
+| `recurringInterval` | text | `weekly` \| `monthly` \| `yearly` |
+| `merchant` | text | Display name, default empty |
+| `merchantNormalized` | text | Normalized for grouping, default empty |
+| `syncUpdatedAt` | integer | |
+| `syncDeletedAt` | integer | |
 
 ---
 
-### `expenses`
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | TEXT (PK) | |
-| `shiftId` | TEXT (FK → shifts) | Optional — link to a specific shift |
-| `vehicleId` | TEXT (FK → vehicles) | Optional |
-| `category` | TEXT | Expense category key |
-| `amount` | REAL | Total cost |
-| `date` | TIMESTAMP | |
-| `isDeductible` | BOOLEAN | Whether any portion is deductible |
-| `deductiblePct` | REAL | 0–100; actual deduction = amount × pct/100 |
-| `notes` | TEXT | |
-| `receiptUri` | TEXT | Local file URI for receipt photo |
-| `isRecurring` | BOOLEAN | |
-| `recurringInterval` | TEXT | `weekly` \| `monthly` \| `yearly` |
-| `merchant` | TEXT | Display name |
-| `merchantNormalized` | TEXT | Normalized for grouping |
-| `syncUpdatedAt` | INTEGER | |
-| `syncDeletedAt` | INTEGER | |
-
----
-
-### `vehicles`
-
-*(See above.)*
-
----
-
-### `maintenanceLogs`
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | TEXT (PK) | |
-| `vehicleId` | TEXT (FK → vehicles) | |
-| `type` | TEXT | `oil_change` \| `tire` \| `brake` \| `fuel` \| `wash` \| `other` |
-| `cost` | REAL | |
-| `odometer` | REAL | Optional reading at time of service |
-| `date` | TIMESTAMP | |
-| `notes` | TEXT | |
-| `syncUpdatedAt` | INTEGER | |
-| `syncDeletedAt` | INTEGER | |
-
----
-
-### `goals`
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | TEXT (PK) | |
-| `label` | TEXT | |
-| `targetValue` | REAL | |
-| `unit` | TEXT | `currency` \| `hours` \| `shifts` \| `mileage` |
-| `period` | TEXT | `daily` \| `weekly` \| `monthly` \| `yearly` |
-| `isActive` | BOOLEAN | |
-| `createdAt` | TIMESTAMP | |
-| `syncUpdatedAt` | INTEGER | |
-| `syncDeletedAt` | INTEGER | |
-
----
-
-### `platforms`
-
-User's platform configuration (active/inactive, rates, display order).
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | TEXT (PK) | Platform key (e.g. `doordash`) |
-| `label` | TEXT | Display name |
-| `color` | TEXT | Hex color |
-| `textColor` | TEXT | Text color on badge |
-| `country` | TEXT | `CA` \| `US` \| `UK` \| `NP` |
-| `isActive` | BOOLEAN | User has activated this platform |
-| `hourlyRate` | TEXT | Target hourly rate |
-| `mileageRate` | TEXT | Per-mile/km rate |
-| `sortPriority` | INTEGER | Order in pickers |
-| `logoEmoji` | TEXT | Optional emoji logo |
-| `syncUpdatedAt` | INTEGER | |
-| `syncDeletedAt` | INTEGER | |
-
----
-
-### `merchants`
+## `merchants`
 
 Normalized merchant names for expense grouping.
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | TEXT (PK) | |
-| `name` | TEXT (UNIQUE) | Display name |
-| `normalizedName` | TEXT | Lowercased, stripped for matching |
-| `syncUpdatedAt` | INTEGER | |
-| `syncDeletedAt` | INTEGER | |
+| `id` | text (PK) | |
+| `name` | text (unique) | Display name |
+| `normalizedName` | text | Lowercased, stripped for matching |
+| `syncUpdatedAt` | integer | |
+| `syncDeletedAt` | integer | |
 
 ---
 
-### `taxHistory`
-
-Append-only log of tax region/rate changes.
+## `vehicles`
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | TEXT (PK) | |
-| `oldRegion` | TEXT | Previous province/state |
-| `oldRate` | REAL | Previous rate |
-| `newRegion` | TEXT | New province/state |
-| `newRate` | REAL | New rate |
-| `changedAt` | TIMESTAMP | |
-| `syncUpdatedAt` | INTEGER | |
-| `syncDeletedAt` | INTEGER | |
+| `id` | text (PK) | |
+| `name` | text | Display name |
+| `type` | text | Vehicle type key, e.g. `car`, `scooter`, `ebike` |
+| `isActive` | boolean | Default true |
+| `createdAt` | timestamp | |
+| `make` | text | Optional |
+| `model` | text | Optional |
+| `year` | integer | Optional |
+| `fuelType` | text | `gas` \| `electric` \| `hybrid` \| `other` |
+| `licensePlate` | text | Optional |
+| `currentOdometer` | integer | Running total, default 0 |
+| `syncUpdatedAt` | integer | |
+| `syncDeletedAt` | integer | |
 
 ---
 
-### `vehicleTaxProfiles`
+## `maintenanceLogs`
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | TEXT (PK) | |
-| `vehicleId` | TEXT (FK → vehicles, CASCADE) | |
-| `taxYear` | INTEGER | e.g. 2025 |
-| `country` | TEXT | `US` \| `CA` \| `UK` \| `NP` |
-| `deductionMethod` | TEXT | `standard_mileage` \| `actual_expenses` |
-| `standardRatePrimary` | REAL | IRS/CRA/HMRC rate (first tier) |
-| `standardRateSecondary` | REAL | Second-tier rate (UK: after 10k miles) |
-| `rateThreshold` | REAL | Miles at which rate steps down |
-| `beginningYearOdometer` | INTEGER | Odometer Jan 1 |
-| `endingYearOdometer` | INTEGER | Odometer Dec 31 |
-| `syncUpdatedAt` | INTEGER | |
-| `syncDeletedAt` | INTEGER | |
+| `id` | text (PK) | |
+| `vehicleId` | text (FK → vehicles) | |
+| `type` | text | `oil_change` \| `tire` \| `brake` \| `fuel` \| `wash` \| `other` |
+| `cost` | real | |
+| `odometer` | real | Optional reading at time of service |
+| `date` | timestamp | |
+| `notes` | text | |
+| `syncUpdatedAt` | integer | |
+| `syncDeletedAt` | integer | |
 
 ---
 
-### `settings`
+## `vehicleTaxProfiles`
 
-Key-value store for app configuration.
+Per-vehicle, per-year tax method. Cascades on vehicle delete.
 
 | Column | Type | Notes |
 |---|---|---|
-| `key` | TEXT (PK) | Settings key |
-| `value` | TEXT | JSON-serialized value |
-
-Key examples: `profile`, `active_shift_state`, `sync_device_id`, `sync_applied_logs`, `sync_last_pushed_at`, `sync_enabled`
+| `id` | text (PK) | |
+| `vehicleId` | text (FK → vehicles, cascade) | |
+| `taxYear` | integer | e.g. 2026 |
+| `country` | text | Country id |
+| `deductionMethod` | text | `standard_mileage` \| `actual_expenses` |
+| `standardRatePrimary` | real | First-tier per-distance rate |
+| `standardRateSecondary` | real | Second-tier rate (e.g. Canada above the km threshold) |
+| `rateThreshold` | real | Distance at which the rate steps down |
+| `beginningYearOdometer` | integer | Reading at the start of the year |
+| `endingYearOdometer` | integer | Reading at the end of the year |
+| `syncUpdatedAt` | integer | |
+| `syncDeletedAt` | integer | |
 
 ---
 
-### `locationPoints`
-
-GPS points recorded during GPS-tracked shifts.
+## `goals`
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | TEXT (PK) | |
-| `sessionId` | TEXT | Shift session identifier |
-| `shiftId` | TEXT (FK → shifts) | |
-| `latitude` | REAL | |
-| `longitude` | REAL | |
-| `altitude` | REAL | |
-| `accuracy` | REAL | GPS horizontal accuracy (meters) |
-| `speed` | REAL | m/s at time of point |
-| `timestamp` | TIMESTAMP | |
-| `source` | TEXT | `gps` (default) |
-| `isFiltered` | BOOLEAN | true = discarded by jitter filter |
-
-Not synced to cloud. Device-local ephemeral data.
+| `id` | text (PK) | |
+| `label` | text | |
+| `targetValue` | real | |
+| `unit` | text | `currency` \| `hours` \| `shifts` \| `mileage` |
+| `period` | text | `daily` \| `weekly` \| `monthly` \| `yearly` |
+| `isActive` | boolean | Default true |
+| `createdAt` | timestamp | |
+| `syncUpdatedAt` | integer | |
+| `syncDeletedAt` | integer | |
 
 ---
 
-### `tempNativePoints`
+## `platforms`
 
-Staging table for the native GPS module. The native Kotlin/Swift code writes raw GPS points here; JS polls and processes them into `locationPoints`.
+The user's platform configuration. Comma ships Canada only, so `country` holds `CA` in practice, though the column can carry other codes.
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | INTEGER (PK, autoincrement) | |
-| `lat` | REAL | |
-| `lon` | REAL | |
-| `timestamp` | INTEGER | epoch ms |
-
-Not synced.
+| `id` | text (PK) | Platform key, e.g. `doordash` |
+| `label` | text | Display name |
+| `color` | text | Hex color |
+| `textColor` | text | Text color on a badge |
+| `country` | text | Country id |
+| `isActive` | boolean | User has activated it (default false) |
+| `hourlyRate` | text | Target hourly rate (default `20`) |
+| `mileageRate` | text | Per-distance rate (default `0.62`) |
+| `sortPriority` | integer | Order in pickers (default 1) |
+| `logoEmoji` | text | Optional |
+| `syncUpdatedAt` | integer | |
+| `syncDeletedAt` | integer | |
 
 ---
 
-### `syncOverwriteLog`
+## `taxHistory`
 
-Local audit trail for cloud sync merge conflicts on financial data. Device-local — not synced.
+Append-only log of tax region and rate changes.
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | TEXT (PK) | |
-| `tableName` | TEXT | Which table had the conflict |
-| `rowId` | TEXT | The row's primary key |
-| `supersededRow` | TEXT | JSON of the local row that lost |
-| `winnerRow` | TEXT | JSON of the incoming row that won |
-| `mergedAt` | INTEGER | epoch ms |
+| `id` | text (PK) | |
+| `oldRegion` | text | Previous region |
+| `oldRate` | real | Previous rate |
+| `newRegion` | text | New region |
+| `newRate` | real | New rate |
+| `changedAt` | timestamp | |
+| `syncUpdatedAt` | integer | |
+| `syncDeletedAt` | integer | |
+
+---
+
+## `profile`
+
+A synced key-value table: one row per key, each carrying the sync columns, so the record-level engine gives per-key last-write-wins for free. This is the profile data that **travels with the user** — name, country, province, units, currency, goals, withholding rate, onboarding-complete — which is why signing a fresh device into sync brings it up already configured. Values are JSON-encoded. Both apps bridge their local profile storage into and out of this table around each sync.
+
+| Column | Type | Notes |
+|---|---|---|
+| `key` | text (PK) | Profile key |
+| `value` | text | JSON-encoded value |
+| `syncUpdatedAt` | integer | |
+| `syncDeletedAt` | integer | |
+
+---
+
+## `settings` (device-local)
+
+A key-value store for configuration that stays on the device and does **not** sync: sync cursors, the demo flag, the active-shift snapshot, and scratch. No sync columns.
+
+| Column | Type | Notes |
+|---|---|---|
+| `key` | text (PK) | |
+| `value` | text | JSON-encoded value |
+
+Example keys: `onboarding_completed`, `profile`, `app_config`, `demo_mode`, `active_platform_filter`, `preferred_vehicle_id`, `active_shift_state`, `shift_templates`.
+
+---
+
+## `locationPoints` (device-local)
+
+Filtered GPS points from a tracked shift, for route replay and recalculation. Not synced.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | text (PK) | |
+| `sessionId` | text | Shift session identifier |
+| `shiftId` | text (FK → shifts) | |
+| `latitude` | real | |
+| `longitude` | real | |
+| `altitude` | real | |
+| `accuracy` | real | Horizontal accuracy (meters) |
+| `speed` | real | m/s at the point |
+| `timestamp` | timestamp | |
+| `source` | text | `gps` (default) |
+| `isFiltered` | boolean | True = discarded by the jitter filter |
+
+---
+
+## `tempNativePoints` (device-local)
+
+Staging table the native Kotlin module writes raw GPS points into; `useActiveShift` reads it on shift end. Not synced.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | integer (PK, autoincrement) | |
+| `lat` | real | |
+| `lon` | real | |
+| `timestamp` | integer | epoch ms |
+
+---
+
+## `syncOverwriteLog` (device-local)
+
+Append-only recovery log for the sync merge engine. When a last-write-wins merge overwrites a financial row (`expenses`, `taxHistory`, `shifts`, `shiftPlatforms`) that had real local edits, the superseded version is recorded here first, so a number changed on another device is never lost silently. Deliberately has no sync columns and is not itself synced.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | text (PK) | |
+| `tableName` | text | Table that had the conflict |
+| `rowId` | text | The row's primary key |
+| `supersededRow` | text | JSON of the local row that lost |
+| `winnerRow` | text | JSON of the incoming row that won |
+| `mergedAt` | integer | epoch ms of the merge |
 
 ---
 
 ## Sync columns
 
-Every synced table has two additional columns:
+Every synced table carries two columns, spread from a shared definition:
 
 ```ts
-syncUpdatedAt: integer  // epoch ms of last local mutation — the LWW clock
-syncDeletedAt: integer  // epoch ms of soft-delete, null if alive
+syncUpdatedAt: integer  // epoch ms of the last local mutation — the last-write-wins clock (default 0)
+syncDeletedAt: integer  // epoch ms of a soft delete, else null — the tombstone
 ```
 
-Every read query filters `WHERE syncDeletedAt IS NULL`. Every write touches `syncUpdatedAt`.
+A delete is a **soft delete**: the row is stamped with `syncDeletedAt` and kept, so the deletion can propagate to other devices instead of being resurrected by them. Every read filters `WHERE syncDeletedAt IS NULL`; every write touches `syncUpdatedAt`. The default of 0 means any pre-sync row is treated as oldest, so an incoming change wins until that row is next edited locally.
 
-See [Cloud Sync](../backup-and-sync/cloud-sync.md) for design details.
+The eleven synced tables are: `shifts`, `shiftPlatforms`, `expenses`, `merchants`, `vehicles`, `maintenanceLogs`, `vehicleTaxProfiles`, `goals`, `platforms`, `taxHistory`, and `profile`.
 
----
-
-## Migrations
-
-Migrations are defined in `src/database/client.ts` using Drizzle's migration system. When the app launches, it runs any pending migrations before the first query.
-
-To add a migration: add a new entry to the migrations array in `client.ts` with the SQL to run and an incremented version number. Migrations are idempotent — they check whether the change already exists before applying it.
+See [Cloud Sync](../backup-and-sync/cloud-sync.md) for the merge design.
 
 ---
 
-## Query conventions
+## Conventions
 
-- All queries live in `src/database/queries/` — one file per domain (analytics, shifts, expenses, etc.).
-- No raw SQL strings in screen components. All SQL is in query files.
-- No JavaScript-level filtering of data that should be filtered in SQL (e.g. no `.filter()` on a result set that could use `WHERE`).
-- Mutations use `syncedInsert` / `syncedUpdate` / `syncedDelete` from `src/database/syncedWrites.ts` to automatically stamp sync columns.
+- All queries live in `src/database/queries/`, one file per domain. No raw SQL in screens or hooks.
+- No JavaScript-level filtering of data that a `WHERE` clause could filter.
+- Mutations go through `syncedInsert` / `syncedUpdate` / `syncedDelete` (`src/database/syncedWrites.ts`) so sync columns are stamped automatically. Direct writes are only acceptable on the tables that are not synced.

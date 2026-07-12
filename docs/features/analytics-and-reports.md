@@ -1,124 +1,74 @@
-# Analytics & Reports
+# Analytics and Reports
 
-Comma turns your shift and expense data into clear, actionable charts and summaries.
+Comma turns your shifts and expenses into a dashboard you check at a glance, an analytics tab for going deeper, and exports you can hand to an accountant.
 
 ---
 
-## Dashboard widgets
+## The dashboard
 
-The Dashboard is the first screen you see. It shows a personalized feed of widgets:
+The dashboard is the first thing you see. It's built from a few cards:
 
-| Widget | What it shows |
+- A **hero card** with a **Today / Week** toggle showing what you earned in that window.
+- Three **stat tiles**: hours worked, distance driven, and your per-hour rate.
+- A **weekly goal ring** when Goals is switched on.
+- The **Finish setting up** activation checklist card. For new users this is prominent by design — it holds the setup questions Comma deliberately deferred (your other apps, your real vehicle, your goal, GPS, backup) and disappears once you've worked through them.
+- **Recent sessions**, each with a route mini-map.
+- A **mileage write-off tip** that keeps the deduction visible without treating it as cash.
+
+---
+
+## The Analytics tab
+
+The Analytics tab sits behind the **analytics feature flag**. A **period navigator** moves through week, month, or year with previous and next controls.
+
+It offers three views — **Performance**, **Insights**, and **Stat Cards** — built from six grouped cards:
+
+| Group | Focus |
 |---|---|
-| **Earnings summary** | Today's / this week's net earnings, plus a sparkline trend |
-| **Rolling trend** | Your earnings trend over the last 7–30 days |
-| **Weekly projection** | Estimated week-end earnings based on current pace |
-| **Streak** | Consecutive working days + best streak |
-| **Income breakdown** | Earnings split by platform (pie or bar) |
-| **Best day** | Your highest-earning day of the week (historical average) |
-| **Best hour** | Your highest-earning hour of the day |
-| **Dead miles** | Summary of dead (commute) miles this week |
-| **Platform activity** | Sessions per platform, online hours, trips |
-| **Active goal** | Progress ring for your current active goal |
+| Trends | How your numbers move over time. |
+| Work Rhythm | When and how long you work. |
+| Income Sources | Where your earnings come from. |
+| Outlook | Where the current period is heading. |
+| Efficiency & Stability | Active-to-dead ratio and consistency. |
+| Order Economics | The economics per order. |
 
-Widgets update automatically as you log shifts. Pull down on the Dashboard to force a refresh.
+The stat cards themselves, several of which expand for detail:
 
----
-
-## Analytics tab
-
-The Analytics tab (`/analytics`) provides deeper charts with date-range filters.
-
-> The Analytics tab is gated by the `analytics_advanced` feature flag. If you don't see it, check **Settings → Developer → Features**.
-
-### Earnings charts
-
-- **By day of week** — which days earn you most on average
-- **By hour of day** — heat map of hourly earnings patterns
-- **By platform** — earnings split and trend per platform
-- **Cumulative YTD** — running total for the calendar year
-- **vs. Goal** — actual vs. target for any active goal
-
-### Mileage charts
-
-- **Total mileage by week/month**
-- **Active vs. dead miles ratio**
-- **Deductible mileage YTD**
-
-### Expense charts
-
-- **By category** — where your money goes
-- **By month** — expense trend
-- **Net margin** — earnings minus expenses over time
-
-### Hourly rate analysis
-
-- **Effective hourly rate** — net earnings ÷ active hours per shift
-- **Best vs. worst shifts** — compare your top and bottom 10% for patterns
-- **Time-to-first-order** — average dead time before first delivery
-
----
-
-## Reports panel
-
-The Reports panel slides in from the right edge of the screen. Open it by tapping **Reports** in the navigation drawer.
-
-Reports are pre-formatted summaries you can use for:
-- Weekly review
-- Monthly accounting
-- Sharing with an accountant
-
-Available reports:
-
-| Report | Content |
+| Stat card | Shows |
 |---|---|
-| **Weekly Summary** | All shifts, total hours, earnings, mileage, expenses for the week |
-| **Monthly Summary** | Same as weekly but for the month, with YTD totals |
-| **Expense Report** | All expenses grouped by category with deductible amounts |
-| **Mileage Log** | IRS-compliant mileage log (date, purpose, start/end, miles) |
-| **Platform Report** | Earnings breakdown per platform with hourly rates |
-| **Tax Estimate** | Full tax estimate (same as Tax Center, printable format) |
-
-Each report supports:
-- **Date range picker** — any custom range
-- **PDF export** — generates a formatted PDF
-- **CSV export** — raw data for spreadsheets
+| Gross earnings | Everything the platforms paid. |
+| Net take-home | What's left after tax set-aside and expenses. |
+| Expenses | Total spend, with a burn ratio. |
+| Average $/hr | Your rate, split active versus online. |
+| Tax set-aside | What you should be holding back. |
+| Total time | Hours across the period. |
 
 ---
 
-## Platform filter
+## Reports
 
-The **Global Platform Filter** at the top of every screen lets you narrow all views (Dashboard, Analytics, Shifts, Expenses) to one platform or all platforms. Tap the platform badge in the top header to open the filter.
+Pick a period and export what you need:
 
-This is useful for reviewing your DoorDash performance independently of Uber Eats, for example.
-
----
-
-## Schedule view
-
-The Schedule view (`/schedule`) shows a weekly calendar of your shifts — a visual overview of which days and hours you worked. Useful for identifying patterns and planning your schedule.
-
-> Gated by `schedule` feature flag.
+| Export | Format | Availability |
+|---|---|---|
+| Shifts | CSV | Always. |
+| Expenses | CSV | Always. |
+| PDF report | PDF | A feature you switch on; off by default. |
 
 ---
 
-## Exporting data
+## Web-only extras
 
-### CSV export
+The web app adds a few exports the phone doesn't:
 
-**Settings → Export → CSV**
+- A **mileage-log CSV**.
+- A **tax summary** as CSV or JSON.
+- A **print view** that uses the browser's print-to-PDF.
+- A **Year-in-Review image** to save or share.
 
-Exports your data in machine-readable format for use in Excel, Google Sheets, or accounting software.
+---
 
-Available exports:
-- Shifts CSV (all fields)
-- Expenses CSV
-- Mileage log CSV (formatted per IRS Publication 463)
+## Related
 
-### PDF reports
-
-Generated from the Reports panel. PDFs are saved to your device's downloads folder.
-
-### Sharing
-
-Any report can be shared via the iOS/Android share sheet — email it to your accountant, save to Files, or upload to Drive.
+- [Tax Center](./tax-center.md) — the numbers behind the tax set-aside and write-off
+- [Goals and Gamification](./goals-and-gamification.md) — the weekly goal ring on the dashboard

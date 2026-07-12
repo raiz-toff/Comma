@@ -1,70 +1,107 @@
 # Comma — Documentation
 
-**Comma** is a privacy-first earnings tracker for gig workers. It tracks shifts, mileage, expenses, and taxes — everything stays on your phone unless you choose to back it up.
-
-Built for DoorDash, Uber Eats, SkipTheDishes, Instacart, Amazon Flex, and a dozen more platforms.
+Comma is a privacy-first earnings tracker for gig workers in Canada: it records shifts, GPS mileage, expenses, and CRA-aware tax estimates, and everything stays on your device unless you choose to sync it.
 
 ---
 
 ## Get Comma
 
-- **Android** — [download the latest APK](https://github.com/raiz-toff/CommaApp/releases/latest) from GitHub Releases. Sideload it by allowing "Install unknown apps" (a Play Store listing is planned).
-- **Web** — open [comma-psi.vercel.app](https://comma-psi.vercel.app) in any modern browser and install it as an app. See [Web App (PWA)](./features/web-app.md).
-- **Source** — Comma is open source on GitHub: [raiz-toff/CommaApp](https://github.com/raiz-toff/CommaApp) — one repo with the phone app, the [web app](https://github.com/raiz-toff/CommaApp/tree/main/web), and these docs.
+| Platform | Where | Notes |
+|---|---|---|
+| Android | [github.com/raiz-toff/Comma/releases/latest](https://github.com/raiz-toff/Comma/releases/latest) | Download the APK and sideload it by allowing "Install unknown apps". A Play Store listing is planned. |
+| Web | [comma-psi.vercel.app](https://comma-psi.vercel.app) | Opens in any modern browser and installs as a PWA. See [Web App (PWA)](./features/web-app.md). |
+| Source | [github.com/raiz-toff/Comma](https://github.com/raiz-toff/Comma) | One monorepo holding the phone app, the web app, and these docs. |
 
 ---
 
 ## What makes Comma different
 
-- **No account required.** No email, no password, no server. Your data lives in a SQLite database on your device.
-- **GPS mileage tracking.** A native background service records your route, separates active delivery miles from dead miles, and calculates your deductible mileage automatically.
-- **Tax-aware.** Country-specific tax rules for the US, Canada, UK, and Nepal. Standard mileage rate or actual expenses — your choice.
-- **Optional cloud backup.** Connect your own Google Drive to encrypt and store a backup. No third-party servers ever see your data.
+- **No account.** No email, no password, no server to sign up for. You open the app and start tracking.
+- **Local-first.** Your data lives in a database on your own device — SQLite on the phone, IndexedDB in the browser. Comma has no backend and cannot see your earnings.
+- **Background GPS on the phone.** A native foreground service records your route during a shift and separates active delivery distance from dead distance. The web app tracks too, but only while its tab stays open.
+- **CRA-aware tax.** Comma loads Canadian mileage rates, HST/GST, CPP, and province presets, and keeps a running self-employment estimate. It is an estimator, not tax advice.
+- **Optional Google Drive sync.** Connect your own Drive to keep the phone and the web app in step. It is off until you connect it, and end-to-end encryption is available as an opt-in.
+
+Comma ships for **Canada only** today. Definitions for other countries exist in the source but are deliberately not enabled.
 
 ---
 
 ## Guides
 
-### Getting started
-- [Introduction](./getting-started/introduction.md) — What Comma is and how it works
-- [Quick Start](./getting-started/quick-start.md) — Install, onboard, log your first shift
-- [Core Concepts](./getting-started/core-concepts.md) — Shifts, platforms, active vs dead miles, and more
-- [FAQ](./getting-started/faq.md) — Common questions about the web and phone apps
-- [Troubleshooting](./getting-started/troubleshooting.md) — Fix common issues on web and phone
+- [Introduction](./getting-started/introduction.md) — What Comma is and how it works.
+- [Quick Start](./getting-started/quick-start.md) — Install, onboard, and log your first shift.
+- [Core Concepts](./getting-started/core-concepts.md) — Shifts, platforms, active versus dead distance.
+- [FAQ](./getting-started/faq.md) — Common questions about the phone and web apps.
+- [Troubleshooting](./getting-started/troubleshooting.md) — Fixes for common issues on both apps.
 
-### Features
-- [Shift Tracking](./features/shift-tracking.md) — Live GPS shifts and manual log entries
-- [Mileage Tracking](./features/mileage-tracking.md) — How the GPS engine works
-- [Expenses](./features/expenses.md) — Log and categorize business expenses
-- [Tax Center](./features/tax-center.md) — Self-employment tax estimates
-- [Goals & Gamification](./features/goals-and-gamification.md) — Weekly goals, XP, badges, streaks
-- [Vehicles](./features/vehicles.md) — Manage multiple vehicles and maintenance logs
-- [Analytics & Reports](./features/analytics-and-reports.md) — Charts, trends, and exportable reports
-- [Supported Platforms](./features/platforms.md) — All gig platforms Comma supports
-- [Web App (PWA)](./features/web-app.md) — Using Comma in the browser
+---
 
-### Backup & Sync
-- [Overview](./backup-and-sync/overview.md) — Local-first philosophy
-- [Google Drive Backup](./backup-and-sync/google-drive-backup.md) — Set up and use encrypted backup
-- [Cloud Sync](./backup-and-sync/cloud-sync.md) — Multi-device sync design
-- [Encryption](./backup-and-sync/encryption.md) — How your data is protected
+## How-to Guides
 
-### Architecture
-- [Overview](./architecture/overview.md) — Tech stack and design principles
-- [Database](./architecture/database.md) — SQLite schema reference
-- [State Management](./architecture/state-management.md) — Zustand and React Query
-- [Navigation](./architecture/navigation.md) — Screen and routing structure
-- [GPS Engine](./architecture/gps-engine.md) — Native background location service
+- [Install Comma](./guides/install.md) — Sideload the Android app or install the PWA.
+- [Demo Mode](./guides/demo-mode.md) — Explore the app with sample data.
+- [Moving Between Devices](./guides/moving-devices.md) — Carry your data across phones and browsers.
+- [Import from CSV](./guides/import-csv.md) — Bring earnings in from a spreadsheet.
 
-### Development
-- [Setup](./development/setup.md) — Run the app locally
-- [Project Structure](./development/project-structure.md) — Complete file tree
-- [Environment Variables](./development/environment-variables.md) — `.env` configuration
-- [Native Module](./development/native-module.md) — The `comma-tracker` Kotlin/Swift module
-- [Contributing](./development/contributing.md) — Code style, PRs, conventions
+---
+
+## Features
+
+- [Shift Tracking](./features/shift-tracking.md) — Live GPS shifts and manual log entries.
+- [Mileage Tracking](./features/mileage-tracking.md) — How the GPS engine measures distance.
+- [Expenses](./features/expenses.md) — Log and categorize business expenses.
+- [Tax Center](./features/tax-center.md) — Self-employment tax estimates.
+- [Goals and Gamification](./features/goals-and-gamification.md) — Weekly goals, XP, badges, streaks.
+- [Vehicles](./features/vehicles.md) — Manage vehicles and maintenance logs.
+- [Analytics and Reports](./features/analytics-and-reports.md) — Charts, trends, and exportable reports.
+- [Supported Platforms](./features/platforms.md) — The gig platforms Comma covers.
+- [Web App (PWA)](./features/web-app.md) — Using Comma in the browser.
+
+---
+
+## Reference
+
+- [Settings](./reference/settings.md) — Every setting and what it changes.
+- [Shift Fields](./reference/shift-fields.md) — Each field on a shift record.
+- [Expense Fields](./reference/expense-fields.md) — Each field on an expense record.
+- [Feature Flags](./reference/feature-flags.md) — The gated features and their defaults.
+- [Platforms](./reference/platforms.md) — The platform registry.
+- [Countries](./reference/countries.md) — The country registry and what ships.
+- [Notifications](./reference/notifications.md) — The notifications Comma raises.
+- [Keyboard Shortcuts](./reference/keyboard-shortcuts.md) — Shortcuts in the web app.
+
+---
+
+## Backup and Sync
+
+- [Overview](./backup-and-sync/overview.md) — The local-first philosophy.
+- [Google Drive Backup](./backup-and-sync/google-drive-backup.md) — Set up and use encrypted backup.
+- [Cloud Sync](./backup-and-sync/cloud-sync.md) — Multi-device sync through your own Drive.
+- [Encryption](./backup-and-sync/encryption.md) — How your data is protected.
+
+---
+
+## Architecture
+
+- [Overview](./architecture/overview.md) — Tech stack and design principles.
+- [Database](./architecture/database.md) — SQLite schema reference.
+- [State Management](./architecture/state-management.md) — Zustand and React Query.
+- [Navigation](./architecture/navigation.md) — Screen and routing structure.
+- [GPS Engine](./architecture/gps-engine.md) — The native background location service.
+
+---
+
+## Development
+
+- [Setup](./development/setup.md) — Run both apps locally.
+- [Project Structure](./development/project-structure.md) — The monorepo file tree.
+- [Environment Variables](./development/environment-variables.md) — `.env` configuration.
+- [Native Module](./development/native-module.md) — The `comma-tracker` Kotlin module.
+- [Contributing](./development/contributing.md) — Code style, PRs, and conventions.
+- [Releasing](./development/releasing.md) — Building and publishing a release.
 
 ---
 
 ## License
 
-MIT. Open source, no paywall.
+Comma is MIT licensed. Open source, no paywall.

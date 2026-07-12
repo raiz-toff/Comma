@@ -1,121 +1,141 @@
 # Core Concepts
 
-A short glossary of the terms Comma uses throughout the app.
+The vocabulary Comma uses, and what each term actually means.
 
 ---
 
 ## Shift
 
-A shift is one continuous work session — from the moment you open the app and start tracking until you end the session. A shift belongs to one primary **platform** and one **vehicle**.
+One work session: from the moment you start tracking to the moment you end. A shift carries a date, a duration, one vehicle, one or more platforms, the money you made, and the distance you covered.
 
-Shifts have:
-- Start and end time
-- Gross revenue + tips
-- Active mileage + dead mileage
-- Duration (total elapsed) and paused seconds
-- An optional GPS route
-- Notes
+If you work two apps at once, the shift records each platform's own online time, earnings, and trips as sub-records, so you can compare them honestly.
 
-A shift can span multiple platforms if you toggle platforms mid-session. Each platform's online time, earnings, and trips are recorded separately in **shift platforms** sub-records.
+The app may call a shift a **session**, a **block**, or a **batch** depending on the platform you're working — Amazon Flex drivers don't say "shift", they say "block". Comma follows the platform's language rather than imposing its own.
 
 ---
 
-## Platform
+## Active vs dead distance
 
-A platform is a gig app you work on — DoorDash, Uber Eats, etc. In Comma, a platform is a named entity with a color, optional logo emoji, and per-platform settings like your target hourly rate.
+The distinction that most drivers never get from the delivery apps:
 
-You can:
-- Activate/deactivate platforms to control which ones appear in filters and shift creation
-- Set a custom hourly rate target per platform
-- See per-platform earnings breakdowns in Analytics
+**Active** — distance driven while you're on a delivery: order accepted, food in the car, heading to the customer.
 
----
+**Dead** — distance driven while you're not: driving to a hotspot, circling while you wait, going home at the end.
 
-## Active miles vs. dead miles
+Both are legitimate business kilometres and both are deductible. But only one of them is being paid for, and the ratio between them is one of the few levers a driver actually controls. A 40% dead-mile ratio means you are burning fuel and brake pads for free four kilometres in ten.
 
-Comma distinguishes two kinds of miles driven during a shift:
-
-**Active miles** — miles driven while you are on a delivery (from the moment you accept an order to the moment you drop it off). These are the miles the IRS considers directly attributable to the delivery job.
-
-**Dead miles** — miles driven while waiting for orders or commuting to a hotspot. Dead miles are still deductible as business mileage (the IRS allows all business-purpose miles), but tracking them separately gives you a more accurate picture of your true cost per delivery.
-
-Comma separates these using GPS speed. When you tap **"First Order Received"** at the start of a shift, the app switches from dead-mile mode to active-mile mode. You can toggle this manually at any time during a shift.
+Comma splits them in two ways. On a live shift, you tap **Got First Order** — before that tap, distance is dead; after it, active. The GPS engine also classifies by speed, treating movement below 5 km/h as not-driving.
 
 ---
 
-## Gross revenue vs. net earnings
+## Reconciliation
 
-**Gross revenue** — the total amount deposited by the platform, including base pay and any bonuses.
+A GPS-tracked shift knows how long you were out and how far you went. It does not know what you were paid — only you know that.
 
-**Tips revenue** — customer tips (often paid separately, especially on Uber Eats and DoorDash).
-
-**Net earnings** — gross revenue + tips, minus all deductible expenses logged for that period. Comma shows net earnings in the Dashboard header and Analytics charts.
-
----
-
-## Deductible expense
-
-An expense that reduces your taxable self-employment income. The IRS (and CRA, HMRC equivalents) allow gig workers to deduct ordinary and necessary business expenses.
-
-In Comma, every expense has a **deductibility percentage** (0–100%). Most gig-work expenses are 100% deductible; mixed-use items (like a phone plan used for both work and personal) get a partial percentage.
-
----
-
-## Standard mileage rate vs. actual expenses
-
-When deducting vehicle costs, you pick one method per vehicle per tax year:
-
-**Standard mileage rate** — Multiply total business miles by the IRS rate (e.g. $0.70/mile for 2025). Simple, no receipts needed.
-
-**Actual expenses** — Deduct the real cost of gas, insurance, maintenance, and depreciation, pro-rated by the business-use percentage of your total miles. More paperwork, potentially higher deduction.
-
-Comma supports both. Set the method in **Tax Center → Vehicle Tax Profile**. The standard rate is pre-filled with the current year's IRS rate.
-
----
-
-## Reconciliation status
-
-Shifts can be in one of three states:
+So a shift that ends from GPS is saved as **pending reconciliation**: real, complete, and sitting in your history with a zero next to it until you fill in the earnings. The dashboard nags you about these, and the bottom bar's main button turns into **Reconcile** while any exist.
 
 | Status | Meaning |
 |---|---|
-| `tracking` | Shift is currently in progress (GPS running) |
-| `pending_reconciliation` | GPS session ended but the shift hasn't been reviewed yet (e.g. app crashed, background service stopped) |
-| `reconciled` | Shift is complete and earnings/mileage are confirmed |
-
-If a shift shows as `pending_reconciliation`, open it, review the GPS data and earnings, then tap **Confirm** to mark it reconciled.
+| `tracking` | Running right now |
+| `pending_reconciliation` | GPS finished; earnings not entered yet |
+| `reconciled` | Complete — money and distance both confirmed |
 
 ---
 
-## Sync vs. backup
+## Gross, take-home, and the write-off
 
-Comma uses these terms precisely:
+Three numbers that are constantly confused, including by the apps themselves.
 
-**Backup** — A point-in-time snapshot of your entire database, encrypted, and uploaded to Google Drive as a single file. Manual, one-directional. Restoring a backup overwrites your local data.
+**Gross** — everything the platform paid: base pay, tips, bonuses. The number in the app's screenshot.
 
-**Sync** *(coming soon)* — Continuous, automatic, non-destructive. Changes from Phone A and Phone B are merged using a Last-Write-Wins strategy. Neither phone is ever wiped. See [Cloud Sync](../backup-and-sync/cloud-sync.md).
+**Take-home** — gross, minus the tax you should be setting aside, minus what you actually spent. This is money you can spend.
+
+**Mileage write-off** — a *tax deduction*, not cash. Driving 47 km doesn't put $34 in your pocket; it reduces the income you'll be taxed on by $34.
+
+This distinction is load-bearing in Comma's design: **the write-off is never subtracted from your earnings and never added to them.** It's shown separately, everywhere, so it can't be mistaken for money you have.
 
 ---
 
-## XP and badges
+## Deductibility, and business use
 
-Comma has a lightweight gamification layer:
+Every expense carries a **business-use percentage**. A tank of fuel used entirely for deliveries is 100%. A phone bill where half your usage is personal is 50% — and only half of it reduces your taxable income.
 
-**XP (experience points)** — Earned by logging shifts and expenses consistently. XP accumulates over time and never resets.
+Comma stores the percentage rather than a yes/no flag because the real world is mixed-use, and an audit asks you to justify the split.
 
-**Badges** — One-time unlocks for milestones like your first 5 shifts, hitting $5,000 in net earnings, or maintaining a 7-day streak. Badges are displayed on your profile.
+---
 
-**Streak** — A counter of consecutive days you logged at least one shift. If you miss a day, the streak resets (frozen days can be set to pause it, e.g. scheduled days off).
+## Standard mileage vs actual expenses
+
+Two ways to deduct the cost of your vehicle. You pick one per vehicle, per tax year — you cannot use both.
+
+**Standard mileage** — multiply business kilometres by the CRA rate ($0.73/km for the first 5,000 km, $0.67/km after). Simple, no receipts.
+
+**Actual expenses** — deduct the real cost of fuel, insurance, maintenance and depreciation, pro-rated by business use. More paperwork, sometimes a bigger deduction.
+
+Choosing standard mileage means you **cannot also** write off fuel and maintenance separately — the rate already includes them. Comma will warn you if you log a fuel expense against a vehicle on the standard method; the expense still saves, it just won't be double-counted.
+
+Not every vehicle qualifies for the standard rate. A bicycle or e-scooter isn't an automobile under CRA rules, so it doesn't get the automobile rate — Comma knows this and won't offer you a deduction you can't take.
+
+---
+
+## The reveal
+
+The screen at the end of setup that turns a shift you already drove into your real hourly rate. It's not a marketing gimmick — the shift it's built from is saved as a real record, and it's the first honest number most drivers have ever seen about their own work.
+
+---
+
+## The activation checklist
+
+The **Finish setting up** card on the dashboard. It holds the setup questions Comma deliberately refused to ask up front — your other apps, your real vehicle, your goal, GPS, backup — and puts each one next to the number it sharpens. It disappears when it's done.
+
+---
+
+## Backup vs sync
+
+Precise terms, different things.
+
+**Backup** — a snapshot, taken at a moment, restored on top of whatever is there. One direction. Restoring replaces.
+
+**Sync** — continuous and two-way. Change a shift on the phone, open the browser, it's there. Nothing is wiped; both devices converge. Conflicts resolve last-write-wins, and financial edits that get overwritten are kept in an audit log rather than silently lost.
+
+Both go through **your** Google Drive. Comma has no server in the middle. See [Backup & Sync](../backup-and-sync/overview.md).
+
+---
+
+## The two sync modes
+
+**Default (no password)** — your data sits in a private folder of your Google Drive that only Comma can see. It's protected by your Google account, the same way everything else in your Drive is. Nothing to remember, nothing to lose. This is the mode almost everyone should use.
+
+**End-to-end encrypted (opt-in)** — you set a password, and your data is encrypted with it before it leaves the device. Not even Google can read it. If you forget the password, the backup is gone forever — there is no reset.
+
+The password *is* the mode: setting one turns encryption on, and having none means the default. See [Encryption](../backup-and-sync/encryption.md).
+
+---
+
+## XP, badges, streaks
+
+A light layer on top of the real numbers.
+
+**XP** accrues from shifts logged, earnings, distance, targets met, records broken, badges, and challenges. Every 100 XP is a level.
+
+**Badges** — 24 one-time unlocks: first shift, a $100 day, a 7-day streak, a new best hourly rate, and so on.
+
+**Streak** — consecutive days with a logged shift. **Streak freezes** (up to 3) cover the days you don't work, so a planned day off doesn't wipe a month of consistency.
+
+**Challenges** — three, reset every Monday: earn $500 this week, complete 20 deliveries, log 5 days in a row.
 
 ---
 
 ## Feature flags
 
-Some screens in Comma are gated by feature flags. If a feature isn't visible in your navigation, it may be turned off for your region or toggled off in **Settings → Developer → Feature Overrides**.
+Some screens can be switched off in **Settings → You → Optional Features**, so the app is only as big as you need it.
 
-| Flag | Feature |
-|---|---|
-| `tax_workspace` | Tax Center tab |
-| `goals` | Goals section and gamification |
-| `analytics_advanced` | Advanced Analytics tab |
-| `schedule` | Weekly schedule view |
+| Flag | Screen | Default |
+|---|---|---|
+| `analytics_advanced` | Analytics tab | On |
+| `tax_workspace` | Tax tab | On |
+| `goals` | Goals screen | On |
+| `schedule` | Schedule screen | **Off** |
+| `pdf_reports` | PDF export in Reports | **Off** |
+
+Turning Goals off also turns off badges and streaks, since they have nowhere to live.

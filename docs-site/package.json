@@ -2,10 +2,10 @@
   "name": "comma-docs",
   "version": "0.1.0",
   "private": true,
-  "description": "Documentation site for Comma, built with Nextra.",
+  "description": "Documentation site for Comma, built with Fumadocs.",
   "scripts": {
-    "vendor-docs": "rm -rf docs-src && cp -r ../docs docs-src && rm -rf docs-src/images",
-    "sync": "node scripts/sync-docs.mjs",
+    "vendor": "rm -rf docs-src && cp -r ../docs docs-src && rm -rf docs-src/images && cp ../CHANGELOG.md changelog-src.md",
+    "sync": "node scripts/sync-content.mjs",
     "predev": "npm run sync",
     "prebuild": "npm run sync",
     "dev": "next dev",
@@ -13,15 +13,23 @@
     "start": "next start"
   },
   "dependencies": {
-    "next": "^14.2.29",
-    "nextra": "^3.3.1",
-    "nextra-theme-docs": "^3.3.1",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "cnfast": "^0.0.8",
+    "fumadocs-core": "16.11.3",
+    "fumadocs-mdx": "15.1.0",
+    "fumadocs-ui": "npm:@fumadocs/base-ui@16.11.3",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.10",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
-    "@types/node": "^20",
-    "@types/react": "^18",
-    "typescript": "^5"
+    "@tailwindcss/postcss": "^4.3.2",
+    "@types/mdx": "^2.0.14",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "postcss": "^8.5.16",
+    "tailwindcss": "^4.3.2",
+    "typescript": "^6.0.3"
   }
 }

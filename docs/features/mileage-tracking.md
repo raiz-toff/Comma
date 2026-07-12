@@ -1,106 +1,79 @@
 # Mileage Tracking
 
-Comma uses a native GPS engine to automatically track how far you drive during a shift — no manual odometer entry required.
+How Comma records the distance you drive, splits it into active and dead kilometres, and turns it into a CRA-aligned deduction. Distance is measured in km in Canada.
 
 ---
 
-## How it works
+## The phone GPS engine
 
-When you start a shift, Comma launches a background location service and begins collecting GPS coordinates. Every coordinate is timestamped, filtered for noise, and stored in the local database. At the end of the shift, Comma calculates the total route distance using the Haversine formula and assigns miles to either the active or dead bucket.
+When a live shift is running on the phone, a native location service records your route. It is tuned to reconstruct where you drove without draining the battery or storing noise:
 
-The entire process is on-device. Your location data is never sent to a server.
-
----
-
-## Active miles vs. dead miles
-
-Comma divides every mile into one of two categories:
-
-**Active miles** — driven while you are on a delivery (from accepting an order to completing the drop-off). These are the miles directly attributable to delivering.
-
-**Dead miles** — driven while waiting for orders, commuting to a hotspot, or returning home after a shift. These are still deductible as business mileage under US/CA/UK rules, but they're separated so you understand your true cost per delivery.
-
-You control the toggle:
-- The shift starts in **dead-mile mode**.
-- Tap **"First Order Received"** to switch to active-mile mode.
-- Toggle again at any time — e.g. if you complete a delivery and are now waiting again.
+| Behaviour | Detail |
+|---|---|
+| Sampling | A fix roughly every 10 seconds or every 20 metres. |
+| Jitter guard | Fixes implying speeds above about 150 km/h are discarded as GPS error. |
+| Movement check | Speeds under 5 km/h are classified as not driving — waiting, parked, or on foot. |
+| Route simplification | The saved path is thinned with the Ramer-Douglas-Peucker algorithm at about 10 metres, keeping the shape and dropping redundant points. |
 
 ---
 
-## GPS jitter filtering
+## Active vs dead distance
 
-GPS accuracy varies. A phone sitting still will still show small random movements. Comma applies two filters to remove noise:
+Comma splits your distance two ways at once:
 
-1. **Speed filter** — if a coordinate implies you traveled faster than 150 km/h since the last point, it's discarded as a GPS spike.
-2. **Accuracy filter** — points with low GPS accuracy (high uncertainty radius) are flagged as filtered and excluded from distance calculations.
+- By the **Got First Order** tap on the live console — everything before it is dead, everything after is active.
+- By **speed** — the engine treats movement below 5 km/h as not driving, so time spent idling doesn't inflate your distance.
 
-Filtered points are stored but excluded from the route calculation. You can see the raw vs. filtered route in the shift detail map.
-
----
-
-## Route visualization
-
-Every GPS-tracked shift includes a **route minimap** visible on the shift list and a full **route map** on the shift detail screen. The route is rendered as an SVG polyline using the encoded GPS coordinates.
-
-The map distinguishes active segments (solid line) from dead segments (dashed line), giving you a visual breakdown of where your miles came from.
+Both active and dead kilometres are legitimate business distance and both are deductible. The split exists so you can see your true cost per delivery, not to decide what counts. [Core Concepts](../getting-started/core-concepts.md) explains why the ratio matters.
 
 ---
 
-## Distance calculation
+## The web tracker
 
-Comma uses the **Haversine formula** to calculate the great-circle distance between consecutive GPS points. The sum of all segment distances is the total route mileage.
+The web app tracks GPS through the browser's `watchPosition` API in high-accuracy mode, while the tab is open. Its filters are set for browser location data:
 
-For long routes with many points, Comma uses the **Ramer–Douglas–Peucker algorithm** (via `simplify-js`) to reduce the number of points stored without meaningfully changing the calculated distance. This keeps the database size manageable for workers who track hundreds of shifts per year.
+| Behaviour | Detail |
+|---|---|
+| Accuracy floor | Fixes with accuracy worse than 25 metres are discarded. |
+| Jitter guard | Movements under 10 metres, or ones implying more than 150 km/h, are rejected. |
+| Route cap | A route is capped at 2,000 points. |
+| Scope | Foreground only — tracking runs while the tab is open and stops when it closes. |
 
----
-
-## Odometer mode
-
-If you prefer to track mileage the old-fashioned way, Comma supports manual odometer readings:
-
-1. On the shift creation screen, enter your **starting odometer**.
-2. When ending the shift, enter your **ending odometer**.
-3. Comma calculates the miles as `endOdometer - startOdometer`.
-
-You can also record odometer readings on your vehicle profile independently of shifts — useful for tracking total annual business miles for actual-expense deductions.
-
-The `distanceSource` field on each shift records whether mileage came from GPS or odometer.
+Use the web tracker for convenience at a desk or as a backup. For a real driving shift, the phone's background service is the right tool. See [Shift Tracking](./shift-tracking.md).
 
 ---
 
-## Distance units
+## Manual entry
 
-Comma respects your locale setting. If your country profile uses miles (US, UK), all distances display in miles. If it uses kilometers (Canada, most other countries), distances display in kilometers.
-
-Change your unit in **Settings → Profile → Distance Unit**.
+You can always type distance by hand instead of using GPS. Enter the active and dead distance directly when you log or edit a shift. This is the fallback when you forgot to track, drove without signal, or prefer to read your odometer.
 
 ---
 
-## Deductible mileage summary
+## Odometer reconciliation
 
-Comma's **Tax Center** shows a deductible mileage summary:
-- Total business miles (active + dead)
-- Deduction value at the standard mileage rate
-- Miles by vehicle (if you use multiple vehicles)
-- Miles by month (for quarterly estimate breakdowns)
+GPS is close but never perfect, so Comma periodically checks its recorded distance against your real odometer. After a shift ends, it asks for your current odometer reading when either of these is true:
 
-This summary is designed to match what you'd enter on IRS Schedule C (US), CRA T2125 (Canada), or HMRC SA103 (UK).
+- It's the **1st of the month**, or
+- The **oldest unreconciled GPS-only shift is 14 or more days old**.
+
+Comma then computes the drift between your odometer change (new reading minus the previous one) and the total GPS distance over the same span, and distributes that drift **proportionally** across the unreconciled shifts. Longer shifts absorb more of the correction than short ones, so every shift's distance stays realistic without you editing each one by hand.
 
 ---
 
-## Troubleshooting GPS
+## The deductible summary
 
-**GPS not starting**
-- Ensure location permissions are set to "Always" (not "Only while using"). The background service needs this.
-- On Android, verify Comma is excluded from battery optimization: Settings → Apps → Comma → Battery → Unrestricted.
+Comma totals your business distance and applies the CRA automobile rate to produce a mileage deduction:
 
-**Mileage seems low**
-- Check that you tapped "First Order Received" at the right moment.
-- The speed filter may have discarded points during a momentary GPS spike. This typically causes <1% error.
-- Urban canyons (tall buildings) reduce GPS accuracy. Comma still records but some points may be filtered.
+| Distance | Rate |
+|---|---|
+| First 5,000 km | $0.73 / km |
+| Beyond 5,000 km | $0.67 / km |
 
-**Shift ended with "Pending Reconciliation"**
-- The GPS service was stopped by the OS before you tapped End Shift. Open the shift, review the recorded mileage, adjust if needed, and tap Confirm.
+This deduction reduces your taxable income; it is never shown as cash earned. Bicycles, e-bikes, and scooters are not automobiles under CRA rules and do not qualify for this rate — Comma won't offer a deduction you can't take. The full tax picture is in the [Tax Center](./tax-center.md).
 
-**High battery drain**
-- GPS tracking is the biggest battery consumer in Comma. Use a car charger. You can disable GPS tracking entirely and use manual mileage — go to **Settings → Shift Settings → Mileage Tracking: Manual**.
+---
+
+## Related
+
+- [Shift Tracking](./shift-tracking.md) — the live console and the Got First Order tap
+- [Tax Center](./tax-center.md) — how the mileage deduction feeds your estimate

@@ -1,147 +1,91 @@
 # Shift Tracking
 
-Comma's shift tracker is the core of the app. It records time, mileage (via GPS), and earnings for every work session.
+A shift is one work session, tracked live from start to finish. This page covers the live console on the phone, the Big Clock on the web, and how to log a shift you forgot to start.
 
 ---
 
-## Starting a shift
+## Starting a live shift (phone)
 
-Tap **Start Shift** on the Dashboard bottom bar. A three-step wizard opens:
+Tap **Start Shift** in the bottom bar. A short wizard collects only what it needs:
 
-1. **Platform** — Choose the gig app you're working on. If you work multiple platforms in one session, pick the primary one; you can add others later.
-2. **Vehicle** — Select the vehicle you're driving. Comma uses this for mileage rate and odometer tracking.
-3. **Target time** *(optional)* — Set a target duration (e.g. 4 hours). Comma notifies you when you've hit it.
+| Step | What you choose |
+|---|---|
+| Platform | Pick the app or apps you're working. An **All** option selects every active platform at once. |
+| Vehicle | Only asked if you have more than one vehicle. With a single vehicle, Comma skips this step. |
+| Duration target | Optional. Presets of 4, 8, or 10 hours, or a custom value. Meeting the target later earns XP if Goals is on. |
 
-Tap **Start** and the shift begins. Comma immediately requests location permissions and starts the GPS service.
-
----
-
-## The live shift overlay
-
-While a shift is running, a **fullscreen clock overlay** is available. Tap the clock icon to bring it up. It shows:
-
-- Elapsed time (total and net-of-pauses)
-- Current active and dead mileage
-- Live earnings (if you've entered them)
-- A mini GPS route map that updates in real time
-- Platform badge and vehicle label
-
-The overlay can be dismissed — the shift continues running in the background.
+Comma then starts the timer, the GPS service, and the floating overlay, and gets out of your way.
 
 ---
 
-## Active vs. dead miles mid-shift
+## The live console
 
-When you start a shift, Comma is in **dead-mile mode** — the GPS is recording but mileage is counted as dead (commute) miles.
+While the shift runs, the console shows the numbers the delivery app never does:
 
-Tap **"First Order Received"** when you pick up your first delivery. Comma switches to **active-mile mode**. Tapping again toggles back.
+- A running timer in **HH:MM:SS**.
+- The current mileage split — **active** versus **dead** distance.
+- A live **write-off value** in CAD, updating as you drive.
 
-The toggle is visible on the bottom action bar and on the live overlay. You can flip it as many times as you need during a shift.
+The controls:
+
+| Control | What it does |
+|---|---|
+| **Got First Order** | Marks the point your first delivery begins. Distance before the tap is dead; distance after is active. |
+| **Pause / Resume** | Stops the clock for a break. Paused time is excluded from your hourly rate. |
+| **Minimize** | Shrinks the console so you can use your phone normally. |
+| **Swipe to end** | A deliberate slider, so you can't end a shift by accident. |
+
+Until you tap **Got First Order**, every kilometre counts as dead — driving to a hotspot doesn't earn anything. After the tap, distance is active. See [Mileage Tracking](./mileage-tracking.md) for how the split is measured.
 
 ---
 
-## Pausing a shift
+## Background tracking
 
-Tap **Pause** to pause the timer. Paused time is not counted in your total duration or hourly-rate calculation. The GPS continues recording during a pause — mileage still accumulates.
-
-Use pause for:
-- Meal breaks
-- Waiting at a long pickup
-- Personal errands mid-shift (note: miles during a personal errand should not be counted as business miles; you may need to manually adjust)
-
-Tap **Resume** to continue.
+On the phone, tracking runs in a native **foreground service** with an ongoing notification, plus a **floating overlay** that sits on top of your delivery app. You can watch time and distance without switching back to Comma, and the service keeps running with the screen off. The shift doesn't stop until you end it.
 
 ---
 
 ## Ending a shift
 
-Tap **End Shift**. A summary screen appears showing:
+Swipe to end, and Comma saves the route immediately. The shift is stored as **pending reconciliation**: the time and distance are real and complete, but earnings sit at zero until you fill them in.
 
-- Total duration and net active time (duration minus paused seconds)
-- GPS-tracked mileage (active + dead)
-- A prompt to enter **gross revenue** and **tips**
-
-Review the numbers, edit if needed, then tap **Save**. The shift is saved with status `reconciled`.
+This is deliberate. A GPS-tracked shift knows how long you were out and how far you drove, but only you know what you were paid. The dashboard reminds you about pending shifts, and the bottom bar's main button becomes **Reconcile** while any exist. See [Core Concepts](../getting-started/core-concepts.md) for the full model.
 
 ---
 
-## The foreground service (Android)
+## The web app: the Big Clock
 
-On Android, Comma runs a **foreground service** while a shift is active. This is the small persistent notification in your notification tray that says "Shift in progress."
+The web PWA has its own live console, the **Big Clock** overlay. It does the same job as the phone: a timer, a progress ring, **Got First Order**, **Pause**, **Minimize** to a sticky timer bar, and **Stop & Save**. It tracks GPS while the browser tab is open.
 
-The foreground service is required for reliable GPS tracking. Android aggressively kills background processes; the foreground service tells the OS that this app is doing important work and should not be terminated.
-
-Tapping the notification opens the live overlay.
+The difference is background behaviour. The web app has **no background service**, so closing the tab stops distance tracking. Use the web app to review and to log shifts from a laptop; use the phone for a real driving shift.
 
 ---
 
-## Wake lock
+## Log a past shift
 
-While a shift is running, Comma acquires a **wake lock** to keep the device CPU active. This prevents the device from sleeping and dropping GPS updates. The wake lock is automatically released when the shift ends.
-
-If you're concerned about battery, you can keep your phone plugged in while working (most gig workers use a car charger anyway).
+Forgot to hit start? Tap **Log Shift** and enter the details by hand: platform and vehicle, date and times, earnings, distance, and notes. Most drivers log a few shifts this way before the habit sticks. A logged shift is saved as **reconciled** — money and distance are both known up front.
 
 ---
 
-## Logging a past shift
+## Reconciliation states
 
-If you forgot to start Comma before your shift, use **Log Past Shift**:
+Every shift is in one of three states:
 
-1. Tap **Log Past Shift** on the Dashboard.
-2. Enter:
-   - Platform and vehicle
-   - Start and end date/time
-   - Gross revenue and tips
-   - Mileage (or estimate — you can edit it later)
-3. Tap **Save**.
-
-Past shifts don't have GPS routes but are otherwise identical to tracked shifts in all reports and calculations.
+| Status | Meaning |
+|---|---|
+| `tracking` | Running right now. |
+| `pending_reconciliation` | GPS finished; earnings not entered yet. |
+| `reconciled` | Complete — money and distance both confirmed. |
 
 ---
 
-## Editing a shift
+## Editing, duplicating, and deleting
 
-Open the **Shifts** tab and tap any shift to open its detail screen.
-
-Editable fields:
-- Start/end time
-- Platform
-- Vehicle
-- Gross revenue and tips
-- Active mileage and dead mileage
-- Notes
-- Reconciliation status
-
-Changes are saved immediately and reflected across all analytics.
+Open any shift from the Shifts list to change its platform, times, earnings, distance, or notes. You can **duplicate** a shift to reuse it as the basis for a similar one, and **delete** a shift you no longer want. Deletions propagate across your devices as tombstones, so a shift removed on the phone doesn't reappear from the browser.
 
 ---
 
-## Reconciliation
+## Related
 
-Shifts that ended unexpectedly (app crash, GPS service killed) may appear with status **"Pending Reconciliation"**. Open the shift, review the GPS-calculated mileage and duration, confirm the earnings, and tap **Confirm** to mark it reconciled.
-
----
-
-## Deleting a shift
-
-From the shift detail screen, tap the trash icon (top right). This is a hard delete — the shift is permanently removed from your local database.
-
-If cloud sync is enabled, the deletion is propagated as a soft delete (tombstone) so it disappears on your other devices too.
-
----
-
-## Multi-platform shifts
-
-If you run two apps simultaneously during a shift (e.g. DoorDash and Uber Eats):
-
-1. Start the shift on your primary platform.
-2. Tap the platform badge during the shift to open the platform switcher.
-3. Add a second platform. Comma starts recording separate online-time and earnings for it.
-
-Each platform sub-record tracks its own online seconds, gross revenue, tips, and trip count. The shift's total mileage covers all platforms combined.
-
----
-
-## Home screen widget (Android)
-
-Comma includes an Android home screen widget that shows your current shift status — elapsed time, live mileage, and platform badge. Add it from your launcher's widget picker. The widget updates automatically as the shift progresses.
+- [Mileage Tracking](./mileage-tracking.md) — how distance is recorded and split
+- [Core Concepts](../getting-started/core-concepts.md) — shifts, active vs dead, reconciliation

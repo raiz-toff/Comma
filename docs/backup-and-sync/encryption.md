@@ -1,148 +1,125 @@
 # Encryption
 
-Every piece of data Comma sends to Google Drive is encrypted on your device before it leaves. This page explains exactly how.
+Comma has two modes for cloud data. The distinction is not a settings detail — it decides who can read your records, and what happens if you forget something.
+
+**The password is the mode.** If you have set one, your data is end-to-end encrypted. If you haven't, it isn't. There is no third state.
 
 ---
 
-## Summary
+## The two modes
 
-| Property | Value |
+| | Default — no password | End-to-end — opt-in |
+|---|---|---|
+| **What's on Drive** | Your data, readable | Ciphertext |
+| **Who can read it** | You, and Google | Only you |
+| **New device setup** | Sign in to Google | Sign in, then enter your password |
+| **If you forget the password** | Nothing to forget | **Cloud data gone. Permanently.** |
+| **Protects against** | A lost, stolen, or dead phone | All of that, plus Google itself |
+| **Analogy** | A WhatsApp cloud backup | A password-protected archive |
+
+Both modes store data in your Drive's `appDataFolder` — a private per-app folder that doesn't show up in your Drive, that no other app can read. In both modes, Comma has no server and receives nothing.
+
+---
+
+## Which should you pick
+
+**The default, almost certainly.**
+
+The threats a driver actually faces are: the phone gets stolen, the phone dies, the phone is replaced. The default protects against all three, and it never locks you out of your own records.
+
+Choose end-to-end encryption only if "Google could technically read this" is a line you won't cross — and you are genuinely confident you won't lose the password. There is no recovery. Not a hard recovery: none. Nobody holds a key.
+
+---
+
+## What it actually does
+
+With encryption on, every file Comma writes to Drive is encrypted on your device first:
+
+| | |
 |---|---|
-| Algorithm | AES-256-CBC |
-| Key derivation | PBKDF2 (SHA-256, 10,000 iterations) |
-| Key input | Your backup passphrase |
-| Salt | Random 16 bytes, generated per backup |
-| IV | Random 16 bytes, generated per encryption |
-| Library | `crypto-js` (JS), `react-native-quick-crypto` (native, hardware-accelerated) |
-| Plaintext | UTF-8 JSON string of the database snapshot or change-log |
+| **Cipher** | AES-256-GCM — authenticated, so tampering is detected, not just decryption failure |
+| **Key derivation** | PBKDF2-HMAC-SHA256, **210,000** iterations |
+| **Salt** | Random, per file |
+| **IV** | Random, per file |
+| **Where the key lives** | Derived from your password on demand. Never written to disk, never uploaded. |
 
----
+The password is never stored, in any form. Comma can't check it against a hash — it simply tries to decrypt, and a wrong password produces data that fails the authentication tag.
 
-## Key derivation
+### The envelope
 
-Comma never stores your passphrase in plaintext. It derives an encryption key using **PBKDF2**:
+Every file is a JSON envelope, so a device can tell at a glance whether it can read it:
 
-```
-key = PBKDF2(passphrase, salt, 10000 iterations, keyLen=32 bytes, SHA-256)
-```
+```jsonc
+// Default mode — no password
+{ "v": 2, "enc": "none", "content": { /* your rows */ } }
 
-- The salt is randomly generated for every backup or change-log file.
-- The salt is stored alongside the encrypted data (in the file header) so decryption can reproduce the same key.
-- 10,000 PBKDF2 iterations is the minimum recommended by NIST for HMAC-SHA-256.
-
----
-
-## Encryption process
-
-```
-plaintext  = JSON.stringify(backup data)
-salt       = random 16 bytes
-iv         = random 16 bytes
-key        = PBKDF2(passphrase, salt, 10000, 32, SHA256)
-ciphertext = AES-256-CBC encrypt(plaintext, key, iv)
-
-output = base64( salt || iv || ciphertext )
+// End-to-end mode
+{ "v": 2, "enc": "aes-256-gcm", "kdf": "pbkdf2-sha256",
+  "iter": 210000, "salt": "…", "iv": "…", "tag": "…", "content": "…base64 ciphertext…" }
 ```
 
-The output (base64-encoded) is what gets uploaded to Google Drive.
+A device that meets an encrypted envelope without the password doesn't crash or silently skip it — it reports that a password is needed and asks you.
 
 ---
 
-## Decryption process
+## Turning it on
 
-```
-input      = base64 decode(file contents)
-salt       = input[0:16]
-iv         = input[16:32]
-ciphertext = input[32:]
-key        = PBKDF2(passphrase, salt, 10000, 32, SHA256)
-plaintext  = AES-256-CBC decrypt(ciphertext, key, iv)
-data       = JSON.parse(plaintext)
-```
+**Settings → Data → Cloud Sync → Advanced → End-to-End Encryption.**
 
-The passphrase must match exactly — a single wrong character produces a completely different key and decryption will fail.
+Comma makes you tick a box acknowledging that a forgotten password means unrecoverable data, then set one. That friction is intentional.
+
+Switching it on **re-uploads your whole vault** in the new format — the push cursor is rewound to zero so nothing is left behind in the old one. Same in reverse when you turn it off.
 
 ---
 
-## Passphrase storage
+## The per-device caveat
 
-Your passphrase is stored in your device's secure enclave:
+Encryption mode lives on the **device**, not your account.
 
-- **iOS**: iOS Keychain (hardware-protected on devices with Secure Enclave)
-- **Android**: Android Keystore (TEE-backed on most modern devices)
-- **Web**: `localStorage` (less secure — not recommended for sensitive use)
-
-Comma never stores the passphrase in its SQLite database or in plaintext files. The secure enclave is the only copy on the device.
+Turn it on on your phone, and your laptop — which knows nothing about it — pulls down files it can't read and prompts you for the password. That's by design, but it surprises people. Enter it once on the laptop and both devices are aligned.
 
 ---
 
-## Why the passphrase is unrecoverable
+## Changing or forgetting the password
 
-The encryption key is derived entirely from your passphrase + a random salt. Comma does not store the key, does not know your passphrase, and has no server-side copy of either.
+**Changing it:** turn E2E off, then on again with the new one. Your vault re-uploads under the new key.
 
-If you forget your passphrase:
-- Comma cannot recover your encrypted backups.
-- Google cannot read the file contents.
-- There is no "forgot password" flow.
-- The only way to recover from a forgotten passphrase is to have an unencrypted local database (i.e., your current phone works fine, you just can't restore from cloud).
+**Forgetting it:** the cloud copy is unreadable, forever. But:
 
-**This is intentional.** A recovery mechanism requires storing something server-side (a key escrow or identity-linked recovery). Comma's privacy guarantee is that we don't run such a server.
+1. Your **local** data is never encrypted with this password — only the cloud copy is. If the original device still has your data, turn E2E off there and everything re-uploads in plain form. You've lost nothing.
+2. If no device still has the data, the cloud copy is lost. Start fresh.
 
-**Practical advice:** Write your passphrase in a password manager alongside your other credentials. If you use iCloud Keychain, 1Password, Bitwarden, or similar — put it there.
+This is what end-to-end means. A system that could rescue you here would be a system where somebody else holds a key.
 
 ---
 
-## Passphrase change
+## What isn't encrypted
 
-Changing your passphrase is not currently supported in-app. The reason: your existing backup and sync change-log files on Drive are encrypted with the old key. Re-encrypting them requires:
+**Your local database** — on neither the phone nor the browser. The operating system protects it instead: Android app-private storage isn't readable by other apps, and a locked phone's disk encryption covers it.
 
-1. Downloading every file.
-2. Decrypting with the old key.
-3. Re-encrypting with the new key.
-4. Uploading all files again.
+**Metadata on Drive** — Google can see that files exist, when, and how big. In E2E mode it can't see what's inside them.
 
-This is technically straightforward but potentially slow for large histories. It will be available in a future version triggered from **Settings → Backup & Sync → Change Passphrase**. Until then, treat your passphrase as fixed at the time of first backup.
+**Raw GPS scratch data** — never leaves the device at all.
 
 ---
 
-## What is NOT encrypted
+## Threat model, honestly
 
-The following data is never uploaded to cloud and therefore never encrypted:
+| Threat | Default | End-to-end |
+|---|---|---|
+| Someone takes your **unlocked** phone | Exposed | Exposed — the local vault is plaintext either way |
+| Someone takes your **locked** phone | OS-protected | OS-protected |
+| Google is compelled to hand over your Drive | **Readable** | Unreadable |
+| A Comma server is breached | No server exists | No server exists |
+| Comma's developers go rogue | They receive nothing | They receive nothing |
+| You forget your password | Nothing to forget | **Total loss of cloud data** |
 
-- Your local SQLite database (stored in the app sandbox, protected by OS-level app isolation)
-- GPS route data in the active shift (`locationPoints`, `tempNativePoints` tables — excluded from backup and sync)
-- Receipt photos (stored as local files, not included in backup uploads)
-
----
-
-## Security considerations
-
-**Threat: someone gains physical access to your phone.**
-- The passphrase is in the secure enclave — not easily extractable.
-- The local SQLite file is in the app sandbox — not accessible without a jailbreak/root.
-- Mitigation: use your device's biometric lock.
-
-**Threat: someone gains access to your Google account.**
-- They would see encrypted `.comdb` and `.cmlog` files in Drive's `appDataFolder`.
-- They cannot read the contents without your passphrase.
-- Mitigation: use a strong Google account password and enable 2FA.
-
-**Threat: Comma's servers are breached.**
-- Comma has no servers. There is nothing to breach.
-- The only data Comma handles is on your device and in your own Google Drive.
-
-**Threat: a malicious app update.**
-- A compromised app update could log keystrokes or exfiltrate data during decryption.
-- Mitigation: install from official channels (App Store, Play Store) and review open-source code before building from source.
+Read the first row twice. Neither mode encrypts the *local* database, so an attacker holding your unlocked phone has your data regardless. End-to-end buys protection for the **cloud copy** — not for a device that's physically taken.
 
 ---
 
-## Open source
+## In the source
 
-Comma's encryption implementation is open source. The relevant files are:
-
-- [`src/services/cryptoHelper.ts`](../../src/services/cryptoHelper.ts) — AES encrypt/decrypt, PBKDF2 key derivation
-- [`src/services/backupPassword.ts`](../../src/services/backupPassword.ts) — Passphrase storage (Secure Store abstraction)
-- [`src/services/googleDrive.ts`](../../src/services/googleDrive.ts) — Backup upload, download, and token management
-
-You can audit, fork, and build from source. The encryption is not proprietary.
+- `src/services/cryptoEnvelope.ts` — the envelope format, both variants
+- `src/services/cryptoHelper.ts` / `cryptoHelper.native.ts` — key derivation and AES-GCM
+- `web/src/modules/backup/cryptoEnvelope.js` — the web mirror, byte-compatible with the phone

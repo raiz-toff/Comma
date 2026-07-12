@@ -1,6 +1,6 @@
 # Navigation
 
-Comma uses **Expo Router** — a file-based routing system built on React Navigation. The folder structure under `app/` directly maps to URLs and screens.
+The phone app uses Expo Router: the folder tree under `app/` maps directly to routes, wrapped in a custom shell that provides a left drawer, a hidden tab navigator, and a right-slide Reports panel.
 
 ---
 
@@ -8,154 +8,110 @@ Comma uses **Expo Router** — a file-based routing system built on React Naviga
 
 ```
 app/
-├── _layout.tsx              # Root layout — providers, onboarding gate, global init
+├── _layout.tsx                # Root layout — providers, global init, error handling
+├── notifications.tsx          # Notification permission setup
 │
-├── (tabs)/                  # Main tab navigator
-│   ├── _layout.tsx          # Tab bar configuration
-│   ├── index.tsx            # Dashboard (tab: home)
-│   ├── shifts.tsx           # Shifts list (tab: shifts)
-│   ├── analytics.tsx        # Advanced analytics (tab: analytics, flag-gated)
-│   ├── expenses.tsx         # Expenses list (tab: expenses)
-│   └── tax.tsx              # Tax Center (tab: tax, flag-gated)
+├── (tabs)/                    # Main shell (drawer + tabs + Reports overlay)
+│   ├── _layout.tsx            # Custom drawer, hidden Tabs, Reports panel
+│   ├── index.tsx              # Dashboard — also the onboarding gate
+│   ├── shifts/index.tsx       # Shifts list
+│   ├── analytics.tsx          # Advanced analytics (flag-gated)
+│   ├── expenses/index.tsx     # Expenses list
+│   ├── tax/index.tsx          # Tax center (hidden from the tab bar; reached via drawer)
+│   └── more.tsx               # More menu
 │
-├── shift/
-│   ├── add.tsx              # Create/log a shift (wizard)
-│   └── [id].tsx             # Shift detail / edit
+├── setup/                     # Activation-checklist destinations
+│   ├── platforms.tsx          # Choose platforms
+│   ├── vehicle.tsx            # Add a real vehicle
+│   └── goal.tsx               # Set an earnings goal
 │
-├── expense/
-│   ├── add.tsx              # Log an expense
-│   └── [id].tsx             # Expense detail / edit
-│
-├── vehicles/
-│   ├── index.tsx            # Vehicle list
-│   └── [id].tsx             # Vehicle detail / edit
-│
-├── goals/
-│   └── index.tsx            # Goals + gamification
-│
-├── tax/
-│   └── index.tsx            # Tax center (also accessible as tab)
-│
-├── reports/
-│   └── index.tsx            # Reports panel (overlay, slides from right)
-│
-├── schedule/
-│   └── index.tsx            # Weekly schedule view (flag-gated)
+├── shift/add.tsx              # Create / log a shift
+├── shifts/[id].tsx            # Shift detail / edit
+├── expense/add.tsx            # Log an expense
+├── expense/[id].tsx           # Expense detail / edit
+├── vehicles/index.tsx         # Vehicle list
+├── vehicles/[id].tsx          # Vehicle detail / edit
+├── goals/index.tsx            # Goals + gamification (flag-gated)
+├── tax/center.tsx             # Tax center detail
+├── reports/index.tsx          # Reports panel content (rendered as an overlay)
+├── schedule/index.tsx         # Weekly schedule (flag-gated)
 │
 ├── settings/
-│   ├── index.tsx            # Settings root
-│   ├── backup.tsx           # Google Drive backup & sync
-│   ├── profile.tsx          # Edit profile
-│   ├── platforms.tsx        # Manage platforms
-│   ├── import.tsx           # CSV import
-│   └── developer.tsx        # Feature flags (dev only)
+│   ├── index.tsx              # Settings root
+│   ├── backup.tsx             # Google Drive backup & sync
+│   ├── profile.tsx            # Edit profile
+│   └── import.tsx             # CSV import
 │
-├── about/
-│   └── index.tsx            # About screen (version, licenses, links)
-│
-└── notifications.tsx        # Push notification permission setup
+├── about/index.tsx            # About (version, licenses, links)
+└── docs/                      # Internal design notes (Markdown, not routes)
 ```
+
+---
+
+## Routes to files
+
+| Route | File | Notes |
+|---|---|---|
+| `/` | `app/(tabs)/index.tsx` | Dashboard; renders the onboarding wizard until setup is complete |
+| `/shifts` | `app/(tabs)/shifts/index.tsx` | Shifts list |
+| `/shifts/[id]` | `app/shifts/[id].tsx` | Shift detail / edit |
+| `/shift/add` | `app/shift/add.tsx` | Log or create a shift |
+| `/analytics` | `app/(tabs)/analytics.tsx` | Gated on `analytics_advanced` |
+| `/expenses` | `app/(tabs)/expenses/index.tsx` | Expenses list |
+| `/expense/add`, `/expense/[id]` | `app/expense/…` | Create and edit an expense |
+| `/tax` | `app/(tabs)/tax/index.tsx` | Gated on `tax_workspace`; hidden from the tab bar |
+| `/tax/center` | `app/tax/center.tsx` | Tax center detail |
+| `/goals` | `app/goals/index.tsx` | Gated on `goals` |
+| `/vehicles`, `/vehicles/[id]` | `app/vehicles/…` | Vehicle list and detail |
+| `/reports` | `app/reports/index.tsx` | Opened as a right-slide overlay, not a pushed screen |
+| `/schedule` | `app/schedule/index.tsx` | Gated on `schedule` |
+| `/settings`, `/settings/backup`, `/settings/profile`, `/settings/import` | `app/settings/…` | Settings screens |
+| `/setup/platforms`, `/setup/vehicle`, `/setup/goal` | `app/setup/…` | Activation-checklist destinations |
+| `/about` | `app/about/index.tsx` | About |
+| `/notifications` | `app/notifications.tsx` | Notification permission setup |
 
 ---
 
 ## Root layout
 
-`app/_layout.tsx` is the root of the app. It:
-
-1. Initializes Expo Router and the app theme.
-2. Wraps everything in `QueryProvider` (React Query) and `GestureHandlerRootView`.
-3. Checks `isOnboardingCompleted` from the settings store. If false, renders `OnboardingWizard` instead of the main navigation.
-4. Sets up global error handlers and push notification listeners.
-5. Calls `loadSettings()` to hydrate Zustand stores from SQLite.
+`app/_layout.tsx` wraps the app in the React Query provider and the gesture root, sets up global error handling and notification listeners, and hydrates the Zustand stores from storage on launch.
 
 ---
 
-## Tab navigator
+## Onboarding gate
 
-The tab bar at the bottom of the screen shows 3–5 tabs depending on feature flags:
+There is no separate onboarding route. The Dashboard (`app/(tabs)/index.tsx`) checks `isOnboardingCompleted` from the settings store, and while it is false it renders `<OnboardingWizard />` in place of the dashboard.
 
-| Tab | Route | Flag required |
+The wizard opens on a **welcome gate** with three choices — start fresh, try the demo, or restore existing data — then runs **two steps**: country and region, then the driver's last shift. It ends in an hourly-rate **reveal** computed from that shift. Everything the wizard no longer asks for is deferred to the dashboard's **activation checklist** (`components/ActivationChecklist.tsx`), whose items deep-link into `/setup/platforms`, `/setup/vehicle`, and `/setup/goal`. See [Onboarding](../features/shift-tracking.md) for the driver-facing flow.
+
+---
+
+## The shell: drawer, tabs, and Reports
+
+`app/(tabs)/_layout.tsx` is a custom shell rather than a stock navigator.
+
+- **Left drawer.** A hand-built `Animated` drawer, opened by the header's menu button or a left-edge swipe (a `PanResponder`). It is the primary navigation. Its items are built per render and respect feature flags.
+- **Tabs.** An Expo Router `Tabs` navigator hosts the main screens (`index`, `shifts`, `analytics`, `expenses`, `tax`, `more`), but its bar is hidden (`tabBarStyle: { display: "none" }`) — navigation happens through the drawer and the More screen. The `tax` tab sets `href: null`, so it is reachable only from the drawer.
+- **Reports panel.** A full-screen `Animated` overlay that slides in from the right, holding `ReportsScreen`. The drawer's Reports item opens it rather than navigating. The Android back button closes the Reports panel, then the drawer, before exiting.
+
+### Drawer items
+
+| Item | Route | Shown when |
 |---|---|---|
 | Dashboard | `/` | Always |
 | Shifts | `/shifts` | Always |
-| Analytics | `/analytics` | `analytics_advanced` |
+| Analytics | `/analytics` | `analytics_advanced` enabled |
 | Expenses | `/expenses` | Always |
-| Tax | `/tax` | `tax_workspace` |
-
-The tab navigator is configured in `app/(tabs)/_layout.tsx` using Expo Router's `Tabs` component. Active tab highlighting uses the primary platform color from the current filter.
-
----
-
-## Drawer navigation
-
-A custom side drawer slides in from the left edge of the screen. It is triggered by:
-
-- Tapping the hamburger menu icon in the top header
-- Swiping from the left edge (PanResponder gesture)
-
-The drawer is implemented as a custom `Animated` component (not React Navigation's DrawerNavigator) for full visual control. It uses a `PanResponder` to handle the swipe gesture and `Animated.Value` for the slide animation.
-
-Drawer items:
-- Dashboard
-- Shifts
-- Analytics *(flag-gated)*
-- Expenses
-- Goals *(flag-gated)*
-- Tax Center *(flag-gated)*
-- Reports
-- Schedule *(flag-gated)*
-- Vehicles
-- Settings
-- About
+| Goals | `/goals` | `goals` enabled |
+| Tax | `/tax` | `tax_workspace` enabled and the country has self-assessment tax |
+| Reports | `/reports` | Always (opens the overlay) |
+| Schedule | `/schedule` | `schedule` enabled |
+| Vehicles | `/vehicles` | Always |
+| Settings | `/settings` | Always |
+| About | `/about` | Always (drawer footer) |
 
 ---
 
-## Reports panel
+## Feature-gated routes
 
-The Reports panel is a **full-screen overlay** that slides in from the right edge. It is opened by tapping "Reports" in the drawer. Implemented as an `Animated` view positioned off-screen right, animated to cover the full screen.
-
----
-
-## Bottom action bar
-
-The Dashboard has a floating bottom action bar with context-sensitive buttons:
-
-| Shift state | Buttons shown |
-|---|---|
-| No active shift | `+ Expense` · `Start Shift` · `Log Past Shift` |
-| Shift running | `+ Expense` · `Pause` · `End Shift` |
-| Shift paused | `+ Expense` · `Resume` · `End Shift` |
-
----
-
-## Global top header
-
-`GlobalTopHeader` appears at the top of every tab screen. It contains:
-
-- Hamburger menu icon (opens drawer)
-- Platform filter badge (shows active platform, tap to change)
-- Notification bell (shows unread count, tap to open notification list)
-
-The header hides on scroll via an `Animated` value driven by the scroll position. `isHeaderVisible` in the settings store tracks this state so other components can respond.
-
----
-
-## Deep links
-
-Push notification taps deep-link into the app. The `useNotificationRouting` hook listens for notification taps and calls `router.push()` with the appropriate route based on the notification payload.
-
-Example deep links:
-- Shift completed → `/shifts/[id]`
-- Badge unlocked → `/goals`
-- Backup failed → `/settings/backup`
-
----
-
-## Feature-gated screens
-
-Feature flags control which screens appear in the tab bar and drawer. The `useFeatureEnabled(flagName)` hook returns `true/false` based on:
-
-1. User-set override (from `Settings → Developer → Features`)
-2. Country/region default (e.g. `tax_workspace` defaults to `true` for US/CA/UK, `false` for other regions)
-
-Gated screens are still in the route tree — they're just not linked from navigation. You can navigate to them directly if you know the route.
+Gated screens are resolved with `useFeatureEnabled(flag)`, which reads a user override first, then the country default. The gated flags are `analytics_advanced`, `goals`, `tax_workspace`, and `schedule`. A gated screen stays in the route tree even when hidden — it is simply not linked from the drawer, and can still be reached by its route.

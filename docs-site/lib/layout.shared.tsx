@@ -1,10 +1,16 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
+import Image from 'next/image';
 import { appName, gitConfig, webAppUrl } from './shared';
 
 export function baseOptions(): BaseLayoutProps {
   return {
     nav: {
-      title: <span className="font-semibold tracking-tight">{appName}</span>,
+      title: (
+        <span className="inline-flex items-center gap-2">
+          <Image src="/logo-64.png" alt="" width={22} height={22} priority />
+          <span className="font-semibold tracking-tight">{appName}</span>
+        </span>
+      ),
     },
     links: [
       { text: 'Documentation', url: '/docs', active: 'nested-url' },

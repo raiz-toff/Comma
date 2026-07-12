@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 import { androidReleaseUrl, webAppUrl, gitConfig } from '@/lib/shared';
 
@@ -30,6 +31,7 @@ export default function HomePage() {
     <main className="container mx-auto max-w-4xl px-4">
       {/* Hero */}
       <section className="border-b border-fd-border py-20 md:py-28">
+        <Image src="/logo.png" alt="Comma" width={56} height={56} className="mb-6" priority />
         <p className="mb-5 text-xs font-medium uppercase tracking-widest text-fd-muted-foreground">
           Local-first earnings tracker for gig drivers
         </p>

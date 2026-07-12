@@ -12,23 +12,29 @@
  */
 
 import { useMemo } from "react";
-import { useColorScheme as useSystemScheme } from "react-native";
-import { useSettingsStore } from "@/store/useSettingsStore";
+import { useColorScheme } from "nativewind";
 import { PALETTES, type Palette, type Scheme, type ThemePref } from "./colors";
 
 export type { Palette, Scheme, ThemePref };
 
 /**
- * Resolve the driver's Appearance preference to the scheme actually rendered.
- * Dark is both the default and the fallback: an unset profile, or an OS that
- * reports no preference, land on dark.
+ * The scheme actually being rendered, straight from NativeWind.
+ *
+ * Read it here and nowhere else, so the hexes below can never disagree with the
+ * `dark` class driving the className tokens — they are now the same subscription.
+ *
+ * Do NOT be tempted to re-derive this from the preference plus React Native's
+ * useColorScheme(). That was the first attempt and it is subtly broken: setting
+ * the theme writes RN's global Appearance, so reading Appearance back just
+ * returns our own write, not the phone's setting — and "auto" would latch onto
+ * whatever was last applied instead of following the OS. ThemeSync hands "auto"
+ * to NativeWind as "system" and lets it own the OS relationship. See ./scheme.ts.
+ *
+ * Dark is the fallback: NativeWind reports `undefined` before it has resolved.
  */
 export function useResolvedScheme(): Scheme {
-  const pref = useSettingsStore((s) => s.profile?.theme) as ThemePref | undefined;
-  const system = useSystemScheme();
-  if (pref === "light" || pref === "dark") return pref;
-  if (pref === "auto") return system === "light" ? "light" : "dark";
-  return "dark";
+  const { colorScheme } = useColorScheme();
+  return colorScheme === "light" ? "light" : "dark";
 }
 
 /**

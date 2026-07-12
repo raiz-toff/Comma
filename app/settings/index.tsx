@@ -565,6 +565,18 @@ export default function SettingsScreen() {
 
   // ── Tab: Appearance ─────────────────────────────────────────────────────────
   const [theme, setTheme] = useState<"auto" | "light" | "dark">(profile?.theme ?? "dark");
+
+  /**
+   * Theme applies on tap, not on Save. Everything else on this tab is staged in
+   * local state and written when the driver saves, but a theme you have to save
+   * to see is a theme you cannot preview — you would be picking blind. Writing
+   * straight to the profile re-themes the app underneath the picker, which is
+   * also the preview. The Save handler still sends `theme`, harmlessly.
+   */
+  const chooseTheme = (next: "auto" | "light" | "dark") => {
+    setTheme(next);
+    void updateProfile({ theme: next });
+  };
   const [selectedAccent, setSelectedAccent] = useState(
     (profile?.avatarData && profile?.avatarData.startsWith("#")) ? profile.avatarData : "#F6F6F7"
   );
@@ -1082,14 +1094,24 @@ export default function SettingsScreen() {
                     { value: "dark" as const, label: "Dark" },
                   ]}
                   value={theme}
-                  onChange={setTheme}
+                  onChange={chooseTheme}
                 />
               </Row>
               <Row label="Accent color" block last>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={s.swatches}>
                     {PRESET_ACCENTS.map((hex) => {
-                      const on = String(selectedAccent || "#F6F6F7").toLowerCase() === hex;
+                      // The neutral preset is stored as dark's foreground hex, but it
+                      // MEANS "use the foreground colour" — usePlatformTheme resolves it
+                      // through the palette. Paint the swatch literally and in light mode
+                      // it is a near-white dot on a near-white card, i.e. invisible.
+                      const isNeutral = hex.toLowerCase() === "#f6f6f7";
+                      const swatchColor = isNeutral ? C.contentPrimary : hex;
+                      // Compare case-insensitively on BOTH sides: PRESET_ACCENTS is mixed
+                      // case, so lowercasing only the left never matched #F6F6F7, #FF5247
+                      // or #65656E — three swatches could never show as selected.
+                      const on =
+                        String(selectedAccent || "#F6F6F7").toLowerCase() === hex.toLowerCase();
                       return (
                         <TouchableOpacity
                           key={hex}
@@ -1100,8 +1122,8 @@ export default function SettingsScreen() {
                           hitSlop={8}
                           style={[
                             s.swatch,
-                            { backgroundColor: hex },
-                            on && { borderWidth: 2.5, borderColor: hex === "#F6F6F7" ? C.contentMuted : C.contentPrimary }
+                            { backgroundColor: swatchColor },
+                            on && { borderWidth: 2.5, borderColor: isNeutral ? C.contentMuted : C.contentPrimary }
                           ]}
                         />
                       );

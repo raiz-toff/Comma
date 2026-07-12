@@ -20,7 +20,7 @@ import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
 import { CurrencyText } from "@/src/components/ui/CurrencyText";
 import { EmptyState } from "@/src/components/ui/EmptyState";
 import { withAlpha } from "@/src/theme/colors";
-import { useColors } from "@/src/theme/useColors";
+import { useColors, useResolvedScheme } from "@/src/theme/useColors";
 import { getShiftById, deleteShift, getLocationPointsByShiftId, getShiftPlatforms } from "@/src/database/queries/shifts";
 import { getVehicleById } from "@/src/database/queries/vehicles";
 import { getExpensesByShift, insertExpense, deleteExpense } from "@/src/database/queries/expenses";
@@ -55,6 +55,10 @@ if (!isWeb) {
 
 const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { routePathJson: string | null | undefined; strokeColor: string; isNavigatingBack?: boolean }) => {
   const C = useColors();
+  // The basemap is a raster tile set, so it cannot be recoloured client-side —
+  // a dark map inside a light screen has to be a different tile set, not
+  // restyled pixels. CartoDB ships the light twin under the same scheme.
+  const tiles = useResolvedScheme() === "light" ? "light_all" : "dark_all";
   const [mapReady, setMapReady] = useState(false);
 
   React.useEffect(() => {
@@ -197,7 +201,7 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
           width: 100%;
           margin: 0;
           padding: 0;
-          background-color: #0F0F12;
+          background-color: ${C.surface02};
         }
       </style>
     </head>
@@ -212,22 +216,22 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
           style: {
             "version": 8,
             "sources": {
-              "cartodb-dark": {
+              "cartodb-basemap": {
                 "type": "raster",
                 "tiles": [
-                  "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-                  "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-                  "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-                  "https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
+                  "https://a.basemaps.cartocdn.com/${tiles}/{z}/{x}/{y}.png",
+                  "https://b.basemaps.cartocdn.com/${tiles}/{z}/{x}/{y}.png",
+                  "https://c.basemaps.cartocdn.com/${tiles}/{z}/{x}/{y}.png",
+                  "https://d.basemaps.cartocdn.com/${tiles}/{z}/{x}/{y}.png"
                 ],
                 "tileSize": 256
               }
             },
             "layers": [
               {
-                "id": "cartodb-dark-layer",
+                "id": "cartodb-basemap-layer",
                 "type": "raster",
-                "source": "cartodb-dark",
+                "source": "cartodb-basemap",
                 "minzoom": 0,
                 "maxzoom": 20
               }
@@ -307,7 +311,7 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
     </body>
     </html>
   `;
-  }, [points, smoothedPoints, mapEvents, strokeColor, C]);
+  }, [points, smoothedPoints, mapEvents, strokeColor, C, tiles]);
 
   const webViewSource = React.useMemo(() => ({ html: htmlContent }), [htmlContent]);
 

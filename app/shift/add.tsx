@@ -19,7 +19,7 @@ import { Button } from "../../src/components/ui/button";
 import { Text } from "../../src/components/ui/text";
 import { PlatformBadge } from "../../src/components/ui/PlatformBadge";
 import { EmptyState } from "../../src/components/ui/EmptyState";
-import { useColors } from "@/src/theme/useColors";
+import { useColors, useResolvedScheme } from "@/src/theme/useColors";
 import { PLATFORM_REGISTRY } from "../../src/registry/platforms";
 import { getPlatformContext } from "../../src/hooks/usePlatformContext";
 import { getVehicles } from "../../src/database/queries/vehicles";
@@ -49,6 +49,9 @@ if (!isWeb) {
 
 const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string | null | undefined; strokeColor: string }) => {
   const C = useColors();
+  // Raster tiles cannot be recoloured client-side, so a light map means a
+  // different tile set, not restyled pixels. CartoDB ships the light twin.
+  const tiles = useResolvedScheme() === "light" ? "light_all" : "dark_all";
   const points = React.useMemo(() => {
     if (!routePathJson || typeof routePathJson !== "string") return null;
     try {
@@ -133,21 +136,21 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
           width: 100%;
           margin: 0;
           padding: 0;
-          background-color: #0F0F12;
+          background-color: ${C.surface02};
         }
         .leaflet-control-zoom {
-          border: 1px solid #1E1E23 !important;
+          border: 1px solid ${C.lineSubtle} !important;
           margin-top: 8px !important;
           margin-left: 8px !important;
         }
         .leaflet-bar a {
-          background-color: #16161A !important;
-          color: #9ca3af !important;
-          border-bottom: 1px solid #1C1C21 !important;
+          background-color: ${C.surface03} !important;
+          color: ${C.contentSecondary} !important;
+          border-bottom: 1px solid ${C.surface04} !important;
         }
         .leaflet-bar a:hover {
-          background-color: #1C1C21 !important;
-          color: #f3f4f6 !important;
+          background-color: ${C.surface04} !important;
+          color: ${C.contentPrimary} !important;
         }
       </style>
     </head>
@@ -166,7 +169,7 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
           attributionControl: false
         });
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/${tiles}/{z}/{x}/{y}{r}.png', {
           subdomains: 'abcd',
           maxZoom: 20
         }).addTo(map);

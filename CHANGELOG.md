@@ -2,6 +2,14 @@
 
 All notable changes to Comma are documented here.
 
+## [1.4.0] — 2026-07-12 (versionCode 8)
+
+### Added
+- **Light mode**: Comma can now be light. **Settings → Appearance → Theme** offers *Light*, *Dark*, or *Auto*, which follows whatever your phone is set to. It changes the moment you tap it — nothing to save, nothing to restart. Dark stays the default, because most driving is night driving. Your route maps switch over too, so a light screen no longer wraps a dark map.
+
+### Fixed
+- **The Theme setting now actually changes the theme.** It had been sitting in Settings for a while and it remembered what you picked — but the app carried on looking exactly the same. It works now.
+
 ## [1.3.1] — 2026-07-12 (versionCode 7)
 
 ### Added

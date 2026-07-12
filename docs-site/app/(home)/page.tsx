@@ -2,6 +2,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 import { androidReleaseUrl, webAppUrl, gitConfig } from '@/lib/shared';
+import { PLATFORM_MARKS } from '@/lib/platform-logos';
+import { LogosCarousel } from '@/components/logos-carousel';
 
 const startHere = [
   {
@@ -26,43 +28,135 @@ const startHere = [
   },
 ];
 
+function PlatformMark({ name, color, svg }: { name: string; color: string; svg: string }) {
+  return (
+    <span className="inline-flex items-center gap-2.5 whitespace-nowrap text-sm font-medium text-fd-muted-foreground transition-colors hover:text-fd-foreground">
+      <span style={{ color }} className="[&_svg]:size-5" dangerouslySetInnerHTML={{ __html: svg }} />
+      {name}
+    </span>
+  );
+}
+
+// The product's aha moment, printing itself like a till receipt.
+const RECEIPT_LINES = [
+  { label: 'Gross paid out', value: '$142.00' },
+  { label: 'Tax to set aside · 28%', value: '− $39.76' },
+  { label: 'Fuel and expenses', value: '− $18.40' },
+  { label: 'Mileage write-off · 47 km', value: '+ $34.31' },
+];
+
+function Receipt() {
+  return (
+    <div className="rise w-full max-w-sm rounded-xl border border-fd-border bg-fd-card p-6 shadow-sm" style={{ ['--rise-delay' as string]: '0.35s' }}>
+      <div className="mb-4 flex items-center justify-between border-b border-dashed border-fd-border pb-3 font-mono text-[11px] uppercase tracking-[0.18em] text-fd-muted-foreground">
+        <span>Shift · 6h 40m</span>
+        <span>
+          recording<span className="blink">_</span>
+        </span>
+      </div>
+      <div className="space-y-2.5 font-mono text-sm tabular-nums">
+        {RECEIPT_LINES.map((l, i) => (
+          <div
+            key={l.label}
+            className="receipt-line flex items-baseline justify-between gap-4"
+            style={{ ['--print-delay' as string]: `${0.7 + i * 0.35}s` }}
+          >
+            <span className="text-fd-muted-foreground">{l.label}</span>
+            <span className="text-fd-foreground">{l.value}</span>
+          </div>
+        ))}
+        <div
+          className="rate-pop mt-3 flex items-baseline justify-between gap-4 border-t border-fd-border pt-3"
+          style={{ ['--print-delay' as string]: `${0.7 + RECEIPT_LINES.length * 0.35 + 0.25}s` }}
+        >
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-fd-muted-foreground">
+            Real rate
+          </span>
+          <span className="text-2xl font-semibold text-emerald-500">
+            $17.72<span className="text-sm text-fd-muted-foreground">/hr</span>
+          </span>
+        </div>
+        <p
+          className="receipt-line pt-1 text-xs leading-relaxed text-fd-muted-foreground"
+          style={{ ['--print-delay' as string]: `${0.7 + RECEIPT_LINES.length * 0.35 + 0.7}s` }}
+        >
+          The app called it <span className="line-through">$21.30/hr</span>. Comma shows you this
+          before you configure anything.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
   return (
-    <main className="container mx-auto max-w-4xl px-4">
+    <main className="container mx-auto max-w-5xl px-4">
       {/* Hero */}
-      <section className="border-b border-fd-border py-20 md:py-28">
-        <Image src="/logo.png" alt="Comma" width={56} height={56} className="mb-6" priority />
-        <p className="mb-5 text-xs font-medium uppercase tracking-widest text-fd-muted-foreground">
-          Local-first earnings tracker for gig drivers
-        </p>
-        <h1 className="max-w-2xl text-4xl font-semibold leading-[1.1] tracking-tight text-fd-foreground md:text-5xl">
-          Know what your driving is actually worth.
-        </h1>
-        <p className="mt-6 max-w-xl text-lg leading-relaxed text-fd-muted-foreground">
-          The app pays you a number. It is not the number. Comma logs every dollar, every
-          kilometre, and every write-off, then shows you what a shift really earned after tax
-          and vehicle costs. No account, no server, nothing leaves your device.
-        </p>
-        <div className="mt-9 flex flex-wrap items-center gap-3">
-          <Link
-            href="/docs/getting-started/quick-start"
-            className="inline-flex items-center gap-2 rounded-lg bg-fd-primary px-4 py-2.5 text-sm font-medium text-fd-primary-foreground transition-opacity hover:opacity-90"
+      <section className="grid items-center gap-12 border-b border-fd-border py-20 md:grid-cols-[1.2fr_1fr] md:py-24">
+        <div>
+          <Image
+            src="/logo.png"
+            alt="Comma"
+            width={52}
+            height={52}
+            className="rise mb-6"
+            style={{ ['--rise-delay' as string]: '0s' }}
+            priority
+          />
+          <p
+            className="rise mb-5 text-xs font-medium uppercase tracking-widest text-fd-muted-foreground"
+            style={{ ['--rise-delay' as string]: '0.08s' }}
           >
-            Read the docs <ArrowRight className="size-4" />
-          </Link>
-          <a
-            href={androidReleaseUrl}
-            className="rounded-lg border border-fd-border px-4 py-2.5 text-sm font-medium text-fd-foreground transition-colors hover:bg-fd-muted"
+            Local-first earnings tracker for gig drivers
+          </p>
+          <h1
+            className="rise max-w-xl text-4xl font-semibold leading-[1.08] tracking-tight text-fd-foreground md:text-5xl"
+            style={{ ['--rise-delay' as string]: '0.16s' }}
           >
-            Download for Android
-          </a>
-          <a
-            href={webAppUrl}
-            className="rounded-lg border border-fd-border px-4 py-2.5 text-sm font-medium text-fd-foreground transition-colors hover:bg-fd-muted"
+            Know what your driving is actually worth.
+          </h1>
+          <p
+            className="rise mt-6 max-w-lg text-lg leading-relaxed text-fd-muted-foreground"
+            style={{ ['--rise-delay' as string]: '0.24s' }}
           >
-            Open the web app
-          </a>
+            The app pays you a number. It is not the number. Comma logs every dollar, every
+            kilometre, and every write-off — on your device, with no account and no server.
+          </p>
+          <div className="rise mt-9 flex flex-wrap items-center gap-3" style={{ ['--rise-delay' as string]: '0.32s' }}>
+            <Link
+              href="/docs/getting-started/quick-start"
+              className="group inline-flex items-center gap-2 rounded-lg bg-fd-primary px-4 py-2.5 text-sm font-medium text-fd-primary-foreground transition-all hover:opacity-90"
+            >
+              Read the docs
+              <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+            <a
+              href={androidReleaseUrl}
+              className="rounded-lg border border-fd-border px-4 py-2.5 text-sm font-medium text-fd-foreground transition-colors hover:border-fd-foreground/40 hover:bg-fd-muted"
+            >
+              Download for Android
+            </a>
+            <a
+              href={webAppUrl}
+              className="rounded-lg border border-fd-border px-4 py-2.5 text-sm font-medium text-fd-foreground transition-colors hover:border-fd-foreground/40 hover:bg-fd-muted"
+            >
+              Open the web app
+            </a>
+          </div>
         </div>
+
+        <div className="flex justify-center md:justify-end">
+          <Receipt />
+        </div>
+      </section>
+
+      {/* Platform marquee */}
+      <section className="border-b border-fd-border py-9">
+        <LogosCarousel className="w-full py-4">
+          {PLATFORM_MARKS.map((p) => (
+            <PlatformMark key={p.name} {...p} />
+          ))}
+        </LogosCarousel>
       </section>
 
       {/* Start here */}
@@ -79,7 +173,7 @@ export default function HomePage() {
             >
               <span className="flex items-center justify-between font-medium text-fd-foreground">
                 {c.title}
-                <ArrowRight className="size-4 text-fd-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                <ArrowRight className="size-4 text-fd-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-fd-foreground" />
               </span>
               <span className="text-sm leading-relaxed text-fd-muted-foreground">{c.body}</span>
             </Link>
@@ -89,7 +183,7 @@ export default function HomePage() {
 
       {/* Two apps */}
       <section className="grid gap-px overflow-hidden rounded-xl border border-fd-border bg-fd-border pb-0 sm:grid-cols-2">
-        <div className="bg-fd-card p-7">
+        <div className="bg-fd-card p-7 transition-colors hover:bg-fd-muted">
           <p className="text-xs font-semibold uppercase tracking-wider text-fd-muted-foreground">
             Android
           </p>
@@ -101,7 +195,7 @@ export default function HomePage() {
             <li>Works with no signal — the database is on the phone</li>
           </ul>
         </div>
-        <div className="bg-fd-card p-7">
+        <div className="bg-fd-card p-7 transition-colors hover:bg-fd-muted">
           <p className="text-xs font-semibold uppercase tracking-wider text-fd-muted-foreground">
             Web (PWA)
           </p>

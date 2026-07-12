@@ -49,20 +49,41 @@ node scripts/submit-play.mjs --dry-run
 
 ## Step 1 — Bump the version
 
-Two files, kept in step by hand:
+One command, from the machine you'll build on:
+
+```bash
+node scripts/version.mjs bump 1.4.0
+```
+
+It rewrites every place that states a version, increments `versionCode`, and opens a
+`CHANGELOG.md` entry for you to fill in:
 
 | File | Field |
 |---|---|
-| `app.json` | `expo.version` — e.g. `1.3.1` |
-| `android/app/build.gradle` | `versionName` (same string) and `versionCode` (**integer, must increase every Play upload**) |
+| `app.json` | `expo.version` — the source of truth every other file follows |
+| `package.json` | `version` |
+| `web/src/modules/changelog/changelog.js` | `APP_VERSION` — the web "What's New" modal and support reports |
+| `android/app/build.gradle` | `versionName`, and `versionCode` (**integer, must increase every Play upload**) |
+| `CHANGELOG.md` | a new `## [1.4.0]` entry |
 
-`android/` is untracked in git (Expo-managed), so the version code lives only on the build machine. Check the last release's number before bumping:
+Do not edit these by hand. They drifted to 1.3.1 / 1.0.0 / 1.3.0 across four files while this
+page said "kept in step by hand", which is why the script exists. Verify any time with:
+
+```bash
+node scripts/version.mjs check
+```
+
+`android/` is untracked in git (Expo-managed), so `versionCode` lives only on the build
+machine — run `bump` there, or bump it yourself before building. Check what the last release
+used:
 
 ```bash
 gh release view --json tagName
 ```
 
-Then add the release to `CHANGELOG.md` — the GitHub release notes are written from it.
+Then **write the CHANGELOG entry** (the GitHub release notes are written from it, and the docs
+site publishes it at `/changelog`), and refresh the web "What's New" highlights in
+`web/src/modules/changelog/changelog.js` so they describe the version you're shipping.
 
 > `runtimeVersion` follows `appVersion` (`app.json`). Changing the version name **starts a new OTA lineage**: updates published for `1.3.1` will not reach `1.3.0` binaries. That's intended — it stops a JS bundle from landing on a binary whose native code it doesn't match.
 
@@ -168,8 +189,9 @@ Clone the repo, then bring the pieces that aren't in it:
 ## Checklist
 
 ```
-[ ] Version bumped in app.json + build.gradle (versionCode increased)
-[ ] CHANGELOG.md updated
+[ ] node scripts/version.mjs bump X.Y.Z   (then: node scripts/version.mjs check)
+[ ] CHANGELOG.md entry written  (publishes to the docs site at /changelog)
+[ ] Web "What's New" highlights refreshed for this version
 [ ] ./build.sh → APK and/or AAB
 [ ] Installed the artifact on a real device and opened it (styles render? text visible?)
 [ ] git tag vX.Y.Z && push

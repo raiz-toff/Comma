@@ -140,6 +140,20 @@ function yamlEscape(s) {
   return s.replace(/"/g, '\\"');
 }
 
+// Page description = the first sentence of the intro paragraph. Never cut a
+// word in half; if even one sentence is too long, trim at a word boundary.
+function summarize(text, max = 200) {
+  const clean = text.trim();
+  const sentence = clean.match(/^.{20,}?[.!?](?=\s|$)/);
+  let out = (sentence ? sentence[0] : clean).trim();
+  if (out.length > max) {
+    out = out.slice(0, max);
+    const cut = out.lastIndexOf(' ');
+    out = (cut > 0 ? out.slice(0, cut) : out) + '…';
+  }
+  return out;
+}
+
 // Split "# Title" + first paragraph out of the body -> { title, description, body }.
 function parse(md) {
   const lines = md.split('\n');
@@ -189,7 +203,7 @@ async function main() {
       const raw = stripEmoji(await fs.readFile(srcFile, 'utf8'));
       const { title, description, body } = parse(raw);
       const fm = ['---', `title: "${yamlEscape(title || slug)}"`];
-      if (description) fm.push(`description: "${yamlEscape(description.slice(0, 240))}"`);
+      if (description) fm.push(`description: "${yamlEscape(summarize(description))}"`);
       fm.push('---', '');
       await writeFile(path.join(OUT, section.dir, `${slug}.mdx`), fm.join('\n') + escapeAngles(resolveLinks(body, section.dir)) + '\n');
       present.push(slug);

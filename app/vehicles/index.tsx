@@ -26,45 +26,47 @@ import {
 
 import { Text } from "@/src/components/ui/text";
 import { EmptyState } from "@/src/components/ui/EmptyState";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { withAlpha } from "@/src/theme/colors";
+import { useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { getVehicles, insertVehicle } from "@/src/database/queries/vehicles";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
 
-const DS = {
-  pageBg: COLORS.background,
-  cardBg: COLORS.surface02,
-  cardBorder: COLORS.lineSubtle,
-  inputBg: COLORS.surface03,
-  inputBorder: COLORS.lineStrong,
-  sep: COLORS.lineSubtle,
+const makeDS = (C: Palette) =>
+  ({
+    pageBg: C.background,
+    cardBg: C.surface02,
+    cardBorder: C.lineSubtle,
+    inputBg: C.surface03,
+    inputBorder: C.lineStrong,
+    sep: C.lineSubtle,
 
-  brand: COLORS.contentPrimary,
-  brandSurface: COLORS.surface04,
-  brandBorder: COLORS.lineStrong,
-  brandText: COLORS.contentPrimary,
+    brand: C.contentPrimary,
+    brandSurface: C.surface04,
+    brandBorder: C.lineStrong,
+    brandText: C.contentPrimary,
 
-  danger: COLORS.destructive,
-  dangerSurface: withAlpha(COLORS.destructive, 0.08),
-  dangerBorder: withAlpha(COLORS.destructive, 0.18),
-  dangerText: COLORS.destructive,
+    danger: C.destructive,
+    dangerSurface: withAlpha(C.destructive, 0.08),
+    dangerBorder: withAlpha(C.destructive, 0.18),
+    dangerText: C.destructive,
 
-  textPrimary: COLORS.contentPrimary,
-  textSecondary: COLORS.contentSecondary,
-  textMuted: COLORS.contentMuted,
-  textLabel: COLORS.contentMuted,
+    textPrimary: C.contentPrimary,
+    textSecondary: C.contentSecondary,
+    textMuted: C.contentMuted,
+    textLabel: C.contentMuted,
 
-  rCard: 16,
-  rInput: 12,
-  rChip: 8,
-  rPill: 20,
+    rCard: 16,
+    rInput: 12,
+    rChip: 8,
+    rPill: 20,
 
-  pagePad: 16,
-  cardPad: 16,
-  rowPad: 12,
-} as const;
+    pagePad: 16,
+    cardPad: 16,
+    rowPad: 12,
+  }) as const;
 
 const VEHICLE_TYPES = [
   { id: "gas", label: "Gas" },
@@ -78,6 +80,8 @@ const VEHICLE_TYPES = [
 ] as const;
 
 export default function VehiclesScreen() {
+  const DS = useThemedStyles(makeDS);
+  const s = useThemedStyles(makeStyles);
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -365,7 +369,9 @@ export default function VehiclesScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => {
+  const DS = makeDS(C);
+  return StyleSheet.create({
   safe: { flex: 1, backgroundColor: DS.pageBg },
   scroll: { paddingHorizontal: DS.pagePad, paddingBottom: 40 },
 
@@ -458,4 +464,5 @@ const s = StyleSheet.create({
   },
   vehicleMeta: { color: DS.textSecondary },
   vehiclePlate: { color: DS.textSecondary, marginTop: 2 },
-});
+  });
+};

@@ -21,17 +21,11 @@ import { getCategoryMeta } from "@/src/registry/expenseCategories";
 import { ExpenseCategoryIcon } from "@/src/components/ui/ExpenseCategoryIcon";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
-import { COLORS, withAlpha } from "@/src/theme/colors";
-
-const BG      = COLORS.background;
-const SURFACE = COLORS.surface02;
-const BORDER  = COLORS.lineSubtle;
-const MUTED   = COLORS.contentSecondary;
-const WHITE   = COLORS.contentPrimary;
-const GREEN   = COLORS.success;
-const RED     = COLORS.destructive;
+import { withAlpha } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 
 function Row({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
+  const s = useThemedStyles(makeStyles);
   return (
     <View style={s.row}>
       <Text variant="labelM" className="text-content-secondary" style={{ flexShrink: 0 }}>{label}</Text>
@@ -48,6 +42,7 @@ function Row({ label, value, valueColor }: { label: string; value: string; value
 }
 
 function Sep() {
+  const s = useThemedStyles(makeStyles);
   return <View style={s.sep} />;
 }
 
@@ -56,6 +51,12 @@ export default function ExpenseDetailScreen() {
   const queryClient = useQueryClient();
   const { profile } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
+
+  const GREEN = C.success;
+  const RED   = C.destructive;
+  const MUTED = C.contentSecondary;
 
   const country          = profile?.country ?? "CA";
   const customCategories = profile?.customCategories ?? [];
@@ -100,7 +101,7 @@ export default function ExpenseDetailScreen() {
       <SafeAreaView style={s.safe}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={s.loading}>
-          <ActivityIndicator color={COLORS.contentSecondary} />
+          <ActivityIndicator color={C.contentSecondary} />
         </View>
       </SafeAreaView>
     );
@@ -327,7 +328,13 @@ export default function ExpenseDetailScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => {
+  const BG      = C.background;
+  const SURFACE = C.surface02;
+  const BORDER  = C.lineSubtle;
+  const MUTED   = C.contentSecondary;
+  const WHITE   = C.contentPrimary;
+  return StyleSheet.create({
   safe:    { flex: 1, backgroundColor: BG },
   loading: { flex: 1, alignItems: "center", justifyContent: "center" },
 
@@ -370,4 +377,5 @@ const s = StyleSheet.create({
 
   // edit button
   editBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 16, borderRadius: 12, marginTop: 4 },
-});
+  });
+};

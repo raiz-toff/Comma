@@ -19,7 +19,7 @@ import { Button } from "../../src/components/ui/button";
 import { Text } from "../../src/components/ui/text";
 import { PlatformBadge } from "../../src/components/ui/PlatformBadge";
 import { EmptyState } from "../../src/components/ui/EmptyState";
-import { COLORS } from "../../src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 import { PLATFORM_REGISTRY } from "../../src/registry/platforms";
 import { getPlatformContext } from "../../src/hooks/usePlatformContext";
 import { getVehicles } from "../../src/database/queries/vehicles";
@@ -48,6 +48,7 @@ if (!isWeb) {
 }
 
 const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string | null | undefined; strokeColor: string }) => {
+  const C = useColors();
   const points = React.useMemo(() => {
     if (!routePathJson || typeof routePathJson !== "string") return null;
     try {
@@ -88,29 +89,29 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
     const endY = PAD + (1 - (points[points.length - 1].latitude - minLat) / latRange) * (H - 2 * PAD);
 
     return (
-      <View style={{ marginVertical: 8, backgroundColor: COLORS.surface02, borderRadius: 16, borderWidth: 0.5, borderColor: COLORS.lineSubtle, overflow: "hidden" }}>
-        <View style={{ height: H, backgroundColor: COLORS.surface01, justifyContent: "center", alignItems: "center" }}>
+      <View style={{ marginVertical: 8, backgroundColor: C.surface02, borderRadius: 16, borderWidth: 0.5, borderColor: C.lineSubtle, overflow: "hidden" }}>
+        <View style={{ height: H, backgroundColor: C.surface01, justifyContent: "center", alignItems: "center" }}>
           <Svg width="100%" height={H} viewBox={"0 0 " + W + " " + H}>
-            <Line x1="0" y1="50" x2="340" y2="50" stroke={COLORS.surface02} strokeWidth="0.8" />
-            <Line x1="0" y1="100" x2="340" y2="100" stroke={COLORS.surface02} strokeWidth="0.8" />
-            <Line x1="0" y1="150" x2="340" y2="150" stroke={COLORS.surface02} strokeWidth="0.8" />
-            <Line x1="85" y1="0" x2="85" y2="200" stroke={COLORS.surface02} strokeWidth="0.8" />
-            <Line x1="170" y1="0" x2="170" y2="200" stroke={COLORS.surface02} strokeWidth="0.8" />
-            <Line x1="255" y1="0" x2="255" y2="200" stroke={COLORS.surface02} strokeWidth="0.8" />
+            <Line x1="0" y1="50" x2="340" y2="50" stroke={C.surface02} strokeWidth="0.8" />
+            <Line x1="0" y1="100" x2="340" y2="100" stroke={C.surface02} strokeWidth="0.8" />
+            <Line x1="0" y1="150" x2="340" y2="150" stroke={C.surface02} strokeWidth="0.8" />
+            <Line x1="85" y1="0" x2="85" y2="200" stroke={C.surface02} strokeWidth="0.8" />
+            <Line x1="170" y1="0" x2="170" y2="200" stroke={C.surface02} strokeWidth="0.8" />
+            <Line x1="255" y1="0" x2="255" y2="200" stroke={C.surface02} strokeWidth="0.8" />
             <Polyline points={svgPoints} fill="none" stroke={strokeColor} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-            <Circle cx={startX} cy={startY} r="5" fill={COLORS.success} />
-            <Circle cx={endX} cy={endY} r="6" fill={COLORS.destructive} stroke={COLORS.background} strokeWidth="1" />
+            <Circle cx={startX} cy={startY} r="5" fill={C.success} />
+            <Circle cx={endX} cy={endY} r="6" fill={C.destructive} stroke={C.background} strokeWidth="1" />
           </Svg>
         </View>
         <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 8 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.success }} />
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.success }} />
             <Text variant="paragraphS" className="text-content-secondary font-semibold">Start</Text>
           </View>
           <Text variant="paragraphS" className="text-content-muted font-semibold" tabular>{points.length} GPS points</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Text variant="paragraphS" className="text-content-secondary font-semibold">End</Text>
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.destructive }} />
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.destructive }} />
           </View>
         </View>
       </View>
@@ -212,11 +213,11 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
   `;
 
   return (
-    <View style={{ marginVertical: 8, backgroundColor: COLORS.surface02, borderRadius: 16, borderWidth: 0.5, borderColor: COLORS.lineSubtle, overflow: "hidden", height: 240 }}>
+    <View style={{ marginVertical: 8, backgroundColor: C.surface02, borderRadius: 16, borderWidth: 0.5, borderColor: C.lineSubtle, overflow: "hidden", height: 240 }}>
       <WebView
         originWhitelist={["*"]}
         source={{ html: htmlContent }}
-        style={{ flex: 1, backgroundColor: COLORS.surface02 }}
+        style={{ flex: 1, backgroundColor: C.surface02 }}
         javaScriptEnabled={true}
         domStorageEnabled={true}
         scalesPageToFit={true}
@@ -236,6 +237,7 @@ export default function AddShiftModal() {
   const { shiftId } = useLocalSearchParams<{ shiftId: string }>();
 
   const { accentColor, accentColorDim } = usePlatformTheme();
+  const C = useColors();
 
   // Form State
   const [selectedPlatformsList, setSelectedPlatformsList] = useState<string[]>([]);
@@ -595,7 +597,7 @@ export default function AddShiftModal() {
                 style={{
                   flex: 1,
                   height: 4,
-                  backgroundColor: i <= stepIndex ? accentColor : COLORS.surface05,
+                  backgroundColor: i <= stepIndex ? accentColor : C.surface05,
                   borderRadius: 2,
                 }}
               />
@@ -638,8 +640,8 @@ export default function AddShiftModal() {
                           accessibilityState={{ selected: isSelected }}
                           className="rounded-xl border p-2"
                           style={{
-                            borderColor: isSelected ? accentColor : COLORS.lineStrong,
-                            backgroundColor: isSelected ? accentColorDim : COLORS.surface03,
+                            borderColor: isSelected ? accentColor : C.lineStrong,
+                            backgroundColor: isSelected ? accentColorDim : C.surface03,
                           }}
                         >
                           <PlatformBadge platform={pKey} size="md" />
@@ -687,8 +689,8 @@ export default function AddShiftModal() {
                           accessibilityState={{ selected: isSelected }}
                           className="p-4 rounded-xl border flex-row items-center gap-3"
                           style={{
-                            borderColor: isSelected ? accentColor : COLORS.lineSubtle,
-                            backgroundColor: isSelected ? accentColorDim : COLORS.surface02,
+                            borderColor: isSelected ? accentColor : C.lineSubtle,
+                            backgroundColor: isSelected ? accentColorDim : C.surface02,
                           }}
                         >
                           <View
@@ -697,7 +699,7 @@ export default function AddShiftModal() {
                               height: 20,
                               borderRadius: 10,
                               borderWidth: 2,
-                              borderColor: isSelected ? accentColor : COLORS.lineStrong,
+                              borderColor: isSelected ? accentColor : C.lineStrong,
                               alignItems: "center",
                               justifyContent: "center",
                             }}
@@ -874,7 +876,7 @@ export default function AddShiftModal() {
                           onChangeText={(val) => updateForm("onlineHours", val.replace(/[^0-9]/g, ""))}
                           keyboardType="numeric"
                           placeholder="0"
-                          placeholderTextColor={COLORS.contentMuted}
+                          placeholderTextColor={C.contentMuted}
                           className="flex-1 text-content-primary text-sm py-3 font-semibold"
                         />
                         <Text variant="paragraphS" className="text-content-muted font-bold ml-1">hrs</Text>
@@ -885,7 +887,7 @@ export default function AddShiftModal() {
                           onChangeText={(val) => updateForm("onlineMinutes", val.replace(/[^0-9]/g, ""))}
                           keyboardType="numeric"
                           placeholder="0"
-                          placeholderTextColor={COLORS.contentMuted}
+                          placeholderTextColor={C.contentMuted}
                           className="flex-1 text-content-primary text-sm py-3 font-semibold"
                         />
                         <Text variant="paragraphS" className="text-content-muted font-bold ml-1">min</Text>
@@ -904,7 +906,7 @@ export default function AddShiftModal() {
                         onChangeText={(val) => updateForm("activeHours", val.replace(/[^0-9]/g, ""))}
                         keyboardType="numeric"
                         placeholder="0"
-                        placeholderTextColor={COLORS.contentMuted}
+                        placeholderTextColor={C.contentMuted}
                         className="flex-1 text-content-primary text-sm py-3 font-semibold"
                       />
                       <Text variant="paragraphS" className="text-content-muted font-bold ml-1">hrs</Text>
@@ -915,7 +917,7 @@ export default function AddShiftModal() {
                         onChangeText={(val) => updateForm("activeMinutes", val.replace(/[^0-9]/g, ""))}
                         keyboardType="numeric"
                         placeholder="0"
-                        placeholderTextColor={COLORS.contentMuted}
+                        placeholderTextColor={C.contentMuted}
                         className="flex-1 text-content-primary text-sm py-3 font-semibold"
                       />
                       <Text variant="paragraphS" className="text-content-muted font-bold ml-1">min</Text>
@@ -940,7 +942,7 @@ export default function AddShiftModal() {
                       }}
                       keyboardType="numeric"
                       placeholder="0.00"
-                      placeholderTextColor={COLORS.contentMuted}
+                      placeholderTextColor={C.contentMuted}
                       className="bg-background border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm focus:border-line-strong font-semibold"
                     />
                   </View>
@@ -961,7 +963,7 @@ export default function AddShiftModal() {
                       }}
                       keyboardType="numeric"
                       placeholder="0.00"
-                      placeholderTextColor={COLORS.contentMuted}
+                      placeholderTextColor={C.contentMuted}
                       className="bg-background border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm focus:border-line-strong font-semibold"
                     />
                   </View>
@@ -975,7 +977,7 @@ export default function AddShiftModal() {
                     onChangeText={(val) => updateForm("tripsCount", val.replace(/[^0-9]/g, ""))}
                     keyboardType="numeric"
                     placeholder="0"
-                    placeholderTextColor={COLORS.contentMuted}
+                    placeholderTextColor={C.contentMuted}
                     className="bg-background border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm focus:border-line-strong font-semibold"
                   />
                 </View>
@@ -1005,7 +1007,7 @@ export default function AddShiftModal() {
                     }}
                     keyboardType="numeric"
                     placeholder="0.0"
-                    placeholderTextColor={COLORS.contentMuted}
+                    placeholderTextColor={C.contentMuted}
                     className="bg-background border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm focus:border-line-strong font-semibold"
                   />
                 </View>
@@ -1021,7 +1023,7 @@ export default function AddShiftModal() {
                     }}
                     keyboardType="numeric"
                     placeholder="0.0"
-                    placeholderTextColor={COLORS.contentMuted}
+                    placeholderTextColor={C.contentMuted}
                     className="bg-background border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm focus:border-line-strong font-semibold"
                   />
                 </View>
@@ -1047,7 +1049,7 @@ export default function AddShiftModal() {
                 multiline
                 numberOfLines={3}
                 placeholder="Add details about your shift (traffic, weather, peak pay details)..."
-                placeholderTextColor={COLORS.contentMuted}
+                placeholderTextColor={C.contentMuted}
                 className="bg-surface-02 border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm h-24 focus:border-line-strong text-left align-top leading-relaxed font-semibold"
               />
             </View>
@@ -1120,7 +1122,7 @@ export default function AddShiftModal() {
             }}
           >
             {isSaving ? (
-              <ActivityIndicator size="small" color={COLORS.contentPrimary} />
+              <ActivityIndicator size="small" color={C.contentPrimary} />
             ) : (
               <Text>
                 {stepIndex === stepsSequence.length - 1 ? "Finish" : "Continue"}

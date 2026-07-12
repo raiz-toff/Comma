@@ -30,7 +30,8 @@ import {
 import { Text } from "@/src/components/ui/text";
 import { CurrencyText } from "@/src/components/ui/CurrencyText";
 import { EmptyState } from "@/src/components/ui/EmptyState";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { withAlpha, getColors } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { getVehicles, getVehicleStats, updateVehicle, deleteVehicle } from "@/src/database/queries/vehicles";
 import { getMaintenanceLogs, insertMaintenanceLog, deleteMaintenanceLog } from "@/src/database/queries/maintenance";
 import { getTaxProfilesForVehicle, upsertTaxProfile, deleteTaxProfile } from "@/src/database/queries/taxProfiles";
@@ -39,38 +40,39 @@ import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
 
-const DS = {
-  pageBg: COLORS.background,
-  cardBg: COLORS.surface02,
-  cardBorder: COLORS.lineSubtle,
-  inputBg: COLORS.surface03,
-  inputBorder: COLORS.lineStrong,
-  sep: COLORS.lineSubtle,
+const makeDS = (C: Palette) =>
+  ({
+    pageBg: C.background,
+    cardBg: C.surface02,
+    cardBorder: C.lineSubtle,
+    inputBg: C.surface03,
+    inputBorder: C.lineStrong,
+    sep: C.lineSubtle,
 
-  brand: COLORS.contentPrimary,
-  brandSurface: COLORS.surface04,
-  brandBorder: COLORS.lineStrong,
-  brandText: COLORS.contentPrimary,
+    brand: C.contentPrimary,
+    brandSurface: C.surface04,
+    brandBorder: C.lineStrong,
+    brandText: C.contentPrimary,
 
-  danger: COLORS.destructive,
-  dangerSurface: withAlpha(COLORS.destructive, 0.08),
-  dangerBorder: withAlpha(COLORS.destructive, 0.18),
-  dangerText: COLORS.destructive,
+    danger: C.destructive,
+    dangerSurface: withAlpha(C.destructive, 0.08),
+    dangerBorder: withAlpha(C.destructive, 0.18),
+    dangerText: C.destructive,
 
-  textPrimary: COLORS.contentPrimary,
-  textSecondary: COLORS.contentSecondary,
-  textMuted: COLORS.contentMuted,
-  textLabel: COLORS.contentMuted,
+    textPrimary: C.contentPrimary,
+    textSecondary: C.contentSecondary,
+    textMuted: C.contentMuted,
+    textLabel: C.contentMuted,
 
-  rCard: 16,
-  rInput: 12,
-  rChip: 8,
-  rPill: 20,
+    rCard: 16,
+    rInput: 12,
+    rChip: 8,
+    rPill: 20,
 
-  pagePad: 16,
-  cardPad: 16,
-  rowPad: 12,
-} as const;
+    pagePad: 16,
+    cardPad: 16,
+    rowPad: 12,
+  }) as const;
 
 const VEHICLE_TYPES = [
   { id: "gas", label: "Gas" },
@@ -92,7 +94,7 @@ const MAINTENANCE_TYPES = [
   { id: "other", label: "Other" },
 ] as const;
 
-const getMaintenanceIcon = (type: string, color: string = COLORS.warning) => {
+const getMaintenanceIcon = (type: string, color: string = getColors().warning) => {
   const size = 18;
   switch (type) {
     case "oil_change":
@@ -124,6 +126,8 @@ function MaintenanceLogRow({
   distanceUnit: string;
   onDelete: (logId: string) => void;
 }) {
+  const DS = useThemedStyles(makeDS);
+  const s = useThemedStyles(makeStyles);
   return (
     <View style={s.mItem}>
       <View style={s.mIconContainer}>
@@ -157,9 +161,15 @@ function MaintenanceLogRow({
   );
 }
 
-const MaintenanceLogSeparator = () => <View style={s.mListSep} />;
+const MaintenanceLogSeparator = () => {
+  const s = useThemedStyles(makeStyles);
+  return <View style={s.mListSep} />;
+};
 
 export default function VehicleDetailScreen() {
+  const C = useColors();
+  const DS = useThemedStyles(makeDS);
+  const s = useThemedStyles(makeStyles);
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -557,7 +567,7 @@ export default function VehicleDetailScreen() {
               onValueChange={setIsActive}
               accessibilityLabel="Set as active vehicle"
               trackColor={{ false: DS.inputBorder, true: accentColor }}
-              thumbColor={COLORS.contentPrimary}
+              thumbColor={C.contentPrimary}
             />
           </View>
         )}
@@ -630,15 +640,15 @@ export default function VehicleDetailScreen() {
             {/* Eligibility hint — informational only, doesn't lock the fields below */}
             <View
               style={{
-                backgroundColor: mileageEligibility.eligible ? accentColorDim : withAlpha(COLORS.destructive, 0.08),
+                backgroundColor: mileageEligibility.eligible ? accentColorDim : withAlpha(C.destructive, 0.08),
                 borderWidth: 0.5,
-                borderColor: mileageEligibility.eligible ? accentColorMid : withAlpha(COLORS.destructive, 0.18),
+                borderColor: mileageEligibility.eligible ? accentColorMid : withAlpha(C.destructive, 0.18),
                 borderRadius: 12,
                 padding: 10,
                 marginBottom: 12,
               }}
             >
-              <Text variant="paragraphS" style={{ color: mileageEligibility.eligible ? accentColor : COLORS.destructive }}>
+              <Text variant="paragraphS" style={{ color: mileageEligibility.eligible ? accentColor : C.destructive }}>
                 {mileageEligibility.label}
                 {mileageEligibility.eligible ? (
                   <>
@@ -762,8 +772,8 @@ export default function VehicleDetailScreen() {
                     <Text variant="labelM">
                       {p.taxYear} Tax Strategy
                     </Text>
-                    <View style={{ backgroundColor: p.deductionMethod === "standard_mileage" ? accentColorDim : withAlpha(COLORS.destructive, 0.08), paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, borderWidth: 0.5, borderColor: p.deductionMethod === "standard_mileage" ? accentColorMid : withAlpha(COLORS.destructive, 0.18) }}>
-                      <Text variant="labelXs" style={{ color: p.deductionMethod === "standard_mileage" ? accentColor : COLORS.destructive }}>
+                    <View style={{ backgroundColor: p.deductionMethod === "standard_mileage" ? accentColorDim : withAlpha(C.destructive, 0.08), paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, borderWidth: 0.5, borderColor: p.deductionMethod === "standard_mileage" ? accentColorMid : withAlpha(C.destructive, 0.18) }}>
+                      <Text variant="labelXs" style={{ color: p.deductionMethod === "standard_mileage" ? accentColor : C.destructive }}>
                         {p.deductionMethod === "standard_mileage" ? "Standard Mileage" : "Actual Expenses"}
                       </Text>
                     </View>
@@ -957,10 +967,12 @@ export default function VehicleDetailScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => {
+  const DS = makeDS(C);
+  return StyleSheet.create({
   safe: { flex: 1, backgroundColor: DS.pageBg },
   scroll: { paddingHorizontal: DS.pagePad, paddingBottom: 40 },
-  
+
   // Header
   header: { paddingHorizontal: DS.pagePad, paddingBottom: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
@@ -1092,4 +1104,5 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-});
+  });
+};

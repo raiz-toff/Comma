@@ -14,7 +14,8 @@ import { router } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Calculator, Clock, Download } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { withAlpha } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { notifyExport } from "@/src/services/notify";
@@ -250,6 +251,8 @@ function getDeadlines(country: string, year: number): Deadline[] {
 
 export default function TaxCenterScreen() {
   const queryClient = useQueryClient();
+  const C = useColors();
+  const S = useThemedStyles(makeStyles);
   const { profile } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
@@ -492,7 +495,7 @@ export default function TaxCenterScreen() {
             hitSlop={8}
             style={S.backBtn}
           >
-            <ArrowLeft size={16} color={COLORS.contentSecondary} />
+            <ArrowLeft size={16} color={C.contentSecondary} />
           </Pressable>
           <Text variant="headingM" style={{ marginLeft: 12 }}>Tax Center</Text>
         </View>
@@ -525,7 +528,7 @@ export default function TaxCenterScreen() {
           hitSlop={8}
           style={S.backBtn}
         >
-          <ArrowLeft size={16} color={COLORS.contentSecondary} />
+          <ArrowLeft size={16} color={C.contentSecondary} />
         </Pressable>
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text variant="headingM">Tax Center</Text>
@@ -553,7 +556,7 @@ export default function TaxCenterScreen() {
                 <Text
                   variant="labelXs"
                   tabular
-                  style={{ color: active ? accentColorContrast : COLORS.contentSecondary }}
+                  style={{ color: active ? accentColorContrast : C.contentSecondary }}
                 >
                   {year}
                 </Text>
@@ -609,19 +612,19 @@ export default function TaxCenterScreen() {
                   S.adjustBtn,
                   amt < 0
                     ? {
-                        borderColor: withAlpha(COLORS.destructive, 0.3),
-                        backgroundColor: withAlpha(COLORS.destructive, 0.06),
+                        borderColor: withAlpha(C.destructive, 0.3),
+                        backgroundColor: withAlpha(C.destructive, 0.06),
                       }
                     : {
-                        borderColor: withAlpha(COLORS.success, 0.3),
-                        backgroundColor: withAlpha(COLORS.success, 0.06),
+                        borderColor: withAlpha(C.success, 0.3),
+                        backgroundColor: withAlpha(C.success, 0.06),
                       },
                 ]}
               >
                 <Text
                   variant="labelM"
                   tabular
-                  style={{ color: amt < 0 ? COLORS.destructive : accentColor }}
+                  style={{ color: amt < 0 ? C.destructive : accentColor }}
                 >
                   {amt > 0 ? `+${amt}` : amt}
                 </Text>
@@ -641,7 +644,7 @@ export default function TaxCenterScreen() {
           </View>
           <View style={[S.card, { flex: 1 }]}>
             <Text variant="labelXs" style={S.cardLabel}>EXPENSES</Text>
-            <Text variant="headingS" tabular style={{ marginTop: 8, color: COLORS.destructive }}>
+            <Text variant="headingS" tabular style={{ marginTop: 8, color: C.destructive }}>
               {fmt(summary?.businessExpenses || 0)}
             </Text>
             <Text variant="paragraphS" style={S.miniNote}>Money you spent to do the work</Text>
@@ -805,7 +808,7 @@ export default function TaxCenterScreen() {
           {/* Total row */}
           <View style={S.oblTotal}>
             <Text variant="labelM" style={S.oblTotalLabel}>Total Estimated Tax</Text>
-            <Text variant="labelM" tabular style={{ color: COLORS.warning }}>
+            <Text variant="labelM" tabular style={{ color: C.warning }}>
               {fmt(totalObligations)}
             </Text>
           </View>
@@ -834,7 +837,7 @@ export default function TaxCenterScreen() {
                     Tax you paid on your business expenses
                   </Text>
                 </View>
-                <Text variant="labelM" tabular style={{ color: COLORS.destructive }}>
+                <Text variant="labelM" tabular style={{ color: C.destructive }}>
                   −{fmt(summary?.itcTotal || 0)}
                 </Text>
               </View>
@@ -843,7 +846,7 @@ export default function TaxCenterScreen() {
                   <Text variant="labelM">What You Owe the Tax Office</Text>
                   <Text variant="paragraphS" style={S.oblNote}>For this filing period</Text>
                 </View>
-                <Text variant="labelM" tabular style={{ color: COLORS.warning }}>
+                <Text variant="labelM" tabular style={{ color: C.warning }}>
                   {fmt(summary?.hstRemittable || 0)}
                 </Text>
               </View>
@@ -909,10 +912,10 @@ export default function TaxCenterScreen() {
               const overdue = d.daysUntil < 0;
               const urgent = !overdue && d.daysUntil <= 14;
               const accentHex = overdue
-                ? COLORS.destructive
+                ? C.destructive
                 : urgent
-                ? COLORS.warning
-                : COLORS.contentMuted;
+                ? C.warning
+                : C.contentMuted;
               return (
                 <View
                   key={idx}
@@ -920,7 +923,7 @@ export default function TaxCenterScreen() {
                     S.deadlineRow,
                     idx > 0 && {
                       borderTopWidth: 0.5,
-                      borderTopColor: COLORS.lineSubtle,
+                      borderTopColor: C.lineSubtle,
                     },
                   ]}
                 >
@@ -957,10 +960,10 @@ export default function TaxCenterScreen() {
                         S.daysPillText,
                         {
                           color: overdue
-                            ? COLORS.destructive
+                            ? C.destructive
                             : urgent
-                            ? COLORS.warning
-                            : COLORS.contentMuted,
+                            ? C.warning
+                            : C.contentMuted,
                         },
                       ]}
                     >
@@ -1013,8 +1016,8 @@ export default function TaxCenterScreen() {
 
 // ─── Styles — matches tax/index.tsx design tokens ────────────────────────────
 
-const S = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (C: Palette) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.background },
   loader: { flex: 1, alignItems: "center", justifyContent: "center" },
   scroll: { padding: 16, paddingTop: 8, gap: 10, paddingBottom: 60 },
 
@@ -1024,9 +1027,9 @@ const S = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
     borderBottomWidth: 0.5,
-    borderBottomColor: COLORS.lineSubtle,
+    borderBottomColor: C.lineSubtle,
   },
   headerSub: { marginTop: 2 },
   backBtn: {
@@ -1034,9 +1037,9 @@ const S = StyleSheet.create({
     height: 36,
     // circular: diameter / 2
     borderRadius: 18,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1045,10 +1048,10 @@ const S = StyleSheet.create({
   yearPicker: {
     flexDirection: "row",
     gap: 4,
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     padding: 3,
   },
   yearChip: {
@@ -1066,13 +1069,13 @@ const S = StyleSheet.create({
 
   // Cards
   card: {
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     borderRadius: 20,
     padding: 18,
   },
-  cardLabel: { color: COLORS.contentMuted },
+  cardLabel: { color: C.contentMuted },
   twoCol: { flexDirection: "row", gap: 10 },
   rowBetween: {
     flexDirection: "row",
@@ -1081,7 +1084,7 @@ const S = StyleSheet.create({
   },
 
   // Typography
-  mutedValue: { color: COLORS.contentSecondary },
+  mutedValue: { color: C.contentSecondary },
   miniNote: { marginTop: 4 },
 
   // Jar
@@ -1092,7 +1095,7 @@ const S = StyleSheet.create({
   },
   progressTrack: {
     height: 5,
-    backgroundColor: COLORS.lineSubtle,
+    backgroundColor: C.lineSubtle,
     // pill: ~height / 2
     borderRadius: 3,
     marginTop: 12,
@@ -1122,7 +1125,7 @@ const S = StyleSheet.create({
   },
   oblSep: {
     borderTopWidth: 0.5,
-    borderTopColor: COLORS.lineSubtle,
+    borderTopColor: C.lineSubtle,
   },
   oblLeft: { flex: 1, paddingRight: 12 },
   oblNote: { marginTop: 2 },
@@ -1132,24 +1135,24 @@ const S = StyleSheet.create({
     alignItems: "center",
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: withAlpha(COLORS.warning, 0.2),
-    backgroundColor: withAlpha(COLORS.warning, 0.05),
+    borderColor: withAlpha(C.warning, 0.2),
+    backgroundColor: withAlpha(C.warning, 0.05),
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginTop: 8,
   },
-  oblTotalLabel: { color: COLORS.warning },
+  oblTotalLabel: { color: C.warning },
 
   // Warn strip
   warnStrip: {
-    backgroundColor: withAlpha(COLORS.warning, 0.06),
+    backgroundColor: withAlpha(C.warning, 0.06),
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: withAlpha(COLORS.warning, 0.18),
+    borderColor: withAlpha(C.warning, 0.18),
     borderRadius: 12,
     padding: 10,
     marginTop: 10,
   },
-  warnText: { color: COLORS.contentSecondary },
+  warnText: { color: C.contentSecondary },
 
   // Deadlines
   deadlineRow: {
@@ -1162,7 +1165,7 @@ const S = StyleSheet.create({
     height: 34,
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1188,9 +1191,9 @@ const S = StyleSheet.create({
     gap: 6,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
   },
 
   // Empty state
@@ -1199,10 +1202,10 @@ const S = StyleSheet.create({
     height: 48,
     // circular: diameter / 2
     borderRadius: 24,
-    backgroundColor: withAlpha(COLORS.success, 0.08),
+    backgroundColor: withAlpha(C.success, 0.08),
     borderWidth: 1,
     borderStyle: "dashed",
-    borderColor: withAlpha(COLORS.success, 0.25),
+    borderColor: withAlpha(C.success, 0.25),
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "center",

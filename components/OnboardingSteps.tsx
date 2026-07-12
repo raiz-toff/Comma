@@ -21,7 +21,8 @@ import Animated, {
   interpolate,
 } from "react-native-reanimated";
 import { Text } from "../src/components/ui/text";
-import { COLORS, withAlpha } from "../src/theme/colors";
+import { withAlpha } from "../src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { getPlatformsByCountry, PLATFORMS, PLATFORM_REGISTRY } from "../src/registry/platforms";
 import { PlatformLogo } from "../src/components/GlobalTopHeader";
 import { getRegionsByCountry } from "../src/registry/countries/index";
@@ -44,11 +45,12 @@ import { GoogleDriveLogo } from "../src/components/logos/GoogleDriveLogo";
 // ─── Shared primitives ────────────────────────────────────────────────────────
 
 function StepHeading({ title, sub }: { title: string; sub?: string }) {
+  const C = useColors();
   return (
     <View style={{ gap: 6, marginBottom: 28 }}>
       <Text variant="headingXl">{title}</Text>
       {sub && (
-        <Text variant="paragraphM" style={{ color: COLORS.contentMuted }}>
+        <Text variant="paragraphM" style={{ color: C.contentMuted }}>
           {sub}
         </Text>
       )}
@@ -57,8 +59,9 @@ function StepHeading({ title, sub }: { title: string; sub?: string }) {
 }
 
 function FieldLabel({ label }: { label: string }) {
+  const C = useColors();
   return (
-    <Text variant="labelXs" style={{ color: COLORS.contentMuted }}>
+    <Text variant="labelXs" style={{ color: C.contentMuted }}>
       {label}
     </Text>
   );
@@ -79,10 +82,12 @@ function StyledInput({
   prefix?: string;
   suffix?: string;
 }) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   return (
     <View style={s.inputRow}>
       {prefix && (
-        <Text variant="headingS" style={{ color: COLORS.contentMuted }}>
+        <Text variant="headingS" style={{ color: C.contentMuted }}>
           {prefix}
         </Text>
       )}
@@ -90,12 +95,12 @@ function StyledInput({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={COLORS.contentMuted}
+        placeholderTextColor={C.contentMuted}
         keyboardType={keyboardType}
         style={[s.input, { flex: 1 }]}
       />
       {suffix && (
-        <Text variant="headingS" style={{ color: COLORS.contentMuted }}>
+        <Text variant="headingS" style={{ color: C.contentMuted }}>
           {suffix}
         </Text>
       )}
@@ -116,12 +121,13 @@ export function WelcomeScreen({
   onRestoreSync: () => void;
   demoLoading?: boolean;
 }) {
+  const C = useColors();
   const insets = useSafeAreaInsets();
   return (
     <View
       style={{
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: C.background,
         paddingTop: insets.top,
         paddingBottom: insets.bottom,
       }}
@@ -158,14 +164,14 @@ export function WelcomeScreen({
           <Text
             variant="paragraphL"
             style={{
-              color: COLORS.contentMuted,
+              color: C.contentMuted,
               textAlign: "center",
               maxWidth: 280,
             }}
           >
             Comma logs every dollar
-            <Text variant="paragraphL" style={{ color: COLORS.primary }}>,</Text> every mile
-            <Text variant="paragraphL" style={{ color: COLORS.primary }}>,</Text> and every
+            <Text variant="paragraphL" style={{ color: C.primary }}>,</Text> every mile
+            <Text variant="paragraphL" style={{ color: C.primary }}>,</Text> and every
             write-off — and shows you what a shift was really worth.
           </Text>
         </View>
@@ -178,7 +184,7 @@ export function WelcomeScreen({
             accessibilityRole="button"
             accessibilityState={{ disabled: demoLoading }}
             style={{
-              backgroundColor: demoLoading ? COLORS.surface05 : COLORS.contentPrimary,
+              backgroundColor: demoLoading ? C.surface05 : C.contentPrimary,
               borderRadius: 16,
               paddingVertical: 17,
               alignItems: "center",
@@ -187,7 +193,7 @@ export function WelcomeScreen({
             <Text
               variant="headingS"
               style={{
-                color: demoLoading ? COLORS.contentMuted : COLORS.background,
+                color: demoLoading ? C.contentMuted : C.background,
                 letterSpacing: 0.2,
               }}
             >
@@ -209,10 +215,10 @@ export function WelcomeScreen({
           >
             {demoLoading
               ? <>
-                  <ActivityIndicator size="small" color={COLORS.contentSecondary} />
-                  <Text variant="labelM" style={{ color: COLORS.contentSecondary }}>Setting up demo...</Text>
+                  <ActivityIndicator size="small" color={C.contentSecondary} />
+                  <Text variant="labelM" style={{ color: C.contentSecondary }}>Setting up demo...</Text>
                 </>
-              : <Text variant="labelM" style={{ color: COLORS.contentSecondary }}>Try with demo data</Text>
+              : <Text variant="labelM" style={{ color: C.contentSecondary }}>Try with demo data</Text>
             }
           </Pressable>
 
@@ -222,7 +228,7 @@ export function WelcomeScreen({
             accessibilityState={{ disabled: demoLoading }}
             style={{ paddingVertical: 12, alignItems: "center" }}
           >
-            <Text variant="labelM" style={{ color: COLORS.contentSecondary }}>Restore or sync existing data</Text>
+            <Text variant="labelM" style={{ color: C.contentSecondary }}>Restore or sync existing data</Text>
           </Pressable>
 
           <Text
@@ -277,6 +283,8 @@ export function CountryStep({
   value: "US" | "CA" | "UK" | "NP";
   onChange: (c: "US" | "CA" | "UK" | "NP") => void;
 }) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   return (
     <View style={{ flex: 1 }}>
       <StepHeading
@@ -300,7 +308,7 @@ export function CountryStep({
                 style={[
                   s.tileTitle,
                   { textAlign: "center" },
-                  selected && { color: COLORS.contentPrimary },
+                  selected && { color: C.contentPrimary },
                 ]}
               >
                 {label}
@@ -325,6 +333,7 @@ export function RegionStep({
   value: string;
   onChange: (r: string) => void;
 }) {
+  const C = useColors();
   const regions = getRegionsByCountry(country);
   const label =
     country === "CA"
@@ -356,21 +365,21 @@ export function RegionStep({
                   alignItems: "center",
                   padding: 14,
                   borderRadius: 12,
-                  backgroundColor: selected ? withAlpha(COLORS.contentPrimary, 0.05) : COLORS.surface02,
+                  backgroundColor: selected ? withAlpha(C.contentPrimary, 0.05) : C.surface02,
                   borderWidth: 1,
-                  borderColor: selected ? COLORS.contentPrimary : COLORS.lineSubtle,
+                  borderColor: selected ? C.contentPrimary : C.lineSubtle,
                 }}
               >
                 <Text
                   variant="labelM"
                   style={{
-                    color: selected ? COLORS.contentPrimary : COLORS.contentSecondary,
+                    color: selected ? C.contentPrimary : C.contentSecondary,
                   }}
                 >
                   {r.label}
                 </Text>
                 {selected && (
-                  <Check size={14} color={COLORS.contentPrimary} strokeWidth={2.5} />
+                  <Check size={14} color={C.contentPrimary} strokeWidth={2.5} />
                 )}
               </Pressable>
             );
@@ -392,6 +401,8 @@ export function PlatformStep({
   selectedPlatforms: string[];
   togglePlatform: (id: string) => void;
 }) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   const platforms = getPlatformsByCountry(country);
 
   return (
@@ -448,13 +459,13 @@ export function PlatformStep({
                   )}
                   <Text
                     variant="labelL"
-                    style={[s.tileTitle, selected && { color: COLORS.contentPrimary }]}
+                    style={[s.tileTitle, selected && { color: C.contentPrimary }]}
                   >
                     {p.label}
                   </Text>
                 </View>
                 {selected && (
-                  <Check size={14} color={COLORS.contentPrimary} strokeWidth={2.5} />
+                  <Check size={14} color={C.contentPrimary} strokeWidth={2.5} />
                 )}
               </Pressable>
             );
@@ -509,6 +520,8 @@ export function VehicleStep({
   mileageRateOverride: string;
   setMileageRateOverride: (v: string) => void;
 }) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   const { getVehicleMileageEligibility } = require("../src/registry/countries/mileageRates");
   const mileageInfo = getVehicleMileageEligibility(country, type);
 
@@ -543,12 +556,12 @@ export function VehicleStep({
                 >
                   <Icon
                     size={14}
-                    color={selected ? COLORS.contentPrimary : COLORS.contentMuted}
+                    color={selected ? C.contentPrimary : C.contentMuted}
                     strokeWidth={2}
                   />
                   <Text
                     variant="paragraphS"
-                    style={selected && { color: COLORS.contentPrimary }}
+                    style={selected && { color: C.contentPrimary }}
                   >
                     {label}
                   </Text>
@@ -591,15 +604,15 @@ export function VehicleStep({
           <FieldLabel label="Mileage write-off" />
           <View
             style={{
-              backgroundColor: COLORS.card,
+              backgroundColor: C.card,
               borderWidth: 1,
-              borderColor: COLORS.lineSubtle,
+              borderColor: C.lineSubtle,
               borderRadius: 16,
               padding: 14,
               gap: 12,
             }}
           >
-            <Text variant="paragraphS" style={{ color: COLORS.contentSecondary }}>
+            <Text variant="paragraphS" style={{ color: C.contentSecondary }}>
               {mileageInfo.eligible
                 ? `${mileageInfo.label} — $${mileageInfo.ratePrimary}/${type === "gas" || type === "hybrid" || type === "ev" ? "mi or km" : "unit"}`
                 : mileageInfo.label}
@@ -613,8 +626,8 @@ export function VehicleStep({
                 value={mileageOptOut}
                 onValueChange={setMileageOptOut}
                 accessibilityLabel="This doesn't apply to me"
-                trackColor={{ false: COLORS.surface05, true: COLORS.primary }}
-                thumbColor={COLORS.contentPrimary}
+                trackColor={{ false: C.surface05, true: C.primary }}
+                thumbColor={C.contentPrimary}
               />
             </View>
 
@@ -649,6 +662,7 @@ export function GoalStep({
   onChange: (v: string) => void;
   country: string;
 }) {
+  const C = useColors();
   const num = Number(value) || 0;
   const currencySymbol = country === "UK" ? "£" : country === "NP" ? "₨" : "$";
   const pct = Math.min((num / 1000) * 100, 100);
@@ -674,7 +688,7 @@ export function GoalStep({
           <View
             style={{
               height: 6,
-              backgroundColor: COLORS.surface04,
+              backgroundColor: C.surface04,
               borderRadius: 3,
               overflow: "hidden",
             }}
@@ -682,17 +696,17 @@ export function GoalStep({
             <View
               style={{
                 height: 6,
-                backgroundColor: COLORS.contentPrimary,
+                backgroundColor: C.contentPrimary,
                 borderRadius: 3,
                 width: `${pct}%`,
               }}
             />
           </View>
           <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <Text variant="labelXs" tabular style={{ color: COLORS.contentMuted }}>
+            <Text variant="labelXs" tabular style={{ color: C.contentMuted }}>
               {currencySymbol}0
             </Text>
-            <Text variant="labelXs" tabular style={{ color: COLORS.contentMuted }}>
+            <Text variant="labelXs" tabular style={{ color: C.contentMuted }}>
               {currencySymbol}1,000
             </Text>
           </View>
@@ -701,15 +715,15 @@ export function GoalStep({
         {num > 0 && (
           <View
             style={{
-              backgroundColor: COLORS.card,
+              backgroundColor: C.card,
               borderWidth: 1,
-              borderColor: COLORS.lineSubtle,
+              borderColor: C.lineSubtle,
               borderRadius: 16,
               padding: 16,
               gap: 4,
             }}
           >
-            <Text variant="labelXs" style={{ color: COLORS.contentMuted }}>
+            <Text variant="labelXs" style={{ color: C.contentMuted }}>
               That works out to
             </Text>
             <Text variant="headingM" tabular>
@@ -730,6 +744,7 @@ export function GoalStep({
 // ─── Step 6 — GPS permission ──────────────────────────────────────────────────
 
 export function GPSStep({ onNext }: { onNext: () => void }) {
+  const C = useColors();
   const handleRequest = async () => {
     try {
       const Location = await import("expo-location");
@@ -757,15 +772,15 @@ export function GPSStep({ onNext }: { onNext: () => void }) {
             width: 64,
             height: 64,
             borderRadius: 20,
-            backgroundColor: COLORS.surface04,
+            backgroundColor: C.surface04,
             borderWidth: 1,
-            borderColor: COLORS.lineStrong,
+            borderColor: C.lineStrong,
             alignItems: "center",
             justifyContent: "center",
             marginBottom: 28,
           }}
         >
-          <Navigation size={28} color={COLORS.contentPrimary} strokeWidth={1.5} />
+          <Navigation size={28} color={C.contentPrimary} strokeWidth={1.5} />
         </View>
         <StepHeading
           title="Automatic mileage tracking"
@@ -787,13 +802,13 @@ export function GPSStep({ onNext }: { onNext: () => void }) {
                   width: 18,
                   height: 18,
                   borderRadius: 9,
-                  backgroundColor: COLORS.surface04,
+                  backgroundColor: C.surface04,
                   alignItems: "center",
                   justifyContent: "center",
                   marginTop: 1,
                 }}
               >
-                <Check size={10} color={COLORS.contentPrimary} strokeWidth={3} />
+                <Check size={10} color={C.contentPrimary} strokeWidth={3} />
               </View>
               <Text variant="paragraphM" style={{ flex: 1 }}>
                 {point}
@@ -808,13 +823,13 @@ export function GPSStep({ onNext }: { onNext: () => void }) {
           onPress={handleRequest}
           accessibilityRole="button"
           style={{
-            backgroundColor: COLORS.contentPrimary,
+            backgroundColor: C.contentPrimary,
             borderRadius: 16,
             paddingVertical: 17,
             alignItems: "center",
           }}
         >
-          <Text variant="headingS" style={{ color: COLORS.background }}>
+          <Text variant="headingS" style={{ color: C.background }}>
             Enable GPS tracking
           </Text>
         </Pressable>
@@ -823,7 +838,7 @@ export function GPSStep({ onNext }: { onNext: () => void }) {
           accessibilityRole="button"
           style={{ paddingVertical: 14, alignItems: "center" }}
         >
-          <Text variant="labelM" style={{ color: COLORS.contentMuted }}>
+          <Text variant="labelM" style={{ color: C.contentMuted }}>
             Skip — I'll enter mileage manually
           </Text>
         </Pressable>
@@ -845,6 +860,7 @@ export function SyncStep({
   isConnecting?: boolean;
   isConnected?: boolean;
 }) {
+  const C = useColors();
   return (
     <View style={{ flex: 1, justifyContent: "space-between" }}>
       <View>
@@ -853,15 +869,15 @@ export function SyncStep({
             width: 64,
             height: 64,
             borderRadius: 20,
-            backgroundColor: COLORS.surface04,
+            backgroundColor: C.surface04,
             borderWidth: 1,
-            borderColor: COLORS.lineStrong,
+            borderColor: C.lineStrong,
             alignItems: "center",
             justifyContent: "center",
             marginBottom: 28,
           }}
         >
-          <CloudUpload size={28} color={COLORS.contentPrimary} strokeWidth={1.5} />
+          <CloudUpload size={28} color={C.contentPrimary} strokeWidth={1.5} />
         </View>
         <StepHeading
           title="Protect your data"
@@ -883,13 +899,13 @@ export function SyncStep({
                   width: 18,
                   height: 18,
                   borderRadius: 9,
-                  backgroundColor: COLORS.surface04,
+                  backgroundColor: C.surface04,
                   alignItems: "center",
                   justifyContent: "center",
                   marginTop: 1,
                 }}
               >
-                <Check size={10} color={COLORS.contentPrimary} strokeWidth={3} />
+                <Check size={10} color={C.contentPrimary} strokeWidth={3} />
               </View>
               <Text variant="paragraphM" style={{ flex: 1 }}>
                 {point}
@@ -910,7 +926,7 @@ export function SyncStep({
               paddingVertical: 16,
             }}
           >
-            <Check size={18} color={COLORS.contentPrimary} strokeWidth={3} />
+            <Check size={18} color={C.contentPrimary} strokeWidth={3} />
             <Text variant="labelM">Google Drive connected!</Text>
           </View>
         ) : (
@@ -923,7 +939,7 @@ export function SyncStep({
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
-                backgroundColor: COLORS.contentPrimary,
+                backgroundColor: C.contentPrimary,
                 borderRadius: 16,
                 paddingVertical: 16,
                 opacity: isConnecting ? 0.6 : 1,
@@ -931,7 +947,7 @@ export function SyncStep({
             ]}
           >
             <GoogleDriveLogo size={18} />
-            <Text variant="headingS" style={{ color: COLORS.background }}>
+            <Text variant="headingS" style={{ color: C.background }}>
               {isConnecting ? "Connecting…" : "Connect Google Drive"}
             </Text>
           </Pressable>
@@ -941,7 +957,7 @@ export function SyncStep({
           accessibilityRole="button"
           style={{ paddingVertical: 14, alignItems: "center" }}
         >
-          <Text variant="labelM" style={{ color: COLORS.contentMuted, textAlign: "center" }}>
+          <Text variant="labelM" style={{ color: C.contentMuted, textAlign: "center" }}>
             Skip for now
           </Text>
         </Pressable>
@@ -981,6 +997,8 @@ export function AppearanceStep({
   accentColor: string;
   setAccentColor: (v: string) => void;
 }) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   return (
     <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <StepHeading
@@ -1005,14 +1023,14 @@ export function AppearanceStep({
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 14, flex: 1 }}>
                     <View style={[s.iconBox, selected && s.iconBoxSelected]}>
-                      <Icon size={18} color={selected ? COLORS.contentPrimary : COLORS.contentMuted} strokeWidth={2} />
+                      <Icon size={18} color={selected ? C.contentPrimary : C.contentMuted} strokeWidth={2} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text variant="labelL" style={[s.tileTitle, selected && { color: COLORS.contentPrimary }]}>{label}</Text>
+                      <Text variant="labelL" style={[s.tileTitle, selected && { color: C.contentPrimary }]}>{label}</Text>
                       <Text variant="paragraphS" style={s.tileSub}>{sub}</Text>
                     </View>
                   </View>
-                  {selected && <Check size={14} color={COLORS.contentPrimary} strokeWidth={2.5} />}
+                  {selected && <Check size={14} color={C.contentPrimary} strokeWidth={2.5} />}
                 </Pressable>
               );
             })}
@@ -1044,14 +1062,14 @@ export function AppearanceStep({
                     justifyContent: "center",
                     borderWidth: selected ? 3 : 1,
                     borderColor: selected
-                      ? (isLight ? COLORS.contentMuted : COLORS.contentPrimary)
-                      : COLORS.lineStrong,
+                      ? (isLight ? C.contentMuted : C.contentPrimary)
+                      : C.lineStrong,
                   }}
                 >
                   {selected && (
                     <Check
                       size={16}
-                      color={isLight ? COLORS.background : COLORS.contentPrimary}
+                      color={isLight ? C.background : C.contentPrimary}
                       strokeWidth={3}
                     />
                   )}
@@ -1110,6 +1128,8 @@ export function PreferencesStep({
   featureOverrides: Partial<Record<FeatureKey, boolean>>;
   toggleFeature: (key: FeatureKey) => void;
 }) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
@@ -1142,7 +1162,7 @@ export function PreferencesStep({
                   <Text
                     variant="paragraphS"
                     style={[
-                      selected && { color: COLORS.contentPrimary },
+                      selected && { color: C.contentPrimary },
                       { textAlign: "center" },
                     ]}
                   >
@@ -1171,7 +1191,7 @@ export function PreferencesStep({
                   accessibilityState={{ checked: selected }}
                   style={[s.tile, selected && s.tileSelected, { flex: 1, flexDirection: "column", alignItems: "flex-start", gap: 4 }]}
                 >
-                  <Text variant="labelL" style={[s.tileTitle, selected && { color: COLORS.contentPrimary }]}>{label}</Text>
+                  <Text variant="labelL" style={[s.tileTitle, selected && { color: C.contentPrimary }]}>{label}</Text>
                   <Text variant="paragraphS" style={s.tileSub}>{sub}</Text>
                 </Pressable>
               );
@@ -1192,16 +1212,16 @@ export function PreferencesStep({
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    backgroundColor: COLORS.card,
+                    backgroundColor: C.card,
                     borderWidth: 1,
-                    borderColor: COLORS.lineSubtle,
+                    borderColor: C.lineSubtle,
                     borderRadius: 12,
                     padding: 14,
                     gap: 12,
                   }}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text variant="labelM" style={{ color: COLORS.contentSecondary }}>
+                    <Text variant="labelM" style={{ color: C.contentSecondary }}>
                       {label}
                     </Text>
                     <Text variant="paragraphS" style={{ marginTop: 2 }}>
@@ -1212,8 +1232,8 @@ export function PreferencesStep({
                     value={enabled}
                     onValueChange={() => toggleFeature(key)}
                     accessibilityLabel={label}
-                    trackColor={{ false: COLORS.surface05, true: COLORS.primary }}
-                    thumbColor={COLORS.contentPrimary}
+                    trackColor={{ false: C.surface05, true: C.primary }}
+                    thumbColor={C.contentPrimary}
                   />
                 </View>
               );
@@ -1305,10 +1325,11 @@ export function RevealStep({
   accentColor?: string;
   onEnter: () => void;
 }) {
+  const C = useColors();
   const insets = useSafeAreaInsets();
   const currencySymbol = country === "UK" ? "£" : country === "NP" ? "₨" : "$";
   const accentLight = isLightHex(accentColor);
-  const onAccent = accentLight ? COLORS.background : COLORS.contentPrimary;
+  const onAccent = accentLight ? C.background : C.contentPrimary;
 
   // Goal count-up — drives the big north-star number.
   const goalTarget = Number(weeklyGoal) || 0;
@@ -1355,7 +1376,7 @@ export function RevealStep({
     <View
       style={{
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: C.background,
         paddingTop: insets.top,
         paddingBottom: insets.bottom,
       }}
@@ -1418,13 +1439,13 @@ export function RevealStep({
             </Text>
             <Text
               variant="display"
-              style={{ color: COLORS.contentPrimary, textAlign: "center", lineHeight: 46 }}
+              style={{ color: C.contentPrimary, textAlign: "center", lineHeight: 46 }}
             >
               {displayName ? `Let's roll,\n${displayName}.` : "Let's roll."}
             </Text>
             <Text
               variant="paragraphM"
-              style={{ color: COLORS.contentSecondary, textAlign: "center", maxWidth: 300, marginTop: 2 }}
+              style={{ color: C.contentSecondary, textAlign: "center", maxWidth: 300, marginTop: 2 }}
             >
               Your private earnings tracker is ready. Start a shift and watch the numbers come alive.
             </Text>
@@ -1436,9 +1457,9 @@ export function RevealStep({
           {/* Weekly goal — the count-up hero stat */}
           <View
             style={{
-              backgroundColor: COLORS.card,
+              backgroundColor: C.card,
               borderWidth: 1,
-              borderColor: COLORS.lineSubtle,
+              borderColor: C.lineSubtle,
               borderRadius: 20,
               paddingVertical: 22,
               paddingHorizontal: 20,
@@ -1446,7 +1467,7 @@ export function RevealStep({
               gap: 4,
             }}
           >
-            <Text variant="labelXs" style={{ color: COLORS.contentMuted, letterSpacing: 1.5 }}>
+            <Text variant="labelXs" style={{ color: C.contentMuted, letterSpacing: 1.5 }}>
               YOUR WEEKLY TARGET
             </Text>
             <Text variant="display" tabular>
@@ -1474,9 +1495,9 @@ export function RevealStep({
                         flexDirection: "row",
                         alignItems: "center",
                         gap: 6,
-                        backgroundColor: withAlpha(p?.color ?? COLORS.surface05, 0.12),
+                        backgroundColor: withAlpha(p?.color ?? C.surface05, 0.12),
                         borderWidth: 1,
-                        borderColor: withAlpha(p?.color ?? COLORS.surface05, 0.25),
+                        borderColor: withAlpha(p?.color ?? C.surface05, 0.25),
                         paddingHorizontal: 10,
                         paddingVertical: 5,
                         borderRadius: 999,
@@ -1490,7 +1511,7 @@ export function RevealStep({
                             width: 8,
                             height: 8,
                             borderRadius: 4,
-                            backgroundColor: p?.color ?? COLORS.contentSecondary,
+                            backgroundColor: p?.color ?? C.contentSecondary,
                           }}
                         />
                       )}
@@ -1498,7 +1519,7 @@ export function RevealStep({
                         style={{
                           fontSize: 11,
                           fontWeight: "700",
-                          color: COLORS.contentPrimary,
+                          color: C.contentPrimary,
                         }}
                       >
                         {p?.label ?? pid}
@@ -1543,25 +1564,25 @@ export function RevealStep({
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   tile: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: COLORS.card,
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     borderRadius: 16,
     padding: 16,
   },
   tileSelected: {
-    borderColor: COLORS.contentPrimary,
-    backgroundColor: COLORS.surface04,
+    borderColor: C.contentPrimary,
+    backgroundColor: C.surface04,
   },
   // Sizes/weights come from Text variants (labelL / paragraphS) — these only carry
   // the base color / spacing.
   tileTitle: {
-    color: COLORS.contentSecondary,
+    color: C.contentSecondary,
   },
   tileSub: {
     marginTop: 2,
@@ -1570,21 +1591,21 @@ const s = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: COLORS.card,
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
   iconBoxSelected: {
-    backgroundColor: COLORS.surface04,
-    borderColor: COLORS.lineStrong,
+    backgroundColor: C.surface04,
+    borderColor: C.lineStrong,
   },
   countryTile: {
     width: "47%",
-    backgroundColor: COLORS.card,
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     borderRadius: 16,
     padding: 16,
     alignItems: "center",
@@ -1593,9 +1614,9 @@ const s = StyleSheet.create({
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.card,
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 4,
@@ -1604,7 +1625,7 @@ const s = StyleSheet.create({
   input: {
     fontSize: 16,
     fontWeight: "600",
-    color: COLORS.contentPrimary,
+    color: C.contentPrimary,
     paddingVertical: 12,
   },
   chip: {
@@ -1614,13 +1635,13 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: COLORS.card,
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
   },
   chipSelected: {
-    borderColor: COLORS.contentPrimary,
-    backgroundColor: COLORS.surface04,
+    borderColor: C.contentPrimary,
+    backgroundColor: C.surface04,
   },
 });
 
@@ -1640,6 +1661,8 @@ export function CountryRegionStep({
   taxRegion: string;
   onRegionChange: (r: string) => void;
 }) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   const regions = getRegionsByCountry(country);
   // NP has a single tax regime — asking for a region would be a step that changes nothing.
   const needsRegion = country !== "NP" && regions.length > 1;
@@ -1670,7 +1693,7 @@ export function CountryRegionStep({
                   style={[
                     s.tileTitle,
                     { textAlign: "center" },
-                    selected && { color: COLORS.contentPrimary },
+                    selected && { color: C.contentPrimary },
                   ]}
                 >
                   {label}
@@ -1700,7 +1723,7 @@ export function CountryRegionStep({
                     <Text
                       variant="labelM"
                       style={{
-                        color: selected ? COLORS.contentPrimary : COLORS.contentSecondary,
+                        color: selected ? C.contentPrimary : C.contentSecondary,
                       }}
                     >
                       {r.id}
@@ -1748,6 +1771,8 @@ export function LastShiftStep({
   distanceUnit: string;
   onSkip: () => void;
 }) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   const platforms = getPlatformsByCountry(country);
 
   return (
@@ -1786,7 +1811,7 @@ export function LastShiftStep({
                   <Text
                     variant="labelM"
                     style={{
-                      color: selected ? COLORS.contentPrimary : COLORS.contentSecondary,
+                      color: selected ? C.contentPrimary : C.contentSecondary,
                     }}
                   >
                     {p.label}
@@ -1829,7 +1854,7 @@ export function LastShiftStep({
               keyboardType="decimal-pad"
               suffix={distanceUnit}
             />
-            <Text variant="paragraphS" style={{ color: COLORS.contentMuted }}>
+            <Text variant="paragraphS" style={{ color: C.contentMuted }}>
               Turns into a tax write-off. Skip it and we'll just leave it out.
             </Text>
           </View>
@@ -1840,7 +1865,7 @@ export function LastShiftStep({
           accessibilityRole="button"
           style={{ alignItems: "center", paddingVertical: 18, marginTop: 8 }}
         >
-          <Text variant="labelM" style={{ color: COLORS.contentMuted }}>
+          <Text variant="labelM" style={{ color: C.contentMuted }}>
             I haven't driven yet
           </Text>
         </Pressable>
@@ -1862,9 +1887,10 @@ export function FirstShiftReveal({
   accentColor?: string;
   onEnter: () => void;
 }) {
+  const C = useColors();
   const insets = useSafeAreaInsets();
   const accentLight = isLightHex(accentColor);
-  const onAccent = accentLight ? COLORS.background : COLORS.contentPrimary;
+  const onAccent = accentLight ? C.background : C.contentPrimary;
   const cur = math.currencySymbol;
 
   const money = (n: number) =>
@@ -1897,7 +1923,7 @@ export function FirstShiftReveal({
     <View
       style={{
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: C.background,
         paddingTop: insets.top,
         paddingBottom: insets.bottom,
       }}
@@ -1917,9 +1943,9 @@ export function FirstShiftReveal({
             <Text variant="labelXs" style={{ color: accentColor, letterSpacing: 2 }}>
               YOUR LAST SHIFT
             </Text>
-            <Text variant="paragraphM" style={{ color: COLORS.contentSecondary }}>
+            <Text variant="paragraphM" style={{ color: C.contentSecondary }}>
               You made {money(math.gross)} over {math.hours} hours. The app told you that was{" "}
-              <Text variant="labelL" style={{ color: COLORS.contentPrimary }}>
+              <Text variant="labelL" style={{ color: C.contentPrimary }}>
                 {money(math.grossHourly)}/hr
               </Text>
               .
@@ -1930,7 +1956,7 @@ export function FirstShiftReveal({
           <Rise delay={420}>
             <View
               style={{
-                backgroundColor: COLORS.card,
+                backgroundColor: C.card,
                 borderWidth: 1,
                 borderColor: withAlpha(accentColor, 0.35),
                 borderRadius: 24,
@@ -1940,18 +1966,18 @@ export function FirstShiftReveal({
                 gap: 6,
               }}
             >
-              <Text variant="labelXs" style={{ color: COLORS.contentMuted, letterSpacing: 1.5 }}>
+              <Text variant="labelXs" style={{ color: C.contentMuted, letterSpacing: 1.5 }}>
                 WHAT YOU ACTUALLY KEEP
               </Text>
               <Text variant="display" tabular style={{ color: accentColor }}>
                 {money(shown)}
-                <Text variant="headingM" style={{ color: COLORS.contentMuted }}>
+                <Text variant="headingM" style={{ color: C.contentMuted }}>
                   /hr
                 </Text>
               </Text>
               <Text
                 variant="paragraphS"
-                style={{ color: COLORS.contentSecondary, textAlign: "center", marginTop: 2 }}
+                style={{ color: C.contentSecondary, textAlign: "center", marginTop: 2 }}
               >
                 {money(math.takeHome)} take-home, after {money(math.taxSetAside)} set aside for tax
               </Text>
@@ -1965,7 +1991,7 @@ export function FirstShiftReveal({
               label={`Tax to set aside (${math.withholdingPct}%)`}
               value={`− ${money(math.taxSetAside)}`}
             />
-            <View style={{ height: 1, backgroundColor: COLORS.lineSubtle, marginVertical: 2 }} />
+            <View style={{ height: 1, backgroundColor: C.lineSubtle, marginVertical: 2 }} />
             <RevealRow label="Yours to keep" value={money(math.takeHome)} strong />
 
             {math.hasMileageDeduction && math.mileageWriteOff > 0 && (
@@ -1980,10 +2006,10 @@ export function FirstShiftReveal({
                   gap: 3,
                 }}
               >
-                <Text variant="labelM" style={{ color: COLORS.contentPrimary }}>
+                <Text variant="labelM" style={{ color: C.contentPrimary }}>
                   + {money(math.mileageWriteOff)} in write-offs
                 </Text>
-                <Text variant="paragraphS" style={{ color: COLORS.contentSecondary }}>
+                <Text variant="paragraphS" style={{ color: C.contentSecondary }}>
                   Those {math.distance} {math.distanceUnit} are deductible at {math.mileageRateLabel}.
                   Assumes a gas car — set your real vehicle to sharpen this.
                 </Text>
@@ -2017,7 +2043,7 @@ export function FirstShiftReveal({
           </Pressable>
           <Text
             variant="paragraphS"
-            style={{ color: COLORS.contentMuted, textAlign: "center" }}
+            style={{ color: C.contentMuted, textAlign: "center" }}
           >
             That shift is saved. Everything else can wait.
           </Text>
@@ -2036,18 +2062,19 @@ function RevealRow({
   value: string;
   strong?: boolean;
 }) {
+  const C = useColors();
   return (
     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
       <Text
         variant={strong ? "labelL" : "paragraphM"}
-        style={{ color: strong ? COLORS.contentPrimary : COLORS.contentSecondary }}
+        style={{ color: strong ? C.contentPrimary : C.contentSecondary }}
       >
         {label}
       </Text>
       <Text
         variant={strong ? "labelL" : "paragraphM"}
         tabular
-        style={{ color: strong ? COLORS.contentPrimary : COLORS.contentSecondary }}
+        style={{ color: strong ? C.contentPrimary : C.contentSecondary }}
       >
         {value}
       </Text>
@@ -2066,14 +2093,15 @@ export function NoShiftYetStep({
   accentColor?: string;
   onEnter: () => void;
 }) {
+  const C = useColors();
   const insets = useSafeAreaInsets();
-  const onAccent = isLightHex(accentColor) ? COLORS.background : COLORS.contentPrimary;
+  const onAccent = isLightHex(accentColor) ? C.background : C.contentPrimary;
 
   return (
     <View
       style={{
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: C.background,
         paddingTop: insets.top,
         paddingBottom: insets.bottom,
         paddingHorizontal: 24,
@@ -2085,10 +2113,10 @@ export function NoShiftYetStep({
           <Text variant="labelXs" style={{ color: accentColor, letterSpacing: 2 }}>
             YOU'RE SET UP
           </Text>
-          <Text variant="display" style={{ color: COLORS.contentPrimary, lineHeight: 46 }}>
+          <Text variant="display" style={{ color: C.contentPrimary, lineHeight: 46 }}>
             Go drive.
           </Text>
-          <Text variant="paragraphM" style={{ color: COLORS.contentSecondary, maxWidth: 320 }}>
+          <Text variant="paragraphM" style={{ color: C.contentSecondary, maxWidth: 320 }}>
             When you get back, log the shift — or hit the tracker before you set off — and Comma
             will show you what it was really worth after tax and mileage.
           </Text>

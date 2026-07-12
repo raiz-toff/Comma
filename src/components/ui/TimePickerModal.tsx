@@ -9,7 +9,8 @@ import {
   NativeScrollEvent,
 } from "react-native";
 import { Text } from "@/src/components/ui/text";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { withAlpha } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 
 const ITEM_H = 48;
 const VISIBLE = 5; // rows visible, selection is the center one
@@ -35,7 +36,10 @@ function getContrastColor(hex: string): string {
 
 function pad(n: number) { return n < 10 ? `0${n}` : `${n}`; }
 
-export function TimePickerModal({ visible, value, onChange, onClose, is24Hour = true, accentColor = COLORS.primary }: Props) {
+export function TimePickerModal({ visible, value, onChange, onClose, is24Hour = true, accentColor: accentColorProp }: Props) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
+  const accentColor = accentColorProp ?? C.primary;
   const initHour = is24Hour ? value.getHours() : (value.getHours() % 12 || 12);
   const initMinute = value.getMinutes();
   const initAmpm = value.getHours() < 12 ? 0 : 1; // 0=AM, 1=PM
@@ -177,6 +181,7 @@ interface WheelProps {
 }
 
 function WheelColumn({ data, initialIndex, onSelect, containerH, padding, accentColor, format }: WheelProps) {
+  const colS = useThemedStyles(makeColStyles);
   const scrollRef = useRef<ScrollView>(null);
   const didInit = useRef(false);
   const [active, setActive] = useState(initialIndex);
@@ -233,15 +238,15 @@ function WheelColumn({ data, initialIndex, onSelect, containerH, padding, accent
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   overlay: {
-    flex: 1, backgroundColor: COLORS.scrim,
+    flex: 1, backgroundColor: C.scrim,
     justifyContent: "center", alignItems: "center", padding: 24,
   },
   card: {
     width: "100%", maxWidth: 320,
-    backgroundColor: COLORS.surface03, borderRadius: 28,   // Surface/03, DS modal radius
-    borderWidth: 1, borderColor: COLORS.lineSubtle,        // Border/Subtle
+    backgroundColor: C.surface03, borderRadius: 28,   // Surface/03, DS modal radius
+    borderWidth: 1, borderColor: C.lineSubtle,        // Border/Subtle
     padding: 20, gap: 16,
   },
   title: { textAlign: "center" },
@@ -249,24 +254,24 @@ const s = StyleSheet.create({
   ampmCol: { gap: 8, justifyContent: "center" },
   ampmBtn: {
     paddingHorizontal: 12, paddingVertical: 10,
-    borderRadius: 12, backgroundColor: COLORS.surface04,   // Surface/04
+    borderRadius: 12, backgroundColor: C.surface04,   // Surface/04
   },
   selectionHighlight: {
     position: "absolute", left: 0, right: 0,
     borderRadius: 12, borderTopWidth: 1, borderBottomWidth: 1,
-    backgroundColor: COLORS.surface04,
+    backgroundColor: C.surface04,
   },
   footer: { flexDirection: "row", gap: 10 },
   cancelBtn: {
     flex: 1, paddingVertical: 12, borderRadius: 12,
-    backgroundColor: COLORS.surface04, alignItems: "center",   // Surface/04
+    backgroundColor: C.surface04, alignItems: "center",   // Surface/04
   },
   doneBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center" },
 });
 
-const colS = StyleSheet.create({
+const makeColStyles = (C: Palette) => StyleSheet.create({
   item: { height: ITEM_H, justifyContent: "center", alignItems: "center" },
   // Explicit size kept: the selected row interpolates 18→22, which no single
   // variant expresses; lineHeight 28 prevents clipping at the 22px state.
-  itemText: { fontSize: 18, lineHeight: 28, fontWeight: "500", color: COLORS.contentMuted },
+  itemText: { fontSize: 18, lineHeight: 28, fontWeight: "500", color: C.contentMuted },
 });

@@ -5,7 +5,8 @@ import { Stack, router } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronLeft } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { withAlpha } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { PlatformLogo } from "@/src/components/GlobalTopHeader";
 import { getPlatformsByCountry, PLATFORM_REGISTRY } from "@/src/registry/platforms";
 import { getDBPlatforms, updateDBPlatform } from "@/src/database/queries/platforms";
@@ -20,6 +21,8 @@ import { markActivationDone } from "@/src/services/onboarding/activationChecklis
  * leave without doing it). This does exactly the one thing, saves, and comes back.
  */
 export default function SetupPlatformsScreen() {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   const { profile } = useSettingsStore();
   const queryClient = useQueryClient();
   const country = profile?.country ?? "CA";
@@ -70,26 +73,26 @@ export default function SetupPlatformsScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={s.header}>
         <Pressable onPress={() => router.back()} accessibilityRole="button" hitSlop={10}>
-          <ChevronLeft size={24} color={COLORS.contentPrimary} />
+          <ChevronLeft size={24} color={C.contentPrimary} />
         </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}>
         <View style={{ gap: 6, marginBottom: 24 }}>
           <Text variant="headingXl">Which apps do you drive for?</Text>
-          <Text variant="paragraphM" style={{ color: COLORS.contentMuted }}>
+          <Text variant="paragraphM" style={{ color: C.contentMuted }}>
             Pick every one you earn on. Comma works out what each really pays you per hour, after
             costs — which is usually not the one you'd guess.
           </Text>
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color={COLORS.contentPrimary} style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color={C.contentPrimary} style={{ marginTop: 40 }} />
         ) : (
           <View style={{ gap: 8 }}>
             {available.map((p) => {
@@ -124,12 +127,12 @@ export default function SetupPlatformsScreen() {
                     )}
                     <Text
                       variant="labelL"
-                      style={{ color: on ? COLORS.contentPrimary : COLORS.contentSecondary }}
+                      style={{ color: on ? C.contentPrimary : C.contentSecondary }}
                     >
                       {p.label}
                     </Text>
                   </View>
-                  {on && <Check size={16} color={COLORS.contentPrimary} strokeWidth={2.5} />}
+                  {on && <Check size={16} color={C.contentPrimary} strokeWidth={2.5} />}
                 </Pressable>
               );
             })}
@@ -146,9 +149,9 @@ export default function SetupPlatformsScreen() {
           style={[s.cta, (saving || selected.size === 0) && { opacity: 0.4 }]}
         >
           {saving ? (
-            <ActivityIndicator size="small" color={COLORS.background} />
+            <ActivityIndicator size="small" color={C.background} />
           ) : (
-            <Text variant="labelL" style={{ color: COLORS.background }}>
+            <Text variant="labelL" style={{ color: C.background }}>
               {selected.size === 0
                 ? "Pick at least one"
                 : `Save ${selected.size} app${selected.size === 1 ? "" : "s"}`}
@@ -160,27 +163,27 @@ export default function SetupPlatformsScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   header: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 12 },
   tile: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: COLORS.card,
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     borderRadius: 16,
     padding: 16,
   },
-  tileOn: { borderColor: COLORS.contentPrimary, backgroundColor: COLORS.surface04 },
+  tileOn: { borderColor: C.contentPrimary, backgroundColor: C.surface04 },
   footer: {
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.lineSubtle,
+    borderTopColor: C.lineSubtle,
   },
   cta: {
-    backgroundColor: COLORS.contentPrimary,
+    backgroundColor: C.contentPrimary,
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: "center",

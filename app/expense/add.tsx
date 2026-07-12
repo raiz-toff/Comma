@@ -30,7 +30,8 @@ import { getExpenseCategories, getCategoryMeta, getCategoryDefaultPct, type Expe
 import { ExpenseCategoryIcon } from "@/src/components/ui/ExpenseCategoryIcon";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { withAlpha } from "@/src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 import { cn } from "@/src/lib/utils";
 import { type PlatformKey } from "@/src/registry/platforms";
 import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
@@ -50,6 +51,7 @@ export default function AddExpenseModal() {
 
   // ── Theme State ──────────────────────────────────────────────────────────
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
+  const C = useColors();
 
   // ── Form State ───────────────────────────────────────────────────────────
   const { profile, loadSettings, isDemoMode } = useSettingsStore();
@@ -439,7 +441,7 @@ export default function AddExpenseModal() {
                 width: 28,
                 height: 4,
                 borderRadius: 2,
-                backgroundColor: step >= s ? accentColor : COLORS.surface04,
+                backgroundColor: step >= s ? accentColor : C.surface04,
               }}
             />
           ))}
@@ -483,8 +485,8 @@ export default function AddExpenseModal() {
                   }}
                   keyboardType="decimal-pad"
                   placeholder="0.00"
-                  placeholderTextColor={COLORS.contentMuted}
-                  style={{ fontSize: 44, fontWeight: "900", color: COLORS.contentPrimary, textAlign: "center", minWidth: 160, fontVariant: ["tabular-nums"] }}
+                  placeholderTextColor={C.contentMuted}
+                  style={{ fontSize: 44, fontWeight: "900", color: C.contentPrimary, textAlign: "center", minWidth: 160, fontVariant: ["tabular-nums"] }}
                 />
               </View>
             </View>
@@ -533,7 +535,7 @@ export default function AddExpenseModal() {
                 onFocus={() => setIsMerchantFocused(true)}
                 onBlur={() => setTimeout(() => setIsMerchantFocused(false), 150)}
                 placeholder="e.g. Shell, McDonald's, Chevron"
-                placeholderTextColor={COLORS.contentMuted}
+                placeholderTextColor={C.contentMuted}
                 returnKeyType="done"
                 className="bg-surface-02 border border-line-subtle rounded-md px-4 py-4 text-content-primary text-sm font-semibold focus:border-line-strong"
               />
@@ -562,7 +564,7 @@ export default function AddExpenseModal() {
                         onPress={() => { setMerchant(m); setIsMerchantFocused(false); }}
                         accessibilityRole="button"
                         className="px-4 py-3 active:bg-surface-04"
-                        style={i < suggestions.length - 1 ? { borderBottomWidth: 0.5, borderBottomColor: COLORS.lineSubtle } : undefined}
+                        style={i < suggestions.length - 1 ? { borderBottomWidth: 0.5, borderBottomColor: C.lineSubtle } : undefined}
                       >
                         <Text variant="labelM">{m}</Text>
                       </TouchableOpacity>
@@ -583,8 +585,8 @@ export default function AddExpenseModal() {
                   value={isRecurring}
                   onValueChange={setIsRecurring}
                   accessibilityLabel="Recurring expense"
-                  trackColor={{ false: COLORS.surface04, true: accentColor }}
-                  thumbColor={COLORS.contentPrimary}
+                  trackColor={{ false: C.surface04, true: accentColor }}
+                  thumbColor={C.contentPrimary}
                 />
               </View>
               {isRecurring && (
@@ -599,13 +601,13 @@ export default function AddExpenseModal() {
                         flex: 1,
                         paddingVertical: 10,
                         borderRadius: 12,
-                        backgroundColor: recurringInterval === interval ? accentColorDim : COLORS.surface02,
+                        backgroundColor: recurringInterval === interval ? accentColorDim : C.surface02,
                         borderWidth: 1,
-                        borderColor: recurringInterval === interval ? accentColor : COLORS.lineSubtle,
+                        borderColor: recurringInterval === interval ? accentColor : C.lineSubtle,
                         alignItems: "center"
                       }}
                     >
-                      <Text variant="labelXs" style={{ color: recurringInterval === interval ? accentColor : COLORS.contentSecondary }}>
+                      <Text variant="labelXs" style={{ color: recurringInterval === interval ? accentColor : C.contentSecondary }}>
                         {interval}
                       </Text>
                     </TouchableOpacity>
@@ -657,17 +659,17 @@ export default function AddExpenseModal() {
                       accessibilityState={{ selected: isSelected }}
                       style={{
                         width: "31.5%",
-                        borderColor: isSelected ? accentColor : COLORS.lineSubtle,
-                        backgroundColor: isSelected ? accentColorDim : COLORS.surface02,
+                        borderColor: isSelected ? accentColor : C.lineSubtle,
+                        backgroundColor: isSelected ? accentColorDim : C.surface02,
                       }}
                       className="flex-row items-center gap-1.5 px-2.5 py-2.5 rounded-md border mb-1"
                     >
-                      <ExpenseCategoryIcon id={cat.id} size={18} color={isSelected ? accentColor : COLORS.contentSecondary} />
+                      <ExpenseCategoryIcon id={cat.id} size={18} color={isSelected ? accentColor : C.contentSecondary} />
                       <Text
                         numberOfLines={1}
                         className="text-[11px] font-bold flex-1"
                         style={{
-                          color: isSelected ? accentColor : COLORS.contentSecondary,
+                          color: isSelected ? accentColor : C.contentSecondary,
                         }}
                       >
                         {cat.label}
@@ -682,8 +684,8 @@ export default function AddExpenseModal() {
                     accessibilityRole="button"
                     style={{
                       width: "31.5%",
-                      borderColor: COLORS.lineSubtle,
-                      backgroundColor: COLORS.surface02,
+                      borderColor: C.lineSubtle,
+                      backgroundColor: C.surface02,
                     }}
                     className="flex-row items-center justify-center gap-1.5 px-2.5 py-2.5 rounded-md border border-dashed mb-1"
                   >
@@ -716,7 +718,7 @@ export default function AddExpenseModal() {
                 >
                   <Text
                     variant="labelM"
-                    style={{ color: isDeductible ? accentColor : COLORS.contentSecondary }}
+                    style={{ color: isDeductible ? accentColor : C.contentSecondary }}
                   >
                     Yes (Business)
                   </Text>
@@ -762,9 +764,9 @@ export default function AddExpenseModal() {
 
                   {/* Partial deductibility warning */}
                   {deductiblePct < 100 && (
-                    <View style={{ backgroundColor: withAlpha(COLORS.warning, 0.12), borderWidth: 1, borderColor: withAlpha(COLORS.warning, 0.25), borderRadius: 12, padding: 12, flexDirection: "row", gap: 8 }}>
+                    <View style={{ backgroundColor: withAlpha(C.warning, 0.12), borderWidth: 1, borderColor: withAlpha(C.warning, 0.25), borderRadius: 12, padding: 12, flexDirection: "row", gap: 8 }}>
                       <Text style={{ fontSize: 13 }}>⚠️</Text>
-                      <Text variant="paragraphS" style={{ color: COLORS.warning, flex: 1 }}>
+                      <Text variant="paragraphS" style={{ color: C.warning, flex: 1 }}>
                         {meta.deductibleNote ?? `This expense is ${deductiblePct}% deductible. Only the deductible portion counts toward your tax summary.`}
                       </Text>
                     </View>
@@ -788,13 +790,13 @@ export default function AddExpenseModal() {
                           flex: 1,
                           paddingVertical: 9,
                           borderRadius: 12,
-                          backgroundColor: deductiblePct === pct ? accentColorDim : COLORS.surface02,
+                          backgroundColor: deductiblePct === pct ? accentColorDim : C.surface02,
                           borderWidth: 1,
-                          borderColor: deductiblePct === pct ? accentColor : COLORS.lineSubtle,
+                          borderColor: deductiblePct === pct ? accentColor : C.lineSubtle,
                           alignItems: "center",
                         }}
                       >
-                        <Text variant="labelM" tabular style={{ color: deductiblePct === pct ? accentColor : COLORS.contentSecondary }}>
+                        <Text variant="labelM" tabular style={{ color: deductiblePct === pct ? accentColor : C.contentSecondary }}>
                           {pct}%
                         </Text>
                       </TouchableOpacity>
@@ -811,16 +813,16 @@ export default function AddExpenseModal() {
                     }}
                     keyboardType="number-pad"
                     placeholder="100"
-                    placeholderTextColor={COLORS.contentMuted}
+                    placeholderTextColor={C.contentMuted}
                     maxLength={3}
                     style={{
-                      backgroundColor: COLORS.surface02,
+                      backgroundColor: C.surface02,
                       borderWidth: 1,
-                      borderColor: COLORS.lineSubtle,
+                      borderColor: C.lineSubtle,
                       borderRadius: 12,
                       paddingHorizontal: 16,
                       paddingVertical: 12,
-                      color: COLORS.contentPrimary,
+                      color: C.contentPrimary,
                       fontSize: 14,
                       fontWeight: "700",
                       textAlign: "center",
@@ -830,7 +832,7 @@ export default function AddExpenseModal() {
 
                   {/* Deductible amount preview */}
                   {deductibleAmount && (
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: COLORS.surface02, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: COLORS.lineSubtle }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: C.surface02, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: C.lineSubtle }}>
                       <Text variant="labelXs" className="text-content-secondary">Deductible Amount</Text>
                       <Text variant="labelM" tabular className="text-success">${deductibleAmount}</Text>
                     </View>
@@ -875,13 +877,13 @@ export default function AddExpenseModal() {
                     accessibilityState={{ selected: !linkedVehicleId }}
                     className="px-4 py-2.5 rounded-md border min-w-[65px] items-center justify-center"
                     style={{
-                      borderColor: !linkedVehicleId ? accentColor : COLORS.lineSubtle,
-                      backgroundColor: !linkedVehicleId ? accentColorDim : COLORS.surface02,
+                      borderColor: !linkedVehicleId ? accentColor : C.lineSubtle,
+                      backgroundColor: !linkedVehicleId ? accentColorDim : C.surface02,
                     }}
                   >
                     <Text
                       variant="labelM"
-                      style={{ color: !linkedVehicleId ? accentColor : COLORS.contentSecondary }}
+                      style={{ color: !linkedVehicleId ? accentColor : C.contentSecondary }}
                     >
                       None
                     </Text>
@@ -896,11 +898,11 @@ export default function AddExpenseModal() {
                         accessibilityState={{ selected: isSelected }}
                         className="px-4 py-2.5 rounded-md border flex-row items-center gap-2 justify-center"
                         style={{
-                          borderColor: isSelected ? accentColor : COLORS.lineSubtle,
-                          backgroundColor: isSelected ? accentColorDim : COLORS.surface02,
+                          borderColor: isSelected ? accentColor : C.lineSubtle,
+                          backgroundColor: isSelected ? accentColorDim : C.surface02,
                         }}
                       >
-                        <Text variant="labelM" style={{ color: isSelected ? accentColor : COLORS.contentPrimary }}>
+                        <Text variant="labelM" style={{ color: isSelected ? accentColor : C.contentPrimary }}>
                           {v.name}
                         </Text>
                         <Text variant="labelXs" tabular className="text-content-muted">{v.year} {v.make}</Text>
@@ -945,8 +947,8 @@ export default function AddExpenseModal() {
                         style={{
                           width: 210,
                           height: 96,
-                          borderColor: isSelected ? accentColor : COLORS.lineSubtle,
-                          backgroundColor: isSelected ? accentColorDim : COLORS.surface02,
+                          borderColor: isSelected ? accentColor : C.lineSubtle,
+                          backgroundColor: isSelected ? accentColorDim : C.surface02,
                         }}
                         className="p-4 rounded-md border flex flex-col justify-between"
                       >
@@ -1003,12 +1005,12 @@ export default function AddExpenseModal() {
                   multiline
                   numberOfLines={3}
                   placeholder="Details or notes..."
-                  placeholderTextColor={COLORS.contentMuted}
+                  placeholderTextColor={C.contentMuted}
                   onFocus={() => setIsNotesFocused(true)}
                   onBlur={() => setIsNotesFocused(false)}
                   className="bg-surface-02 border rounded-md px-4 py-2.5 text-content-primary text-sm h-[96px] font-semibold text-left align-top leading-relaxed"
                   style={{
-                    borderColor: isNotesFocused ? accentColor : COLORS.lineSubtle,
+                    borderColor: isNotesFocused ? accentColor : C.lineSubtle,
                   }}
                 />
               </View>
@@ -1025,7 +1027,7 @@ export default function AddExpenseModal() {
                         accessibilityLabel="Remove receipt photo"
                         hitSlop={10}
                         className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full items-center justify-center border border-line-strong"
-                        style={{ backgroundColor: COLORS.scrim }}
+                        style={{ backgroundColor: C.scrim }}
                       >
                         <Text className="text-content-primary text-xs font-bold leading-none">×</Text>
                       </TouchableOpacity>
@@ -1035,12 +1037,12 @@ export default function AddExpenseModal() {
                       disabled={isScanningOCR}
                       accessibilityRole="button"
                       accessibilityState={{ disabled: isScanningOCR, busy: isScanningOCR }}
-                      style={{ backgroundColor: isScanningOCR ? COLORS.surface05 : accentColor }}
+                      style={{ backgroundColor: isScanningOCR ? C.surface05 : accentColor }}
                       className="w-full py-4 rounded-md flex-row items-center justify-center gap-2 border border-line-strong"
                     >
                       {isScanningOCR ? (
                         <>
-                          <ActivityIndicator size="small" color={COLORS.contentSecondary} />
+                          <ActivityIndicator size="small" color={C.contentSecondary} />
                           <Text variant="labelXs" className="text-content-secondary">Scanning Receipt...</Text>
                         </>
                       ) : (
@@ -1102,7 +1104,7 @@ export default function AddExpenseModal() {
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={{ flex: 1, backgroundColor: COLORS.scrim, justifyContent: "flex-end", alignItems: "center" }}
+          style={{ flex: 1, backgroundColor: C.scrim, justifyContent: "flex-end", alignItems: "center" }}
         >
           <View className="w-full max-w-md bg-surface-03 border-t border-x border-line-subtle rounded-t-xl p-6 pb-12 flex flex-col gap-5">
             <View>
@@ -1117,7 +1119,7 @@ export default function AddExpenseModal() {
                   value={customEmoji}
                   onChangeText={setCustomEmoji}
                   placeholder="🏷️"
-                  placeholderTextColor={COLORS.contentMuted}
+                  placeholderTextColor={C.contentMuted}
                   maxLength={5}
                   className="bg-surface-02 border border-line-subtle rounded-md px-4 py-3 text-content-primary text-base font-semibold w-20 text-center"
                 />
@@ -1129,7 +1131,7 @@ export default function AddExpenseModal() {
                   value={customName}
                   onChangeText={setCustomName}
                   placeholder="e.g. Car Wash, Detailing"
-                  placeholderTextColor={COLORS.contentMuted}
+                  placeholderTextColor={C.contentMuted}
                   className="bg-surface-02 border border-line-subtle rounded-md px-4 py-3 text-content-primary text-sm font-semibold"
                 />
               </View>

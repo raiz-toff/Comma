@@ -14,7 +14,7 @@ import { Stack, router } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
-import { COLORS } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { getCountryDef } from "@/src/registry/countries/index";
 import { getGoalsWithProgress, insertGoal, updateGoal } from "@/src/database/queries/goals";
 import { useSettingsStore } from "@/store/useSettingsStore";
@@ -33,6 +33,8 @@ const PRESETS = [400, 500, 750, 1000];
  * reads), and records completion explicitly so that keeping the seeded default still counts.
  */
 export default function SetupGoalScreen() {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   const { profile, updateProfile } = useSettingsStore();
   const queryClient = useQueryClient();
   const currency = getCountryDef(profile?.country ?? "CA").symbol;
@@ -105,7 +107,7 @@ export default function SetupGoalScreen() {
   const parsed = Number(amount) || 0;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -113,12 +115,12 @@ export default function SetupGoalScreen() {
       >
         <View style={s.header}>
           <Pressable onPress={() => router.back()} accessibilityRole="button" hitSlop={10}>
-            <ChevronLeft size={24} color={COLORS.contentPrimary} />
+            <ChevronLeft size={24} color={C.contentPrimary} />
           </Pressable>
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color={COLORS.contentPrimary} style={{ marginTop: 60 }} />
+          <ActivityIndicator size="large" color={C.contentPrimary} style={{ marginTop: 60 }} />
         ) : (
           <ScrollView
             contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
@@ -126,14 +128,14 @@ export default function SetupGoalScreen() {
           >
             <View style={{ gap: 6, marginBottom: 28 }}>
               <Text variant="headingXl">What's your weekly target?</Text>
-              <Text variant="paragraphM" style={{ color: COLORS.contentMuted }}>
+              <Text variant="paragraphM" style={{ color: C.contentMuted }}>
                 Every shift gets measured against this, so you know mid-week whether you're on pace
                 — instead of finding out on Sunday.
               </Text>
             </View>
 
             <View style={s.amountRow}>
-              <Text variant="display" style={{ color: COLORS.contentMuted }}>
+              <Text variant="display" style={{ color: C.contentMuted }}>
                 {currency}
               </Text>
               <TextInput
@@ -143,7 +145,7 @@ export default function SetupGoalScreen() {
                   setError("");
                 }}
                 placeholder="500"
-                placeholderTextColor={COLORS.contentMuted}
+                placeholderTextColor={C.contentMuted}
                 keyboardType="numeric"
                 style={s.amountInput}
                 autoFocus
@@ -165,7 +167,7 @@ export default function SetupGoalScreen() {
                   >
                     <Text
                       variant="labelM"
-                      style={{ color: on ? COLORS.contentPrimary : COLORS.contentSecondary }}
+                      style={{ color: on ? C.contentPrimary : C.contentSecondary }}
                     >
                       {currency}
                       {v.toLocaleString()}
@@ -176,7 +178,7 @@ export default function SetupGoalScreen() {
             </View>
 
             {parsed > 0 && (
-              <Text variant="paragraphS" style={{ color: COLORS.contentMuted, marginTop: 20 }}>
+              <Text variant="paragraphS" style={{ color: C.contentMuted, marginTop: 20 }}>
                 That's about {currency}
                 {Math.round(parsed * 4.33).toLocaleString()} a month, or {currency}
                 {(parsed * 52).toLocaleString()} a year.
@@ -184,7 +186,7 @@ export default function SetupGoalScreen() {
             )}
 
             {error ? (
-              <Text variant="paragraphS" style={{ color: COLORS.destructive, marginTop: 12 }}>
+              <Text variant="paragraphS" style={{ color: C.destructive, marginTop: 12 }}>
                 {error}
               </Text>
             ) : null}
@@ -200,9 +202,9 @@ export default function SetupGoalScreen() {
             style={[s.cta, (saving || loading) && { opacity: 0.4 }]}
           >
             {saving ? (
-              <ActivityIndicator size="small" color={COLORS.background} />
+              <ActivityIndicator size="small" color={C.background} />
             ) : (
-              <Text variant="labelL" style={{ color: COLORS.background }}>
+              <Text variant="labelL" style={{ color: C.background }}>
                 Set my goal
               </Text>
             )}
@@ -213,15 +215,15 @@ export default function SetupGoalScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   header: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 12 },
   amountRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: COLORS.card,
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 18,
@@ -230,26 +232,26 @@ const s = StyleSheet.create({
     flex: 1,
     fontSize: 40,
     fontWeight: "700",
-    color: COLORS.contentPrimary,
+    color: C.contentPrimary,
     padding: 0,
   },
   chip: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: COLORS.card,
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
   },
-  chipOn: { borderColor: COLORS.contentPrimary, backgroundColor: COLORS.surface04 },
+  chipOn: { borderColor: C.contentPrimary, backgroundColor: C.surface04 },
   footer: {
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.lineSubtle,
+    borderTopColor: C.lineSubtle,
   },
   cta: {
-    backgroundColor: COLORS.contentPrimary,
+    backgroundColor: C.contentPrimary,
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: "center",

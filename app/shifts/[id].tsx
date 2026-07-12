@@ -19,7 +19,8 @@ import { Text } from "@/src/components/ui/text";
 import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
 import { CurrencyText } from "@/src/components/ui/CurrencyText";
 import { EmptyState } from "@/src/components/ui/EmptyState";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { withAlpha } from "@/src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 import { getShiftById, deleteShift, getLocationPointsByShiftId, getShiftPlatforms } from "@/src/database/queries/shifts";
 import { getVehicleById } from "@/src/database/queries/vehicles";
 import { getExpensesByShift, insertExpense, deleteExpense } from "@/src/database/queries/expenses";
@@ -53,6 +54,7 @@ if (!isWeb) {
 }
 
 const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { routePathJson: string | null | undefined; strokeColor: string; isNavigatingBack?: boolean }) => {
+  const C = useColors();
   const [mapReady, setMapReady] = useState(false);
 
   React.useEffect(() => {
@@ -165,15 +167,15 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
   const renderSvg = (isFull: boolean) => {
     return (
       <Svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`}>
-        <Line x1="0" y1="50" x2={width} y2="50" stroke={COLORS.surface02} strokeWidth="1" />
-        <Line x1="0" y1="100" x2={width} y2="100" stroke={COLORS.surface02} strokeWidth="1" />
-        <Line x1="0" y1="150" x2={width} y2="150" stroke={COLORS.surface02} strokeWidth="1" />
-        <Line x1="80" y1="0" x2="80" y2={height} stroke={COLORS.surface02} strokeWidth="1" />
-        <Line x1="160" y1="0" x2="160" y2={height} stroke={COLORS.surface02} strokeWidth="1" />
-        <Line x1="240" y1="0" x2="240" y2={height} stroke={COLORS.surface02} strokeWidth="1" />
+        <Line x1="0" y1="50" x2={width} y2="50" stroke={C.surface02} strokeWidth="1" />
+        <Line x1="0" y1="100" x2={width} y2="100" stroke={C.surface02} strokeWidth="1" />
+        <Line x1="0" y1="150" x2={width} y2="150" stroke={C.surface02} strokeWidth="1" />
+        <Line x1="80" y1="0" x2="80" y2={height} stroke={C.surface02} strokeWidth="1" />
+        <Line x1="160" y1="0" x2="160" y2={height} stroke={C.surface02} strokeWidth="1" />
+        <Line x1="240" y1="0" x2="240" y2={height} stroke={C.surface02} strokeWidth="1" />
         <Polyline points={svgPoints} fill="none" stroke={strokeColor} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-        <Circle cx={startX} cy={startY} r="6" fill={COLORS.success} stroke={COLORS.contentPrimary} strokeWidth="2" />
-        <Circle cx={endX} cy={endY} r="6" fill={COLORS.destructive} stroke={COLORS.contentPrimary} strokeWidth="2" />
+        <Circle cx={startX} cy={startY} r="6" fill={C.success} stroke={C.contentPrimary} strokeWidth="2" />
+        <Circle cx={endX} cy={endY} r="6" fill={C.destructive} stroke={C.contentPrimary} strokeWidth="2" />
       </Svg>
     );
   };
@@ -275,10 +277,10 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
             var timelineEvents = ${JSON.stringify(mapEvents)};
 
             timelineEvents.forEach(function(ev) {
-              var color = '${COLORS.info}'; // stop
-              if (ev.type === 'start') color = '${COLORS.success}';
-              else if (ev.type === 'end') color = '${COLORS.destructive}';
-              else if (ev.type === 'pause') color = '${COLORS.warning}';
+              var color = '${C.info}'; // stop
+              if (ev.type === 'start') color = '${C.success}';
+              else if (ev.type === 'end') color = '${C.destructive}';
+              else if (ev.type === 'pause') color = '${C.warning}';
               
               var el = document.createElement('div');
               var size = (ev.type === 'start' || ev.type === 'end') ? '14px' : '10px';
@@ -305,7 +307,7 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
     </body>
     </html>
   `;
-  }, [points, smoothedPoints, mapEvents, strokeColor]);
+  }, [points, smoothedPoints, mapEvents, strokeColor, C]);
 
   const webViewSource = React.useMemo(() => ({ html: htmlContent }), [htmlContent]);
 
@@ -314,7 +316,7 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
       <WebView
         originWhitelist={["*"]}
         source={webViewSource}
-        style={{ flex: 1, backgroundColor: COLORS.surface02 }}
+        style={{ flex: 1, backgroundColor: C.surface02 }}
         javaScriptEnabled={true}
         domStorageEnabled={true}
         scalesPageToFit={true}
@@ -338,19 +340,19 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
           position: "absolute",
           bottom: 12,
           right: 12,
-          backgroundColor: COLORS.scrim,
+          backgroundColor: C.scrim,
           padding: 10,
           borderRadius: 12,
           borderWidth: StyleSheet.hairlineWidth,
-          borderColor: COLORS.lineStrong,
+          borderColor: C.lineStrong,
           zIndex: 999,
         }}
       >
-        <Maximize2 size={16} color={COLORS.contentPrimary} />
+        <Maximize2 size={16} color={C.contentPrimary} />
       </TouchableOpacity>
 
       <Modal visible={isFullscreen} animationType="fade" onRequestClose={() => setIsFullscreen(false)}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.surface02 }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: C.surface02 }}>
           <View style={{ flex: 1, position: "relative" }}>
             {useFallback ? renderSvg(true) : renderWebView(true)}
 
@@ -363,18 +365,18 @@ const RouteDetailMap = ({ routePathJson, strokeColor, isNavigatingBack }: { rout
                 position: "absolute",
                 top: Platform.OS === "ios" ? 12 : 24,
                 left: 16,
-                backgroundColor: COLORS.scrim,
+                backgroundColor: C.scrim,
                 padding: 10,
                 borderRadius: 12,
                 borderWidth: StyleSheet.hairlineWidth,
-                borderColor: COLORS.lineStrong,
+                borderColor: C.lineStrong,
                 zIndex: 999,
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 6,
               }}
             >
-              <ArrowLeft size={16} color={COLORS.contentPrimary} />
+              <ArrowLeft size={16} color={C.contentPrimary} />
               <Text variant="labelM">Back</Text>
             </TouchableOpacity>
           </View>
@@ -389,6 +391,7 @@ export default function ShiftDetailScreen() {
   const queryClient = useQueryClient();
   const { profile, isDemoMode } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
+  const C = useColors();
 
   // Exit transition optimization for WebView unmount
   const [isNavigatingBack, setIsNavigatingBack] = useState(false);
@@ -714,15 +717,15 @@ export default function ShiftDetailScreen() {
 
   if (isLoadingShift) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator size="large" color={COLORS.contentSecondary} />
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.background, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" color={C.contentSecondary} />
       </SafeAreaView>
     );
   }
 
   if (!shift) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
         <EmptyState
           icon="clock"
           title="Shift not found"
@@ -781,7 +784,7 @@ export default function ShiftDetailScreen() {
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           className="px-4 py-2 bg-surface-03 rounded-xl border border-line-subtle flex-row items-center gap-1.5"
         >
-          <ArrowLeft size={14} color={COLORS.contentSecondary} />
+          <ArrowLeft size={14} color={C.contentSecondary} />
           <Text variant="labelM" className="text-content-secondary">Back</Text>
         </TouchableOpacity>
         <Text variant="labelM" className="tracking-tight">Shift Details</Text>
@@ -862,7 +865,7 @@ export default function ShiftDetailScreen() {
                 <Text className="text-sm">🚗</Text>
                 <Text variant="paragraphS" className="text-content-secondary flex-1">
                   Driving {totalMiles.toFixed(1)} {profile.distanceUnit} could save you about{" "}
-                  <CurrencyText amount={writeOff} size="sm" style={{ color: COLORS.warning, fontWeight: "700" }} />{" "}
+                  <CurrencyText amount={writeOff} size="sm" style={{ color: C.warning, fontWeight: "700" }} />{" "}
                   on your taxes. That's not part of what you earned above.
                 </Text>
               </View>
@@ -976,7 +979,7 @@ export default function ShiftDetailScreen() {
               accessibilityLabel={`Dead distance ${deadMilePct.toFixed(0)} percent of total`}
             >
               <View style={{ flex: Math.max(0.01, activeMiles), backgroundColor: accentColor }} />
-              <View style={{ flex: Math.max(0.01, deadMiles), backgroundColor: COLORS.destructive }} />
+              <View style={{ flex: Math.max(0.01, deadMiles), backgroundColor: C.destructive }} />
             </View>
           </View>
         </View>
@@ -988,7 +991,7 @@ export default function ShiftDetailScreen() {
 
             <View className="flex flex-col">
               {timelineEvents.map((event, index) => {
-                const color = event.type === "start" ? COLORS.success : event.type === "end" ? COLORS.destructive : event.type === "pause" ? COLORS.warning : COLORS.info;
+                const color = event.type === "start" ? C.success : event.type === "end" ? C.destructive : event.type === "pause" ? C.warning : C.info;
                 const bgLight = event.type === "start" ? "bg-success/10" : event.type === "end" ? "bg-destructive/10" : event.type === "pause" ? "bg-warning/10" : "bg-info/10";
                 const borderLight = event.type === "start" ? "border-success/20" : event.type === "end" ? "border-destructive/20" : event.type === "pause" ? "border-warning/20" : "border-info/20";
                 
@@ -1086,11 +1089,11 @@ export default function ShiftDetailScreen() {
                       { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", gap: 6 },
                       expenseCategory === cat.id
                         ? { borderColor: accentColor, backgroundColor: withAlpha(accentColor, 0.09) }
-                        : { borderColor: COLORS.lineSubtle, backgroundColor: COLORS.surface02 }
+                        : { borderColor: C.lineSubtle, backgroundColor: C.surface02 }
                     ]}
                   >
                     <Text style={{ fontSize: 14 }}>{cat.icon}</Text>
-                    <Text variant="paragraphS" className="font-bold" style={{ color: expenseCategory === cat.id ? accentColor : COLORS.contentSecondary }}>
+                    <Text variant="paragraphS" className="font-bold" style={{ color: expenseCategory === cat.id ? accentColor : C.contentSecondary }}>
                       {cat.label}
                     </Text>
                   </TouchableOpacity>
@@ -1104,7 +1107,7 @@ export default function ShiftDetailScreen() {
                   onChangeText={setExpenseAmount}
                   keyboardType="numeric"
                   placeholder="0.00"
-                  placeholderTextColor={COLORS.contentMuted}
+                  placeholderTextColor={C.contentMuted}
                   className="bg-surface-02 border border-line-subtle rounded-xl px-4 py-3 text-content-primary text-sm font-semibold"
                 />
               </View>
@@ -1115,7 +1118,7 @@ export default function ShiftDetailScreen() {
                   value={expenseNotes}
                   onChangeText={setExpenseNotes}
                   placeholder="Receipt note or details..."
-                  placeholderTextColor={COLORS.contentMuted}
+                  placeholderTextColor={C.contentMuted}
                   className="bg-surface-02 border border-line-subtle rounded-xl px-4 py-3 text-content-primary text-sm font-semibold"
                 />
               </View>
@@ -1138,7 +1141,7 @@ export default function ShiftDetailScreen() {
 
           {/* Expenses list cards */}
           {isLoadingExpenses ? (
-            <ActivityIndicator size="small" color={COLORS.contentSecondary} />
+            <ActivityIndicator size="small" color={C.contentSecondary} />
           ) : expensesList.length === 0 ? (
             <View className="py-6 border border-dashed border-line-subtle rounded-xl items-center justify-center">
               <Text variant="paragraphS" className="text-content-muted">No expenses linked to this shift.</Text>
@@ -1172,7 +1175,7 @@ export default function ShiftDetailScreen() {
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         className="p-2 rounded-lg bg-destructive/10 border border-destructive/20"
                       >
-                        <Trash2 size={14} color={COLORS.destructive} />
+                        <Trash2 size={14} color={C.destructive} />
                       </TouchableOpacity>
                     </View>
                   </View>

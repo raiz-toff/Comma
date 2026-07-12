@@ -1,7 +1,7 @@
 import React from "react";
 import { View } from "react-native";
 import { Text } from "../ui/text";
-import { COLORS } from "@/src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 
 interface BestDayData { day: number; label: string; avgEarnings: number }
 interface BestHourData { hour: number; avgEarnings: number }
@@ -18,10 +18,11 @@ function formatHour(h: number) {
 }
 
 function Cell({ label, value }: { label: string; value: string }) {
+  const C = useColors();
   return (
     <View style={{ flex: 1, minWidth: "45%", gap: 4 }}>
-      <Text variant="labelXs" style={{ color: COLORS.contentSecondary }}>{label}</Text>
-      <Text variant="headingS" tabular style={{ color: COLORS.contentPrimary }} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+      <Text variant="labelXs" style={{ color: C.contentSecondary }}>{label}</Text>
+      <Text variant="headingS" tabular style={{ color: C.contentPrimary }} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
     </View>
   );
 }

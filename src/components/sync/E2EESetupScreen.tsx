@@ -38,7 +38,8 @@ import {
   CloudOff,
   Lock,
 } from "lucide-react-native";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { withAlpha } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 
 export const MIN_E2EE_PW = 8;
 
@@ -53,6 +54,8 @@ export function E2EESetupScreen({
   onCancel: () => void;
   onConfirm: (password: string) => void | Promise<void>;
 }) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   const [stage, setStage] = useState<"risk" | "create">("risk");
   const [acknowledged, setAcknowledged] = useState(false);
   const [pw, setPw] = useState("");
@@ -90,7 +93,7 @@ export function E2EESetupScreen({
             hitSlop={10}
             style={s.closeBtn}
           >
-            <X size={20} color={COLORS.contentSecondary} />
+            <X size={20} color={C.contentSecondary} />
           </Pressable>
         </View>
 
@@ -143,6 +146,8 @@ function RiskStage({
   accentColorContrast: string;
   onContinue: () => void;
 }) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   return (
     <>
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
@@ -161,12 +166,12 @@ function RiskStage({
         {/* What changes */}
         <View style={s.card}>
           <Row
-            icon={<Lock size={18} color={COLORS.success} />}
+            icon={<Lock size={18} color={C.success} />}
             title="Your data is scrambled before it leaves this phone"
             sub="Google stores a locked box it has no key to."
           />
           <Row
-            icon={<KeyRound size={18} color={COLORS.success} />}
+            icon={<KeyRound size={18} color={C.success} />}
             title="You'll need this password on every device"
             sub="Signing into Google is no longer enough on its own."
             bordered
@@ -174,14 +179,14 @@ function RiskStage({
         </View>
 
         {/* The consequence — the whole point of this screen */}
-        <View style={[s.warnCard, { backgroundColor: withAlpha(COLORS.destructive, 0.09), borderColor: withAlpha(COLORS.destructive, 0.35) }]}>
+        <View style={[s.warnCard, { backgroundColor: withAlpha(C.destructive, 0.09), borderColor: withAlpha(C.destructive, 0.35) }]}>
           <View style={s.warnHead}>
-            <TriangleAlert size={19} color={COLORS.destructive} />
-            <Text variant="labelL" style={{ color: COLORS.destructive }}>
+            <TriangleAlert size={19} color={C.destructive} />
+            <Text variant="labelL" style={{ color: C.destructive }}>
               If you lose it, your data is gone
             </Text>
           </View>
-          <Text variant="paragraphM" style={{ color: COLORS.contentSecondary }}>
+          <Text variant="paragraphM" style={{ color: C.contentSecondary }}>
             There is no reset link and no support recovery. Comma runs no server and never sees
             your password — so nobody, including us, can unlock your backup for you.
           </Text>
@@ -190,7 +195,7 @@ function RiskStage({
             <WarnBullet text="Google cannot recover it." />
             <WarnBullet text="Reinstalling the app will not help." />
           </View>
-          <Text variant="paragraphS" style={{ color: COLORS.contentSecondary, marginTop: 2 }}>
+          <Text variant="paragraphS" style={{ color: C.contentSecondary, marginTop: 2 }}>
             Write it down, or save it in a password manager, before you continue.
           </Text>
         </View>
@@ -210,12 +215,12 @@ function RiskStage({
               s.checkbox,
               acknowledged
                 ? { backgroundColor: accentColor, borderColor: accentColor }
-                : { borderColor: COLORS.lineStrong },
+                : { borderColor: C.lineStrong },
             ]}
           >
             {acknowledged ? <Check size={13} color={accentColorContrast} strokeWidth={3.5} /> : null}
           </View>
-          <Text variant="paragraphM" style={{ flex: 1, color: COLORS.contentPrimary }}>
+          <Text variant="paragraphM" style={{ flex: 1, color: C.contentPrimary }}>
             I understand that if I forget this password, my cloud backup can never be recovered.
           </Text>
         </Pressable>
@@ -268,6 +273,8 @@ function CreateStage({
   onBack: () => void;
   onSubmit: () => void;
 }) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   const tooShort = pw.length > 0 && pw.length < MIN_E2EE_PW;
   const ready = pw.length >= MIN_E2EE_PW && confirm.length > 0 && !saving;
 
@@ -305,7 +312,7 @@ function CreateStage({
               autoCorrect={false}
               autoFocus
               placeholder={`At least ${MIN_E2EE_PW} characters`}
-              placeholderTextColor={COLORS.contentMuted}
+              placeholderTextColor={C.contentMuted}
             />
             <Pressable
               onPress={() => setReveal(!reveal)}
@@ -315,12 +322,12 @@ function CreateStage({
               style={s.revealBtn}
             >
               {reveal
-                ? <EyeOff size={18} color={COLORS.contentSecondary} />
-                : <Eye size={18} color={COLORS.contentSecondary} />}
+                ? <EyeOff size={18} color={C.contentSecondary} />
+                : <Eye size={18} color={C.contentSecondary} />}
             </Pressable>
           </View>
           {tooShort ? (
-            <Text variant="paragraphS" style={{ color: COLORS.warning, marginTop: 6 }}>
+            <Text variant="paragraphS" style={{ color: C.warning, marginTop: 6 }}>
               {MIN_E2EE_PW - pw.length} more character{MIN_E2EE_PW - pw.length === 1 ? "" : "s"} needed
             </Text>
           ) : null}
@@ -338,21 +345,21 @@ function CreateStage({
             autoCapitalize="none"
             autoCorrect={false}
             placeholder="Type it again"
-            placeholderTextColor={COLORS.contentMuted}
+            placeholderTextColor={C.contentMuted}
           />
         </View>
 
         {err ? (
-          <View style={[s.errBox, { backgroundColor: withAlpha(COLORS.destructive, 0.1), borderColor: withAlpha(COLORS.destructive, 0.3) }]}>
-            <TriangleAlert size={15} color={COLORS.destructive} />
-            <Text variant="paragraphM" style={{ color: COLORS.destructive, flex: 1 }}>{err}</Text>
+          <View style={[s.errBox, { backgroundColor: withAlpha(C.destructive, 0.1), borderColor: withAlpha(C.destructive, 0.3) }]}>
+            <TriangleAlert size={15} color={C.destructive} />
+            <Text variant="paragraphM" style={{ color: C.destructive, flex: 1 }}>{err}</Text>
           </View>
         ) : null}
 
         {/* Final standing reminder — visible at the moment of commitment */}
-        <View style={[s.reminder, { borderColor: withAlpha(COLORS.warning, 0.3), backgroundColor: withAlpha(COLORS.warning, 0.07) }]}>
-          <CloudOff size={16} color={COLORS.warning} />
-          <Text variant="paragraphS" style={{ flex: 1, color: COLORS.contentSecondary }}>
+        <View style={[s.reminder, { borderColor: withAlpha(C.warning, 0.3), backgroundColor: withAlpha(C.warning, 0.07) }]}>
+          <CloudOff size={16} color={C.warning} />
+          <Text variant="paragraphS" style={{ flex: 1, color: C.contentSecondary }}>
             Comma has no copy of this password. If it's lost, the backup can't be opened again —
             by anyone.
           </Text>
@@ -376,7 +383,7 @@ function CreateStage({
           accessibilityRole="button"
           style={s.secondaryBtn}
         >
-          <Text variant="labelM" style={{ color: COLORS.contentMuted }}>Back</Text>
+          <Text variant="labelM" style={{ color: C.contentMuted }}>Back</Text>
         </Pressable>
       </View>
     </>
@@ -396,8 +403,10 @@ function Row({
   sub: string;
   bordered?: boolean;
 }) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   return (
-    <View style={[s.row, bordered && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.lineSubtle }]}>
+    <View style={[s.row, bordered && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.lineSubtle }]}>
       <View style={s.rowIcon}>{icon}</View>
       <View style={{ flex: 1 }}>
         <Text variant="labelM">{title}</Text>
@@ -408,22 +417,24 @@ function Row({
 }
 
 function WarnBullet({ text }: { text: string }) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   return (
     <View style={s.warnBullet}>
-      <View style={[s.dot, { backgroundColor: COLORS.destructive }]} />
-      <Text variant="paragraphM" style={{ color: COLORS.contentSecondary, flex: 1 }}>{text}</Text>
+      <View style={[s.dot, { backgroundColor: C.destructive }]} />
+      <Text variant="paragraphM" style={{ color: C.contentSecondary, flex: 1 }}>{text}</Text>
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (C: Palette) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: C.background },
   topBar: { flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 16, paddingTop: 8 },
   closeBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -442,9 +453,9 @@ const s = StyleSheet.create({
   },
 
   card: {
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     borderRadius: 16,
   },
   row: { flexDirection: "row", alignItems: "flex-start", gap: 12, padding: 14 },
@@ -452,7 +463,7 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: COLORS.surface04,
+    backgroundColor: C.surface04,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -470,8 +481,8 @@ const s = StyleSheet.create({
     padding: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,
-    backgroundColor: COLORS.surface02,
+    borderColor: C.lineSubtle,
+    backgroundColor: C.surface02,
   },
   checkbox: {
     width: 22,
@@ -485,14 +496,14 @@ const s = StyleSheet.create({
   inputWrap: { gap: 0 },
   inputRow: { position: "relative", justifyContent: "center" },
   input: {
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: 1,
-    borderColor: COLORS.lineStrong,
+    borderColor: C.lineStrong,
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 15,
     paddingRight: 48,
-    color: COLORS.contentPrimary,
+    color: C.contentPrimary,
     fontSize: 16,
   },
   revealBtn: { position: "absolute", right: 14, padding: 4 },
@@ -522,7 +533,7 @@ const s = StyleSheet.create({
     paddingBottom: 12,
     gap: 4,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.lineSubtle,
+    borderTopColor: C.lineSubtle,
   },
   primaryBtn: {
     borderRadius: 16,

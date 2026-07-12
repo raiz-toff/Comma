@@ -31,7 +31,8 @@ import {
   type ExpenseCategory,
 } from "@/src/registry/expenseCategories";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { withAlpha } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 
 export { getExpenseCategories, getCategoryMeta, type ExpenseCategory };
 export type ExpenseCategoryId = string;
@@ -39,17 +40,23 @@ export type ExpenseCategoryId = string;
 const isWeb = Platform.OS === "web";
 
 // ─── Custom Icons ────────────────────────────────────────────────────────────
-const ChevronLeft = ({ size = 22, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="m15 18-6-6 6-6" />
-  </Svg>
-);
+const ChevronLeft = ({ size = 22, color }: { size?: number; color?: string }) => {
+  const C = useColors();
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color ?? C.contentPrimary} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="m15 18-6-6 6-6" />
+    </Svg>
+  );
+};
 
-const ChevronRight = ({ size = 22, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="m9 18 6-6-6-6" />
-  </Svg>
-);
+const ChevronRight = ({ size = 22, color }: { size?: number; color?: string }) => {
+  const C = useColors();
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color ?? C.contentPrimary} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="m9 18 6-6-6-6" />
+    </Svg>
+  );
+};
 
 type ExpenseItem = {
   id: string;
@@ -103,6 +110,7 @@ function ExpenseRow({
   onPress: () => void;
   onDelete: () => void;
 }) {
+  const C = useColors();
   const cat = getCategoryMeta(expense.category, country, customCategories);
 
   const dateLabel = new Date(expense.date).toLocaleDateString(undefined, {
@@ -119,9 +127,9 @@ function ExpenseRow({
         flexDirection: "row",
         alignItems: "center",
         gap: 14,
-        backgroundColor: COLORS.surface02,
+        backgroundColor: C.surface02,
         borderWidth: StyleSheet.hairlineWidth,
-        borderColor: COLORS.lineSubtle,
+        borderColor: C.lineSubtle,
         borderRadius: 12,
         paddingHorizontal: 16,
         paddingVertical: 14,
@@ -132,15 +140,15 @@ function ExpenseRow({
         style={{
           width: 46,
           height: 46,
-          backgroundColor: COLORS.surface03,
+          backgroundColor: C.surface03,
           borderWidth: 1,
-          borderColor: COLORS.lineSubtle,
+          borderColor: C.lineSubtle,
           borderRadius: 12,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <ExpenseCategoryIcon id={expense.category} size={20} color={COLORS.contentSecondary} />
+        <ExpenseCategoryIcon id={expense.category} size={20} color={C.contentSecondary} />
       </View>
 
       <View style={{ flex: 1, gap: 4 }}>
@@ -153,9 +161,9 @@ function ExpenseRow({
               style={{
                 paddingHorizontal: 6,
                 paddingVertical: 2,
-                backgroundColor: withAlpha(COLORS.success, 0.12),
+                backgroundColor: withAlpha(C.success, 0.12),
                 borderWidth: 1,
-                borderColor: withAlpha(COLORS.success, 0.25),
+                borderColor: withAlpha(C.success, 0.25),
                 borderRadius: 8,
               }}
             >
@@ -183,12 +191,12 @@ function ExpenseRow({
           style={{
             padding: 6,
             borderRadius: 8,
-            backgroundColor: withAlpha(COLORS.destructive, 0.12),
+            backgroundColor: withAlpha(C.destructive, 0.12),
             borderWidth: 1,
-            borderColor: withAlpha(COLORS.destructive, 0.25),
+            borderColor: withAlpha(C.destructive, 0.25),
           }}
         >
-          <Trash2 size={12} color={COLORS.destructive} strokeWidth={2.5} />
+          <Trash2 size={12} color={C.destructive} strokeWidth={2.5} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -206,6 +214,8 @@ export default function ExpensesScreen() {
   const insets = useSafeAreaInsets();
   const { isOnboardingCompleted, profile, setHeaderVisible } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
+  const C = useColors();
+  const styles = useThemedStyles(makeStyles);
 
   const lastScrollY = useRef(0);
   const handleScroll = (event: any) => {
@@ -409,7 +419,7 @@ export default function ExpensesScreen() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }} edges={["bottom", "left", "right"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.background }} edges={["bottom", "left", "right"]}>
       <FlatList
         data={displayedExpenses}
         keyExtractor={keyExtractor}
@@ -452,7 +462,7 @@ export default function ExpensesScreen() {
                 </Text>
                 <View style={{ justifyContent: "center", alignItems: "center", marginLeft: 6 }}>
                   <Svg width={10} height={6} viewBox="0 0 10 6" fill="none">
-                    <Path d="M1 1L5 5L9 1" stroke={COLORS.contentSecondary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                    <Path d="M1 1L5 5L9 1" stroke={C.contentSecondary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
                   </Svg>
                 </View>
               </Pressable>
@@ -464,7 +474,7 @@ export default function ExpensesScreen() {
                   accessibilityLabel="Previous month"
                   style={styles.arrowBtn}
                 >
-                  <ChevronLeft color={COLORS.contentPrimary} />
+                  <ChevronLeft color={C.contentPrimary} />
                 </Pressable>
 
                 <View style={styles.amountRow}>
@@ -482,7 +492,7 @@ export default function ExpensesScreen() {
                   accessibilityState={{ disabled: isCurrentOrFutureMonth }}
                   style={[styles.arrowBtn, isCurrentOrFutureMonth && { opacity: 0.35 }]}
                 >
-                  <ChevronRight color={isCurrentOrFutureMonth ? COLORS.contentDisabled : COLORS.contentPrimary} />
+                  <ChevronRight color={isCurrentOrFutureMonth ? C.contentDisabled : C.contentPrimary} />
                 </Pressable>
               </View>
             </View>
@@ -523,7 +533,7 @@ export default function ExpensesScreen() {
                           ]}
                         />
                       </View>
-                      <Text variant="labelXs" style={{ color: isSelected ? accentColor : COLORS.contentSecondary }}>W{idx + 1}</Text>
+                      <Text variant="labelXs" style={{ color: isSelected ? accentColor : C.contentSecondary }}>W{idx + 1}</Text>
                     </Pressable>
                   );
                 })}
@@ -533,25 +543,25 @@ export default function ExpensesScreen() {
             {/* ── YTD summary Bento ── */}
             <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
               <View style={{ flexDirection: "row", gap: 12 }}>
-                <View style={{ flex: 1, backgroundColor: COLORS.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, borderRadius: 16, padding: 16 }}>
+                <View style={{ flex: 1, backgroundColor: C.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, borderRadius: 16, padding: 16 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                    <View style={{ backgroundColor: withAlpha(COLORS.success, 0.12), padding: 4, borderRadius: 8 }}>
-                      <ArrowDownRight size={14} color={COLORS.success} />
+                    <View style={{ backgroundColor: withAlpha(C.success, 0.12), padding: 4, borderRadius: 8 }}>
+                      <ArrowDownRight size={14} color={C.success} />
                     </View>
                     <Text variant="labelXs" className="text-content-secondary">Deductible YTD</Text>
                   </View>
-                  <Text tabular style={{ fontSize: 32, fontWeight: "800", color: COLORS.contentPrimary, letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
+                  <Text tabular style={{ fontSize: 32, fontWeight: "800", color: C.contentPrimary, letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                     {formatCurrency(ytdSummary?.deductible ?? 0, country)}
                   </Text>
                 </View>
-                <View style={{ flex: 1, backgroundColor: COLORS.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, borderRadius: 16, padding: 16 }}>
+                <View style={{ flex: 1, backgroundColor: C.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, borderRadius: 16, padding: 16 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                    <View style={{ backgroundColor: withAlpha(COLORS.destructive, 0.12), padding: 4, borderRadius: 8 }}>
-                      <ArrowUpRight size={14} color={COLORS.destructive} />
+                    <View style={{ backgroundColor: withAlpha(C.destructive, 0.12), padding: 4, borderRadius: 8 }}>
+                      <ArrowUpRight size={14} color={C.destructive} />
                     </View>
                     <Text variant="labelXs" className="text-content-secondary">Standard YTD</Text>
                   </View>
-                  <Text tabular style={{ fontSize: 32, fontWeight: "800", color: COLORS.contentPrimary, letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
+                  <Text tabular style={{ fontSize: 32, fontWeight: "800", color: C.contentPrimary, letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                     {formatCurrency(ytdSummary?.nonDeductible ?? 0, country)}
                   </Text>
                 </View>
@@ -565,9 +575,9 @@ export default function ExpensesScreen() {
                 onPress={() => setIsFiltersVisible(!isFiltersVisible)}
                 accessibilityRole="button"
                 accessibilityState={{ expanded: isFiltersVisible }}
-                style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: COLORS.surface03, borderWidth: 1, borderColor: isFiltersVisible ? accentColor : COLORS.lineSubtle }}
+                style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: C.surface03, borderWidth: 1, borderColor: isFiltersVisible ? accentColor : C.lineSubtle }}
               >
-                <Text variant="labelXs" style={{ color: isFiltersVisible ? accentColor : COLORS.contentSecondary }}>Filters</Text>
+                <Text variant="labelXs" style={{ color: isFiltersVisible ? accentColor : C.contentSecondary }}>Filters</Text>
               </TouchableOpacity>
             </View>
 
@@ -579,9 +589,9 @@ export default function ExpensesScreen() {
                   onPress={() => setFilterCategory("")}
                   accessibilityRole="button"
                   accessibilityState={{ selected: !filterCategory }}
-                  style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, borderWidth: 1, backgroundColor: !filterCategory ? withAlpha(accentColor, 0.12) : COLORS.surface03, borderColor: !filterCategory ? accentColor : COLORS.lineSubtle }}
+                  style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, borderWidth: 1, backgroundColor: !filterCategory ? withAlpha(accentColor, 0.12) : C.surface03, borderColor: !filterCategory ? accentColor : C.lineSubtle }}
                 >
-                  <Text variant="labelM" style={{ color: !filterCategory ? accentColor : COLORS.contentSecondary }}>All Categories</Text>
+                  <Text variant="labelM" style={{ color: !filterCategory ? accentColor : C.contentSecondary }}>All Categories</Text>
                 </TouchableOpacity>
                 {expenseCategories.map((cat) => {
                   const active = filterCategory === cat.id;
@@ -591,10 +601,10 @@ export default function ExpensesScreen() {
                       onPress={() => setFilterCategory(active ? "" : cat.id)}
                       accessibilityRole="button"
                       accessibilityState={{ selected: active }}
-                      style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, backgroundColor: active ? withAlpha(accentColor, 0.12) : COLORS.surface03, borderColor: active ? accentColor : COLORS.lineSubtle }}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, backgroundColor: active ? withAlpha(accentColor, 0.12) : C.surface03, borderColor: active ? accentColor : C.lineSubtle }}
                     >
-                      <ExpenseCategoryIcon id={cat.id} size={14} color={active ? accentColor : COLORS.contentSecondary} />
-                      <Text variant="labelM" style={{ color: active ? accentColor : COLORS.contentSecondary }}>{cat.label}</Text>
+                      <ExpenseCategoryIcon id={cat.id} size={14} color={active ? accentColor : C.contentSecondary} />
+                      <Text variant="labelM" style={{ color: active ? accentColor : C.contentSecondary }}>{cat.label}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -608,9 +618,9 @@ export default function ExpensesScreen() {
                       onPress={() => setFilterDeductible(key)}
                       accessibilityRole="button"
                       accessibilityState={{ selected: active }}
-                      style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, backgroundColor: active ? (key === "yes" ? withAlpha(COLORS.success, 0.12) : key === "no" ? withAlpha(COLORS.destructive, 0.12) : COLORS.surface04) : COLORS.surface03, borderColor: active ? (key === "yes" ? withAlpha(COLORS.success, 0.25) : key === "no" ? withAlpha(COLORS.destructive, 0.25) : COLORS.lineStrong) : COLORS.lineSubtle }}
+                      style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, backgroundColor: active ? (key === "yes" ? withAlpha(C.success, 0.12) : key === "no" ? withAlpha(C.destructive, 0.12) : C.surface04) : C.surface03, borderColor: active ? (key === "yes" ? withAlpha(C.success, 0.25) : key === "no" ? withAlpha(C.destructive, 0.25) : C.lineStrong) : C.lineSubtle }}
                     >
-                      <Text variant="labelXs" style={{ color: active ? (key === "yes" ? COLORS.success : key === "no" ? COLORS.destructive : COLORS.contentPrimary) : COLORS.contentMuted }}>{label}</Text>
+                      <Text variant="labelXs" style={{ color: active ? (key === "yes" ? C.success : key === "no" ? C.destructive : C.contentPrimary) : C.contentMuted }}>{label}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -623,7 +633,7 @@ export default function ExpensesScreen() {
         ListEmptyComponent={
           isLoading ? (
             <View style={{ padding: 40, alignItems: "center" }}>
-              <ActivityIndicator size="large" color={COLORS.contentSecondary} />
+              <ActivityIndicator size="large" color={C.contentSecondary} />
             </View>
           ) : (
             <View style={{ padding: 20 }}>
@@ -721,7 +731,7 @@ export default function ExpensesScreen() {
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   headerContainer: {
     alignItems: "center",
     paddingVertical: 10,
@@ -732,12 +742,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     marginBottom: 20,
     alignSelf: "center",
   },
@@ -751,9 +761,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -766,7 +776,7 @@ const styles = StyleSheet.create({
   amountSymbol: {
     fontSize: 24,
     fontWeight: "600",
-    color: COLORS.destructive,
+    color: C.destructive,
     lineHeight: 30,
     marginTop: 10,
     marginRight: 4,
@@ -775,17 +785,17 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 40,
     fontWeight: "800",
-    color: COLORS.contentPrimary,
+    color: C.contentPrimary,
     letterSpacing: -0.5,
     lineHeight: 48,
     paddingVertical: 2,
     includeFontPadding: false,
   },
   chartContainer: {
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     padding: 16,
     marginHorizontal: 16,
     marginBottom: 20,
@@ -805,10 +815,10 @@ const styles = StyleSheet.create({
     height: 1,
     borderStyle: "dashed",
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
   },
   highBadge: {
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     paddingLeft: 8,
   },
   chartRow: {
@@ -827,7 +837,7 @@ const styles = StyleSheet.create({
   barTrack: {
     width: 14,
     height: 64,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderRadius: 8,
     overflow: "hidden",
     justifyContent: "flex-end",
@@ -836,17 +846,17 @@ const styles = StyleSheet.create({
     width: "100%",
     borderRadius: 8,
   },
-  modalRoot: { flex: 1, backgroundColor: COLORS.background },
-  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 0.5, borderBottomColor: COLORS.lineSubtle },
-  tableHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 22, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: COLORS.lineSubtle },
+  modalRoot: { flex: 1, backgroundColor: C.background },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 0.5, borderBottomColor: C.lineSubtle },
+  tableHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 22, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: C.lineSubtle },
   modalScroll: { paddingVertical: 8 },
-  weekCard: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, backgroundColor: COLORS.surface02, borderRadius: 12, marginHorizontal: 16, marginVertical: 6 },
+  weekCard: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, backgroundColor: C.surface02, borderRadius: 12, marginHorizontal: 16, marginVertical: 6 },
   weekInfo: { gap: 4 },
   miniGraph: { flexDirection: "row", alignItems: "flex-end", gap: 4 },
   miniGraphCol: { alignItems: "center", gap: 4 },
-  miniBarTrack: { width: 8, height: 32, backgroundColor: COLORS.surface03, borderRadius: 8, overflow: "hidden", justifyContent: "flex-end" },
+  miniBarTrack: { width: 8, height: 32, backgroundColor: C.surface03, borderRadius: 8, overflow: "hidden", justifyContent: "flex-end" },
   miniBarFill: { width: "100%", borderRadius: 8 },
-  modalFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 0.5, borderTopColor: COLORS.lineSubtle, backgroundColor: COLORS.background },
-  pageBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, backgroundColor: COLORS.surface03, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle },
+  modalFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 0.5, borderTopColor: C.lineSubtle, backgroundColor: C.background },
+  pageBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, backgroundColor: C.surface03, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle },
   pageBtnDisabled: { opacity: 0.35 },
 });

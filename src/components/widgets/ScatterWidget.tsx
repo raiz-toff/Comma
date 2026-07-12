@@ -2,7 +2,8 @@ import React, { useMemo } from "react";
 import { View } from "react-native";
 import Svg, { Circle, Line } from "react-native-svg";
 import { Text } from "../ui/text";
-import { COLORS, KPI, withAlpha } from "@/src/theme/colors";
+import { KPI, withAlpha } from "@/src/theme/colors";
+import { useColors, type Palette } from "@/src/theme/useColors";
 
 interface ScatterPoint {
   x: number; // hours
@@ -40,14 +41,15 @@ function calculateStatistics(data: ScatterPoint[]) {
   return { m, b, r, valid: true };
 }
 
-function correlationTier(r: number): { label: string; color: string } {
+function correlationTier(r: number, C: Palette): { label: string; color: string } {
   const abs = Math.abs(r);
-  if (abs >= 0.7) return { label: r >= 0 ? "Strong positive correlation" : "Strong negative correlation", color: COLORS.success };
+  if (abs >= 0.7) return { label: r >= 0 ? "Strong positive correlation" : "Strong negative correlation", color: C.success };
   if (abs >= 0.4) return { label: r >= 0 ? "Moderate positive correlation" : "Moderate negative correlation", color: KPI.rate };
-  return { label: "Weak correlation", color: COLORS.contentMuted };
+  return { label: "Weak correlation", color: C.contentMuted };
 }
 
 export default function ScatterWidget({ data }: ScatterWidgetProps) {
+  const C = useColors();
   const points = useMemo(() => (data || []).filter((d) => d.x > 0 || d.y > 0), [data]);
 
   if (points.length === 0) {
@@ -59,7 +61,7 @@ export default function ScatterWidget({ data }: ScatterWidgetProps) {
   }
 
   const stats = calculateStatistics(points);
-  const tier = correlationTier(stats.r);
+  const tier = correlationTier(stats.r, C);
 
   const svgW = 280;
   const svgH = 140;
@@ -82,7 +84,7 @@ export default function ScatterWidget({ data }: ScatterWidgetProps) {
   return (
     <View style={{ gap: 12 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text variant="labelM" tabular style={{ color: COLORS.contentSecondary }}>{points.length} Shifts Analyzed</Text>
+        <Text variant="labelM" tabular style={{ color: C.contentSecondary }}>{points.length} Shifts Analyzed</Text>
         <View style={{ backgroundColor: withAlpha(tier.color, 0.12), paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
           <Text variant="labelXs" style={{ color: tier.color }}>{tier.label}</Text>
         </View>
@@ -112,9 +114,9 @@ export default function ScatterWidget({ data }: ScatterWidgetProps) {
       </View>
 
       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-        <Text variant="labelXs" tabular style={{ color: COLORS.contentMuted }}>0 hrs</Text>
+        <Text variant="labelXs" tabular style={{ color: C.contentMuted }}>0 hrs</Text>
         <Text variant="labelXs" tabular style={{ color: KPI.gross }}>r = {stats.r.toFixed(2)}</Text>
-        <Text variant="labelXs" tabular style={{ color: COLORS.contentMuted }}>{maxX.toFixed(1)} hrs</Text>
+        <Text variant="labelXs" tabular style={{ color: C.contentMuted }}>{maxX.toFixed(1)} hrs</Text>
       </View>
     </View>
   );

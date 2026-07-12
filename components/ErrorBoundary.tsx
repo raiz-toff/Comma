@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Pressable } from "react-native";
 import { Text } from "../src/components/ui/text";
-import { COLORS } from "../src/theme/colors";
+import { getColors } from "../src/theme/colors";
 
 interface Props {
   children: React.ReactNode;
@@ -34,6 +34,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
 
   render() {
     if (this.state.error) {
+      const C = getColors();
       return (
         <View
           style={{
@@ -41,7 +42,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
             alignItems: "center",
             justifyContent: "center",
             padding: 24,
-            backgroundColor: COLORS.background,
+            backgroundColor: C.background,
           }}
         >
           <Text variant="headingS" style={{ marginBottom: 8 }}>
@@ -54,13 +55,13 @@ export class AppErrorBoundary extends React.Component<Props, State> {
             onPress={this.reset}
             accessibilityRole="button"
             style={{
-              backgroundColor: COLORS.success,
+              backgroundColor: C.success,
               paddingHorizontal: 24,
               paddingVertical: 12,
               borderRadius: 12,
             }}
           >
-            <Text variant="labelM" style={{ color: COLORS.background }}>
+            <Text variant="labelM" style={{ color: C.background }}>
               Try again
             </Text>
           </Pressable>

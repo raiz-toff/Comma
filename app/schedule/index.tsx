@@ -30,43 +30,45 @@ import { eq } from "drizzle-orm";
 import { ChevronLeft, ChevronRight, Trash2, Bell, Clock } from "lucide-react-native";
 import { TimePickerModal } from "@/src/components/ui/TimePickerModal";
 import { EmptyState } from "@/src/components/ui/EmptyState";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { withAlpha } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 
 const isWeb = Platform.OS === "web";
 
-// ─── Design tokens (local aliases — every value comes from COLORS) ──────────
-const DS = {
-  pageBg: COLORS.background,
-  cardBg: COLORS.surface02,
-  cardBorder: COLORS.lineSubtle,
-  inputBg: COLORS.surface03,
-  inputBorder: COLORS.lineStrong,
-  sep: COLORS.lineSubtle,
+// ─── Design tokens (local aliases — every value comes from the active palette) ──
+const makeDS = (C: Palette) =>
+  ({
+    pageBg: C.background,
+    cardBg: C.surface02,
+    cardBorder: C.lineSubtle,
+    inputBg: C.surface03,
+    inputBorder: C.lineStrong,
+    sep: C.lineSubtle,
 
-  brand: COLORS.contentPrimary,
-  brandSurface: COLORS.surface04,
-  brandBorder: COLORS.lineStrong,
-  brandText: COLORS.contentPrimary,
+    brand: C.contentPrimary,
+    brandSurface: C.surface04,
+    brandBorder: C.lineStrong,
+    brandText: C.contentPrimary,
 
-  textPrimary: COLORS.contentPrimary,
-  textSecondary: COLORS.contentSecondary,
-  textMuted: COLORS.contentMuted,
-  textLabel: COLORS.contentMuted,
+    textPrimary: C.contentPrimary,
+    textSecondary: C.contentSecondary,
+    textMuted: C.contentMuted,
+    textLabel: C.contentMuted,
 
-  danger: COLORS.destructive,
-  dangerSurface: withAlpha(COLORS.destructive, 0.1),
-  dangerBorder: withAlpha(COLORS.destructive, 0.2),
-  dangerText: COLORS.destructive,
+    danger: C.destructive,
+    dangerSurface: withAlpha(C.destructive, 0.1),
+    dangerBorder: withAlpha(C.destructive, 0.2),
+    dangerText: C.destructive,
 
-  rCard: 16,
-  rInput: 12,
-  rChip: 8,
-  rPill: 20,
+    rCard: 16,
+    rInput: 12,
+    rChip: 8,
+    rPill: 20,
 
-  pagePad: 16,
-  cardPad: 16,
-  rowPad: 12,
-} as const;
+    pagePad: 16,
+    cardPad: 16,
+    rowPad: 12,
+  }) as const;
 
 interface ShiftTemplate {
   id: string;
@@ -80,6 +82,9 @@ interface ShiftTemplate {
 
 export default function ScheduleScreen() {
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
+  const C = useColors();
+  const DS = useThemedStyles(makeDS);
+  const s = useThemedStyles(makeStyles);
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { profile, isOnboardingCompleted, updateProfile } = useSettingsStore();
@@ -587,7 +592,7 @@ export default function ScheduleScreen() {
           left: `${leftPct}%`,
           width: `${widthPct}%`,
           // Platform brand color identifies the platform (sanctioned); neutral token fallback.
-          color: pCfg?.color || COLORS.contentSecondary,
+          color: pCfg?.color || C.contentSecondary,
           isTemplate: false,
           label: pCfg?.label || s.platform,
         });
@@ -619,7 +624,7 @@ export default function ScheduleScreen() {
           id: t.id,
           left: `${leftPct}%`,
           width: `${widthPct}%`,
-          color: COLORS.contentMuted,
+          color: C.contentMuted,
           isTemplate: true,
           label: `Plan: ${t.startTime}-${t.endTime}`,
         });
@@ -853,7 +858,7 @@ export default function ScheduleScreen() {
                   onValueChange={setPlanReminder}
                   accessibilityLabel="Alert reminder"
                   trackColor={{ false: DS.inputBorder, true: accentColor }}
-                  thumbColor={COLORS.contentPrimary}
+                  thumbColor={C.contentPrimary}
                 />
               </View>
             )}
@@ -997,7 +1002,7 @@ export default function ScheduleScreen() {
                       <View style={s.calendarDots}>
                         {shiftsOnDay.slice(0, 3).map((s, sIdx) => {
                           // Platform brand dot (sanctioned); neutral token fallback.
-                          const brandColor = PLATFORMS[s.platform as PlatformKey]?.color || COLORS.contentSecondary;
+                          const brandColor = PLATFORMS[s.platform as PlatformKey]?.color || C.contentSecondary;
                           return (
                             <View
                               key={sIdx}
@@ -1225,14 +1230,14 @@ export default function ScheduleScreen() {
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                           <Text style={s.templateDay}>{dayName}</Text>
                           <View style={{
-                            backgroundColor: t.date ? withAlpha(COLORS.info, 0.15) : withAlpha(COLORS.success, 0.15),
-                            borderColor: t.date ? withAlpha(COLORS.info, 0.3) : withAlpha(COLORS.success, 0.3),
+                            backgroundColor: t.date ? withAlpha(C.info, 0.15) : withAlpha(C.success, 0.15),
+                            borderColor: t.date ? withAlpha(C.info, 0.3) : withAlpha(C.success, 0.3),
                             borderWidth: 0.5,
                             borderRadius: 8,
                             paddingHorizontal: 4,
                             paddingVertical: 1,
                           }}>
-                            <Text style={{ fontSize: 10, fontWeight: "700", color: t.date ? COLORS.info : COLORS.success, textTransform: "uppercase" }}>
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: t.date ? C.info : C.success, textTransform: "uppercase" }}>
                               {t.date ? "Single" : "Weekly"}
                             </Text>
                           </View>
@@ -1302,7 +1307,7 @@ export default function ScheduleScreen() {
         <View style={s.modalOverlay}>
           <View style={s.modalContent}>
             <View style={s.modalIconContainer}>
-              <Bell size={26} color={COLORS.contentPrimary} />
+              <Bell size={26} color={C.contentPrimary} />
             </View>
             <Text style={s.modalTitle}>Enable Shift Reminders</Text>
             <Text style={s.modalText}>
@@ -1347,7 +1352,9 @@ export default function ScheduleScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => {
+  const DS = makeDS(C);
+  return StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: DS.pageBg,
@@ -1759,7 +1766,7 @@ const s = StyleSheet.create({
   },
   timelineBlockPlan: {
     borderWidth: 0.5,
-    borderColor: COLORS.lineStrong,
+    borderColor: C.lineStrong,
     borderStyle: "dashed",
   },
   timelineHours: {
@@ -1855,7 +1862,7 @@ const s = StyleSheet.create({
   },
   overviewValueSuccess: {
     fontSize: 11,
-    color: COLORS.success,
+    color: C.success,
     fontWeight: "700",
     marginTop: 2,
   },
@@ -1915,7 +1922,7 @@ const s = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: DS.dangerSurface,
     borderWidth: 0.5,
-    borderColor: withAlpha(COLORS.destructive, 0.15),
+    borderColor: withAlpha(C.destructive, 0.15),
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1925,7 +1932,7 @@ const s = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: COLORS.scrim,
+    backgroundColor: C.scrim,
     justifyContent: "center",
     alignItems: "center",
     zIndex: 9999,
@@ -1934,10 +1941,10 @@ const s = StyleSheet.create({
   modalContent: {
     width: "100%",
     maxWidth: 320,
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     padding: 24,
     alignItems: "center",
   },
@@ -1945,23 +1952,23 @@ const s = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: COLORS.surface04,
+    backgroundColor: C.surface04,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineStrong,
+    borderColor: C.lineStrong,
   },
   modalTitle: {
     fontSize: 16,
     fontWeight: "800",
-    color: COLORS.contentPrimary,
+    color: C.contentPrimary,
     marginBottom: 8,
     textAlign: "center",
   },
   modalText: {
     fontSize: 12,
-    color: COLORS.contentMuted,
+    color: C.contentMuted,
     lineHeight: 17,
     textAlign: "center",
     marginBottom: 24,
@@ -1974,12 +1981,12 @@ const s = StyleSheet.create({
     width: "100%",
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.contentPrimary,
+    backgroundColor: C.contentPrimary,
     justifyContent: "center",
     alignItems: "center",
   },
   modalPrimaryBtnText: {
-    color: COLORS.background,
+    color: C.background,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -1988,22 +1995,22 @@ const s = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     justifyContent: "center",
     alignItems: "center",
   },
   modalSecondaryBtnText: {
-    color: COLORS.contentMuted,
+    color: C.contentMuted,
     fontSize: 12,
     fontWeight: "600",
   },
   iosPickerContainer: {
     width: "100%",
     maxWidth: 320,
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     padding: 16,
   },
   iosPickerHeader: {
@@ -2016,11 +2023,12 @@ const s = StyleSheet.create({
   iosPickerTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: COLORS.contentPrimary,
+    color: C.contentPrimary,
   },
   iosPickerDone: {
     fontSize: 13,
     fontWeight: "700",
-    color: COLORS.contentPrimary,
+    color: C.contentPrimary,
   },
-});
+  });
+};

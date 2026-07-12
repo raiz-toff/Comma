@@ -4,7 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { router } from "expo-router";
 import { Target, BarChart3, Calendar, Car, Settings, Info, Calculator, ChevronRight } from "lucide-react-native";
 import { Text } from "../../src/components/ui/text";
-import { COLORS } from "../../src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
 import { getCountryDef } from "@/src/registry/index";
@@ -17,14 +17,16 @@ interface MenuItemProps {
   accentColor: string;
 }
 
-const MenuItem = ({ title, subtitle, icon: Icon, onPress, accentColor }: MenuItemProps) => (
+const MenuItem = ({ title, subtitle, icon: Icon, onPress, accentColor }: MenuItemProps) => {
+  const C = useColors();
+  return (
   <TouchableOpacity
     accessibilityRole="button"
     onPress={onPress}
-    style={{ backgroundColor: COLORS.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, borderRadius: 16, marginBottom: 12, padding: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+    style={{ backgroundColor: C.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, borderRadius: 16, marginBottom: 12, padding: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
   >
     <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.surface03, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, alignItems: "center", justifyContent: "center" }}>
+      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.surface03, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, alignItems: "center", justifyContent: "center" }}>
         <Icon size={20} color={accentColor} />
       </View>
       <View style={{ flexDirection: "column" }}>
@@ -32,12 +34,14 @@ const MenuItem = ({ title, subtitle, icon: Icon, onPress, accentColor }: MenuIte
         <Text variant="paragraphS" className="text-content-secondary" style={{ marginTop: 2 }}>{subtitle}</Text>
       </View>
     </View>
-    <ChevronRight size={16} color={COLORS.contentDisabled} strokeWidth={2} />
+    <ChevronRight size={16} color={C.contentDisabled} strokeWidth={2} />
   </TouchableOpacity>
-);
+  );
+};
 
 export default function MoreScreen() {
   const insets = useSafeAreaInsets();
+  const C = useColors();
   const { setHeaderVisible, profile } = useSettingsStore();
   const { accentColor } = usePlatformTheme();
   const countryDef = getCountryDef(profile?.country || "CA");
@@ -65,7 +69,7 @@ export default function MoreScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }} edges={["bottom", "left", "right"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.background }} edges={["bottom", "left", "right"]}>
       <ScrollView
         contentContainerStyle={{ paddingTop: insets.top + 64, paddingHorizontal: 16, paddingBottom: 48 }}
         showsVerticalScrollIndicator={false}

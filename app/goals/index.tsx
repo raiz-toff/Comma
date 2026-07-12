@@ -17,7 +17,8 @@ import { router } from "expo-router";
 import { Award, Flame, Star, TrendingUp, Plus, Edit2, Trash2, X, Target, Shield } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
 import { EmptyState } from "@/src/components/ui/EmptyState";
-import { COLORS, KPI, withAlpha } from "@/src/theme/colors";
+import { KPI, withAlpha } from "@/src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 import { getGoalsWithProgress, insertGoal, updateGoal, deleteGoal } from "@/src/database/queries/goals";
 import { markActivationDone } from "@/src/services/onboarding/activationChecklist";
 import { getEarningsByDay } from "@/src/database/queries/analytics";
@@ -116,6 +117,7 @@ function CircularProgress({
   color?: string;
   children?: React.ReactNode;
 }) {
+  const C = useColors();
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const strokeDashoffset = circumference - (Math.min(progressPct, 100) / 100) * circumference;
@@ -126,7 +128,7 @@ function CircularProgress({
       accessibilityLabel={`${Math.round(Math.min(progressPct, 100))}% complete`}
     >
       <Svg width={size} height={size}>
-        <Circle stroke={COLORS.surface04} fill="none" cx={size / 2} cy={size / 2} r={radius} strokeWidth={strokeWidth} />
+        <Circle stroke={C.surface04} fill="none" cx={size / 2} cy={size / 2} r={radius} strokeWidth={strokeWidth} />
         <Circle
           stroke={color}
           fill="none"
@@ -154,6 +156,7 @@ function CircularProgress({
 export default function GoalsScreen() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const C = useColors();
   const {
     profile,
     isOnboardingCompleted,
@@ -330,9 +333,9 @@ export default function GoalsScreen() {
       {weeklyEarningsGoal && (
         <View
           style={{
-            backgroundColor: COLORS.surface02,
+            backgroundColor: C.surface02,
             borderWidth: StyleSheet.hairlineWidth,
-            borderColor: COLORS.lineSubtle,
+            borderColor: C.lineSubtle,
             borderRadius: 16,
             padding: 24,
             flexDirection: "row",
@@ -348,16 +351,16 @@ export default function GoalsScreen() {
             <Text variant="headingL" style={{ marginBottom: 6 }}>
               {weeklyEarningsGoal.label}
             </Text>
-            <Text variant="paragraphS" style={{ color: COLORS.contentSecondary, marginBottom: 14 }}>
+            <Text variant="paragraphS" style={{ color: C.contentSecondary, marginBottom: 14 }}>
               Weekly Target Progress
             </Text>
             <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 4, marginBottom: 18 }}>
-              <Text style={{ fontSize: 22, fontWeight: "600", color: COLORS.contentPrimary, lineHeight: 28, marginTop: 8 }}>
+              <Text style={{ fontSize: 22, fontWeight: "600", color: C.contentPrimary, lineHeight: 28, marginTop: 8 }}>
                 {formatCurrencyParts(weeklyEarningsGoal.currentValue, profile.country).symbol}
               </Text>
               <Text
                 tabular
-                style={{ flexShrink: 1, fontSize: 38, fontWeight: "800", color: COLORS.contentPrimary, letterSpacing: -0.5, lineHeight: 46, includeFontPadding: false }}
+                style={{ flexShrink: 1, fontSize: 38, fontWeight: "800", color: C.contentPrimary, letterSpacing: -0.5, lineHeight: 46, includeFontPadding: false }}
                 numberOfLines={1}
                 adjustsFontSizeToFit
               >
@@ -367,9 +370,9 @@ export default function GoalsScreen() {
             <TouchableOpacity
               onPress={() => handleOpenForm(weeklyEarningsGoal)}
               accessibilityRole="button"
-              style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: COLORS.surface04, alignSelf: "flex-start", paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12 }}
+              style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: C.surface04, alignSelf: "flex-start", paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12 }}
             >
-              <Edit2 size={13} color={COLORS.contentPrimary} />
+              <Edit2 size={13} color={C.contentPrimary} />
               <Text variant="labelXs">EDIT TARGET</Text>
             </TouchableOpacity>
           </View>
@@ -382,8 +385,8 @@ export default function GoalsScreen() {
       )}
 
       {/* Active goals list */}
-      <View style={{ backgroundColor: COLORS.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, borderRadius: 16, overflow: "hidden" }}>
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.lineSubtle }}>
+      <View style={{ backgroundColor: C.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, borderRadius: 16, overflow: "hidden" }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.lineSubtle }}>
           <Text variant="headingS">
             {weeklyEarningsGoal ? "Other Active Goals" : "Active Goals"}
           </Text>
@@ -417,12 +420,12 @@ export default function GoalsScreen() {
                   <View key={goal.id} style={{ gap: 10 }}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                        <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: COLORS.surface03, borderWidth: 1, borderColor: COLORS.lineSubtle, alignItems: "center", justifyContent: "center" }}>
+                        <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: C.surface03, borderWidth: 1, borderColor: C.lineSubtle, alignItems: "center", justifyContent: "center" }}>
                           <Text style={{ fontSize: 16 }}>{unitMeta?.icon}</Text>
                         </View>
                         <View>
                           <Text variant="labelM" style={{ textTransform: "capitalize" }}>{goal.label}</Text>
-                          <Text variant="labelXs" style={{ color: COLORS.contentSecondary, marginTop: 2 }}>
+                          <Text variant="labelXs" style={{ color: C.contentSecondary, marginTop: 2 }}>
                             {goal.period} · {unitMeta?.label}
                           </Text>
                         </View>
@@ -438,7 +441,7 @@ export default function GoalsScreen() {
                             accessibilityRole="button"
                             accessibilityLabel="Edit goal"
                           >
-                            <Edit2 size={14} color={COLORS.contentSecondary} />
+                            <Edit2 size={14} color={C.contentSecondary} />
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={() => handleDeleteGoal(goal.id)}
@@ -446,17 +449,17 @@ export default function GoalsScreen() {
                             accessibilityRole="button"
                             accessibilityLabel="Delete goal"
                           >
-                            <Trash2 size={14} color={COLORS.destructive} />
+                            <Trash2 size={14} color={C.destructive} />
                           </TouchableOpacity>
                         </View>
                       </View>
                     </View>
                     <View
-                      style={{ height: 5, backgroundColor: COLORS.lineSubtle, borderRadius: 3, overflow: "hidden" }}
+                      style={{ height: 5, backgroundColor: C.lineSubtle, borderRadius: 3, overflow: "hidden" }}
                       accessible={true}
                       accessibilityLabel={`${Math.round(Math.min(100, pct))}% of goal reached`}
                     >
-                      <View style={{ height: "100%", width: `${Math.min(100, pct)}%`, backgroundColor: pct >= 100 ? COLORS.success : accentColor }} />
+                      <View style={{ height: "100%", width: `${Math.min(100, pct)}%`, backgroundColor: pct >= 100 ? C.success : accentColor }} />
                     </View>
                   </View>
                 );
@@ -470,38 +473,38 @@ export default function GoalsScreen() {
   const ProgressTab = (
     <>
       {/* XP & Level card */}
-      <View style={{ backgroundColor: COLORS.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, borderRadius: 16, padding: 20 }}>
+      <View style={{ backgroundColor: C.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, borderRadius: 16, padding: 20 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Award size={16} color={COLORS.info} />
-            <Text variant="labelXs" style={{ color: COLORS.contentSecondary }}>Driver XP</Text>
+            <Award size={16} color={C.info} />
+            <Text variant="labelXs" style={{ color: C.contentSecondary }}>Driver XP</Text>
           </View>
-          <View style={{ backgroundColor: withAlpha(COLORS.info, 0.13), borderWidth: 1, borderColor: withAlpha(COLORS.info, 0.25), borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
-            <Text variant="labelXs" tabular style={{ color: COLORS.info }}>LVL {xpLevel}</Text>
+          <View style={{ backgroundColor: withAlpha(C.info, 0.13), borderWidth: 1, borderColor: withAlpha(C.info, 0.25), borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+            <Text variant="labelXs" tabular style={{ color: C.info }}>LVL {xpLevel}</Text>
           </View>
         </View>
 
         <Text variant="headingXl" tabular style={{ includeFontPadding: false, marginBottom: 4 }} adjustsFontSizeToFit numberOfLines={1}>
-          {xpTotal.toLocaleString()} <Text style={{ fontSize: 16, color: COLORS.contentMuted, fontWeight: "600" }}>XP</Text>
+          {xpTotal.toLocaleString()} <Text style={{ fontSize: 16, color: C.contentMuted, fontWeight: "600" }}>XP</Text>
         </Text>
 
         <View
-          style={{ height: 5, backgroundColor: COLORS.lineSubtle, borderRadius: 3, marginVertical: 10, overflow: "hidden" }}
+          style={{ height: 5, backgroundColor: C.lineSubtle, borderRadius: 3, marginVertical: 10, overflow: "hidden" }}
           accessible={true}
           accessibilityLabel={`${xpTotal % 100}% progress to next level`}
         >
-          <View style={{ height: "100%", width: `${xpTotal % 100}%`, backgroundColor: COLORS.info, borderRadius: 3 }} />
+          <View style={{ height: "100%", width: `${xpTotal % 100}%`, backgroundColor: C.info, borderRadius: 3 }} />
         </View>
         <Text variant="paragraphS" tabular>{100 - (xpTotal % 100)} XP to Level {xpLevel + 1}</Text>
 
         {/* Recent XP events */}
         {recentXpNotifications.length > 0 && (
-          <View style={{ marginTop: 16, gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.lineSubtle, paddingTop: 14 }}>
+          <View style={{ marginTop: 16, gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.lineSubtle, paddingTop: 14 }}>
             {recentXpNotifications.map((n) => (
               <View key={n.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                 <Text variant="paragraphS" className="text-content-secondary" style={{ flex: 1 }} numberOfLines={1}>{n.title}</Text>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                  <Text variant="labelXs" tabular style={{ color: COLORS.info }}>{getXpFromNotificationTitle(n.title)}</Text>
+                  <Text variant="labelXs" tabular style={{ color: C.info }}>{getXpFromNotificationTitle(n.title)}</Text>
                   <Text variant="paragraphS">{timeAgo(n.createdAt)}</Text>
                 </View>
               </View>
@@ -511,21 +514,21 @@ export default function GoalsScreen() {
       </View>
 
       {/* Streak card */}
-      <View style={{ backgroundColor: COLORS.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, borderRadius: 16, padding: 20 }}>
+      <View style={{ backgroundColor: C.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, borderRadius: 16, padding: 20 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 20 }}>
-          <Flame size={16} color={COLORS.destructive} />
-          <Text variant="labelXs" style={{ color: COLORS.contentSecondary }}>Day Streak</Text>
+          <Flame size={16} color={C.destructive} />
+          <Text variant="labelXs" style={{ color: C.contentSecondary }}>Day Streak</Text>
         </View>
 
         <View style={{ flexDirection: "row", alignItems: "center", gap: 20 }}>
-          <CircularProgress progressPct={streakPct} size={110} strokeWidth={8} color={COLORS.destructive}>
+          <CircularProgress progressPct={streakPct} size={110} strokeWidth={8} color={C.destructive}>
             <Text variant="headingXl" tabular style={{ includeFontPadding: false }}>{streakDays}</Text>
-            <Text variant="labelXs" style={{ color: COLORS.contentSecondary }}>days</Text>
+            <Text variant="labelXs" style={{ color: C.contentSecondary }}>days</Text>
           </CircularProgress>
 
           <View style={{ flex: 1, gap: 12 }}>
             <View>
-              <Text variant="labelXs" style={{ color: COLORS.contentMuted, marginBottom: 4 }}>Next milestone</Text>
+              <Text variant="labelXs" style={{ color: C.contentMuted, marginBottom: 4 }}>Next milestone</Text>
               <Text variant="labelM">
                 {streakDays >= 100 ? "Legend 🏆" : `${streakMilestone.target - streakDays} days to ${streakMilestone.label}`}
               </Text>
@@ -543,7 +546,7 @@ export default function GoalsScreen() {
                 <Shield key={i} size={18} color={KPI.hours} fill={withAlpha(KPI.hours, 0.19)} />
               ))}
               {Array.from({ length: Math.max(0, 3 - streakFrozenCount) }).map((_, i) => (
-                <Shield key={`empty-${i}`} size={18} color={COLORS.contentDisabled} />
+                <Shield key={`empty-${i}`} size={18} color={C.contentDisabled} />
               ))}
               <Text variant="labelXs" tabular style={{ color: KPI.hours, marginLeft: 2 }}>
                 {streakFrozenCount}/3 shields
@@ -554,7 +557,7 @@ export default function GoalsScreen() {
       </View>
 
       {/* Challenges section */}
-      <View style={{ backgroundColor: COLORS.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, borderRadius: 16, padding: 20 }}>
+      <View style={{ backgroundColor: C.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, borderRadius: 16, padding: 20 }}>
         <Text variant="headingS" style={{ marginBottom: 18 }}>Weekly Challenges</Text>
         <View style={{ gap: 16 }}>
           {challenges && challenges.length > 0 ? (
@@ -570,19 +573,19 @@ export default function GoalsScreen() {
                         width: 40,
                         height: 40,
                         borderRadius: 20,
-                        backgroundColor: isCompleted ? withAlpha(COLORS.success, 0.25) : COLORS.surface02,
+                        backgroundColor: isCompleted ? withAlpha(C.success, 0.25) : C.surface02,
                         borderWidth: 1,
-                        borderColor: isCompleted ? withAlpha(COLORS.success, 0.25) : COLORS.lineSubtle,
+                        borderColor: isCompleted ? withAlpha(C.success, 0.25) : C.lineSubtle,
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <Target size={18} color={isCompleted ? COLORS.success : COLORS.warning} />
+                      <Target size={18} color={isCompleted ? C.success : C.warning} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 3 }}>
                         <Text variant="labelM">{c.name}</Text>
-                        <Text variant="labelM" tabular style={{ color: isCompleted ? COLORS.success : COLORS.warning }}>
+                        <Text variant="labelM" tabular style={{ color: isCompleted ? C.success : C.warning }}>
                           {isCompleted ? "✓ Done" : `${pct}%`}
                         </Text>
                       </View>
@@ -590,11 +593,11 @@ export default function GoalsScreen() {
                     </View>
                   </View>
                   <View
-                    style={{ height: 4, backgroundColor: COLORS.lineSubtle, borderRadius: 2, overflow: "hidden", marginBottom: 6 }}
+                    style={{ height: 4, backgroundColor: C.lineSubtle, borderRadius: 2, overflow: "hidden", marginBottom: 6 }}
                     accessible={true}
                     accessibilityLabel={`Challenge ${pct}% complete`}
                   >
-                    <View style={{ height: "100%", width: `${pct}%`, backgroundColor: isCompleted ? COLORS.success : COLORS.warning, borderRadius: 2 }} />
+                    <View style={{ height: "100%", width: `${pct}%`, backgroundColor: isCompleted ? C.success : C.warning, borderRadius: 2 }} />
                   </View>
                   <Text variant="paragraphS" tabular>
                     {isCompleted ? `Resets in ${resetDays} day${resetDays === 1 ? "" : "s"}` : `${resetDays} day${resetDays === 1 ? "" : "s"} remaining`}
@@ -614,7 +617,7 @@ export default function GoalsScreen() {
       </View>
 
       {/* Badges grid */}
-      <View style={{ backgroundColor: COLORS.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, borderRadius: 16, padding: 20 }}>
+      <View style={{ backgroundColor: C.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, borderRadius: 16, padding: 20 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Star size={16} color={KPI.hours} />
@@ -636,9 +639,9 @@ export default function GoalsScreen() {
                       aspectRatio: 1,
                       alignItems: "center",
                       justifyContent: "center",
-                      backgroundColor: isUnlocked ? COLORS.surface04 : COLORS.surface01,
+                      backgroundColor: isUnlocked ? C.surface04 : C.surface01,
                       borderWidth: 1,
-                      borderColor: isUnlocked ? COLORS.lineStrong : COLORS.lineSubtle,
+                      borderColor: isUnlocked ? C.lineStrong : C.lineSubtle,
                       borderRadius: 16,
                     }}
                 >
@@ -663,24 +666,24 @@ export default function GoalsScreen() {
         }}
         activeOpacity={0.7}
         accessibilityRole="button"
-        style={{ backgroundColor: COLORS.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, borderRadius: 16, padding: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+        style={{ backgroundColor: C.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, borderRadius: 16, padding: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <TrendingUp size={18} color={accentColor} />
           <View>
-            <Text variant="labelXs" style={{ color: COLORS.contentSecondary }}>Best Shift — All Time</Text>
+            <Text variant="labelXs" style={{ color: C.contentSecondary }}>Best Shift — All Time</Text>
             <Text variant="headingL" tabular style={{ marginTop: 2, includeFontPadding: false }}>
               {formatCurrency(bestShift?.grossRevenue ?? 0, profile.country)}
             </Text>
           </View>
         </View>
-        <Text style={{ fontSize: 18, color: COLORS.contentMuted }}>›</Text>
+        <Text style={{ fontSize: 18, color: C.contentMuted }}>›</Text>
       </TouchableOpacity>
     </>
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }} edges={["bottom", "left", "right"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.background }} edges={["bottom", "left", "right"]}>
       <ScrollView contentContainerStyle={{ paddingBottom: 120, paddingTop: insets.top ? insets.top + 16 : 36 }}>
         {/* Header */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingBottom: 16 }}>
@@ -688,16 +691,16 @@ export default function GoalsScreen() {
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel="Close"
-            style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.surface03, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, alignItems: "center", justifyContent: "center", marginLeft: -8 }}
+            style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.surface03, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, alignItems: "center", justifyContent: "center", marginLeft: -8 }}
           >
-            <X size={22} color={COLORS.contentPrimary} />
+            <X size={22} color={C.contentPrimary} />
           </TouchableOpacity>
           <Text variant="headingS">Goals & Progress</Text>
           <View style={{ width: 44 }} />
         </View>
 
         {/* Tab switcher */}
-        <View style={{ flexDirection: "row", marginHorizontal: 16, marginBottom: 20, backgroundColor: COLORS.surface03, borderRadius: 12, padding: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle }}>
+        <View style={{ flexDirection: "row", marginHorizontal: 16, marginBottom: 20, backgroundColor: C.surface03, borderRadius: 12, padding: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle }}>
           {(["Goals", "Progress"] as const).map((tab, i) => (
             <Pressable
               key={tab}
@@ -708,11 +711,11 @@ export default function GoalsScreen() {
                   flex: 1,
                   paddingVertical: 10,
                   alignItems: "center",
-                  backgroundColor: activeTab === i ? COLORS.surface04 : "transparent",
+                  backgroundColor: activeTab === i ? C.surface04 : "transparent",
                   borderRadius: 8,
                 }}
             >
-              <Text variant="labelM" style={{ color: activeTab === i ? COLORS.contentPrimary : COLORS.contentSecondary }}>{tab}</Text>
+              <Text variant="labelM" style={{ color: activeTab === i ? C.contentPrimary : C.contentSecondary }}>{tab}</Text>
             </Pressable>
           ))}
         </View>
@@ -731,8 +734,8 @@ export default function GoalsScreen() {
 
       {/* ── Goal Edit Modal ── */}
       <Modal visible={isAdding} transparent animationType="slide">
-        <View style={{ flex: 1, backgroundColor: COLORS.scrim, justifyContent: "flex-end" }}>
-          <View style={{ backgroundColor: COLORS.surface03, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: insets.bottom + 24 }}>
+        <View style={{ flex: 1, backgroundColor: C.scrim, justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: C.surface03, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: insets.bottom + 24 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
               <Text variant="headingM">
                 {editingGoal ? "Edit Goal" : "Create Goal"}
@@ -742,48 +745,48 @@ export default function GoalsScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Close"
                 hitSlop={8}
-                style={{ padding: 8, backgroundColor: COLORS.surface02, borderRadius: 20 }}
+                style={{ padding: 8, backgroundColor: C.surface02, borderRadius: 20 }}
               >
-                <X size={16} color={COLORS.contentSecondary} />
+                <X size={16} color={C.contentSecondary} />
               </TouchableOpacity>
             </View>
 
             <View style={{ gap: 20 }}>
               <View>
-                <Text variant="labelXs" style={{ color: COLORS.contentSecondary, marginBottom: 8, marginLeft: 4 }}>Goal Name</Text>
+                <Text variant="labelXs" style={{ color: C.contentSecondary, marginBottom: 8, marginLeft: 4 }}>Goal Name</Text>
                 <TextInput
                   value={label}
                   onChangeText={setLabel}
                   placeholder="e.g. Weekly Revenue Target"
-                  placeholderTextColor={COLORS.contentMuted}
-                  style={{ backgroundColor: COLORS.surface02, borderWidth: 1, borderColor: COLORS.lineSubtle, borderRadius: 16, padding: 16, fontSize: 14, fontWeight: "600", color: COLORS.contentPrimary }}
+                  placeholderTextColor={C.contentMuted}
+                  style={{ backgroundColor: C.surface02, borderWidth: 1, borderColor: C.lineSubtle, borderRadius: 16, padding: 16, fontSize: 14, fontWeight: "600", color: C.contentPrimary }}
                 />
               </View>
 
               <View style={{ flexDirection: "row", gap: 12 }}>
                 <View style={{ flex: 1 }}>
-                  <Text variant="labelXs" style={{ color: COLORS.contentSecondary, marginBottom: 8, marginLeft: 4 }}>Target Value</Text>
+                  <Text variant="labelXs" style={{ color: C.contentSecondary, marginBottom: 8, marginLeft: 4 }}>Target Value</Text>
                   <TextInput
                     value={targetValue}
                     onChangeText={setTargetValue}
                     keyboardType="numeric"
                     placeholder="0.00"
-                    placeholderTextColor={COLORS.contentMuted}
-                    style={{ backgroundColor: COLORS.surface02, borderWidth: 1, borderColor: COLORS.lineSubtle, borderRadius: 16, padding: 16, fontSize: 16, fontWeight: "900", color: accentColor }}
+                    placeholderTextColor={C.contentMuted}
+                    style={{ backgroundColor: C.surface02, borderWidth: 1, borderColor: C.lineSubtle, borderRadius: 16, padding: 16, fontSize: 16, fontWeight: "900", color: accentColor }}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text variant="labelXs" style={{ color: COLORS.contentSecondary, marginBottom: 8, marginLeft: 4 }}>Period</Text>
-                  <View style={{ backgroundColor: COLORS.surface02, borderWidth: 1, borderColor: COLORS.lineSubtle, borderRadius: 16, padding: 4, flexDirection: "row", height: 56 }}>
+                  <Text variant="labelXs" style={{ color: C.contentSecondary, marginBottom: 8, marginLeft: 4 }}>Period</Text>
+                  <View style={{ backgroundColor: C.surface02, borderWidth: 1, borderColor: C.lineSubtle, borderRadius: 16, padding: 4, flexDirection: "row", height: 56 }}>
                     {GOAL_PERIODS.map((p) => (
                       <TouchableOpacity
                         key={p.id}
                         onPress={() => setPeriod(p.id)}
                         accessibilityRole="button"
                         accessibilityState={{ selected: period === p.id }}
-                        style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: period === p.id ? COLORS.surface04 : "transparent", borderRadius: 12 }}
+                        style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: period === p.id ? C.surface04 : "transparent", borderRadius: 12 }}
                       >
-                        <Text variant="labelXs" style={{ color: period === p.id ? COLORS.contentPrimary : COLORS.contentSecondary }}>
+                        <Text variant="labelXs" style={{ color: period === p.id ? C.contentPrimary : C.contentSecondary }}>
                           {p.label.slice(0, 3)}
                         </Text>
                       </TouchableOpacity>
@@ -793,7 +796,7 @@ export default function GoalsScreen() {
               </View>
 
               <View>
-                <Text variant="labelXs" style={{ color: COLORS.contentSecondary, marginBottom: 8, marginLeft: 4 }}>Metric Type</Text>
+                <Text variant="labelXs" style={{ color: C.contentSecondary, marginBottom: 8, marginLeft: 4 }}>Metric Type</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                   {GOAL_UNITS.map((u) => (
                     <TouchableOpacity
@@ -801,10 +804,10 @@ export default function GoalsScreen() {
                       onPress={() => setUnit(u.id)}
                       accessibilityRole="button"
                       accessibilityState={{ selected: unit === u.id }}
-                      style={{ flex: 1, minWidth: "45%", flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: unit === u.id ? withAlpha(accentColor, 0.12) : COLORS.surface02, borderWidth: 1, borderColor: unit === u.id ? accentColor : COLORS.lineSubtle, borderRadius: 16, padding: 16 }}
+                      style={{ flex: 1, minWidth: "45%", flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: unit === u.id ? withAlpha(accentColor, 0.12) : C.surface02, borderWidth: 1, borderColor: unit === u.id ? accentColor : C.lineSubtle, borderRadius: 16, padding: 16 }}
                     >
                       <Text style={{ fontSize: 16 }}>{u.icon}</Text>
-                      <Text variant="labelM" style={{ color: unit === u.id ? accentColor : COLORS.contentSecondary }}>{u.label}</Text>
+                      <Text variant="labelM" style={{ color: unit === u.id ? accentColor : C.contentSecondary }}>{u.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -832,9 +835,9 @@ export default function GoalsScreen() {
 
       {/* ── Badge Detail Modal ── */}
       <Modal visible={!!selectedBadge} transparent animationType="fade">
-        <Pressable style={{ flex: 1, backgroundColor: COLORS.scrim, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 }} onPress={() => setSelectedBadge(null)}>
+        <Pressable style={{ flex: 1, backgroundColor: C.scrim, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 }} onPress={() => setSelectedBadge(null)}>
           <Pressable onPress={(e) => e.stopPropagation()}>
-            <View style={{ backgroundColor: COLORS.surface03, borderRadius: 28, padding: 32, alignItems: "center", gap: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, minWidth: 280 }}>
+            <View style={{ backgroundColor: C.surface03, borderRadius: 28, padding: 32, alignItems: "center", gap: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, minWidth: 280 }}>
               {selectedBadge && (
                 <BadgeSvg
                   id={selectedBadge.id}
@@ -846,19 +849,19 @@ export default function GoalsScreen() {
               <Text variant="paragraphM" style={{ textAlign: "center" }}>{selectedBadge?.description}</Text>
 
               {selectedBadge && unlockedBadgeIds.includes(selectedBadge.id) ? (
-                <View style={{ backgroundColor: withAlpha(COLORS.success, 0.25), borderWidth: 1, borderColor: withAlpha(COLORS.success, 0.25), borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6, marginTop: 4 }}>
-                  <Text variant="labelXs" style={{ color: COLORS.success }}>✓ UNLOCKED</Text>
+                <View style={{ backgroundColor: withAlpha(C.success, 0.25), borderWidth: 1, borderColor: withAlpha(C.success, 0.25), borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6, marginTop: 4 }}>
+                  <Text variant="labelXs" style={{ color: C.success }}>✓ UNLOCKED</Text>
                 </View>
               ) : (
-                <View style={{ backgroundColor: COLORS.surface03, borderWidth: 1, borderColor: COLORS.lineSubtle, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6, marginTop: 4 }}>
-                  <Text variant="labelXs" style={{ color: COLORS.contentSecondary }}>LOCKED</Text>
+                <View style={{ backgroundColor: C.surface03, borderWidth: 1, borderColor: C.lineSubtle, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6, marginTop: 4 }}>
+                  <Text variant="labelXs" style={{ color: C.contentSecondary }}>LOCKED</Text>
                 </View>
               )}
 
               <TouchableOpacity
                 onPress={() => setSelectedBadge(null)}
                 accessibilityRole="button"
-                style={{ marginTop: 8, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: COLORS.surface04, borderRadius: 12 }}
+                style={{ marginTop: 8, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: C.surface04, borderRadius: 12 }}
               >
                 <Text variant="labelM">Close</Text>
               </TouchableOpacity>
@@ -869,8 +872,8 @@ export default function GoalsScreen() {
 
       {/* ── Shield Tooltip Modal ── */}
       <Modal visible={showShieldTooltip} transparent animationType="fade">
-        <Pressable style={{ flex: 1, backgroundColor: COLORS.scrim, justifyContent: "center", alignItems: "center", paddingHorizontal: 32 }} onPress={() => setShowShieldTooltip(false)}>
-          <View style={{ backgroundColor: COLORS.surface03, borderRadius: 20, padding: 24, gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle }}>
+        <Pressable style={{ flex: 1, backgroundColor: C.scrim, justifyContent: "center", alignItems: "center", paddingHorizontal: 32 }} onPress={() => setShowShieldTooltip(false)}>
+          <View style={{ backgroundColor: C.surface03, borderRadius: 20, padding: 24, gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
               <Shield size={20} color={KPI.hours} />
               <Text variant="headingS">Streak Shields</Text>
@@ -884,7 +887,7 @@ export default function GoalsScreen() {
             <TouchableOpacity
               onPress={() => setShowShieldTooltip(false)}
               accessibilityRole="button"
-              style={{ marginTop: 8, paddingVertical: 12, backgroundColor: COLORS.surface04, borderRadius: 12, alignItems: "center" }}
+              style={{ marginTop: 8, paddingVertical: 12, backgroundColor: C.surface04, borderRadius: 12, alignItems: "center" }}
             >
               <Text variant="labelM">Got it</Text>
             </TouchableOpacity>

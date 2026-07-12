@@ -10,7 +10,7 @@ import { Text } from "@/src/components/ui/text";
 import { useSettingsStore, type DriverProfile } from "@/store/useSettingsStore";
 import { getCountryDef, getRegionsByCountry, listCaProvinceCodes, listUsStateCodes } from "@/src/registry/index";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
-import { COLORS } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 
 const COUNTRIES = [
   { id: "CA", label: "🇨🇦 Canada" },
@@ -34,6 +34,8 @@ function getRegions(country: CountryId): string[] {
 }
 
 export default function ProfileEditScreen() {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   const { profile, updateProfile } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
 
@@ -97,7 +99,7 @@ export default function ProfileEditScreen() {
           style={s.backBtn}
           hitSlop={12}
         >
-          <ChevronLeft size={22} color={COLORS.contentSecondary} />
+          <ChevronLeft size={22} color={C.contentSecondary} />
         </Pressable>
         <Text variant="headingS">Edit Profile</Text>
         <Pressable
@@ -125,7 +127,7 @@ export default function ProfileEditScreen() {
             value={name}
             onChangeText={setName}
             placeholder="Your name"
-            placeholderTextColor={COLORS.contentMuted}
+            placeholderTextColor={C.contentMuted}
             style={s.nameInput}
             autoCapitalize="words"
             returnKeyType="done"
@@ -189,15 +191,16 @@ export default function ProfileEditScreen() {
 }
 
 function SectionLabel({ text }: { text: string }) {
+  const s = useThemedStyles(makeStyles);
   return <Text variant="labelXs" className="text-content-secondary" style={s.sectionLabel}>{text}</Text>;
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (C: Palette) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: C.background },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 0.5, borderBottomColor: COLORS.lineSubtle,
+    borderBottomWidth: 0.5, borderBottomColor: C.lineSubtle,
   },
   backBtn: { padding: 4, width: 40 },
   saveBtn: {
@@ -209,27 +212,27 @@ const s = StyleSheet.create({
     marginTop: 10, marginBottom: 4, marginLeft: 4,
   },
   card: {
-    backgroundColor: COLORS.surface02, borderRadius: 16,
-    borderWidth: 0.5, borderColor: COLORS.lineStrong,
+    backgroundColor: C.surface02, borderRadius: 16,
+    borderWidth: 0.5, borderColor: C.lineStrong,
     overflow: "hidden",
   },
   nameInput: {
     paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 15, fontWeight: "600", color: COLORS.contentPrimary,
+    fontSize: 15, fontWeight: "600", color: C.contentPrimary,
   },
   optionRow: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 16, paddingVertical: 14,
   },
-  optionRowBorder: { borderBottomWidth: 0.5, borderBottomColor: COLORS.lineStrong },
-  optionText: { color: COLORS.contentSecondary },
+  optionRowBorder: { borderBottomWidth: 0.5, borderBottomColor: C.lineStrong },
+  optionText: { color: C.contentSecondary },
   chip: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8,
-    backgroundColor: COLORS.surface04, borderWidth: 0.5, borderColor: COLORS.lineStrong,
+    backgroundColor: C.surface04, borderWidth: 0.5, borderColor: C.lineStrong,
   },
-  chipText: { color: COLORS.contentSecondary },
-  lockedLabel: { color: COLORS.contentSecondary, paddingHorizontal: 16, paddingVertical: 14 },
+  chipText: { color: C.contentSecondary },
+  lockedLabel: { color: C.contentSecondary, paddingHorizontal: 16, paddingVertical: 14 },
   lockedBadge: {
-    backgroundColor: COLORS.surface04, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, marginRight: 16,
+    backgroundColor: C.surface04, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, marginRight: 16,
   },
 });

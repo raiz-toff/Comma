@@ -17,7 +17,7 @@ import { insertManyShifts } from "../../database/queries/shifts";
 import { notifyImport } from "../../services/notify";
 import { PLATFORM_REGISTRY } from "../../registry/platforms";
 import { usePlatformTheme } from "../../hooks/usePlatformTheme";
-import { COLORS } from "../../theme/colors";
+import { useColors } from "../../theme/useColors";
 import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 
@@ -151,6 +151,7 @@ function parseNumber(value: any): number {
 }
 
 export function CSVImportWizard() {
+  const C = useColors();
   const queryClient = useQueryClient();
   const { accentColor, accentColorDim, accentColorContrast } = usePlatformTheme();
 
@@ -382,20 +383,20 @@ export function CSVImportWizard() {
               <View
                 className="w-7 h-7 rounded-full items-center justify-center border-2"
                 style={{
-                  borderColor: reached ? accentColor : COLORS.lineStrong,
-                  backgroundColor: step > num ? accentColor : reached ? accentColorDim : COLORS.background,
+                  borderColor: reached ? accentColor : C.lineStrong,
+                  backgroundColor: step > num ? accentColor : reached ? accentColorDim : C.background,
                 }}
               >
                 <Text
                   variant="labelM"
                   tabular
-                  style={{ color: step > num ? accentColorContrast : reached ? accentColor : COLORS.contentMuted }}
+                  style={{ color: step > num ? accentColorContrast : reached ? accentColor : C.contentMuted }}
                 >
                   {num}
                 </Text>
               </View>
               {num < 4 && (
-                <View className="h-0.5 flex-1 mx-2" style={{ backgroundColor: step > num ? accentColor : COLORS.lineSubtle }} />
+                <View className="h-0.5 flex-1 mx-2" style={{ backgroundColor: step > num ? accentColor : C.lineSubtle }} />
               )}
             </View>
           );
@@ -540,13 +541,13 @@ export function CSVImportWizard() {
               disabled={isImporting || validRows.length === 0}
               accessibilityRole="button"
               accessibilityState={{ disabled: isImporting || validRows.length === 0 }}
-              style={{ backgroundColor: validRows.length === 0 ? COLORS.surface05 : accentColor }}
+              style={{ backgroundColor: validRows.length === 0 ? C.surface05 : accentColor }}
               className="flex-1 py-4 rounded-md items-center justify-center"
             >
               {isImporting ? (
                 <ActivityIndicator size="small" color={accentColorContrast} />
               ) : (
-                <Text variant="labelXs" style={{ color: validRows.length === 0 ? COLORS.contentSecondary : accentColorContrast }}>
+                <Text variant="labelXs" style={{ color: validRows.length === 0 ? C.contentSecondary : accentColorContrast }}>
                   Import {validRows.length} Shifts
                 </Text>
               )}
@@ -603,6 +604,7 @@ function ColumnSelect({
   accentColor: string;
   onChange: (val: string) => void;
 }) {
+  const C = useColors();
   const [open, setOpen] = useState(false);
 
   return (
@@ -615,7 +617,7 @@ function ColumnSelect({
             onChange={(e) => onChange(e.target.value)}
             style={{
               background: "transparent",
-              color: COLORS.contentPrimary,
+              color: C.contentPrimary,
               border: "none",
               padding: "12px 16px",
               fontSize: "13px",
@@ -624,9 +626,9 @@ function ColumnSelect({
               outline: "none",
             }}
           >
-            <option value="" style={{ background: COLORS.surface02 }}>— Skip —</option>
+            <option value="" style={{ background: C.surface02 }}>— Skip —</option>
             {headers.map((h) => (
-              <option key={h} value={h} style={{ background: COLORS.surface02 }}>{h}</option>
+              <option key={h} value={h} style={{ background: C.surface02 }}>{h}</option>
             ))}
           </select>
         ) : (

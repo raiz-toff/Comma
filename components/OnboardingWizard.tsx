@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { FileDown } from "lucide-react-native";
 import { Text } from "../src/components/ui/text";
-import { COLORS } from "../src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 import { useSettingsStore, type DriverProfile, type VehicleDraft } from "../store/useSettingsStore";
 import { getCountryDef } from "../src/registry/countries/index";
 import { type FeatureKey } from "../src/registry/modules";
@@ -70,6 +70,7 @@ const DEFAULT_WEEKLY_GOAL = 500;
 export default function OnboardingWizard() {
   const { completeOnboarding, updateFeatureOverride, loadSampleData, loadSettings, isLoading } =
     useSettingsStore();
+  const C = useColors();
   const insets = useSafeAreaInsets();
 
   const [showWelcome, setShowWelcome] = useState(true);
@@ -291,17 +292,17 @@ export default function OnboardingWizard() {
             <View
               style={{
                 flex: 1,
-                backgroundColor: COLORS.scrim,
+                backgroundColor: C.scrim,
                 justifyContent: "center",
                 padding: 24,
               }}
             >
               <View
                 style={{
-                  backgroundColor: COLORS.card,
+                  backgroundColor: C.card,
                   borderRadius: 28,
                   borderWidth: 1,
-                  borderColor: COLORS.lineSubtle,
+                  borderColor: C.lineSubtle,
                   padding: 20,
                   gap: 10,
                 }}
@@ -317,9 +318,9 @@ export default function OnboardingWizard() {
                     flexDirection: "row",
                     alignItems: "center",
                     gap: 12,
-                    backgroundColor: COLORS.surface03,
+                    backgroundColor: C.surface03,
                     borderWidth: 1,
-                    borderColor: COLORS.lineStrong,
+                    borderColor: C.lineStrong,
                     borderRadius: 14,
                     padding: 14,
                   }}
@@ -341,18 +342,18 @@ export default function OnboardingWizard() {
                     flexDirection: "row",
                     alignItems: "center",
                     gap: 12,
-                    backgroundColor: COLORS.surface03,
+                    backgroundColor: C.surface03,
                     borderWidth: 1,
-                    borderColor: COLORS.lineStrong,
+                    borderColor: C.lineStrong,
                     borderRadius: 14,
                     padding: 14,
                     opacity: isRestoringFile ? 0.6 : 1,
                   }}
                 >
                   {isRestoringFile ? (
-                    <ActivityIndicator size="small" color={COLORS.contentSecondary} />
+                    <ActivityIndicator size="small" color={C.contentSecondary} />
                   ) : (
-                    <FileDown size={22} color={COLORS.contentSecondary} />
+                    <FileDown size={22} color={C.contentSecondary} />
                   )}
                   <View style={{ flex: 1 }}>
                     <Text variant="labelM">{isRestoringFile ? "Restoring…" : "Backup file"}</Text>
@@ -363,7 +364,7 @@ export default function OnboardingWizard() {
                 </Pressable>
 
                 {restoreError ? (
-                  <Text variant="paragraphS" style={{ color: COLORS.destructive }}>
+                  <Text variant="paragraphS" style={{ color: C.destructive }}>
                     {restoreError}
                   </Text>
                 ) : null}
@@ -373,7 +374,7 @@ export default function OnboardingWizard() {
                   accessibilityRole="button"
                   style={{ alignItems: "center", paddingVertical: 10 }}
                 >
-                  <Text variant="labelM" style={{ color: COLORS.contentMuted }}>
+                  <Text variant="labelM" style={{ color: C.contentMuted }}>
                     Cancel
                   </Text>
                 </Pressable>
@@ -397,7 +398,7 @@ export default function OnboardingWizard() {
     <View
       style={{
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: C.background,
         paddingTop: insets.top,
         paddingBottom: insets.bottom,
       }}
@@ -424,7 +425,7 @@ export default function OnboardingWizard() {
                 height: 4,
                 flex: i === stepIndex ? 2 : 1,
                 borderRadius: 2,
-                backgroundColor: i <= stepIndex ? COLORS.contentPrimary : COLORS.surface04,
+                backgroundColor: i <= stepIndex ? C.contentPrimary : C.surface04,
               }}
             />
           ))}
@@ -434,7 +435,7 @@ export default function OnboardingWizard() {
         <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 8 }}>
           {isLoading ? (
             <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12 }}>
-              <ActivityIndicator size="large" color={COLORS.contentPrimary} />
+              <ActivityIndicator size="large" color={C.contentPrimary} />
               <Text variant="paragraphS">Setting up your vault…</Text>
             </View>
           ) : stepIndex === STEP_LOCATION ? (
@@ -475,7 +476,7 @@ export default function OnboardingWizard() {
             {shiftError ? (
               <Text
                 variant="paragraphS"
-                style={{ color: COLORS.destructive, marginBottom: 10, textAlign: "center" }}
+                style={{ color: C.destructive, marginBottom: 10, textAlign: "center" }}
               >
                 {shiftError}
               </Text>
@@ -487,7 +488,7 @@ export default function OnboardingWizard() {
                 alignItems: "center",
                 paddingTop: 16,
                 borderTopWidth: StyleSheet.hairlineWidth,
-                borderTopColor: COLORS.lineSubtle,
+                borderTopColor: C.lineSubtle,
               }}
             >
               <Pressable
@@ -495,7 +496,7 @@ export default function OnboardingWizard() {
                 accessibilityRole="button"
                 style={{ paddingVertical: 12, paddingHorizontal: 4 }}
               >
-                <Text variant="labelM" style={{ color: COLORS.contentMuted }}>
+                <Text variant="labelM" style={{ color: C.contentMuted }}>
                   Back
                 </Text>
               </Pressable>
@@ -504,13 +505,13 @@ export default function OnboardingWizard() {
                 onPress={handleContinue}
                 accessibilityRole="button"
                 style={{
-                  backgroundColor: COLORS.contentPrimary,
+                  backgroundColor: C.contentPrimary,
                   paddingVertical: 14,
                   paddingHorizontal: 36,
                   borderRadius: 14,
                 }}
               >
-                <Text variant="labelL" style={{ color: COLORS.background }}>
+                <Text variant="labelL" style={{ color: C.background }}>
                   {stepIndex === STEP_LAST_SHIFT ? "Show me" : "Continue"}
                 </Text>
               </Pressable>

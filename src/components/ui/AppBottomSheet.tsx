@@ -7,7 +7,7 @@ import {
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { COLORS } from "@/src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 
 /**
  * AppBottomSheet — the single, consistent sheet surface for Comma.
@@ -37,12 +37,9 @@ export interface AppBottomSheetProps {
   enableDismiss?: boolean;
 }
 
-const SURFACE_03 = COLORS.surface03;
-const BORDER_SUBTLE = COLORS.lineSubtle;
-const HANDLE = COLORS.lineStrong; // Border/Strong — visible grabber
-
 export const AppBottomSheet = React.forwardRef<AppBottomSheetRef, AppBottomSheetProps>(
   function AppBottomSheet({ children, snapPoints, onDismiss, enableDismiss = true }, ref) {
+    const C = useColors();
     const sheetRef = React.useRef<BottomSheetModal>(null);
     const insets = useSafeAreaInsets();
 
@@ -72,13 +69,13 @@ export const AppBottomSheet = React.forwardRef<AppBottomSheetRef, AppBottomSheet
         onDismiss={onDismiss}
         enablePanDownToClose={enableDismiss}
         backdropComponent={renderBackdrop}
-        handleIndicatorStyle={{ backgroundColor: HANDLE, width: 36, height: 4 }}
+        handleIndicatorStyle={{ backgroundColor: C.lineStrong, width: 36, height: 4 }} // Border/Strong — visible grabber
         backgroundStyle={{
-          backgroundColor: SURFACE_03,
+          backgroundColor: C.surface03,
           borderTopLeftRadius: 28,
           borderTopRightRadius: 28,
           borderWidth: 1,
-          borderColor: BORDER_SUBTLE,
+          borderColor: C.lineSubtle,
         }}
       >
         <BottomSheetView style={{ paddingBottom: insets.bottom + 16, paddingHorizontal: 16 }}>

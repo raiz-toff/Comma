@@ -20,7 +20,8 @@ import { X, FileText, Table, BarChart2, Download, CalendarDays, Settings } from 
 import Svg, { Path } from "react-native-svg";
 import { Text } from "@/src/components/ui/text";
 import { EmptyState } from "@/src/components/ui/EmptyState";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { withAlpha } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { getPeriodStats, getMonthlyStatsForYear, getNetIncome } from "@/src/database/queries/analytics";
 import { generateShiftsCSV, generateExpensesCSV, generatePDFSummary } from "@/utils/reportGenerator";
 import { useSettingsStore } from "@/store/useSettingsStore";
@@ -30,27 +31,36 @@ import { notifyExport } from "@/src/services/notify";
 
 const isWeb = Platform.OS === "web";
 
-// ─── Design tokens (mirrors Comma DS COLORS) ──────────────────────────────────
-const BG      = COLORS.background;
-const SURFACE = COLORS.surface02;
-const PILL    = COLORS.surface03;
-const BORDER  = COLORS.lineSubtle;
-const BORDER2 = COLORS.lineSubtle;
-const MUTED   = COLORS.contentSecondary;
-const DIM     = COLORS.contentMuted;
+// ─── Design tokens (mirrors Comma DS palette) ─────────────────────────────────
+const makeDS = (C: Palette) =>
+  ({
+    BG:      C.background,
+    SURFACE: C.surface02,
+    PILL:    C.surface03,
+    BORDER:  C.lineSubtle,
+    BORDER2: C.lineSubtle,
+    MUTED:   C.contentSecondary,
+    DIM:     C.contentMuted,
+  }) as const;
 
 // ─── Custom Icons ─────────────────────────────────────────────────────────────
-const ChevronLeft = ({ size = 22, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="m15 18-6-6 6-6" />
-  </Svg>
-);
+const ChevronLeft = ({ size = 22, color }: { size?: number; color?: string }) => {
+  const C = useColors();
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color ?? C.contentPrimary} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="m15 18-6-6 6-6" />
+    </Svg>
+  );
+};
 
-const ChevronRight = ({ size = 22, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="m9 18 6-6-6-6" />
-  </Svg>
-);
+const ChevronRight = ({ size = 22, color }: { size?: number; color?: string }) => {
+  const C = useColors();
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color ?? C.contentPrimary} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="m9 18 6-6-6-6" />
+    </Svg>
+  );
+};
 
 // ─── Period mode ──────────────────────────────────────────────────────────────
 type PeriodMode = "month" | "quarter" | "year" | "custom";
@@ -103,6 +113,9 @@ function derivePeriod(
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}) {
   const insets = useSafeAreaInsets();
+  const C = useColors();
+  const DS = useThemedStyles(makeDS);
+  const styles = useThemedStyles(makeStyles);
   const { profile, isOnboardingCompleted } = useSettingsStore();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
   const isPdfEnabled = useFeatureEnabled("pdf_reports");
@@ -413,7 +426,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: BG }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: DS.BG }}>
       {/* ── Screen header ── */}
       <View style={styles.screenHeader}>
         <TouchableOpacity
@@ -422,7 +435,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
           accessibilityLabel="Close reports"
           style={styles.backBtn}
         >
-          <X size={20} color={COLORS.contentPrimary} strokeWidth={2.5} />
+          <X size={20} color={C.contentPrimary} strokeWidth={2.5} />
         </TouchableOpacity>
         <Text variant="headingM">Reports & Export</Text>
         <View style={{ width: 44 }} />
@@ -441,7 +454,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
             <Text variant="labelXs" style={styles.periodPillText}>{periodLabel}</Text>
             <View style={{ justifyContent: "center", alignItems: "center", marginLeft: 6 }}>
               <Svg width={10} height={6} viewBox="0 0 10 6" fill="none">
-                <Path d="M1 1L5 5L9 1" stroke={COLORS.contentSecondary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M1 1L5 5L9 1" stroke={C.contentSecondary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </View>
           </Pressable>
@@ -455,7 +468,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
               accessibilityState={{ disabled: arrowsDisabled }}
               style={[styles.arrowBtn, arrowsDisabled && styles.arrowBtnDisabled]}
             >
-              <ChevronLeft color={arrowsDisabled ? COLORS.contentDisabled : COLORS.contentPrimary} />
+              <ChevronLeft color={arrowsDisabled ? C.contentDisabled : C.contentPrimary} />
             </Pressable>
 
             <View style={styles.amountRow}>
@@ -473,7 +486,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
               accessibilityState={{ disabled: arrowsDisabled || isCurrentOrFutureMonth }}
               style={[styles.arrowBtn, (arrowsDisabled || isCurrentOrFutureMonth) && styles.arrowBtnDisabled]}
             >
-              <ChevronRight color={(arrowsDisabled || isCurrentOrFutureMonth) ? COLORS.contentDisabled : COLORS.contentPrimary} />
+              <ChevronRight color={(arrowsDisabled || isCurrentOrFutureMonth) ? C.contentDisabled : C.contentPrimary} />
             </Pressable>
           </View>
         </View>
@@ -525,7 +538,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                     <Text
                       variant="paragraphS"
                       style={{
-                        color: isSelected ? accentColor : MUTED,
+                        color: isSelected ? accentColor : DS.MUTED,
                         fontWeight: isSelected ? "800" : "600",
                       }}
                     >
@@ -555,7 +568,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                 <Text
                   variant="headingM"
                   tabular
-                  style={netIncome < 0 && { color: COLORS.destructive }}
+                  style={netIncome < 0 && { color: C.destructive }}
                 >
                   {formatCurrency(netIncome)}
                 </Text>
@@ -596,7 +609,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                 <Text variant="paragraphS" style={styles.exportRowSub}>Platform earnings, tips, dates and mileage</Text>
               </View>
             </View>
-            {busyExport === "shifts" ? <ActivityIndicator size="small" color={accentColor} /> : <Download size={16} color={MUTED} />}
+            {busyExport === "shifts" ? <ActivityIndicator size="small" color={accentColor} /> : <Download size={16} color={DS.MUTED} />}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -615,7 +628,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                 <Text variant="paragraphS" style={styles.exportRowSub}>Expense log, deductible markings and notes</Text>
               </View>
             </View>
-            {busyExport === "expenses" ? <ActivityIndicator size="small" color={accentColor} /> : <Download size={16} color={MUTED} />}
+            {busyExport === "expenses" ? <ActivityIndicator size="small" color={accentColor} /> : <Download size={16} color={DS.MUTED} />}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -638,7 +651,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
             <View style={styles.exportRowLeft}>
               <View style={[
                 styles.exportIconWrap,
-                isPdfEnabled && { backgroundColor: withAlpha(COLORS.background, 0.15), borderWidth: 0 },
+                isPdfEnabled && { backgroundColor: withAlpha(C.background, 0.15), borderWidth: 0 },
               ]}>
                 <FileText size={20} color={isPdfEnabled ? accentColorContrast : accentColor} />
               </View>
@@ -784,11 +797,11 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                             if (e.target.value) setCustomStart(new Date(e.target.value + "T12:00:00"));
                           }}
                           style={{
-                            background: COLORS.surface03,
-                            border: `1px solid ${COLORS.lineSubtle}`,
+                            background: C.surface03,
+                            border: `1px solid ${C.lineSubtle}`,
                             borderRadius: 12,
                             padding: "8px 12px",
-                            color: COLORS.contentPrimary,
+                            color: C.contentPrimary,
                             fontSize: 12,
                             outline: "none",
                             width: "100%",
@@ -820,11 +833,11 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                             if (e.target.value) setCustomEnd(new Date(e.target.value + "T12:00:00"));
                           }}
                           style={{
-                            background: COLORS.surface03,
-                            border: `1px solid ${COLORS.lineSubtle}`,
+                            background: C.surface03,
+                            border: `1px solid ${C.lineSubtle}`,
                             borderRadius: 12,
                             padding: "8px 12px",
-                            color: COLORS.contentPrimary,
+                            color: C.contentPrimary,
                             fontSize: 12,
                             outline: "none",
                             width: "100%",
@@ -922,7 +935,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   screenHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -935,9 +948,9 @@ const styles = StyleSheet.create({
     height: 44,
     // circular: diameter / 2
     borderRadius: 22,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -956,16 +969,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     marginBottom: 20,
     alignSelf: "center",
   },
-  periodPillText: { color: COLORS.contentSecondary },
+  periodPillText: { color: C.contentSecondary },
   navRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -977,15 +990,15 @@ const styles = StyleSheet.create({
     height: 44,
     // circular: diameter / 2
     borderRadius: 22,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     justifyContent: "center",
     alignItems: "center",
   },
   arrowBtnDisabled: {
     opacity: 0.35,
-    borderColor: COLORS.surface03,
+    borderColor: C.surface03,
   },
   amountRow: {
     flexDirection: "row",
@@ -996,7 +1009,7 @@ const styles = StyleSheet.create({
   amountSymbol: {
     fontSize: 24,
     fontWeight: "600",
-    color: COLORS.contentPrimary,
+    color: C.contentPrimary,
     lineHeight: 30,
     marginTop: 10,
     marginRight: 4,
@@ -1006,7 +1019,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 40,
     fontWeight: "800",
-    color: COLORS.contentPrimary,
+    color: C.contentPrimary,
     letterSpacing: -0.5,
     lineHeight: 48,
     paddingVertical: 2,
@@ -1015,10 +1028,10 @@ const styles = StyleSheet.create({
 
   // Bar chart
   chartContainer: {
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     padding: 16,
     marginHorizontal: 16,
     marginBottom: 20,
@@ -1038,13 +1051,13 @@ const styles = StyleSheet.create({
     height: 1,
     borderStyle: "dashed",
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
   },
   highBadge: {
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     paddingLeft: 8,
   },
-  highBadgeText: { color: COLORS.contentSecondary },
+  highBadgeText: { color: C.contentSecondary },
   chartRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1061,7 +1074,7 @@ const styles = StyleSheet.create({
   barTrack: {
     width: 14,
     height: 64,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderRadius: 8,
     overflow: "hidden",
     justifyContent: "flex-end",
@@ -1083,14 +1096,14 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     padding: 16,
   },
   statLabel: {
-    color: COLORS.contentSecondary,
+    color: C.contentSecondary,
     marginBottom: 6,
   },
 
@@ -1100,13 +1113,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionLabel: {
-    color: COLORS.contentSecondary,
+    color: C.contentSecondary,
     marginBottom: 2,
   },
   exportRow: {
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     borderRadius: 20,
     padding: 16,
     flexDirection: "row",
@@ -1124,18 +1137,18 @@ const styles = StyleSheet.create({
     height: 44,
     // circular: diameter / 2
     borderRadius: 22,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
-  exportRowSub: { color: COLORS.contentSecondary },
+  exportRowSub: { color: C.contentSecondary },
 
   // Modal
   modalRoot: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
   },
   modalHeader: {
     flexDirection: "row",
@@ -1144,7 +1157,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: COLORS.lineSubtle,
+    borderBottomColor: C.lineSubtle,
   },
   presetRow: {
     flexDirection: "row",
@@ -1157,10 +1170,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    backgroundColor: COLORS.surface03,
-    borderColor: COLORS.lineSubtle,
+    backgroundColor: C.surface03,
+    borderColor: C.lineSubtle,
   },
-  presetChipText: { color: COLORS.contentSecondary },
+  presetChipText: { color: C.contentSecondary },
   tableHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1168,10 +1181,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: COLORS.surface02,
+    borderBottomColor: C.surface02,
   },
-  tableHeaderLeft: { color: COLORS.contentSecondary },
-  tableHeaderRight: { color: COLORS.contentSecondary },
+  tableHeaderLeft: { color: C.contentSecondary },
+  tableHeaderRight: { color: C.contentSecondary },
   modalScroll: {
     paddingVertical: 8,
   },
@@ -1181,8 +1194,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
-    backgroundColor: COLORS.surface02,
+    borderColor: C.lineSubtle,
+    backgroundColor: C.surface02,
     borderRadius: 20,
     marginHorizontal: 16,
     marginVertical: 6,
@@ -1190,7 +1203,7 @@ const styles = StyleSheet.create({
   monthInfo: {
     gap: 4,
   },
-  monthRangeText: { color: COLORS.contentSecondary },
+  monthRangeText: { color: C.contentSecondary },
   miniBarContainer: {
     alignItems: "center",
     justifyContent: "flex-end",
@@ -1198,7 +1211,7 @@ const styles = StyleSheet.create({
   miniBarTrack: {
     width: 8,
     height: 36,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     // pill: width / 2
     borderRadius: 4,
     overflow: "hidden",
@@ -1218,25 +1231,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
-    backgroundColor: COLORS.surface03,
+    borderColor: C.lineSubtle,
+    backgroundColor: C.surface03,
   },
-  customToggleText: { color: COLORS.contentSecondary },
+  customToggleText: { color: C.contentSecondary },
   customRangeCard: {
     marginHorizontal: 16,
     marginTop: 8,
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     borderRadius: 20,
     padding: 16,
     gap: 12,
   },
-  customDateLabel: { color: COLORS.contentMuted },
+  customDateLabel: { color: C.contentMuted },
   datePickerBtn: {
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     borderRadius: 12,
     padding: 12,
     flexDirection: "row",
@@ -1262,19 +1275,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderTopWidth: 0.5,
-    borderTopColor: COLORS.lineSubtle,
-    backgroundColor: COLORS.background,
+    borderTopColor: C.lineSubtle,
+    backgroundColor: C.background,
   },
   pageBtn: {
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
   },
   pageBtnDisabled: {
     opacity: 0.35,
   },
-  pageIndicator: { color: COLORS.contentSecondary },
+  pageIndicator: { color: C.contentSecondary },
 });

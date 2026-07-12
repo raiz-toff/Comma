@@ -6,11 +6,11 @@ import { DotGridSpotlight } from '@/components/dot-grid-spotlight';
 const DOT_COLOR = {
   light: {
     default: 'rgba(0, 0, 0, 0.05)',
-    active: 'rgba(16, 185, 129, 0.5)',
+    active: 'rgba(217, 119, 6, 0.5)',
   },
   dark: {
     default: 'rgba(255, 255, 255, 0.04)',
-    active: 'rgba(52, 211, 153, 0.45)',
+    active: 'rgba(240, 160, 48, 0.45)',
   },
 } as const;
 

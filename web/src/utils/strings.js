@@ -88,6 +88,13 @@ export const strings = {
       landing: {
         kicker: 'Local-first gig earnings',
         heroTitle: 'Stop guessing what you made.',
+        // The headline reads: "Know what your <shift> is actually worth." — the middle word
+        // cycles, because what a work session is called depends on the app you drive for.
+        heroTitleLead: 'Know what your',
+        heroTitleTail: 'is actually worth.',
+        sessionWords: 'shift|dash|block|batch|week',
+        // Set around the logo, on a slow rotation. Trailing separator closes the circle.
+        ringText: 'every dollar · every kilometre · every write-off · ',
         heroLead:
           'Comma logs every dollar, every mile, and every write-off — and shows you what a shift was really worth.',
         startCta: 'Get started',
@@ -1399,6 +1406,11 @@ export const strings = {
       landing: {
         kicker: 'Revenus de gig locaux',
         heroTitle: 'Arrêtez de deviner ce que vous avez gagné.',
+        // « Sachez ce que votre <quart> vaut vraiment. »
+        heroTitleLead: 'Sachez ce que votre',
+        heroTitleTail: 'vaut vraiment.',
+        sessionWords: 'quart|tournée|bloc|lot|semaine',
+        ringText: 'chaque dollar · chaque kilomètre · chaque déduction · ',
         heroLead:
           'Comma consigne chaque dollar, chaque kilomètre, chaque déduction — et vous montre ce qu\'un quart valait vraiment.',
         startCta: 'Commencer',

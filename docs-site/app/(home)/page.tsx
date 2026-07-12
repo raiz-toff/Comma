@@ -74,7 +74,7 @@ function Receipt() {
           <span className="text-fd-foreground">Comma</span>
           {/* A meter, not a console. The dot breathes like a taxi meter that's still running. */}
           <span className="inline-flex items-center gap-1.5">
-            <span className="meter-dot size-1.5 rounded-full bg-emerald-500" />
+            <span className="meter-dot size-1.5 rounded-full bg-amber-500" />
             meter running
           </span>
         </div>
@@ -98,18 +98,18 @@ function Receipt() {
 
           {/* The number the whole product exists for. */}
           <div
-            className="rate-pop relative mt-5 overflow-hidden rounded-lg border border-emerald-500/25 bg-emerald-500/[0.06] px-4 py-3"
+            className="rate-pop relative mt-5 overflow-hidden rounded-lg border border-amber-500/25 bg-amber-500/[0.07] px-4 py-3"
             style={{ ['--print-delay' as string]: `${0.7 + RECEIPT_LINES.length * 0.35 + 0.25}s` }}
           >
             <div
-              className="pointer-events-none absolute -right-6 -top-8 size-24 rounded-full bg-emerald-500/25 blur-2xl"
+              className="pointer-events-none absolute -right-6 -top-8 size-24 rounded-full bg-amber-500/20 blur-2xl"
               aria-hidden
             />
             <div className="flex items-baseline justify-between gap-4">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-400">
                 Real rate
               </span>
-              <span className="text-[26px] font-semibold leading-none text-emerald-500">
+              <span className="text-[26px] font-semibold leading-none text-amber-600 dark:text-amber-500">
                 $17.72<span className="ml-0.5 text-sm font-normal text-fd-muted-foreground">/hr</span>
               </span>
             </div>
@@ -177,7 +177,7 @@ export default function HomePage() {
               <span className="invisible col-start-1 row-start-1" aria-hidden>
                 {SESSION_WORDS.reduce((a, b) => (a.length >= b.length ? a : b))}
               </span>
-              <TextFlip className="col-start-1 row-start-1 text-emerald-500">
+              <TextFlip className="col-start-1 row-start-1 text-amber-600 dark:text-amber-500">
                 {SESSION_WORDS.map((word) => (
                   <span key={word}>{word}</span>
                 ))}

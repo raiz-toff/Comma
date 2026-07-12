@@ -289,15 +289,31 @@
 }
 
 .onboarding-landing {
+  /* The landing's accent is the mascot's amber, sampled from the logo art —
+     not the app-wide brand green. Scoped here so the rest of the app keeps
+     its own palette. */
+  --landing-accent: #c05e10;
   min-height: calc(100dvh - 7rem);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: var(--space-10, 2.5rem);
-  padding: var(--space-8, 2rem) var(--space-2, 0.5rem);
+  /* A little tighter than it was: the ringed mark is taller than the bare logo, and the
+     whole column still has to clear the fold on a phone. */
+  gap: var(--space-8, 2rem);
+  padding: var(--space-6, 1.5rem) var(--space-2, 0.5rem);
   animation: onboarding-landing-in 0.5s ease both;
+}
+
+html[data-theme='dark'] .onboarding-landing {
+  --landing-accent: #f0a030;
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-theme='auto'] .onboarding-landing {
+    --landing-accent: #f0a030;
+  }
 }
 
 @keyframes onboarding-landing-in {
@@ -320,9 +336,93 @@
   gap: var(--space-3);
 }
 
+/* The logo sits inside a ring of slowly turning text — the promise, orbiting the mark.
+   Mirrors the hero on the docs site so the two front doors read as one product. */
+.onboarding-landing-mark {
+  position: relative;
+  width: 116px;
+  height: 116px;
+  display: grid;
+  place-items: center;
+}
+
+.landing-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  color: var(--color-text-muted);
+  animation: landing-ring-spin 18s linear infinite;
+  transform-origin: 50% 50%;
+  user-select: none;
+}
+
+.landing-ring-text {
+  fill: currentColor;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+@keyframes landing-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .onboarding-landing-logo {
-  width: 72px;
-  height: 72px;
+  position: relative;
+  width: 52px;
+  height: 52px;
+}
+
+/* The word for a work session, flipping vertically. The ghost underneath reserves the
+   width of the longest word, so the headline never reflows mid-sentence. */
+.landing-flip {
+  position: relative;
+  display: inline-grid;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+
+.landing-flip-ghost,
+.landing-flip-word {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+
+.landing-flip-ghost {
+  visibility: hidden;
+}
+
+.landing-flip-word {
+  color: var(--landing-accent);
+  transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.26s ease;
+}
+
+/* Riding out the top. */
+.landing-flip-word.is-out {
+  transform: translateY(-105%);
+  opacity: 0;
+}
+
+/* Waiting below, before it springs up. The transition is suppressed for this one frame
+   so the word jumps to the bottom rather than sliding down through the slot. */
+.landing-flip-word.is-in {
+  transform: translateY(105%);
+  opacity: 0;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-ring {
+    animation: none;
+  }
+
+  .landing-flip-word {
+    transition: none;
+  }
 }
 
 .onboarding-landing-wordmark {
@@ -351,7 +451,7 @@
 }
 
 .onboarding-landing-comma {
-  color: var(--color-brand);
+  color: var(--landing-accent);
   font-weight: 700;
 }
 
@@ -365,6 +465,17 @@
 
 .onboarding-landing-primary {
   width: 100%;
+  /* Landing-scoped: the mascot amber, with dark ink for contrast (white on
+     amber fails AA). Overrides .btn-primary's brand green here only. */
+  background: var(--landing-accent);
+  border-color: var(--landing-accent);
+  color: #1a0f04;
+}
+
+.onboarding-landing-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--landing-accent) 86%, #000);
+  border-color: color-mix(in srgb, var(--landing-accent) 86%, #000);
+  filter: none;
 }
 
 .onboarding-landing-link {

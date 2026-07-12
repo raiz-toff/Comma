@@ -140,6 +140,48 @@ function whyBlock(summaryKey, bodyKey) {
   return `<details class="onboarding-why"><summary class="onboarding-why-summary">${esc(t(summaryKey))}</summary><p class="onboarding-why-body">${esc(t(bodyKey))}</p></details>`;
 }
 
+/** The words a work session goes by, depending on which app you drive for. */
+function sessionWords() {
+  return String(t('onboarding.landing.sessionWords'))
+    .split('|')
+    .map((w) => w.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Starts the headline word flip. Called after the landing is in the DOM.
+ * Returns a teardown so a re-render can't leave a second timer running.
+ * @param {ParentNode} root
+ */
+export function initLandingFlip(root) {
+  const slot = root.querySelector('[data-flip-word]');
+  const words = sessionWords();
+  if (!slot || words.length < 2) return () => {};
+
+  // Respect the user's motion setting: the words still rotate, they just cut instead
+  // of sliding. Same bargain the docs site strikes.
+  const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  let i = 0;
+
+  const id = setInterval(() => {
+    if (document.visibilityState !== 'visible') return; // don't animate into a hidden tab
+    i = (i + 1) % words.length;
+    if (reduced) {
+      slot.textContent = words[i];
+      return;
+    }
+    slot.classList.add('is-out'); // current word rides up and out
+    setTimeout(() => {
+      slot.textContent = words[i];
+      slot.classList.remove('is-out');
+      slot.classList.add('is-in'); // next word waits below, then springs up
+      requestAnimationFrame(() => slot.classList.remove('is-in'));
+    }, 260);
+  }, 2400);
+
+  return () => clearInterval(id);
+}
+
 function renderOnboardingLanding() {
   // Comma's namesake is the one decorative gesture on this screen: the commas in the
   // lead sentence take the brand color. Done post-escape so it survives any locale.
@@ -147,15 +189,40 @@ function renderOnboardingLanding() {
     /,/g,
     '<span class="onboarding-landing-comma">,</span>',
   );
+
+  const words = sessionWords();
+  // The ghost is the longest word, rendered invisible, so the headline reserves its width
+  // once and never reflows as the words swap.
+  const widest = words.reduce((a, b) => (a.length >= b.length ? a : b), '');
+
   return `
     <div class="onboarding-landing">
       <header class="onboarding-landing-brand">
-        <img src="/logo.png" alt="" class="onboarding-landing-logo" />
+        <div class="onboarding-landing-mark">
+          <svg class="landing-ring" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+            <defs>
+              <path id="landing-ring-path" d="M 50,50 m -34,0 a 34,34 0 1,1 68,0 a 34,34 0 1,1 -68,0" />
+            </defs>
+            <!-- textLength pins the string to the exact circumference (2πr, r=34) so the seam
+                 never overlaps or gapes, whatever the locale hands us. -->
+            <text class="landing-ring-text">
+              <textPath href="#landing-ring-path" textLength="213.6" lengthAdjust="spacingAndGlyphs">${esc(t('onboarding.landing.ringText'))}</textPath>
+            </text>
+          </svg>
+          <img src="/logo.png" alt="" class="onboarding-landing-logo" />
+        </div>
         <span class="onboarding-landing-wordmark">COMMA</span>
       </header>
 
       <div class="onboarding-landing-hero">
-        <h1 class="onboarding-landing-title">${esc(t('onboarding.landing.heroTitle'))}</h1>
+        <h1 class="onboarding-landing-title">
+          ${esc(t('onboarding.landing.heroTitleLead'))}
+          <span class="landing-flip">
+            <span class="landing-flip-ghost" aria-hidden="true">${esc(widest)}</span>
+            <span class="landing-flip-word" data-flip-word>${esc(words[0] || '')}</span>
+          </span>
+          ${esc(t('onboarding.landing.heroTitleTail'))}
+        </h1>
         <p class="onboarding-landing-lead">${lead}</p>
       </div>
 

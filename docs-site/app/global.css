@@ -78,8 +78,8 @@ html > body[data-scroll-locked] {
 }
 
 @keyframes meter-breathe {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgb(16 185 129 / 0.45); }
-  50%      { opacity: 0.65; box-shadow: 0 0 0 3px rgb(16 185 129 / 0); }
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgb(217 119 6 / 0.45); }
+  50%      { opacity: 0.65; box-shadow: 0 0 0 3px rgb(217 119 6 / 0); }
 }
 
 /* Circular text spinning around the hero mark. */

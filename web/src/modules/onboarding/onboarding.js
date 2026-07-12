@@ -42,7 +42,11 @@ import {
   normalizeTaxRegionForCountry,
   filterPlatformRowsForOnboarding,
   pruneSelectedPlatformsForRegion,
+  initLandingFlip,
 } from './steps.js';
+
+/** Teardown for the landing headline flip, so re-renders don't stack timers. */
+let stopLandingFlip = null;
 
 import { computeFirstShift, ASSUMED_VEHICLE_TYPE } from './firstShift.js';
 import { saveShift } from '../shifts/shifts.js';
@@ -1209,6 +1213,11 @@ export async function mountOnboarding(root) {
       persistSession(draft);
       render();
     });
+
+    // The landing headline cycles the word for a work session. Every render replaces the
+    // DOM, so tear the previous timer down first or they stack up and the words race.
+    stopLandingFlip?.();
+    stopLandingFlip = initLandingFlip(body);
 
     body.querySelector('[data-start-onboarding]')?.addEventListener('click', () => {
       draft.landingComplete = true;

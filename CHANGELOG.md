@@ -2,6 +2,19 @@
 
 All notable changes to Comma are documented here.
 
+## [1.3.0] — 2026-07-12 (versionCode 5)
+
+### Added
+- **Redesigned first-run welcome gate** (app + web): one calm screen — headline, one-line promise, a single "Get started" button, with demo and restore as quiet links. The web version drops the marketing scroller (screenshots, feature sections) and now mirrors the app. Privacy Policy links to the docs site.
+- **2-step onboarding**: setup is now just *where you drive* → *your last shift*, ending in the reveal of what that shift was really worth. Everything else (name, vehicle, goals, theme, sync) is defaulted and offered later by a dashboard checklist.
+- **One-tap cloud sync**: connecting Google Drive is enough — no sync password required by default. End-to-end encryption stays available as an opt-in toggle, and joining from a device with E2E on prompts for that device's password.
+- **Pluggable country registry**: adding a country is now a single registry file per platform (Canada, US, UK, Nepal shipped) — currency, units, tax and mileage rules all flow from it.
+
+### Changed
+- **Design-system pass across the app**: dark tokens are now the runtime default and every screen was remediated to use them (surfaces, hairlines, semantic colors — no invented hexes or shadows).
+- **Performance**: long lists virtualized, R8 + resource shrinking enabled, Metro tree-shaking on (JS bundle 6.78 → 5.34 MB), and PBKDF2 key derivation moved off the UI thread.
+- Clearer GPS tracking permission prompt on first shift start.
+
 ## [1.2.1] — 2026-07-07 (versionCode 4)
 
 ### Added

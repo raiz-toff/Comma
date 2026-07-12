@@ -59,6 +59,9 @@ modules/**/ios/build/
 # Signing
 *.keystore
 
+# Play Store service-account key (never commit)
+/secrets/
+
 assets/logo (2).png
 assets/logowithtext (2).png
 assets/logowithtext.png

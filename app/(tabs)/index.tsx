@@ -46,6 +46,7 @@ import { PlatformBadge } from "../../src/components/ui/PlatformBadge";
 import { AppBottomSheet, type AppBottomSheetRef } from "../../src/components/ui/AppBottomSheet";
 import { CelebrationSheet, type CelebrationSheetRef } from "../../src/components/celebration/CelebrationSheet";
 import { useBackupStatus } from "../../hooks/useBackupStatus";
+import { useDeviceLocationSetup } from "../../hooks/useDeviceLocationSetup";
 import Svg, { Path, Circle, Defs, LinearGradient, Stop, Polyline, Line } from "react-native-svg";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
 import { PLATFORMS } from "../../src/registry/platforms";
@@ -622,6 +623,11 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const C = useColors();
   const S = useThemedStyles(makeS);
+
+  // A restored vault marks onboarding complete, so the wizard — the only thing
+  // that asks for location — never runs on a new phone. An OS grant cannot be
+  // synced. Ask here, once per device. See services/permissions/deviceSetup.ts.
+  useDeviceLocationSetup();
 
   const {
     isActive, platform: activePlatform, elapsedSeconds,

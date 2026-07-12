@@ -18,11 +18,15 @@
  * Components need nothing from this file. They call useColors(), which
  * subscribes to NativeWind directly and re-renders on change.
  *
- * The app boots dark in index.ts, before the router renders. A driver whose
- * saved preference is light still gets a dark first frame while the profile
- * loads out of SQLite — that read is async, and there is no synchronous store to
- * cache the answer in. Dark is the default and the common case, so it is the
- * cheap direction to be wrong in.
+ * BOOTING DARK. `pref` below falls back to dark until the profile arrives from
+ * SQLite, so the effect applies dark on the very first commit — NativeWind's
+ * only chance to be wrong is the initial frame, where it starts on the OS
+ * scheme. That is at most one frame, and only on a light phone.
+ *
+ * Do not "improve" this by setting the scheme at the entry point instead. That
+ * was tried: importing the theme from index.ts hoists NativeWind's runtime ahead
+ * of expo-router/entry and kills the app at startup ("property is not writable").
+ * See ./scheme.ts. One frame is not worth a crash.
  */
 
 import { useEffect } from "react";

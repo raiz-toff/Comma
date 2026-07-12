@@ -11,16 +11,21 @@
  *
  *   1. Never call it during render. Expo Router requires route modules while
  *      rendering, so a module-scope call inside a route's import graph lands
- *      mid-render and React (rightly) complains about a side-effect updating
- *      components. Call it from an effect, or from the entry file before the
- *      router renders.
+ *      mid-render, and React (rightly) objects to a side-effect updating
+ *      components. Call it from an effect.
  *
  *   2. Never call it redundantly. The app suspends on SQLite, so during the
  *      first commit there are components that have rendered but not mounted; a
  *      pointless re-set pushes an update into them.
  *
- * Hence: idempotent, and the only two callers are index.ts (boot) and
- * ThemeSync's effect.
+ * Hence: idempotent, and ThemeSync's effect is the only caller.
+ *
+ * AND DO NOT import this module from index.ts. It was tried, to boot dark before
+ * the router renders. `import` hoists, so it dragged NativeWind's runtime into
+ * the graph ahead of expo-router/entry — and NativeWind patches React Native's
+ * components as it loads. Initialising it before React Native has set up its own
+ * environment killed the app at startup: "TypeError: property is not writable",
+ * thrown before the runtime was ready. It bought nothing anyway; see ThemeSync.
  *
  * "auto" maps to NativeWind's "system", which calls Appearance.setColorScheme
  * ("unspecified") and hands scheme control back to the OS. That is the ONLY way

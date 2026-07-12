@@ -82,13 +82,24 @@ html > body[data-scroll-locked] {
   50% { opacity: 0; }
 }
 
+/* Circular text spinning around the hero mark. */
+.circ-spin {
+  animation: circ-rotate 18s linear infinite;
+  transform-origin: 50% 50%;
+}
+
+@keyframes circ-rotate {
+  to { transform: rotate(360deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .marquee { overflow-x: auto; }
   .marquee-track,
   .rise,
   .receipt-line,
   .rate-pop,
-  .blink {
+  .blink,
+  .circ-spin {
     animation: none;
   }
 }

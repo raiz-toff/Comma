@@ -4,6 +4,13 @@ import { ArrowRight } from 'lucide-react';
 import { androidReleaseUrl, webAppUrl, gitConfig } from '@/lib/shared';
 import { PLATFORM_MARKS } from '@/lib/platform-logos';
 import { LogosCarousel } from '@/components/logos-carousel';
+import { ReceiptSpotlight } from '@/components/receipt-spotlight';
+import { SpinningCircularText } from '@/components/spinning-circular-text';
+import { TextFlip } from '@/components/text-flip';
+
+// What a work session is called depends on the app you drive for — Comma
+// speaks each platform's language, and so does the headline.
+const SESSION_WORDS = ['shift', 'dash', 'block', 'batch', 'week'];
 
 const startHere = [
   {
@@ -47,14 +54,18 @@ const RECEIPT_LINES = [
 
 function Receipt() {
   return (
-    <div className="rise w-full max-w-sm rounded-xl border border-fd-border bg-fd-card p-6 shadow-sm" style={{ ['--rise-delay' as string]: '0.35s' }}>
-      <div className="mb-4 flex items-center justify-between border-b border-dashed border-fd-border pb-3 font-mono text-[11px] uppercase tracking-[0.18em] text-fd-muted-foreground">
+    <div
+      className="rise relative w-full max-w-sm overflow-hidden rounded-xl border border-fd-border bg-fd-card p-6 shadow-sm"
+      style={{ ['--rise-delay' as string]: '0.35s' }}
+    >
+      <ReceiptSpotlight />
+      <div className="relative mb-4 flex items-center justify-between border-b border-dashed border-fd-border pb-3 font-mono text-[11px] uppercase tracking-[0.18em] text-fd-muted-foreground">
         <span>Shift · 6h 40m</span>
         <span>
           recording<span className="blink">_</span>
         </span>
       </div>
-      <div className="space-y-2.5 font-mono text-sm tabular-nums">
+      <div className="relative space-y-2.5 font-mono text-sm tabular-nums">
         {RECEIPT_LINES.map((l, i) => (
           <div
             key={l.label}
@@ -94,15 +105,21 @@ export default function HomePage() {
       {/* Hero */}
       <section className="grid items-center gap-12 border-b border-fd-border py-20 md:grid-cols-[1.2fr_1fr] md:py-24">
         <div>
-          <Image
-            src="/logo.png"
-            alt="Comma"
-            width={52}
-            height={52}
-            className="rise mb-6"
-            style={{ ['--rise-delay' as string]: '0s' }}
-            priority
-          />
+          <div className="rise relative mb-6 size-[116px]" style={{ ['--rise-delay' as string]: '0s' }}>
+            <SpinningCircularText
+              text="every dollar · every kilometre · every write-off · "
+              size={116}
+              className="absolute inset-0 text-fd-muted-foreground"
+            />
+            <Image
+              src="/logo.png"
+              alt="Comma"
+              width={52}
+              height={52}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+              priority
+            />
+          </div>
           <p
             className="rise mb-5 text-xs font-medium uppercase tracking-widest text-fd-muted-foreground"
             style={{ ['--rise-delay' as string]: '0.08s' }}
@@ -113,7 +130,18 @@ export default function HomePage() {
             className="rise max-w-xl text-4xl font-semibold leading-[1.08] tracking-tight text-fd-foreground md:text-5xl"
             style={{ ['--rise-delay' as string]: '0.16s' }}
           >
-            Know what your driving is actually worth.
+            Know what your{' '}
+            <span className="inline-grid align-bottom">
+              <span className="invisible col-start-1 row-start-1" aria-hidden>
+                {SESSION_WORDS.reduce((a, b) => (a.length >= b.length ? a : b))}
+              </span>
+              <TextFlip className="col-start-1 row-start-1 text-emerald-500">
+                {SESSION_WORDS.map((word) => (
+                  <span key={word}>{word}</span>
+                ))}
+              </TextFlip>
+            </span>{' '}
+            is actually worth.
           </h1>
           <p
             className="rise mt-6 max-w-lg text-lg leading-relaxed text-fd-muted-foreground"

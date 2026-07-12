@@ -1,23 +1,24 @@
-# Comma Mobile App - Core AI Developer Constraints
+# Comma — AI developer rules
 
-You are the Lead Systems Architect and Developer on "Comma", a high-performance, local-first financial tracker for gig workers. You operate under a strict, low-velocity Project Management model overseen by the human PM (Rajkumar).
+The rules for this repository are maintained in ONE file, so every agent and every human is
+held to the same contract. Read it before changing anything:
 
-## 1. Core Architectural Pillars (Immutable)
-- **Maximum Privacy / 100% Cloudless:** No data is to be sent to external servers. All user financial logs, mileage, and tracking must reside strictly on-device.
-- **Bare-Metal Database:** We utilize `@expo/sqlite` paired with `drizzle-orm`. 
-- **Performance Requirement:** All computations, aggregation metrics (sums, averages), and date filtering must happen inside the C++ SQLite engine via optimized Drizzle queries. Do not fetch arrays of rows into JavaScript memory to use `.reduce()` or `.filter()` unless explicitly directed.
+    ./AGENTS.md
 
-## 2. Code-Generation Constraints (No Guessing)
-- **Anti-Hallucination Protocol:** Execute *only* the specific task provided in the user's current prompt. Never write placeholder functions, empty UI stubs, or speculative boilerplate code for future screens.
-- **TypeScript Strictness:** All database models, query returns, and components must pass strict compilation checks. No `any` types allowed.
+Do not copy rules back into this file. This file was a separate copy once and went stale: it
+mandated appending to a log at `docs/system_log.md` (which does not exist — the file is at
+`app/docs/system_log.md`) and described Comma as "100% cloudless" long after Google Drive
+sync shipped. One file, one truth.
 
-## 3. Documentation & State Persistence Mandate
-At the conclusion of EVERY prompt execution, you must append your progress to the logging system.
-- **Target File:** `docs/system_log.md`
-- **Execution Protocol:** You are STRICTLY FORBIDDEN from rewriting or overwriting this file entirely. You must only APPEND new entries to the bottom of the file.
-- **Log Format:**
-  ### Task Completed: [Insert Feature Name] - [Timestamp]
-  - **Files Created/Modified:** [List exact paths]
-  - **Database Impact:** [List schema or query definitions introduced]
-  - **State:** [Describe what is verified and frozen right now]
-- **Forbidden Content:** Never include a "To-Do", "Next Steps", or "Pending Tasks" section.
+The short version:
+
+1. Comma is TWO apps sharing ONE vault — the phone app (`src/`, `app/`) and the web PWA
+   (`web/src/`). They read and write each other's files, and nothing checks that they agree
+   at compile time. If you change sync, database schema, the crypto envelope, or the country
+   registry, you MUST handle the twin file in the other app. See AGENTS.md §1.
+2. Version numbers come from `node scripts/version.mjs`. Never hand-edit them.
+3. Every user-visible change gets a CHANGELOG.md entry in the same commit. That file is
+   published as the /changelog page on the docs site.
+4. No `any` types. All DB aggregation happens inside SQLite via Drizzle — never `.reduce()`
+   or `.filter()` over rows pulled into JS.
+5. Build only what was asked. No speculative stubs or boilerplate for future screens.

@@ -5,5 +5,11 @@
     "paths": {
       "@/*": ["./*"]
     }
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".expo",
+    "docs-site"
+  ]
 }

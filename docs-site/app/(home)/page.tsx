@@ -54,46 +54,88 @@ const RECEIPT_LINES = [
 
 function Receipt() {
   return (
-    <div
-      className="rise relative w-full max-w-sm overflow-hidden rounded-xl border border-fd-border bg-fd-card p-6 shadow-sm"
-      style={{ ['--rise-delay' as string]: '0.35s' }}
-    >
-      <ReceiptSpotlight />
-      <div className="relative mb-4 flex items-center justify-between border-b border-dashed border-fd-border pb-3 font-mono text-[11px] uppercase tracking-[0.18em] text-fd-muted-foreground">
-        <span>Shift · 6h 40m</span>
-        <span>
-          recording<span className="blink">_</span>
-        </span>
-      </div>
-      <div className="relative space-y-2.5 font-mono text-sm tabular-nums">
-        {RECEIPT_LINES.map((l, i) => (
-          <div
-            key={l.label}
-            className="receipt-line flex items-baseline justify-between gap-4"
-            style={{ ['--print-delay' as string]: `${0.7 + i * 0.35}s` }}
-          >
-            <span className="text-fd-muted-foreground">{l.label}</span>
-            <span className="text-fd-foreground">{l.value}</span>
-          </div>
-        ))}
-        <div
-          className="rate-pop mt-3 flex items-baseline justify-between gap-4 border-t border-fd-border pt-3"
-          style={{ ['--print-delay' as string]: `${0.7 + RECEIPT_LINES.length * 0.35 + 0.25}s` }}
-        >
-          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-fd-muted-foreground">
-            Real rate
-          </span>
-          <span className="text-2xl font-semibold text-emerald-500">
-            $17.72<span className="text-sm text-fd-muted-foreground">/hr</span>
+    <div className="rise w-full max-w-sm" style={{ ['--rise-delay' as string]: '0.35s' }}>
+      {/* The paper. Torn at the bottom like a till receipt. */}
+      <div
+        className="relative overflow-hidden rounded-t-xl border border-b-0 border-fd-border bg-fd-card px-6 pb-7 pt-5 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_16px_40px_-24px_rgba(0,0,0,0.5)]"
+        style={{
+          maskImage:
+            'linear-gradient(#000 0 calc(100% - 8px), transparent calc(100% - 8px)), conic-gradient(from 135deg at 50% 100%, #000 90deg, transparent 90deg)',
+          maskSize: '100% 100%, 14px 16px',
+          maskPosition: '0 0, 0 100%',
+          maskRepeat: 'no-repeat, repeat-x',
+          maskComposite: 'add',
+          WebkitMaskComposite: 'source-over',
+        }}
+      >
+        <ReceiptSpotlight />
+
+        <div className="relative mb-4 flex items-center justify-between border-b border-dashed border-fd-border pb-3.5 font-mono text-[11px] uppercase tracking-[0.18em] text-fd-muted-foreground">
+          <span className="text-fd-foreground">Comma</span>
+          {/* A meter, not a console. The dot breathes like a taxi meter that's still running. */}
+          <span className="inline-flex items-center gap-1.5">
+            <span className="meter-dot size-1.5 rounded-full bg-emerald-500" />
+            meter running
           </span>
         </div>
-        <p
-          className="receipt-line pt-1 text-xs leading-relaxed text-fd-muted-foreground"
-          style={{ ['--print-delay' as string]: `${0.7 + RECEIPT_LINES.length * 0.35 + 0.7}s` }}
-        >
-          The app called it <span className="line-through">$21.30/hr</span>. Comma shows you this
-          before you configure anything.
+
+        <p className="relative mb-4 font-mono text-[11px] uppercase tracking-[0.18em] text-fd-muted-foreground">
+          Shift · 6h 40m · 47 km
         </p>
+
+        <div className="relative space-y-3 font-mono text-[13.5px] tabular-nums">
+          {RECEIPT_LINES.map((l, i) => (
+            <div
+              key={l.label}
+              className="receipt-line flex items-baseline gap-2"
+              style={{ ['--print-delay' as string]: `${0.7 + i * 0.35}s` }}
+            >
+              <span className="text-fd-muted-foreground">{l.label}</span>
+              <span className="grow border-b border-dotted border-fd-border" aria-hidden />
+              <span className="text-fd-foreground">{l.value}</span>
+            </div>
+          ))}
+
+          {/* The number the whole product exists for. */}
+          <div
+            className="rate-pop relative mt-5 overflow-hidden rounded-lg border border-emerald-500/25 bg-emerald-500/[0.06] px-4 py-3"
+            style={{ ['--print-delay' as string]: `${0.7 + RECEIPT_LINES.length * 0.35 + 0.25}s` }}
+          >
+            <div
+              className="pointer-events-none absolute -right-6 -top-8 size-24 rounded-full bg-emerald-500/25 blur-2xl"
+              aria-hidden
+            />
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
+                Real rate
+              </span>
+              <span className="text-[26px] font-semibold leading-none text-emerald-500">
+                $17.72<span className="ml-0.5 text-sm font-normal text-fd-muted-foreground">/hr</span>
+              </span>
+            </div>
+            <p className="mt-1.5 text-right font-mono text-[11px] text-fd-muted-foreground">
+              the app said <span className="line-through">$21.30</span>
+            </p>
+          </div>
+
+          {/* Barcode footer — every receipt has one. */}
+          <div
+            className="receipt-line pt-3"
+            style={{ ['--print-delay' as string]: `${0.7 + RECEIPT_LINES.length * 0.35 + 0.7}s` }}
+          >
+            <div
+              className="h-7 w-full text-fd-foreground/70"
+              style={{
+                background:
+                  'repeating-linear-gradient(90deg, currentColor 0 1.5px, transparent 1.5px 4px, currentColor 4px 7px, transparent 7px 9px, currentColor 9px 10px, transparent 10px 14px)',
+              }}
+              aria-hidden
+            />
+            <p className="mt-2 text-center font-mono text-[10px] uppercase tracking-[0.3em] text-fd-muted-foreground">
+              before you configure anything
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -162,13 +204,13 @@ export default function HomePage() {
               href={androidReleaseUrl}
               className="rounded-lg border border-fd-border px-4 py-2.5 text-sm font-medium text-fd-foreground transition-colors hover:border-fd-foreground/40 hover:bg-fd-muted"
             >
-              Download for Android
+              Android APK
             </a>
             <a
               href={webAppUrl}
               className="rounded-lg border border-fd-border px-4 py-2.5 text-sm font-medium text-fd-foreground transition-colors hover:border-fd-foreground/40 hover:bg-fd-muted"
             >
-              Open the web app
+              Web app
             </a>
           </div>
         </div>

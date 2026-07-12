@@ -72,14 +72,14 @@ html > body[data-scroll-locked] {
   100% { opacity: 1; transform: scale(1); }
 }
 
-/* The cursor blink on the receipt header — the meter is on. */
-.blink {
-  animation: blink 1.2s step-end infinite;
+/* The meter is on. A slow breath, not a terminal cursor — the shift is still earning. */
+.meter-dot {
+  animation: meter-breathe 2.4s ease-in-out infinite;
 }
 
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+@keyframes meter-breathe {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgb(16 185 129 / 0.45); }
+  50%      { opacity: 0.65; box-shadow: 0 0 0 3px rgb(16 185 129 / 0); }
 }
 
 /* Circular text spinning around the hero mark. */
@@ -98,7 +98,7 @@ html > body[data-scroll-locked] {
   .rise,
   .receipt-line,
   .rate-pop,
-  .blink,
+  .meter-dot,
   .circ-spin {
     animation: none;
   }

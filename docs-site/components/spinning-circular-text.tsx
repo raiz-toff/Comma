@@ -26,8 +26,12 @@ export function SpinningCircularText({
       <defs>
         <path id="circ-text-path" d="M 50,50 m -38,0 a 38,38 0 1,1 76,0 a 38,38 0 1,1 -76,0" />
       </defs>
-      <text className="fill-current font-mono text-[8.5px] font-medium uppercase tracking-[0.22em]">
-        <textPath href="#circ-text-path">{text}</textPath>
+      {/* textLength pins the text to the exact circumference (2πr, r=38) so the
+          seam never overlaps or gaps regardless of the string. */}
+      <text className="fill-current font-mono text-[8px] font-medium uppercase">
+        <textPath href="#circ-text-path" textLength={238.6} lengthAdjust="spacingAndGlyphs">
+          {text}
+        </textPath>
       </text>
     </svg>
   );

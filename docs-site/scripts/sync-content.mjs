@@ -95,11 +95,44 @@ function escapeAngles(md) {
     .join('');
 }
 
-// [x](./a/b.md) -> [x](./a/b) ; keep anchors and external URLs.
-function rewriteLinks(md) {
-  return md.replace(/\]\(([^)]+)\)/g, (m, target) => {
-    if (/^[a-z]+:\/\//i.test(target) || target.startsWith('#')) return m;
-    return `](${target.replace(/\.md(#|$)/i, '$1')})`;
+const GITHUB_BLOB = 'https://github.com/raiz-toff/Comma/blob/main';
+
+// Map a docs-relative markdown path to its published route.
+function routeFor(docPath) {
+  const clean = docPath.replace(/\.md$/i, '');
+  if (clean === 'index') return '/docs';
+  if (clean === 'privacy') return '/privacy';
+  if (clean === 'delete-data') return '/delete-data';
+  return `/docs/${clean}`;
+}
+
+// Resolve every relative link to an ABSOLUTE url at build time. Relative hrefs
+// resolve against the page URL in the browser, which does not mirror the file
+// tree (the /docs index would send "./getting-started/x" to /getting-started/x),
+// so relative links must not survive into the output.
+//   - links to docs/*.md            -> absolute site route (+anchor)
+//   - links that escape docs/ or hit a non-page file -> GitHub blob URL
+// `dirRel` is the source file's directory relative to docs/ ('' for the root).
+function resolveLinks(md, dirRel) {
+  return md.replace(/\]\(([^)\s]+)\)/g, (m, target) => {
+    if (/^[a-z]+:\/\//i.test(target) || target.startsWith('#') || target.startsWith('/')) return m;
+    const [file, anchor] = target.split('#');
+    const resolved = path.posix.normalize(path.posix.join(dirRel, file));
+
+    // Escapes docs/ -> a repository file.
+    if (resolved.startsWith('..')) {
+      const repoPath = path.posix.normalize(path.posix.join('docs', dirRel, file));
+      return `](${GITHUB_BLOB}/${repoPath.replace(/^(\.\.\/)+/, '')})`;
+    }
+    // A docs page.
+    if (/\.md$/i.test(resolved)) {
+      return `](${routeFor(resolved)}${anchor ? `#${anchor}` : ''})`;
+    }
+    // A non-page file. Prefer the repo root if it exists there (authors often
+    // write src/... or package.json meaning the repository, not docs/).
+    const fromRoot = path.posix.normalize(file);
+    if (existsSync(path.join(REPO_ROOT, fromRoot))) return `](${GITHUB_BLOB}/${fromRoot})`;
+    return `](${GITHUB_BLOB}/docs/${resolved})`;
   });
 }
 
@@ -158,7 +191,7 @@ async function main() {
       const fm = ['---', `title: "${yamlEscape(title || slug)}"`];
       if (description) fm.push(`description: "${yamlEscape(description.slice(0, 240))}"`);
       fm.push('---', '');
-      await writeFile(path.join(OUT, section.dir, `${slug}.mdx`), fm.join('\n') + escapeAngles(rewriteLinks(body)) + '\n');
+      await writeFile(path.join(OUT, section.dir, `${slug}.mdx`), fm.join('\n') + escapeAngles(resolveLinks(body, section.dir)) + '\n');
       present.push(slug);
     }
     if (present.length === 0) continue;
@@ -176,10 +209,20 @@ async function main() {
     : { title: 'Documentation', description: '', body: '' };
   await writeFile(
     path.join(OUT, 'index.mdx'),
-    ['---', 'title: "Documentation"', `description: "${yamlEscape(indexBody.description || 'Comma documentation')}"`, '---', '', escapeAngles(rewriteLinks(indexBody.body))].join('\n') + '\n',
+    ['---', 'title: "Documentation"', `description: "${yamlEscape(indexBody.description || 'Comma documentation')}"`, '---', '', escapeAngles(resolveLinks(indexBody.body, ''))].join('\n') + '\n',
   );
   rootMeta.pages.unshift('index');
   await writeFile(path.join(OUT, 'meta.json'), JSON.stringify(rootMeta, null, 2) + '\n');
+
+  // Vendor the legal pages for the /privacy and /delete-data routes. These URLs
+  // are load-bearing: the Play Store listing and both apps link to them.
+  for (const slug of ['privacy', 'delete-data']) {
+    const f = path.join(SRC, `${slug}.md`);
+    if (existsSync(f)) {
+      const raw = stripEmoji(await fs.readFile(f, 'utf8'));
+      await writeFile(path.resolve(__dirname, `../lib/legal/${slug}.md`), resolveLinks(raw, ''));
+    }
+  }
 
   // Vendor the changelog for the /changelog route.
   const clSrc = existsSync(path.join(REPO_ROOT, 'CHANGELOG.md'))

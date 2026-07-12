@@ -12,6 +12,20 @@ const config = {
   turbopack: {
     root: path.dirname(fileURLToPath(import.meta.url)),
   },
+  // The pre-Fumadocs site served docs at the root (/getting-started/faq).
+  // Old bookmarks and in-app links keep working.
+  async redirects() {
+    return [
+      ...['getting-started', 'features', 'guides', 'reference', 'backup-and-sync', 'architecture', 'development'].map(
+        (section) => ({
+          source: `/${section}/:slug*`,
+          destination: `/docs/${section}/:slug*`,
+          permanent: true,
+        }),
+      ),
+      { source: '/privacy.html', destination: '/privacy', permanent: true },
+    ];
+  },
 };
 
 export default withMDX(config);

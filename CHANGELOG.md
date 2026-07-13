@@ -8,22 +8,24 @@ All notable changes to Comma are documented here.
 - **Comma fits a tablet now.** It was built for a phone, and on a big screen it showed: cards stretched the full width, and a line of text ran so far across that you lost your place in it. Now the page holds a comfortable width and sits centred, and on a wide screen the Analytics cards sit two side by side instead of one enormous one. Your phone is untouched — none of this happens below tablet width. Rotating, unfolding, or dropping Comma into a split-screen now re-lays the page out properly rather than leaving it stuck at whatever size it started.
 - **Light mode**: Comma can now be light. It always follows your phone's own setting — set your phone to dark for a night shift and Comma goes dark with it, no configuring required. It fades rather than snapping, so switching themes at night doesn't put a screenful of white in your eyes. Your route maps switch over too, so a light screen no longer wraps a dark map.
 
+### Changed
+- **App-grade interactions everywhere (web)**: the whole app now behaves like a native app. Swipe a shift, expense, vehicle or notification for its actions; pickers and forms open as bottom sheets you can drag, snap and flick away; confirms are proper dialogs, toasts and toggles feel like the ones on your phone. Same look, same speed — new touch.
+- **Dashboard checklist opens a focused screen, not the general Settings (web)**: "Add your other apps," "Tell us your real vehicle" and "Set a weekly goal" now each open one small screen that does exactly that job and returns you to the dashboard — matching how the phone app already works — instead of dropping you into Settings, Vehicles or Goals to hunt for the right spot.
+- **Livelier welcome screen (web)**: the logo now sits inside a slowly turning ring — *every dollar · every kilometre · every write-off* — and the headline names your work the way your app does, cycling through shift, dash, block, batch and week. Both settle into stillness if your device asks for reduced motion.
+
 ### Fixed
 - **A restored phone now asks for location.** Restoring your vault onto a new phone left that phone with no location access — Comma saw the restored setup, decided you were already sorted, and never asked. But a location permission belongs to a *phone*, not to a backup: it cannot travel in your vault. The cost was invisible. Tracking would stop the moment you switched to your delivery app, so shifts logged short and you under-claimed the write-off, with nothing on screen to suggest anything was wrong. A phone that has never been asked is now asked, once.
+- **No more Google sign-in prompts on every open (web)**: the app kept its Drive session only in memory and tried to re-authenticate itself on every launch, which threw the Google login screen at you on each open or reload. The session now survives reloads, and the app never asks to sign in on its own — only when you tap a sync or backup action yourself.
+- **Tapping some icon buttons silently did nothing (web)**: a few icon-only buttons weren't registering taps at all. They respond now.
+- **Janky arrow navigation on Expenses and Analytics (web)**: paging between weeks/months with the arrow buttons stuttered. Now smooth.
+- **Bottom sheets on desktop (web)**: sheets no longer hide their own footer, and sheets whose content is taller than the screen now scroll instead of clipping.
 
 ## [1.3.1] — 2026-07-12 (versionCode 7)
 
 ### Added
 - **Over-the-air updates**: builds now carry the `production` update channel, so JS-only fixes and improvements arrive automatically on next app launch — no store update or reinstall needed. Native changes still ship as regular releases.
 
-### Changed
-- **Dashboard checklist opens a focused screen, not the general Settings (web)**: "Add your other apps," "Tell us your real vehicle" and "Set a weekly goal" now each open one small screen that does exactly that job and returns you to the dashboard — matching how the phone app already works — instead of dropping you into Settings, Vehicles or Goals to hunt for the right spot.
-- **App-grade interactions everywhere (web)**: the whole app now behaves like a native app. Swipe a shift, expense, vehicle or notification for its actions; pickers and forms open as bottom sheets you can drag, snap and flick away; confirms are proper dialogs, toasts and toggles feel like the ones on your phone. Same look, same speed — new touch.
-- **Livelier welcome screen (web)**: the logo now sits inside a slowly turning ring — *every dollar · every kilometre · every write-off* — and the headline names your work the way your app does, cycling through shift, dash, block, batch and week. Both settle into stillness if your device asks for reduced motion.
-
 ### Fixed
-- **Dark/Light toggle in Settings did nothing (app)**: picking Light or Auto in Appearance settings saved your choice but never repainted the screen — the app stayed dark regardless. The toggle now actually applies, and new profiles default to Auto (follows your phone's system setting) instead of being locked to Dark.
-- **No more Google sign-in prompts on every open (web)**: the app kept its Drive session only in memory and tried to re-authenticate itself on every launch, which threw the Google login screen at you on each open or reload. The session now survives reloads, and the app never asks to sign in on its own — only when you tap a sync or backup action yourself.
 - **Invisible text in release builds**: the experimental Metro tree-shaking used for 1.3.0 stripped NativeWind's runtime styles, leaving most text unreadable in the production APK (debug builds were unaffected). Tree-shaking is permanently disabled for release builds. (The 1.3.0 download was replaced in-place with a fixed build; 1.3.1 supersedes both.)
 - **Web app reported the wrong version**: the web app still identified itself as 1.3.0 — in its "What's New" panel and in the version line attached to support requests — and that panel still described features from an older release. It now reports 1.3.1 and describes what actually shipped: two-step setup, one-tap cloud sync, optional end-to-end encryption, and the redesigned interface.
 

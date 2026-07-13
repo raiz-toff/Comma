@@ -55,6 +55,30 @@ export function showChangelogModal(lastVersion = '') {
             <p>Comma's Android app now follows your phone's own light/dark setting automatically, the way this browser app always has.</p>
           </div>
         </div>
+
+        <div class="changelog-item">
+          <div class="changelog-item-icon">${getIcon('layout-grid', 24)}</div>
+          <div class="changelog-item-text">
+            <h4>App-grade interactions everywhere</h4>
+            <p>Swipe a shift, expense, vehicle or notification for its actions. Pickers and forms open as bottom sheets you can drag, snap and flick away. Same look, same speed — new touch.</p>
+          </div>
+        </div>
+
+        <div class="changelog-item">
+          <div class="changelog-item-icon">${getIcon('check', 24)}</div>
+          <div class="changelog-item-text">
+            <h4>Dashboard checklist opens the right screen</h4>
+            <p>"Add your other apps," "Tell us your real vehicle" and "Set a weekly goal" now each open one small screen that does exactly that job, instead of dropping you into Settings to hunt for it.</p>
+          </div>
+        </div>
+
+        <div class="changelog-item">
+          <div class="changelog-item-icon">${getIcon('shield', 24)}</div>
+          <div class="changelog-item-text">
+            <h4>No more sign-in prompts on every open</h4>
+            <p>Your Google Drive session now survives reloads. The app never asks you to sign in on its own — only when you tap a sync or backup action yourself.</p>
+          </div>
+        </div>
       </div>
 
       <div class="changelog-footer">

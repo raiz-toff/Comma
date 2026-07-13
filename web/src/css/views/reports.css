@@ -38,35 +38,6 @@
   }
 }
 
-/* Period Selector */
-.reports-period-selector {
-  display: flex;
-  gap: var(--space-1);
-  flex-wrap: wrap;
-  padding: var(--space-1);
-  background: var(--color-surface-raised);
-  border-radius: var(--radius-lg);
-}
-
-.reports-period-btn {
-  background: transparent;
-  border: none;
-  color: var(--color-text-secondary);
-  font-size: 11px;
-  font-weight: 700;
-  padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-  border-radius: var(--radius-md);
-  transition: all 0.2s ease;
-  flex: 1 1 auto;
-  text-align: center;
-}
-
-.reports-period-btn.is-active {
-  background: var(--color-brand);
-  color: var(--color-white);
-}
-
 /* Template Builder */
 .reports-template-grid {
   display: grid;
@@ -170,9 +141,9 @@
   gap: var(--space-2);
 }
 
-.export-btn-group .btn {
+.export-btn-group ion-button {
   width: 100%;
-  white-space: nowrap;
+  margin: 0;
 }
 
 .import-section {
@@ -338,4 +309,19 @@
 
 .text-right {
   text-align: right;
+}
+
+/* ── Ionic component conversion (reports screen) ───────────────────────────────────────
+ * The report-period picker is an ion-segment (replaces the old .reports-period-btn group);
+ * export/share actions are ion-buttons. Full-width sizing the old .btn classes provided in
+ * the export groups moves onto the ion-buttons above. */
+.reports-period-segment {
+  width: 100%;
+}
+
+.reports-period-segment ion-segment-button {
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: none;
 }

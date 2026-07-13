@@ -82,7 +82,9 @@ function daysUntilReset(nextResetDate) {
 function ring(pct, o = {}) {
   const size = o.size ?? 140;
   const stroke = o.stroke ?? 10;
-  const color = o.color ?? '#f59e0b';
+  // Tokens only (AGENTS.md §5) — `stroke` moves to an inline style because CSS var() does not
+  // resolve inside SVG presentation attributes.
+  const color = o.color ?? 'var(--color-warning)';
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const off = c - (Math.min(100, Math.max(0, Number(pct) || 0)) / 100) * c;
@@ -90,7 +92,7 @@ function ring(pct, o = {}) {
     <div class="gv-ring" style="width:${size}px;height:${size}px;">
       <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
         <circle class="gv-ring-track" cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke-width="${stroke}"></circle>
-        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}"
+        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" style="stroke:${color};" stroke-width="${stroke}"
           stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" stroke-linecap="round"
           transform="rotate(-90 ${size / 2} ${size / 2})"></circle>
       </svg>
@@ -129,15 +131,15 @@ export async function render(root, ctx) {
     ? `
       <div class="gv-card gv-hero">
         <div class="gv-hero-main">
-          <span class="gv-kicker" style="color:#f59e0b;">Weekly Thermometer</span>
+          <span class="gv-kicker" style="color:var(--color-warning);">Weekly Thermometer</span>
           <h1 class="gv-hero-title">${esc(humanizeType(weeklyGoal.type))}</h1>
           <p class="gv-hero-sub">Weekly Target Progress</p>
           <div class="gv-hero-value">${esc(formatCurrency(weeklyGoal.current || 0))}</div>
-          <button class="gv-edit-target" data-action="edit-weekly-goal">
+          <ion-button size="small" fill="outline" class="gv-edit-target" data-action="edit-weekly-goal">
             ${getIcon('edit', 13)} <span>EDIT TARGET</span>
-          </button>
+          </ion-button>
         </div>
-        ${ring(thermoPct, { color: '#f59e0b', center: `<span class="gv-ring-pct">${thermoPct}%</span>` })}
+        ${ring(thermoPct, { color: 'var(--color-warning)', center: `<span class="gv-ring-pct">${thermoPct}%</span>` })}
       </div>`
     : '';
 
@@ -145,7 +147,7 @@ export async function render(root, ctx) {
     <div class="gv-card gv-list">
       <div class="gv-list-head">
         <h2>${weeklyGoal ? 'Other Active Goals' : 'Active Goals'}</h2>
-        <button class="gv-add" data-action="add-goal">${getIcon('plus', 16)} <span>ADD</span></button>
+        <ion-button size="small" fill="clear" color="warning" class="gv-add" data-action="add-goal">${getIcon('plus', 16)} <span>ADD</span></ion-button>
       </div>
       <div class="gv-list-body">
         ${otherGoals.length === 0
@@ -156,25 +158,33 @@ export async function render(root, ctx) {
                 ? formatCurrency(goal.target || 0)
                 : formatLargeNumber(goal.target || 0);
               return `
-                <div class="gv-goal">
-                  <div class="gv-goal-top">
-                    <div class="gv-goal-id">
-                      <div class="gv-goal-icon">${UNIT_ICON[goal.type] || '🎯'}</div>
-                      <div>
-                        <div class="gv-goal-name">${esc(humanizeType(goal.type))}</div>
-                        <div class="gv-goal-meta">${esc(goal.scope)} · ${esc(UNIT_LABEL[goal.type] || goal.type)}</div>
+                <ion-item-sliding class="gv-sliding" data-goal-id="${esc(goal.id)}">
+                  <ion-item class="gv-ion-item" lines="none">
+                    <div class="gv-goal">
+                      <div class="gv-goal-top">
+                        <div class="gv-goal-id">
+                          <div class="gv-goal-icon">${UNIT_ICON[goal.type] || '🎯'}</div>
+                          <div>
+                            <div class="gv-goal-name">${esc(humanizeType(goal.type))}</div>
+                            <div class="gv-goal-meta">${esc(goal.scope)} · ${esc(UNIT_LABEL[goal.type] || goal.type)}</div>
+                          </div>
+                        </div>
+                        <div class="gv-goal-right">
+                          <div class="gv-goal-target">${esc(target)}</div>
+                          <div class="gv-goal-actions">
+                            <ion-button size="small" fill="clear" color="medium" class="gv-ibtn" data-action="edit-goal" data-id="${esc(goal.id)}" aria-label="Edit">${getIcon('edit', 14)}</ion-button>
+                            <ion-button size="small" fill="clear" color="danger" class="gv-ibtn" data-action="delete-goal" data-id="${esc(goal.id)}" aria-label="Delete">${getIcon('trash', 14)}</ion-button>
+                          </div>
+                        </div>
                       </div>
+                      <ion-progress-bar class="gv-bar ${pct >= 100 ? 'gv-bar--success' : 'gv-bar--warning'}" value="${(pct / 100).toFixed(3)}"></ion-progress-bar>
                     </div>
-                    <div class="gv-goal-right">
-                      <div class="gv-goal-target">${esc(target)}</div>
-                      <div class="gv-goal-actions">
-                        <button class="gv-ibtn" data-action="edit-goal" data-id="${esc(goal.id)}" aria-label="Edit">${getIcon('edit', 14)}</button>
-                        <button class="gv-ibtn gv-danger" data-action="delete-goal" data-id="${esc(goal.id)}" aria-label="Delete">${getIcon('trash', 14)}</button>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="gv-bar"><div class="gv-bar-fill" style="width:${pct}%;background:${pct >= 100 ? '#22c55e' : '#f59e0b'};"></div></div>
-                </div>`;
+                  </ion-item>
+                  <ion-item-options side="end">
+                    <ion-item-option color="medium" data-action="edit-goal" data-id="${esc(goal.id)}">${esc(t('common.edit'))}</ion-item-option>
+                    <ion-item-option color="danger" data-action="delete-goal" data-id="${esc(goal.id)}">${esc(t('common.delete'))}</ion-item-option>
+                  </ion-item-options>
+                </ion-item-sliding>`;
             }).join('')}
       </div>
     </div>`;
@@ -183,19 +193,19 @@ export async function render(root, ctx) {
   const xpHtml = `
     <div class="gv-card" style="padding:20px;">
       <div class="gv-row-between" style="margin-bottom:16px;">
-        <div class="gv-inline"><span style="color:#3b82f6;">${getIcon('award', 16)}</span><span class="gv-cap">Driver XP</span></div>
+        <div class="gv-inline"><span style="color:var(--color-info);">${getIcon('award', 16)}</span><span class="gv-cap">Driver XP</span></div>
         <div class="gv-lvl">LVL ${xpLevel}</div>
       </div>
       <div class="gv-xp">${esc(formatLargeNumber(xpTotal))} <span class="gv-xp-unit">XP</span></div>
-      <div class="gv-bar" style="margin:10px 0;"><div class="gv-bar-fill" style="width:${xpTotal % 100}%;background:#3b82f6;"></div></div>
+      <ion-progress-bar class="gv-bar gv-bar--info" style="margin:10px 0;" value="${((xpTotal % 100) / 100).toFixed(2)}"></ion-progress-bar>
       <div class="gv-hint">${100 - (xpTotal % 100)} XP to Level ${xpLevel + 1}</div>
     </div>`;
 
   const streakHtml = `
     <div class="gv-card" style="padding:20px;">
-      <div class="gv-inline" style="margin-bottom:20px;"><span style="color:#FF5247;">${getIcon('fire', 16)}</span><span class="gv-cap">Day Streak</span></div>
+      <div class="gv-inline" style="margin-bottom:20px;"><span style="color:var(--color-danger);">${getIcon('fire', 16)}</span><span class="gv-cap">Day Streak</span></div>
       <div class="gv-streak">
-        ${ring(streakPct, { size: 110, stroke: 8, color: '#FF5247', center: `<span class="gv-streak-n">${streakDays}</span><span class="gv-streak-l">days</span>` })}
+        ${ring(streakPct, { size: 110, stroke: 8, color: 'var(--color-danger)', center: `<span class="gv-streak-n">${streakDays}</span><span class="gv-streak-l">days</span>` })}
         <div class="gv-streak-side">
           <div>
             <div class="gv-mini-cap">Next milestone</div>
@@ -227,12 +237,12 @@ export async function render(root, ctx) {
                     <div class="gv-ch-body">
                       <div class="gv-row-between">
                         <span class="gv-ch-name">${esc(c.name)}</span>
-                        <span class="gv-ch-pct" style="color:${done ? '#22c55e' : '#ec4899'};">${done ? '✓ Done' : pct + '%'}</span>
+                        <span class="gv-ch-pct" style="color:${done ? 'var(--color-success)' : 'var(--color-brand)'};">${done ? '✓ Done' : pct + '%'}</span>
                       </div>
                       ${c.description ? `<div class="gv-ch-desc">${esc(c.description)}</div>` : ''}
                     </div>
                   </div>
-                  <div class="gv-bar" style="margin:6px 0;"><div class="gv-bar-fill" style="width:${pct}%;background:${done ? '#22c55e' : '#ec4899'};"></div></div>
+                  <ion-progress-bar class="gv-bar ${done ? 'gv-bar--success' : 'gv-bar--brand'}" style="margin:6px 0;" value="${(pct / 100).toFixed(2)}"></ion-progress-bar>
                   <div class="gv-hint">${done ? `Resets in ${resetDays} day${resetDays === 1 ? '' : 's'}` : `${resetDays} day${resetDays === 1 ? '' : 's'} remaining`}</div>
                 </div>`;
             }).join('')}
@@ -257,7 +267,7 @@ export async function render(root, ctx) {
   const bestHtml = `
     <div class="gv-card gv-best">
       <div class="gv-inline">
-        <span style="color:#f59e0b;">${getIcon('trending-up', 18)}</span>
+        <span style="color:var(--color-warning);">${getIcon('trending-up', 18)}</span>
         <div>
           <div class="gv-cap">Best Shift — All Time</div>
           <div class="gv-best-val">${esc(formatCurrency(bestGross))}</div>
@@ -270,10 +280,10 @@ export async function render(root, ctx) {
     <div class="goals-view-container" data-goals-root>
       <div class="gv-header"><h1 class="gv-page-title">Goals &amp; Progress</h1></div>
 
-      <div class="gv-tabs" role="tablist">
-        <button class="gv-tab is-active" data-tab="0" role="tab">Goals</button>
-        <button class="gv-tab" data-tab="1" role="tab">Progress</button>
-      </div>
+      <ion-segment class="gv-tabs" value="0" data-gv-tabs>
+        <ion-segment-button value="0"><ion-label>Goals</ion-label></ion-segment-button>
+        <ion-segment-button value="1"><ion-label>Progress</ion-label></ion-segment-button>
+      </ion-segment>
 
       <div class="gv-panel is-active" data-panel="0">
         ${heroHtml}
@@ -320,11 +330,7 @@ export async function render(root, ctx) {
       .gv-header { text-align:center; padding:6px 0 16px; }
       .gv-page-title { margin:0; font-size:17px; font-weight:900; letter-spacing:-0.3px; color:var(--gv-text); }
 
-      .gv-tabs { display:flex; gap:0; background:var(--gv-inset); border:0.8px solid var(--gv-inset2);
-        border-radius:14px; padding:4px; margin-bottom:20px; }
-      .gv-tab { flex:1; padding:10px; border:none; background:transparent; border-radius:10px; cursor:pointer;
-        font-size:13px; font-weight:800; color:var(--gv-muted); transition:background 0.15s; }
-      .gv-tab.is-active { background:var(--gv-inset2); color:var(--gv-text); }
+      /* Goals/Progress switch is an ion-segment now — host plumbing lives in css/views/goals.css. */
 
       .gv-panel { display:none; flex-direction:column; gap:16px; }
       .gv-panel.is-active { display:flex; }
@@ -338,8 +344,7 @@ export async function render(root, ctx) {
       .gv-hero-title { margin:0 0 6px; font-size:24px; font-weight:900; letter-spacing:-0.5px; line-height:1.15; color:var(--gv-text); text-transform:capitalize; }
       .gv-hero-sub { margin:0 0 14px; font-size:12px; font-weight:600; color:var(--gv-muted); }
       .gv-hero-value { font-size:38px; font-weight:800; letter-spacing:-0.5px; color:var(--gv-text); margin-bottom:18px; line-height:1; }
-      .gv-edit-target { display:inline-flex; align-items:center; gap:6px; background:var(--gv-inset2); border:none;
-        color:var(--gv-text); font-size:11px; font-weight:800; padding:9px 14px; border-radius:12px; cursor:pointer; }
+      /* .gv-edit-target is an ion-button now — see css/views/goals.css. */
 
       /* Ring */
       .gv-ring { position:relative; display:grid; place-items:center; flex-shrink:0; }
@@ -349,8 +354,7 @@ export async function render(root, ctx) {
       /* Active goals list */
       .gv-list-head { display:flex; align-items:center; justify-content:space-between; padding:20px; border-bottom:0.8px solid var(--gv-border); }
       .gv-list-head h2 { margin:0; font-size:16px; font-weight:800; color:var(--gv-text); }
-      .gv-add { display:inline-flex; align-items:center; gap:6px; background:none; border:none; cursor:pointer;
-        color:#f59e0b; font-size:12px; font-weight:800; text-transform:uppercase; }
+      /* .gv-add is an ion-button (fill=clear, color=warning) now — see css/views/goals.css. */
       .gv-list-body { padding:20px; display:flex; flex-direction:column; gap:20px; }
       .gv-empty { margin:0; font-size:13px; color:var(--gv-muted); font-style:italic; text-align:center; }
       .gv-goal { display:flex; flex-direction:column; gap:10px; }
@@ -362,11 +366,13 @@ export async function render(root, ctx) {
       .gv-goal-meta { font-size:11px; font-weight:700; color:var(--gv-muted); text-transform:uppercase; margin-top:2px; }
       .gv-goal-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
       .gv-goal-target { font-size:14px; font-weight:900; color:var(--gv-text); }
-      .gv-goal-actions { display:flex; gap:8px; }
-      .gv-ibtn { background:none; border:none; padding:0; cursor:pointer; color:var(--gv-muted); display:inline-flex; }
-      .gv-ibtn.gv-danger { color:#FF5247; }
-      .gv-bar { height:5px; background:var(--gv-border); border-radius:3px; overflow:hidden; }
-      .gv-bar-fill { height:100%; border-radius:3px; transition:width 0.4s ease; }
+      .gv-goal-actions { display:flex; gap:8px; align-items:center; }
+      /* .gv-ibtn is an ion-button (fill=clear) now — see css/views/goals.css. */
+      .gv-bar { height:5px; border-radius:3px; overflow:hidden; --background: var(--gv-border); }
+      .gv-bar--success { --progress-background: var(--color-success); }
+      .gv-bar--warning { --progress-background: var(--color-warning); }
+      .gv-bar--brand { --progress-background: var(--color-brand); }
+      .gv-bar--info { --progress-background: var(--color-info); }
 
       /* Progress tab shared */
       .gv-row-between { display:flex; align-items:center; justify-content:space-between; }
@@ -375,7 +381,7 @@ export async function render(root, ctx) {
       .gv-card-title { margin:0 0 18px; font-size:16px; font-weight:800; color:var(--gv-text); }
       .gv-hint { font-size:11px; font-weight:700; color:var(--gv-dim); }
 
-      .gv-lvl { background:var(--gv-lvl-bg); border:1px solid #3b82f640; border-radius:8px; padding:4px 10px; font-size:11px; font-weight:900; color:#3b82f6; }
+      .gv-lvl { background:var(--gv-lvl-bg); border:1px solid color-mix(in srgb, var(--color-info) 25%, transparent); border-radius:8px; padding:4px 10px; font-size:11px; font-weight:900; color:var(--color-info); }
       .gv-xp { font-size:34px; font-weight:800; letter-spacing:-0.5px; color:var(--gv-text); line-height:1; }
       .gv-xp-unit { font-size:16px; color:var(--gv-dim); font-weight:600; }
 
@@ -393,8 +399,8 @@ export async function render(root, ctx) {
       .gv-challenges { display:flex; flex-direction:column; gap:16px; }
       .gv-ch-top { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
       .gv-ch-icon { width:40px; height:40px; border-radius:20px; background:var(--gv-card); border:1px solid var(--gv-inset2);
-        display:grid; place-items:center; color:#ec4899; flex-shrink:0; }
-      .gv-ch-icon.done { background:var(--gv-done-bg); border-color:#22c55e40; color:#22c55e; }
+        display:grid; place-items:center; color:var(--color-brand); flex-shrink:0; }
+      .gv-ch-icon.done { background:var(--gv-done-bg); border-color:color-mix(in srgb, var(--color-success) 25%, transparent); color:var(--color-success); }
       .gv-ch-body { flex:1; min-width:0; }
       .gv-ch-name { font-size:13px; font-weight:800; color:var(--gv-text); }
       .gv-ch-pct { font-size:12px; font-weight:900; }
@@ -420,16 +426,21 @@ export async function render(root, ctx) {
     </style>
   `;
 
-  // ── Tab switching (no re-render, preserves scroll) ──
-  const tabs = Array.from(root.querySelectorAll('.gv-tab'));
+  // ── Tab switching (ion-segment; no re-render, preserves scroll) ──
+  const seg = root.querySelector('[data-gv-tabs]');
   const panels = Array.from(root.querySelectorAll('.gv-panel'));
-  tabs.forEach((tab) => {
-    tab.addEventListener('click', () => {
-      const idx = tab.dataset.tab;
-      tabs.forEach((tt) => tt.classList.toggle('is-active', tt.dataset.tab === idx));
+  if (seg) {
+    seg.addEventListener('ionChange', (e) => {
+      const idx = String(/** @type {CustomEvent} */ (e).detail?.value ?? '0');
       panels.forEach((p) => p.classList.toggle('is-active', p.dataset.panel === idx));
     });
-  });
+  }
+
+  /** Swipe-action taps come from inside an open ion-item-sliding — snap it shut before acting. */
+  const closeSlider = (el) => {
+    const slider = /** @type {{ close?: () => Promise<void> } | null} */ (el.closest('ion-item-sliding'));
+    if (slider && typeof slider.close === 'function') void slider.close();
+  };
 
   // ── Interaction handlers ──
   root.querySelectorAll('[data-action="edit-weekly-goal"]').forEach((btn) => {
@@ -444,6 +455,7 @@ export async function render(root, ctx) {
 
   root.querySelectorAll('[data-action="edit-goal"]').forEach((btn) => {
     btn.addEventListener('click', () => {
+      closeSlider(btn);
       // goals.id is a client-generated string (Fix 2 — interop plan) — no numeric coercion.
       const id = btn.dataset.id;
       const goal = activeGoals.find((g) => g.id === id);
@@ -453,6 +465,7 @@ export async function render(root, ctx) {
 
   root.querySelectorAll('[data-action="delete-goal"]').forEach((btn) => {
     btn.addEventListener('click', () => {
+      closeSlider(btn);
       const id = btn.dataset.id;
       showConfirm({
         title: 'Delete Goal',
@@ -478,7 +491,7 @@ export async function render(root, ctx) {
         <div style="font-size:56px;filter:${badge.unlockedAt ? 'none' : 'grayscale(1) opacity(0.3)'};">${esc(badge.icon)}</div>
         <h3 style="margin:12px 0 4px;font-weight:900;">${esc(badge.name)}</h3>
         <p style="margin:0;color:var(--color-text-muted);font-size:0.85rem;">${esc(badge.description || '')}</p>
-        <div style="margin-top:12px;font-weight:800;font-size:0.75rem;color:${badge.unlockedAt ? '#22c55e' : 'var(--color-text-muted)'};">
+        <div style="margin-top:12px;font-weight:800;font-size:0.75rem;color:${badge.unlockedAt ? 'var(--color-success)' : 'var(--color-text-muted)'};">
           ${badge.unlockedAt ? '✓ UNLOCKED' : 'LOCKED'}
         </div>`;
       showModal({ title: '', content: el, actions: [{ label: t('common.close'), class: 'btn btn-secondary' }] });
@@ -510,7 +523,7 @@ export async function render(root, ctx) {
         <label class="input-label">Target Value</label>
         <div class="input-with-action">
           <input type="number" class="input" id="goal-target" value="${goal?.target || 100}" step="any">
-          <button class="btn btn-ghost" id="btn-keypad">${getIcon('dollar', 14)}</button>
+          <ion-button size="small" fill="clear" id="btn-keypad" aria-label="Enter Target">${getIcon('dollar', 14)}</ion-button>
         </div>
       </div>
     `;

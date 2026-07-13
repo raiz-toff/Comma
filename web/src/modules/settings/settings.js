@@ -208,60 +208,51 @@ async function dbStats() {
   return { count, minDate, maxDate, totalKm };
 }
 
-function mountKeyboardOverlay(host) {
-  const existing = host.querySelector('[data-shortcuts-overlay]');
-  if (existing) existing.remove();
-  const overlay = document.createElement('div');
-  overlay.className = 'settings-shortcuts-overlay';
-  overlay.setAttribute('data-shortcuts-overlay', '1');
-  overlay.setAttribute('aria-hidden', 'true');
-  overlay.innerHTML = `
-    <div class="card card-raised settings-shortcuts-card" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+function mountKeyboardOverlay() {
+  // Ionic: the shortcuts overlay presents as an ion-modal bottom sheet. Escape / backdrop
+  // tap / swipe-down are ion-modal's own dismissal paths — the manual keydown and backdrop
+  // handlers the old fixed overlay needed are gone.
+  /** @type {(HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean> }) | null} */
+  let modal = null;
+
+  const close = () => {
+    if (modal) void modal.dismiss();
+  };
+
+  const open = () => {
+    // Remove any prior instance first so rapid re-opens can't stack.
+    document.querySelectorAll('.settings-shortcuts-modal').forEach((n) => n.remove());
+    const m = /** @type {HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean> }} */ (
+      document.createElement('ion-modal')
+    );
+    m.classList.add('settings-shortcuts-modal');
+    /** @type {any} */ (m).breakpoints = [0, 0.65, 0.92];
+    /** @type {any} */ (m).initialBreakpoint = 0.65;
+    /** @type {any} */ (m).handle = true;
+    const sheet = document.createElement('div');
+    sheet.className = 'settings-shortcuts-sheet';
+    sheet.innerHTML = `
       <h3 class="settings-section-title">Keyboard shortcuts</h3>
       <ul class="settings-shortcuts-list">
         ${formatShortcutOverlayListItems(esc)}
       </ul>
       <div class="settings-shortcuts-actions">
-        <button type="button" class="btn btn-secondary btn-sm" data-close-shortcuts>${esc(t('common.close'))}</button>
+        <ion-button size="small" fill="outline" data-close-shortcuts>${esc(t('common.close'))}</ion-button>
       </div>
-    </div>
-  `;
-  host.appendChild(overlay);
-
-  /** @param {KeyboardEvent} ev */
-  function onEscape(ev) {
-    if (ev.key !== 'Escape') return;
-    if (!overlay.classList.contains('is-open')) return;
-    ev.preventDefault();
-    ev.stopPropagation();
-    close();
-  }
-
-  const close = () => {
-    overlay.classList.remove('is-open');
-    overlay.setAttribute('aria-hidden', 'true');
-    document.removeEventListener('keydown', onEscape, true);
+    `;
+    sheet.addEventListener('click', (e) => {
+      const closer = e.target instanceof Element ? e.target.closest('[data-close-shortcuts]') : null;
+      if (closer) close();
+    });
+    m.appendChild(sheet);
+    m.addEventListener('ionModalDidDismiss', () => {
+      m.remove();
+      if (modal === m) modal = null;
+    });
+    document.body.appendChild(m);
+    modal = m;
+    void m.present();
   };
-
-  const open = () => {
-    document.removeEventListener('keydown', onEscape, true);
-    overlay.classList.add('is-open');
-    overlay.setAttribute('aria-hidden', 'false');
-    document.addEventListener('keydown', onEscape, true);
-  };
-
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) {
-      close();
-      return;
-    }
-    const closer = e.target instanceof Element ? e.target.closest('[data-close-shortcuts]') : null;
-    if (closer) {
-      e.preventDefault();
-      e.stopPropagation();
-      close();
-    }
-  });
 
   return { open, close };
 }
@@ -347,7 +338,7 @@ export async function mountSettings(root, ctx = {}) {
     <section class="settings-view-section card card-raised">
       <p class="text-secondary settings-section-lead">${esc(t('settings.demoBanner'))}</p>
       <div class="settings-actions">
-        <button type="button" class="btn btn-primary btn-sm" data-exit-demo>${esc(t('settings.exitDemoBtn'))}</button>
+        <ion-button size="small" data-exit-demo>${esc(t('settings.exitDemoBtn'))}</ion-button>
       </div>
     </section>`
         : ''
@@ -379,7 +370,7 @@ export async function mountSettings(root, ctx = {}) {
           </label>
         </div>
         <div class="settings-actions">
-          <button type="button" class="btn btn-primary btn-sm" data-save-profile>${esc(t('common.save'))}</button>
+          <ion-button size="small" data-save-profile>${esc(t('common.save'))}</ion-button>
         </div>
       </div>
     </section>
@@ -416,7 +407,7 @@ export async function mountSettings(root, ctx = {}) {
           </label>
         </div>
         <div class="settings-actions">
-          <button type="button" class="btn btn-primary btn-sm" data-save-market>${esc(t('settings.saveMarket'))}</button>
+          <ion-button size="small" data-save-market>${esc(t('settings.saveMarket'))}</ion-button>
         </div>
       </div>
     </section>
@@ -457,13 +448,12 @@ export async function mountSettings(root, ctx = {}) {
               ).join('')}
             </select>
           </label>
-          <label class="settings-check" data-setting-hst-row style="${hstOnboarding ? '' : 'display:none'}">
-            <input type="checkbox" data-setting-hst ${user.hstRegistered ? 'checked' : ''} />
-            ${esc(t('onboarding.steps.hstToggle'))}
-          </label>
+          <div class="settings-check settings-check-toggle" data-setting-hst-row style="${hstOnboarding ? '' : 'display:none'}">
+            <ion-toggle label-placement="start" justify="space-between" data-setting-hst ${user.hstRegistered ? 'checked' : ''}>${esc(t('onboarding.steps.hstToggle'))}</ion-toggle>
+          </div>
         </div>
         <div class="settings-actions">
-          <button type="button" class="btn btn-primary btn-sm" data-save-goals-tax>${esc(t('settings.saveGoalsTax'))}</button>
+          <ion-button size="small" data-save-goals-tax>${esc(t('settings.saveGoalsTax'))}</ion-button>
         </div>
       </div>
     </section>`;
@@ -487,17 +477,17 @@ export async function mountSettings(root, ctx = {}) {
           <div class="settings-grid">
             <div class="input-group">
               <span class="input-label">${esc(t('settings.theme'))}</span>
-              <div class="settings-segmented-control" role="radiogroup" aria-label="Theme selection" data-theme-switcher>
-                <button type="button" role="radio" class="settings-segmented-btn ${user.theme === 'auto' ? 'is-active' : ''}" data-theme="auto" aria-checked="${user.theme === 'auto' ? 'true' : 'false'}">
+              <ion-segment class="settings-theme-segment" value="${esc(user.theme || 'auto')}" aria-label="Theme selection" data-theme-switcher>
+                <ion-segment-button value="auto" layout="icon-start" data-theme="auto">
                   ${getIcon('monitor', 16)} <span>Auto</span>
-                </button>
-                <button type="button" role="radio" class="settings-segmented-btn ${user.theme === 'light' ? 'is-active' : ''}" data-theme="light" aria-checked="${user.theme === 'light' ? 'true' : 'false'}">
+                </ion-segment-button>
+                <ion-segment-button value="light" layout="icon-start" data-theme="light">
                   ${getIcon('sun', 16)} <span>Light</span>
-                </button>
-                <button type="button" role="radio" class="settings-segmented-btn ${user.theme === 'dark' ? 'is-active' : ''}" data-theme="dark" aria-checked="${user.theme === 'dark' ? 'true' : 'false'}">
+                </ion-segment-button>
+                <ion-segment-button value="dark" layout="icon-start" data-theme="dark">
                   ${getIcon('moon', 16)} <span>Dark</span>
-                </button>
-              </div>
+                </ion-segment-button>
+              </ion-segment>
             </div>
             <label class="input-group">
               <span class="input-label">Font size</span>
@@ -517,9 +507,9 @@ export async function mountSettings(root, ctx = {}) {
             </label>
             <div class="input-group">
               <span class="input-label">${esc(t('pwa.toggleFullscreen'))}</span>
-              <button type="button" class="btn btn-secondary btn-sm" style="width: 100%; height: 38px; display: flex; align-items: center; justify-content: center; gap: 8px;" data-toggle-fullscreen-appearance>
+              <ion-button size="small" fill="outline" expand="block" data-toggle-fullscreen-appearance>
                 ${getIcon('maximize', 16)} <span>Toggle Full Screen</span>
-              </button>
+              </ion-button>
             </div>
           </div>
 
@@ -539,13 +529,13 @@ export async function mountSettings(root, ctx = {}) {
               </div>
               <label class="settings-accent-hex-inline">
                 <span class="settings-accent-hex-label">${esc(t('settings.accentCustomHex'))}</span>
-                <input class="input" data-setting-accent-hex value="${esc(user.accentColor || '')}" placeholder="#10B981" />
+                <input class="input" data-setting-accent-hex value="${esc(user.accentColor || '')}" placeholder="#RRGGBB" />
               </label>
             </div>
           </div>
 
           <div class="settings-actions">
-            <button type="button" class="btn btn-primary btn-sm" data-save-display>${esc(t('common.save'))}</button>
+            <ion-button size="small" data-save-display>${esc(t('common.save'))}</ion-button>
           </div>
         </div>
       </section>
@@ -591,7 +581,7 @@ export async function mountSettings(root, ctx = {}) {
             </label>
           </div>
           <div class="settings-actions">
-            <button type="button" class="btn btn-primary btn-sm" data-save-display>${esc(t('common.save'))}</button>
+            <ion-button size="small" data-save-display>${esc(t('common.save'))}</ion-button>
           </div>
         </div>
       </section>
@@ -617,14 +607,14 @@ export async function mountSettings(root, ctx = {}) {
         </header>
         <div class="settings-collapsible-body">
           <p class="text-secondary settings-section-lead">${esc(t('settings.notificationsLead'))}</p>
-          <div class="settings-grid settings-tight-grid">
+          <ion-list class="settings-toggle-list" lines="none">
             ${Object.entries(notificationPrefs)
-              .map(([k, v]) => `<label class="settings-check"><input type="checkbox" data-setting-notif="${esc(k)}" ${v ? 'checked' : ''} /> ${esc(k)}</label>`)
+              .map(([k, v]) => `<ion-item class="settings-toggle-item" lines="none"><ion-toggle label-placement="start" justify="space-between" data-setting-notif="${esc(k)}" ${v ? 'checked' : ''}>${esc(k)}</ion-toggle></ion-item>`)
               .join('')}
-          </div>
+          </ion-list>
           <div class="settings-actions">
-            <button type="button" class="btn btn-primary btn-sm" data-save-notifications>${esc(t('common.save'))}</button>
-            <button type="button" class="btn btn-secondary btn-sm" data-open-shortcuts>${esc(t('settings.shortcutsTitle'))}</button>
+            <ion-button size="small" data-save-notifications>${esc(t('common.save'))}</ion-button>
+            <ion-button size="small" fill="outline" data-open-shortcuts>${esc(t('settings.shortcutsTitle'))}</ion-button>
           </div>
         </div>
       </section>
@@ -655,11 +645,11 @@ export async function mountSettings(root, ctx = {}) {
           <div class="settings-data-group">
             <h4 class="settings-group-title">${getIcon('download', 14)} ${esc(t('settings.dataVaultActions'))}</h4>
             <div class="settings-actions settings-wrap">
-              <a class="btn btn-primary btn-sm" href="#/reports">${getIcon('chart-bar', 14)} ${esc(t('settings.openReportsBtn'))}</a>
-              <button type="button" class="btn btn-secondary btn-sm" data-export-vault-reports>${getIcon('file-text', 14)} ${esc(t('settings.exportVaultBtn'))}</button>
-              <button type="button" class="btn btn-secondary btn-sm" data-import-vault-file-btn>${getIcon('upload', 14)} Import backup file</button>
+              <ion-button size="small" href="#/reports">${getIcon('chart-bar', 14)} ${esc(t('settings.openReportsBtn'))}</ion-button>
+              <ion-button size="small" fill="outline" data-export-vault-reports>${getIcon('file-text', 14)} ${esc(t('settings.exportVaultBtn'))}</ion-button>
+              <ion-button size="small" fill="outline" data-import-vault-file-btn>${getIcon('upload', 14)} Import backup file</ion-button>
               <input type="file" data-import-vault-file accept=".json,.comdb,application/json" style="display:none" />
-              <button type="button" class="btn btn-secondary btn-sm" data-export-snapshot>${getIcon('camera', 14)} ${esc(t('settings.quickSnapshotBtn'))}</button>
+              <ion-button size="small" fill="outline" data-export-snapshot>${getIcon('camera', 14)} ${esc(t('settings.quickSnapshotBtn'))}</ion-button>
             </div>
           </div>
 
@@ -670,10 +660,10 @@ export async function mountSettings(root, ctx = {}) {
                 <span class="input-label">Auto-archive deleted records older than days</span>
                 <input class="input" data-archive-days type="number" min="7" step="1" value="30" />
               </label>
-              <button type="button" class="btn btn-secondary btn-sm" data-run-archive>Run archive</button>
+              <ion-button size="small" fill="outline" data-run-archive>Run archive</ion-button>
             </div>
             <div class="settings-actions">
-              <button type="button" class="btn btn-secondary btn-sm" data-run-integrity>${getIcon('check', 14)} Run integrity check</button>
+              <ion-button size="small" fill="outline" data-run-integrity>${getIcon('check', 14)} Run integrity check</ion-button>
             </div>
           </div>
           
@@ -702,13 +692,13 @@ export async function mountSettings(root, ctx = {}) {
             </label>
           </div>
           <div class="settings-actions">
-            <button type="button" class="btn btn-danger btn-sm" data-reset-platform ${activePlats.length === 0 ? 'disabled' : ''}>Reset platform data</button>
+            <ion-button size="small" color="danger" data-reset-platform ${activePlats.length === 0 ? 'disabled' : ''}>Reset platform data</ion-button>
           </div>
           <hr class="settings-divider" />
           <p class="text-secondary settings-section-lead">Export is required before full vault wipe.</p>
           <div class="settings-actions">
-            <button type="button" class="btn btn-secondary btn-sm" data-export-backup>Export backup first</button>
-            <button type="button" class="btn btn-danger btn-sm" data-reset-vault>Reset vault</button>
+            <ion-button size="small" fill="outline" data-export-backup>Export backup first</ion-button>
+            <ion-button size="small" color="danger" data-reset-vault>Reset vault</ion-button>
           </div>
         </div>
       </section>`;
@@ -723,16 +713,16 @@ export async function mountSettings(root, ctx = {}) {
           </p>
         </div>
         <div class="settings-actions settings-wrap" style="display: flex; flex-wrap: wrap; gap: var(--space-2);">
-          <a class="btn btn-secondary btn-sm" href="https://comma-docs.vercel.app" target="_blank" rel="noopener noreferrer">Help &amp; Docs</a>
-          <a class="btn btn-secondary btn-sm" href="https://github.com/raiz-toff/CommaApp/releases/latest" target="_blank" rel="noopener noreferrer">Get the Android App</a>
-          <button type="button" class="btn btn-secondary btn-sm" data-open-install>Install COMMA</button>
-          <a class="btn btn-secondary btn-sm" href="#/about">Data Portability Manifesto</a>
-          <a class="btn btn-secondary btn-sm" href="https://github.com/raiz-toff/CommaApp/blob/main/web/CHANGELOG.md" target="_blank" rel="noopener noreferrer">Changelog</a>
-          <a class="btn btn-secondary btn-sm" href="#/support">Support & Feedback</a>
-          <a class="btn btn-secondary btn-sm" href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
-          <button type="button" class="btn btn-secondary btn-sm" data-share-comma>Share COMMA</button>
-          <a class="btn btn-secondary btn-sm" href="https://en.wikipedia.org/wiki/Glossary_of_economics" target="_blank" rel="noopener noreferrer">Driver Financial Glossary</a>
-          <button type="button" class="btn btn-primary btn-sm" style="display: none;" data-open-dev-tools>Open Developer Tools</button>
+          <ion-button size="small" fill="outline" href="https://comma-docs.vercel.app" target="_blank" rel="noopener noreferrer">Help &amp; Docs</ion-button>
+          <ion-button size="small" fill="outline" href="https://github.com/raiz-toff/CommaApp/releases/latest" target="_blank" rel="noopener noreferrer">Get the Android App</ion-button>
+          <ion-button size="small" fill="outline" data-open-install>Install COMMA</ion-button>
+          <ion-button size="small" fill="outline" href="#/about">Data Portability Manifesto</ion-button>
+          <ion-button size="small" fill="outline" href="https://github.com/raiz-toff/CommaApp/blob/main/web/CHANGELOG.md" target="_blank" rel="noopener noreferrer">Changelog</ion-button>
+          <ion-button size="small" fill="outline" href="#/support">Support & Feedback</ion-button>
+          <ion-button size="small" fill="outline" href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</ion-button>
+          <ion-button size="small" fill="outline" data-share-comma>Share COMMA</ion-button>
+          <ion-button size="small" fill="outline" href="https://en.wikipedia.org/wiki/Glossary_of_economics" target="_blank" rel="noopener noreferrer">Driver Financial Glossary</ion-button>
+          <ion-button size="small" style="display: none;" data-open-dev-tools>Open Developer Tools</ion-button>
         </div>
         <p class="text-xs text-secondary" style="margin: 0; min-height: var(--space-4);" data-debug-hint></p>
       </section>
@@ -741,7 +731,7 @@ export async function mountSettings(root, ctx = {}) {
 </div>
   `;
 
-  const shortcuts = mountKeyboardOverlay(root);
+  const shortcuts = mountKeyboardOverlay();
   const platformsHost = /** @type {HTMLElement | null} */ (root.querySelector('[data-platforms-host]'));
   if (platformsHost) await mountSettingsPlatforms(platformsHost);
 
@@ -856,24 +846,13 @@ export async function mountSettings(root, ctx = {}) {
     showToast({ type: 'success', message: 'Profile saved.' });
   });
 
-  root.querySelector('[data-theme-switcher]')?.addEventListener('click', (ev) => {
-    const btn = ev.target instanceof Element ? ev.target.closest('[data-theme]') : null;
-    if (!(btn instanceof HTMLButtonElement)) return;
-    const theme = btn.dataset.theme;
-    if (!theme) return;
-
-    root.querySelectorAll('[data-theme]').forEach((b) => {
-      const active = b === btn;
-      b.classList.toggle('is-active', active);
-      b.setAttribute('aria-checked', active ? 'true' : 'false');
-    });
-  });
-
+  // Theme selection lives in an ion-segment now: it tracks its own selected state, so the
+  // old is-active class juggling is gone — the save handler reads the segment's `value`.
   root.querySelectorAll('[data-save-display]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const currency = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-currency]'))?.value || 'USD';
-      const activeBtn = /** @type {HTMLElement | null} */ (root.querySelector('[data-theme].is-active'));
-      const theme = activeBtn?.dataset.theme || 'auto';
+      const themeSeg = /** @type {(HTMLElement & { value?: string | number }) | null} */ (root.querySelector('[data-theme-switcher]'));
+      const theme = typeof themeSeg?.value === 'string' && themeSeg.value ? themeSeg.value : 'auto';
       const fontSize = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-font]'))?.value || 'medium';
       const layoutDensity = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-density]'))?.value || 'comfortable';
       const dateFormat = /** @type {HTMLSelectElement | null} */ (root.querySelector('[data-setting-date-format]'))?.value || 'YYYY-MM-DD';
@@ -986,11 +965,11 @@ export async function mountSettings(root, ctx = {}) {
 
   root.querySelector('[data-save-notifications]')?.addEventListener('click', async () => {
     const next = {};
+    // ion-toggle keeps its `checked` property current on user interaction (ionChange), so a
+    // read at save time sees the live state — same contract the old checkboxes had.
     root.querySelectorAll('[data-setting-notif]').forEach((el) => {
-      if (el instanceof HTMLInputElement) {
-        const key = el.getAttribute('data-setting-notif');
-        if (key) next[key] = el.checked;
-      }
+      const key = el.getAttribute('data-setting-notif');
+      if (key) next[key] = Boolean(/** @type {HTMLElement & { checked?: boolean }} */ (el).checked);
     });
     await saveUser({ notificationPrefs: next });
     await store.refresh('user');
@@ -1067,7 +1046,7 @@ export async function mountSettings(root, ctx = {}) {
     taxWithholdingPct = Math.max(0, Math.min(60, taxWithholdingPct));
     const presetRaw = String(/** @type {HTMLSelectElement} */ (root.querySelector('[data-setting-work-schedule]'))?.value || 'flexible');
     const safePreset = WORK_SCHEDULE_PRESETS.includes(presetRaw) ? presetRaw : 'flexible';
-    const hstEl = /** @type {HTMLInputElement | null} */ (root.querySelector('[data-setting-hst]'));
+    const hstEl = /** @type {(HTMLElement & { checked?: boolean }) | null} */ (root.querySelector('[data-setting-hst]'));
     const hstOn = Boolean(getCountryTaxProfile(country).hstOnboarding);
     await saveUser({
       weeklyGoal: Math.round(weeklyDol * 100),
@@ -1075,7 +1054,7 @@ export async function mountSettings(root, ctx = {}) {
       annualGoal: Math.round(annualDol * 100),
       taxWithholdingPct,
       workSchedule: { preset: safePreset, label: t(`onboarding.schedule.${safePreset}`) },
-      hstRegistered: hstOn && hstEl ? hstEl.checked : false,
+      hstRegistered: hstOn && hstEl ? Boolean(hstEl.checked) : false,
     });
     await store.refresh('user');
     bus.emit(GOAL_UPDATED, { source: 'settings_goals_tax' });

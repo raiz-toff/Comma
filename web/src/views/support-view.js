@@ -62,15 +62,16 @@ export async function render(root, ctx) {
           COMMA is a fully open-source, community-driven project. If you are comfortable using GitHub, we track and resolve bugs, feature requests, and tasks publicly on our repository.
         </p>
         <div style="margin-top: auto; padding-top: var(--space-2);">
-          <a href="https://github.com/raiz-toff/CommaApp/issues/new" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: var(--space-2);">
-            ${getIcon('export', 16)} Open GitHub Issues
-          </a>
+          <ion-button size="small" href="https://github.com/raiz-toff/CommaApp/issues/new" target="_blank" rel="noopener noreferrer">
+            <span slot="start" aria-hidden="true" style="display: inline-flex;">${getIcon('export', 16)}</span>
+            Open GitHub Issues
+          </ion-button>
         </div>
       </section>
 
       <!-- Buy Me a Coffee Card -->
       <section class="card card-raised" style="display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4);">
-        <div style="display: flex; align-items: center; gap: var(--space-2); color: #FFDD00;">
+        <div style="display: flex; align-items: center; gap: var(--space-2); color: var(--color-warning);">
           ${getIcon('award', 22)}
           <h2 style="font-size: var(--text-lg); font-weight: 700; margin: 0; color: var(--color-text-primary);">Buy Me a Coffee</h2>
         </div>
@@ -78,15 +79,15 @@ export async function render(root, ctx) {
           COMMA is entirely free, local-first, and open source. If you love using this app and want to support its ongoing development, consider buying the developer a coffee!
         </p>
         <div style="margin-top: auto; padding-top: var(--space-2);">
-          <a href="https://buymeacoffee.com/raiztuffy" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: var(--space-2); background: #FFDD00; color: #000000; border: none; font-weight: 700;">
+          <ion-button size="small" color="warning" href="https://buymeacoffee.com/raiztuffy" target="_blank" rel="noopener noreferrer">
             ☕ Buy Me a Coffee
-          </a>
+          </ion-button>
         </div>
       </section>
 
       <!-- Email Support Card -->
       <section class="card card-raised" style="display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4);">
-        <div style="display: flex; align-items: center; gap: var(--space-2); color: var(--color-primary, #10b981);">
+        <div style="display: flex; align-items: center; gap: var(--space-2); color: var(--color-brand);">
           ${getIcon('bell', 22)}
           <h2 style="font-size: var(--text-lg); font-weight: 700; margin: 0;">Email Support Directly</h2>
         </div>

@@ -1394,30 +1394,6 @@
   }
 }
 
-/* Dashboard KPI Card Tabs */
-.kpi-card-tabs .btn {
-  color: var(--color-text-secondary) !important;
-  opacity: 0.6 !important;
-  background: transparent !important;
-  border-color: transparent !important;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: none !important;
-}
-
-.kpi-card-tabs .btn:hover {
-  opacity: 0.95 !important;
-  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent) !important;
-}
-
-.kpi-card-tabs .btn.is-active {
-  color: var(--color-text-primary) !important;
-  opacity: 1 !important;
-  background: var(--color-surface) !important;
-  border-color: var(--color-border) !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06) !important;
-  font-weight: 800 !important;
-}
-
 /* ── Activation panel ─────────────────────────────────────────────────────────
    The setup deferred out of the onboarding wizard, surfaced beside the numbers each item
    sharpens. Mirrors the phone app's ActivationChecklist. Removes itself once done or dismissed. */
@@ -1514,4 +1490,77 @@
 
 .dashboard-activation-empty {
   margin-bottom: var(--space-4);
+}
+
+/* ── Ionic component spike (dashboard screen) ──────────────────────────────────────────
+ * Header/action buttons are ion-buttons, the KPI Active/Online toggles are mini
+ * ion-segments, and the first-paint loading state uses ion-skeleton-text (same pattern
+ * as the shifts screen — see shifts.css). Sizing values below are carried over from the
+ * inline styles the old buttons wore; nothing here is a new design decision. */
+
+/* Header Start/Active-shift pill (was an inline-styled .btn). */
+ion-button.dash-timer-btn {
+  --border-radius: 20px;
+  font-weight: 700;
+}
+.dash-timer-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  margin-inline-end: var(--space-2);
+}
+.dash-timer-play {
+  width: 14px;
+  height: 14px;
+  margin-inline-end: var(--space-2);
+}
+
+/* KPI-card Active/Online mini segment (was two inline-styled .btn-xs tabs). */
+ion-segment.kpi-card-tabs {
+  --background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  min-height: 0;
+  align-self: center;
+}
+ion-segment.kpi-card-tabs ion-segment-button {
+  --padding-start: 6px;
+  --padding-end: 6px;
+  --color: var(--color-text-secondary);
+  --color-checked: var(--color-text-primary);
+  min-height: 18px;
+  min-width: 0;
+  height: 18px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+/* Monthly-breakdown action links became ion-buttons; keep the icon/label gap. */
+ion-button.financial-monthly-action .financial-monthly-action-icon {
+  margin-inline-end: var(--space-1);
+}
+
+/* Slotted content sits in ion-button's own flex row, where the old `gap` rules can't
+ * reach — restore the icon/label spacing the native buttons had. */
+ion-button.financial-dash-apply svg {
+  margin-inline-end: var(--space-2);
+}
+ion-button[data-dashboard-toggle-filter] svg {
+  margin-inline-start: var(--space-1);
+}
+
+/* First-paint skeleton card (copy of .shift-skel from shifts.css). */
+.dash-skel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
 }

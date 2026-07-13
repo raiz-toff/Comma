@@ -113,22 +113,6 @@
   color: var(--color-text-secondary);
 }
 
-.import-drag-zone-btn {
-  background: var(--color-brand);
-  color: white;
-  padding: var(--space-2) var(--space-6);
-  border-radius: var(--radius-full);
-  font-weight: 600;
-  font-size: var(--text-sm);
-  border: none;
-  cursor: pointer;
-  transition: opacity 0.2s ease;
-}
-
-.import-drag-zone-btn:hover {
-  opacity: 0.9;
-}
-
 /* FILE DETAILS CARD */
 .import-file-details {
   display: flex;
@@ -234,22 +218,6 @@
   line-height: 1.5;
 }
 
-.import-empty-btn {
-  margin-top: var(--space-2);
-  background: var(--color-brand);
-  color: white;
-  border: none;
-  font-weight: 600;
-  border-radius: var(--radius-full);
-  padding: var(--space-2) var(--space-6);
-  cursor: pointer;
-  transition: opacity 0.2s ease;
-}
-
-.import-empty-btn:hover {
-  opacity: 0.9;
-}
-
 /* WIZARD LAYOUT */
 .import-wizard-layout {
   display: flex;
@@ -318,18 +286,6 @@
 
 .import-step-item.completed .import-step-label {
   color: var(--color-brand);
-}
-
-.import-step-connector {
-  flex: 1;
-  height: 2px;
-  background: var(--color-border);
-  margin: 0 var(--space-4);
-  transition: background-color 0.2s ease;
-}
-
-.import-step-connector.completed {
-  background: var(--color-brand);
 }
 
 /* WIZARD CONTENT WORKSPACE */
@@ -588,4 +544,28 @@
   font-size: var(--text-lg);
   font-weight: 800;
   color: var(--color-text-primary);
+}
+
+/* ── Ionic component spike (import screen) ─────────────────────────────────────────────
+ * Step-navigation buttons are ion-buttons; the wizard-step connectors are ion-progress-bars
+ * (value 0/1 = pending/completed); the header-row switch is an ion-toggle. File inputs and
+ * the mapping/spreadsheet tables stay native. */
+ion-progress-bar.import-step-connector {
+  flex: 1;
+  height: 2px;
+  margin: 0 var(--space-4);
+  border-radius: var(--radius-full);
+  --background: var(--color-border);
+  --progress-background: var(--color-brand);
+}
+
+.import-toggle-row ion-toggle {
+  --track-background: var(--color-border);
+  --track-background-checked: var(--color-brand);
+}
+
+/* Spinner slotted into the submit ion-button while an import is running. */
+.import-submit-spinner {
+  width: 16px;
+  height: 16px;
 }

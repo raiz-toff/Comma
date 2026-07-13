@@ -369,25 +369,8 @@
   text-decoration: underline;
 }
 
-/* Use .is-open — author `display: grid` wins over the `[hidden]` attribute in common browsers. */
-.settings-shortcuts-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-modal);
-  background: rgba(0, 0, 0, 0.45);
-  display: none;
-  place-items: center;
-  padding: var(--space-4);
-}
-
-.settings-shortcuts-overlay.is-open {
-  display: grid;
-}
-
-.settings-shortcuts-card {
-  width: min(560px, 100%);
-}
-
+/* The shortcuts overlay presents as an ion-modal bottom sheet now (see the Ionic section at
+ * the bottom of this file); only the sheet's inner list/action styles remain. */
 .settings-shortcuts-list {
   margin-top: var(--space-3);
   display: grid;
@@ -946,7 +929,7 @@ html[data-layout-density='compact'] {
 
 .settings-segmented-btn.is-active {
   background: var(--color-brand);
-  color: #1a1916;
+  color: var(--color-brand-contrast);
   box-shadow: var(--shadow-sm);
 }
 
@@ -1041,4 +1024,55 @@ html[data-layout-density='compact'] {
   text-align: center;
   color: var(--color-text-secondary);
   font-style: italic;
+}
+
+/* ── Ionic components (settings screen) ─────────────────────────────────────────────────
+ * Toggle rows ride inside ion-list/ion-item with the item chrome zeroed (same pattern as
+ * shifts.css); the theme picker is an ion-segment; the keyboard-shortcuts overlay is an
+ * ion-modal bottom sheet hosting the existing list styles. */
+.settings-toggle-list {
+  background: transparent;
+  padding: 0;
+  margin: var(--space-2) 0 0;
+}
+
+.settings-toggle-item {
+  --background: transparent;
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  --min-height: 44px;
+  width: 100%;
+  font-size: var(--text-sm);
+}
+
+.settings-toggle-item::part(native) {
+  padding: 0;
+}
+
+.settings-toggle-item ion-toggle {
+  width: 100%;
+  font-size: var(--text-sm);
+}
+
+.settings-check-toggle ion-toggle {
+  width: 100%;
+  font-size: var(--text-sm);
+}
+
+.settings-theme-segment {
+  width: 100%;
+}
+
+.settings-theme-segment ion-segment-button::part(native) {
+  gap: var(--space-2);
+}
+
+.settings-theme-segment ion-segment-button svg {
+  opacity: 0.7;
+}
+
+ion-modal.settings-shortcuts-modal .settings-shortcuts-sheet {
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-4) var(--space-8);
 }

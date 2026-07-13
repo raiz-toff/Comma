@@ -147,11 +147,7 @@
   padding-top: var(--space-2);
 }
 
-.vehicle-actions .btn {
-  flex: 1;
-  padding: var(--space-2);
-  font-size: 11px;
-}
+/* Buttons in this row are ion-button now — sizing lives in the Ionic block below. */
 
 /* Comparison Section */
 .vehicle-comparison {
@@ -188,4 +184,43 @@
 .comparison-best {
   color: var(--color-success);
   font-weight: 700;
+}
+
+/* ── Ionic conversion (vehicles screen) ─────────────────────────────────────────────────
+ * Support styles for wrapping each .vehicle-card in an ion-item-sliding (swipe left for
+ * edit/archive on touch), mirroring the approved shift-sliding pattern in shifts.css.
+ * The markup itself is rendered by modules/vehicles/vehicles.js; these rules are inert
+ * until that file's renderVehiclesView emits the .vehicles-sliding wrapper. The item's
+ * own chrome is zeroed so the card looks unchanged until you swipe. */
+ion-item-sliding.vehicles-sliding {
+  display: block;
+  border-radius: var(--radius-lg);
+  /* Cards sit in the .vehicles-grid; keep the grid's equal-height stretch. */
+  height: 100%;
+}
+.vehicles-ion-item {
+  --background: transparent;
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  --min-height: 0;
+  width: 100%;
+  height: 100%;
+}
+.vehicles-ion-item::part(native) {
+  padding: 0;
+}
+.vehicles-sliding .vehicle-card {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+/* Touch devices act via swipe; the in-card button row is mouse-only. */
+@media (pointer: coarse) {
+  .vehicles-sliding .vehicle-actions {
+    display: none;
+  }
+}
+/* Converted action buttons keep the equal-width layout the .btn row had. */
+.vehicle-actions ion-button {
+  flex: 1;
 }

@@ -31,7 +31,7 @@ export async function render(root) {
     <section class="view-body" style="padding: var(--space-8); max-width: 900px; margin: 0 auto;">
       <header style="margin-bottom: var(--space-10); border-bottom: 2px solid var(--color-border); padding-bottom: var(--space-4); display: flex; align-items: center; justify-content: space-between;">
         <h1 style="font-size: var(--text-2xl); font-weight: 950; letter-spacing: -0.04em;">CSV Schema Documentation</h1>
-        <a href="#/reports" class="btn btn-secondary btn-sm">${getIcon('arrow-left', 14)} Reports</a>
+        <ion-button size="small" fill="outline" href="#/reports"><span slot="start" style="display:inline-flex;">${getIcon('arrow-left', 14)}</span>Reports</ion-button>
       </header>
 
       <div style="display: flex; flex-direction: column; gap: var(--space-12);">
@@ -58,7 +58,7 @@ export async function render(root) {
               </div>
               <h2 style="margin: 0; font-size: var(--text-lg); font-weight: 800;">Shifts Ledger</h2>
             </div>
-            <button class="btn btn-secondary btn-xs" data-action="dl-shift-tpl">${getIcon('download', 12)} Template</button>
+            <ion-button size="small" fill="outline" data-action="dl-shift-tpl"><span slot="start" style="display:inline-flex;">${getIcon('download', 12)}</span>Template</ion-button>
           </div>
           
           <div style="background: var(--color-surface-raised); padding: var(--space-4); border-radius: var(--radius-md); font-family: var(--font-mono); font-size: 11px; margin-bottom: var(--space-6); border: 1px solid var(--color-border); overflow-x: auto;">
@@ -161,7 +161,7 @@ export async function render(root) {
               </div>
               <h2 style="margin: 0; font-size: var(--text-lg); font-weight: 800;">Expense Tracker</h2>
             </div>
-            <button class="btn btn-secondary btn-xs" data-action="dl-expense-tpl">${getIcon('download', 12)} Template</button>
+            <ion-button size="small" fill="outline" data-action="dl-expense-tpl"><span slot="start" style="display:inline-flex;">${getIcon('download', 12)}</span>Template</ion-button>
           </div>
           
           <div style="background: var(--color-surface-raised); padding: var(--space-4); border-radius: var(--radius-md); font-family: var(--font-mono); font-size: 11px; margin-bottom: var(--space-6); border: 1px solid var(--color-border); overflow-x: auto;">

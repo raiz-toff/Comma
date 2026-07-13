@@ -11,7 +11,6 @@ import { store } from '../core/store.js';
 import { getFinancialOverviewForRange, getFinancialMonthlyBreakdown } from '../modules/analytics/analytics.js';
 import { getIcon } from '../ui/icons.js';
 import { formatCurrency } from '../utils/formatters.js';
-import { renderSkeleton } from '../ui/components.js';
 import { defaultRangeForPreset } from '../utils/date-range-presets.js';
 import { t } from '../utils/strings.js';
 import { getDemoAnalyticsAnchorDate } from '../modules/demo/sample-year.js';
@@ -138,33 +137,39 @@ async function paintDashboard(root, ctx) {
         </div>
         <div class="financial-dash-header-actions" style="display: flex; align-items: center; gap: var(--space-3);">
           ${activeTimer ? `
-            <button type="button" class="btn btn-sm" id="dash-active-timer-btn" style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: white; background: var(--color-danger, #ef4444); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); border: none; padding: 8px 16px; border-radius: 20px;">
-              <span style="width: 8px; height: 8px; border-radius: 50%; background: white; box-shadow: 0 0 8px white; display: inline-block;"></span>
+            <ion-button size="small" color="danger" id="dash-active-timer-btn" class="dash-timer-btn">
+              <span class="dash-timer-dot" aria-hidden="true"></span>
               <span>Active Shift</span>
-            </button>
+            </ion-button>
           ` : `
-            <button type="button" class="btn btn-primary btn-sm" id="dash-start-shift-btn" style="display: flex; align-items: center; gap: 8px; font-weight: 700; padding: 8px 16px; border-radius: 20px;">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px;"><path d="M21.4086 9.35258C23.5305 10.5065 23.5305 13.4935 21.4086 14.6474L8.59662 21.6145C6.53435 22.736 4 21.2763 4 18.9671L4 5.0329C4 2.72368 6.53435 1.26402 8.59661 2.38548L21.4086 9.35258Z" fill="currentColor"></path></svg>
+            <ion-button size="small" id="dash-start-shift-btn" class="dash-timer-btn">
+              <svg class="dash-timer-play" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M21.4086 9.35258C23.5305 10.5065 23.5305 13.4935 21.4086 14.6474L8.59662 21.6145C6.53435 22.736 4 21.2763 4 18.9671L4 5.0329C4 2.72368 6.53435 1.26402 8.59661 2.38548L21.4086 9.35258Z" fill="currentColor"></path></svg>
               <span>Start Shift</span>
-            </button>
+            </ion-button>
           `}
         </div>
       </header>
       <div class="kpi-hero-strip" style="margin-bottom: var(--space-6); display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3);">
-        ${renderSkeleton('stat')}
-        ${renderSkeleton('stat')}
-        ${renderSkeleton('stat')}
-        ${renderSkeleton('stat')}
-        ${renderSkeleton('stat')}
-        ${renderSkeleton('stat')}
+        ${Array.from({ length: 6 }, () => `
+          <div class="dash-skel">
+            <ion-skeleton-text animated style="width: 40%; height: 12px;"></ion-skeleton-text>
+            <ion-skeleton-text animated style="width: 65%; height: 26px;"></ion-skeleton-text>
+            <ion-skeleton-text animated style="width: 100%; height: 32px;"></ion-skeleton-text>
+          </div>`).join('')}
       </div>
       <div style="margin-bottom: var(--space-6);">
-        ${renderSkeleton('chart')}
+        <div class="dash-skel">
+          <ion-skeleton-text animated style="width: 30%; height: 14px;"></ion-skeleton-text>
+          <ion-skeleton-text animated style="width: 100%; height: 180px;"></ion-skeleton-text>
+        </div>
       </div>
       <div class="bento-grid" style="margin-bottom: var(--space-6);">
-        ${renderSkeleton('card')}
-        ${renderSkeleton('card')}
-        ${renderSkeleton('card')}
+        ${Array.from({ length: 3 }, () => `
+          <div class="dash-skel">
+            <ion-skeleton-text animated style="width: 45%; height: 14px;"></ion-skeleton-text>
+            <ion-skeleton-text animated style="width: 90%; height: 18px;"></ion-skeleton-text>
+            <ion-skeleton-text animated style="width: 70%; height: 18px;"></ion-skeleton-text>
+          </div>`).join('')}
       </div>
     </section>
   `;
@@ -614,10 +619,10 @@ async function paintDashboard(root, ctx) {
           <div class="kpi-label-group">
             <div class="kpi-label" style="margin: 0;">${esc(t('views.dashboard.financial.avgRateHr')) || 'Avg $/hr'}</div>
           </div>
-          <div class="kpi-card-tabs" style="display: flex; background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.5px; align-items: center;">
-            <button type="button" class="btn btn-xs kpi-rate-tab is-active" data-rate-tab="active" style="padding: 0 6px; font-size: 8px; font-weight: 700; border-radius: 10px; height: 16px; min-height: 0; line-height: 14px;">Active</button>
-            <button type="button" class="btn btn-xs kpi-rate-tab btn-ghost" data-rate-tab="online" style="padding: 0 6px; font-size: 8px; font-weight: 700; border-radius: 10px; height: 16px; min-height: 0; line-height: 14px;">Online</button>
-          </div>
+          <ion-segment value="active" class="kpi-card-tabs" data-rate-segment>
+            <ion-segment-button value="active">Active</ion-segment-button>
+            <ion-segment-button value="online">Online</ion-segment-button>
+          </ion-segment>
         </div>
 
         <!-- Panel 1: Active Time Rate -->
@@ -734,10 +739,10 @@ async function paintDashboard(root, ctx) {
           <div class="kpi-label-group">
             <div class="kpi-label" style="margin: 0;">${esc(t('views.dashboard.financial.totalHours'))}</div>
           </div>
-          <div class="kpi-card-tabs" style="display: flex; background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.5px; align-items: center;">
-            <button type="button" class="btn btn-xs kpi-hours-tab is-active" data-hours-tab="active" style="padding: 0 6px; font-size: 8px; font-weight: 700; border-radius: 10px; height: 16px; min-height: 0; line-height: 14px;">Active</button>
-            <button type="button" class="btn btn-xs kpi-hours-tab btn-ghost" data-hours-tab="online" style="padding: 0 6px; font-size: 8px; font-weight: 700; border-radius: 10px; height: 16px; min-height: 0; line-height: 14px;">Online</button>
-          </div>
+          <ion-segment value="active" class="kpi-card-tabs" data-hours-segment>
+            <ion-segment-button value="active">Active</ion-segment-button>
+            <ion-segment-button value="online">Online</ion-segment-button>
+          </ion-segment>
         </div>
 
         <!-- Panel 1: Active Hours -->
@@ -922,15 +927,15 @@ async function paintDashboard(root, ctx) {
         </div>
         <div class="financial-dash-header-actions" style="display: flex; align-items: center; gap: var(--space-3);">
           ${activeTimer ? `
-            <button type="button" class="btn btn-sm" id="dash-active-timer-btn" style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: white; background: var(--color-danger, #ef4444); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); border: none; padding: 8px 16px; border-radius: 20px;">
-              <span style="width: 8px; height: 8px; border-radius: 50%; background: white; box-shadow: 0 0 8px white; display: inline-block;"></span>
+            <ion-button size="small" color="danger" id="dash-active-timer-btn" class="dash-timer-btn">
+              <span class="dash-timer-dot" aria-hidden="true"></span>
               <span>Active Shift</span>
-            </button>
+            </ion-button>
           ` : `
-            <button type="button" class="btn btn-primary btn-sm" id="dash-start-shift-btn" style="display: flex; align-items: center; gap: 8px; font-weight: 700; padding: 8px 16px; border-radius: 20px;">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px;"><path d="M21.4086 9.35258C23.5305 10.5065 23.5305 13.4935 21.4086 14.6474L8.59662 21.6145C6.53435 22.736 4 21.2763 4 18.9671L4 5.0329C4 2.72368 6.53435 1.26402 8.59661 2.38548L21.4086 9.35258Z" fill="currentColor"></path></svg>
+            <ion-button size="small" id="dash-start-shift-btn" class="dash-timer-btn">
+              <svg class="dash-timer-play" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M21.4086 9.35258C23.5305 10.5065 23.5305 13.4935 21.4086 14.6474L8.59662 21.6145C6.53435 22.736 4 21.2763 4 18.9671L4 5.0329C4 2.72368 6.53435 1.26402 8.59661 2.38548L21.4086 9.35258Z" fill="currentColor"></path></svg>
               <span>Start Shift</span>
-            </button>
+            </ion-button>
           `}
         </div>
       </header>
@@ -940,7 +945,7 @@ async function paintDashboard(root, ctx) {
       <div class="financial-filter-container card" style="margin-bottom: var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; padding: 0;">
         <button type="button" class="financial-dash-filter-summary" data-dashboard-toggle-shortcuts aria-expanded="${loadDashboardShortcutsExpanded()}" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: var(--space-3) var(--space-4); background: transparent; border: none; cursor: pointer; color: inherit; text-align: left;">
           <span class="financial-dash-summary-left" style="display: flex; align-items: center; gap: var(--space-2); font-weight: 600;">
-            <span class="financial-dash-summary-icon" style="color: var(--color-brand, #10b981);">${getIcon('calendar', 18)}</span>
+            <span class="financial-dash-summary-icon" style="color: var(--color-brand);">${getIcon('calendar', 18)}</span>
             <span class="financial-dash-summary-text">${range.start} &ndash; ${range.end}</span>
           </span>
           <span class="financial-dash-summary-right" style="display: flex; align-items: center; gap: var(--space-2);">
@@ -962,7 +967,7 @@ async function paintDashboard(root, ctx) {
               <button type="button" class="btn financial-dash-preset ${range.preset === 'year' ? 'is-active' : ''}" data-dashboard-preset="year">${esc(t('views.dashboard.financial.presetYear'))}</button>
               <button type="button" class="btn financial-dash-preset ${range.preset === 'ytd' ? 'is-active' : ''}" data-dashboard-preset="ytd">${esc(t('views.dashboard.financial.presetYtd'))}</button>
             </div>
-            <button type="button" class="btn ${loadDashboardFilterExpanded() ? 'btn-primary' : 'btn-ghost'} btn-sm" data-dashboard-toggle-filter style="white-space:nowrap;">${esc(t('views.dashboard.financial.presetCustom'))} ${getIcon(loadDashboardFilterExpanded() ? 'chevron-up' : 'chevron-down', 14)}</button>
+            <ion-button size="small"${loadDashboardFilterExpanded() ? '' : ' fill="clear"'} data-dashboard-toggle-filter style="white-space:nowrap;">${esc(t('views.dashboard.financial.presetCustom'))} ${getIcon(loadDashboardFilterExpanded() ? 'chevron-up' : 'chevron-down', 14)}</ion-button>
           </div>
 
           <div class="financial-dash-filter" data-dashboard-filter style="display: ${loadDashboardFilterExpanded() ? 'block' : 'none'}; margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px dashed var(--color-border);">
@@ -973,17 +978,17 @@ async function paintDashboard(root, ctx) {
                   <div class="financial-dash-dates" style="display: flex; gap: var(--space-2); align-items: center;">
                     <div class="input-with-icon" style="position: relative;">
                       <input type="text" class="input financial-dash-date-start" id="dashboard-filter-start" placeholder="Start date" readonly style="width: 130px; padding-left: 32px; cursor: pointer;" value="${range.start}" />
-                      <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--color-primary, #10b981); pointer-events: none;">${getIcon('calendar', 16)}</span>
+                      <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--color-brand); pointer-events: none;">${getIcon('calendar', 16)}</span>
                     </div>
-                    <span style="color: var(--color-text-muted, #a1a1aa); font-weight: 600;">&ndash;</span>
+                    <span style="color: var(--color-text-muted); font-weight: 600;">&ndash;</span>
                     <div class="input-with-icon" style="position: relative;">
                       <input type="text" class="input financial-dash-date-end" id="dashboard-filter-end" placeholder="End date" readonly style="width: 130px; padding-left: 32px; cursor: pointer;" value="${range.end}" />
-                      <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--color-primary, #10b981); pointer-events: none;">${getIcon('calendar', 16)}</span>
+                      <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--color-brand); pointer-events: none;">${getIcon('calendar', 16)}</span>
                     </div>
                   </div>
                 </div>
                 <div class="financial-dash-filter-right">
-                  <button type="button" class="btn btn-primary btn-sm financial-dash-apply" data-dashboard-apply>${getIcon('filter', 16)} ${esc(t('views.dashboard.financial.apply'))}</button>
+                  <ion-button size="small" class="financial-dash-apply" data-dashboard-apply>${getIcon('filter', 16)} ${esc(t('views.dashboard.financial.apply'))}</ion-button>
                 </div>
               </div>
             </div>
@@ -997,9 +1002,9 @@ async function paintDashboard(root, ctx) {
         <div class="financial-monthly-head">
           <h2 class="financial-monthly-title">${getIcon('calendar', 20, 'financial-monthly-title-icon')} ${esc(t('views.dashboard.financial.monthlyBreakdownTitle'))}</h2>
           <div class="financial-monthly-actions" role="group" aria-label="${esc(t('views.dashboard.financial.monthlyBreakdownTitle'))}">
-            <a class="btn btn-secondary btn-sm financial-monthly-action" href="#/analytics/week">${getIcon('export', 16, 'financial-monthly-action-icon')}${esc(t('views.dashboard.financial.monthlyBtnWeekly'))}</a>
-            <a class="btn btn-secondary btn-sm financial-monthly-action" href="#/expenses">${getIcon('export', 16, 'financial-monthly-action-icon')}${esc(t('views.dashboard.financial.monthlyBtnExpenses'))}</a>
-            <a class="btn btn-secondary btn-sm financial-monthly-action" href="#/reports">${getIcon('export', 16, 'financial-monthly-action-icon')}${esc(t('views.dashboard.financial.monthlyBtnSummary'))}</a>
+            <ion-button size="small" fill="outline" class="financial-monthly-action" href="#/analytics/week">${getIcon('export', 16, 'financial-monthly-action-icon')}${esc(t('views.dashboard.financial.monthlyBtnWeekly'))}</ion-button>
+            <ion-button size="small" fill="outline" class="financial-monthly-action" href="#/expenses">${getIcon('export', 16, 'financial-monthly-action-icon')}${esc(t('views.dashboard.financial.monthlyBtnExpenses'))}</ion-button>
+            <ion-button size="small" fill="outline" class="financial-monthly-action" href="#/reports">${getIcon('export', 16, 'financial-monthly-action-icon')}${esc(t('views.dashboard.financial.monthlyBtnSummary'))}</ion-button>
           </div>
         </div>
         <div class="financial-monthly-table-wrap">
@@ -1097,72 +1102,10 @@ async function paintDashboard(root, ctx) {
     const el = /** @type {HTMLElement | null} */ (
       ev.target &&
       /** @type {HTMLElement} */ (ev.target).closest(
-        '[data-dashboard-preset],[data-dashboard-apply],[data-dashboard-monthly-page],[data-dashboard-monthly-goto],[data-dashboard-toggle-filter],[data-dashboard-toggle-shortcuts],[data-rate-tab],[data-hours-tab]',
+        '[data-dashboard-preset],[data-dashboard-apply],[data-dashboard-monthly-page],[data-dashboard-monthly-goto],[data-dashboard-toggle-filter],[data-dashboard-toggle-shortcuts]',
       )
     );
     if (!el || !root.contains(el)) return;
-
-    if (el.hasAttribute('data-hours-tab')) {
-      ev.stopPropagation();
-      const tab = el.getAttribute('data-hours-tab');
-      root.querySelectorAll('[data-hours-tab]').forEach((b) => {
-        b.classList.toggle('is-active', b === el);
-        b.classList.toggle('btn-ghost', b !== el);
-      });
-      const activePanel = root.querySelector('#kpi-panel-hours-active');
-      const onlinePanel = root.querySelector('#kpi-panel-hours-online');
-      if (activePanel && onlinePanel) {
-        if (tab === 'active') {
-          activePanel.style.display = 'flex';
-          onlinePanel.style.display = 'none';
-          activePanel.querySelectorAll('.kpi-pillar-bar').forEach(bar => {
-            bar.style.animation = 'none';
-            void bar.offsetWidth;
-            bar.style.animation = '';
-          });
-        } else {
-          activePanel.style.display = 'none';
-          onlinePanel.style.display = 'flex';
-          onlinePanel.querySelectorAll('.kpi-pillar-bar').forEach(bar => {
-            bar.style.animation = 'none';
-            void bar.offsetWidth;
-            bar.style.animation = '';
-          });
-        }
-      }
-      return;
-    }
-
-    if (el.hasAttribute('data-rate-tab')) {
-      ev.stopPropagation();
-      const tab = el.getAttribute('data-rate-tab');
-      root.querySelectorAll('[data-rate-tab]').forEach((b) => {
-        b.classList.toggle('is-active', b === el);
-        b.classList.toggle('btn-ghost', b !== el);
-      });
-      const activePanel = root.querySelector('#kpi-panel-active');
-      const onlinePanel = root.querySelector('#kpi-panel-online');
-      if (activePanel && onlinePanel) {
-        if (tab === 'active') {
-          activePanel.style.display = 'flex';
-          onlinePanel.style.display = 'none';
-          activePanel.querySelectorAll('.kpi-spark-path').forEach(path => {
-            path.style.animation = 'none';
-            void path.offsetWidth;
-            path.style.animation = '';
-          });
-        } else {
-          activePanel.style.display = 'none';
-          onlinePanel.style.display = 'flex';
-          onlinePanel.querySelectorAll('.kpi-spark-path').forEach(path => {
-            path.style.animation = 'none';
-            void path.offsetWidth;
-            path.style.animation = '';
-          });
-        }
-      }
-      return;
-    }
 
     if (el.hasAttribute('data-dashboard-toggle-shortcuts')) {
       const isExp = loadDashboardShortcutsExpanded();
@@ -1223,6 +1166,32 @@ async function paintDashboard(root, ctx) {
       void paintDashboard(root, ctx);
     }
   };
+
+  // Active/Online KPI toggles are ion-segments now: switch panels on ionChange (the segment
+  // manages its own selected state, so no is-active class juggling), replaying the reveal
+  // animation exactly as the old tab buttons did. Elements are recreated on every paint, so
+  // fresh listeners are attached here each time.
+  const wireKpiSegment = (segSelector, activeSel, onlineSel, animSel) => {
+    const seg = root.querySelector(segSelector);
+    if (!seg) return;
+    seg.addEventListener('ionChange', (e) => {
+      const tab = /** @type {CustomEvent} */ (e).detail?.value === 'online' ? 'online' : 'active';
+      const activePanel = root.querySelector(activeSel);
+      const onlinePanel = root.querySelector(onlineSel);
+      if (!activePanel || !onlinePanel) return;
+      const show = tab === 'active' ? activePanel : onlinePanel;
+      const hide = tab === 'active' ? onlinePanel : activePanel;
+      show.style.display = 'flex';
+      hide.style.display = 'none';
+      show.querySelectorAll(animSel).forEach((node) => {
+        node.style.animation = 'none';
+        void node.offsetWidth;
+        node.style.animation = '';
+      });
+    });
+  };
+  wireKpiSegment('ion-segment[data-rate-segment]', '#kpi-panel-active', '#kpi-panel-online', '.kpi-spark-path');
+  wireKpiSegment('ion-segment[data-hours-segment]', '#kpi-panel-hours-active', '#kpi-panel-hours-online', '.kpi-pillar-bar');
 
   const startBtn = root.querySelector('#dash-start-shift-btn');
   if (startBtn) {

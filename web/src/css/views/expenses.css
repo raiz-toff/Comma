@@ -32,25 +32,12 @@
   font-weight: 500;
   margin: 2px 0 0;
 }
-.expenses-m-add {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  background: var(--color-brand);
-  color: var(--color-brand-contrast);
-  border: none;
-  border-radius: var(--radius-md);
-  padding: 10px 16px;
-  font-size: var(--text-sm);
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: filter var(--transition-fast);
-  white-space: nowrap;
+/* The Add button is an ion-button (solid primary) now — only the icon spacing is ours. */
+ion-button.expenses-m-add svg {
+  width: 16px;
+  height: 16px;
+  margin-right: var(--space-2);
 }
-.expenses-m-add:hover { filter: brightness(1.06); }
-.expenses-m-add svg { width: 16px; height: 16px; }
 
 /* ── Month nav + total ──────────────────────────────────────────────────── */
 .expenses-m-nav {
@@ -444,23 +431,10 @@
 }
 .expenses-m-row-del svg { width: 12px; height: 12px; }
 
-/* ── Month selector modal ───────────────────────────────────────────────── */
-.expenses-m-modal {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-modal);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-.expenses-m-modal[hidden] {
-  display: none;
-}
-.expenses-m-modal-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-}
+/* ── Month selector sheet content ───────────────────────────────────────────
+ * Rendered inside an ion-modal bottom sheet (the fixed-overlay wrapper, backdrop and
+ * slide-up animation are ion-modal's job now — see shifts.css for the
+ * `ion-modal .expenses-m-modal-sheet` overrides, shared app-wide). */
 .expenses-m-modal-sheet {
   position: relative;
   width: 100%;
@@ -473,11 +447,6 @@
   border-top-right-radius: var(--radius-xl);
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-xl);
-  animation: expenses-m-sheet-up var(--transition-slow);
-}
-@keyframes expenses-m-sheet-up {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
 }
 .expenses-m-modal-head {
   display: flex;
@@ -582,4 +551,43 @@
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-text-secondary);
+}
+
+/* ── Ionic component rollout (expenses screen) ──────────────────────────────
+ * Sliding transaction rows keep the existing .expenses-m-row inside an ion-item
+ * whose chrome is zeroed, so the row looks unchanged until you swipe. Editor
+ * modals present as ion-modal bottom sheets hosting .expenses-m-sheet-body. */
+ion-item-sliding.expenses-m-sliding {
+  display: block;
+  border-radius: var(--radius-lg);
+}
+.expenses-m-ion-item {
+  --background: transparent;
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  --min-height: 0;
+  width: 100%;
+}
+.expenses-m-ion-item::part(native) {
+  padding: 0;
+}
+.expenses-m-sliding .expenses-m-row {
+  width: 100%;
+  margin: 0;
+}
+/* Touch devices act via swipe; the per-row delete button is mouse-only. */
+@media (pointer: coarse) {
+  .expenses-m-sliding .expenses-m-row-del {
+    display: none;
+  }
+}
+.expenses-m-sheet-body {
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-4) var(--space-8);
+}
+.expenses-m-sheet-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  margin: 0 0 var(--space-4);
 }

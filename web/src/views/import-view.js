@@ -130,7 +130,7 @@ export function render(root, ctx) {
           <div class="import-drag-zone" data-drag-zone>
             <div class="import-drag-zone-icon">${getIcon('file-plus', 36)}</div>
             <p>Choose CSV file or drag and drop it here</p>
-            <button type="button" class="import-drag-zone-btn" data-trigger-file>Choose file</button>
+            <ion-button size="small" data-trigger-file>Choose file</ion-button>
             <input type="file" accept=".csv,text/csv" style="display:none" data-file-input />
           </div>
         </div>
@@ -142,7 +142,7 @@ export function render(root, ctx) {
         <div class="import-empty-icon">${getIcon('file-text', 48)}</div>
         <h3>You have no imports yet</h3>
         <p>Once you select a CSV statement, your spreadsheet wizard will appear here to map and validate your columns.</p>
-        <a class="import-empty-btn btn" href="#/import-guide" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Learn how to import</a>
+        <ion-button size="small" href="#/import-guide">Learn how to import</ion-button>
       `;
 
       uploadLayout.appendChild(leftPanel);
@@ -164,22 +164,22 @@ export function render(root, ctx) {
         <div class="import-step-circle">1</div>
         <span class="import-step-label">Select Header</span>
       </div>
-      <div class="import-step-connector ${state.step > 1 ? 'completed' : ''}"></div>
+      <ion-progress-bar class="import-step-connector" value="${state.step > 1 ? 1 : 0}"></ion-progress-bar>
       <div class="import-step-item ${state.step === 2 ? 'active' : state.step > 2 ? 'completed' : ''}">
         <div class="import-step-circle">2</div>
         <span class="import-step-label">Map Amounts</span>
       </div>
-      <div class="import-step-connector ${state.step > 2 ? 'completed' : ''}"></div>
+      <ion-progress-bar class="import-step-connector" value="${state.step > 2 ? 1 : 0}"></ion-progress-bar>
       <div class="import-step-item ${state.step === 3 ? 'active' : state.step > 3 ? 'completed' : ''}">
         <div class="import-step-circle">3</div>
         <span class="import-step-label">Map Date</span>
       </div>
-      <div class="import-step-connector ${state.step > 3 ? 'completed' : ''}"></div>
+      <ion-progress-bar class="import-step-connector" value="${state.step > 3 ? 1 : 0}"></ion-progress-bar>
       <div class="import-step-item ${state.step === 4 ? 'active' : state.step > 4 ? 'completed' : ''}">
         <div class="import-step-circle">4</div>
         <span class="import-step-label">Additional Columns</span>
       </div>
-      <div class="import-step-connector ${state.step > 4 ? 'completed' : ''}"></div>
+      <ion-progress-bar class="import-step-connector" value="${state.step > 4 ? 1 : 0}"></ion-progress-bar>
       <div class="import-step-item ${state.step === 5 ? 'active' : ''}">
         <div class="import-step-circle">5</div>
         <span class="import-step-label">Preview & Import</span>
@@ -208,10 +208,7 @@ export function render(root, ctx) {
         <div class="import-sidebar-fields">
           <div class="import-toggle-row">
             <span class="import-toggle-label">Has Header row</span>
-            <label class="switch" style="position:relative; display:inline-block; width:44px; height:24px;">
-              <input type="checkbox" data-has-header ${state.hasHeader ? 'checked' : ''} style="opacity:0; width:0; height:0;" />
-              <span class="slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#ccc; transition:.4s; border-radius:34px;"></span>
-            </label>
+            <ion-toggle data-has-header ${state.hasHeader ? 'checked' : ''} aria-label="Has Header row"></ion-toggle>
           </div>
           
           <div class="import-field-group">
@@ -248,15 +245,6 @@ export function render(root, ctx) {
       });
       tableHtml += `</tbody></table>`;
       gridViewer.innerHTML = tableHtml;
-
-      // Add slider CSS styling programmatically
-      const style = document.createElement('style');
-      style.textContent = `
-        .switch input:checked + .slider { background-color: var(--color-brand); }
-        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-        .switch input:checked + .slider:before { transform: translateX(20px); }
-      `;
-      document.head.appendChild(style);
 
     } else if (state.step === 2) {
       // ── STEP 2: FINANCIAL AMOUNTS ──────────────────────────────────────
@@ -471,8 +459,8 @@ export function render(root, ctx) {
           `
               : state.conflictErrors.length
               ? `
-            <div class="import-warning-card" style="border-color:#f59e0b; background:color-mix(in srgb, #f59e0b 6%, var(--color-surface));">
-              <div class="import-warning-header" style="color:#d97706;">${getIcon('alert-circle', 18)} Conflicts Detected</div>
+            <div class="import-warning-card" style="border-color:var(--color-warning); background:color-mix(in srgb, var(--color-warning) 6%, var(--color-surface));">
+              <div class="import-warning-header" style="color:var(--color-warning);">${getIcon('alert-circle', 18)} Conflicts Detected</div>
               <p style="font-size:var(--text-xs); color:var(--color-text); margin:0;">
                 Some rows overlap or are duplicates. You can skip conflicting rows and import the remaining valid records.
               </p>
@@ -513,7 +501,7 @@ export function render(root, ctx) {
             </div>
             <div class="import-summary-card">
               <label>${state.importType === 'expenses' ? 'Total Cost' : 'Total Gross'}</label>
-              <span class="${state.importType === 'expenses' ? 'text-danger' : 'text-brand'}" style="${state.importType === 'expenses' ? 'color:#ef4444' : ''}">${formatMoney(totalAmount)}</span>
+              <span class="${state.importType === 'expenses' ? 'text-danger' : 'text-brand'}" style="${state.importType === 'expenses' ? 'color:var(--color-danger)' : ''}">${formatMoney(totalAmount)}</span>
             </div>
             <div class="import-summary-card">
               <label>Date Range</label>
@@ -572,7 +560,7 @@ export function render(root, ctx) {
                       state.importType === 'expenses'
                         ? `
                       <td style="text-transform:capitalize;">${esc(item.obj.category || 'other')}</td>
-                      <td class="text-danger" style="color:#ef4444">${formatMoney(item.obj.amount)}</td>
+                      <td class="text-danger" style="color:var(--color-danger)">${formatMoney(item.obj.amount)}</td>
                     `
                         : `
                       <td style="text-transform:capitalize;">${esc(item.obj.platformId || 'other')}</td>
@@ -604,19 +592,19 @@ export function render(root, ctx) {
     actionBar.className = 'import-action-bar';
     actionBar.innerHTML = `
       <div class="import-action-bar-left">
-        <button type="button" class="btn btn-ghost" data-wizard-cancel>Cancel</button>
-        ${state.step > 1 ? '<button type="button" class="btn btn-secondary" data-wizard-back>Back</button>' : ''}
+        <ion-button fill="clear" data-wizard-cancel>Cancel</ion-button>
+        ${state.step > 1 ? '<ion-button fill="outline" data-wizard-back>Back</ion-button>' : ''}
       </div>
       <div class="import-action-bar-right" style="display: flex; gap: var(--space-2);">
         ${
           state.step === 5
             ? (state.validationErrors.length
-                ? `<button type="button" class="btn btn-primary" disabled>Confirm Import</button>`
+                ? `<ion-button disabled>Confirm Import</ion-button>`
                 : (state.conflictErrors.length
-                    ? `<button type="button" class="btn btn-secondary" data-wizard-submit="override">Import All (${state.parsedObjects.length + state.conflictingObjects.length})</button>
-                       <button type="button" class="btn btn-primary" data-wizard-submit="skip">Skip Conflicts & Import Rest (${state.parsedObjects.length})</button>`
-                    : `<button type="button" class="btn btn-primary" data-wizard-submit="all">Confirm Import (${state.parsedObjects.length})</button>`))
-            : '<button type="button" class="btn btn-primary" data-wizard-next>Next Step</button>'
+                    ? `<ion-button fill="outline" data-wizard-submit="override">Import All (${state.parsedObjects.length + state.conflictingObjects.length})</ion-button>
+                       <ion-button data-wizard-submit="skip">Skip Conflicts & Import Rest (${state.parsedObjects.length})</ion-button>`
+                    : `<ion-button data-wizard-submit="all">Confirm Import (${state.parsedObjects.length})</ion-button>`))
+            : '<ion-button data-wizard-next>Next Step</ion-button>'
         }
       </div>
     `;
@@ -764,10 +752,10 @@ export function render(root, ctx) {
 
   // ── EVENT BINDINGS FOR WIZARD STATES ───────────────────────────────────
   function bindWizardEvents(wizardEl) {
-    // Has header row toggle
-    const toggleHeader = wizardEl.querySelector('[data-has-header]');
-    toggleHeader?.addEventListener('change', () => {
-      state.hasHeader = toggleHeader.checked;
+    // Has header row toggle (ion-toggle emits ionChange; checked state rides on e.detail)
+    const toggleHeader = wizardEl.querySelector('ion-toggle[data-has-header]');
+    toggleHeader?.addEventListener('ionChange', (e) => {
+      state.hasHeader = !!(/** @type {CustomEvent<{ checked: boolean }>} */ (e).detail.checked);
       paint();
     });
 
@@ -862,7 +850,7 @@ export function render(root, ctx) {
         const mode = btn.getAttribute('data-wizard-submit'); // 'skip' | 'override' | 'all'
         wizardEl.querySelectorAll('[data-wizard-submit]').forEach(b => b.setAttribute('disabled', ''));
         const originalText = btn.innerHTML;
-        btn.innerHTML = `${getIcon('loader', 14, 'animate-spin')} Importing...`;
+        btn.innerHTML = '<ion-spinner class="import-submit-spinner"></ion-spinner> Importing...';
 
         try {
           const accepted = [];

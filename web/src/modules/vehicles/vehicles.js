@@ -364,10 +364,10 @@ export async function renderVehiclesView(root) {
           <p>${esc(t('vehicles.subtitle'))}</p>
         </div>
         <div class="expenses-view-header-actions">
-          <button type="button" class="btn btn-primary" data-action="add-vehicle">
+          <ion-button data-action="add-vehicle">
             ${getIcon('plus', 18)}
             ${esc(t('vehicles.add'))}
-          </button>
+          </ion-button>
         </div>
       </header>
       
@@ -427,7 +427,14 @@ export async function renderVehiclesView(root) {
 
           const typeIcon = v.type === 'ev' ? 'bolt' : v.type === 'bicycle' ? 'parking' : 'car';
 
+          // The card rides inside an ion-item-sliding so touch users swipe left for
+          // edit/archive (mirrors the shift-sliding pattern in shifts-view.js); the in-card
+          // buttons stay for mouse users and are hidden on coarse pointers in vehicles.css.
+          // data-vehicle-id lives on the sliding host so the existing click delegation
+          // resolves the id for option taps too.
           return `
+            <ion-item-sliding class="vehicles-sliding" data-vehicle-id="${esc(v.id)}">
+              <ion-item class="vehicles-ion-item" lines="none">
             <article class="card vehicle-card" data-vehicle-id="${esc(v.id)}">
               <div class="vehicle-card-header">
                 <div class="vehicle-card-identity">
@@ -477,12 +484,18 @@ export async function renderVehiclesView(root) {
               </div>
 
               <div class="vehicle-actions">
-                <button type="button" class="btn btn-secondary btn-sm" data-action="odometer">${getIcon('trending-up', 14)} Mileage</button>
-                <button type="button" class="btn btn-secondary btn-sm" data-action="maintenance">${getIcon('maintenance', 14)} Upkeep</button>
-                <button type="button" class="btn btn-ghost btn-sm" data-action="edit">${getIcon('edit', 14)}</button>
-                <button type="button" class="btn btn-ghost btn-sm btn-danger" data-action="archive">${getIcon('trash', 14)}</button>
+                <ion-button size="small" fill="outline" data-action="odometer">${getIcon('trending-up', 14)} Mileage</ion-button>
+                <ion-button size="small" fill="outline" data-action="maintenance">${getIcon('maintenance', 14)} Upkeep</ion-button>
+                <ion-button size="small" fill="clear" data-action="edit">${getIcon('edit', 14)}</ion-button>
+                <ion-button size="small" fill="clear" color="danger" data-action="archive">${getIcon('trash', 14)}</ion-button>
               </div>
             </article>
+              </ion-item>
+              <ion-item-options side="end">
+                <ion-item-option color="medium" data-action="edit">${esc(t('common.edit'))}</ion-item-option>
+                <ion-item-option color="danger" data-action="archive">Archive</ion-item-option>
+              </ion-item-options>
+            </ion-item-sliding>
           `;
         }),
       )
@@ -546,6 +559,11 @@ export async function renderVehiclesView(root) {
     const card = el.closest('[data-vehicle-id]');
     const id = card?.getAttribute('data-vehicle-id') || null;
     if (!id) return;
+
+    // Swipe-action taps come from inside an open ion-item-sliding — snap it shut before acting.
+    const slider = /** @type {{ close?: () => Promise<void> } | null} */ (el.closest('ion-item-sliding'));
+    if (slider && typeof slider.close === 'function') void slider.close();
+
     const row = await db.vehicles.get(id);
     if (!row) return;
 

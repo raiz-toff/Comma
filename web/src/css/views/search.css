@@ -271,3 +271,76 @@
   font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
+
+/* ── Ionic conversion (search overlay) ──────────────────────────────────────────────────
+ * The overlay itself stays inside the shared comma-modal; only its innards use Ionic.
+ * ion-item chrome is zeroed (shifts.css pattern) so the existing result-card styling
+ * keeps carrying the visuals. */
+
+.search-query-bar {
+  padding: 0;
+  --box-shadow: none;
+  --border-radius: var(--radius-md);
+  --background: var(--color-surface-raised);
+}
+
+.search-result-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.search-result-item {
+  --background: transparent;
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  --min-height: 0;
+  width: 100%;
+}
+
+.search-result-item::part(native) {
+  padding: 0;
+}
+
+.search-result-item .search-result-card {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.search-result-group h3 .search-result-count {
+  vertical-align: middle;
+  margin-left: var(--space-1);
+}
+
+/* Saved filters: the old ul rules (flex column + gap) still apply to the ion-list host. */
+.search-saved-list {
+  background: transparent;
+}
+
+.search-saved-item {
+  --background: transparent;
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  --min-height: 0;
+  width: 100%;
+}
+
+.search-saved-item::part(native) {
+  padding: 0;
+}
+
+.search-saved-item ion-button {
+  margin: 0;
+}
+
+.search-saved-item ion-button + ion-button {
+  margin-left: var(--space-2);
+}
+
+.search-save-row ion-button {
+  flex-shrink: 0;
+  margin: 0;
+}

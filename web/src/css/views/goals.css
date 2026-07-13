@@ -1,0 +1,62 @@
+/* ── Goals view — Ionic component plumbing ─────────────────────────────────────────────
+ * The view's own look (cards, rings, gv-* palette) lives in the inline <style> block of
+ * src/views/goals-view.js; this file only carries the Ionic-host wiring, mirroring the
+ * pattern at the bottom of shifts.css: sliding rows keep the existing goal markup inside
+ * an ion-item whose chrome is zeroed, so a row looks unchanged until you swipe. */
+
+/* Goals / Progress segment — reproduce the old pill tab-bar with segment custom props. */
+.goals-view-container ion-segment.gv-tabs {
+  width: 100%;
+  margin-bottom: 20px;
+  --background: var(--gv-inset, var(--color-surface-raised));
+  background: var(--gv-inset, var(--color-surface-raised));
+  border: 0.8px solid var(--gv-inset2, var(--color-border));
+  border-radius: 14px;
+  padding: 4px;
+}
+.goals-view-container ion-segment.gv-tabs ion-segment-button {
+  --color: var(--gv-muted, var(--color-text-muted));
+  --color-checked: var(--gv-text, var(--color-text-primary));
+  --indicator-color: var(--gv-inset2, var(--color-border));
+  --border-radius: 10px;
+  min-height: 38px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Sliding goal rows */
+ion-item-sliding.gv-sliding {
+  display: block;
+}
+.gv-ion-item {
+  --background: transparent;
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  --min-height: 0;
+  width: 100%;
+}
+.gv-ion-item::part(native) {
+  padding: 0;
+}
+.gv-ion-item .gv-goal {
+  width: 100%;
+}
+/* Touch devices act via swipe; the in-row icon buttons are mouse-only. */
+@media (pointer: coarse) {
+  .gv-sliding .gv-goal-actions {
+    display: none;
+  }
+}
+
+/* Converted buttons: compact icon-only row buttons + icon→label gap (slotted light-DOM svg). */
+.gv-goal-actions ion-button.gv-ibtn {
+  margin: 0;
+  --padding-start: 6px;
+  --padding-end: 6px;
+}
+.gv-edit-target svg,
+.gv-add svg {
+  margin-inline-end: 6px;
+}

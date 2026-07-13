@@ -15,10 +15,11 @@
   border-bottom: 1px solid var(--color-border);
 }
 
-.settings-backup-header .btn-ghost {
+.settings-backup-header ion-button {
   align-self: flex-start;
   margin-bottom: var(--space-2);
-  padding: 0;
+  --padding-start: 0;
+  --padding-end: 0;
 }
 
 .settings-backup-body {
@@ -127,7 +128,24 @@
     align-items: flex-start;
   }
   
-  .restore-item .btn {
+  .restore-item .btn,
+  .restore-item ion-button {
     width: 100%;
   }
+}
+
+/* ── Ionic component spike (backup / cloud-sync settings) ───────────────────────────────
+ * Buttons and the E2E switch are Ionic elements now, and the E2EE takeover rides inside an
+ * ion-modal sheet — so its fixed-overlay positioning (components.css) is neutralized here:
+ * the modal owns the viewport, the scroll lock and every dismissal gesture. The flex column
+ * (header bar / scrolling body / pinned footer) still comes from .e2ee-takeover itself. */
+ion-modal.e2ee-modal .e2ee-takeover {
+  position: static;
+  inset: auto;
+  z-index: auto;
+  height: 100%;
+}
+
+.restore-loading ion-progress-bar {
+  margin-bottom: var(--space-3);
 }

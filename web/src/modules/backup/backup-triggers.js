@@ -28,7 +28,7 @@
  * "Sync now" button surfaces errors instead.
  */
 
-import { isDriveConnected } from './drive-auth.js';
+import { hasValidAccessToken, isDriveConnected } from './drive-auth.js';
 import { store } from '../../core/store.js';
 import { getBackupPassword } from '../../services/sync/backupPassword.js';
 import { isSyncEnabled, getSyncSchedule, getLastPushRunAt } from '../../services/sync/syncState.js';
@@ -71,6 +71,10 @@ function resolveAutoSyncPassphrase() {
   if (store.get('demoMode')) return null;
   if (!isSyncEnabled()) return null;
   if (!isDriveConnected()) return null;
+  // No live Drive token (they last ~1h; a fresh one needs a popup, and popups need a user
+  // gesture). Skip quietly — the next sync the user triggers by hand re-auths on the click.
+  // Auto-prompting here is what made the app demand a Google login on every open/reload.
+  if (!hasValidAccessToken()) return null;
   return { passphrase: getBackupPassword() ?? '' };
 }
 

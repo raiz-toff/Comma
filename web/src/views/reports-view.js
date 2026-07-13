@@ -154,13 +154,13 @@ export async function render(root, ctx) {
             <h2 style="margin: 0; font-size: var(--text-md);">${esc(t('reports.periodTitle'))}</h2>
           </div>
           
-          <div class="reports-period-selector">
-            <button class="reports-period-btn is-active" data-period="weekly">${esc(t('reports.weekly'))}</button>
-            <button class="reports-period-btn" data-period="monthly">${esc(t('reports.monthly'))}</button>
-            <button class="reports-period-btn" data-period="annual">${esc(t('reports.annual'))}</button>
-            <button class="reports-period-btn" data-period="platform">${esc(t('reports.platform'))}</button>
-            <button class="reports-period-btn" data-period="custom">${esc(t('reports.custom'))}</button>
-          </div>
+          <ion-segment class="reports-period-segment" value="weekly" data-reports-period>
+            <ion-segment-button value="weekly">${esc(t('reports.weekly'))}</ion-segment-button>
+            <ion-segment-button value="monthly">${esc(t('reports.monthly'))}</ion-segment-button>
+            <ion-segment-button value="annual">${esc(t('reports.annual'))}</ion-segment-button>
+            <ion-segment-button value="platform">${esc(t('reports.platform'))}</ion-segment-button>
+            <ion-segment-button value="custom">${esc(t('reports.custom'))}</ion-segment-button>
+          </ion-segment>
 
           <div class="reports-filter-grid">
             <label class="field" data-slot="platform-filter">
@@ -214,23 +214,23 @@ export async function render(root, ctx) {
         
         <div class="reports-actions-grid">
           <div class="export-btn-group">
-            <button class="btn btn-primary" data-action="copy" type="button">${getIcon('copy', 16)} Copy Summary</button>
-            <button class="btn btn-secondary" data-action="print" type="button">${getIcon('printer', 16)} Print View</button>
-          </div>
-          
-          <div class="export-btn-group">
-            <button class="btn btn-secondary" data-action="csv-shifts" type="button">${getIcon('file-text', 16)} Export Shifts CSV</button>
-            <button class="btn btn-secondary" data-action="csv-expenses" type="button">${getIcon('file-text', 16)} Export Expenses CSV</button>
-            <button class="btn btn-secondary" data-action="csv-mileage" type="button">${getIcon('map', 16)} Export Mileage Log CSV</button>
+            <ion-button data-action="copy"><span slot="start">${getIcon('copy', 16)}</span>Copy Summary</ion-button>
+            <ion-button fill="outline" data-action="print"><span slot="start">${getIcon('printer', 16)}</span>Print View</ion-button>
           </div>
 
           <div class="export-btn-group">
-            <button class="btn btn-secondary" data-action="tax-csv" type="button">${getIcon('chart-donut', 16)} Export Tax CSV</button>
-            <button class="btn btn-secondary" data-action="tax-json" type="button">${getIcon('code', 16)} Export Tax JSON</button>
+            <ion-button fill="outline" data-action="csv-shifts"><span slot="start">${getIcon('file-text', 16)}</span>Export Shifts CSV</ion-button>
+            <ion-button fill="outline" data-action="csv-expenses"><span slot="start">${getIcon('file-text', 16)}</span>Export Expenses CSV</ion-button>
+            <ion-button fill="outline" data-action="csv-mileage"><span slot="start">${getIcon('map', 16)}</span>Export Mileage Log CSV</ion-button>
           </div>
 
           <div class="export-btn-group">
-            <button class="btn btn-secondary" data-action="json-backup" type="button">${getIcon('shield', 16)} Vault Backup</button>
+            <ion-button fill="outline" data-action="tax-csv"><span slot="start">${getIcon('chart-donut', 16)}</span>Export Tax CSV</ion-button>
+            <ion-button fill="outline" data-action="tax-json"><span slot="start">${getIcon('code', 16)}</span>Export Tax JSON</ion-button>
+          </div>
+
+          <div class="export-btn-group">
+            <ion-button fill="outline" data-action="json-backup"><span slot="start">${getIcon('shield', 16)}</span>Vault Backup</ion-button>
           </div>
 
           <div style="grid-column: 1 / -1; margin-top: var(--space-2); padding: var(--space-3); background-color: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-xs); color: var(--color-text-secondary); display: flex; gap: var(--space-2); align-items: flex-start;">
@@ -317,7 +317,7 @@ export async function render(root, ctx) {
 
     if (currentReport.summary.isNetNegative) {
       metricsHtml += `
-        <div class="warning-banner" style="margin-top: var(--space-4); padding: var(--space-3); background-color: var(--color-warning-light, rgba(239, 68, 68, 0.15)); border: 1px solid var(--color-warning, #ef4444); border-radius: var(--radius-md); color: var(--color-warning-dark, #ef4444); display: flex; align-items: center; gap: var(--space-2); font-weight: 600; font-size: var(--text-sm);">
+        <div class="warning-banner" style="margin-top: var(--space-4); padding: var(--space-3); background-color: color-mix(in srgb, var(--color-danger) 15%, transparent); border: 1px solid var(--color-warning); border-radius: var(--radius-md); color: var(--color-danger); display: flex; align-items: center; gap: var(--space-2); font-weight: 600; font-size: var(--text-sm);">
           <span style="font-size: 1.2rem;">⚠️</span>
           <span>Expenses exceeded gross this period — see expense breakdown</span>
         </div>
@@ -344,9 +344,9 @@ export async function render(root, ctx) {
         <div style="display:flex; flex-direction:column; align-items:flex-start; gap:var(--space-3); width:100%;">
           <h2 style="margin:0; font-size: var(--text-md); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary);">Share Stats</h2>
           <p style="font-size: var(--text-xs); color: var(--color-text-secondary); margin: 0; line-height: 1.4;">Export this period's performance metrics securely using your device's native sharing capabilities.</p>
-          <button class="btn btn-primary" data-action="share-native" type="button" style="width:100%; display:flex; align-items:center; justify-content:center; gap:var(--space-2); margin-top:var(--space-2); padding: var(--space-3) var(--space-4);">
-            ${getIcon('share-2', 16)} Share Stats via OS Sheet
-          </button>
+          <ion-button expand="block" data-action="share-native" style="width:100%; margin-top:var(--space-2);">
+            <span slot="start">${getIcon('share-2', 16)}</span>Share Stats via OS Sheet
+          </ion-button>
         </div>
       `;
     } else {
@@ -386,9 +386,9 @@ export async function render(root, ctx) {
           </div>
         </div>
       </div>
-      <button class="btn btn-secondary" data-action="capture-yir" type="button" style="margin-top:var(--space-4); width: 100%;">
-        ${getIcon('camera', 14)} Export Shareable PNG
-      </button>
+      <ion-button fill="outline" expand="block" data-action="capture-yir" style="margin-top:var(--space-4); width: 100%;">
+        <span slot="start">${getIcon('camera', 14)}</span>Export Shareable PNG
+      </ion-button>
     `;
   }
 
@@ -409,11 +409,15 @@ export async function render(root, ctx) {
     `;
   }
 
+  const periodSegment = /** @type {(HTMLElement & { value?: string }) | null} */ (
+    container.querySelector('[data-reports-period]')
+  );
+
   const switchToCustomAndRefresh = async () => {
-    container.querySelectorAll('[data-period]').forEach(b => b.classList.remove('is-active'));
-    const customBtn = container.querySelector('[data-period="custom"]');
-    if (customBtn) customBtn.classList.add('is-active');
     currentPeriod = 'custom';
+    // Reflect the implicit switch in the segment; a programmatic value set does not
+    // re-fire ionChange, so this cannot double-trigger refreshReport.
+    if (periodSegment) periodSegment.value = 'custom';
     await refreshReport();
   };
 
@@ -421,13 +425,10 @@ export async function render(root, ctx) {
   form.endDate.addEventListener('change', switchToCustomAndRefresh);
   form.platformId.addEventListener('change', switchToCustomAndRefresh);
 
-  container.querySelectorAll('[data-period]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      container.querySelectorAll('[data-period]').forEach(b => b.classList.remove('is-active'));
-      btn.classList.add('is-active');
-      currentPeriod = String(btn.getAttribute('data-period') || 'weekly');
-      await refreshReport();
-    });
+  periodSegment?.addEventListener('ionChange', async (e) => {
+    const detail = /** @type {CustomEvent<{ value?: string | number }>} */ (e).detail;
+    currentPeriod = String(detail?.value || 'weekly');
+    await refreshReport();
   });
 
   container.querySelectorAll('[data-template-section]').forEach((input) => {

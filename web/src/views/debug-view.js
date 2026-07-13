@@ -37,9 +37,10 @@ export async function render(root, ctx) {
       <p class="text-secondary" style="font-size: var(--text-sm); line-height: 1.6; margin: 0;">
         This page is locked by default. To access these tools, navigate to <strong>Settings &gt; About</strong> and tap the app version 5 times.
       </p>
-      <a href="#/settings" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: var(--space-2);">
-        ${getIcon('settings', 16)} Go to Settings
-      </a>
+      <ion-button size="small" fill="outline" href="#/settings">
+        <span slot="start" aria-hidden="true" style="display: inline-flex;">${getIcon('settings', 16)}</span>
+        Go to Settings
+      </ion-button>
     `;
     root.appendChild(deniedCard);
     return;
@@ -72,9 +73,10 @@ export async function render(root, ctx) {
           On-device database inspections, performance benchmarks, and diagnostic helpers.
         </p>
       </div>
-      <button id="lock-debug-btn" class="btn btn-danger btn-xs" style="display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 600;">
-        ${getIcon('x', 14)} Lock Debug Mode
-      </button>
+      <ion-button id="lock-debug-btn" size="small" color="danger">
+        <span slot="start" aria-hidden="true" style="display: inline-flex;">${getIcon('x', 14)}</span>
+        Lock Debug Mode
+      </ion-button>
     </header>
 
     <div style="display: grid; grid-template-columns: 1fr; gap: var(--space-4); @media (min-width: 768px) { grid-template-columns: 1fr 1fr; }">
@@ -99,15 +101,16 @@ export async function render(root, ctx) {
           `).join('')}
         </div>
         <div style="display: flex; gap: var(--space-2); margin-top: auto; padding-top: var(--space-2);">
-          <button id="inspect-vault-btn" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: var(--space-2); flex: 1; justify-content: center;">
-            ${getIcon('search', 16)} Inspect DB JSON
-          </button>
+          <ion-button id="inspect-vault-btn" size="small" fill="outline" style="flex: 1;">
+            <span slot="start" aria-hidden="true" style="display: inline-flex;">${getIcon('search', 16)}</span>
+            Inspect DB JSON
+          </ion-button>
         </div>
       </section>
 
       <!-- Diagnostic Operations Card -->
       <section class="card card-raised" style="padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4);">
-        <div style="display: flex; align-items: center; gap: var(--space-2); color: var(--color-primary, #10b981);">
+        <div style="display: flex; align-items: center; gap: var(--space-2); color: var(--color-brand);">
           ${getIcon('bolt', 22)}
           <h2 style="font-size: var(--text-lg); font-weight: 700; margin: 0;">Diagnostic Helpers</h2>
         </div>
@@ -118,9 +121,10 @@ export async function render(root, ctx) {
             <p class="text-secondary" style="font-size: var(--text-xs); margin: 0 0 var(--space-2) 0; line-height: 1.4;">
               Instantly inserts 7 days of sample shift activity into the DB to test calculations and visual charts.
             </p>
-            <button id="gen-synthetic-btn" class="btn btn-secondary btn-sm" style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);">
-              ${getIcon('plus', 16)} Seed Synthetic Data
-            </button>
+            <ion-button id="gen-synthetic-btn" size="small" fill="outline" expand="block">
+              <span slot="start" aria-hidden="true" style="display: inline-flex;">${getIcon('plus', 16)}</span>
+              Seed Synthetic Data
+            </ion-button>
           </div>
 
           <div style="border-top: 1px dashed var(--color-border); padding-top: var(--space-3);">
@@ -129,9 +133,10 @@ export async function render(root, ctx) {
               Measure search / indexing latency of your shifts. Logs execution benchmarks.
             </p>
             <div style="display: flex; gap: var(--space-2); align-items: center;">
-              <button id="run-benchmark-btn" class="btn btn-secondary btn-sm" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);">
-                ${getIcon('trending-up', 16)} Run Benchmark
-              </button>
+              <ion-button id="run-benchmark-btn" size="small" fill="outline" style="flex: 1;">
+                <span slot="start" aria-hidden="true" style="display: inline-flex;">${getIcon('trending-up', 16)}</span>
+                Run Benchmark
+              </ion-button>
               <div id="benchmark-result" style="font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-secondary); min-width: 80px; text-align: center;">-- ms</div>
             </div>
           </div>

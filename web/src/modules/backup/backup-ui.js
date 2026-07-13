@@ -183,7 +183,7 @@ function renderSyncCardHtml() {
                 : 'Not synced from this browser yet.'
             }</p>
           </div>
-          <button type="button" class="btn btn-primary btn-sm" data-action="sync-now">Sync now</button>
+          <ion-button size="small" data-action="sync-now">Sync now</ion-button>
         </div>
 
         <!-- Advanced (collapsible) -->
@@ -210,10 +210,7 @@ function renderSyncCardHtml() {
                     : 'Off — data protected by your Google Account (same as Google Drive).'
                 }</p>
               </div>
-              <label class="toggle">
-                <input type="checkbox" data-action="toggle-e2e" ${pwSet ? 'checked' : ''} />
-                <span class="toggle-track"><span class="toggle-thumb"></span></span>
-              </label>
+              <ion-toggle data-action="toggle-e2e" ${pwSet ? 'checked' : ''} aria-label="End-to-End Encryption"></ion-toggle>
             </div>
           </div>
         </details>
@@ -242,9 +239,10 @@ function renderNotConnectedState() {
         <p class="status-text" style="font-size:1.1rem;font-weight:600;">Connect Google Drive</p>
         <p class="status-subtext" style="max-width:22rem;margin:0 auto;">Securely back up your data to your Google Account. Your GPS tracking data stays local on your phone.</p>
       </div>
-      <button type="button" class="btn btn-primary" data-action="connect-drive" style="width:100%;max-width:18rem;">
-        ${getIcon('google-drive', 18)} Connect Google Drive
-      </button>
+      <ion-button data-action="connect-drive" style="width:100%;max-width:18rem;">
+        <span slot="start">${getIcon('google-drive', 18)}</span>
+        Connect Google Drive
+      </ion-button>
     </div>
   `;
 }
@@ -279,8 +277,8 @@ async function renderConnectedState(lastBackupAt) {
         ${isDemo ? `<p class="text-warning text-xs mt-1">Backup disabled in Demo Mode</p>` : ''}
       </div>
       <div class="backup-actions">
-        <button type="button" class="btn btn-secondary btn-sm" data-action="show-restore">${t('settings.backupRestoreBtn')}</button>
-        <button type="button" class="btn btn-ghost btn-xs" data-action="disconnect-drive" title="${t('settings.backupDisconnectBtn')}">${t('common.delete') || 'Disconnect'}</button>
+        <ion-button size="small" fill="outline" data-action="show-restore">${t('settings.backupRestoreBtn')}</ion-button>
+        <ion-button size="small" fill="clear" color="medium" data-action="disconnect-drive" title="${t('settings.backupDisconnectBtn')}">${t('common.delete') || 'Disconnect'}</ion-button>
       </div>
     </div>
   `;
@@ -311,7 +309,8 @@ function attachEventListeners(container) {
         break;
 
       case 'sync-now': {
-        const btn = e.target.closest('button');
+        // The control is an ion-button now — resolve it by action, not by tag name.
+        const btn = e.target.closest('[data-action="sync-now"]');
         const originalText = btn.textContent;
         btn.disabled = true;
         btn.textContent = '…';
@@ -364,7 +363,7 @@ function attachEventListeners(container) {
     }
   });
 
-  container.addEventListener('change', async (e) => {
+  container.addEventListener('change', (e) => {
     const action = e.target.closest('[data-action]')?.dataset.action;
 
     if (action === 'set-schedule') {
@@ -372,37 +371,43 @@ function attachEventListeners(container) {
       setSyncSchedule(/** @type {import('../../services/sync/schedule.js').SyncSchedule} */ (select.value));
       showToast({ type: 'success', message: 'Sync schedule updated.' });
     }
+  });
 
-    if (action === 'toggle-e2e') {
-      const checkbox = /** @type {HTMLInputElement} */ (e.target);
-      if (checkbox.checked) {
-        // Full-page takeover, not a dialog: losing this password is the only unrecoverable
-        // action in the app, so the risk must be read and explicitly acknowledged first.
-        const pw = await showE2EESetup();
-        if (!pw) {
-          checkbox.checked = false;
-          return;
-        }
-        setBackupPassword(pw);
+  // ion-toggle emits `ionChange` (only on user interaction — programmatic reverts below
+  // don't re-fire it), not the native `change` the old checkbox used.
+  container.addEventListener('ionChange', async (e) => {
+    const target = e.target instanceof Element ? e.target.closest('[data-action]') : null;
+    if (!target || target.dataset.action !== 'toggle-e2e') return;
+
+    const toggle = /** @type {HTMLElement & { checked: boolean }} */ (target);
+    const checked = !!(/** @type {CustomEvent} */ (e).detail?.checked);
+    if (checked) {
+      // Full-page takeover, not a dialog: losing this password is the only unrecoverable
+      // action in the app, so the risk must be read and explicitly acknowledged first.
+      const pw = await showE2EESetup();
+      if (!pw) {
+        toggle.checked = false;
+        return;
+      }
+      setBackupPassword(pw);
+      repushInNewMode();
+      showToast({ type: 'success', message: 'Encryption is on. Enter this same password on your other devices to keep them syncing.' });
+      renderBackupStatus(container);
+    } else {
+      // Disable E2E — confirm then clear
+      const confirmed = await showConfirm({
+        title: 'Disable E2E Encryption?',
+        message: 'Your backup will still be private and only accessible via your Google Account.',
+        confirmText: 'Disable',
+        danger: true
+      });
+      if (confirmed) {
+        clearBackupPassword();
         repushInNewMode();
-        showToast({ type: 'success', message: 'Encryption is on. Enter this same password on your other devices to keep them syncing.' });
+        showToast({ type: 'info', message: 'End-to-End Encryption disabled.' });
         renderBackupStatus(container);
       } else {
-        // Disable E2E — confirm then clear
-        const confirmed = await showConfirm({
-          title: 'Disable E2E Encryption?',
-          message: 'Your backup will still be private and only accessible via your Google Account.',
-          confirmText: 'Disable',
-          danger: true
-        });
-        if (confirmed) {
-          clearBackupPassword();
-          repushInNewMode();
-          showToast({ type: 'info', message: 'End-to-End Encryption disabled.' });
-          renderBackupStatus(container);
-        } else {
-          checkbox.checked = true; // revert
-        }
+        toggle.checked = true; // revert
       }
     }
   });
@@ -412,11 +417,14 @@ async function renderRestoreList(container) {
   container.innerHTML = `
     <div class="settings-backup-card card card-raised">
       <div class="settings-backup-header">
-        <button type="button" class="btn btn-ghost btn-xs" data-action="back-to-status">${getIcon('arrow-left', 14)} ${t('common.back')}</button>
+        <ion-button size="small" fill="clear" data-action="back-to-status"><span slot="start">${getIcon('arrow-left', 14)}</span>${t('common.back')}</ion-button>
         <h3 class="settings-subsection-title">${t('settings.backupRestoreTitle')}</h3>
       </div>
       <div class="settings-backup-body">
-        <div class="restore-loading">${t('settings.backupRestoreSearching')}</div>
+        <div class="restore-loading">
+          <ion-progress-bar type="indeterminate"></ion-progress-bar>
+          ${t('settings.backupRestoreSearching')}
+        </div>
       </div>
     </div>
   `;
@@ -434,7 +442,7 @@ async function renderRestoreList(container) {
             <div class="restore-info">
               <p class="restore-date">${b.encryptedAt ? new Date(b.encryptedAt).toLocaleString() : 'Unknown date'}</p>
             </div>
-            <button type="button" class="btn btn-secondary btn-sm" data-action="restore-file" data-file-id="${b.id}">${t('settings.backupRestoreBtn')}</button>
+            <ion-button size="small" fill="outline" data-action="restore-file" data-file-id="${b.id}">${t('settings.backupRestoreBtn')}</ion-button>
           </div>
         `).join('')}
       </div>

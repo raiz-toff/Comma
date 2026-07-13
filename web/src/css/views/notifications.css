@@ -1,0 +1,259 @@
+/* ── Notifications view (Ionic conversion) ─────────────────────────────────────────────
+ * Screen layout + card styles moved here from JS inline styles. Rows ride inside an
+ * ion-item-sliding whose item chrome is zeroed so the card looks unchanged until you
+ * swipe (same pattern as shifts.css). The old hardcoded trophy hex is now the warning
+ * token. */
+
+.notifications-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.notifications-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-4);
+}
+
+.notifications-title-box {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.notifications-title-icon {
+  background: color-mix(in srgb, var(--color-brand) 15%, transparent);
+  color: var(--color-brand);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-brand) 10%, transparent);
+}
+
+.notifications-title {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  color: var(--color-text);
+  margin: 0;
+  letter-spacing: -0.03em;
+}
+
+.notifications-subtitle {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: var(--space-1) 0 0 0;
+}
+
+.notifications-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.notifications-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.notifications-controls ion-badge {
+  margin-inline-start: var(--space-1);
+  vertical-align: middle;
+}
+
+.notifications-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Sliding rows: zero the ion-item chrome so the card renders edge-to-edge. */
+ion-item-sliding.notif-sliding {
+  display: block;
+  border-radius: var(--radius-xl);
+}
+
+.notif-ion-item {
+  --background: transparent;
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  --min-height: 0;
+  width: 100%;
+}
+
+.notif-ion-item::part(native) {
+  padding: 0;
+}
+
+.notif-sliding .notification-card {
+  width: 100%;
+}
+
+/* Touch devices act via swipe; the in-card button row is mouse-only. */
+@media (pointer: coarse) {
+  .notif-sliding .notification-card-actions {
+    display: none;
+  }
+}
+
+.notification-card {
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.notification-card.is-unread {
+  border-color: var(--color-brand);
+}
+
+.notification-card-icon {
+  background: color-mix(in srgb, var(--color-brand) 12%, transparent);
+  color: var(--color-brand);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.notification-card-icon--warning {
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  color: var(--color-warning);
+}
+
+.notification-card-icon--danger {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+}
+
+.notification-card-body {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.notification-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.notification-card-title {
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.notification-card-date {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.notification-card-message {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-3) 0;
+  line-height: 1.5;
+}
+
+.notification-card-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Icon-before-label spacing inside the ion-buttons (icons ride in the default slot). */
+.notification-card-actions ion-button svg,
+.notifications-actions ion-button svg {
+  margin-inline-end: var(--space-1);
+}
+
+/* Unread marker: an ion-badge collapsed to the 8px dot the card always had. */
+.notif-unread-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  --background: var(--color-brand);
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.notifications-empty {
+  padding: var(--space-12) var(--space-6);
+  text-align: center;
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  border: 1px dashed var(--color-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.notifications-empty-icon {
+  background: color-mix(in srgb, var(--color-text-muted) 10%, transparent);
+  color: var(--color-text-muted);
+  padding: var(--space-6);
+  border-radius: 50%;
+}
+
+.notifications-empty-title {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.notifications-empty-msg {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: var(--space-1) 0 0 0;
+  max-width: 300px;
+}
+
+.notif-skel-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.notif-skel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-4) var(--space-5);
+}

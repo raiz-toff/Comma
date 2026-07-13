@@ -2,9 +2,10 @@
  * COMMA — Full-page "turn on end-to-end encryption" flow (web mirror of mobile's
  * `src/components/sync/E2EESetupScreen.tsx`).
  *
- * Deliberately a full-page TAKEOVER, not a small dialog. Enabling E2EE is the only action in
- * the app that can render the user's data PERMANENTLY unrecoverable — no server, no reset
- * link, no support path. If the password is forgotten, the cloud copy is mathematically gone.
+ * Deliberately a full-height TAKEOVER (an ion-modal sheet pinned at its tallest breakpoint),
+ * not a small dialog. Enabling E2EE is the only action in the app that can render the user's
+ * data PERMANENTLY unrecoverable — no server, no reset link, no support path. If the password
+ * is forgotten, the cloud copy is mathematically gone.
  *
  * Two gates, in order:
  *   1. RISK   — the consequence stated plainly, behind an explicit "I understand" checkbox.
@@ -18,30 +19,40 @@ export const MIN_E2EE_PW = 8;
 
 export function showE2EESetup() {
   return new Promise((resolve) => {
+    // Ionic sheet modal: Escape, backdrop tap, swipe-down dismissal and body scroll-locking
+    // are ion-modal's own behavior now (the hand-rolled keydown handler and overflow lock
+    // are gone). Remove any prior instance first so rapid re-opens can't stack.
+    document.querySelectorAll('ion-modal.e2ee-modal').forEach((n) => n.remove());
+    const modal = /** @type {HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean> }} */ (
+      document.createElement('ion-modal')
+    );
+    modal.classList.add('e2ee-modal');
+    /** @type {any} */ (modal).breakpoints = [0, 0.92];
+    /** @type {any} */ (modal).initialBreakpoint = 0.92;
+    /** @type {any} */ (modal).handle = true;
+    modal.setAttribute('aria-label', 'Turn on end-to-end encryption');
+
     const host = document.createElement('div');
     host.className = 'e2ee-takeover';
-    host.setAttribute('role', 'dialog');
-    host.setAttribute('aria-modal', 'true');
-    host.setAttribute('aria-label', 'Turn on end-to-end encryption');
+    modal.appendChild(host);
 
-    let done = false;
+    // Every close path (✕ button, Escape, backdrop tap, swipe-down) funnels through
+    // ionModalDidDismiss; `result` stays null unless the CREATE gate actually submitted.
+    /** @type {string|null} */
+    let result = null;
     const finish = (value) => {
-      if (done) return;
-      done = true;
-      document.removeEventListener('keydown', onKey);
-      host.remove();
-      document.body.style.overflow = prevOverflow;
-      resolve(value);
+      result = value;
+      void modal.dismiss();
     };
-    const onKey = (e) => { if (e.key === 'Escape') finish(null); };
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', onKey);
+    modal.addEventListener('ionModalDidDismiss', () => {
+      modal.remove();
+      resolve(result);
+    });
 
     const renderRisk = () => {
       host.innerHTML = `
         <div class="e2ee-bar">
-          <button type="button" class="e2ee-close" data-cancel aria-label="Cancel">✕</button>
+          <ion-button fill="clear" size="small" color="medium" data-cancel aria-label="Cancel">✕</ion-button>
         </div>
         <div class="e2ee-body">
           <div class="e2ee-hero">
@@ -89,7 +100,7 @@ export function showE2EESetup() {
           </label>
         </div>
         <div class="e2ee-footer">
-          <button type="button" class="e2ee-primary" data-continue disabled>Continue</button>
+          <ion-button expand="block" data-continue disabled>Continue</ion-button>
         </div>
       `;
 
@@ -107,7 +118,7 @@ export function showE2EESetup() {
     const renderCreate = () => {
       host.innerHTML = `
         <div class="e2ee-bar">
-          <button type="button" class="e2ee-close" data-cancel aria-label="Cancel">✕</button>
+          <ion-button fill="clear" size="small" color="medium" data-cancel aria-label="Cancel">✕</ion-button>
         </div>
         <div class="e2ee-body">
           <div class="e2ee-hero">
@@ -143,8 +154,8 @@ export function showE2EESetup() {
           </div>
         </div>
         <div class="e2ee-footer">
-          <button type="button" class="e2ee-primary" data-submit disabled>Turn on encryption</button>
-          <button type="button" class="e2ee-secondary" data-back>Back</button>
+          <ion-button expand="block" data-submit disabled>Turn on encryption</ion-button>
+          <ion-button expand="block" fill="clear" color="medium" data-back>Back</ion-button>
         </div>
       `;
 
@@ -191,6 +202,7 @@ export function showE2EESetup() {
     };
 
     renderRisk();
-    document.body.appendChild(host);
+    document.body.appendChild(modal);
+    void modal.present();
   });
 }

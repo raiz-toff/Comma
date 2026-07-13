@@ -180,22 +180,14 @@
   justify-content: center;
 }
 
-.tax-jar-btn {
+/* Jar-adjust pills are ion-chips; zero the chip's built-in margins so the container's own
+   gap spaces them, and keep the old compact pill typography. */
+.tax-jar-controls ion-chip {
   flex: 1 1 auto;
-  background: transparent;
-  border: none;
-  color: var(--color-text-secondary);
+  justify-content: center;
+  margin: 0;
   font-size: var(--text-xs);
   font-weight: 700;
-  padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-  border-radius: var(--radius-md);
-  transition: all 0.2s ease;
-}
-
-.tax-jar-btn:hover {
-  background: var(--color-surface);
-  color: var(--color-text);
 }
 
 /* Deadlines */
@@ -287,9 +279,17 @@
 }
 
 @media (max-width: 480px) {
-  .tax-export-group .btn {
+  .tax-export-group ion-button {
     width: 100%;
   }
+}
+
+/* Mileage write-off opt-out row (ion-toggle) — matches the old .input-label row typography. */
+.tax-mileage-optout {
+  width: 100%;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }
 
 /* Fix for raw HTML rendering issue */

@@ -5,7 +5,6 @@ import { bus } from '../core/events.js';
 import { store } from '../core/store.js';
 import { getIcon } from '../ui/icons.js';
 import { ymd } from '../utils/date-range-presets.js';
-import { renderSkeleton } from '../ui/components.js';
 import { formatCurrency } from '../utils/formatters.js';
 import { calcTaxSetAside } from '../utils/calculations.js';
 
@@ -197,8 +196,8 @@ function renderStatCards(widgetCtx, taxRatePct, localeCountry, currency) {
 
   return `
     <div class="astat-grid">
-      ${statCardHtml({ label: 'Gross Earnings', value: fmt(totalRevenue), subtitle: 'Total Revenue', color: '#14b8a6', icon: 'gross', span: 'astat-span-full' })}
-      ${statCardHtml({ label: 'Net Take-Home', value: fmt(netIncome), subtitle: 'After Expenses', color: '#3b82f6', icon: 'net' })}
+      ${statCardHtml({ label: 'Gross Earnings', value: fmt(totalRevenue), subtitle: 'Total Revenue', color: 'var(--clr-teal)', icon: 'gross', span: 'astat-span-full' })}
+      ${statCardHtml({ label: 'Net Take-Home', value: fmt(netIncome), subtitle: 'After Expenses', color: 'var(--color-info)', icon: 'net' })}
       ${statCardHtml({
         label: 'Expenses', value: fmt(expenses), subtitle: `${burn}% Burn Ratio`, color: '#FF5247', icon: 'expenses-solid',
         detail: [
@@ -207,7 +206,7 @@ function renderStatCards(widgetCtx, taxRatePct, localeCountry, currency) {
         ],
       })}
       ${statCardHtml({
-        label: 'Avg Rate', value: `${fmt(activeRate)}/hr`, subtitle: 'Active Rate', color: '#f59e0b', icon: 'rate-solid',
+        label: 'Avg Rate', value: `${fmt(activeRate)}/hr`, subtitle: 'Active Rate', color: 'var(--color-warning)', icon: 'rate-solid',
         detail: [
           { label: 'Active Rate', value: `${fmt(activeRate)}/hr` },
           { label: 'Online Rate', value: `${fmt(onlineRate)}/hr` },
@@ -216,7 +215,7 @@ function renderStatCards(widgetCtx, taxRatePct, localeCountry, currency) {
         ],
       })}
       ${statCardHtml({
-        label: 'Tax Set-Aside', value: fmt(taxSetAside), subtitle: `${taxRate}% Tax Rate`, color: '#0ea5e9', icon: 'tax-solid',
+        label: 'Tax Set-Aside', value: fmt(taxSetAside), subtitle: `${taxRate}% Tax Rate`, color: 'var(--clr-sky)', icon: 'tax-solid',
         detail: [
           { label: 'Estimated Set-Aside', value: fmt(estimatedTax) },
           { label: 'Net After Tax', value: fmt(netAfterTax), tone: 'pos' },
@@ -225,6 +224,52 @@ function renderStatCards(widgetCtx, taxRatePct, localeCountry, currency) {
       ${statCardHtml({ label: 'Total Time', value: `${activeHrs.toFixed(1)} hrs`, subtitle: `${count} Shifts Logged (Active)`, color: '#8b5cf6', icon: 'time-solid', span: 'astat-span-full' })}
     </div>
   `;
+}
+
+// ── Period-type picker (ion-modal bottom sheet) ────────────────────────────
+/**
+ * Week/month/year grouping picker as an ion-modal bottom sheet (drag handle,
+ * breakpoints). Escape / backdrop tap / swipe-down are ion-modal's own
+ * dismissal paths — the old fixed-overlay markup and manual backdrop-click
+ * handling are gone. Picking a type calls `onPick(type)` and closes.
+ * @param {{ periodType: string, onPick: (type: string) => void }} opts
+ */
+async function openPeriodTypeSheet({ periodType, onPick }) {
+  // Remove any prior instance first so rapid re-opens can't stack.
+  document.querySelectorAll('.analytics-period-modal').forEach((n) => n.remove());
+  const modal = /** @type {HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean> }} */ (
+    document.createElement('ion-modal')
+  );
+  modal.classList.add('analytics-period-modal');
+  /** @type {any} */ (modal).breakpoints = [0, 0.65, 0.92];
+  /** @type {any} */ (modal).initialBreakpoint = 0.65;
+  /** @type {any} */ (modal).handle = true;
+
+  const host = document.createElement('div');
+  host.className = 'analytics-period-sheet-panel';
+  host.innerHTML = `
+    <div class="analytics-period-sheet-title">Select grouping</div>
+    <ion-segment class="analytics-period-seg" value="${esc(periodType)}" data-period-type-segment>
+      ${PERIOD_TYPES.map((type) => `
+        <ion-segment-button value="${esc(type)}">${esc(type.charAt(0).toUpperCase() + type.slice(1))}</ion-segment-button>
+      `).join('')}
+    </ion-segment>
+  `;
+  modal.appendChild(host);
+
+  host.addEventListener('ionChange', (ev) => {
+    const target = ev.target instanceof HTMLElement ? ev.target : null;
+    if (!target || !target.matches('[data-period-type-segment]')) return;
+    const type = String(/** @type {CustomEvent<{ value?: unknown }>} */ (ev).detail?.value ?? '');
+    if (PERIOD_TYPES.includes(type)) {
+      onPick(type);
+      void modal.dismiss();
+    }
+  });
+
+  modal.addEventListener('ionModalDidDismiss', () => modal.remove());
+  document.body.appendChild(modal);
+  await modal.present();
 }
 
 /**
@@ -271,27 +316,13 @@ async function paintAnalytics(root, _ctx) {
   };
 
   const tabsHtml = `
-    <div class="analytics-segbar" role="tablist">
+    <ion-segment class="analytics-segbar" value="${esc(activeTab)}" data-analytics-tab-segment>
       ${CATEGORY_CONFIG.map(({ key, icon, label }) => `
-        <button type="button" role="tab" class="analytics-seg${activeTab === key ? ' is-active' : ''}" data-analytics-tab="${key}" aria-selected="${activeTab === key}">
-          ${getIcon(icon, 14)}
-          <span>${esc(label)}</span>
-        </button>
+        <ion-segment-button value="${esc(key)}">
+          <span class="analytics-seg-inner">${getIcon(icon, 14)}<span>${esc(label)}</span></span>
+        </ion-segment-button>
       `).join('')}
-    </div>
-  `;
-
-  const periodPopover = `
-    <div class="analytics-period-sheet" data-period-sheet hidden>
-      <div class="analytics-period-sheet-panel">
-        <div class="analytics-period-sheet-title">Select grouping</div>
-        <div class="analytics-period-seg">
-          ${PERIOD_TYPES.map((type) => `
-            <button type="button" class="analytics-period-seg-btn${periodType === type ? ' is-active' : ''}" data-period-type="${type}">${type.charAt(0).toUpperCase() + type.slice(1)}</button>
-          `).join('')}
-        </div>
-      </div>
-    </div>
+    </ion-segment>
   `;
 
   root.innerHTML = `
@@ -300,14 +331,15 @@ async function paintAnalytics(root, _ctx) {
       ${tabsHtml}
       <div class="analytics-panels">
         <div class="analytics-cards analytics-cards--loading">
-          ${renderSkeleton('card')}
-          ${renderSkeleton('card')}
-          ${renderSkeleton('card')}
-          ${renderSkeleton('card')}
+          ${Array.from({ length: 4 }, () => `
+            <div class="analytics-skel">
+              <ion-skeleton-text animated style="width: 38%; height: 14px;"></ion-skeleton-text>
+              <ion-skeleton-text animated style="width: 72%; height: 22px;"></ion-skeleton-text>
+              <ion-skeleton-text animated style="width: 55%; height: 14px;"></ion-skeleton-text>
+            </div>`).join('')}
         </div>
       </div>
     </section>
-    ${periodPopover}
   `;
 
   let widgetCtx;
@@ -324,7 +356,6 @@ async function paintAnalytics(root, _ctx) {
           <div class="analytics-empty-tab">${getIcon('warning', 48)}<p>Couldn't load analytics for this period.</p></div>
         </div>
       </section>
-      ${periodPopover}
     `;
     return;
   }
@@ -373,7 +404,6 @@ async function paintAnalytics(root, _ctx) {
         ${bodyHtml}
       </div>
     </section>
-    ${periodPopover}
   `;
 
   afterRenderWidgets(root, widgetCtx);
@@ -389,11 +419,6 @@ export async function render(root, ctx) {
   const rerender = () => {
     if (disposed) return;
     void paintAnalytics(root, ctx);
-  };
-
-  const closeSheet = () => {
-    const sheet = root.querySelector('[data-period-sheet]');
-    if (sheet) sheet.hidden = true;
   };
 
   const handleClick = (ev) => {
@@ -412,17 +437,6 @@ export async function render(root, ctx) {
       return;
     }
 
-    // Category tab switch
-    const tabBtn = target.closest('[data-analytics-tab]');
-    if (tabBtn) {
-      const tab = tabBtn.dataset.analyticsTab;
-      if (tab) {
-        saveActiveTab(tab);
-        rerender();
-      }
-      return;
-    }
-
     // Prev/next period arrows
     const stepBtn = target.closest('[data-period-step]');
     if (stepBtn && !stepBtn.hasAttribute('disabled')) {
@@ -432,34 +446,33 @@ export async function render(root, ctx) {
       return;
     }
 
-    // Open period-type sheet
+    // Open the period-type picker (ion-modal bottom sheet)
     if (target.closest('[data-period-open]')) {
-      const sheet = root.querySelector('[data-period-sheet]');
-      if (sheet) sheet.hidden = !sheet.hidden;
-      return;
+      void openPeriodTypeSheet({
+        periodType: loadPeriodType(),
+        onPick: (type) => {
+          savePeriodType(type);
+          periodOffset = 0;
+          rerender();
+        },
+      });
     }
+  };
 
-    // Pick a period type
-    const typeBtn = target.closest('[data-period-type]');
-    if (typeBtn) {
-      const type = typeBtn.dataset.periodType;
-      if (type) {
-        savePeriodType(type);
-        periodOffset = 0;
-        closeSheet();
-        rerender();
-      }
-      return;
-    }
-
-    // Click on the sheet backdrop closes it
-    const sheet = target.closest('[data-period-sheet]');
-    if (sheet && target === sheet) {
-      closeSheet();
+  // The category tab bar is an ion-segment: it fires ionChange (not a plain click).
+  // Delegated on root so it survives every innerHTML repaint.
+  const handleIonChange = (ev) => {
+    const target = ev.target instanceof HTMLElement ? ev.target : null;
+    if (!target || !target.matches('[data-analytics-tab-segment]')) return;
+    const tab = String(/** @type {CustomEvent<{ value?: unknown }>} */ (ev).detail?.value ?? '');
+    if (ANALYTICS_TAB_WIDGETS[tab] && tab !== loadActiveTab()) {
+      saveActiveTab(tab);
+      rerender();
     }
   };
 
   root.addEventListener('click', handleClick);
+  root.addEventListener('ionChange', handleIonChange);
 
   const unsubs = [
     bus.on('platform:changed', rerender),
@@ -471,6 +484,7 @@ export async function render(root, ctx) {
     if (disposed) return;
     disposed = true;
     root.removeEventListener('click', handleClick);
+    root.removeEventListener('ionChange', handleIonChange);
     while (unsubs.length) {
       const u = unsubs.pop();
       if (typeof u === 'function') u();

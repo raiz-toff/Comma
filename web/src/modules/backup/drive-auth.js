@@ -1,7 +1,10 @@
 /**
  * COMMA — Google Drive Authentication
  * Handles OAuth2 flow via Google Identity Services (GSI).
- * No backend required. Access tokens are stored in memory only.
+ * No backend required. Access tokens are cached in localStorage for their ~1h lifetime
+ * (same trust level as the backup password stored beside it) so a reload doesn't lose
+ * the session. GIS `requestAccessToken()` ALWAYS opens a popup — even with prompt:'' —
+ * and popups need a user gesture, so nothing here may auto-prompt at page load.
  */
 
 import { bus } from '../../core/events.js';
@@ -23,12 +26,33 @@ let isGsiLoaded = false;
 let authPromise = null;
 let authResolve = null;
 
+const TOKEN_STORE_KEY = 'comma_drive_token';
+
+/** Restore a still-fresh token from a previous page load, so reloads don't re-auth. */
+function hydrateStoredToken() {
+  try {
+    const raw = localStorage.getItem(TOKEN_STORE_KEY);
+    if (!raw) return;
+    const p = JSON.parse(raw);
+    if (p && typeof p.token === 'string' && typeof p.exp === 'number' && Date.now() < p.exp - 120 * 1000) {
+      accessToken = p.token;
+      tokenExpiry = p.exp;
+    } else {
+      localStorage.removeItem(TOKEN_STORE_KEY);
+    }
+  } catch {
+    /* unreadable/blocked storage — behave as before (memory only) */
+  }
+}
+
 /**
  * Initializes the Google Identity Services client.
  * Loads the GSI script if it's not already present.
  */
 export async function initDriveAuth() {
   if (isGsiLoaded) return;
+
+  hydrateStoredToken();
 
   return new Promise((resolve, reject) => {
     if (window.google?.accounts?.oauth2) {
@@ -65,8 +89,13 @@ function setupTokenClient() {
       
       accessToken = tokenResponse.access_token;
       tokenExpiry = Date.now() + (tokenResponse.expires_in * 1000);
-      
+
       localStorage.setItem('comma_drive_connected', 'true');
+      try {
+        localStorage.setItem(TOKEN_STORE_KEY, JSON.stringify({ token: accessToken, exp: tokenExpiry }));
+      } catch {
+        /* private mode etc. — token stays memory-only for this session */
+      }
       bus.emit('drive:auth_success', tokenResponse);
 
       if (authResolve) {
@@ -99,6 +128,16 @@ export function getAccessToken() {
     return null;
   }
   return accessToken;
+}
+
+/**
+ * True when a live token is already in hand — the ONLY condition under which background
+ * work (auto-sync at open/visibility) may talk to Drive. Without one, background callers
+ * must skip quietly: acquiring a token opens a popup, and popups without a user gesture
+ * are how "the app asks me to log in on every reload" happens.
+ */
+export function hasValidAccessToken() {
+  return getAccessToken() != null;
 }
 
 /**
@@ -142,11 +181,12 @@ export function isDriveConnected() {
 export function disconnectDrive() {
   if (accessToken) {
     window.google.accounts.oauth2.revoke(accessToken, () => {
-      console.log('[drive-auth] Access token revoked.');
+      /* token revoked — nothing to do; state below is already cleared */
     });
   }
   accessToken = null;
   tokenExpiry = 0;
   localStorage.removeItem('comma_drive_connected');
+  localStorage.removeItem(TOKEN_STORE_KEY);
   bus.emit('drive:disconnected');
 }

@@ -530,10 +530,10 @@ export async function renderTaxDashboard(root, ctx = {}) {
       </div>
 
       <div class="tax-jar-controls">
-        <button class="tax-jar-btn" type="button" data-jar-adjust="-25">-25</button>
-        <button class="tax-jar-btn" type="button" data-jar-adjust="-10">-10</button>
-        <button class="tax-jar-btn" type="button" data-jar-adjust="10">+10</button>
-        <button class="tax-jar-btn" type="button" data-jar-adjust="25">+25</button>
+        <ion-chip data-jar-adjust="-25">-25</ion-chip>
+        <ion-chip data-jar-adjust="-10">-10</ion-chip>
+        <ion-chip data-jar-adjust="10">+10</ion-chip>
+        <ion-chip data-jar-adjust="25">+25</ion-chip>
       </div>
 
       <div style="margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--color-border); font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.4;">
@@ -617,16 +617,13 @@ export async function renderTaxDashboard(root, ctx = {}) {
             ? esc(`${summary.mileageRate.label} — $${summary.mileageRate.ratePrimary}`)
             : esc(t('tax.mileageWriteOffNotEligible'))}
       </p>
-      <label class="input-label" style="display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer;">
-        <span>${esc(t('tax.mileageWriteOffOptOut'))}</span>
-        <input type="checkbox" data-mileage-optout ${summary.mileageRate?.deductionMethod === 'actual_expenses' && summary.mileageRate?.isUserOverride ? 'checked' : ''} />
-      </label>
+      <ion-toggle class="tax-mileage-optout" label-placement="start" justify="space-between" data-mileage-optout ${summary.mileageRate?.deductionMethod === 'actual_expenses' && summary.mileageRate?.isUserOverride ? 'checked' : ''}>${esc(t('tax.mileageWriteOffOptOut'))}</ion-toggle>
       <div class="input-group" style="margin:0;" data-mileage-rate-wrap ${summary.mileageRate?.deductionMethod === 'actual_expenses' && summary.mileageRate?.isUserOverride ? 'hidden' : ''}>
         <p style="margin:0 0 4px; font-size: var(--text-xs); color: var(--color-text-secondary);">${esc(t('tax.mileageWriteOffHint'))}</p>
         <input class="input" type="number" step="0.001" inputmode="decimal" data-mileage-rate-input
           placeholder="${summary.mileageRate?.ratePrimary != null ? esc(String(summary.mileageRate.ratePrimary)) : '0.67'}"
           value="${summary.mileageRate?.isUserOverride && summary.mileageRate?.deductionMethod === 'standard_mileage' ? esc(String(summary.mileageRate.ratePrimary ?? '')) : ''}" />
-        <button class="btn btn-secondary" type="button" data-mileage-rate-save style="margin-top:8px;">${esc(t('common.save'))}</button>
+        <ion-button size="small" fill="outline" data-mileage-rate-save style="margin-top:8px;">${esc(t('common.save'))}</ion-button>
       </div>
     </div>` : ''}`;
 
@@ -640,7 +637,7 @@ export async function renderTaxDashboard(root, ctx = {}) {
               ${regionOptions.map((row) => `<option value="${row.code}" ${row.code === selectedRegion ? 'selected' : ''}>${row.code} (${row.rate}%)</option>`).join('')}
             </select>
           </label>
-          <button class="btn btn-primary" type="button" data-apply-rate>${esc(t('tax.applyPreset'))}</button>
+          <ion-button data-apply-rate>${esc(t('tax.applyPreset'))}</ion-button>
         </div>
       ` : ''}
       <div class="tax-metric-row" style="flex: 1 1 220px; margin-top: 0;">
@@ -700,8 +697,8 @@ export async function renderTaxDashboard(root, ctx = {}) {
         </div>
         <p style="color:var(--color-text-secondary); font-size: var(--text-sm); margin-top: var(--space-1);">${esc(t('tax.exportHint'))}</p>
         <div class="tax-export-group">
-          <button class="btn btn-secondary" type="button" data-export-tax="json">${esc(t('tax.exportJson'))}</button>
-          <button class="btn btn-secondary" type="button" data-export-tax="csv">${esc(t('tax.exportCsv'))}</button>
+          <ion-button fill="outline" data-export-tax="json">${esc(t('tax.exportJson'))}</ion-button>
+          <ion-button fill="outline" data-export-tax="csv">${esc(t('tax.exportCsv'))}</ion-button>
         </div>
       </footer>
     </section>
@@ -729,8 +726,9 @@ export async function renderTaxDashboard(root, ctx = {}) {
   }
 
   const regionSelect = root.querySelector('[data-tax-region]');
+  // ion-button hosts are plain custom elements, not HTMLButtonElement — guard on HTMLElement.
   const applyBtn = root.querySelector('[data-apply-rate]');
-  if (regionSelect instanceof HTMLSelectElement && applyBtn instanceof HTMLButtonElement) {
+  if (regionSelect instanceof HTMLSelectElement && applyBtn instanceof HTMLElement) {
     applyBtn.addEventListener('click', async () => {
       const code = regionSelect.value;
       const nextRate = num(rateMap[code], summary.taxRatePct);
@@ -768,9 +766,11 @@ export async function renderTaxDashboard(root, ctx = {}) {
 
   if (summary.vehicle) {
     const optOutCb = root.querySelector('[data-mileage-optout]');
-    if (optOutCb instanceof HTMLInputElement) {
-      optOutCb.addEventListener('change', async () => {
-        if (optOutCb.checked) {
+    if (optOutCb instanceof HTMLElement) {
+      // ion-toggle fires `ionChange` (not `change`) and keeps its `checked` property current
+      // on user interaction — same read the old checkbox handler did.
+      optOutCb.addEventListener('ionChange', async () => {
+        if (/** @type {HTMLElement & { checked?: boolean }} */ (optOutCb).checked) {
           await upsertTaxProfile({
             vehicleId: summary.vehicle.id,
             taxYear: selectedYear,
@@ -801,7 +801,7 @@ export async function renderTaxDashboard(root, ctx = {}) {
 
     const rateSaveBtn = root.querySelector('[data-mileage-rate-save]');
     const rateInput = root.querySelector('[data-mileage-rate-input]');
-    if (rateSaveBtn instanceof HTMLButtonElement && rateInput instanceof HTMLInputElement) {
+    if (rateSaveBtn instanceof HTMLElement && rateInput instanceof HTMLInputElement) {
       rateSaveBtn.addEventListener('click', async () => {
         const custom = parseFloat(rateInput.value);
         if (Number.isNaN(custom)) return;

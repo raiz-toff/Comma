@@ -66,7 +66,7 @@ export async function mountAppearanceSettings(root) {
             </div>
             <label class="settings-accent-hex-inline">
               <span class="settings-accent-hex-label">${esc(t('settings.accentCustomHex'))}</span>
-              <input class="input" data-setting-accent-hex value="${esc(user.accentColor || '')}" placeholder="#F5A623" />
+              <input class="input" data-setting-accent-hex value="${esc(user.accentColor || '')}" placeholder="#RRGGBB" />
             </label>
           </div>
         </div>
@@ -107,7 +107,7 @@ export async function mountAppearanceSettings(root) {
       </section>
 
       <div class="settings-actions" style="margin-top: var(--space-2); display: flex; justify-content: flex-end;">
-        <button type="button" class="btn btn-primary" style="min-width: 140px;" data-save-display>${esc(t('common.save'))}</button>
+        <ion-button style="min-width: 140px;" data-save-display>${esc(t('common.save'))}</ion-button>
       </div>
     </div>
   `;

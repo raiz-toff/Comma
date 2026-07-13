@@ -1,0 +1,19 @@
+/* ── Ionic component rollout (schedule screen) ─────────────────────────────────────────
+ * Only the planning-mode action buttons are converted in this pass; the calendar grids,
+ * scatter chart, and the rest of the schedule styles stay in calendar.css (out of scope
+ * for this rollout step). */
+
+/* Zero ion-button's built-in host margins so the stacked buttons sit flush in the
+ * planning card, matching the old .btn column layout (.schedule-actions itself —
+ * flex column + gap — lives in calendar.css). */
+.schedule-actions ion-button {
+  margin: 0;
+}
+
+/* getIcon() SVGs slotted into ion-button's start slot: ion-button only auto-spaces
+ * ion-icon[slot=start], so the wrapper span carries its own alignment + gap. */
+.schedule-action-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-end: var(--space-2);
+}

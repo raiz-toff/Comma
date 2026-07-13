@@ -848,12 +848,14 @@ export async function renderScheduleModule(root, ctx = {}) {
               Mark days off or plan upcoming shifts.
             </p>
             <div class="schedule-actions">
-              <button class="btn btn-secondary btn-sm" type="button" data-action="add-plan">
-                ${getIcon('plus', 16)} Add plan
-              </button>
-              <button class="btn btn-ghost btn-sm" type="button" data-action="mark-off-day">
-                ${getIcon('calendar', 16)} Toggle off-day
-              </button>
+              <ion-button size="small" fill="outline" data-action="add-plan">
+                <span slot="start" class="schedule-action-icon" aria-hidden="true">${getIcon('plus', 16)}</span>
+                Add plan
+              </ion-button>
+              <ion-button size="small" fill="clear" data-action="mark-off-day">
+                <span slot="start" class="schedule-action-icon" aria-hidden="true">${getIcon('calendar', 16)}</span>
+                Toggle off-day
+              </ion-button>
             </div>
           </article>
 

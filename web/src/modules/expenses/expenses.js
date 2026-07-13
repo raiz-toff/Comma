@@ -4,7 +4,7 @@ import { bus, EXPENSE_SAVED, SHIFT_SAVED, XP_EARNED } from '../../core/events.js
 import { store } from '../../core/store.js';
 import { calcEVCost, calcFuelCost } from '../../utils/calculations.js';
 import { t } from '../../utils/strings.js';
-import { renderEmptyState, showModal, showToast } from '../../ui/components.js';
+import { renderEmptyState, showConfirm, showModal, showToast } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
 import { ExpenseCategoryRegistry, canonicalCategoryId } from '../../registry/expense-categories/index.js';
 import { renderExpenseForm } from './expense-form.js';
@@ -655,7 +655,6 @@ export async function renderExpensesView(root, ctx = {}) {
   /** @type {'all' | 'yes' | 'no'} */ let filterDeductible = 'all';
   /** @type {number | null} */ let selectedWeekIndex = null;
   let filtersVisible = false;
-  let monthModalOpen = false;
 
   /** All non-deleted expense rows (loaded once, refreshed on EXPENSE_SAVED). */
   let allRows = [];
@@ -680,9 +679,9 @@ export async function renderExpensesView(root, ctx = {}) {
           <h1 class="expenses-m-title">${esc(t('expenses.title'))}</h1>
           <p class="expenses-m-subtitle">${esc(t('expenses.subtitle'))}</p>
         </div>
-        <button type="button" class="expenses-m-add" data-action="new-expense">
+        <ion-button size="small" class="expenses-m-add" data-action="new-expense">
           ${getIcon('plus', 16)}<span>${esc(t('expenses.add'))}</span>
-        </button>
+        </ion-button>
       </header>
 
       <div class="expenses-m-nav">
@@ -729,8 +728,6 @@ export async function renderExpensesView(root, ctx = {}) {
       <div class="expenses-m-filters" data-slot="filters" hidden></div>
 
       <div class="expenses-m-list" data-slot="list"></div>
-
-      <div class="expenses-m-modal" data-slot="month-modal" hidden></div>
     </section>
   `;
 
@@ -743,7 +740,6 @@ export async function renderExpensesView(root, ctx = {}) {
   const ytdStandardEl = root.querySelector('[data-slot="ytd-standard"]');
   const filtersEl = root.querySelector('[data-slot="filters"]');
   const listEl = root.querySelector('[data-slot="list"]');
-  const modalEl = root.querySelector('[data-slot="month-modal"]');
 
   // ── Derived helpers ──────────────────────────────────────────────────────
   function filteredMonthRows() {
@@ -890,64 +886,89 @@ export async function renderExpensesView(root, ctx = {}) {
         const badge = ded
           ? `<span class="expenses-m-badge">${esc(t('expenses.taxDeductible') || 'Tax Deductible')}</span>`
           : '';
-        return `<div class="expenses-m-row" data-expense-id="${esc(exp.id)}">
-          <button type="button" class="expenses-m-row-main" data-action="edit">
-            <span class="expenses-m-row-icon">${esc(meta.emoji)}</span>
-            <span class="expenses-m-row-body">
-              <span class="expenses-m-row-titleline">
-                <span class="expenses-m-row-title">${esc(meta.name)}</span>${badge}
-              </span>
-              <span class="expenses-m-row-sub">${esc(dateLabel)}${notes ? ` · ${esc(notes)}` : ''}</span>
-            </span>
-          </button>
-          <div class="expenses-m-row-right">
-            <span class="expenses-m-row-amount">-${esc(money(num(exp.amount)))}</span>
-            <button type="button" class="expenses-m-row-del" data-action="delete" aria-label="${esc(t('common.delete'))}">${getIcon('trash', 12)}</button>
-          </div>
-        </div>`;
+        // Ionic rollout: the row rides inside an ion-item-sliding so touch users swipe left
+        // for actions; the in-row delete button stays for mouse users and is hidden on coarse
+        // pointers in expenses.css. data-expense-id lives on the sliding host too so the
+        // existing closest('[data-expense-id]') delegation resolves the id for option taps.
+        return `<ion-item-sliding class="expenses-m-sliding" data-expense-id="${esc(exp.id)}">
+          <ion-item class="expenses-m-ion-item" lines="none">
+            <div class="expenses-m-row" data-expense-id="${esc(exp.id)}">
+              <button type="button" class="expenses-m-row-main" data-action="edit">
+                <span class="expenses-m-row-icon">${esc(meta.emoji)}</span>
+                <span class="expenses-m-row-body">
+                  <span class="expenses-m-row-titleline">
+                    <span class="expenses-m-row-title">${esc(meta.name)}</span>${badge}
+                  </span>
+                  <span class="expenses-m-row-sub">${esc(dateLabel)}${notes ? ` · ${esc(notes)}` : ''}</span>
+                </span>
+              </button>
+              <div class="expenses-m-row-right">
+                <span class="expenses-m-row-amount">-${esc(money(num(exp.amount)))}</span>
+                <button type="button" class="expenses-m-row-del" data-action="delete" aria-label="${esc(t('common.delete'))}">${getIcon('trash', 12)}</button>
+              </div>
+            </div>
+          </ion-item>
+          <ion-item-options side="end">
+            <ion-item-option color="medium" data-action="edit">${esc(t('common.edit'))}</ion-item-option>
+            <ion-item-option color="danger" data-action="delete">${esc(t('common.delete'))}</ion-item-option>
+          </ion-item-options>
+        </ion-item-sliding>`;
       })
       .join('');
   }
 
-  function renderMonthModal() {
-    if (!modalEl) return;
-    modalEl.hidden = !monthModalOpen;
-    if (!monthModalOpen) {
-      modalEl.innerHTML = '';
-      return;
-    }
-    const realYear = now.getFullYear();
-    const realMonth = now.getMonth();
-    const maxMonthIndex = selectorYear === realYear ? realMonth : 11;
-    const s = ytdSummary();
+  /**
+   * Month selector — an ion-modal bottom sheet (drag handle, breakpoints; Escape/backdrop/
+   * swipe-down dismissal are ion-modal's own paths) hosting the same month-card content the
+   * old fixed-overlay modal rendered. Mirrors shifts-view's `openWeekSelector`.
+   */
+  async function openMonthModal() {
+    selectorYear = selectedMonth.getFullYear();
+    // Remove any prior instance first so rapid re-opens can't stack.
+    document.querySelectorAll('.expenses-m-month-modal').forEach((n) => n.remove());
+    const modal = /** @type {HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean> }} */ (
+      document.createElement('ion-modal')
+    );
+    modal.classList.add('expenses-m-month-modal');
+    /** @type {any} */ (modal).breakpoints = [0, 0.65, 0.92];
+    /** @type {any} */ (modal).initialBreakpoint = 0.65;
+    /** @type {any} */ (modal).handle = true;
+    const host = document.createElement('div');
+    host.className = 'expenses-m-modal-sheet';
+    modal.appendChild(host);
 
-    const cards = [];
-    for (let i = maxMonthIndex; i >= 0; i--) {
-      const mDate = new Date(selectorYear, i, 1);
-      const rows = rowsForMonth(mDate);
-      const { weeks, total, max } = weekBucketsFor(rows, mDate);
-      const isSel =
-        selectedMonth.getFullYear() === selectorYear && selectedMonth.getMonth() === i;
-      const mini = weeks
-        .map((week) => {
-          const pct = max > 0 ? (week.total / max) * 100 : 0;
-          const h = Math.max(pct, week.total > 0 ? 8 : 2);
-          return `<span class="expenses-m-mini-col"><span class="expenses-m-mini-track"><span class="expenses-m-mini-fill" style="height:${h}%"></span></span></span>`;
-        })
-        .join('');
-      cards.push(`<button type="button" class="expenses-m-mcard${isSel ? ' is-selected' : ''}" data-action="pick-month" data-month="${i}">
-        <span class="expenses-m-mcard-info">
-          <span class="expenses-m-mcard-name">${esc(mDate.toLocaleDateString(locale, { month: 'long' }))} ${selectorYear}</span>
-          <span class="expenses-m-mcard-total">${esc(money(total))}</span>
-        </span>
-        <span class="expenses-m-mini">${mini}</span>
-      </button>`);
-    }
+    /** Build the sheet markup for `selectorYear`. */
+    const build = () => {
+      const realYear = now.getFullYear();
+      const realMonth = now.getMonth();
+      const maxMonthIndex = selectorYear === realYear ? realMonth : 11;
+      const s = ytdSummary();
 
-    const nextYearDisabled = selectorYear >= realYear;
-    modalEl.innerHTML = `
-      <div class="expenses-m-modal-backdrop" data-action="close-month-modal"></div>
-      <div class="expenses-m-modal-sheet" role="dialog" aria-modal="true">
+      const cards = [];
+      for (let i = maxMonthIndex; i >= 0; i--) {
+        const mDate = new Date(selectorYear, i, 1);
+        const rows = rowsForMonth(mDate);
+        const { weeks, total, max } = weekBucketsFor(rows, mDate);
+        const isSel =
+          selectedMonth.getFullYear() === selectorYear && selectedMonth.getMonth() === i;
+        const mini = weeks
+          .map((week) => {
+            const pct = max > 0 ? (week.total / max) * 100 : 0;
+            const h = Math.max(pct, week.total > 0 ? 8 : 2);
+            return `<span class="expenses-m-mini-col"><span class="expenses-m-mini-track"><span class="expenses-m-mini-fill" style="height:${h}%"></span></span></span>`;
+          })
+          .join('');
+        cards.push(`<button type="button" class="expenses-m-mcard${isSel ? ' is-selected' : ''}" data-action="pick-month" data-month="${i}">
+          <span class="expenses-m-mcard-info">
+            <span class="expenses-m-mcard-name">${esc(mDate.toLocaleDateString(locale, { month: 'long' }))} ${selectorYear}</span>
+            <span class="expenses-m-mcard-total">${esc(money(total))}</span>
+          </span>
+          <span class="expenses-m-mini">${mini}</span>
+        </button>`);
+      }
+
+      const nextYearDisabled = selectorYear >= realYear;
+      host.innerHTML = `
         <div class="expenses-m-modal-head">
           <h2 class="expenses-m-modal-title">${selectorYear} ${esc(t('expenses.title'))}</h2>
           <button type="button" class="expenses-m-modal-done" data-action="close-month-modal">${esc(t('common.done') || 'Done')}</button>
@@ -962,8 +983,45 @@ export async function renderExpensesView(root, ctx = {}) {
           <span class="expenses-m-modal-yearlbl">${selectorYear}</span>
           <button type="button" class="expenses-m-modal-year${nextYearDisabled ? ' is-disabled' : ''}" data-action="next-year" ${nextYearDisabled ? 'disabled' : ''}>${esc(t('expenses.nextYear') || 'Next Year')}</button>
         </div>
-      </div>
-    `;
+      `;
+    };
+
+    build();
+    modal.addEventListener('ionModalDidDismiss', () => modal.remove());
+    document.body.appendChild(modal);
+    await modal.present();
+
+    const close = () => void modal.dismiss();
+
+    // The sheet lives on document.body, outside `root` — it wires its own delegation.
+    host.addEventListener('click', (ev) => {
+      const el = ev.target instanceof Element ? ev.target.closest('[data-action]') : null;
+      if (!el) return;
+      const action = el.getAttribute('data-action');
+      if (action === 'close-month-modal') {
+        close();
+        return;
+      }
+      if (action === 'prev-year') {
+        selectorYear -= 1;
+        build();
+        return;
+      }
+      if (action === 'next-year') {
+        if (selectorYear < now.getFullYear()) {
+          selectorYear += 1;
+          build();
+        }
+        return;
+      }
+      if (action === 'pick-month') {
+        const mi = Number(el.getAttribute('data-month'));
+        selectedMonth = new Date(selectorYear, mi, 1);
+        selectedWeekIndex = null;
+        refresh();
+        close();
+      }
+    });
   }
 
   function refresh() {
@@ -996,11 +1054,24 @@ export async function renderExpensesView(root, ctx = {}) {
   }
 
   function openEditorForRow(id) {
-    const handle = showModal({
-      title: t('expenses.editTitle'),
-      content: `<div class="expense-edit-loading"><div class="shimmer-line"></div><div class="shimmer-line shimmer-line--short"></div><div class="shimmer-line"></div><p class="expense-loading-text">${esc(t('common.loading'))}...</p></div>`,
-      actions: [],
-    });
+    // Ionic rollout: the editor presents as a bottom sheet (drag handle, swipe-down dismiss)
+    // instead of the centered modal — same pattern as shifts-view's openShiftFormModal.
+    const modal = /** @type {HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean> }} */ (
+      document.createElement('ion-modal')
+    );
+    /** @type {any} */ (modal).breakpoints = [0, 0.92];
+    /** @type {any} */ (modal).initialBreakpoint = 0.92;
+    /** @type {any} */ (modal).handle = true;
+    const handle = { close: () => void modal.dismiss() };
+
+    const wrap = document.createElement('div');
+    wrap.className = 'expenses-m-sheet-body';
+    wrap.innerHTML = `<h2 class="expenses-m-sheet-title">${esc(t('expenses.editTitle'))}</h2><div class="expense-edit-loading"><div class="shimmer-line"></div><div class="shimmer-line shimmer-line--short"></div><div class="shimmer-line"></div><p class="expense-loading-text">${esc(t('common.loading'))}...</p></div>`;
+    modal.appendChild(wrap);
+    modal.addEventListener('ionModalDidDismiss', () => modal.remove());
+    document.body.appendChild(modal);
+    void modal.present();
+
     void db.expenses.get(id).then((row) => {
       if (!row) {
         handle.close();
@@ -1012,17 +1083,21 @@ export async function renderExpensesView(root, ctx = {}) {
         platforms: platformRows,
         isHstRegistered: Boolean(user?.hstRegistered),
         currencySymbol,
-        onSave: async (payload) => {
-          await updateExpense(id, payload);
+        onCancel: () => handle.close(),
+      });
+      const formEl = formApi.el.querySelector('form');
+      if (formEl) {
+        formEl.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          await updateExpense(id, formApi.getValue());
           handle.close();
           await loadRows();
           refresh();
-        },
-        onCancel: () => handle.close(),
-      });
-      handle.body.innerHTML = '';
-      handle.body.appendChild(formApi.el);
-      setTimeout(() => handle.body.querySelector('input, select, textarea')?.focus(), 0);
+        });
+      }
+      wrap.querySelector('.expense-edit-loading')?.remove();
+      wrap.appendChild(formApi.el);
+      setTimeout(() => wrap.querySelector('input, select, textarea')?.focus(), 0);
     });
   }
 
@@ -1073,33 +1148,8 @@ export async function renderExpensesView(root, ctx = {}) {
           refresh();
           return;
         case 'open-month-modal':
-          selectorYear = selectedMonth.getFullYear();
-          monthModalOpen = true;
-          renderMonthModal();
+          void openMonthModal();
           return;
-        case 'close-month-modal':
-          monthModalOpen = false;
-          renderMonthModal();
-          return;
-        case 'prev-year':
-          selectorYear -= 1;
-          renderMonthModal();
-          return;
-        case 'next-year':
-          if (selectorYear < now.getFullYear()) {
-            selectorYear += 1;
-            renderMonthModal();
-          }
-          return;
-        case 'pick-month': {
-          const mi = Number(target.getAttribute('data-month'));
-          selectedMonth = new Date(selectorYear, mi, 1);
-          selectedWeekIndex = null;
-          monthModalOpen = false;
-          renderMonthModal();
-          refresh();
-          return;
-        }
         default:
           break;
       }
@@ -1107,14 +1157,23 @@ export async function renderExpensesView(root, ctx = {}) {
       const rowEl = target.closest('[data-expense-id]');
       const id = rowEl?.getAttribute('data-expense-id');
       if (!id) return;
+      // Swipe-option taps come from inside an open ion-item-sliding — snap it shut before acting.
+      const slider = /** @type {{ close?: () => Promise<void> } | null} */ (target.closest('ion-item-sliding'));
+      if (slider && typeof slider.close === 'function') void slider.close();
       if (action === 'edit') {
         openEditorForRow(id);
       } else if (action === 'delete') {
-        if (typeof window !== 'undefined' && !window.confirm(t('expenses.deleteConfirm') || 'Delete this expense?')) return;
-        await deleteExpense(id);
-        showToast({ type: 'success', message: t('expenses.deletedToast'), duration: 1800 });
-        await loadRows();
-        refresh();
+        showConfirm({
+          message: t('expenses.deleteConfirm') || 'Delete this expense?',
+          confirmLabel: t('common.delete'),
+          confirmClass: 'btn btn-danger',
+          onConfirm: async () => {
+            await deleteExpense(id);
+            showToast({ type: 'success', message: t('expenses.deletedToast'), duration: 1800 });
+            await loadRows();
+            refresh();
+          },
+        });
       }
     },
     { signal },
@@ -1138,6 +1197,15 @@ export async function renderExpensesView(root, ctx = {}) {
 /** Log one recurring payment from the confirmation flow (editable amount). */
 async function openRecurringOccurrenceEditor({ template, categories, platformRows, user, onDone }) {
   const nextDate = String(template.recurringNextDate);
+  // Ionic rollout: bottom-sheet form modal (shifts-view openShiftFormModal pattern).
+  const modal = /** @type {HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean> }} */ (
+    document.createElement('ion-modal')
+  );
+  /** @type {any} */ (modal).breakpoints = [0, 0.92];
+  /** @type {any} */ (modal).initialBreakpoint = 0.92;
+  /** @type {any} */ (modal).handle = true;
+  const handle = { close: () => void modal.dismiss() };
+
   const formApi = renderExpenseForm({
     initial: {
       category: template.category,
@@ -1160,26 +1228,47 @@ async function openRecurringOccurrenceEditor({ template, categories, platformRow
     submitLabel: t('common.save'),
     onCancel: () => handle.close(),
   });
-  const handle = showModal({
-    title: t('expenses.recurringEditTitle'),
-    content: formApi.el,
-    actions: [],
-  });
+
+  const wrap = document.createElement('div');
+  wrap.className = 'expenses-m-sheet-body';
+  const heading = document.createElement('h2');
+  heading.className = 'expenses-m-sheet-title';
+  heading.textContent = t('expenses.recurringEditTitle');
+  wrap.appendChild(heading);
+  wrap.appendChild(formApi.el);
+  modal.appendChild(wrap);
+
   const form = formApi.el.querySelector('form');
-  if (!form) return;
-  await new Promise((resolve) => {
+  if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       await createRecurringOccurrenceAndAdvance(template, formApi.getValue());
       onDone?.();
       handle.close();
+    });
+  }
+
+  await new Promise((resolve) => {
+    modal.addEventListener('ionModalDidDismiss', () => {
+      modal.remove();
       resolve(null);
     });
-    form.addEventListener('reset', () => resolve(null), { once: true });
+    document.body.appendChild(modal);
+    void modal.present();
   });
 }
 
 async function openExpenseEditor({ initial = {}, categories, platformRows, isHstRegistered, currencySymbol, onSave }) {
+  // Ionic rollout: bottom-sheet form modal (shifts-view openShiftFormModal pattern); native
+  // <form> submit wiring is kept — ion-modal only replaces the overlay chrome.
+  const modal = /** @type {HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean> }} */ (
+    document.createElement('ion-modal')
+  );
+  /** @type {any} */ (modal).breakpoints = [0, 0.92];
+  /** @type {any} */ (modal).initialBreakpoint = 0.92;
+  /** @type {any} */ (modal).handle = true;
+  const handle = { close: () => void modal.dismiss() };
+
   const formApi = renderExpenseForm({
     initial,
     categories,
@@ -1188,21 +1277,34 @@ async function openExpenseEditor({ initial = {}, categories, platformRows, isHst
     currencySymbol,
     onCancel: () => handle.close(),
   });
-  const handle = showModal({
-    title: initial.id ? t('expenses.editTitle') : t('expenses.add'),
-    content: formApi.el,
-    actions: [],
-  });
+
+  const wrap = document.createElement('div');
+  wrap.className = 'expenses-m-sheet-body';
+  const heading = document.createElement('h2');
+  heading.className = 'expenses-m-sheet-title';
+  heading.textContent = initial.id ? t('expenses.editTitle') : t('expenses.add');
+  wrap.appendChild(heading);
+  wrap.appendChild(formApi.el);
+  modal.appendChild(wrap);
+
   const form = formApi.el.querySelector('form');
-  if (!form) return;
-  await new Promise((resolve) => {
+  if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       await onSave(formApi.getValue());
       showToast({ type: 'success', message: t('expenses.savedToast'), duration: 1800 });
       handle.close();
+    });
+  }
+
+  // Resolve once the sheet is gone (save, Cancel, swipe-down, backdrop or Escape) so the
+  // caller's reload-and-refresh runs on every close path.
+  await new Promise((resolve) => {
+    modal.addEventListener('ionModalDidDismiss', () => {
+      modal.remove();
       resolve(null);
     });
-    form.addEventListener('reset', () => resolve(null), { once: true });
+    document.body.appendChild(modal);
+    void modal.present();
   });
 }

@@ -610,48 +610,51 @@
   white-space: nowrap;
 }
 
-/* ── Segmented category tab bar (Android bottom bar → top segbar on web) ── */
-.analytics-segbar {
-  display: flex;
-  gap: 4px;
+/* ── Segmented category tab bar (ion-segment; Android bottom bar → top segbar on web) ── */
+ion-segment.analytics-segbar {
+  --background: var(--color-surface);
+  width: 100%;
   padding: 4px;
   margin-bottom: var(--space-5);
-  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
 }
 
-.analytics-seg {
-  flex: 1;
+.analytics-segbar ion-segment-button {
+  --color: var(--color-text-muted);
+  --color-checked: var(--color-brand);
+  --color-hover: var(--color-text-secondary);
+  --indicator-color: var(--color-surface-raised);
+  --border-radius: var(--radius-md);
+  min-height: 38px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* md's underline indicator becomes a full-height sliding pill — matches the old
+   raised-surface active tab. */
+.analytics-segbar ion-segment-button::part(indicator-background) {
+  height: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.analytics-segbar ion-segment-button.segment-button-checked {
+  font-weight: 800;
+}
+
+.analytics-seg-inner {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 10px 8px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  cursor: pointer;
   white-space: nowrap;
-  transition: all 0.2s ease;
 }
 
-.analytics-seg svg {
+.analytics-seg-inner svg {
   flex-shrink: 0;
-}
-
-.analytics-seg:hover {
-  color: var(--color-text-secondary);
-}
-
-.analytics-seg.is-active {
-  background: var(--color-surface-raised);
-  border-color: var(--color-border);
-  color: var(--color-brand);
-  font-weight: 800;
 }
 
 /* ── Panels & responsive card flow ── */
@@ -669,6 +672,17 @@
 
 .analytics-cards--loading {
   gap: var(--space-3);
+}
+
+/* Loading placeholder card (ion-skeleton-text rows, same pattern as .shift-skel). */
+.analytics-skel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
 }
 
 .analytics-widget-card {
@@ -764,8 +778,8 @@
   color: var(--color-text-primary);
 }
 
-.astat-detail-v.pos { color: var(--clr-teal, #14b8a6); }
-.astat-detail-v.neg { color: var(--color-danger, #f43f5e); }
+.astat-detail-v.pos { color: var(--clr-teal); }
+.astat-detail-v.neg { color: var(--color-danger); }
 
 /* ── Segmented composite widgets (several widgets sharing one card) ── */
 .wseg-wrap {
@@ -944,42 +958,16 @@
   color: var(--astat-accent);
 }
 
-/* ── Period-type picker sheet ── */
-.analytics-period-sheet {
-  position: fixed;
-  inset: 0;
-  z-index: 4000;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  background: color-mix(in srgb, #000 45%, transparent);
-  backdrop-filter: blur(2px);
-}
-
-@media (min-width: 640px) {
-  .analytics-period-sheet {
-    align-items: center;
-  }
-}
-
-.analytics-period-sheet[hidden] {
-  display: none;
-}
-
-.analytics-period-sheet-panel {
-  width: 100%;
-  max-width: 440px;
+/* ── Period-type picker sheet (ion-modal bottom sheet — the fixed-overlay wrapper
+      and manual backdrop are ion-modal's job now) ── */
+ion-modal .analytics-period-sheet-panel {
+  max-height: none;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  overflow-y: auto;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   padding: var(--space-6) var(--space-4) var(--space-8);
-}
-
-@media (min-width: 640px) {
-  .analytics-period-sheet-panel {
-    border-radius: var(--radius-xl);
-    padding-bottom: var(--space-6);
-  }
 }
 
 .analytics-period-sheet-title {
@@ -991,30 +979,31 @@
   margin-bottom: var(--space-3);
 }
 
-.analytics-period-seg {
-  display: flex;
-  gap: 4px;
+ion-segment.analytics-period-seg {
+  --background: var(--color-surface-raised);
+  width: 100%;
   padding: 4px;
-  background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
 }
 
-.analytics-period-seg-btn {
-  flex: 1;
-  padding: 10px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-secondary);
+.analytics-period-seg ion-segment-button {
+  --color: var(--color-text-secondary);
+  --color-checked: var(--color-brand-contrast);
+  --indicator-color: var(--color-brand);
+  --border-radius: var(--radius-sm);
+  min-height: 40px;
   font-size: var(--text-sm);
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
-.analytics-period-seg-btn.is-active {
-  background: var(--color-brand);
-  color: var(--color-brand-contrast);
+.analytics-period-seg ion-segment-button::part(indicator-background) {
+  height: 100%;
+  border-radius: var(--radius-sm);
+}
+
+.analytics-period-seg ion-segment-button.segment-button-checked {
   font-weight: 800;
 }

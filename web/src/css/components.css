@@ -550,138 +550,49 @@
  *
  * All chrome lives here; component JS only toggles classes and
  * stateful CSS custom properties (--platform-color, --ring-color,
- * --heatmap-weeks, --cell-intensity, --drawer-snap).
+ * --heatmap-weeks, --cell-intensity, --comma-toast-lift).
  * ============================================================ */
 
-/* Body scroll lock while a modal is open */
-.comma-modal-open {
-  overflow: hidden;
+/* Modal — presented through ion-modal (backdrop, centering, focus trap, Escape and
+   scroll locking are Ionic's); the dialog chrome below stays comma's. Sizing rides the
+   host's CSS custom properties; `--height: auto` lets the wrapper hug the dialog. */
+ion-modal.comma-ion-modal {
+  --width: min(520px, calc(100vw - var(--space-8)));
+  --height: auto;
+  --max-height: min(85dvh, 720px);
+  --border-radius: var(--radius-lg);
+  --background: var(--color-surface);
+  --box-shadow: var(--shadow-xl);
+  --backdrop-opacity: 0.38;
 }
 
-/* Modal — backdrop + dialog */
-.comma-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-modal);
-  display: grid;
-  place-items: center;
-  padding: var(--space-4);
-  background: color-mix(in srgb, #000 38%, transparent);
-  opacity: 0;
-  backdrop-filter: blur(0px);
-  -webkit-backdrop-filter: blur(0px);
-  transition:
-    opacity var(--transition-base),
-    visibility var(--transition-base),
-    backdrop-filter var(--transition-base);
-  visibility: hidden;
-}
-
-.comma-modal-backdrop.is-open {
-  opacity: 1;
+ion-modal.comma-ion-modal::part(backdrop) {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  visibility: visible;
+}
+
+ion-modal.comma-ion-modal--sm {
+  --width: min(380px, calc(100vw - var(--space-8)));
+}
+
+ion-modal.comma-ion-modal--lg {
+  --width: min(720px, calc(100vw - var(--space-8)));
+}
+
+ion-modal.comma-ion-modal--xl {
+  --width: min(920px, calc(100vw - var(--space-8)));
 }
 
 .comma-modal {
   position: relative;
   width: 100%;
-  max-width: 520px;
   max-height: min(85dvh, 720px);
   display: flex;
   flex-direction: column;
-  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
   overflow: hidden;
-  opacity: 0;
-  transform: translateY(12px) scale(0.98);
-  transition:
-    opacity var(--transition-base),
-    transform var(--transition-slow);
   outline: none;
-}
-
-.comma-modal.is-open {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-.comma-modal.is-closing {
-  opacity: 0;
-  transform: translateY(8px) scale(0.99);
-}
-
-.comma-modal--sm {
-  max-width: 380px;
-}
-
-.comma-modal--md {
-  max-width: 520px;
-}
-
-.comma-modal--lg {
-  max-width: 720px;
-}
-
-.comma-modal--xl {
-  max-width: 920px;
-}
-
-@media (max-width: 640px) {
-  .comma-modal-backdrop {
-    align-items: flex-end;
-    padding: 0;
-    padding-top: var(--space-12); /* Leave space at top for context */
-  }
-
-  .comma-modal {
-    max-width: 100%;
-    max-height: 92dvh;
-    border-radius: 28px 28px 0 0;
-    transform: translateY(100%);
-    margin-bottom: 0;
-    background: color-mix(in srgb, var(--color-surface) 82%, transparent);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid color-mix(in srgb, var(--color-text-primary) 8%, transparent);
-    border-bottom: none;
-    transition: transform 0.45s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.3s ease;
-    box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.3);
-  }
-
-  .comma-modal.is-open {
-    transform: translateY(0);
-  }
-
-  .comma-modal.is-closing {
-    transform: translateY(100%);
-  }
-
-  /* Bottom sheet "handle" indicator */
-  .comma-modal::before {
-    content: '';
-    display: block;
-    width: 36px;
-    height: 4px;
-    background: var(--color-border);
-    border-radius: var(--radius-pill);
-    margin: var(--space-3) auto 0;
-    flex-shrink: 0;
-    opacity: 0.8;
-  }
-
-  .comma-modal-header {
-    padding-top: var(--space-2); /* Adjusted for handle */
-    border-bottom-color: transparent; /* Cleaner look */
-  }
-
-  .comma-modal-footer {
-    padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0));
-    background: var(--color-surface-raised); /* Contrast with body */
-  }
 }
 
 .comma-modal-header {
@@ -741,19 +652,33 @@
   display: none;
 }
 
-/* Confirm modal */
-.comma-confirm-message {
-  margin: 0 0 var(--space-4);
-  color: var(--color-text-primary);
-  font-size: var(--text-base);
-  line-height: 1.5;
+/* Confirm — ion-alert (scoped component: its buttons/inputs are light DOM, so the
+   cssClass hooks set in showConfirm are styleable from here). */
+ion-alert.comma-alert .comma-alert-btn--danger {
+  color: var(--color-danger);
 }
 
-.comma-confirm-type {
-  margin-top: var(--space-2);
+ion-alert.comma-alert .comma-alert-btn--confirm:disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
-/* Toast container — overlays bottom of viewport */
+/* Toast — presented through ion-toast; type → ion color mapping happens in showToast.
+   Simultaneous toasts lift older hosts (--comma-toast-lift, set by JS) so up to three
+   stay visible, matching the old stacked host. */
+ion-toast.comma-toast {
+  --border-radius: var(--radius-pill);
+  --box-shadow: var(--shadow-lg);
+  --width: fit-content;
+  --min-width: 240px;
+  --max-width: min(480px, calc(100vw - var(--space-8)));
+  font-size: var(--text-sm);
+  font-weight: 500;
+  transform: translateY(calc(-1 * var(--comma-toast-lift, 0px)));
+  transition: transform var(--transition-base);
+}
+
+/* Toast container — still hosts the richer COMMANotify cards */
 #toast-container.toast-host,
 .toast-host {
   position: fixed;
@@ -768,122 +693,6 @@
   padding: var(--space-3);
   padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0));
   pointer-events: none;
-}
-
-/* Toast — single line */
-.comma-toast {
-  pointer-events: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 240px;
-  max-width: min(480px, 100%);
-  padding: var(--space-3) var(--space-5);
-  background: linear-gradient(to bottom, var(--color-surface), color-mix(in srgb, var(--color-surface) 96%, var(--color-border)));
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  box-shadow: 0 8px 32px -4px rgba(0,0,0,0.12), var(--shadow-md);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  transform: translateY(16px);
-  opacity: 0;
-  transition:
-    transform var(--transition-base),
-    opacity var(--transition-base);
-}
-
-.comma-toast.is-open {
-  transform: translateY(0);
-  opacity: 1;
-}
-
-.comma-toast.is-closing {
-  opacity: 0;
-  transform: translateY(8px);
-}
-
-.comma-toast-icon {
-  display: inline-flex;
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-secondary);
-}
-
-.comma-toast-message {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.comma-toast-actions {
-  display: inline-flex;
-  gap: var(--space-1);
-}
-
-.comma-toast-action {
-  font-size: var(--text-xs);
-  padding: var(--space-1) var(--space-2);
-}
-
-.comma-toast-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  color: var(--color-text-muted);
-  background: transparent;
-  transition:
-    color var(--transition-base),
-    background-color var(--transition-base);
-}
-
-.comma-toast-close:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-raised);
-}
-
-.comma-toast--success {
-  border-color: color-mix(in srgb, var(--color-success) 35%, var(--color-border));
-}
-
-.comma-toast--success .comma-toast-icon {
-  color: var(--color-success);
-}
-
-.comma-toast--error {
-  border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-border));
-  background: color-mix(in srgb, var(--color-danger) 8%, var(--color-surface));
-}
-
-.comma-toast--error .comma-toast-icon {
-  color: var(--color-danger);
-}
-
-.comma-toast--warning {
-  border-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
-  background: color-mix(in srgb, var(--color-warning) 10%, var(--color-surface));
-}
-
-.comma-toast--warning .comma-toast-icon {
-  color: var(--color-warning);
-}
-
-.comma-toast--info .comma-toast-icon {
-  color: var(--color-info);
-}
-
-.comma-toast--celebration {
-  border-color: color-mix(in srgb, var(--color-brand) 55%, var(--color-border));
-  background: color-mix(in srgb, var(--color-brand) 14%, var(--color-surface));
-}
-
-.comma-toast--celebration .comma-toast-icon {
-  color: var(--color-brand-dark);
 }
 
 /* Notify card — richer card-style toast */
@@ -991,7 +800,10 @@
   background: color-mix(in srgb, var(--color-brand) 22%, var(--color-surface-raised));
 }
 
-/* FAB (Floating Action Button) — F8 layer */
+/* FAB — ion-fab + ion-fab-button + ion-fab-list. The ion-fab host defaults to absolute
+   positioning, so comma fixes it to the viewport here; the main button and speed-dial
+   list keep their legacy .comma-fab / .comma-fab-menu class names, which the zen-mode
+   and onboarding-focus rules elsewhere still target. */
 
 .comma-fab-backdrop {
   position: fixed;
@@ -1007,27 +819,99 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.comma-fab-menu {
+ion-fab.comma-fab-root {
   position: fixed;
   right: var(--space-4);
-  bottom: calc(var(--space-16) + var(--space-4) + 56px + var(--space-2) + env(safe-area-inset-bottom, 0));
-  z-index: 159;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-2);
-  list-style: none;
-  margin: 0;
-  padding: 0;
+  bottom: calc(var(--space-16) + var(--space-4) + env(safe-area-inset-bottom, 0));
+  z-index: 160;
+  transition:
+    transform var(--transition-base),
+    opacity var(--transition-base);
+}
+
+ion-fab.comma-fab-root.comma-fab--hidden {
+  opacity: 0;
+  transform: translateY(72px);
   pointer-events: none;
 }
 
-.comma-fab-menu-item {
+ion-fab-button.comma-fab {
+  --box-shadow: var(--shadow-lg);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: var(--text-sm);
+}
+
+/* While the speed dial is open, ion-fab-button fades its slotted icon out and its
+   built-in ion-icon close glyph in — ion-icon isn't registered in this app, so paint
+   the X ourselves with a masked currentColor box on the exposed shadow part. */
+ion-fab-button.comma-fab::part(close-icon) {
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M6 6l12 12M18 6L6 18' stroke='white' stroke-width='2.5' stroke-linecap='round'/></svg>") center / 22px 22px no-repeat;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M6 6l12 12M18 6L6 18' stroke='white' stroke-width='2.5' stroke-linecap='round'/></svg>") center / 22px 22px no-repeat;
+}
+
+/* Speed-dial list: anchored above the main button, right-aligned rows of
+   label chip + circular ion-fab-button (labels can't be slotted into the button —
+   its shadow button clips overflow). */
+ion-fab-list.comma-fab-menu {
+  left: auto;
+  right: 0;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.comma-fab-menu-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+/* The fab-list only staggers ion-fab-buttons that are its direct children — the rows
+   need their own entrance. `fab-list-active` is set by ion-fab-list when opened. */
+ion-fab-list.comma-fab-menu.fab-list-active .comma-fab-menu-row {
+  animation: comma-fab-row-in 0.22s ease both;
+  animation-delay: calc(var(--fab-i, 0) * 55ms);
+}
+
+@keyframes comma-fab-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+ion-fab-button.comma-fab-menu-item {
+  width: 48px;
+  height: 48px;
+  --background: var(--color-surface-raised);
+  --background-hover: var(--color-surface);
+  --background-activated: var(--color-surface);
+  --color: var(--color-brand);
+  --box-shadow: var(--shadow-md);
+}
+
+.comma-fab-menu-item-icon {
+  flex-shrink: 0;
+  display: flex;
+}
+
+.comma-fab-menu-item-icon svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+.comma-fab-menu-item-label {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
-  min-height: 48px;
-  padding: var(--space-2) var(--space-4);
+  min-height: 32px;
+  padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--color-text-primary) 12%, var(--color-border));
   background: color-mix(in srgb, var(--color-surface-raised) 85%, transparent);
@@ -1039,127 +923,56 @@
   font-weight: 600;
   letter-spacing: -0.01em;
   box-shadow: var(--shadow-md);
-  cursor: pointer;
-  opacity: 0;
-  transform: translateY(12px);
-  pointer-events: none;
-  transition:
-    opacity 0.22s ease,
-    transform 0.22s ease,
-    background-color var(--transition-fast),
-    box-shadow var(--transition-fast);
-  transition-delay: calc(var(--fab-i, 0) * 55ms);
-}
-
-.comma-fab-menu.is-open .comma-fab-menu-item {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-
-.comma-fab-menu-item:hover {
-  background: var(--color-surface);
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
-}
-
-.comma-fab-menu-item-icon {
-  flex-shrink: 0;
-  display: flex;
-  color: var(--color-brand);
-}
-
-.comma-fab-menu-item-icon svg {
-  display: block;
-  width: 22px;
-  height: 22px;
-}
-
-.comma-fab-menu-item-label {
   white-space: nowrap;
-}
-
-.comma-fab {
-  position: fixed;
-  right: var(--space-4);
-  bottom: calc(var(--space-16) + var(--space-4) + env(safe-area-inset-bottom, 0));
-  z-index: 160;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  min-width: 56px;
-  height: 56px;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-pill);
-  background: var(--color-brand);
-  color: #1a1916;
-  font-family: var(--font-body);
-  font-weight: 700;
-  font-size: var(--text-sm);
-  border: none;
-  box-shadow: var(--shadow-lg);
-  transition:
-    transform var(--transition-fast),
-    box-shadow var(--transition-base),
-    opacity var(--transition-base),
-    background-color var(--transition-base),
-    color var(--transition-base);
-}
-
-.comma-fab:hover {
-  transform: scale(1.04);
-  box-shadow: var(--shadow-xl);
-}
-
-.comma-fab--end {
-  background: var(--color-danger);
-  color: #fff;
-  padding-right: var(--space-4);
-}
-
-.comma-fab--hidden {
-  opacity: 0;
-  transform: translateY(72px);
-  pointer-events: none;
 }
 
 .comma-fab-icon {
   display: block;
 }
 
+/* End-mode label: a chip beside the (danger-colored) button, light DOM of the ion-fab
+   root — ion-fab-button's shadow button clips slotted overflow, so it can't live inside. */
 .comma-fab-label {
+  position: absolute;
+  right: calc(100% + var(--space-2));
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--color-danger);
+  color: var(--ion-color-danger-contrast);
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 700;
   letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
 }
 
 @media (min-width: 1024px) {
-  .comma-fab {
+  ion-fab.comma-fab-root {
     bottom: calc(var(--space-8) + env(safe-area-inset-bottom, 0));
   }
-  .comma-fab-menu {
-    bottom: calc(var(--space-8) + 56px + var(--space-2) + env(safe-area-inset-bottom, 0));
-  }
 }
 
-/* Drawer extras (base styles live in layout.css) */
-.comma-drawer .drawer-panel {
-  height: calc(var(--drawer-snap, 0.5) * 100dvh);
-  max-height: 92dvh;
+/* Drawer — ion-modal sheet (drag handle, snap breakpoints and swipe dismissal are
+   Ionic's; the panel below is the light-DOM content host). */
+ion-modal.comma-drawer {
+  --background: var(--color-surface);
+  --border-radius: var(--radius-xl);
+}
+
+.comma-drawer-panel {
+  height: 100%;
   display: flex;
   flex-direction: column;
-}
-
-.comma-drawer-handle {
-  align-self: center;
-  width: 40px;
-  height: 4px;
-  background: var(--color-border);
-  border-radius: var(--radius-pill);
-  margin-bottom: var(--space-3);
-  flex-shrink: 0;
+  overflow: hidden;
+  padding: var(--space-4);
+  padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0));
 }
 
 .comma-drawer-header {
@@ -1198,10 +1011,6 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-}
-
-.comma-drawer .drawer-panel.is-dragging {
-  transition: none;
 }
 
 /* Numeric keypad */
@@ -1433,14 +1242,16 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .comma-modal,
-  .comma-modal-backdrop,
-  .comma-toast,
   .comma-notify,
-  .comma-fab,
-  .comma-fab-menu-item,
-  .drawer-panel {
+  ion-toast.comma-toast,
+  ion-fab.comma-fab-root,
+  ion-fab-button.comma-fab,
+  ion-fab-button.comma-fab-menu-item {
     transition: none !important;
+  }
+
+  ion-fab-list.comma-fab-menu.fab-list-active .comma-fab-menu-row {
+    animation: none;
   }
 }
 
@@ -1476,8 +1287,15 @@ body.zen-mode .app-header,
 body.zen-mode .app-sidebar,
 body.zen-mode .bottom-nav,
 body.zen-mode .comma-fab,
-body.zen-mode .comma-fab-menu {
+body.zen-mode .comma-fab-menu,
+body.zen-mode .comma-fab-label {
   opacity: 0.08;
+}
+
+/* The end-shift label chip lives beside the FAB button (see components.js initFAB);
+   layout.css hides .comma-fab / .comma-fab-menu during onboarding focus — match it. */
+body.comma-onboarding-focus .comma-fab-label {
+  display: none !important;
 }
 
 body.zen-mode .app-main {

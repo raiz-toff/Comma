@@ -26,7 +26,7 @@ export function render(root, ctx) {
     </section>
     <section class="p13-about-section">
       <h2>Focus tools</h2>
-      <button type="button" class="btn btn-secondary" data-zen-toggle>Toggle Zen Mode</button>
+      <ion-button fill="outline" data-zen-toggle>Toggle Zen Mode</ion-button>
     </section>
   `;
   const tipsEl = article.querySelector('[data-community-tips]');

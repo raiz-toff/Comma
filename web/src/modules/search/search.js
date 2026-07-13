@@ -383,15 +383,17 @@ function renderGroupCards(groups) {
         .slice(0, 8)
         .map(
           (row) => `
-            <article class="search-result-card" data-result-type="${esc(row.type)}" data-result-id="${esc(row.id)}">
-              <h4>${esc(row.title)}</h4>
-              <p>${esc(row.subtitle)}</p>
-              <small>${esc(row.preview || 'No preview')}</small>
-            </article>
+            <ion-item class="search-result-item" lines="none">
+              <article class="search-result-card" data-result-type="${esc(row.type)}" data-result-id="${esc(row.id)}">
+                <h4>${esc(row.title)}</h4>
+                <p>${esc(row.subtitle)}</p>
+                <small>${esc(row.preview || 'No preview')}</small>
+              </article>
+            </ion-item>
           `,
         )
         .join('');
-      return `<section class="search-result-group"><h3>${labels[key]} (${groups[key].length})</h3>${cards}</section>`;
+      return `<section class="search-result-group"><h3>${labels[key]} <ion-badge class="search-result-count">${groups[key].length}</ion-badge></h3><ion-list class="search-result-list" lines="none">${cards}</ion-list></section>`;
     })
     .join('');
 }
@@ -416,10 +418,10 @@ function buildOverlayNode() {
       </header>
 
       <section class="search-overlay-section" aria-label="Search query">
-        <label class="field search-query-field">
+        <div class="field search-query-field">
           <span class="input-label">Query</span>
-          <input type="search" class="input" name="query" placeholder="Type to search…" autocomplete="off" />
-        </label>
+          <ion-searchbar class="search-query-bar" name="query" placeholder="Type to search…" autocomplete="off" inputmode="search" aria-label="Query"></ion-searchbar>
+        </div>
       </section>
 
       <section class="search-overlay-section" aria-label="Sort results">
@@ -480,13 +482,13 @@ function buildOverlayNode() {
         <h3 class="search-overlay-section-title">Saved filters</h3>
         <div class="search-overlay-saved" data-slot="saved"></div>
         <div class="search-save-section">
-          <label class="field search-save-field">
+          <div class="field search-save-field">
             <span class="input-label">Save current query</span>
             <div class="search-save-row">
-              <input type="text" class="input" name="savedName" placeholder="e.g. weekend downtown" />
-              <button type="button" class="btn btn-secondary" data-action="save-filter">Save</button>
+              <input type="text" class="input" name="savedName" placeholder="e.g. weekend downtown" aria-label="Save current query" />
+              <ion-button fill="outline" data-action="save-filter">Save</ion-button>
             </div>
-          </label>
+          </div>
         </div>
       </section>
     </div>
@@ -506,16 +508,16 @@ function wireSavedFilterActions(root, queryInput) {
       return;
     }
     savedSlot.innerHTML = `
-      <ul class="search-saved-list">
+      <ion-list class="search-saved-list" lines="none">
         ${list
           .map(
-            (item) => `<li>
-              <button type="button" class="btn btn-ghost btn-sm" data-action="apply-filter" data-id="${esc(item.id)}">${esc(item.name)}</button>
-              <button type="button" class="btn btn-ghost btn-sm btn-danger" data-action="delete-filter" data-id="${esc(item.id)}">Delete</button>
-            </li>`,
+            (item) => `<ion-item class="search-saved-item" lines="none">
+              <ion-button fill="clear" size="small" data-action="apply-filter" data-id="${esc(item.id)}">${esc(item.name)}</ion-button>
+              <ion-button fill="clear" size="small" color="danger" data-action="delete-filter" data-id="${esc(item.id)}">Delete</ion-button>
+            </ion-item>`,
           )
           .join('')}
-      </ul>
+      </ion-list>
     `;
   }
 
@@ -546,7 +548,9 @@ function wireSavedFilterActions(root, queryInput) {
       const savedQuery = str(item?.value && item.value.query ? item.value.query : '');
       if (savedQuery && queryInput) {
         queryInput.value = savedQuery;
-        queryInput.dispatchEvent(new Event('input', { bubbles: true }));
+        // Programmatic value sets don't emit ionInput; fire it ourselves so the overlay's
+        // ionInput listener re-runs the search (it reads queryInput.value, not the detail).
+        queryInput.dispatchEvent(new CustomEvent('ionInput', { bubbles: true }));
       }
     }
   });
@@ -556,7 +560,9 @@ function wireSavedFilterActions(root, queryInput) {
 
 export async function openGlobalSearchOverlay() {
   const node = buildOverlayNode();
-  const queryInput = /** @type {HTMLInputElement | null} */ (node.querySelector('[name="query"]'));
+  const queryInput = /** @type {(HTMLElement & { value?: string | null, setFocus?: () => Promise<void> }) | null} */ (
+    node.querySelector('[name="query"]')
+  );
   const resultsSlot = node.querySelector('[data-slot="results"]');
   const [platformRows] = await Promise.all([db.platforms.toArray()]);
 
@@ -613,7 +619,12 @@ export async function openGlobalSearchOverlay() {
     resultsSlot.innerHTML = renderGroupCards(grouped);
   }
 
-  queryInput?.addEventListener('input', () => {
+  // ion-searchbar emits `ionInput` per keystroke (no debounce configured — same immediate
+  // flow as the old native input listener). The searchbar keeps its own `.value` in sync,
+  // which refreshResults reads; the detail is used only to cover a pre-sync host value.
+  queryInput?.addEventListener('ionInput', (event) => {
+    const detail = /** @type {CustomEvent<{ value?: string | null }>} */ (event).detail;
+    if (queryInput && detail && detail.value != null) queryInput.value = str(detail.value);
     void refreshResults();
   });
   node.addEventListener('change', () => {
@@ -631,7 +642,8 @@ export async function openGlobalSearchOverlay() {
   });
 
   setTimeout(() => {
-    if (queryInput) queryInput.focus();
+    // ion-searchbar's focusable input lives inside the component — use its setFocus() API.
+    if (queryInput && typeof queryInput.setFocus === 'function') void queryInput.setFocus();
   }, 0);
 
   return modal;

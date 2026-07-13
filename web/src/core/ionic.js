@@ -23,6 +23,16 @@ import { defineCustomElement as defineRefresherContent } from '@ionic/core/compo
 import { defineCustomElement as defineSpinner } from '@ionic/core/components/ion-spinner.js';
 import { defineCustomElement as defineModal } from '@ionic/core/components/ion-modal.js';
 import { defineCustomElement as defineSkeletonText } from '@ionic/core/components/ion-skeleton-text.js';
+import { defineCustomElement as defineActionSheet } from '@ionic/core/components/ion-action-sheet.js';
+import { defineCustomElement as defineAlert } from '@ionic/core/components/ion-alert.js';
+import { defineCustomElement as defineToast } from '@ionic/core/components/ion-toast.js';
+import { defineCustomElement as defineFab } from '@ionic/core/components/ion-fab.js';
+import { defineCustomElement as defineFabButton } from '@ionic/core/components/ion-fab-button.js';
+import { defineCustomElement as defineFabList } from '@ionic/core/components/ion-fab-list.js';
+import { defineCustomElement as defineSearchbar } from '@ionic/core/components/ion-searchbar.js';
+import { defineCustomElement as defineToggle } from '@ionic/core/components/ion-toggle.js';
+import { defineCustomElement as defineChip } from '@ionic/core/components/ion-chip.js';
+import { defineCustomElement as defineProgressBar } from '@ionic/core/components/ion-progress-bar.js';
 
 /** Registers every Ionic element the app uses. Call once at boot, before first render. */
 export function initIonic() {
@@ -43,4 +53,14 @@ export function initIonic() {
   defineSpinner();
   defineModal();
   defineSkeletonText();
+  defineActionSheet();
+  defineAlert();
+  defineToast();
+  defineFab();
+  defineFabButton();
+  defineFabList();
+  defineSearchbar();
+  defineToggle();
+  defineChip();
+  defineProgressBar();
 }

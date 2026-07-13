@@ -2,17 +2,19 @@
  * COMMA — core UI component library (F8).
  *
  * All components are plain JS functions that either return an HTML string or mount
- * a node into one of the well-known shell hosts: `#modal-overlay`, `#toast-container`,
- * or `document.body` (for FAB / drawer / numeric keypad). No framework, no virtual DOM.
+ * a node into `document.body`. The overlay primitives (modal / confirm / toast /
+ * drawer / FAB) render through Ionic Core custom elements (`ion-modal`, `ion-alert`,
+ * `ion-toast`, `ion-fab`) registered at boot by `src/core/ionic.js`; their public
+ * signatures and returned handles are unchanged. `showNotifyCard` still mounts into
+ * the `#toast-container` shell host. No framework, no virtual DOM.
  *
  * Component chrome lives in `src/css/components.css` — no inline styles for layout
  * or theming (only stateful CSS custom properties such as `--platform-color`).
  *
  * Accessibility (per plan F8):
- *   - Modals: `role="dialog"`, `aria-modal="true"`, focus trap, Esc + backdrop close,
- *     focus returns to triggering element on close (Feature 254).
- *   - Toasts: `role="status"` (info/success) or `role="alert"` (error/warning),
- *     `aria-live="polite"` host (Feature 253).
+ *   - Modals: `role="dialog"`, `aria-modal="true"`; focus trap, Esc + backdrop close
+ *     are ion-modal's; focus returns to triggering element on close (Feature 254).
+ *   - Toasts: announced by ion-toast's own live region (Feature 253).
  *   - Progress ring: `aria-valuenow / aria-valuemin / aria-valuemax / aria-valuetext`.
  *   - FAB / drawer close buttons carry localized `aria-label`.
  *
@@ -67,20 +69,8 @@ function getFocusableElements(root) {
   );
 }
 
-function getModalHost() {
-  return document.getElementById('modal-overlay') || document.body;
-}
-
 function getToastHost() {
   return document.getElementById('toast-container') || document.body;
-}
-
-/** @param {string} name CSS custom property including leading `--` */
-function parseCssIntCustomProp(name, fallback) {
-  if (typeof document === 'undefined') return fallback;
-  const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  const n = parseInt(raw, 10);
-  return Number.isFinite(n) ? n : fallback;
 }
 
 function reducedMotionEnabled() {
@@ -115,53 +105,19 @@ function reducedMotionEnabled() {
 
 /**
  * @typedef {Object} ModalHandle
- * @property {HTMLElement} root The `.modal-dialog` element
- * @property {HTMLElement} backdrop The `.modal-backdrop` element
- * @property {HTMLElement} body The `.modal-body` content slot
+ * @property {HTMLElement} root The `.comma-modal` dialog element (light DOM, queryable)
+ * @property {HTMLElement} backdrop The `ion-modal` host (owns backdrop + presentation)
+ * @property {HTMLElement} body The `.comma-modal-body` content slot
  * @property {() => void} close
  */
 
 /** @type {ModalHandle[]} */
 const modalStack = [];
 
-function topModal() {
-  return modalStack.length > 0 ? modalStack[modalStack.length - 1] : null;
-}
-
-/** @param {KeyboardEvent} event */
-function handleModalKeydown(event) {
-  const top = topModal();
-  if (!top) return;
-  if (event.key === 'Escape') {
-    const dismissible = top.root.dataset.dismissible !== 'false';
-    if (dismissible) {
-      event.preventDefault();
-      top.close();
-    }
-    return;
-  }
-  if (event.key === 'Tab') {
-    const focusable = getFocusableElements(top.root);
-    if (focusable.length === 0) {
-      event.preventDefault();
-      top.root.focus();
-      return;
-    }
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    const active = /** @type {HTMLElement | null} */ (document.activeElement);
-    if (event.shiftKey && (active === first || !top.root.contains(active))) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && (active === last || !top.root.contains(active))) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
-}
-
 /**
- * Show a modal dialog with focus trap, Esc + backdrop close, ARIA wiring.
+ * Show a modal dialog rendered through `ion-modal` (centered). Focus trapping, Escape +
+ * backdrop dismissal, scroll locking and stacking are Ionic's; the dialog chrome
+ * (header / body / footer action buttons) and the returned handle are unchanged.
  * @param {ModalOptions} [opts]
  * @returns {ModalHandle}
  */
@@ -177,12 +133,13 @@ export function showModal(opts = {}) {
     ariaLabel,
   } = opts;
 
-  const host = getModalHost();
   const trigger = /** @type {HTMLElement | null} */ (document.activeElement);
 
-  const backdrop = document.createElement('div');
-  backdrop.className = 'comma-modal-backdrop';
-  backdrop.dataset.commaModal = '';
+  const modal = /** @type {HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean> }} */ (
+    document.createElement('ion-modal')
+  );
+  modal.classList.add('comma-ion-modal', `comma-ion-modal--${size}`);
+  /** @type {any} */ (modal).backdropDismiss = dismissible;
 
   const dialog = document.createElement('div');
   dialog.className = `comma-modal comma-modal--${size}`;
@@ -228,75 +185,42 @@ export function showModal(opts = {}) {
     }
   }
 
-  backdrop.appendChild(dialog);
-  const zModalBase = parseCssIntCustomProp('--z-modal', 200);
-  backdrop.style.zIndex = String(zModalBase + modalStack.length);
-
-  host.appendChild(backdrop);
-
-  if (modalStack.length === 0) {
-    document.addEventListener('keydown', handleModalKeydown, true);
-    document.body.classList.add('comma-modal-open');
-  }
-
-  backdrop.addEventListener('click', (e) => {
-    if (e.target === backdrop && dialog.dataset.dismissible !== 'false') handle.close();
-  });
-
   const closeBtn = dialog.querySelector('.comma-modal-close');
   if (closeBtn) closeBtn.addEventListener('click', () => handle.close());
 
-  if (!reducedMotionEnabled()) {
-    backdrop.classList.add('comma-modal-backdrop--enter');
-    dialog.classList.add('comma-modal--enter');
-    requestAnimationFrame(() => {
-      backdrop.classList.add('is-open');
-      dialog.classList.add('is-open');
-    });
-  } else {
-    backdrop.classList.add('is-open');
-    dialog.classList.add('is-open');
-  }
+  modal.appendChild(dialog);
 
-  let closed = false;
   /** @type {ModalHandle} */
   const handle = {
     root: dialog,
-    backdrop,
+    backdrop: modal,
     body: bodyEl,
     close: () => {
-      if (closed) return;
-      closed = true;
-      backdrop.classList.remove('is-open');
-      dialog.classList.add('is-closing');
-      const idx = modalStack.indexOf(handle);
-      if (idx >= 0) modalStack.splice(idx, 1);
-      const finish = () => {
-        backdrop.remove();
-        if (modalStack.length === 0) {
-          document.removeEventListener('keydown', handleModalKeydown, true);
-          document.body.classList.remove('comma-modal-open');
-        }
-        try {
-          onClose?.();
-        } catch (err) {
-          console.error('[comma modal] onClose failed', err);
-        }
-        if (trigger && typeof trigger.focus === 'function' && document.contains(trigger)) {
-          try {
-            trigger.focus();
-          } catch {
-            /* element no longer focusable */
-          }
-        }
-      };
-      if (reducedMotionEnabled()) finish();
-      else setTimeout(finish, 160);
+      void modal.dismiss();
     },
   };
   modalStack.push(handle);
 
-  setTimeout(() => {
+  modal.addEventListener('ionModalDidDismiss', () => {
+    const idx = modalStack.indexOf(handle);
+    if (idx >= 0) modalStack.splice(idx, 1);
+    modal.remove();
+    try {
+      onClose?.();
+    } catch (err) {
+      console.error('[comma modal] onClose failed', err);
+    }
+    if (trigger && typeof trigger.focus === 'function' && document.contains(trigger)) {
+      try {
+        trigger.focus();
+      } catch {
+        /* element no longer focusable */
+      }
+    }
+  });
+
+  document.body.appendChild(modal);
+  void modal.present().then(() => {
     const auto = dialog.querySelector('[data-autofocus="true"]');
     const focusable = getFocusableElements(dialog);
     const first =
@@ -308,14 +232,15 @@ export function showModal(opts = {}) {
     } catch {
       /* ignore */
     }
-  }, 0);
+  });
 
   return handle;
 }
 
 /** Close the top-most open modal (if any). */
 export function closeModal() {
-  topModal()?.close();
+  const top = modalStack.length > 0 ? modalStack[modalStack.length - 1] : null;
+  top?.close();
 }
 
 /* ------------------------------------------------------------------------- */
@@ -335,11 +260,13 @@ export function closeModal() {
  */
 
 /**
- * Show a confirmation modal. Supports type-to-confirm gating for danger zones
- * (Features 20, 180) via the `requireType` option.
+ * Show a confirmation dialog rendered through `ion-alert`. Supports type-to-confirm
+ * gating for danger zones (Features 20, 180) via the `requireType` option: the confirm
+ * button stays disabled — and the alert stays open — until the exact string is typed.
+ * `onConfirm` / `onCancel` fire on their buttons only (never on Esc/backdrop), as before.
  *
  * @param {ConfirmOptions} [opts]
- * @returns {ModalHandle}
+ * @returns {{ root: HTMLElement, backdrop: HTMLElement, body: HTMLElement, close: () => void }}
  */
 export function showConfirm(opts = {}) {
   const {
@@ -353,57 +280,49 @@ export function showConfirm(opts = {}) {
     onCancel,
   } = opts;
 
-  const wrap = document.createElement('div');
-  wrap.className = 'comma-confirm';
-  const msgId = `mc-msg-${Math.random().toString(36).slice(2, 9)}`;
+  const trigger = /** @type {HTMLElement | null} */ (document.activeElement);
+  const isDanger = /\bdanger\b/.test(confirmClass);
+  const gated = typeof requireType === 'string' && requireType.length > 0;
 
-  if (message) {
-    const p = document.createElement('p');
-    p.id = msgId;
-    p.className = 'comma-confirm-message';
-    p.textContent = message;
-    wrap.appendChild(p);
+  const alert = /** @type {HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean> }} */ (
+    document.createElement('ion-alert')
+  );
+  alert.classList.add('comma-alert');
+  /** @type {any} */ (alert).header = title;
+  // ion-alert renders `message` as plain text (HTML templating is off by default) —
+  // same contract as the old textContent-based confirm body.
+  /** @type {any} */ (alert).message = String(message ?? '');
+
+  if (gated) {
+    const prompt = t('ui.confirm.typeToConfirm').replace('{value}', requireType);
+    /** @type {any} */ (alert).subHeader = prompt;
+    /** @type {any} */ (alert).inputs = [
+      {
+        name: 'confirmType',
+        type: 'text',
+        cssClass: 'comma-alert-type-input',
+        attributes: { 'aria-label': prompt, autocomplete: 'off' },
+      },
+    ];
   }
 
-  /** @type {HTMLInputElement | null} */
-  let typeInput = null;
-  if (typeof requireType === 'string' && requireType.length > 0) {
-    const group = document.createElement('label');
-    group.className = 'comma-confirm-type input-group';
-    const lbl = document.createElement('span');
-    lbl.className = 'input-label';
-    lbl.textContent = t('ui.confirm.typeToConfirm').replace('{value}', requireType);
-    typeInput = document.createElement('input');
-    typeInput.type = 'text';
-    typeInput.className = 'input';
-    typeInput.autocomplete = 'off';
-    typeInput.setAttribute('aria-label', lbl.textContent);
-    group.appendChild(lbl);
-    group.appendChild(typeInput);
-    wrap.appendChild(group);
+  const buttons = [];
+  // An explicitly empty cancelLabel means "OK-only" (used by demo-mode warnings).
+  if (cancelLabel) {
+    buttons.push({ text: cancelLabel, role: 'cancel', cssClass: 'comma-alert-btn comma-alert-btn--cancel' });
   }
-
-  /** @type {ModalAction} */
-  const cancelAction = {
-    label: cancelLabel,
-    class: 'btn btn-secondary',
-    onClick: () => {
-      try {
-        onCancel?.();
-      } catch (err) {
-        console.error('[comma confirm] onCancel failed', err);
+  buttons.push({
+    text: confirmLabel,
+    role: isDanger ? 'destructive' : undefined,
+    cssClass: `comma-alert-btn comma-alert-btn--confirm${isDanger ? ' comma-alert-btn--danger' : ''}`,
+    handler: (/** @type {Record<string, string> | undefined} */ values) => {
+      if (gated) {
+        const typed = values && typeof values === 'object' ? String(values.confirmType ?? '') : '';
+        if (typed !== requireType) return false; // keep the alert open until the text matches
       }
-    },
-  };
-  /** @type {ModalAction} */
-  const confirmAction = {
-    label: confirmLabel,
-    class: confirmClass,
-    autofocus: !typeInput,
-    onClick: () => {
       try {
         const r = onConfirm?.();
-        if (r && typeof /** @type {Promise<unknown>} */ (r).then === 'function') {
+        if (r && typeof (/** @type {Promise<unknown>} */ (r).then) === 'function') {
           /** @type {Promise<unknown>} */ (r).catch((err) =>
             console.error('[comma confirm] onConfirm rejected', err),
           );
@@ -411,50 +330,64 @@ export function showConfirm(opts = {}) {
       } catch (err) {
         console.error('[comma confirm] onConfirm failed', err);
       }
+      return true;
     },
-  };
-
-  const handle = showModal({
-    title,
-    content: wrap,
-    role: 'alertdialog',
-    size: 'sm',
-    actions: [cancelAction, confirmAction],
-    onClose: () => {
-      /* fired after either action; cancel + confirm callbacks fire on click */
-    },
-    ariaLabel: title,
   });
+  /** @type {any} */ (alert).buttons = buttons;
 
-  if (msgId) handle.root.setAttribute('aria-describedby', msgId);
-
-  if (typeInput) {
-    /** @type {HTMLButtonElement | null} */
-    const confirmBtn = handle.root.querySelector(`.comma-modal-footer ${confirmClass.split(' ').map((c) => `.${c}`).join('')}`);
-    const allBtns = /** @type {NodeListOf<HTMLButtonElement>} */ (
-      handle.root.querySelectorAll('.comma-modal-footer button')
-    );
-    const realConfirm = confirmBtn || allBtns[allBtns.length - 1] || null;
-    if (realConfirm) {
-      realConfirm.disabled = true;
-      realConfirm.setAttribute('aria-disabled', 'true');
-      typeInput.addEventListener('input', () => {
-        const matches = typeInput.value === requireType;
-        realConfirm.disabled = !matches;
-        if (matches) realConfirm.removeAttribute('aria-disabled');
-        else realConfirm.setAttribute('aria-disabled', 'true');
-      });
-    }
-    setTimeout(() => {
+  alert.addEventListener('ionAlertDidDismiss', (ev) => {
+    const role = /** @type {CustomEvent<{ role?: string }>} */ (ev).detail?.role;
+    // Cancel-button only — Esc/backdrop dismiss with role 'backdrop' and, as before,
+    // do not fire onCancel.
+    if (role === 'cancel') {
       try {
-        typeInput.focus({ preventScroll: true });
+        onCancel?.();
+      } catch (err) {
+        console.error('[comma confirm] onCancel failed', err);
+      }
+    }
+    alert.remove();
+    if (trigger && typeof trigger.focus === 'function' && document.contains(trigger)) {
+      try {
+        trigger.focus();
       } catch {
         /* ignore */
       }
-    }, 30);
-  }
+    }
+  });
 
-  return handle;
+  document.body.appendChild(alert);
+  void alert.present().then(() => {
+    if (!gated) return;
+    // Type-to-confirm parity: ion-alert is scoped (light DOM), so its input and buttons
+    // are directly reachable for the disabled-until-match wiring.
+    const input = alert.querySelector('input.alert-input');
+    const confirmBtn = alert.querySelector('button.comma-alert-btn--confirm');
+    if (input instanceof HTMLInputElement && confirmBtn instanceof HTMLButtonElement) {
+      confirmBtn.disabled = true;
+      confirmBtn.setAttribute('aria-disabled', 'true');
+      input.addEventListener('input', () => {
+        const matches = input.value === requireType;
+        confirmBtn.disabled = !matches;
+        if (matches) confirmBtn.removeAttribute('aria-disabled');
+        else confirmBtn.setAttribute('aria-disabled', 'true');
+      });
+      try {
+        input.focus({ preventScroll: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+
+  return {
+    root: alert,
+    backdrop: alert,
+    body: alert,
+    close: () => {
+      void alert.dismiss();
+    },
+  };
 }
 
 /* ------------------------------------------------------------------------- */
@@ -471,6 +404,7 @@ export function showConfirm(opts = {}) {
  * @property {ToastType} [type]
  * @property {number} [duration] ms before auto-dismiss. 0 = sticky.
  * @property {() => void} [action] Click handler for the action button
+ * @property {() => void} [onAction] Alias for `action` (both are used by callers)
  * @property {string} [actionLabel]
  */
 
@@ -478,100 +412,86 @@ const MAX_TOASTS = 3;
 /** @type {{ root: HTMLElement, close: () => void }[]} */
 const toastQueue = [];
 
+/** ToastType → ion-toast color (celebration keeps its positive tone). */
+const TOAST_COLOR_BY_TYPE = {
+  success: 'success',
+  error: 'danger',
+  warning: 'warning',
+  info: 'primary',
+  celebration: 'success',
+};
+
 /**
- * Show a transient toast notification. Stacks up to 3 visible toasts.
+ * ion-toast hosts overlap at the same position; lift older toasts so up to
+ * MAX_TOASTS stay visible (parity with the old stacked toast host).
+ */
+function restackToasts() {
+  for (let i = 0; i < toastQueue.length; i++) {
+    const lift = toastQueue.length - 1 - i;
+    toastQueue[i].root.style.setProperty('--comma-toast-lift', `${lift * 60}px`);
+  }
+}
+
+/**
+ * Show a transient toast notification, rendered through `ion-toast`.
+ * Stacks up to 3 visible toasts.
  * @param {ToastOptions} opts
  * @returns {{ root: HTMLElement, close: () => void }}
  */
 export function showToast(opts) {
-  const { message, type = 'info', duration = 4000, action, actionLabel } = opts || {};
-  const host = getToastHost();
-  host.setAttribute('aria-live', type === 'error' || type === 'warning' ? 'assertive' : 'polite');
-  host.setAttribute('aria-atomic', 'true');
+  const { message, type = 'info', duration = 4000, action, onAction, actionLabel } = opts || {};
+  const actionFn = typeof action === 'function' ? action : typeof onAction === 'function' ? onAction : null;
 
-  const root = document.createElement('div');
-  root.className = `comma-toast comma-toast--${type}`;
-  root.setAttribute('role', type === 'error' || type === 'warning' ? 'alert' : 'status');
-  const iconName = (
-    type === 'success'
-      ? 'check'
-      : type === 'error'
-        ? 'warning'
-        : type === 'warning'
-          ? 'warning'
-          : type === 'celebration'
-            ? 'star'
-            : 'info'
+  const toast = /** @type {HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean> }} */ (
+    document.createElement('ion-toast')
   );
+  toast.classList.add('comma-toast', `comma-toast--${type}`);
+  /** @type {any} */ (toast).color = TOAST_COLOR_BY_TYPE[type] || 'primary';
+  /** @type {any} */ (toast).message = String(message ?? '');
+  /** @type {any} */ (toast).duration = Number(duration) > 0 ? Number(duration) : 0; // 0 = sticky
+  /** @type {any} */ (toast).position = 'bottom';
+  /** @type {any} */ (toast).swipeGesture = 'vertical';
 
-  const messageId = `mt-msg-${Math.random().toString(36).slice(2, 9)}`;
-  root.innerHTML = `
-    <span class="comma-toast-icon" aria-hidden="true">${getIcon(iconName, 20, 'comma-toast-icon-svg')}</span>
-    <span id="${messageId}" class="comma-toast-message"></span>
-    <span class="comma-toast-actions"></span>
-    <button type="button" class="comma-toast-close" aria-label="${escapeAttr(t('ui.toast.dismiss'))}">${getIcon('x', 18, 'comma-toast-close-icon')}</button>
-  `;
-  const msgEl = root.querySelector('.comma-toast-message');
-  if (msgEl) msgEl.textContent = String(message ?? '');
-  root.setAttribute('aria-describedby', messageId);
-
-  const actionsHost = /** @type {HTMLElement} */ (root.querySelector('.comma-toast-actions'));
-  if (typeof action === 'function' && actionLabel) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'comma-toast-action btn btn-ghost btn-sm';
-    btn.textContent = actionLabel;
-    btn.addEventListener('click', () => {
-      try {
-        action();
-      } catch (err) {
-        console.error('[comma toast] action failed', err);
-      }
-      handle.close();
+  const buttons = [];
+  if (actionFn && actionLabel) {
+    buttons.push({
+      text: actionLabel,
+      cssClass: 'comma-toast-action',
+      handler: () => {
+        try {
+          actionFn();
+        } catch (err) {
+          console.error('[comma toast] action failed', err);
+        }
+        return true; // dismiss after the action, as before
+      },
     });
-    actionsHost.appendChild(btn);
   }
+  buttons.push({ text: t('ui.toast.dismiss'), role: 'cancel', cssClass: 'comma-toast-close' });
+  /** @type {any} */ (toast).buttons = buttons;
 
-  /** @type {ReturnType<typeof setTimeout> | null} */
-  let timer = null;
   const handle = {
-    root,
+    root: toast,
     close: () => {
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
-      }
-      const idx = toastQueue.indexOf(handle);
-      if (idx >= 0) toastQueue.splice(idx, 1);
-      root.classList.remove('is-open');
-      root.classList.add('is-closing');
-      const finish = () => {
-        if (root.parentElement) root.parentElement.removeChild(root);
-      };
-      if (reducedMotionEnabled()) finish();
-      else setTimeout(finish, 180);
+      void toast.dismiss();
     },
   };
 
-  root.querySelector('.comma-toast-close')?.addEventListener('click', () => handle.close());
+  toast.addEventListener('ionToastDidDismiss', () => {
+    const idx = toastQueue.indexOf(handle);
+    if (idx >= 0) toastQueue.splice(idx, 1);
+    toast.remove();
+    restackToasts();
+  });
 
-  host.appendChild(root);
+  document.body.appendChild(toast);
+  while (toastQueue.length >= MAX_TOASTS) {
+    const oldest = toastQueue.shift();
+    if (oldest) oldest.close();
+  }
   toastQueue.push(handle);
-
-  if (!reducedMotionEnabled()) {
-    requestAnimationFrame(() => root.classList.add('is-open'));
-  } else {
-    root.classList.add('is-open');
-  }
-
-  while (toastQueue.length > MAX_TOASTS) {
-    const oldest = toastQueue[0];
-    oldest.close();
-  }
-
-  if (duration > 0) {
-    timer = setTimeout(() => handle.close(), duration);
-  }
+  restackToasts();
+  void toast.present();
 
   return handle;
 }
@@ -699,14 +619,16 @@ export function showNotifyCard(opts) {
  * @property {FabMenuItem[]} [addMenu] when non-empty, + opens a vertical speed dial
  */
 
-/** @type {HTMLButtonElement | null} */
-let fabEl = null;
 /** @type {HTMLElement | null} */
-let fabStackEl = null;
+let fabRootEl = null; // <ion-fab> host — comma fixes its position + hides it for the keyboard
+/** @type {HTMLElement | null} */
+let fabEl = null; // main <ion-fab-button> (keeps the legacy .comma-fab class for zen-mode CSS)
 /** @type {HTMLDivElement | null} */
 let fabBackdropEl = null;
-/** @type {HTMLDivElement | null} */
-let fabMenuEl = null;
+/** @type {HTMLElement | null} */
+let fabMenuEl = null; // <ion-fab-list> speed dial (legacy .comma-fab-menu class kept too)
+/** @type {HTMLSpanElement | null} */
+let fabLabelEl = null; // end-mode "End shift" chip — ion-fab-button clips slotted overflow
 let fabState = /** @type {'add' | 'end'} */ ('add');
 /** @type {FabOptions} */
 let fabHandlers = {};
@@ -716,40 +638,18 @@ let fabMenuOpen = false;
 /** @type {((ev: KeyboardEvent) => void) | null} */
 let fabMenuKeyHandler = null;
 
-function closeFabMenu() {
-  if (!fabMenuOpen) return;
-  fabMenuOpen = false;
+/** Mirror the speed-dial open state onto the backdrop, ARIA and the Escape handler. */
+function syncFabMenuChrome(open) {
+  fabMenuOpen = open;
   if (fabBackdropEl) {
-    fabBackdropEl.hidden = true;
-    fabBackdropEl.setAttribute('aria-hidden', 'true');
-  }
-  if (fabMenuEl) {
-    fabMenuEl.hidden = true;
-    fabMenuEl.classList.remove('is-open');
+    fabBackdropEl.hidden = !open;
+    fabBackdropEl.setAttribute('aria-hidden', open ? 'false' : 'true');
   }
   if (fabEl && fabState === 'add') {
-    fabEl.setAttribute('aria-expanded', 'false');
+    fabEl.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
-  if (fabMenuKeyHandler && typeof document !== 'undefined') {
-    document.removeEventListener('keydown', fabMenuKeyHandler);
-    fabMenuKeyHandler = null;
-  }
-}
-
-function toggleFabMenu() {
-  if (!fabMenuEl || !fabBackdropEl || fabState !== 'add') return;
-  if (!fabAddMenu.length) {
-    fabHandlers.onAdd?.();
-    return;
-  }
-  fabMenuOpen = !fabMenuOpen;
-  if (fabMenuOpen) {
-    fabBackdropEl.hidden = false;
-    fabBackdropEl.setAttribute('aria-hidden', 'false');
-    fabMenuEl.hidden = false;
-    fabMenuEl.classList.add('is-open');
-    if (fabEl) fabEl.setAttribute('aria-expanded', 'true');
-    if (typeof document !== 'undefined') {
+  if (open) {
+    if (typeof document !== 'undefined' && !fabMenuKeyHandler) {
       fabMenuKeyHandler = (ev) => {
         if (ev.key === 'Escape') {
           ev.preventDefault();
@@ -758,9 +658,23 @@ function toggleFabMenu() {
       };
       document.addEventListener('keydown', fabMenuKeyHandler);
     }
-  } else {
-    closeFabMenu();
+  } else if (fabMenuKeyHandler && typeof document !== 'undefined') {
+    document.removeEventListener('keydown', fabMenuKeyHandler);
+    fabMenuKeyHandler = null;
   }
+}
+
+function closeFabMenu() {
+  if (fabRootEl) /** @type {any} */ (fabRootEl).activated = false;
+  syncFabMenuChrome(false);
+}
+
+/** The ion-fab-list takes part in ion-fab's own toggle only while the speed dial is usable. */
+function syncFabList() {
+  if (!fabRootEl || !fabMenuEl) return;
+  const wanted = fabState === 'add' && fabAddMenu.length > 0;
+  if (wanted && !fabMenuEl.isConnected) fabRootEl.appendChild(fabMenuEl);
+  if (!wanted && fabMenuEl.isConnected) fabMenuEl.remove();
 }
 
 function rebuildFabMenu() {
@@ -768,17 +682,25 @@ function rebuildFabMenu() {
   fabMenuEl.textContent = '';
   for (let i = 0; i < fabAddMenu.length; i++) {
     const item = fabAddMenu[i];
-    const btn = document.createElement('button');
-    btn.type = 'button';
+    // Row = label chip + circular ion-fab-button. The label cannot be slotted into the
+    // button (its shadow button is contain: strict and clips overflow), so it sits
+    // beside it; the whole row is clickable.
+    const row = document.createElement('div');
+    row.className = 'comma-fab-menu-row';
+    row.style.setProperty('--fab-i', String(i));
+    const lab = item.label || (item.labelKey ? t(item.labelKey) : item.id);
+    const labEl = document.createElement('span');
+    labEl.className = 'comma-fab-menu-item-label';
+    labEl.textContent = lab;
+    const btn = document.createElement('ion-fab-button');
     btn.className = 'comma-fab-menu-item';
     btn.dataset.fabMenuItem = item.id;
     btn.setAttribute('role', 'menuitem');
-    btn.style.setProperty('--fab-i', String(i));
-    const lab = item.label || (item.labelKey ? t(item.labelKey) : item.id);
     btn.setAttribute('aria-label', lab);
-    btn.innerHTML = `${getIcon(item.icon, 20, 'comma-fab-menu-item-icon')}<span class="comma-fab-menu-item-label">${escapeHtml(lab)}</span>`;
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
+    btn.innerHTML = getIcon(item.icon, 20, 'comma-fab-menu-item-icon');
+    row.appendChild(labEl);
+    row.appendChild(btn);
+    row.addEventListener('click', () => {
       closeFabMenu();
       try {
         item.onSelect?.();
@@ -786,8 +708,9 @@ function rebuildFabMenu() {
         console.error('[comma fab] menu item failed', err);
       }
     });
-    fabMenuEl.appendChild(btn);
+    fabMenuEl.appendChild(row);
   }
+  syncFabList();
 }
 
 function applyFabMode(mode) {
@@ -797,13 +720,27 @@ function applyFabMode(mode) {
   if (mode === 'end') {
     fabEl.dataset.mode = 'end';
     fabEl.classList.add('comma-fab--end');
+    fabEl.setAttribute('color', 'danger');
     fabEl.setAttribute('aria-label', t('ui.fab.endShift'));
     fabEl.removeAttribute('aria-haspopup');
     fabEl.setAttribute('aria-expanded', 'false');
-    fabEl.innerHTML = getIcon('clock', 22, 'comma-fab-icon') + `<span class="comma-fab-label">${escapeHtml(t('ui.fab.endShift'))}</span>`;
+    fabEl.innerHTML = getIcon('clock', 22, 'comma-fab-icon');
+    // The visible label sits beside the button in the ion-fab's light DOM —
+    // ion-fab-button's shadow button clips (contain: strict) anything slotted beyond 56px.
+    if (fabRootEl) {
+      if (!fabLabelEl) {
+        fabLabelEl = document.createElement('span');
+        fabLabelEl.className = 'comma-fab-label';
+        fabLabelEl.setAttribute('aria-hidden', 'true'); // the button carries the accessible label
+      }
+      fabLabelEl.textContent = t('ui.fab.endShift');
+      if (!fabLabelEl.isConnected) fabRootEl.appendChild(fabLabelEl);
+    }
   } else {
     fabEl.dataset.mode = 'add';
     fabEl.classList.remove('comma-fab--end');
+    fabEl.setAttribute('color', 'primary');
+    if (fabLabelEl) fabLabelEl.remove();
     fabEl.setAttribute('aria-label', fabAddMenu.length ? t('ui.fab.openQuickActions') : t('ui.fab.addShift'));
     if (fabAddMenu.length) {
       fabEl.setAttribute('aria-haspopup', 'true');
@@ -816,16 +753,26 @@ function applyFabMode(mode) {
     }
     fabEl.innerHTML = getIcon('plus', 22, 'comma-fab-icon');
   }
+  syncFabList();
 }
 
+/** @param {MouseEvent} ev */
 function fabOnClick(ev) {
   try {
     if (fabState === 'end') {
+      // No ion-fab-list is attached in end mode, so ion-fab's own toggle is a no-op.
       closeFabMenu();
       fabHandlers.onEndShift?.();
     } else if (fabAddMenu.length) {
-      ev.stopPropagation();
-      toggleFabMenu();
+      // ion-fab-button's own click listener (a vdom Host prop, attached at first render —
+      // i.e. AFTER this listener) runs fab.toggle() only after us, so reading `activated`
+      // here would see the pre-toggle value. Take over the toggle instead: stop ion's
+      // listener and flip `activated` ourselves, so the backdrop / Escape / aria chrome
+      // always mirrors the real speed-dial state.
+      ev.stopImmediatePropagation();
+      const open = !(fabRootEl && /** @type {any} */ (fabRootEl).activated);
+      if (fabRootEl) /** @type {any} */ (fabRootEl).activated = open;
+      syncFabMenuChrome(open);
     } else {
       fabHandlers.onAdd?.();
     }
@@ -841,10 +788,10 @@ function wireFabKeyboardVisibility() {
   const vv = window.visualViewport;
   if (!vv) return;
   const onResize = () => {
-    if (!fabEl) return;
+    if (!fabRootEl) return;
     const ratio = vv.height / window.innerHeight;
     const keyboardOpen = ratio < 0.7;
-    fabEl.classList.toggle('comma-fab--hidden', keyboardOpen);
+    fabRootEl.classList.toggle('comma-fab--hidden', keyboardOpen);
     if (keyboardOpen) closeFabMenu();
   };
   vv.addEventListener('resize', onResize);
@@ -852,9 +799,10 @@ function wireFabKeyboardVisibility() {
 }
 
 /**
- * Initialize the floating action button. Idempotent — calling twice updates handlers.
+ * Initialize the floating action button (ion-fab + ion-fab-button + ion-fab-list).
+ * Idempotent — calling twice updates handlers.
  * @param {FabOptions} [opts]
- * @returns {{ setMode: (mode: 'add' | 'end') => void, destroy: () => void, element: HTMLButtonElement }}
+ * @returns {{ setMode: (mode: 'add' | 'end') => void, destroy: () => void, element: HTMLElement }}
  */
 export function initFAB(opts = {}) {
   fabHandlers = { ...fabHandlers, ...opts };
@@ -868,22 +816,24 @@ export function initFAB(opts = {}) {
     fabBackdropEl.setAttribute('aria-hidden', 'true');
     fabBackdropEl.addEventListener('click', () => closeFabMenu());
 
-    fabMenuEl = document.createElement('div');
+    fabRootEl = document.createElement('ion-fab');
+    fabRootEl.classList.add('comma-fab-root');
+
+    fabMenuEl = document.createElement('ion-fab-list');
     fabMenuEl.id = 'comma-fab-menu';
     fabMenuEl.className = 'comma-fab-menu';
+    fabMenuEl.setAttribute('side', 'top');
     fabMenuEl.setAttribute('role', 'menu');
-    fabMenuEl.hidden = true;
     fabMenuEl.setAttribute('aria-label', t('ui.fab.quickActionsMenu'));
 
-    fabEl = document.createElement('button');
-    fabEl.type = 'button';
+    fabEl = document.createElement('ion-fab-button');
     fabEl.id = 'comma-fab';
-    fabEl.className = 'comma-fab';
+    fabEl.classList.add('comma-fab');
     fabEl.addEventListener('click', fabOnClick);
 
+    fabRootEl.appendChild(fabEl);
     document.body.appendChild(fabBackdropEl);
-    document.body.appendChild(fabMenuEl);
-    document.body.appendChild(fabEl);
+    document.body.appendChild(fabRootEl);
     wireFabKeyboardVisibility();
   }
 
@@ -901,11 +851,12 @@ export function initFAB(opts = {}) {
     destroy: () => {
       closeFabMenu();
       if (fabBackdropEl && fabBackdropEl.parentElement) fabBackdropEl.parentElement.removeChild(fabBackdropEl);
-      if (fabMenuEl && fabMenuEl.parentElement) fabMenuEl.parentElement.removeChild(fabMenuEl);
-      if (fabEl && fabEl.parentElement) fabEl.parentElement.removeChild(fabEl);
+      if (fabRootEl && fabRootEl.parentElement) fabRootEl.parentElement.removeChild(fabRootEl);
       fabBackdropEl = null;
       fabMenuEl = null;
       fabEl = null;
+      fabRootEl = null;
+      fabLabelEl = null;
       fabAddMenu = [];
       if (fabKeyboardHandler) {
         fabKeyboardHandler();
@@ -931,29 +882,16 @@ export function initFAB(opts = {}) {
 
 /**
  * @typedef {Object} DrawerHandle
- * @property {HTMLElement} root The wrapping `.drawer` element
- * @property {HTMLElement} panel The `.drawer-panel` content host
+ * @property {HTMLElement} root The `ion-modal` sheet host
+ * @property {HTMLElement} panel The `.comma-drawer-panel` content host (light DOM)
  * @property {HTMLElement} body Content slot inside the panel
- * @property {(snap: number) => void} setSnap
+ * @property {(snap: number) => void} setSnap Snaps to the nearest configured snap point
  * @property {() => void} close
  */
 
-/** @type {DrawerHandle[]} */
-const drawerStack = [];
-
-/** @param {KeyboardEvent} e */
-function drawerKeydown(e) {
-  if (e.key !== 'Escape') return;
-  const top = drawerStack[drawerStack.length - 1];
-  if (!top) return;
-  if (top.root.dataset.dismissible !== 'false') {
-    e.preventDefault();
-    top.close();
-  }
-}
-
 /**
- * Open a bottom drawer. Swipe-to-close on touch devices; backdrop dim + Esc close.
+ * Open a bottom drawer, rendered as an `ion-modal` sheet. Drag handle, snap
+ * breakpoints, swipe-down / backdrop / Escape dismissal are Ionic's.
  * @param {DrawerOptions} [opts]
  * @returns {DrawerHandle}
  */
@@ -962,21 +900,28 @@ export function showDrawer(opts = {}) {
 
   const trigger = /** @type {HTMLElement | null} */ (document.activeElement);
 
-  const root = document.createElement('div');
-  root.className = 'drawer comma-drawer';
-  root.dataset.dismissible = dismissible ? 'true' : 'false';
-  root.style.setProperty('--drawer-snap', String(snapPoints[0] ?? 0.5));
+  const points = (Array.isArray(snapPoints) && snapPoints.length > 0 ? snapPoints : [0.5, 0.9]).map((p) =>
+    Math.min(0.95, Math.max(0.2, Number(p) || 0.5)),
+  );
 
-  const backdrop = document.createElement('div');
-  backdrop.className = 'drawer-backdrop';
+  const modal = /** @type {HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean>; setCurrentBreakpoint?: (bp: number) => Promise<void> }} */ (
+    document.createElement('ion-modal')
+  );
+  modal.classList.add('comma-drawer');
+  /** @type {any} */ (modal).breakpoints = [0, ...points];
+  /** @type {any} */ (modal).initialBreakpoint = points[0];
+  /** @type {any} */ (modal).handle = true;
+  if (!dismissible) {
+    /** @type {any} */ (modal).backdropDismiss = false;
+    // Block swipe-down and backdrop dismissal; programmatic close() still works.
+    /** @type {any} */ (modal).canDismiss = (_data, role) => role !== 'gesture' && role !== 'backdrop';
+  }
+
   const panel = document.createElement('div');
-  panel.className = 'drawer-panel';
-  panel.setAttribute('role', 'dialog');
-  panel.setAttribute('aria-modal', 'true');
+  panel.className = 'comma-drawer-panel';
   if (title) panel.setAttribute('aria-label', title);
 
   panel.innerHTML = `
-    <div class="comma-drawer-handle" aria-hidden="true"></div>
     <div class="comma-drawer-header" ${title ? '' : 'hidden'}>
       <h2 class="comma-drawer-title">${escapeHtml(title)}</h2>
       <button type="button" class="comma-drawer-close" aria-label="${escapeAttr(t('ui.drawer.close'))}">${getIcon('x', 16, 'comma-drawer-close-icon')}</button>
@@ -987,88 +932,44 @@ export function showDrawer(opts = {}) {
   if (content instanceof Node) body.appendChild(content);
   else if (typeof content === 'string') body.innerHTML = content;
 
-  root.appendChild(backdrop);
-  root.appendChild(panel);
-  document.body.appendChild(root);
+  modal.appendChild(panel);
 
-  backdrop.addEventListener('click', () => {
-    if (root.dataset.dismissible !== 'false') handle.close();
-  });
-  panel.querySelector('.comma-drawer-close')?.addEventListener('click', () => handle.close());
-
-  if (drawerStack.length === 0) document.addEventListener('keydown', drawerKeydown, true);
-
-  /* swipe-to-close on touch */
-  let touchStartY = 0;
-  let touchCurrentY = 0;
-  let dragging = false;
-  panel.addEventListener('touchstart', (e) => {
-    if (e.touches.length !== 1) return;
-    touchStartY = e.touches[0].clientY;
-    touchCurrentY = touchStartY;
-    dragging = true;
-    panel.classList.add('is-dragging');
-  });
-  panel.addEventListener('touchmove', (e) => {
-    if (!dragging) return;
-    touchCurrentY = e.touches[0].clientY;
-    const dy = Math.max(0, touchCurrentY - touchStartY);
-    panel.style.transform = `translateY(${dy}px)`;
-  });
-  panel.addEventListener('touchend', () => {
-    if (!dragging) return;
-    dragging = false;
-    panel.classList.remove('is-dragging');
-    const dy = touchCurrentY - touchStartY;
-    panel.style.transform = '';
-    if (dy > 120 && root.dataset.dismissible !== 'false') handle.close();
-  });
-
-  if (!reducedMotionEnabled()) {
-    requestAnimationFrame(() => root.classList.add('is-open'));
-  } else {
-    root.classList.add('is-open');
-  }
-
-  let closed = false;
   /** @type {DrawerHandle} */
   const handle = {
-    root,
+    root: modal,
     panel,
     body,
     setSnap(snap) {
       const v = Math.min(0.95, Math.max(0.2, Number(snap) || 0.5));
-      root.style.setProperty('--drawer-snap', String(v));
+      // ion-modal only accepts breakpoints it was created with — snap to the nearest.
+      const nearest = points.reduce((best, p) => (Math.abs(p - v) < Math.abs(best - v) ? p : best), points[0]);
+      if (typeof modal.setCurrentBreakpoint === 'function') void modal.setCurrentBreakpoint(nearest);
     },
     close: () => {
-      if (closed) return;
-      closed = true;
-      root.classList.remove('is-open');
-      const idx = drawerStack.indexOf(handle);
-      if (idx >= 0) drawerStack.splice(idx, 1);
-      if (drawerStack.length === 0) document.removeEventListener('keydown', drawerKeydown, true);
-      const finish = () => {
-        if (root.parentElement) root.parentElement.removeChild(root);
-        try {
-          onClose?.();
-        } catch (err) {
-          console.error('[comma drawer] onClose failed', err);
-        }
-        if (trigger && typeof trigger.focus === 'function' && document.contains(trigger)) {
-          try {
-            trigger.focus();
-          } catch {
-            /* ignore */
-          }
-        }
-      };
-      if (reducedMotionEnabled()) finish();
-      else setTimeout(finish, 250);
+      void modal.dismiss();
     },
   };
-  drawerStack.push(handle);
 
-  setTimeout(() => {
+  panel.querySelector('.comma-drawer-close')?.addEventListener('click', () => handle.close());
+
+  modal.addEventListener('ionModalDidDismiss', () => {
+    modal.remove();
+    try {
+      onClose?.();
+    } catch (err) {
+      console.error('[comma drawer] onClose failed', err);
+    }
+    if (trigger && typeof trigger.focus === 'function' && document.contains(trigger)) {
+      try {
+        trigger.focus();
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+
+  document.body.appendChild(modal);
+  void modal.present().then(() => {
     const focusable = getFocusableElements(panel);
     if (focusable[0]) {
       try {
@@ -1076,15 +977,8 @@ export function showDrawer(opts = {}) {
       } catch {
         /* ignore */
       }
-    } else {
-      panel.tabIndex = -1;
-      try {
-        panel.focus({ preventScroll: true });
-      } catch {
-        /* ignore */
-      }
     }
-  }, 0);
+  });
 
   return handle;
 }

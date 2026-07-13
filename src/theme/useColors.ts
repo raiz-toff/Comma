@@ -50,14 +50,17 @@ import { useMemo } from "react";
 import { useColorScheme as useSystemScheme } from "react-native";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { PALETTES, type Palette, type Scheme, type ThemePref } from "./colors";
+import { usePinnedScheme } from "./pinnedScheme";
 
 export type { Palette, Scheme, ThemePref };
 
 /**
- * The scheme actually being rendered.
+ * The TARGET scheme — where the driver's preference says we should be.
  *
- * Dark is the fallback wherever a scheme cannot be resolved — an OS that reports
- * nothing lands on dark, which is where most gig drivers want to be anyway.
+ * Not what is on screen during a theme transition; for that, see
+ * useDisplayedScheme below. Dark is the fallback wherever a scheme cannot be
+ * resolved: an OS that reports nothing lands on dark, which is where most gig
+ * drivers want to be anyway.
  */
 export function useResolvedScheme(): Scheme {
   const pref = (useSettingsStore((s) => s.profile?.theme) as ThemePref | undefined) ?? "auto";
@@ -68,11 +71,28 @@ export function useResolvedScheme(): Scheme {
 }
 
 /**
- * The palette for the active theme. Subscribes, so a component that reads a
- * colour through it re-renders the moment the driver switches theme.
+ * The scheme actually on screen.
+ *
+ * Equal to the target, except during a theme transition, where it is held at the
+ * OLD scheme until ThemeTransition's veil has covered the screen — so the swap
+ * lands behind the veil rather than as a flash in the driver's face.
+ *
+ * When nothing is transitioning the pin is null and this IS the target, which is
+ * also what happens if the transition machinery is absent or fails. It cannot get
+ * stuck on the wrong palette. See ./pinnedScheme.ts.
+ */
+export function useDisplayedScheme(): Scheme {
+  const target = useResolvedScheme();
+  const pinned = usePinnedScheme();
+  return pinned ?? target;
+}
+
+/**
+ * The palette for the theme on screen. Subscribes, so a component that reads a
+ * colour through it re-renders the moment the theme changes.
  */
 export function useColors(): Palette {
-  return PALETTES[useResolvedScheme()];
+  return PALETTES[useDisplayedScheme()];
 }
 
 /**

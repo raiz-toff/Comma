@@ -6,6 +6,7 @@ import { ActivityIndicator, View, Platform } from "react-native";
 import { Text } from "../src/components/ui/text";
 import { useColors } from "../src/theme/useColors";
 import { ThemeSync } from "../src/theme/ThemeSync";
+import { ThemeTransition } from "../src/theme/ThemeTransition";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
@@ -112,6 +113,12 @@ export default function RootLayout() {
         </Suspense>
       </QueryProvider>
       <PortalHost />
+      {/*
+        Last child, so the veil covers everything — including the portal layer,
+        where modals and sheets render. It is pointerEvents="none", so it never
+        eats a tap even mid-fade.
+      */}
+      <ThemeTransition />
     </GestureHandlerRootView>
   );
 }

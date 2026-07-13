@@ -19,29 +19,34 @@ import { Text } from "@/src/components/ui/text";
 import { Image } from "expo-image";
 import { ChevronLeft, ChevronRight, Heart, Share2, Terminal, Globe, Coffee, BookOpen } from "lucide-react-native";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
-import { COLORS } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
+import { useLayout } from "@/src/hooks/useLayout";
 import { notify } from "@/src/services/notify";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 
-const DS = {
-  pageBg: COLORS.background,
-  cardBg: COLORS.surface02,
-  cardBorder: COLORS.lineSubtle,
-  inputBg: COLORS.surface03,
-  inputBorder: COLORS.lineStrong,
-  sep: COLORS.lineSubtle,
-  textPrimary: COLORS.contentPrimary,
-  textSecondary: COLORS.contentSecondary,
-  textLabel: COLORS.contentMuted,
-  rCard: 16,
-  pagePad: 16,
-  cardPad: 16,
-} as const;
+const makeDS = (C: Palette) =>
+  ({
+    pageBg: C.background,
+    cardBg: C.surface02,
+    cardBorder: C.lineSubtle,
+    inputBg: C.surface03,
+    inputBorder: C.lineStrong,
+    sep: C.lineSubtle,
+    textPrimary: C.contentPrimary,
+    textSecondary: C.contentSecondary,
+    textLabel: C.contentMuted,
+    rCard: 16,
+    pagePad: 16,
+    cardPad: 16,
+  }) as const;
 
 const isWeb = Platform.OS === "web";
 
 export default function AboutScreen() {
   const { accentColor } = usePlatformTheme();
+  const DS = useThemedStyles(makeDS);
+  const { columnStyle } = useLayout();
+  const s = useThemedStyles(makeStyles);
   const [isExporting, setIsExporting] = useState(false);
   const [debugTapCount, setDebugTapCount] = useState(0);
   const [debugTapTs, setDebugTapTs] = useState(0);
@@ -103,8 +108,13 @@ export default function AboutScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={["bottom", "left", "right"]}>
-      {/* Header */}
-      <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+      {/*
+        Header. It sits OUTSIDE the ScrollView, so it needs the same cap as the
+        content — otherwise on a tablet the back button hugs the screen edge while
+        the content it belongs to sits centred a couple of hundred points away.
+        `columnStyle` is undefined below 600pt, so this changes nothing on a phone.
+      */}
+      <View style={[s.header, { paddingTop: insets.top + 10 }, columnStyle]}>
         <TouchableOpacity
           onPress={() => router.back()}
           accessibilityRole="button"
@@ -117,7 +127,7 @@ export default function AboutScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={s.scrollContent}
+        contentContainerStyle={[s.scrollContent, columnStyle]}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero */}
@@ -214,6 +224,8 @@ function LinkRow({
   onPress: () => void;
   disabled?: boolean;
 }) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -228,12 +240,14 @@ function LinkRow({
         <Text variant="labelM">{label}</Text>
         <Text variant="paragraphS" className="text-content-secondary" style={{ marginTop: 2 }}>{sub}</Text>
       </View>
-      <ChevronRight size={16} color={COLORS.contentMuted} />
+      <ChevronRight size={16} color={C.contentMuted} />
     </TouchableOpacity>
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => {
+  const DS = makeDS(C);
+  return StyleSheet.create({
   safe: { flex: 1, backgroundColor: DS.pageBg },
   scrollContent: { paddingBottom: 32 },
 
@@ -318,4 +332,5 @@ const s = StyleSheet.create({
     paddingBottom: 24,
     paddingTop: 28,
   },
-});
+  });
+};

@@ -197,7 +197,7 @@ const DEFAULT_PROFILE: DriverProfile = {
   taxWithholdingPct: 28, // CA default
   hstRegistered: false,
   distanceUnit: "km",
-  theme: "dark",
+  theme: "auto",
   operationalModelId: "delivery_fixed" as OperationalModelId,
   customCategories: [],
   locale: {
@@ -938,7 +938,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         taxWithholdingPct: 25,
         hstRegistered: false,
         distanceUnit: "km" as const,
-        theme: "dark" as const,
+        theme: "auto" as const,
         operationalModelId: "delivery_fixed" as OperationalModelId,
       };
       localStorage.setItem("comma_profile", JSON.stringify(finalProfile));

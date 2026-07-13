@@ -2,19 +2,26 @@ import React from "react";
 import { View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { Text } from "../ui/text";
-import { COLORS, KPI, withAlpha } from "@/src/theme/colors";
+import { KPI, withAlpha } from "@/src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 
 interface TaxJarWidgetProps {
   taxWithholdingPct: number;
 }
 
 export default function TaxJarWidget({ taxWithholdingPct }: TaxJarWidgetProps) {
+  const C = useColors();
   const size = 110;
   const strokeWidth = 10;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (taxWithholdingPct / 100) * circumference;
-  const pct = Math.round(taxWithholdingPct);
+  // A non-finite withholding rate (no tax profile yet) must draw an empty ring,
+  // not throw: stroke-dashoffset="NaN" is not a valid SVG length.
+  const safePct = Number.isFinite(taxWithholdingPct)
+    ? Math.min(Math.max(taxWithholdingPct, 0), 100)
+    : 0;
+  const strokeDashoffset = circumference - (safePct / 100) * circumference;
+  const pct = Math.round(safePct);
 
   return (
     <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 12, gap: 16 }}>
@@ -38,10 +45,10 @@ export default function TaxJarWidget({ taxWithholdingPct }: TaxJarWidgetProps) {
             transform={`rotate(-90 ${size/2} ${size/2})`}
           />
         </Svg>
-        <Text variant="headingL" tabular style={{ color: COLORS.contentPrimary }}>{pct}%</Text>
+        <Text variant="headingL" tabular style={{ color: C.contentPrimary }}>{pct}%</Text>
       </View>
 
-      <Text variant="labelXs" style={{ color: COLORS.contentSecondary, textAlign: "center" }}>
+      <Text variant="labelXs" style={{ color: C.contentSecondary, textAlign: "center" }}>
         Current Target Rate
       </Text>
     </View>

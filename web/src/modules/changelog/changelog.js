@@ -7,7 +7,7 @@ import { showModal } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
 import { t } from '../../utils/strings.js';
 
-export const APP_VERSION = '1.3.1';
+export const APP_VERSION = '1.4.0';
 const STORAGE_KEY = 'comma_last_seen_version';
 
 /**
@@ -49,34 +49,10 @@ export function showChangelogModal(lastVersion = '') {
 
       <div class="changelog-highlights">
         <div class="changelog-item">
-          <div class="changelog-item-icon">${getIcon('bolt', 24)}</div>
-          <div class="changelog-item-text">
-            <h4>Setup is now two steps</h4>
-            <p>Tell us where you drive, then log your last shift — Comma shows you what that shift was really worth. Everything else is optional and offered later.</p>
-          </div>
-        </div>
-
-        <div class="changelog-item">
-          <div class="changelog-item-icon">${getIcon('upload-cloud', 24)}</div>
-          <div class="changelog-item-text">
-            <h4>One-tap cloud sync</h4>
-            <p>Connecting your Google Drive is all it takes to keep this browser and your phone in step. No sync password to invent, no account to create.</p>
-          </div>
-        </div>
-
-        <div class="changelog-item">
-          <div class="changelog-item-icon">${getIcon('shield', 24)}</div>
-          <div class="changelog-item-text">
-            <h4>End-to-end encryption, when you want it</h4>
-            <p>Your vault syncs through your own Drive by default. Switch on end-to-end encryption and it is sealed with a password only you hold.</p>
-          </div>
-        </div>
-
-        <div class="changelog-item">
           <div class="changelog-item-icon">${getIcon('moon', 24)}</div>
           <div class="changelog-item-text">
-            <h4>A calmer interface</h4>
-            <p>A design pass across every screen: consistent surfaces, softer dividers, and a dark theme that is now the default.</p>
+            <h4>Light mode comes to the phone app</h4>
+            <p>Comma's Android app can now be light, dark, or set to follow your phone — under Settings, Appearance, Theme. This browser app has always had that choice; now the two match.</p>
           </div>
         </div>
       </div>

@@ -14,7 +14,9 @@ import { Stack, router } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Car, Bike, Zap, ChevronLeft } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { withAlpha } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
+import { useLayout } from "@/src/hooks/useLayout";
 import { getVehicles, updateVehicle } from "@/src/database/queries/vehicles";
 import { upsertTaxProfile } from "@/src/database/queries/taxProfiles";
 import { getVehicleMileageEligibility } from "@/src/registry/countries/mileageRates";
@@ -43,6 +45,9 @@ const VEHICLE_TYPES = [
  * isn't entitled to.
  */
 export default function SetupVehicleScreen() {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
+  const { columnStyle } = useLayout();
   const { profile } = useSettingsStore();
   const queryClient = useQueryClient();
   const country = profile?.country ?? "CA";
@@ -122,35 +127,41 @@ export default function SetupVehicleScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View style={s.header}>
+        {/*
+          The back button and the CTA footer are siblings of the ScrollView, not children of
+          it, so they need the same cap as the form — otherwise on a tablet they run the full
+          width of the screen while the form they belong to sits in a centred 640pt column.
+          `columnStyle` is undefined below 600pt, so none of this changes a phone.
+        */}
+        <View style={[s.header, columnStyle]}>
           <Pressable onPress={() => router.back()} accessibilityRole="button" hitSlop={10}>
-            <ChevronLeft size={24} color={COLORS.contentPrimary} />
+            <ChevronLeft size={24} color={C.contentPrimary} />
           </Pressable>
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color={COLORS.contentPrimary} style={{ marginTop: 60 }} />
+          <ActivityIndicator size="large" color={C.contentPrimary} style={{ marginTop: 60 }} />
         ) : (
           <ScrollView
-            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
+            contentContainerStyle={[{ paddingHorizontal: 24, paddingBottom: 24 }, columnStyle]}
             keyboardShouldPersistTaps="handled"
           >
             <View style={{ gap: 6, marginBottom: 24 }}>
               <Text variant="headingXl">What do you drive?</Text>
-              <Text variant="paragraphM" style={{ color: COLORS.contentMuted }}>
+              <Text variant="paragraphM" style={{ color: C.contentMuted }}>
                 We assumed a gas car to get you started. Your real one sets the correct write-off
                 rate per {distanceUnit}.
               </Text>
             </View>
 
             <View style={{ gap: 8, marginBottom: 22 }}>
-              <Text variant="labelXs" style={{ color: COLORS.contentMuted }}>
+              <Text variant="labelXs" style={{ color: C.contentMuted }}>
                 TYPE
               </Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -166,11 +177,11 @@ export default function SetupVehicleScreen() {
                     >
                       <Icon
                         size={16}
-                        color={on ? COLORS.contentPrimary : COLORS.contentMuted}
+                        color={on ? C.contentPrimary : C.contentMuted}
                       />
                       <Text
                         variant="labelM"
-                        style={{ color: on ? COLORS.contentPrimary : COLORS.contentSecondary }}
+                        style={{ color: on ? C.contentPrimary : C.contentSecondary }}
                       >
                         {label}
                       </Text>
@@ -184,12 +195,12 @@ export default function SetupVehicleScreen() {
             <View
               style={{
                 backgroundColor: eligibility.eligible
-                  ? withAlpha(COLORS.success, 0.08)
-                  : COLORS.surface03,
+                  ? withAlpha(C.success, 0.08)
+                  : C.surface03,
                 borderWidth: 1,
                 borderColor: eligibility.eligible
-                  ? withAlpha(COLORS.success, 0.25)
-                  : COLORS.lineSubtle,
+                  ? withAlpha(C.success, 0.25)
+                  : C.lineSubtle,
                 borderRadius: 14,
                 padding: 14,
                 marginBottom: 22,
@@ -201,7 +212,7 @@ export default function SetupVehicleScreen() {
                   ? `Write-off: ${eligibility.ratePrimary} per ${distanceUnit}`
                   : "No standard mileage write-off"}
               </Text>
-              <Text variant="paragraphS" style={{ color: COLORS.contentSecondary }}>
+              <Text variant="paragraphS" style={{ color: C.contentSecondary }}>
                 {eligibility.label}
               </Text>
             </View>
@@ -223,14 +234,14 @@ export default function SetupVehicleScreen() {
             />
 
             {error ? (
-              <Text variant="paragraphS" style={{ color: COLORS.destructive, marginTop: 6 }}>
+              <Text variant="paragraphS" style={{ color: C.destructive, marginTop: 6 }}>
                 {error}
               </Text>
             ) : null}
           </ScrollView>
         )}
 
-        <View style={s.footer}>
+        <View style={[s.footer, columnStyle]}>
           <Pressable
             onPress={handleSave}
             disabled={saving || loading}
@@ -239,9 +250,9 @@ export default function SetupVehicleScreen() {
             style={[s.cta, (saving || loading) && { opacity: 0.4 }]}
           >
             {saving ? (
-              <ActivityIndicator size="small" color={COLORS.background} />
+              <ActivityIndicator size="small" color={C.background} />
             ) : (
-              <Text variant="labelL" style={{ color: COLORS.background }}>
+              <Text variant="labelL" style={{ color: C.background }}>
                 Save my vehicle
               </Text>
             )}
@@ -265,16 +276,18 @@ function Field({
   placeholder?: string;
   keyboardType?: "default" | "numeric";
 }) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
   return (
     <View style={{ gap: 8, marginBottom: 16 }}>
-      <Text variant="labelXs" style={{ color: COLORS.contentMuted }}>
+      <Text variant="labelXs" style={{ color: C.contentMuted }}>
         {label}
       </Text>
       <TextInput
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}
-        placeholderTextColor={COLORS.contentMuted}
+        placeholderTextColor={C.contentMuted}
         keyboardType={keyboardType}
         style={s.input}
       />
@@ -282,7 +295,7 @@ function Field({
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   header: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 12 },
   chip: {
     flexDirection: "row",
@@ -291,18 +304,18 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: COLORS.card,
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
   },
-  chipOn: { borderColor: COLORS.contentPrimary, backgroundColor: COLORS.surface04 },
+  chipOn: { borderColor: C.contentPrimary, backgroundColor: C.surface04 },
   input: {
     fontSize: 16,
     fontWeight: "600",
-    color: COLORS.contentPrimary,
-    backgroundColor: COLORS.card,
+    color: C.contentPrimary,
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -311,10 +324,10 @@ const s = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.lineSubtle,
+    borderTopColor: C.lineSubtle,
   },
   cta: {
-    backgroundColor: COLORS.contentPrimary,
+    backgroundColor: C.contentPrimary,
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: "center",

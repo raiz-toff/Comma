@@ -18,6 +18,7 @@
 
 import { useMemo } from "react";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { useColors } from "@/src/theme/useColors";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 
 
@@ -85,11 +86,28 @@ export function blendColors(c1: string, c2: string): string {
   return `#${r}${g}${b}`;
 }
 
+/**
+ * The neutral accent, as stored. This is the default swatch in the accent
+ * picker, and it is dark's foreground hex — i.e. it means "just use the
+ * foreground colour", not "use this specific near-white".
+ *
+ * Taken literally it is a bug in light mode: the accent fills every primary
+ * button, and a #F6F6F7 button on a #FFFFFF canvas is invisible. So it is
+ * resolved through the palette instead — near-white on dark, near-black on
+ * light — which is what the monochrome-chrome design intended all along.
+ * An accent the driver deliberately picked is left exactly as they picked it.
+ */
+const NEUTRAL_ACCENTS = new Set(["#f6f6f7", "#ffffff"]);
+
 export function usePlatformTheme(): PlatformTheme {
   const activePlatformFilter = useSettingsStore((s) => s.activePlatformFilter);
   const rawAccent = useSettingsStore((s) => s.profile?.avatarData);
   const dbPlatforms = useSettingsStore((s) => s.dbPlatforms || []);
-  const userAccentColor = (rawAccent && rawAccent.startsWith("#")) ? rawAccent : "#ffffff";
+  const C = useColors();
+
+  const stored = rawAccent && rawAccent.startsWith("#") ? rawAccent : null;
+  const userAccentColor =
+    !stored || NEUTRAL_ACCENTS.has(stored.toLowerCase()) ? C.contentPrimary : stored;
 
   return useMemo<PlatformTheme>(() => {
     const isFiltered = activePlatformFilter !== "all";

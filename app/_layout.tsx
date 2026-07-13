@@ -1,11 +1,12 @@
 import "../src/global.css";
 import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { SQLiteProvider } from "expo-sqlite";
 import { Suspense } from "react";
 import { ActivityIndicator, View, Platform } from "react-native";
 import { Text } from "../src/components/ui/text";
-import { COLORS } from "../src/theme/colors";
+import { useColors } from "../src/theme/useColors";
+import { ThemeSync } from "../src/theme/ThemeSync";
+import { ThemeTransition } from "../src/theme/ThemeTransition";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
@@ -45,11 +46,12 @@ function ShiftBackgroundServices() {
 
 export default function RootLayout() {
   const { success, error } = useDatabaseMigrations();
+  const C = useColors();
   useStudio();
   if (error) {
     return (
       <View className="flex-1 items-center justify-center bg-background px-6">
-        <StatusBar style="light" />
+        <ThemeSync />
         <Text variant="headingS" className="mb-2 text-destructive">
           Database Error
         </Text>
@@ -61,8 +63,8 @@ export default function RootLayout() {
   if (!success) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <StatusBar style="light" />
-        <ActivityIndicator size="large" color={COLORS.contentSecondary} />
+        <ThemeSync />
+        <ActivityIndicator size="large" color={C.contentSecondary} />
         <Text variant="paragraphM" className="mt-4">Initializing database...</Text>
       </View>
     );
@@ -76,8 +78,9 @@ export default function RootLayout() {
           <Stack
             screenOptions={{
               headerShown: false,
-              // Dark scene background — prevents the white flash between screens.
-              contentStyle: { backgroundColor: COLORS.background },
+              // Scene background matches the canvas — prevents a flash of the
+              // opposite theme between screens.
+              contentStyle: { backgroundColor: C.background },
             }}
           />
         </AppErrorBoundary>
@@ -86,13 +89,13 @@ export default function RootLayout() {
   );
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: COLORS.background }}>
-      <StatusBar style="light" />
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: C.background }}>
+      <ThemeSync />
       <QueryProvider>
         <Suspense
           fallback={
             <View className="flex-1 items-center justify-center bg-background">
-              <ActivityIndicator size="large" color={COLORS.contentSecondary} />
+              <ActivityIndicator size="large" color={C.contentSecondary} />
             </View>
           }
         >
@@ -110,6 +113,12 @@ export default function RootLayout() {
         </Suspense>
       </QueryProvider>
       <PortalHost />
+      {/*
+        Last child, so the veil covers everything — including the portal layer,
+        where modals and sheets render. It is pointerEvents="none", so it never
+        eats a tap even mid-fade.
+      */}
+      <ThemeTransition />
     </GestureHandlerRootView>
   );
 }

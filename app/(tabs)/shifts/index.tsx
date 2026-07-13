@@ -13,28 +13,38 @@ import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Text } from "@/src/components/ui/text";
 import { EmptyState } from "@/src/components/ui/EmptyState";
-import { COLORS } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { parseRoutePath } from "@/utils/polyline";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 import { getShiftsPaginated } from "@/src/database/queries/shifts";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
 import Svg, { Path, Polyline, Circle, Line, Rect } from "react-native-svg";
 
 // ─── Custom Icons ────────────────────────────────────────────────────────────
-const ChevronLeft = ({ size = 22, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="m15 18-6-6 6-6" />
-  </Svg>
-);
+const ChevronLeft = ({ size = 22, color: colorProp }: { size?: number; color?: string }) => {
+  const C = useColors();
+  const color = colorProp ?? C.contentPrimary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="m15 18-6-6 6-6" />
+    </Svg>
+  );
+};
 
-const ChevronRight = ({ size = 22, color = COLORS.contentPrimary }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="m9 18 6-6-6-6" />
-  </Svg>
-);
+const ChevronRight = ({ size = 22, color: colorProp }: { size?: number; color?: string }) => {
+  const C = useColors();
+  const color = colorProp ?? C.contentPrimary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="m9 18 6-6-6-6" />
+    </Svg>
+  );
+};
 
 const PlatformLogo = ({ id, size = 16 }: { id: string; size?: number }) => {
+  const C = useColors();
   switch (id) {
     case "doordash":
       return (
@@ -95,7 +105,7 @@ const PlatformLogo = ({ id, size = 16 }: { id: string; size?: number }) => {
       );
     default:
       return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={COLORS.contentSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={C.contentSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <Rect x={2} y={7} width={20} height={14} rx={2} ry={2} />
           <Path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
         </Svg>
@@ -104,6 +114,7 @@ const PlatformLogo = ({ id, size = 16 }: { id: string; size?: number }) => {
 };
 
 const PlatformIcon = ({ id }: { id: string }) => {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.platIcon}>
       <PlatformLogo id={id} size={16} />
@@ -136,6 +147,7 @@ const formatDayName = (dateStr: string | Date): string => {
 // for a given row, so without React.memo it would re-run on every scroll-driven parent
 // re-render of the list. Memo keeps off-screen rows from rebuilding their SVG.
 const RouteMinimap = React.memo(function RouteMinimap({ routePathJson, strokeColor }: { routePathJson: string; strokeColor: string }) {
+  const C = useColors();
   const points = React.useMemo(() => {
     return parseRoutePath(routePathJson);
   }, [routePathJson]);
@@ -173,12 +185,12 @@ const RouteMinimap = React.memo(function RouteMinimap({ routePathJson, strokeCol
   const endY = padding + (1 - (endPoint.latitude - minLat) / latRange) * (height - 2 * padding);
 
   return (
-    <View style={{ width: 100, height: 60, backgroundColor: COLORS.surface01, borderRadius: 8, borderWidth: 0.5, borderColor: COLORS.lineSubtle, overflow: "hidden", marginLeft: 12 }}>
+    <View style={{ width: 100, height: 60, backgroundColor: C.surface01, borderRadius: 8, borderWidth: 0.5, borderColor: C.lineSubtle, overflow: "hidden", marginLeft: 12 }}>
       <Svg width={width} height={height}>
-        <Line x1="0" y1="20" x2="100" y2="20" stroke={COLORS.surface02} strokeWidth="0.5" />
-        <Line x1="0" y1="40" x2="100" y2="40" stroke={COLORS.surface02} strokeWidth="0.5" />
-        <Line x1="33" y1="0" x2="33" y2="60" stroke={COLORS.surface02} strokeWidth="0.5" />
-        <Line x1="66" y1="0" x2="66" y2="60" stroke={COLORS.surface02} strokeWidth="0.5" />
+        <Line x1="0" y1="20" x2="100" y2="20" stroke={C.surface02} strokeWidth="0.5" />
+        <Line x1="0" y1="40" x2="100" y2="40" stroke={C.surface02} strokeWidth="0.5" />
+        <Line x1="33" y1="0" x2="33" y2="60" stroke={C.surface02} strokeWidth="0.5" />
+        <Line x1="66" y1="0" x2="66" y2="60" stroke={C.surface02} strokeWidth="0.5" />
 
         <Polyline
           points={svgPoints}
@@ -189,8 +201,8 @@ const RouteMinimap = React.memo(function RouteMinimap({ routePathJson, strokeCol
           strokeLinejoin="round"
         />
 
-        <Circle cx={startX} cy={startY} r="3" fill={COLORS.success} />
-        <Circle cx={endX} cy={endY} r="3.5" fill={COLORS.destructive} stroke={COLORS.background} strokeWidth="0.8" />
+        <Circle cx={startX} cy={startY} r="3" fill={C.success} />
+        <Circle cx={endX} cy={endY} r="3.5" fill={C.destructive} stroke={C.background} strokeWidth="0.8" />
       </Svg>
     </View>
   );
@@ -214,6 +226,8 @@ const ShiftCard = ({
   distanceUnit: string;
   formatCurrency: (val: number) => string;
 }) => {
+  const C = useColors();
+  const styles = useThemedStyles(makeStyles);
   const totalShiftEarnings = (shift.grossRevenue || 0) + (shift.tipsRevenue || 0) + (shift.bonusAmount || 0);
   const durationHrs = (shift.durationSeconds || 0) / 3600;
   return (
@@ -261,7 +275,7 @@ const ShiftCard = ({
         {shift.routePath && (
           <RouteMinimap
             routePathJson={shift.routePath}
-            strokeColor={PLATFORMS[shift.platform as PlatformKey]?.color || COLORS.info}
+            strokeColor={PLATFORMS[shift.platform as PlatformKey]?.color || C.info}
           />
         )}
       </View>
@@ -275,8 +289,11 @@ const ShiftSeparator = () => <View style={{ height: 12 }} />;
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function ShiftsScreen() {
   const insets = useSafeAreaInsets();
+  const C = useColors();
+  const styles = useThemedStyles(makeStyles);
   const { activePlatformFilter, profile, setHeaderVisible } = useSettingsStore();
   const { platformColor, accentColor } = usePlatformTheme();
+  const { gridStyle, dialogStyle } = useLayout();
 
   // Selected week tracker
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -581,14 +598,14 @@ export default function ShiftsScreen() {
           />
         )}
         ItemSeparatorComponent={ShiftSeparator}
-        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 64 }]}
+        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 64 }, gridStyle]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         ListEmptyComponent={
           isLoading ? (
             <View style={{ paddingVertical: 48, alignItems: "center", justifyContent: "center" }}>
-              <ActivityIndicator size="small" color={COLORS.contentSecondary} />
+              <ActivityIndicator size="small" color={C.contentSecondary} />
             </View>
           ) : (
             <EmptyState
@@ -617,7 +634,7 @@ export default function ShiftsScreen() {
                 </Text>
                 <View style={styles.dropdownChevron}>
                   <Svg width={10} height={6} viewBox="0 0 10 6" fill="none">
-                    <Path d="M1 1L5 5L9 1" stroke={COLORS.contentSecondary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                    <Path d="M1 1L5 5L9 1" stroke={C.contentSecondary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
                   </Svg>
                 </View>
               </Pressable>
@@ -629,7 +646,7 @@ export default function ShiftsScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Previous week"
                 >
-                  <ChevronLeft color={COLORS.contentPrimary} />
+                  <ChevronLeft color={C.contentPrimary} />
                 </Pressable>
 
                 <View style={styles.amountRow}>
@@ -649,7 +666,7 @@ export default function ShiftsScreen() {
                   accessibilityState={{ disabled: isCurrentOrFutureWeek }}
                   style={[styles.arrowBtn, isCurrentOrFutureWeek && styles.arrowBtnDisabled]}
                 >
-                  <ChevronRight color={isCurrentOrFutureWeek ? COLORS.contentDisabled : COLORS.contentPrimary} />
+                  <ChevronRight color={isCurrentOrFutureWeek ? C.contentDisabled : C.contentPrimary} />
                 </Pressable>
               </View>
             </View>
@@ -694,7 +711,7 @@ export default function ShiftsScreen() {
                       </View>
                       <Text
                         variant="labelXs"
-                        style={{ color: isSelected ? (platformColor || accentColor) : COLORS.contentSecondary }}
+                        style={{ color: isSelected ? (platformColor || accentColor) : C.contentSecondary }}
                       >
                         {dayData.label.slice(0, 1)}
                       </Text>
@@ -750,7 +767,13 @@ export default function ShiftsScreen() {
         onRequestClose={() => setIsWeekSelectorOpen(false)}
       >
         <SafeAreaView style={styles.modalRoot} edges={["top", "bottom", "left", "right"]}>
-          <View style={styles.modalHeader}>
+          {/*
+            This modal is full-screen (transparent={false}), so its surface — not a
+            dimmed backdrop — is what stays full-bleed. Each row inside it takes the
+            same `dialogStyle` cap so the header, the week list and the footer line up
+            in one centred column on a tablet. All of them are undefined on a phone.
+          */}
+          <View style={[styles.modalHeader, dialogStyle]}>
             <Text variant="headingM" tabular>Select week ({selectorYear})</Text>
             <Pressable
               onPress={() => setIsWeekSelectorOpen(false)}
@@ -762,18 +785,18 @@ export default function ShiftsScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.tableHeader}>
+          <View style={[styles.tableHeader, dialogStyle]}>
             <Text variant="labelXs" className="text-content-secondary">Weekly Earnings</Text>
             <Text variant="labelXs" className="text-content-secondary">{weekdayHeaderLetters}</Text>
           </View>
 
           {isYearShiftsLoading ? (
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-              <ActivityIndicator size="large" color={COLORS.contentSecondary} />
+              <ActivityIndicator size="large" color={C.contentSecondary} />
               <Text variant="labelM" className="text-content-secondary" style={{ marginTop: 12 }}>Loading earnings data...</Text>
             </View>
           ) : (
-            <ScrollView contentContainerStyle={styles.modalScroll} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={[styles.modalScroll, dialogStyle]} showsVerticalScrollIndicator={false}>
               {visibleWeeks.map((week, idx) => {
                 const isSelected = getStartOfWeek(selectedDate, startDay).getTime() === week.start.getTime();
                 const formattedRange = `${week.start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${week.end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
@@ -824,7 +847,7 @@ export default function ShiftsScreen() {
           )}
 
           {/* Modal Footer with Pagination Controls */}
-          <View style={styles.modalFooter}>
+          <View style={[styles.modalFooter, dialogStyle]}>
             <Pressable
               onPress={handleModalNextPage}
               accessibilityRole="button"
@@ -857,10 +880,10 @@ export default function ShiftsScreen() {
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
   },
   scroll: {
     padding: 16,
@@ -878,9 +901,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 999,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
   },
   dropdownChevron: {
     justifyContent: "center",
@@ -897,15 +920,15 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     justifyContent: "center",
     alignItems: "center",
   },
   arrowBtnDisabled: {
     opacity: 0.35,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
   },
   amountRow: {
     flexDirection: "row",
@@ -917,7 +940,7 @@ const styles = StyleSheet.create({
   amountSymbol: {
     fontSize: 24,
     fontWeight: "600",
-    color: COLORS.contentPrimary,
+    color: C.contentPrimary,
     lineHeight: 30,
     marginTop: 10,
     marginRight: 4,
@@ -926,17 +949,17 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 40,
     fontWeight: "800",
-    color: COLORS.contentPrimary,
+    color: C.contentPrimary,
     letterSpacing: -0.5,
     lineHeight: 48,
     paddingVertical: 2,
     includeFontPadding: false,
   },
   chartContainer: {
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     padding: 16,
     marginVertical: 10,
   },
@@ -955,10 +978,10 @@ const styles = StyleSheet.create({
     height: 1,
     borderStyle: "dashed",
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
   },
   highBadge: {
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     paddingLeft: 8,
   },
   chartRow: {
@@ -977,7 +1000,7 @@ const styles = StyleSheet.create({
   barTrack: {
     width: 14,
     height: 64,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderRadius: 8,
     overflow: "hidden",
     justifyContent: "flex-end",
@@ -990,10 +1013,10 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   shiftCard: {
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     padding: 16,
     gap: 12,
   },
@@ -1006,9 +1029,9 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1017,14 +1040,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     borderTopWidth: 0.5,
-    borderTopColor: COLORS.lineSubtle,
+    borderTopColor: C.lineSubtle,
     paddingTop: 8,
   },
 
   // Modal styles
   modalRoot: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
   },
   modalHeader: {
     flexDirection: "row",
@@ -1033,7 +1056,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: COLORS.lineSubtle,
+    borderBottomColor: C.lineSubtle,
   },
   tableHeader: {
     flexDirection: "row",
@@ -1042,7 +1065,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: COLORS.lineSubtle,
+    borderBottomColor: C.lineSubtle,
   },
   modalScroll: {
     paddingVertical: 8,
@@ -1053,8 +1076,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
-    backgroundColor: COLORS.surface02,
+    borderColor: C.lineSubtle,
+    backgroundColor: C.surface02,
     borderRadius: 20,
     marginHorizontal: 16,
     marginVertical: 6,
@@ -1074,7 +1097,7 @@ const styles = StyleSheet.create({
   miniBarTrack: {
     width: 8,
     height: 32,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderRadius: 8,
     overflow: "hidden",
     justifyContent: "flex-end",
@@ -1092,16 +1115,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderTopWidth: 0.5,
-    borderTopColor: COLORS.lineSubtle,
-    backgroundColor: COLORS.background,
+    borderTopColor: C.lineSubtle,
+    backgroundColor: C.background,
   },
   pageBtn: {
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 12,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
   },
   pageBtnDisabled: {
     opacity: 0.35,
@@ -1116,10 +1139,10 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     padding: 16,
   },
 });

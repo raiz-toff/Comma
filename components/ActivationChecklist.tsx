@@ -3,7 +3,8 @@ import { View, Pressable, ActivityIndicator } from "react-native";
 import { useFocusEffect, router } from "expo-router";
 import { Check, ChevronRight } from "lucide-react-native";
 import { Text } from "../src/components/ui/text";
-import { COLORS, withAlpha } from "../src/theme/colors";
+import { withAlpha } from "../src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 import { useSettingsStore } from "../store/useSettingsStore";
 import {
   buildActivationItems,
@@ -22,6 +23,7 @@ import { requestFullLocationAccess } from "../src/services/permissions/locationA
  * their mileage for months. It leaves on its own, once every item is genuinely done.
  */
 export function ActivationChecklist() {
+  const C = useColors();
   const { profile, isDemoMode } = useSettingsStore();
   const [items, setItems] = useState<ActivationItem[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -71,9 +73,9 @@ export function ActivationChecklist() {
   return (
     <View
       style={{
-        backgroundColor: COLORS.card,
+        backgroundColor: C.card,
         borderWidth: 1,
-        borderColor: COLORS.lineSubtle,
+        borderColor: C.lineSubtle,
         borderRadius: 20,
         padding: 18,
         gap: 14,
@@ -81,7 +83,7 @@ export function ActivationChecklist() {
     >
       <View style={{ gap: 3 }}>
         <Text variant="labelL">Finish setting up</Text>
-        <Text variant="paragraphS" style={{ color: COLORS.contentMuted }}>
+        <Text variant="paragraphS" style={{ color: C.contentMuted }}>
           {done} of {items.length} done — each one sharpens your numbers.
         </Text>
       </View>
@@ -95,7 +97,7 @@ export function ActivationChecklist() {
               height: 3,
               flex: 1,
               borderRadius: 2,
-              backgroundColor: i.done ? COLORS.success : COLORS.surface04,
+              backgroundColor: i.done ? C.success : C.surface04,
             }}
           />
         ))}
@@ -124,35 +126,35 @@ export function ActivationChecklist() {
                 borderRadius: 10,
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: item.done ? withAlpha(COLORS.success, 0.15) : "transparent",
+                backgroundColor: item.done ? withAlpha(C.success, 0.15) : "transparent",
                 borderWidth: item.done ? 0 : 1.5,
-                borderColor: COLORS.lineStrong,
+                borderColor: C.lineStrong,
               }}
             >
-              {item.done && <Check size={12} color={COLORS.success} strokeWidth={3} />}
+              {item.done && <Check size={12} color={C.success} strokeWidth={3} />}
             </View>
 
             <View style={{ flex: 1, gap: 1 }}>
               <Text
                 variant="labelM"
                 style={{
-                  color: item.done ? COLORS.contentMuted : COLORS.contentPrimary,
+                  color: item.done ? C.contentMuted : C.contentPrimary,
                   textDecorationLine: item.done ? "line-through" : "none",
                 }}
               >
                 {item.title}
               </Text>
               {!item.done && (
-                <Text variant="paragraphS" style={{ color: COLORS.contentMuted }}>
+                <Text variant="paragraphS" style={{ color: C.contentMuted }}>
                   {item.detail}
                 </Text>
               )}
             </View>
 
             {busy && item.id === "gps" ? (
-              <ActivityIndicator size="small" color={COLORS.contentMuted} />
+              <ActivityIndicator size="small" color={C.contentMuted} />
             ) : (
-              !item.done && <ChevronRight size={16} color={COLORS.contentMuted} />
+              !item.done && <ChevronRight size={16} color={C.contentMuted} />
             )}
           </Pressable>
         ))}

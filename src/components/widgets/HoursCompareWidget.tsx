@@ -1,7 +1,8 @@
 import React from "react";
 import { View } from "react-native";
 import { Text } from "../ui/text";
-import { COLORS, KPI, TIERS, withAlpha } from "@/src/theme/colors";
+import { KPI, TIERS, withAlpha } from "@/src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 
 interface HoursCompareWidgetProps {
   activeHrs: number;
@@ -16,17 +17,18 @@ function tierFor(ratio: number): { label: string; color: string } {
 }
 
 export default function HoursCompareWidget({ activeHrs, onlineHrs }: HoursCompareWidgetProps) {
+  const C = useColors();
   const ratio = onlineHrs > 0 ? Math.min(100, (activeHrs / onlineHrs) * 100) : 0;
   const tier = tierFor(ratio);
 
   return (
     <View style={{ gap: 16, paddingTop: 4 }}>
       <View style={{ flexDirection: "row", gap: 12 }}>
-        <View style={{ flex: 1, backgroundColor: COLORS.surface03, borderRadius: 12, padding: 12, borderLeftWidth: 4, borderLeftColor: KPI.hours }}>
+        <View style={{ flex: 1, backgroundColor: C.surface03, borderRadius: 12, padding: 12, borderLeftWidth: 4, borderLeftColor: KPI.hours }}>
           <Text variant="labelXs" className="text-content-secondary">Active Time</Text>
           <Text variant="headingL" tabular style={{ marginTop: 4 }}>{activeHrs.toFixed(1)} <Text variant="paragraphS" className="text-content-secondary">hrs</Text></Text>
         </View>
-        <View style={{ flex: 1, backgroundColor: COLORS.surface03, borderRadius: 12, padding: 12, borderLeftWidth: 4, borderLeftColor: withAlpha(KPI.hours, 0.6) }}>
+        <View style={{ flex: 1, backgroundColor: C.surface03, borderRadius: 12, padding: 12, borderLeftWidth: 4, borderLeftColor: withAlpha(KPI.hours, 0.6) }}>
           <Text variant="labelXs" className="text-content-secondary">Total Online</Text>
           <Text variant="headingL" tabular style={{ marginTop: 4 }}>{onlineHrs.toFixed(1)} <Text variant="paragraphS" className="text-content-secondary">hrs</Text></Text>
         </View>
@@ -35,7 +37,7 @@ export default function HoursCompareWidget({ activeHrs, onlineHrs }: HoursCompar
       <View
         accessible={true}
         accessibilityLabel={`Active time is ${ratio.toFixed(0)}% of online time, ${tier.label}`}
-        style={{ height: 10, borderRadius: 8, backgroundColor: COLORS.surface04, overflow: "hidden" }}
+        style={{ height: 10, borderRadius: 8, backgroundColor: C.surface04, overflow: "hidden" }}
       >
         <View style={{ height: "100%", width: `${Math.max(2, ratio)}%`, backgroundColor: tier.color, borderRadius: 8 }} />
       </View>

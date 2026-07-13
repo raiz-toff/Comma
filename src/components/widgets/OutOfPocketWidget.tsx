@@ -2,7 +2,8 @@ import React from "react";
 import { View } from "react-native";
 import { CreditCard } from "lucide-react-native";
 import { Text } from "../ui/text";
-import { COLORS, TIERS, withAlpha } from "@/src/theme/colors";
+import { TIERS, withAlpha } from "@/src/theme/colors";
+import { useColors, type Palette } from "@/src/theme/useColors";
 
 interface OutOfPocketWidgetProps {
   outOfPocket: number;
@@ -10,18 +11,19 @@ interface OutOfPocketWidgetProps {
   country?: string;
 }
 
-function tierFor(pct: number | null): { label: string; color: string } {
+function tierFor(pct: number | null, C: Palette): { label: string; color: string } {
   if (pct === null) return { label: "No Data", color: TIERS.base };
   if (pct <= 10) return { label: "Elite", color: TIERS.elite };
   if (pct <= 20) return { label: "Pro", color: TIERS.pro };
   if (pct <= 30) return { label: "Active", color: TIERS.active };
-  return { label: "High", color: COLORS.destructive };
+  return { label: "High", color: C.destructive };
 }
 
 export default function OutOfPocketWidget({ outOfPocket, gross, country }: OutOfPocketWidgetProps) {
+  const C = useColors();
   const pct = gross > 0 ? (outOfPocket / gross) * 100 : null;
   const safePct = pct !== null ? Math.min(100, Math.max(0, pct)) : 0;
-  const tier = tierFor(pct);
+  const tier = tierFor(pct, C);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat(undefined, {
@@ -56,7 +58,7 @@ export default function OutOfPocketWidget({ outOfPocket, gross, country }: OutOf
       <View
         accessible={true}
         accessibilityLabel={pct !== null ? `Out-of-pocket costs are ${pct.toFixed(1)}% of gross earnings` : "Out-of-pocket costs: no data"}
-        style={{ height: 4, borderRadius: 8, backgroundColor: COLORS.surface04, overflow: "hidden" }}
+        style={{ height: 4, borderRadius: 8, backgroundColor: C.surface04, overflow: "hidden" }}
       >
         <View style={{ width: `${safePct}%`, height: "100%", backgroundColor: tier.color, borderRadius: 8 }} />
       </View>

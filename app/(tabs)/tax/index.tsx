@@ -17,9 +17,11 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-na
 import { AlertTriangle, Settings, Calculator, Calendar, ChevronRight } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
 import { CurrencyText } from "@/src/components/ui/CurrencyText";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { withAlpha } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
 import {
   getCountryDef,
@@ -69,9 +71,13 @@ function ScalePressable({ onPress, style, children, ...rest }: {
 
 export default function TaxScreen() {
   const insets = useSafeAreaInsets();
+  const C = useColors();
+  const S = useThemedStyles(makeStyles);
   const { profile, isOnboardingCompleted, setHeaderVisible, updateProfile } =
     useSettingsStore();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
+  // Called here, with the other hooks, because this screen early-returns twice below.
+  const { gridStyle, dialogStyle } = useLayout();
 
   const isTaxEnabled = useFeatureEnabled("tax_workspace");
 
@@ -309,10 +315,10 @@ export default function TaxScreen() {
   if (countryDef.hasSelfAssessmentTax === false) {
     return (
       <SafeAreaView style={S.root} edges={["left", "right"]}>
-        <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8, paddingLeft: 70, height: Math.max(insets.top, 8) + 64 }]}>
+        <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8, paddingLeft: 70, height: Math.max(insets.top, 8) + 64 }, gridStyle]}>
           <Text variant="headingM">Tax · {currentYear}</Text>
         </View>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20, backgroundColor: COLORS.background }}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20, backgroundColor: C.background }}>
           <View style={S.card}>
             <View style={S.emptyIcon}>
               <Calculator size={26} color={accentColor} />
@@ -329,8 +335,11 @@ export default function TaxScreen() {
 
   return (
     <SafeAreaView style={S.root} edges={["left", "right"]}>
-      {/* ── Header — sits in-line with the hamburger row ── */}
-      <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8, paddingLeft: 70, height: Math.max(insets.top, 8) + 64 }]}>
+      {/* ── Header — sits in-line with the hamburger row ──
+           It is a sibling of the ScrollView, not inside it, so it takes the same
+           `gridStyle` cap as the content — otherwise on a tablet the gear button
+           hugs the screen edge while the cards it belongs to sit centred. */}
+      <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8, paddingLeft: 70, height: Math.max(insets.top, 8) + 64 }, gridStyle]}>
         <View style={{ flex: 1 }}>
           <Text variant="headingM">Tax · {currentYear}</Text>
           <Text variant="paragraphS" style={S.headerSub}>{regionLabel} · {profile?.taxWithholdingPct || 0}% saved for taxes</Text>
@@ -342,7 +351,7 @@ export default function TaxScreen() {
           accessibilityLabel="Tax settings"
           hitSlop={8}
         >
-          <Settings size={14} color={COLORS.contentSecondary} />
+          <Settings size={14} color={C.contentSecondary} />
         </ScalePressable>
       </View>
 
@@ -352,7 +361,7 @@ export default function TaxScreen() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={[S.scroll, { paddingBottom: 110 + insets.bottom }]}
+          contentContainerStyle={[S.scroll, { paddingBottom: 110 + insets.bottom }, gridStyle]}
           showsVerticalScrollIndicator={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}
@@ -360,7 +369,7 @@ export default function TaxScreen() {
           {/* ── Threshold Alert Strips ── */}
           {thresholdAlerts.map((alert, idx) => (
             <View key={idx} style={S.alertStrip}>
-              <AlertTriangle size={12} color={COLORS.warning} />
+              <AlertTriangle size={12} color={C.warning} />
               <Text variant="paragraphS" style={S.alertText}>{alert.message}</Text>
             </View>
           ))}
@@ -454,7 +463,7 @@ export default function TaxScreen() {
               style={S.installmentRow}
             >
               <View style={S.installmentLeft}>
-                <Calendar size={13} color={COLORS.contentSecondary} />
+                <Calendar size={13} color={C.contentSecondary} />
                 <Text variant="labelM" style={S.installmentLabel}>{nextInstallment.label}</Text>
                 <Text variant="labelM" style={S.installmentDate}>
                   {nextInstallment.date.toLocaleDateString("en-US", {
@@ -465,7 +474,7 @@ export default function TaxScreen() {
               </View>
               <View style={S.installmentRight}>
                 <Text variant="labelM" tabular style={S.installmentDays}>{nextInstallment.daysUntil} days</Text>
-                <ChevronRight size={12} color={COLORS.contentMuted} />
+                <ChevronRight size={12} color={C.contentMuted} />
               </View>
             </Pressable>
           )}
@@ -480,8 +489,9 @@ export default function TaxScreen() {
       {/* ── Settings Bottom Sheet ── */}
       <Modal visible={isSettingsOpen} transparent animationType="slide">
         <Pressable style={S.sheetOverlay} onPress={() => setIsSettingsOpen(false)}>
+          {/* The scrim behind stays full-bleed; only the sheet itself is capped. */}
           <Pressable
-            style={[S.sheet, { paddingBottom: insets.bottom + 20 }]}
+            style={[S.sheet, { paddingBottom: insets.bottom + 20 }, dialogStyle]}
             onPress={(e) => e.stopPropagation()}
           >
             <View style={S.sheetHandle} />
@@ -516,7 +526,7 @@ export default function TaxScreen() {
                     style={
                       profile?.hstRegistered
                         ? { color: accentColorContrast }
-                        : { color: COLORS.contentSecondary }
+                        : { color: C.contentSecondary }
                     }
                   >
                     {profile?.hstRegistered ? "Registered" : "No"}
@@ -601,7 +611,7 @@ export default function TaxScreen() {
                   hitSlop={8}
                   style={S.overlayClose}
                 >
-                  <Text variant="headingS" style={{ color: COLORS.contentSecondary }}>×</Text>
+                  <Text variant="headingS" style={{ color: C.contentSecondary }}>×</Text>
                 </Pressable>
               </View>
               <Text variant="paragraphM">Amount you're setting aside for taxes.</Text>
@@ -609,7 +619,7 @@ export default function TaxScreen() {
                 value={jarDepositInput}
                 onChangeText={setJarDepositInput}
                 placeholder="0.00"
-                placeholderTextColor={COLORS.contentMuted}
+                placeholderTextColor={C.contentMuted}
                 keyboardType="decimal-pad"
                 style={S.jarInput}
               />
@@ -621,7 +631,7 @@ export default function TaxScreen() {
                     accessibilityRole="button"
                     style={[S.chip, S.chipInactive, { flex: 1, paddingHorizontal: 4 }]}
                   >
-                    <Text variant="labelM" tabular style={{ color: COLORS.contentSecondary }}>${amt}</Text>
+                    <Text variant="labelM" tabular style={{ color: C.contentSecondary }}>${amt}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -649,8 +659,8 @@ export default function TaxScreen() {
   );
 }
 
-const S = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (C: Palette) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.background },
   loader: { flex: 1, alignItems: "center", justifyContent: "center" },
   scroll: { padding: 16, paddingTop: 8, gap: 10 },
 
@@ -661,7 +671,7 @@ const S = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
   },
   headerSub: { marginTop: 2 },
   gearBtn: {
@@ -669,9 +679,9 @@ const S = StyleSheet.create({
     height: 36,
     // circular: diameter / 2
     borderRadius: 18,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -681,28 +691,28 @@ const S = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: withAlpha(COLORS.warning, 0.06),
+    backgroundColor: withAlpha(C.warning, 0.06),
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: withAlpha(COLORS.warning, 0.2),
+    borderColor: withAlpha(C.warning, 0.2),
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   alertText: {
-    color: COLORS.contentSecondary,
+    color: C.contentSecondary,
     flex: 1,
   },
 
   // Cards
   card: {
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     borderRadius: 20,
     padding: 18,
     gap: 12,
   },
-  cardLabel: { color: COLORS.contentMuted },
+  cardLabel: { color: C.contentMuted },
 
   // Tax Jar card internals
   jarRow: {
@@ -711,12 +721,12 @@ const S = StyleSheet.create({
     alignItems: "flex-end",
   },
   mutedValue: {
-    color: COLORS.contentSecondary,
+    color: C.contentSecondary,
     marginTop: 2,
   },
   progressTrack: {
     height: 6,
-    backgroundColor: COLORS.lineSubtle,
+    backgroundColor: C.lineSubtle,
     // pill: height / 2
     borderRadius: 3,
   },
@@ -731,7 +741,7 @@ const S = StyleSheet.create({
     alignItems: "center",
     marginTop: 2,
   },
-  suggestText: { color: COLORS.contentSecondary },
+  suggestText: { color: C.contentSecondary },
   pill: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -746,7 +756,7 @@ const S = StyleSheet.create({
     // hero money — no exact variant; explicit size, DS token color
     fontSize: 36,
     fontWeight: "800",
-    color: COLORS.contentPrimary,
+    color: C.contentPrimary,
     letterSpacing: -0.6,
   },
   pillRow: {
@@ -756,14 +766,14 @@ const S = StyleSheet.create({
     marginTop: -2,
   },
   pillMuted: {
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  pillMutedText: { color: COLORS.contentSecondary },
+  pillMutedText: { color: C.contentSecondary },
   breakdownLink: {
     flexDirection: "row",
     alignItems: "center",
@@ -785,14 +795,14 @@ const S = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  installmentLabel: { color: COLORS.contentSecondary },
-  installmentDate: { color: COLORS.contentMuted },
+  installmentLabel: { color: C.contentSecondary },
+  installmentDate: { color: C.contentMuted },
   installmentRight: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
-  installmentDays: { color: COLORS.contentMuted },
+  installmentDays: { color: C.contentMuted },
 
   // Disclaimer
   disclaimer: {
@@ -807,10 +817,10 @@ const S = StyleSheet.create({
     height: 52,
     // circular: diameter / 2
     borderRadius: 26,
-    backgroundColor: withAlpha(COLORS.primary, 0.08),
+    backgroundColor: withAlpha(C.primary, 0.08),
     borderWidth: 1,
     borderStyle: "dashed",
-    borderColor: withAlpha(COLORS.primary, 0.25),
+    borderColor: withAlpha(C.primary, 0.25),
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "center",
@@ -821,15 +831,15 @@ const S = StyleSheet.create({
   // Settings bottom sheet
   sheetOverlay: {
     flex: 1,
-    backgroundColor: COLORS.scrim,
+    backgroundColor: C.scrim,
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     padding: 20,
     gap: 18,
   },
@@ -837,19 +847,19 @@ const S = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: COLORS.lineStrong,
+    backgroundColor: C.lineStrong,
     alignSelf: "center",
     marginBottom: 4,
   },
   sheetHeader: { gap: 2 },
-  sheetSub: { color: COLORS.contentSecondary },
-  settingBlockLabel: { color: COLORS.contentSecondary },
+  sheetSub: { color: C.contentSecondary },
+  settingBlockLabel: { color: C.contentSecondary },
   settingRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     borderTopWidth: 0.5,
-    borderTopColor: COLORS.lineSubtle,
+    borderTopColor: C.lineSubtle,
     paddingTop: 14,
   },
   settingRowDesc: { marginTop: 2 },
@@ -862,8 +872,8 @@ const S = StyleSheet.create({
     justifyContent: "center",
   },
   chipInactive: {
-    borderColor: COLORS.lineSubtle,
-    backgroundColor: COLORS.surface03,
+    borderColor: C.lineSubtle,
+    backgroundColor: C.surface03,
   },
   toggleBtn: {
     paddingHorizontal: 14,
@@ -874,15 +884,15 @@ const S = StyleSheet.create({
     alignItems: "center",
   },
   toggleBtnOff: {
-    borderColor: COLORS.lineSubtle,
-    backgroundColor: COLORS.surface03,
+    borderColor: C.lineSubtle,
+    backgroundColor: C.surface03,
   },
   stepper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     borderRadius: 12,
     overflow: "hidden",
   },
@@ -892,14 +902,14 @@ const S = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  stepBtnText: { color: COLORS.contentSecondary },
+  stepBtnText: { color: C.contentSecondary },
   stepValue: {
     width: 44,
     alignItems: "center",
   },
   historyBlock: {
     borderTopWidth: 0.5,
-    borderTopColor: COLORS.lineSubtle,
+    borderTopColor: C.lineSubtle,
     paddingTop: 14,
     gap: 8,
   },
@@ -907,17 +917,17 @@ const S = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  historyText: { color: COLORS.contentSecondary },
+  historyText: { color: C.contentSecondary },
 
   // Modals
   overlay: {
     flex: 1,
-    backgroundColor: COLORS.scrim,
+    backgroundColor: C.scrim,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
@@ -925,10 +935,10 @@ const S = StyleSheet.create({
   overlayCard: {
     width: "100%",
     maxWidth: 360,
-    backgroundColor: COLORS.surface02,
+    backgroundColor: C.surface02,
     borderRadius: 28,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     padding: 20,
     gap: 16,
   },
@@ -938,16 +948,16 @@ const S = StyleSheet.create({
     alignItems: "center",
     paddingBottom: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: COLORS.lineSubtle,
+    borderBottomColor: C.lineSubtle,
   },
   overlayClose: {
     width: 28,
     height: 28,
     // circular: diameter / 2
     borderRadius: 14,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -959,12 +969,12 @@ const S = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     alignItems: "center",
   },
-  cancelBtnText: { color: COLORS.contentSecondary },
+  cancelBtnText: { color: C.contentSecondary },
   confirmBtn: {
     flex: 1,
     paddingVertical: 12,
@@ -972,12 +982,12 @@ const S = StyleSheet.create({
     alignItems: "center",
   },
   jarInput: {
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     borderRadius: 12,
     padding: 14,
-    color: COLORS.contentPrimary,
+    color: C.contentPrimary,
     fontSize: 18,
     fontWeight: "800",
     textAlign: "center",

@@ -7,13 +7,16 @@ import {
   Pressable,
   Modal,
   StyleSheet,
+  type StyleProp,
+  type ViewStyle,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, ChevronDown, LayoutGrid, Sparkles, BarChart2, DollarSign, Wallet, TrendingDown, Landmark, Clock, Activity } from "lucide-react-native";
 import Svg, { Path } from "react-native-svg";
 import { Text } from "@/src/components/ui/text";
-import { COLORS, KPI, withAlpha } from "@/src/theme/colors";
+import { KPI, withAlpha } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import {
   getPeriodStats,
   getEarningsByPlatform,
@@ -30,6 +33,7 @@ import {
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
+import { useLayout } from "@/src/hooks/useLayout";
 import { router } from "expo-router";
 
 // Composite widgets (consolidated from 21 single-purpose widgets down to 6
@@ -42,11 +46,14 @@ import EfficiencyStabilityWidget from "@/src/components/widgets/EfficiencyStabil
 import OrderEconomicsWidget from "@/src/components/widgets/OrderEconomicsWidget";
 
 // ─── Constants & Styling ──────────────────────────────────────────────────────
-const BG = COLORS.background;
-const SURFACE = COLORS.surface02;
-const BORDER = COLORS.lineSubtle;
-const TEXT_MUTED = COLORS.contentSecondary;
-const TEXT_DIM = COLORS.contentMuted;
+const makeDS = (C: Palette) =>
+  ({
+    BG: C.background,
+    SURFACE: C.surface02,
+    BORDER: C.lineSubtle,
+    TEXT_MUTED: C.contentSecondary,
+    TEXT_DIM: C.contentMuted,
+  }) as const;
 
 type PeriodType = "week" | "month" | "year";
 type Category = "perf" | "insights" | "stats";
@@ -115,12 +122,14 @@ function formatCurrencyParts(value: number, country?: string) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 function StatDetailRows({ rows }: { rows: { label: string; value: string; color?: string }[] }) {
+  const C = useColors();
+  const { BORDER } = useThemedStyles(makeDS);
   return (
     <View style={{ marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: BORDER, gap: 8 }}>
       {rows.map((r) => (
         <View key={r.label} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
           <Text variant="paragraphS" className="text-content-secondary">{r.label}</Text>
-          <Text variant="labelM" tabular style={{ color: r.color ?? COLORS.contentPrimary }}>{r.value}</Text>
+          <Text variant="labelM" tabular style={{ color: r.color ?? C.contentPrimary }}>{r.value}</Text>
         </View>
       ))}
     </View>
@@ -130,6 +139,7 @@ function StatDetailRows({ rows }: { rows: { label: string; value: string; color?
 // `detail` (optional) makes the card tap-to-expand, showing extra rows instead of a whole
 // separate card — absorbs what used to be effectiveRate/monthHourly/outOfPocket/taxJar widgets.
 function PremiumStatCard({ label, value, subtitle, color, Icon, width, flex, detail }: any) {
+  const { SURFACE, BORDER } = useThemedStyles(makeDS);
   const [open, setOpen] = useState(false);
   const expandable = Array.isArray(detail) && detail.length > 0;
 
@@ -160,6 +170,8 @@ function PremiumStatCard({ label, value, subtitle, color, Icon, width, flex, det
 }
 
 function SwitchableStatCard({ label, activeValue, onlineValue, activeSubtitle, onlineSubtitle, color, Icon, width, flex, detail }: any) {
+  const C = useColors();
+  const { SURFACE, BORDER, TEXT_MUTED } = useThemedStyles(makeDS);
   const [tab, setTab] = useState<"active" | "online">("active");
   const [open, setOpen] = useState(false);
   const expandable = Array.isArray(detail) && detail.length > 0;
@@ -177,7 +189,7 @@ function SwitchableStatCard({ label, activeValue, onlineValue, activeSubtitle, o
           <Text variant="labelXs" className="text-content-secondary">{label}</Text>
         </View>
 
-        <View style={{ flexDirection: "row", backgroundColor: COLORS.surface04, borderRadius: 8, padding: 2, borderWidth: 1, borderColor: BORDER }}>
+        <View style={{ flexDirection: "row", backgroundColor: C.surface04, borderRadius: 8, padding: 2, borderWidth: 1, borderColor: BORDER }}>
           <Pressable accessibilityRole="tab" accessibilityLabel="Active" accessibilityState={{ selected: tab === "active" }} onPress={() => setTab("active")} style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: tab === "active" ? withAlpha(color, 0.12) : "transparent" }}>
             <Text variant="labelXs" style={{ color: tab === "active" ? color : TEXT_MUTED }}>ACT</Text>
           </Pressable>
@@ -202,9 +214,12 @@ function SwitchableStatCard({ label, activeValue, onlineValue, activeSubtitle, o
   );
 }
 
-function WidgetCard({ id, children }: { id: string; children: React.ReactNode }) {
+function WidgetCard({ id, children, style }: { id: string; children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+  const { SURFACE, BORDER } = useThemedStyles(makeDS);
   return (
-    <View style={{ backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER, borderRadius: 16, overflow: "hidden", marginBottom: 12 }}>
+    // `style` carries the two-up width on a wide tablet. It is undefined below
+    // 900pt, so the array flattens to exactly the object that rendered before.
+    <View style={[{ backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER, borderRadius: 16, overflow: "hidden", marginBottom: 12 }, style]}>
       <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: BORDER }}>
         <Text variant="labelM">{WIDGET_META[id]?.label ?? id}</Text>
       </View>
@@ -215,6 +230,11 @@ function WidgetCard({ id, children }: { id: string; children: React.ReactNode })
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AnalyticsScreen() {
+  const C = useColors();
+  const { BG, SURFACE, BORDER, TEXT_MUTED, TEXT_DIM } = useThemedStyles(makeDS);
+  // Above the `if (!isAnalyticsEnabled) return null` below — hook order must not
+  // depend on the feature flag.
+  const { gridStyle, twoUpRow, twoUpItem } = useLayout();
   const insets = useSafeAreaInsets();
   const { profile, isOnboardingCompleted, activePlatformFilter, setHeaderVisible, streakDays, bestStreak } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
@@ -416,7 +436,7 @@ export default function AnalyticsScreen() {
             Icon={Landmark}
             detail={[
               { label: "Estimated Set-Aside", value: formatCurrencyValue(taxSetAside, country) },
-              { label: "Net After Tax", value: formatCurrencyValue(Math.max(0, netIncome - taxSetAside), country), color: COLORS.success },
+              { label: "Net After Tax", value: formatCurrencyValue(Math.max(0, netIncome - taxSetAside), country), color: C.success },
             ]}
           />
         </View>
@@ -454,34 +474,34 @@ export default function AnalyticsScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={["bottom", "left", "right"]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 24, paddingTop: insets.top + 64 }}
+        contentContainerStyle={[{ paddingBottom: 24, paddingTop: insets.top + 64 }, gridStyle]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
         
         {/* ── Header & Nav (Similar to Shifts/Expenses) ── */}
         <View style={{ alignItems: "center", marginVertical: 20, gap: 8 }}>
-          <Pressable accessibilityRole="button" onPress={() => setIsSelectorOpen(true)} style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: COLORS.surface03, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle }}>
+          <Pressable accessibilityRole="button" onPress={() => setIsSelectorOpen(true)} style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: C.surface03, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle }}>
             <Text variant="labelXs" className="text-content-secondary">
               {getPeriodLabel()}
             </Text>
             <View style={{ justifyContent: "center", alignItems: "center" }}>
               <Svg width={10} height={6} viewBox="0 0 10 6" fill="none">
-                <Path d="M1 1L5 5L9 1" stroke={COLORS.contentSecondary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M1 1L5 5L9 1" stroke={C.contentSecondary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </View>
           </Pressable>
 
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", paddingHorizontal: 24 }}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Previous period" onPress={() => setPeriodOffset(o => o - 1)} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.surface03, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, alignItems: "center", justifyContent: "center" }}>
-              <ChevronLeft color={COLORS.contentPrimary} />
+            <Pressable accessibilityRole="button" accessibilityLabel="Previous period" onPress={() => setPeriodOffset(o => o - 1)} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.surface03, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, alignItems: "center", justifyContent: "center" }}>
+              <ChevronLeft color={C.contentPrimary} />
             </Pressable>
 
             <View style={{ flexDirection: "row", alignItems: "flex-start", flexShrink: 1, minWidth: 0 }}>
-              <Text style={{ fontSize: 24, fontWeight: "600", color: COLORS.contentPrimary, lineHeight: 30, marginTop: 10, marginRight: 4 }}>
+              <Text style={{ fontSize: 24, fontWeight: "600", color: C.contentPrimary, lineHeight: 30, marginTop: 10, marginRight: 4 }}>
                 {formatCurrencyParts(netIncome, country).symbol}
               </Text>
-              <Text tabular style={{ flexShrink: 1, fontSize: 40, fontWeight: "800", color: COLORS.contentPrimary, letterSpacing: -0.5, lineHeight: 48, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
+              <Text tabular style={{ flexShrink: 1, fontSize: 40, fontWeight: "800", color: C.contentPrimary, letterSpacing: -0.5, lineHeight: 48, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                 {formatCurrencyParts(netIncome, country).value}
               </Text>
             </View>
@@ -492,9 +512,9 @@ export default function AnalyticsScreen() {
               accessibilityState={{ disabled: periodOffset >= 0 }}
               onPress={() => setPeriodOffset(o => o + 1)}
               disabled={periodOffset >= 0}
-              style={[{ width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.surface03, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.lineSubtle, alignItems: "center", justifyContent: "center" }, periodOffset >= 0 && { opacity: 0.35, borderColor: COLORS.surface03 }]}
+              style={[{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.surface03, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, alignItems: "center", justifyContent: "center" }, periodOffset >= 0 && { opacity: 0.35, borderColor: C.surface03 }]}
             >
-              <ChevronRight color={periodOffset >= 0 ? COLORS.contentDisabled : COLORS.contentPrimary} />
+              <ChevronRight color={periodOffset >= 0 ? C.contentDisabled : C.contentPrimary} />
             </Pressable>
           </View>
         </View>
@@ -506,22 +526,33 @@ export default function AnalyticsScreen() {
           </View>
         ) : (
           <View style={{ paddingHorizontal: 16 }}>
+            {/*
+              On a wide tablet the widgets go two-up. A 500pt card beside another
+              beats one 1000pt-wide card with a sparkline stretched across it —
+              which is the whole reason this screen needed the extra width rather
+              than just a centred column. Below 900pt `twoUpRow`/`twoUpItem` are
+              undefined and the cards stack exactly as they always have.
+            */}
             {activeCategory === "stats" ? (
               <>
                 {renderStatCards()}
-                <View style={{ marginTop: 12 }}>
+                <View style={[{ marginTop: 12 }, twoUpRow]}>
                   {activeWidgets.map((id) => (
-                    <WidgetCard key={id} id={id}>
+                    <WidgetCard key={id} id={id} style={twoUpItem}>
                       {renderWidgetContent(id)}
                     </WidgetCard>
                   ))}
                 </View>
               </>
-            ) : activeWidgets.map((id) => (
-              <WidgetCard key={id} id={id}>
-                {renderWidgetContent(id)}
-              </WidgetCard>
-            ))}
+            ) : (
+              <View style={twoUpRow}>
+                {activeWidgets.map((id) => (
+                  <WidgetCard key={id} id={id} style={twoUpItem}>
+                    {renderWidgetContent(id)}
+                  </WidgetCard>
+                ))}
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -532,7 +563,7 @@ export default function AnalyticsScreen() {
           {CATEGORY_CONFIG.map(({ key, label, Icon }) => {
             const active = activeCategory === key;
             return (
-              <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: active }} onPress={() => setActiveCategory(key)} style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: active ? COLORS.surface04 : "transparent", borderWidth: active ? 1 : 0, borderColor: BORDER }}>
+              <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: active }} onPress={() => setActiveCategory(key)} style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: active ? C.surface04 : "transparent", borderWidth: active ? 1 : 0, borderColor: BORDER }}>
                 <Icon size={13} color={active ? accentColor : TEXT_DIM} strokeWidth={active ? 2.5 : 2} />
                 <Text variant="labelXs" style={{ color: active ? accentColor : TEXT_DIM }} numberOfLines={1}>{label}</Text>
               </Pressable>
@@ -543,8 +574,8 @@ export default function AnalyticsScreen() {
 
       {/* ── Period Selector Modal ── */}
       <Modal visible={isSelectorOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setIsSelectorOpen(false)}>
-        <View style={{ flex: 1, backgroundColor: COLORS.background }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.lineSubtle, paddingTop: Platform.OS === 'ios' ? 16 : insets.top + 16 }}>
+        <View style={{ flex: 1, backgroundColor: C.background }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.lineSubtle, paddingTop: Platform.OS === 'ios' ? 16 : insets.top + 16 }}>
             <Text variant="headingM">Time Period</Text>
             <Pressable accessibilityRole="button" onPress={() => setIsSelectorOpen(false)}>
               <Text variant="labelM" style={{ color: accentColor }}>Done</Text>

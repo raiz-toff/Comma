@@ -3,23 +3,102 @@
 @tailwind utilities;
 
 /*
- * COMMA Design Tokens — migrated from web PWA (src/css/tokens.css + themes.css).
- * These HSL variables are consumed by tailwind.config.js via hsl(var(--token)).
+ * COMMA Design Tokens — consumed by tailwind.config.js via hsl(var(--token)).
  *
- * DARK IS THE DEFAULT (:root) for this app (gig driver = night driving).
- * Nothing in the native app ever toggled a `.dark` class, so tokens must
- * resolve from :root directly. The light palette is preserved under
- * `.light:root` for a future theme toggle.
- * JS-side consumers (StyleSheet, SVG, charts) must use the hex mirror in
- * src/theme/colors.ts — keep the two files in sync.
+ * THEMING (how it actually works):
+ *   NativeWind (darkMode: "class") toggles a `dark` class on the root, driven by
+ *   colorScheme.set() in src/theme/theme.ts. So the cascade must be
+ *   `:root` = light, `.dark:root` = dark — that is the only shape NativeWind can
+ *   drive. An earlier revision defined `.light:root`, which nothing ever set, so
+ *   it was dead CSS and the light palette had never once rendered.
+ *
+ *   Appearance defaults to "auto", which hands the choice to the OS — and is
+ *   also where NativeWind already starts, so the app boots without writing a
+ *   scheme at all. Light and dark are explicit choices, made in Settings.
+ *   src/theme/ThemeSync.tsx is the only thing that sets the scheme.
+ *
+ * JS-side consumers (StyleSheet, SVG, charts) cannot read these vars. They use
+ * the hex mirror in src/theme/colors.ts — the two files MUST stay in sync.
+ *
+ * Both ramps are cool-neutral (hue 240). The light steps were not eyeballed:
+ * each text step was solved to reproduce its dark counterpart's contrast ratio
+ * against the canvas (19.4 / 7.6 / 3.6 / 2.2 : 1), so neither theme reads as
+ * more legible than the other.
  */
 
 @layer base {
   :root {
     /*
-     * ── COMMA Design System — cool-neutral ramp (DEFAULT, dark) ────
-     * Single cool-neutral scale from true black up. Elevation = surface
-     * steps + hairline borders, never heavy shadow. Hex in comments.
+     * ── LIGHT (cool-neutral ramp, hue 240) ─────────────────────────
+     * Canvas is true white, mirroring dark's true black. Elevation steps DOWN
+     * in lightness, mirroring dark stepping up. Elevation is a surface step
+     * plus a hairline border, never a heavy shadow.
+     */
+
+    /* ── Surfaces ──────────────────────────────────────────────── */
+    --surface-01: 240 20% 99%;         /* #FCFCFD — recessed wells, page sections */
+    --surface-02: 240 20% 97%;         /* #F6F6F9 — default card background */
+    --surface-03: 240 16% 95%;         /* #F0F0F4 — raised cards, inputs, sheets */
+    --surface-04: 240 14% 92%;         /* #E8E8ED — pressed/hover, segmented bg */
+    --surface-05: 240 13% 89%;         /* #DFDFE7 — highest: menus, tooltips */
+
+    /* ── Text & lines ──────────────────────────────────────────── */
+    --text-primary: 240 9% 6%;         /* #0E0E11 — headlines, money, key values */
+    --text-secondary: 240 4% 34%;      /* #53535A — body, supporting copy */
+    --text-muted: 240 5% 55%;          /* #878792 — labels, captions, meta */
+    --text-disabled: 240 6% 70%;       /* #AEAEB7 — inactive, placeholders */
+    --border-subtle: 240 12% 91%;      /* #E5E5EB — default hairline, 1px */
+    --border-strong: 240 11% 84%;      /* #D2D2DB — inputs, focus rings */
+
+    /* ── Core semantic mappings (consumed by shadcn-style components) */
+    --background: 0 0% 100%;           /* #FFFFFF — canvas, true white */
+    --foreground: 240 9% 6%;           /* Text/Primary */
+
+    --card: 240 20% 97%;               /* Surface/02 */
+    --card-foreground: 240 9% 6%;      /* Text/Primary */
+
+    --popover: 240 13% 89%;            /* Surface/05 */
+    --popover-foreground: 240 9% 6%;
+
+    --primary: 142 71% 45%;            /* #22c55e — semantic green (NOT the accent; accent flows from usePlatformTheme) */
+    --primary-foreground: 0 0% 100%;   /* white text on green */
+
+    --secondary: 240 16% 95%;          /* Surface/03 */
+    --secondary-foreground: 240 9% 6%;
+
+    --muted: 240 16% 95%;              /* Surface/03 */
+    --muted-foreground: 240 5% 55%;    /* Text/Muted */
+
+    --accent: 240 14% 92%;             /* Surface/04 — neutral hover bg ONLY; brand accent comes from the hook */
+    --accent-foreground: 240 9% 6%;
+
+    /*
+     * ── Semantic (fixed — never re-themed by user accent) ─────────
+     * These carry money and status TEXT on white, so they are tuned to WCAG AA
+     * (>=4.5:1) using the standard 600/700 tints. They deliberately do NOT match
+     * their dark counterparts' contrast ratio: doing so would drag warning to a
+     * near-black brown (#5A3904) and destroy the hue's identity.
+     */
+    --destructive: 0 72% 51%;          /* #DC2626 — 4.83:1 — end shift, destructive */
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 72% 29%;            /* #15803D — 5.02:1 — net positive, goals hit */
+    --warning: 26 90% 37%;             /* #B45309 — 5.02:1 — write-offs, reconcile due */
+    --info: 221 83% 53%;               /* #2563EB — 5.17:1 — tips, neutral notices */
+
+    --border: 240 12% 91%;             /* Border/Subtle */
+    --input: 240 11% 84%;              /* Border/Strong */
+    --ring: 240 11% 84%;               /* Border/Strong — focus ring */
+
+    --radius: 0.75rem;                 /* 12px — md radius (theme-invariant) */
+  }
+
+  .dark:root {
+    /*
+     * ── DARK (cool-neutral ramp, hue 240) ──────────────────────────
+     * Single cool-neutral scale from true black up. Appearance defaults to
+     * "auto", so this is what a driver gets when their phone is in dark mode —
+     * which, since most driving is night driving, is most of them.
      */
 
     /* ── Surfaces ──────────────────────────────────────────────── */
@@ -38,7 +117,7 @@
     --border-strong: 240 8% 20%;       /* #2E2E36 — inputs, focus rings */
 
     /* ── Core semantic mappings (consumed by shadcn-style components) */
-    --background: 0 0% 0%;             /* #000000 — Canvas, true black for OLED */
+    --background: 0 0% 0%;             /* #000000 — canvas, true black for OLED */
     --foreground: 240 6% 97%;          /* Text/Primary */
 
     --card: 240 9% 6%;                 /* Surface/02 */
@@ -70,44 +149,5 @@
     --border: 240 8% 13%;              /* Border/Subtle */
     --input: 240 8% 20%;               /* Border/Strong */
     --ring: 240 8% 20%;                /* Border/Strong — focus ring */
-
-    --radius: 0.75rem;                 /* 12px — md radius */
-  }
-
-  /* ── Light palette (unused today; kept for a future theme toggle) ── */
-  .light:root {
-    --background: 40 13% 97%;          /* #fafaf8 */
-    --foreground: 44 8% 10%;           /* #1a1916 */
-
-    --card: 0 0% 100%;                 /* #ffffff */
-    --card-foreground: 44 8% 10%;      /* #1a1916 */
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 44 8% 10%;
-
-    --primary: 142 71% 45%;            /* #22c55e — standard semantic green */
-    --primary-foreground: 44 8% 10%;   /* dark text on green */
-
-    --secondary: 40 8% 93%;            /* #f2f0eb — surface-raised */
-    --secondary-foreground: 44 8% 10%;
-
-    --muted: 40 8% 93%;                /* #f2f0eb */
-    --muted-foreground: 40 5% 40%;     /* #6b6860 */
-
-    --accent: 40 8% 93%;
-    --accent-foreground: 44 8% 10%;
-
-    --destructive: 0 84% 60%;          /* #ef4444 */
-    --destructive-foreground: 0 0% 100%;
-
-    --success: 142 71% 45%;            /* #22c55e */
-    --warning: 38 92% 50%;             /* #f59e0b */
-    --info: 217 91% 60%;               /* #3b82f6 */
-
-    --border: 38 13% 88%;              /* #e5e2da */
-    --input: 38 13% 88%;
-    --ring: 160 72% 39%;               /* brand green ring */
-
-    --radius: 0.625rem;                /* 10px — md radius */
   }
 }

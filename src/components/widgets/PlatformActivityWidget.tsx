@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { Text } from "../ui/text";
 import { PlatformBadge } from "../ui/PlatformBadge";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
-import { COLORS } from "@/src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 
 interface PlatformShare {
   platform: string;
@@ -17,6 +17,7 @@ interface PlatformActivityWidgetProps {
 }
 
 export default function PlatformActivityWidget({ platformData }: PlatformActivityWidgetProps) {
+  const C = useColors();
   const topPlatforms = platformData.slice(0, 3);
 
   return (
@@ -26,7 +27,7 @@ export default function PlatformActivityWidget({ platformData }: PlatformActivit
       ) : (
         topPlatforms.map((p) => {
           const platformDef = PLATFORMS[p.platform as PlatformKey];
-          const color = platformDef?.color || COLORS.contentPrimary;
+          const color = platformDef?.color || C.contentPrimary;
 
           return (
             <View key={p.platform} style={{ gap: 8 }}>
@@ -37,7 +38,7 @@ export default function PlatformActivityWidget({ platformData }: PlatformActivit
               <View
                 accessible={true}
                 accessibilityLabel={`${platformDef?.label || p.platform} ${p.share.toFixed(0)}% of earnings`}
-                style={{ height: 8, backgroundColor: COLORS.surface04, borderRadius: 8, overflow: "hidden" }}
+                style={{ height: 8, backgroundColor: C.surface04, borderRadius: 8, overflow: "hidden" }}
               >
                 <View style={{ height: "100%", width: `${p.share}%`, backgroundColor: color, borderRadius: 8 }} />
               </View>

@@ -49,45 +49,48 @@ import { db } from "@/src/database/client";
 import { settings, shifts, expenses } from "@/src/database/schema";
 import { generateShiftsCSV, generateExpensesCSV } from "@/utils/reportGenerator";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 import { notify } from "@/src/services/notify";
 import { FeedbackDialog, BusyOverlay, type FeedbackVariant } from "@/src/components/ui/FeedbackDialog";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { withAlpha } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
 
-/** Single source of truth for all colours and radii — values come from the DS COLORS mirror. */
-const DS = {
-  pageBg: COLORS.background,
-  cardBg: COLORS.surface02,
-  cardBorder: COLORS.lineSubtle,
-  inputBg: COLORS.surface03,
-  inputBorder: COLORS.lineStrong,
-  sep: COLORS.lineSubtle,
+/** Single source of truth for all colours and radii — values come from the active palette. */
+const makeDS = (C: Palette) =>
+  ({
+    pageBg: C.background,
+    cardBg: C.surface02,
+    cardBorder: C.lineSubtle,
+    inputBg: C.surface03,
+    inputBorder: C.lineStrong,
+    sep: C.lineSubtle,
 
-  brand: COLORS.contentPrimary,
-  brandSurface: COLORS.surface04,
-  brandBorder: COLORS.lineStrong,
-  brandText: COLORS.contentPrimary,
+    brand: C.contentPrimary,
+    brandSurface: C.surface04,
+    brandBorder: C.lineStrong,
+    brandText: C.contentPrimary,
 
-  danger: COLORS.destructive,
-  dangerSurface: withAlpha(COLORS.destructive, 0.12),
-  dangerBorder: withAlpha(COLORS.destructive, 0.25),
-  dangerText: COLORS.destructive,
+    danger: C.destructive,
+    dangerSurface: withAlpha(C.destructive, 0.12),
+    dangerBorder: withAlpha(C.destructive, 0.25),
+    dangerText: C.destructive,
 
-  textPrimary: COLORS.contentPrimary,
-  textSecondary: COLORS.contentSecondary,
-  textMuted: COLORS.contentMuted,
-  textLabel: COLORS.contentMuted,   // floating section labels
+    textPrimary: C.contentPrimary,
+    textSecondary: C.contentSecondary,
+    textMuted: C.contentMuted,
+    textLabel: C.contentMuted,   // floating section labels
 
-  rCard: 16,
-  rInput: 12,
-  rChip: 8,
-  rPill: 20,
+    rCard: 16,
+    rInput: 12,
+    rChip: 8,
+    rPill: 20,
 
-  pagePad: 16,
-  cardPad: 16,
-  rowPad: 12,
-} as const;
+    pagePad: 16,
+    cardPad: 16,
+    rowPad: 12,
+  }) as const;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -114,6 +117,7 @@ async function readSetting(key: string): Promise<string> {
 
 /** Floating uppercase label above a card group — matches PWA `settings-section-title`. */
 function GroupLabel({ text }: { text: string }) {
+  const s = useThemedStyles(makeStyles);
   return <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>{text.toUpperCase()}</Text>;
 }
 
@@ -125,6 +129,8 @@ function Card({
   children: React.ReactNode;
   danger?: boolean;
 }) {
+  const DS = useThemedStyles(makeDS);
+  const s = useThemedStyles(makeStyles);
   return (
     <View
       style={[
@@ -142,6 +148,7 @@ function Card({
 
 /** Hairline separator between rows inside a card. */
 function Sep() {
+  const s = useThemedStyles(makeStyles);
   return <View style={s.sep} />;
 }
 
@@ -167,6 +174,7 @@ function Row({
   block?: boolean;
   last?: boolean;
 }) {
+  const s = useThemedStyles(makeStyles);
   return (
     <>
       {block ? (
@@ -201,6 +209,7 @@ function Segmented<T extends string>({
   onChange: (v: T) => void;
   style?: any;
 }) {
+  const s = useThemedStyles(makeStyles);
   return (
     <View style={[s.segmented, style]}>
       {options.map((opt) => {
@@ -236,6 +245,7 @@ function Chips<T extends string>({
   danger?: boolean;
 }) {
   const { accentColor, accentColorDim, accentColorMid } = usePlatformTheme();
+  const s = useThemedStyles(makeStyles);
   const chips = (
     <View style={s.chips}>
       {options.map((opt) => {
@@ -277,12 +287,15 @@ function Chips<T extends string>({
 /** Right-aligned inline text input — narrow, for use inside Row inline mode. */
 function InlineInput(props: React.ComponentProps<typeof TextInput>) {
   const { style, ...restProps } = props;
+  const C = useColors();
+  const DS = useThemedStyles(makeDS);
+  const s = useThemedStyles(makeStyles);
   return (
     <TextInput
       placeholderTextColor={DS.textMuted}
       selectionColor={DS.textPrimary}
       cursorColor={DS.textPrimary}
-      style={[s.inlineInput, style, { color: COLORS.contentPrimary }]}
+      style={[s.inlineInput, style, { color: C.contentPrimary }]}
       {...restProps}
     />
   );
@@ -291,12 +304,15 @@ function InlineInput(props: React.ComponentProps<typeof TextInput>) {
 /** Full-width text input — for use in block rows or standalone. */
 function FullInput(props: React.ComponentProps<typeof TextInput>) {
   const { style, ...restProps } = props;
+  const C = useColors();
+  const DS = useThemedStyles(makeDS);
+  const s = useThemedStyles(makeStyles);
   return (
     <TextInput
       placeholderTextColor={DS.textMuted}
       selectionColor={DS.textPrimary}
       cursorColor={DS.textPrimary}
-      style={[s.fullInput, style, { color: COLORS.contentPrimary }]}
+      style={[s.fullInput, style, { color: C.contentPrimary }]}
       {...restProps}
     />
   );
@@ -315,6 +331,8 @@ function Btn({
   disabled?: boolean;
 }) {
   const { accentColor, accentColorDim, accentColorMid } = usePlatformTheme();
+  const DS = useThemedStyles(makeDS);
+  const s = useThemedStyles(makeStyles);
   const v = {
     ghost: { bg: DS.inputBg, border: DS.inputBorder, text: DS.textSecondary },
     primary: { bg: accentColorDim, border: accentColorMid, text: accentColor },
@@ -378,6 +396,7 @@ const PRESET_EMOJIS = [
 ];
 
 function ColorPicker({ selectedColor, onSelectColor }: { selectedColor: string; onSelectColor: (c: string) => void }) {
+  const C = useColors();
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 6 }}>
       {PRESET_COLORS.map((c) => {
@@ -399,17 +418,17 @@ function ColorPicker({ selectedColor, onSelectColor }: { selectedColor: string; 
                 alignItems: "center",
                 justifyContent: "center",
                 borderWidth: 1,
-                borderColor: COLORS.lineStrong,
+                borderColor: C.lineStrong,
               },
               isSelected && {
                 borderWidth: 2.5,
-                borderColor: COLORS.contentPrimary,
+                borderColor: C.contentPrimary,
                 transform: [{ scale: 1.1 }],
               }
             ]}
           >
             {isSelected && (
-              <Check size={12} color={c.toLowerCase() === "#F6F6F7" ? "#000" : COLORS.contentPrimary} strokeWidth={3.5} />
+              <Check size={12} color={c.toLowerCase() === "#F6F6F7" ? "#000" : C.contentPrimary} strokeWidth={3.5} />
             )}
           </TouchableOpacity>
         );
@@ -419,6 +438,8 @@ function ColorPicker({ selectedColor, onSelectColor }: { selectedColor: string; 
 }
 
 function EmojiPicker({ selectedEmoji, onSelectEmoji }: { selectedEmoji: string; onSelectEmoji: (e: string) => void }) {
+  const C = useColors();
+  const DS = useThemedStyles(makeDS);
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 6 }}>
       {PRESET_EMOJIS.map((e) => {
@@ -443,8 +464,8 @@ function EmojiPicker({ selectedEmoji, onSelectEmoji }: { selectedEmoji: string; 
                 borderColor: DS.inputBorder,
               },
               isSelected && {
-                borderColor: COLORS.contentPrimary,
-                backgroundColor: COLORS.surface04,
+                borderColor: C.contentPrimary,
+                backgroundColor: C.surface04,
                 transform: [{ scale: 1.1 }],
               }
             ]}
@@ -512,6 +533,10 @@ type NotifPrefs = {
 
 export default function SettingsScreen() {
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
+  const C = useColors();
+  const DS = useThemedStyles(makeDS);
+  const s = useThemedStyles(makeStyles);
+  const { columnStyle } = useLayout();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ tab?: string }>();
@@ -541,7 +566,19 @@ export default function SettingsScreen() {
 
 
   // ── Tab: Appearance ─────────────────────────────────────────────────────────
-  const [theme, setTheme] = useState<"auto" | "light" | "dark">(profile?.theme ?? "dark");
+  const [theme, setTheme] = useState<"auto" | "light" | "dark">(profile?.theme ?? "auto");
+
+  /**
+   * Theme applies on tap, not on Save. Everything else on this tab is staged in
+   * local state and written when the driver saves, but a theme you have to save
+   * to see is a theme you cannot preview — you would be picking blind. Writing
+   * straight to the profile re-themes the app underneath the picker, which is
+   * also the preview. The Save handler still sends `theme`, harmlessly.
+   */
+  const chooseTheme = (next: "auto" | "light" | "dark") => {
+    setTheme(next);
+    void updateProfile({ theme: next });
+  };
   const [selectedAccent, setSelectedAccent] = useState(
     (profile?.avatarData && profile?.avatarData.startsWith("#")) ? profile.avatarData : "#F6F6F7"
   );
@@ -592,7 +629,7 @@ export default function SettingsScreen() {
 
   // ── Sync appearance/locale → local state ────────────────────────────────────
   useEffect(() => {
-    setTheme(profile?.theme ?? "dark");
+    setTheme(profile?.theme ?? "auto");
     setSelectedAccent(
       (profile?.avatarData && profile?.avatarData.startsWith("#")) ? profile.avatarData : "#F6F6F7"
     );
@@ -857,8 +894,8 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={s.safe} edges={["bottom", "left", "right"]}>
 
-      {/* ── Header ── */}
-      <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+      {/* ── Header ── Outside the scroller, so it takes the same cap as the content. */}
+      <View style={[s.header, { paddingTop: insets.top + 10 }, columnStyle]}>
         <View style={s.headerLeft}>
           <TouchableOpacity
             onPress={() => router.back()}
@@ -898,11 +935,13 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Tab bar ── */}
+      {/* ── Tab bar ── Also outside the scroller. The cap goes on the ScrollView's own
+           frame, not its contentContainerStyle: this one scrolls horizontally, and a
+           maxWidth on the content container would clamp the row instead of the viewport. */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={s.tabScroll}
+        style={[s.tabScroll, columnStyle]}
         contentContainerStyle={s.tabRow}
       >
         {TABS.map(({ id, label }) => {
@@ -929,7 +968,7 @@ export default function SettingsScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={s.scrollContent}
+        contentContainerStyle={[s.scrollContent, columnStyle]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -1015,7 +1054,7 @@ export default function SettingsScreen() {
                   <View key={feature.key}>
                     <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 4, gap: 12 }}>
                       {meta && (
-                        <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: active ? accentColorDim : withAlpha(COLORS.lineStrong, 0.25), justifyContent: "center", alignItems: "center" }}>
+                        <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: active ? accentColorDim : withAlpha(C.lineStrong, 0.25), justifyContent: "center", alignItems: "center" }}>
                           <meta.Icon size={18} color={active ? accentColor : DS.textSecondary} />
                         </View>
                       )}
@@ -1023,7 +1062,7 @@ export default function SettingsScreen() {
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                           <Text variant="labelM">{feature.label}</Text>
                           {meta && (
-                            <View style={{ backgroundColor: withAlpha(COLORS.lineStrong, 0.4), borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                            <View style={{ backgroundColor: withAlpha(C.lineStrong, 0.4), borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
                               <Text variant="labelXs" className="text-content-secondary">{meta.where}</Text>
                             </View>
                           )}
@@ -1035,7 +1074,7 @@ export default function SettingsScreen() {
                         onValueChange={(val) => updateFeatureOverride(feature.key, val)}
                         accessibilityLabel={feature.label}
                         trackColor={{ false: DS.inputBorder, true: accentColor }}
-                        thumbColor={COLORS.contentPrimary}
+                        thumbColor={C.contentPrimary}
                       />
                     </View>
                     {idx < arr.length - 1 && <Sep />}
@@ -1059,14 +1098,24 @@ export default function SettingsScreen() {
                     { value: "dark" as const, label: "Dark" },
                   ]}
                   value={theme}
-                  onChange={setTheme}
+                  onChange={chooseTheme}
                 />
               </Row>
               <Row label="Accent color" block last>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={s.swatches}>
                     {PRESET_ACCENTS.map((hex) => {
-                      const on = String(selectedAccent || "#F6F6F7").toLowerCase() === hex;
+                      // The neutral preset is stored as dark's foreground hex, but it
+                      // MEANS "use the foreground colour" — usePlatformTheme resolves it
+                      // through the palette. Paint the swatch literally and in light mode
+                      // it is a near-white dot on a near-white card, i.e. invisible.
+                      const isNeutral = hex.toLowerCase() === "#f6f6f7";
+                      const swatchColor = isNeutral ? C.contentPrimary : hex;
+                      // Compare case-insensitively on BOTH sides: PRESET_ACCENTS is mixed
+                      // case, so lowercasing only the left never matched #F6F6F7, #FF5247
+                      // or #65656E — three swatches could never show as selected.
+                      const on =
+                        String(selectedAccent || "#F6F6F7").toLowerCase() === hex.toLowerCase();
                       return (
                         <TouchableOpacity
                           key={hex}
@@ -1077,8 +1126,8 @@ export default function SettingsScreen() {
                           hitSlop={8}
                           style={[
                             s.swatch,
-                            { backgroundColor: hex },
-                            on && { borderWidth: 2.5, borderColor: hex === "#F6F6F7" ? COLORS.contentMuted : COLORS.contentPrimary }
+                            { backgroundColor: swatchColor },
+                            on && { borderWidth: 2.5, borderColor: isNeutral ? C.contentMuted : C.contentPrimary }
                           ]}
                         />
                       );
@@ -1176,7 +1225,7 @@ export default function SettingsScreen() {
                       }}
                       accessibilityLabel={resolvedLabel}
                       trackColor={{ false: DS.inputBorder, true: accentColor }}
-                      thumbColor={COLORS.contentPrimary}
+                      thumbColor={C.contentPrimary}
                     />
                   </View>
                 </TouchableOpacity>
@@ -1384,7 +1433,7 @@ export default function SettingsScreen() {
                                 onValueChange={(v) => updateCfg({ active: v })}
                                 accessibilityLabel={cfg.customLabel || dbPlatforms.find((p) => p.id === pKey)?.label || PLATFORMS[pKey]?.label || pKey}
                                 trackColor={{ false: DS.inputBorder, true: accentColor }}
-                                thumbColor={COLORS.contentPrimary}
+                                thumbColor={C.contentPrimary}
                               />
                             </View>
                           );
@@ -1449,7 +1498,7 @@ export default function SettingsScreen() {
                               placeholderTextColor={DS.textMuted}
                               style={[s.inlineInput, { width: 95 }]}
                             />
-                            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: newPlatformColor || "#9B9BA4", borderWidth: 1, borderColor: COLORS.lineStrong }} />
+                            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: newPlatformColor || "#9B9BA4", borderWidth: 1, borderColor: C.lineStrong }} />
                           </View>
                         </View>
                         <ColorPicker
@@ -1583,7 +1632,7 @@ export default function SettingsScreen() {
                     onValueChange={(v) => setNotifs((p) => ({ ...p, [key]: v }))}
                     accessibilityLabel={label}
                     trackColor={{ false: DS.inputBorder, true: accentColor }}
-                    thumbColor={COLORS.contentPrimary}
+                    thumbColor={C.contentPrimary}
                   />
                 </Row>
               ))}
@@ -1766,7 +1815,9 @@ export default function SettingsScreen() {
 
 // ─── StyleSheet ───────────────────────────────────────────────────────────────
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => {
+  const DS = makeDS(C);
+  return StyleSheet.create({
   safe: { flex: 1, backgroundColor: DS.pageBg },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: DS.pagePad, paddingTop: 4, paddingBottom: 60 },
@@ -1871,11 +1922,12 @@ const s = StyleSheet.create({
   preText: { color: DS.textSecondary, fontSize: 11, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", lineHeight: 17 },
 
   // ── Shortcuts modal ─────────────────────────────────────────────────────────
-  overlay: { flex: 1, backgroundColor: COLORS.scrim, justifyContent: "center", alignItems: "center", padding: 20 },
+  overlay: { flex: 1, backgroundColor: C.scrim, justifyContent: "center", alignItems: "center", padding: 20 },
   overlayCard: { width: "100%", maxWidth: 360, backgroundColor: DS.cardBg, borderRadius: DS.rCard, borderWidth: 0.5, borderColor: DS.cardBorder, padding: 18, gap: 12 },
   overlayHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: DS.sep },
   overlayClose: { width: 28, height: 28, borderRadius: 14, backgroundColor: DS.inputBg, borderWidth: 0.5, borderColor: DS.inputBorder, alignItems: "center", justifyContent: "center" },
   shortcutRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 2 },
   kbdBadge: { backgroundColor: DS.inputBg, borderWidth: 0.5, borderColor: DS.inputBorder, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
   kbdText: { color: DS.brandText, fontSize: 11, fontWeight: "700", fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" },
-});
+  });
+};

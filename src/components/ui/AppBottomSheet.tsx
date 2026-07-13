@@ -7,7 +7,8 @@ import {
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { COLORS } from "@/src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
+import { useLayout, DIALOG_MAX_WIDTH } from "@/src/hooks/useLayout";
 
 /**
  * AppBottomSheet — the single, consistent sheet surface for Comma.
@@ -37,14 +38,30 @@ export interface AppBottomSheetProps {
   enableDismiss?: boolean;
 }
 
-const SURFACE_03 = COLORS.surface03;
-const BORDER_SUBTLE = COLORS.lineSubtle;
-const HANDLE = COLORS.lineStrong; // Border/Strong — visible grabber
-
 export const AppBottomSheet = React.forwardRef<AppBottomSheetRef, AppBottomSheetProps>(
   function AppBottomSheet({ children, snapPoints, onDismiss, enableDismiss = true }, ref) {
+    const C = useColors();
     const sheetRef = React.useRef<BottomSheetModal>(null);
     const insets = useSafeAreaInsets();
+    const { width, isTablet } = useLayout();
+
+    /*
+      Tablet: cap the sheet at dialog width and centre it. Full-bleed, a sheet is
+      1024pt of nothing with Share at one end and Done at the other.
+
+      It is a margin and not `dialogStyle` because the sheet body is the one
+      surface `dialogStyle` cannot describe: @gorhom applies its own
+      `position: absolute; left: 0; right: 0` *after* this prop, so a `maxWidth`
+      would survive but `alignSelf` would not — Yoga would pin a 520pt sheet to
+      the left screen edge. A symmetric margin is the only thing that both
+      narrows and centres it. (It is the library's own `detached` pattern.)
+
+      undefined below 600pt — the phone renders the sheet it rendered before.
+    */
+    const sheetStyle = React.useMemo(
+      () => (isTablet ? { marginHorizontal: Math.max(0, (width - DIALOG_MAX_WIDTH) / 2) } : undefined),
+      [isTablet, width]
+    );
 
     React.useImperativeHandle(ref, () => ({
       present: () => sheetRef.current?.present(),
@@ -72,13 +89,14 @@ export const AppBottomSheet = React.forwardRef<AppBottomSheetRef, AppBottomSheet
         onDismiss={onDismiss}
         enablePanDownToClose={enableDismiss}
         backdropComponent={renderBackdrop}
-        handleIndicatorStyle={{ backgroundColor: HANDLE, width: 36, height: 4 }}
+        style={sheetStyle}
+        handleIndicatorStyle={{ backgroundColor: C.lineStrong, width: 36, height: 4 }} // Border/Strong — visible grabber
         backgroundStyle={{
-          backgroundColor: SURFACE_03,
+          backgroundColor: C.surface03,
           borderTopLeftRadius: 28,
           borderTopRightRadius: 28,
           borderWidth: 1,
-          borderColor: BORDER_SUBTLE,
+          borderColor: C.lineSubtle,
         }}
       >
         <BottomSheetView style={{ paddingBottom: insets.bottom + 16, paddingHorizontal: 16 }}>

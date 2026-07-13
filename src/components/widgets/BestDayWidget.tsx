@@ -1,7 +1,8 @@
 import React from "react";
 import { View } from "react-native";
 import { Text } from "../ui/text";
-import { COLORS, KPI, withAlpha } from "@/src/theme/colors";
+import { KPI, withAlpha } from "@/src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 
 interface BestDayData {
   day: number;
@@ -14,11 +15,13 @@ interface BestDayWidgetProps {
   maxDayAvg: number;
 }
 
-function MiniBar({ value, maxValue, color = COLORS.success, height = 60 }: { value: number; maxValue: number; color?: string; height?: number }) {
+function MiniBar({ value, maxValue, color, height = 60 }: { value: number; maxValue: number; color?: string; height?: number }) {
+  const C = useColors();
+  const barColor = color ?? C.success;
   const pct = maxValue > 0 ? Math.max(8, (value / maxValue) * 100) : 8;
   return (
     <View style={{ flex: 1, height, justifyContent: "flex-end", alignItems: "center", paddingHorizontal: 2 }}>
-      <View style={{ width: "100%", height: `${pct}%`, backgroundColor: color, borderTopLeftRadius: 8, borderTopRightRadius: 8, opacity: value > 0 ? 1 : 0.15 }} />
+      <View style={{ width: "100%", height: `${pct}%`, backgroundColor: barColor, borderTopLeftRadius: 8, borderTopRightRadius: 8, opacity: value > 0 ? 1 : 0.15 }} />
     </View>
   );
 }

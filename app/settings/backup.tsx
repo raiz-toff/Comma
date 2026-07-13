@@ -33,6 +33,7 @@ import {
 } from "lucide-react-native";
 
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useGoogleDriveSync } from "@/hooks/useGoogleDriveSync";
 import { useSyncNow } from "@/hooks/useSyncNow";
@@ -60,21 +61,23 @@ import { exportBackupFile, restoreBackupFile } from "@/src/services/backupFile";
 import { FeedbackDialog, BusyOverlay, type FeedbackVariant } from "@/src/components/ui/FeedbackDialog";
 import { GoogleDriveLogo } from "@/src/components/logos/GoogleDriveLogo";
 import { E2EESetupScreen } from "@/src/components/sync/E2EESetupScreen";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { withAlpha } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
-const DS = {
-  pageBg: COLORS.background,
-  cardBg: COLORS.surface02,
-  cardBorder: COLORS.lineSubtle,
-  inputBg: COLORS.surface03,
-  inputBorder: COLORS.lineStrong,
-  sep: COLORS.lineSubtle,
-  textPrimary: COLORS.contentPrimary,
-  textSecondary: COLORS.contentSecondary,
-  textMuted: COLORS.contentMuted,
-} as const;
+const makeDS = (C: Palette) =>
+  ({
+    pageBg: C.background,
+    cardBg: C.surface02,
+    cardBorder: C.lineSubtle,
+    inputBg: C.surface03,
+    inputBorder: C.lineStrong,
+    sep: C.lineSubtle,
+    textPrimary: C.contentPrimary,
+    textSecondary: C.contentSecondary,
+    textMuted: C.contentMuted,
+  }) as const;
 
 const MIN_PW = 6;
 
@@ -105,6 +108,9 @@ function PasswordPrompt({
   onCancel: () => void;
   onSubmit: (pw: string) => void;
 }) {
+  const C = useColors();
+  const DS = useThemedStyles(makeDS);
+  const s = useThemedStyles(makeStyles);
   const isSet = mode === "set";
   const [pw, setPw] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -169,7 +175,7 @@ function PasswordPrompt({
             <TouchableOpacity
               onPress={onCancel}
               accessibilityRole="button"
-              style={[s.dialogBtn, { backgroundColor: COLORS.surface04 }]}
+              style={[s.dialogBtn, { backgroundColor: C.surface04 }]}
             >
               <Text variant="labelM" className="text-content-secondary">Cancel</Text>
             </TouchableOpacity>
@@ -208,10 +214,13 @@ function PillBtn({
   accentMid: string;
   accentContrast: string;
 }) {
+  const C = useColors();
+  const DS = useThemedStyles(makeDS);
+  const s = useThemedStyles(makeStyles);
   const styleByVariant = {
     ghost: { bg: DS.inputBg, border: DS.inputBorder, text: DS.textSecondary },
     primary: { bg: accentDim, border: accentMid, text: accent },
-    danger: { bg: withAlpha(COLORS.destructive, 0.12), border: withAlpha(COLORS.destructive, 0.25), text: COLORS.destructive },
+    danger: { bg: withAlpha(C.destructive, 0.12), border: withAlpha(C.destructive, 0.25), text: C.destructive },
   }[variant];
   return (
     <TouchableOpacity
@@ -230,6 +239,10 @@ function PillBtn({
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SyncScreen() {
+  const C = useColors();
+  const DS = useThemedStyles(makeDS);
+  const s = useThemedStyles(makeStyles);
+  const { columnStyle } = useLayout();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
@@ -504,8 +517,8 @@ export default function SyncScreen() {
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={s.safe} edges={["bottom", "left", "right"]}>
-      {/* Header */}
-      <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+      {/* Header — outside the ScrollView, so it takes the same cap as the content. */}
+      <View style={[s.header, { paddingTop: insets.top + 10 }, columnStyle]}>
         <TouchableOpacity
           onPress={() => router.back()}
           accessibilityRole="button"
@@ -523,13 +536,13 @@ export default function SyncScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[s.scroll, columnStyle]} showsVerticalScrollIndicator={false}>
 
         {/* ── Connection status card ── */}
         {!isAuthenticated ? (
           /* Not connected */
           <View style={[s.card, s.connectCard]}>
-            <View style={[s.connectIconWrap, { borderColor: COLORS.lineSubtle }]}>
+            <View style={[s.connectIconWrap, { borderColor: C.lineSubtle }]}>
               <GoogleDriveLogo size={28} />
             </View>
             <Text variant="headingS" style={{ textAlign: "center" }}>Connect Google Drive</Text>
@@ -656,7 +669,7 @@ export default function SyncScreen() {
                   <Switch
                     value={e2eEnabled}
                     onValueChange={onToggleE2E}
-                    trackColor={{ false: COLORS.surface04, true: accentColorMid }}
+                    trackColor={{ false: C.surface04, true: accentColorMid }}
                     thumbColor={e2eEnabled ? accentColor : DS.textMuted}
                   />
                 </View>
@@ -757,7 +770,9 @@ export default function SyncScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => {
+  const DS = makeDS(C);
+  return StyleSheet.create({
   safe: { flex: 1, backgroundColor: DS.pageBg },
   header: {
     flexDirection: "row",
@@ -800,7 +815,7 @@ const s = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     borderWidth: 1,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -901,7 +916,7 @@ const s = StyleSheet.create({
   // ── Password prompt ──
   overlay: {
     flex: 1,
-    backgroundColor: COLORS.scrim,
+    backgroundColor: C.scrim,
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
@@ -909,10 +924,10 @@ const s = StyleSheet.create({
   dialogCard: {
     width: "100%",
     maxWidth: 360,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: COLORS.lineStrong,
+    borderColor: C.lineStrong,
     padding: 22,
     gap: 12,
     alignItems: "center",
@@ -938,4 +953,5 @@ const s = StyleSheet.create({
   },
   dialogRow: { flexDirection: "row", gap: 10, alignSelf: "stretch", marginTop: 4 },
   dialogBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center" },
-});
+  });
+};

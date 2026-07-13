@@ -19,13 +19,14 @@ import { Button } from "../../src/components/ui/button";
 import { Text } from "../../src/components/ui/text";
 import { PlatformBadge } from "../../src/components/ui/PlatformBadge";
 import { EmptyState } from "../../src/components/ui/EmptyState";
-import { COLORS } from "../../src/theme/colors";
+import { useColors, useResolvedScheme } from "@/src/theme/useColors";
 import { PLATFORM_REGISTRY } from "../../src/registry/platforms";
 import { getPlatformContext } from "../../src/hooks/usePlatformContext";
 import { getVehicles } from "../../src/database/queries/vehicles";
 import { getShiftById, getShiftPlatforms, saveShiftWithPlatforms } from "../../src/database/queries/shifts";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
+import { useLayout } from "@/src/hooks/useLayout";
 import Svg, { Polyline, Circle, Line } from "react-native-svg";
 
 type GigPlatform = string;
@@ -48,6 +49,10 @@ if (!isWeb) {
 }
 
 const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string | null | undefined; strokeColor: string }) => {
+  const C = useColors();
+  // Raster tiles cannot be recoloured client-side, so a light map means a
+  // different tile set, not restyled pixels. CartoDB ships the light twin.
+  const tiles = useResolvedScheme() === "light" ? "light_all" : "dark_all";
   const points = React.useMemo(() => {
     if (!routePathJson || typeof routePathJson !== "string") return null;
     try {
@@ -88,29 +93,29 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
     const endY = PAD + (1 - (points[points.length - 1].latitude - minLat) / latRange) * (H - 2 * PAD);
 
     return (
-      <View style={{ marginVertical: 8, backgroundColor: COLORS.surface02, borderRadius: 16, borderWidth: 0.5, borderColor: COLORS.lineSubtle, overflow: "hidden" }}>
-        <View style={{ height: H, backgroundColor: COLORS.surface01, justifyContent: "center", alignItems: "center" }}>
+      <View style={{ marginVertical: 8, backgroundColor: C.surface02, borderRadius: 16, borderWidth: 0.5, borderColor: C.lineSubtle, overflow: "hidden" }}>
+        <View style={{ height: H, backgroundColor: C.surface01, justifyContent: "center", alignItems: "center" }}>
           <Svg width="100%" height={H} viewBox={"0 0 " + W + " " + H}>
-            <Line x1="0" y1="50" x2="340" y2="50" stroke={COLORS.surface02} strokeWidth="0.8" />
-            <Line x1="0" y1="100" x2="340" y2="100" stroke={COLORS.surface02} strokeWidth="0.8" />
-            <Line x1="0" y1="150" x2="340" y2="150" stroke={COLORS.surface02} strokeWidth="0.8" />
-            <Line x1="85" y1="0" x2="85" y2="200" stroke={COLORS.surface02} strokeWidth="0.8" />
-            <Line x1="170" y1="0" x2="170" y2="200" stroke={COLORS.surface02} strokeWidth="0.8" />
-            <Line x1="255" y1="0" x2="255" y2="200" stroke={COLORS.surface02} strokeWidth="0.8" />
+            <Line x1="0" y1="50" x2="340" y2="50" stroke={C.surface02} strokeWidth="0.8" />
+            <Line x1="0" y1="100" x2="340" y2="100" stroke={C.surface02} strokeWidth="0.8" />
+            <Line x1="0" y1="150" x2="340" y2="150" stroke={C.surface02} strokeWidth="0.8" />
+            <Line x1="85" y1="0" x2="85" y2="200" stroke={C.surface02} strokeWidth="0.8" />
+            <Line x1="170" y1="0" x2="170" y2="200" stroke={C.surface02} strokeWidth="0.8" />
+            <Line x1="255" y1="0" x2="255" y2="200" stroke={C.surface02} strokeWidth="0.8" />
             <Polyline points={svgPoints} fill="none" stroke={strokeColor} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-            <Circle cx={startX} cy={startY} r="5" fill={COLORS.success} />
-            <Circle cx={endX} cy={endY} r="6" fill={COLORS.destructive} stroke={COLORS.background} strokeWidth="1" />
+            <Circle cx={startX} cy={startY} r="5" fill={C.success} />
+            <Circle cx={endX} cy={endY} r="6" fill={C.destructive} stroke={C.background} strokeWidth="1" />
           </Svg>
         </View>
         <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 8 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.success }} />
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.success }} />
             <Text variant="paragraphS" className="text-content-secondary font-semibold">Start</Text>
           </View>
           <Text variant="paragraphS" className="text-content-muted font-semibold" tabular>{points.length} GPS points</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Text variant="paragraphS" className="text-content-secondary font-semibold">End</Text>
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.destructive }} />
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.destructive }} />
           </View>
         </View>
       </View>
@@ -132,21 +137,21 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
           width: 100%;
           margin: 0;
           padding: 0;
-          background-color: #0F0F12;
+          background-color: ${C.surface02};
         }
         .leaflet-control-zoom {
-          border: 1px solid #1E1E23 !important;
+          border: 1px solid ${C.lineSubtle} !important;
           margin-top: 8px !important;
           margin-left: 8px !important;
         }
         .leaflet-bar a {
-          background-color: #16161A !important;
-          color: #9ca3af !important;
-          border-bottom: 1px solid #1C1C21 !important;
+          background-color: ${C.surface03} !important;
+          color: ${C.contentSecondary} !important;
+          border-bottom: 1px solid ${C.surface04} !important;
         }
         .leaflet-bar a:hover {
-          background-color: #1C1C21 !important;
-          color: #f3f4f6 !important;
+          background-color: ${C.surface04} !important;
+          color: ${C.contentPrimary} !important;
         }
       </style>
     </head>
@@ -165,7 +170,7 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
           attributionControl: false
         });
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/${tiles}/{z}/{x}/{y}{r}.png', {
           subdomains: 'abcd',
           maxZoom: 20
         }).addTo(map);
@@ -212,11 +217,11 @@ const RouteLargeMap = ({ routePathJson, strokeColor }: { routePathJson: string |
   `;
 
   return (
-    <View style={{ marginVertical: 8, backgroundColor: COLORS.surface02, borderRadius: 16, borderWidth: 0.5, borderColor: COLORS.lineSubtle, overflow: "hidden", height: 240 }}>
+    <View style={{ marginVertical: 8, backgroundColor: C.surface02, borderRadius: 16, borderWidth: 0.5, borderColor: C.lineSubtle, overflow: "hidden", height: 240 }}>
       <WebView
         originWhitelist={["*"]}
         source={{ html: htmlContent }}
-        style={{ flex: 1, backgroundColor: COLORS.surface02 }}
+        style={{ flex: 1, backgroundColor: C.surface02 }}
         javaScriptEnabled={true}
         domStorageEnabled={true}
         scalesPageToFit={true}
@@ -236,6 +241,8 @@ export default function AddShiftModal() {
   const { shiftId } = useLocalSearchParams<{ shiftId: string }>();
 
   const { accentColor, accentColorDim } = usePlatformTheme();
+  const C = useColors();
+  const { columnStyle } = useLayout();
 
   // Form State
   const [selectedPlatformsList, setSelectedPlatformsList] = useState<string[]>([]);
@@ -569,8 +576,9 @@ export default function AddShiftModal() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
       >
-        {/* Header Bar */}
-        <View className="flex flex-row items-center px-5 py-4 border-b border-line-subtle bg-surface-02">
+        {/* Header Bar — sits outside the ScrollView, so it takes the same cap as the
+            content below it. `columnStyle` is undefined on phones. */}
+        <View style={columnStyle} className="flex flex-row items-center px-5 py-4 border-b border-line-subtle bg-surface-02">
           <TouchableOpacity
             onPress={() => router.back()}
             accessibilityRole="button"
@@ -586,8 +594,8 @@ export default function AddShiftModal() {
           <View className="min-w-[70px]" />
         </View>
 
-        {/* Progress Bar */}
-        <View className="flex flex-row items-center justify-between px-5 pt-4 pb-2 bg-background">
+        {/* Progress Bar — also outside the ScrollView; same cap so it lines up. */}
+        <View style={columnStyle} className="flex flex-row items-center justify-between px-5 pt-4 pb-2 bg-background">
           <View className="flex flex-row gap-1.5 items-center flex-1">
             {stepsSequence.map((step, i) => (
               <View
@@ -595,7 +603,7 @@ export default function AddShiftModal() {
                 style={{
                   flex: 1,
                   height: 4,
-                  backgroundColor: i <= stepIndex ? accentColor : COLORS.surface05,
+                  backgroundColor: i <= stepIndex ? accentColor : C.surface05,
                   borderRadius: 2,
                 }}
               />
@@ -608,6 +616,7 @@ export default function AddShiftModal() {
 
         <ScrollView
           className="flex-1"
+          contentContainerStyle={columnStyle}
           contentContainerClassName="p-4 flex flex-col gap-6 pb-12"
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -638,8 +647,8 @@ export default function AddShiftModal() {
                           accessibilityState={{ selected: isSelected }}
                           className="rounded-xl border p-2"
                           style={{
-                            borderColor: isSelected ? accentColor : COLORS.lineStrong,
-                            backgroundColor: isSelected ? accentColorDim : COLORS.surface03,
+                            borderColor: isSelected ? accentColor : C.lineStrong,
+                            backgroundColor: isSelected ? accentColorDim : C.surface03,
                           }}
                         >
                           <PlatformBadge platform={pKey} size="md" />
@@ -687,8 +696,8 @@ export default function AddShiftModal() {
                           accessibilityState={{ selected: isSelected }}
                           className="p-4 rounded-xl border flex-row items-center gap-3"
                           style={{
-                            borderColor: isSelected ? accentColor : COLORS.lineSubtle,
-                            backgroundColor: isSelected ? accentColorDim : COLORS.surface02,
+                            borderColor: isSelected ? accentColor : C.lineSubtle,
+                            backgroundColor: isSelected ? accentColorDim : C.surface02,
                           }}
                         >
                           <View
@@ -697,7 +706,7 @@ export default function AddShiftModal() {
                               height: 20,
                               borderRadius: 10,
                               borderWidth: 2,
-                              borderColor: isSelected ? accentColor : COLORS.lineStrong,
+                              borderColor: isSelected ? accentColor : C.lineStrong,
                               alignItems: "center",
                               justifyContent: "center",
                             }}
@@ -874,7 +883,7 @@ export default function AddShiftModal() {
                           onChangeText={(val) => updateForm("onlineHours", val.replace(/[^0-9]/g, ""))}
                           keyboardType="numeric"
                           placeholder="0"
-                          placeholderTextColor={COLORS.contentMuted}
+                          placeholderTextColor={C.contentMuted}
                           className="flex-1 text-content-primary text-sm py-3 font-semibold"
                         />
                         <Text variant="paragraphS" className="text-content-muted font-bold ml-1">hrs</Text>
@@ -885,7 +894,7 @@ export default function AddShiftModal() {
                           onChangeText={(val) => updateForm("onlineMinutes", val.replace(/[^0-9]/g, ""))}
                           keyboardType="numeric"
                           placeholder="0"
-                          placeholderTextColor={COLORS.contentMuted}
+                          placeholderTextColor={C.contentMuted}
                           className="flex-1 text-content-primary text-sm py-3 font-semibold"
                         />
                         <Text variant="paragraphS" className="text-content-muted font-bold ml-1">min</Text>
@@ -904,7 +913,7 @@ export default function AddShiftModal() {
                         onChangeText={(val) => updateForm("activeHours", val.replace(/[^0-9]/g, ""))}
                         keyboardType="numeric"
                         placeholder="0"
-                        placeholderTextColor={COLORS.contentMuted}
+                        placeholderTextColor={C.contentMuted}
                         className="flex-1 text-content-primary text-sm py-3 font-semibold"
                       />
                       <Text variant="paragraphS" className="text-content-muted font-bold ml-1">hrs</Text>
@@ -915,7 +924,7 @@ export default function AddShiftModal() {
                         onChangeText={(val) => updateForm("activeMinutes", val.replace(/[^0-9]/g, ""))}
                         keyboardType="numeric"
                         placeholder="0"
-                        placeholderTextColor={COLORS.contentMuted}
+                        placeholderTextColor={C.contentMuted}
                         className="flex-1 text-content-primary text-sm py-3 font-semibold"
                       />
                       <Text variant="paragraphS" className="text-content-muted font-bold ml-1">min</Text>
@@ -940,7 +949,7 @@ export default function AddShiftModal() {
                       }}
                       keyboardType="numeric"
                       placeholder="0.00"
-                      placeholderTextColor={COLORS.contentMuted}
+                      placeholderTextColor={C.contentMuted}
                       className="bg-background border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm focus:border-line-strong font-semibold"
                     />
                   </View>
@@ -961,7 +970,7 @@ export default function AddShiftModal() {
                       }}
                       keyboardType="numeric"
                       placeholder="0.00"
-                      placeholderTextColor={COLORS.contentMuted}
+                      placeholderTextColor={C.contentMuted}
                       className="bg-background border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm focus:border-line-strong font-semibold"
                     />
                   </View>
@@ -975,7 +984,7 @@ export default function AddShiftModal() {
                     onChangeText={(val) => updateForm("tripsCount", val.replace(/[^0-9]/g, ""))}
                     keyboardType="numeric"
                     placeholder="0"
-                    placeholderTextColor={COLORS.contentMuted}
+                    placeholderTextColor={C.contentMuted}
                     className="bg-background border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm focus:border-line-strong font-semibold"
                   />
                 </View>
@@ -1005,7 +1014,7 @@ export default function AddShiftModal() {
                     }}
                     keyboardType="numeric"
                     placeholder="0.0"
-                    placeholderTextColor={COLORS.contentMuted}
+                    placeholderTextColor={C.contentMuted}
                     className="bg-background border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm focus:border-line-strong font-semibold"
                   />
                 </View>
@@ -1021,7 +1030,7 @@ export default function AddShiftModal() {
                     }}
                     keyboardType="numeric"
                     placeholder="0.0"
-                    placeholderTextColor={COLORS.contentMuted}
+                    placeholderTextColor={C.contentMuted}
                     className="bg-background border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm focus:border-line-strong font-semibold"
                   />
                 </View>
@@ -1047,15 +1056,16 @@ export default function AddShiftModal() {
                 multiline
                 numberOfLines={3}
                 placeholder="Add details about your shift (traffic, weather, peak pay details)..."
-                placeholderTextColor={COLORS.contentMuted}
+                placeholderTextColor={C.contentMuted}
                 className="bg-surface-02 border border-line-subtle rounded-xl px-4 py-4 text-content-primary text-sm h-24 focus:border-line-strong text-left align-top leading-relaxed font-semibold"
               />
             </View>
           )}
         </ScrollView>
 
-        {/* Navigation Footer */}
-        <View className="flex flex-row justify-between items-center px-5 py-4 border-t border-line-subtle bg-surface-02">
+        {/* Navigation Footer — a fixed toolbar row outside the ScrollView; same cap so its
+            buttons stay with the form instead of hugging the screen edges on a tablet. */}
+        <View style={columnStyle} className="flex flex-row justify-between items-center px-5 py-4 border-t border-line-subtle bg-surface-02">
           <Button
             variant="secondary"
             size="lg"
@@ -1120,7 +1130,7 @@ export default function AddShiftModal() {
             }}
           >
             {isSaving ? (
-              <ActivityIndicator size="small" color={COLORS.contentPrimary} />
+              <ActivityIndicator size="small" color={C.contentPrimary} />
             ) : (
               <Text>
                 {stepIndex === stepsSequence.length - 1 ? "Finish" : "Continue"}

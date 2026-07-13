@@ -2,10 +2,10 @@
   "expo": {
     "name": "comma",
     "slug": "comma",
-    "version": "1.3.1",
+    "version": "1.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "scheme": "comma",
     "ios": {
       "supportsTablet": true,

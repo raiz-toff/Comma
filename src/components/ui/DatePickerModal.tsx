@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Modal, View, Pressable, StyleSheet } from "react-native";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
-import { COLORS } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MONTHS = [
@@ -37,8 +37,11 @@ function buildGrid(year: number, month: number): (number | null)[] {
   return cells;
 }
 
-export function DatePickerModal({ visible, value, onChange, onClose, accentColor = COLORS.primary }: Props) {
-  // Note: accentColor is passed by callers from usePlatformTheme(); the literal default is a last-resort fallback only.
+export function DatePickerModal({ visible, value, onChange, onClose, accentColor: accentColorProp }: Props) {
+  // Note: accentColor is passed by callers from usePlatformTheme(); the fallback is a last resort only.
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
+  const accentColor = accentColorProp ?? C.primary;
   const today = new Date();
   const [displayYear, setDisplayYear] = useState(value.getFullYear());
   const [displayMonth, setDisplayMonth] = useState(value.getMonth());
@@ -93,7 +96,7 @@ export function DatePickerModal({ visible, value, onChange, onClose, accentColor
               accessibilityRole="button"
               accessibilityLabel="Previous month"
             >
-              <ChevronLeft size={20} color={COLORS.contentSecondary} />
+              <ChevronLeft size={20} color={C.contentSecondary} />
             </Pressable>
             <Text variant="headingS">{MONTHS[displayMonth]} {displayYear}</Text>
             <Pressable
@@ -103,7 +106,7 @@ export function DatePickerModal({ visible, value, onChange, onClose, accentColor
               accessibilityRole="button"
               accessibilityLabel="Next month"
             >
-              <ChevronRight size={20} color={COLORS.contentSecondary} />
+              <ChevronRight size={20} color={C.contentSecondary} />
             </Pressable>
           </View>
 
@@ -166,15 +169,15 @@ export function DatePickerModal({ visible, value, onChange, onClose, accentColor
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   overlay: {
-    flex: 1, backgroundColor: COLORS.scrim,
+    flex: 1, backgroundColor: C.scrim,
     justifyContent: "center", alignItems: "center", padding: 24,
   },
   card: {
     width: "100%", maxWidth: 360,
-    backgroundColor: COLORS.surface03, borderRadius: 28,   // Surface/03, DS modal radius
-    borderWidth: 1, borderColor: COLORS.lineSubtle,        // Border/Subtle
+    backgroundColor: C.surface03, borderRadius: 28,   // Surface/03, DS modal radius
+    borderWidth: 1, borderColor: C.lineSubtle,        // Border/Subtle
     padding: 20, gap: 12,
   },
   header: {
@@ -191,7 +194,7 @@ const s = StyleSheet.create({
   footer: { flexDirection: "row", gap: 10, marginTop: 4 },
   cancelBtn: {
     flex: 1, paddingVertical: 12, borderRadius: 12,
-    backgroundColor: COLORS.surface04, alignItems: "center",   // Surface/04
+    backgroundColor: C.surface04, alignItems: "center",   // Surface/04
   },
   doneBtn: {
     flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center",

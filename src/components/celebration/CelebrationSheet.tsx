@@ -11,7 +11,7 @@ import Animated, {
 import { Text } from "@/src/components/ui/text";
 import { AppBottomSheet, type AppBottomSheetRef } from "@/src/components/ui/AppBottomSheet";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
-import { COLORS } from "@/src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 import { BADGES } from "@/src/registry/badges";
 
 /**
@@ -79,6 +79,7 @@ function ConfettiPiece({ index, color }: { index: number; color: string }) {
 
 export const CelebrationSheet = React.forwardRef<CelebrationSheetRef>(
   function CelebrationSheet(_props, ref) {
+    const C = useColors();
     const sheetRef = React.useRef<AppBottomSheetRef>(null);
     const [badgeId, setBadgeId] = React.useState<string | null>(null);
     const [burstKey, setBurstKey] = React.useState(0);
@@ -103,7 +104,7 @@ export const CelebrationSheet = React.forwardRef<CelebrationSheetRef>(
     }, [badge]);
 
     // The semantic colors of the confetti — accent + success + warning for a festive mix.
-    const confettiColors = [accentColor, COLORS.success, COLORS.warning];
+    const confettiColors = [accentColor, C.success, C.warning];
 
     return (
       <AppBottomSheet ref={sheetRef} onDismiss={() => setBadgeId(null)}>

@@ -1,7 +1,8 @@
 import React from "react";
 import { View } from "react-native";
 import { Text } from "../ui/text";
-import { COLORS, KPI } from "@/src/theme/colors";
+import { KPI } from "@/src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 
 interface IncomeBreakdownWidgetProps {
   totalRevenue: number;
@@ -16,6 +17,7 @@ export default function IncomeBreakdownWidget({
   taxWithholdingPct,
   country,
 }: IncomeBreakdownWidgetProps) {
+  const C = useColors();
   const taxWithholding = totalRevenue * (taxWithholdingPct / 100);
   const expenseClaim = Math.max(0, totalRevenue - netIncome);
   const takeHome = Math.max(0, netIncome - taxWithholding);
@@ -39,7 +41,7 @@ export default function IncomeBreakdownWidget({
       <View
         accessible={true}
         accessibilityLabel={`Income breakdown: true net ${formatCurrency(takeHome)}, estimated taxes ${formatCurrency(taxWithholding)}, expenses ${formatCurrency(expenseClaim)}`}
-        style={{ height: 12, flexDirection: "row", borderRadius: 8, overflow: "hidden", backgroundColor: COLORS.surface04 }}
+        style={{ height: 12, flexDirection: "row", borderRadius: 8, overflow: "hidden", backgroundColor: C.surface04 }}
       >
         <View style={{ width: `${netPct}%`, backgroundColor: KPI.net }} />
         <View style={{ width: `${taxPct}%`, backgroundColor: KPI.tax }} />

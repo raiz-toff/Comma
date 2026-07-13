@@ -2,22 +2,24 @@ import React from "react";
 import { View } from "react-native";
 import Svg, { Path, Defs, LinearGradient, Stop, Circle } from "react-native-svg";
 import { Text } from "../ui/text";
-import { COLORS, KPI, TIERS, withAlpha } from "@/src/theme/colors";
+import { KPI, TIERS, withAlpha } from "@/src/theme/colors";
+import { useColors, type Palette } from "@/src/theme/useColors";
 
 interface StabilityScoreWidgetProps {
   score: number;
   weeklyGross: number[];
 }
 
-function tierFor(score: number): { label: string; color: string } {
+function tierFor(score: number, C: Palette): { label: string; color: string } {
   if (score >= 75) return { label: "Highly Stable", color: TIERS.elite };
   if (score >= 45) return { label: "Moderate Variance", color: TIERS.pro };
-  return { label: "Highly Volatile", color: COLORS.destructive };
+  return { label: "Highly Volatile", color: C.destructive };
 }
 
 export default function StabilityScoreWidget({ score, weeklyGross }: StabilityScoreWidgetProps) {
+  const C = useColors();
   const clampedScore = Math.max(0, Math.min(100, Math.round(score || 0)));
-  const tier = tierFor(clampedScore);
+  const tier = tierFor(clampedScore, C);
   const points = weeklyGross && weeklyGross.length >= 2 ? weeklyGross : [0, 0];
 
   const width = 100;
@@ -42,7 +44,7 @@ export default function StabilityScoreWidget({ score, weeklyGross }: StabilitySc
       <View>
         <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
           <Text variant="headingXl" tabular style={{ color: tier.color, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>{clampedScore}</Text>
-          <Text variant="labelM" tabular style={{ color: COLORS.contentSecondary, includeFontPadding: false }}>/ 100</Text>
+          <Text variant="labelM" tabular style={{ color: C.contentSecondary, includeFontPadding: false }}>/ 100</Text>
         </View>
         <View style={{ flexDirection: "row", marginTop: 6 }}>
           <View style={{ backgroundColor: withAlpha(tier.color, 0.12), paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
@@ -68,7 +70,7 @@ export default function StabilityScoreWidget({ score, weeklyGross }: StabilitySc
           {last && <Circle cx={last.x} cy={last.y} r={2.5} fill={KPI.gross} />}
         </Svg>
       </View>
-      <Text variant="labelXs" style={{ color: COLORS.contentMuted }}>
+      <Text variant="labelXs" style={{ color: C.contentMuted }}>
         Weekly gross trend, all-time
       </Text>
     </View>

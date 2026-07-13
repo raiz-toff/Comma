@@ -4,7 +4,7 @@ import { Text } from "./text";
 import { Button } from "./button";
 import { cn } from "@/src/lib/utils";
 import { lucideIconMap } from "./lucideIconMap";
-import { COLORS } from "@/src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 
 export interface EmptyStateProps {
   icon: string | React.ComponentType<any>;
@@ -64,6 +64,7 @@ export function EmptyState({
   onAction,
   className,
 }: EmptyStateProps) {
+  const C = useColors();
   const IconComponent = typeof icon === "string" ? mapIconName(icon) : icon;
 
   return (
@@ -79,7 +80,7 @@ export function EmptyState({
     >
       {/* Icon Wrapper */}
       <View className="w-16 h-16 rounded-lg bg-surface-03 border border-line-subtle items-center justify-center mb-4">
-        {IconComponent && <IconComponent size={32} color={COLORS.contentMuted} />}
+        {IconComponent && <IconComponent size={32} color={C.contentMuted} />}
       </View>
 
       {/* Copy */}

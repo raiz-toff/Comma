@@ -2,7 +2,8 @@ import React from "react";
 import { View } from "react-native";
 import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
 import { Text } from "../ui/text";
-import { COLORS, KPI } from "@/src/theme/colors";
+import { KPI } from "@/src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 
 interface DailyData {
   date: string;
@@ -47,6 +48,7 @@ function Sparkline({ points, color, height = 70, accessibilityLabel }: { points:
 }
 
 export default function RollingTrendWidget({ dailyData }: RollingTrendWidgetProps) {
+  const C = useColors();
   const hasData = dailyData && dailyData.length > 0;
 
   const formatDate = (dateStr: string) => {
@@ -57,7 +59,7 @@ export default function RollingTrendWidget({ dailyData }: RollingTrendWidgetProp
   return (
     <View style={{ gap: 8 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-         <Text variant="labelM" style={{ color: COLORS.contentSecondary }}>Earnings Trajectory</Text>
+         <Text variant="labelM" style={{ color: C.contentSecondary }}>Earnings Trajectory</Text>
          <Text variant="labelXs" style={{ color: KPI.gross }}>Trend</Text>
       </View>
       <Sparkline
@@ -66,10 +68,10 @@ export default function RollingTrendWidget({ dailyData }: RollingTrendWidgetProp
         accessibilityLabel={hasData ? `Earnings trend chart across ${dailyData.length} days` : "Earnings trend chart, no data yet"}
       />
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
-        <Text variant="labelXs" tabular style={{ color: COLORS.contentMuted }}>
+        <Text variant="labelXs" tabular style={{ color: C.contentMuted }}>
           {hasData ? formatDate(dailyData[0]?.date) : ""}
         </Text>
-        <Text variant="labelXs" tabular style={{ color: COLORS.contentMuted }}>
+        <Text variant="labelXs" tabular style={{ color: C.contentMuted }}>
           {hasData ? formatDate(dailyData[dailyData.length - 1]?.date) : ""}
         </Text>
       </View>

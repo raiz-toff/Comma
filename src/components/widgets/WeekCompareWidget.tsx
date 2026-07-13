@@ -2,7 +2,8 @@ import React from "react";
 import { View } from "react-native";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react-native";
 import { Text } from "../ui/text";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { withAlpha } from "@/src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 
 interface WeekCompareWidgetProps {
   thisWeek: number;
@@ -11,9 +12,10 @@ interface WeekCompareWidgetProps {
 }
 
 export default function WeekCompareWidget({ thisWeek, lastWeek, country }: WeekCompareWidgetProps) {
+  const C = useColors();
   const delta = thisWeek - lastWeek;
   const isUp = delta >= 0;
-  const color = delta === 0 ? COLORS.contentSecondary : isUp ? COLORS.success : COLORS.destructive;
+  const color = delta === 0 ? C.contentSecondary : isUp ? C.success : C.destructive;
   const Icon = delta === 0 ? Minus : isUp ? TrendingUp : TrendingDown;
 
   const formatCurrency = (val: number) => {
@@ -35,19 +37,19 @@ export default function WeekCompareWidget({ thisWeek, lastWeek, country }: WeekC
         <Text variant="headingXl" tabular style={{ color, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
           {delta > 0 ? "+" : ""}{formatCurrency(delta)}
         </Text>
-        <Text variant="labelXs" style={{ color: COLORS.contentSecondary, marginTop: 4 }}>
+        <Text variant="labelXs" style={{ color: C.contentSecondary, marginTop: 4 }}>
           vs Last Week
         </Text>
       </View>
 
       <View style={{ flexDirection: "row", gap: 16, marginTop: 4 }}>
         <View style={{ alignItems: "center" }}>
-          <Text variant="labelM" tabular style={{ color: COLORS.contentPrimary }}>{formatCurrency(thisWeek)}</Text>
-          <Text variant="labelXs" style={{ color: COLORS.contentMuted }}>This Week</Text>
+          <Text variant="labelM" tabular style={{ color: C.contentPrimary }}>{formatCurrency(thisWeek)}</Text>
+          <Text variant="labelXs" style={{ color: C.contentMuted }}>This Week</Text>
         </View>
         <View style={{ alignItems: "center" }}>
-          <Text variant="labelM" tabular style={{ color: COLORS.contentPrimary }}>{formatCurrency(lastWeek)}</Text>
-          <Text variant="labelXs" style={{ color: COLORS.contentMuted }}>Last Week</Text>
+          <Text variant="labelM" tabular style={{ color: C.contentPrimary }}>{formatCurrency(lastWeek)}</Text>
+          <Text variant="labelXs" style={{ color: C.contentMuted }}>Last Week</Text>
         </View>
       </View>
     </View>

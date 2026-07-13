@@ -2,7 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import { Text } from "../ui/text";
 import { PlatformBadge } from "../ui/PlatformBadge";
-import { COLORS } from "@/src/theme/colors";
+import { useColors } from "@/src/theme/useColors";
 import type { PlatformKey } from "@/src/registry/platforms";
 
 interface RecentShift {
@@ -20,6 +20,7 @@ interface RecentShiftsWidgetProps {
 }
 
 export default function RecentShiftsWidget({ shifts, country }: RecentShiftsWidgetProps) {
+  const C = useColors();
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat(undefined, {
       style: "currency",
@@ -47,13 +48,13 @@ export default function RecentShiftsWidget({ shifts, country }: RecentShiftsWidg
           <View
             key={s.id}
             accessibilityLabel={`${dateLabel}, ${s.platform}, ${formatCurrency(total)}`}
-            style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: COLORS.surface03, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 }}
+            style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: C.surface03, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <Text variant="labelM" style={{ color: COLORS.contentPrimary, width: 48 }}>{dateLabel}</Text>
+              <Text variant="labelM" style={{ color: C.contentPrimary, width: 48 }}>{dateLabel}</Text>
               <PlatformBadge platform={s.platform as PlatformKey} size="sm" />
             </View>
-            <Text variant="labelM" tabular style={{ color: COLORS.contentPrimary }}>{formatCurrency(total)}</Text>
+            <Text variant="labelM" tabular style={{ color: C.contentPrimary }}>{formatCurrency(total)}</Text>
           </View>
         );
       })}

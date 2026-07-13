@@ -2,7 +2,8 @@ import React from "react";
 import { Modal, View, Pressable, ActivityIndicator, StyleSheet } from "react-native";
 import { Text } from "@/src/components/ui/text";
 import { CheckCircle2, AlertTriangle, Info } from "lucide-react-native";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { withAlpha } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 
 export type FeedbackVariant = "success" | "error" | "info";
 
@@ -37,13 +38,13 @@ interface FeedbackDialogProps {
   accentColor?: string;
 }
 
-// Semantic tints (fixed). Success = COLORS.success, Danger = COLORS.destructive,
-// Info = COLORS.info (falls back to user accent when provided).
-const VARIANT_COLORS: Record<FeedbackVariant, string> = {
-  success: COLORS.success,
-  error: COLORS.destructive,
-  info: COLORS.info,
-};
+// Semantic tints (fixed). Success = C.success, Danger = C.destructive,
+// Info = C.info (falls back to user accent when provided).
+const makeVariantColors = (C: Palette): Record<FeedbackVariant, string> => ({
+  success: C.success,
+  error: C.destructive,
+  info: C.info,
+});
 
 /** Contrast text on a tint background (tint may be any caller-supplied accent). */
 function getContrastColor(hex: string): string {
@@ -74,11 +75,14 @@ export function FeedbackDialog({
   onClose,
   accentColor,
 }: FeedbackDialogProps) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
+  const VARIANT_COLORS = useThemedStyles(makeVariantColors);
   const tint = variant === "info" ? accentColor || VARIANT_COLORS.info : VARIANT_COLORS[variant];
   const confirmTint = confirmDanger ? VARIANT_COLORS.error : tint;
   const handleConfirm = onConfirm ?? onClose;
   const tintContrast = getContrastColor(tint);
-  const confirmContrast = confirmDanger ? COLORS.contentPrimary : getContrastColor(confirmTint);
+  const confirmContrast = confirmDanger ? C.contentPrimary : getContrastColor(confirmTint);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -99,7 +103,7 @@ export function FeedbackDialog({
                   key={a.label}
                   onPress={a.onPress}
                   accessibilityRole="button"
-                  style={[s.stackBtn, a.variant === "neutral" ? { backgroundColor: COLORS.surface04 } : { backgroundColor: tint }]}
+                  style={[s.stackBtn, a.variant === "neutral" ? { backgroundColor: C.surface04 } : { backgroundColor: tint }]}
                 >
                   {a.variant === "neutral" ? (
                     <Text variant="labelL" className="text-content-secondary">{a.label}</Text>
@@ -111,7 +115,7 @@ export function FeedbackDialog({
               <Pressable
                 onPress={onClose}
                 accessibilityRole="button"
-                style={[s.stackBtn, { backgroundColor: COLORS.surface04 }]}
+                style={[s.stackBtn, { backgroundColor: C.surface04 }]}
               >
                 <Text variant="labelL" className="text-content-secondary">{cancelLabel ?? "Cancel"}</Text>
               </Pressable>
@@ -143,7 +147,10 @@ export function FeedbackDialog({
 }
 
 /** Standalone blocking spinner overlay, themed to match the app. */
-export function BusyOverlay({ visible, label, accentColor = COLORS.primary }: { visible: boolean; label?: string; accentColor?: string }) {
+export function BusyOverlay({ visible, label, accentColor: accentColorProp }: { visible: boolean; label?: string; accentColor?: string }) {
+  const C = useColors();
+  const s = useThemedStyles(makeStyles);
+  const accentColor = accentColorProp ?? C.primary;
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={s.overlay}>
@@ -156,10 +163,10 @@ export function BusyOverlay({ visible, label, accentColor = COLORS.primary }: { 
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: COLORS.scrim,
+    backgroundColor: C.scrim,
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
@@ -167,10 +174,10 @@ const s = StyleSheet.create({
   card: {
     width: "100%",
     maxWidth: 340,
-    backgroundColor: COLORS.surface03,   // Surface/03
+    backgroundColor: C.surface03,        // Surface/03
     borderRadius: 28,                    // DS modal radius
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,      // Border/Subtle
+    borderColor: C.lineSubtle,           // Border/Subtle
     padding: 24,
     gap: 14,
     alignItems: "center",
@@ -191,7 +198,7 @@ const s = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: COLORS.surface04,   // Surface/04
+    backgroundColor: C.surface04,        // Surface/04
     alignItems: "center",
   },
   confirmBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center" },

@@ -17,7 +17,9 @@ import {
 } from "lucide-react-native";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
-import { COLORS, withAlpha } from "@/src/theme/colors";
+import { useLayout } from "@/src/hooks/useLayout";
+import { withAlpha } from "@/src/theme/colors";
+import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { EmptyState } from "@/src/components/ui/EmptyState";
 import { BadgeSvg } from "@/src/registry/badges/BadgeSvgs";
 import type { NotificationItem } from "@/src/services/gamification";
@@ -61,11 +63,11 @@ type NotificationSection = { title: string; data: NotificationItem[]; isFirst: b
 
 // ─── Row ──────────────────────────────────────────────────────────────────────
 
-function renderIcon(item: NotificationItem, accentColor: string) {
+function renderIcon(item: NotificationItem, accentColor: string, C: Palette) {
   if (item.badgeId) {
     return <BadgeSvg id={item.badgeId} size={24} />;
   }
-  const c = item.read ? COLORS.contentMuted : accentColor;
+  const c = item.read ? C.contentMuted : accentColor;
   switch (item.iconKey) {
     case "backup":
       return <Upload size={18} color={c} />;
@@ -73,15 +75,15 @@ function renderIcon(item: NotificationItem, accentColor: string) {
     case "export":
       return <Download size={18} color={c} />;
     case "wipe":
-      return <Trash2 size={18} color={item.read ? COLORS.contentMuted : COLORS.destructive} />;
+      return <Trash2 size={18} color={item.read ? C.contentMuted : C.destructive} />;
     case "error":
-      return <XCircle size={18} color={item.read ? COLORS.contentMuted : COLORS.destructive} />;
+      return <XCircle size={18} color={item.read ? C.contentMuted : C.destructive} />;
   }
   switch (item.type) {
     case "success":
       return <Trophy size={18} color={c} />;
     case "warning":
-      return <AlertCircle size={18} color={item.read ? COLORS.contentMuted : COLORS.warning} />;
+      return <AlertCircle size={18} color={item.read ? C.contentMuted : C.warning} />;
     default:
       return <Info size={18} color={c} />;
   }
@@ -98,6 +100,8 @@ const NotificationRow = React.memo(function NotificationRow({
   accentColor,
   onDismiss,
 }: NotificationRowProps) {
+  const C = useColors();
+  const styles = useThemedStyles(makeStyles);
   return (
     <TouchableOpacity
       activeOpacity={item.actionUrl ? 0.7 : 1}
@@ -108,7 +112,7 @@ const NotificationRow = React.memo(function NotificationRow({
     >
       {/* Icon */}
       <View style={[styles.iconBox, item.read && { opacity: 0.6 }]}>
-        {renderIcon(item, accentColor)}
+        {renderIcon(item, accentColor, C)}
       </View>
 
       {/* Content */}
@@ -118,7 +122,7 @@ const NotificationRow = React.memo(function NotificationRow({
             variant="labelM"
             style={[
               styles.cardTitle,
-              { color: item.read ? COLORS.contentSecondary : COLORS.contentPrimary },
+              { color: item.read ? C.contentSecondary : C.contentPrimary },
             ]}
           >
             {item.title}
@@ -151,17 +155,23 @@ const NotificationRow = React.memo(function NotificationRow({
         hitSlop={8}
         style={styles.dismissBtn}
       >
-        <X size={12} color={COLORS.contentSecondary} />
+        <X size={12} color={C.contentSecondary} />
       </TouchableOpacity>
     </TouchableOpacity>
   );
 });
 
-const ItemSeparator = () => <View style={styles.itemSeparator} />;
+const ItemSeparator = () => {
+  const styles = useThemedStyles(makeStyles);
+  return <View style={styles.itemSeparator} />;
+};
 
 export default function NotificationsScreen() {
+  const C = useColors();
+  const styles = useThemedStyles(makeStyles);
   const { accentColor } = usePlatformTheme();
   const insets = useSafeAreaInsets();
+  const { columnStyle } = useLayout();
   const {
     notifications,
     markAllNotificationsRead,
@@ -179,31 +189,32 @@ export default function NotificationsScreen() {
   }));
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }} edges={["bottom", "left", "right"]}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top ? insets.top + 12 : 24 }]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.background }} edges={["bottom", "left", "right"]}>
+      {/* Header — sits outside the list, so it takes the same cap as the content
+          below it. `columnStyle` is undefined on phones. */}
+      <View style={[styles.header, { paddingTop: insets.top ? insets.top + 12 : 24 }, columnStyle]}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back" onPress={() => router.back()} style={styles.iconBtn}>
-          <ArrowLeft size={22} color={COLORS.contentPrimary} />
+          <ArrowLeft size={22} color={C.contentPrimary} />
         </TouchableOpacity>
         <Text variant="headingS">Notifications</Text>
         <View style={{ width: 44 }} />
       </View>
 
-      {/* Action bar */}
+      {/* Action bar — also outside the list; same cap so it lines up. */}
       {hasItems && (
-        <View style={styles.actionBar}>
+        <View style={[styles.actionBar, columnStyle]}>
           <View
             style={[
               styles.pill,
               {
-                backgroundColor: unreadCount > 0 ? withAlpha(accentColor, 0.13) : COLORS.surface03,
-                borderColor: unreadCount > 0 ? withAlpha(accentColor, 0.33) : COLORS.lineSubtle,
+                backgroundColor: unreadCount > 0 ? withAlpha(accentColor, 0.13) : C.surface03,
+                borderColor: unreadCount > 0 ? withAlpha(accentColor, 0.33) : C.lineSubtle,
               },
             ]}
           >
             <Text
               variant="labelXs"
-              style={{ color: unreadCount > 0 ? accentColor : COLORS.contentSecondary }}
+              style={{ color: unreadCount > 0 ? accentColor : C.contentSecondary }}
             >
               {unreadCount > 0 ? `${unreadCount} unread` : "All read"}
             </Text>
@@ -218,13 +229,13 @@ export default function NotificationsScreen() {
             >
               <Text
                 variant="labelM"
-                style={{ color: unreadCount > 0 ? accentColor : COLORS.contentMuted }}
+                style={{ color: unreadCount > 0 ? accentColor : C.contentMuted }}
               >
                 Mark all read
               </Text>
             </TouchableOpacity>
             <TouchableOpacity accessibilityRole="button" onPress={clearAllNotifications} hitSlop={8}>
-              <Text variant="labelM" style={{ color: COLORS.contentSecondary }}>Clear all</Text>
+              <Text variant="labelM" style={{ color: C.contentSecondary }}>Clear all</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -233,7 +244,7 @@ export default function NotificationsScreen() {
       <SectionList<NotificationItem, NotificationSection>
         sections={sections}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+        contentContainerStyle={[{ paddingHorizontal: 16, paddingBottom: 100 }, columnStyle]}
         showsVerticalScrollIndicator={false}
         stickySectionHeadersEnabled={false}
         renderSectionHeader={({ section }) => (
@@ -266,7 +277,7 @@ export default function NotificationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -278,9 +289,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: -8,
@@ -317,21 +328,21 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   cardUnread: {
-    backgroundColor: COLORS.surface02,
-    borderColor: COLORS.lineSubtle,
+    backgroundColor: C.surface02,
+    borderColor: C.lineSubtle,
   },
   cardRead: {
-    backgroundColor: COLORS.surface01,
-    borderColor: COLORS.lineSubtle,
+    backgroundColor: C.surface01,
+    borderColor: C.lineSubtle,
     opacity: 0.7,
   },
   iconBox: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: 1,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -363,9 +374,9 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: COLORS.surface03,
+    backgroundColor: C.surface03,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.lineSubtle,
+    borderColor: C.lineSubtle,
     alignItems: "center",
     justifyContent: "center",
   },

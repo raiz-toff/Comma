@@ -483,6 +483,10 @@ ion-button.expenses-m-add svg {
 }
 .expenses-m-modal-list {
   flex: 1;
+  /* A flex item's default min-height is auto, which floors it at its own content's height —
+     that silently defeats overflow-y:auto (it never actually clips/scrolls). This 0 is what
+     lets the list shrink to the sheet's available space instead of just growing forever. */
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-2) var(--space-4);
   display: flex;

@@ -601,6 +601,25 @@ ion-modal.comma-ion-modal--xl {
     --background: var(--color-surface);
     --border-radius: var(--radius-xl);
   }
+
+  /* The sheet-content divs (light-DOM, slotted into ion-modal's shadow DOM) each carry a
+     `height:100%` meant to fill whatever box height the sheet-mode wrapper computed. On
+     desktop there's no sheet-mode wrapper — height:100% here resolves against Ionic's
+     internal slot sizing, which doesn't reliably hand these plain divs a bounded height, so
+     content that overflows just gets silently clipped by the wrapper's own overflow instead
+     of scrolling. Giving each its OWN definite, viewport-relative max-height sidesteps that
+     entirely: the box is self-bounded, so its own overflow-y:auto is guaranteed to engage.
+     Higher specificity than the unconditional `ion-modal .foo { height:100% }` rules in each
+     view's CSS, so this wins regardless of source order. */
+  ion-modal.comma-ion-sheet .expenses-m-modal-sheet,
+  ion-modal.comma-ion-sheet .shift-sheet-body,
+  ion-modal.comma-ion-sheet .expenses-m-sheet-body,
+  ion-modal.comma-ion-sheet .analytics-period-sheet-panel,
+  ion-modal.comma-ion-sheet .settings-shortcuts-sheet,
+  ion-modal.comma-ion-sheet .comma-drawer-panel {
+    height: auto;
+    max-height: min(85dvh, 720px);
+  }
 }
 
 .comma-modal {

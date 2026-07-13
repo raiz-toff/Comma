@@ -4,6 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { Platform } from "react-native";
 import { stampInsert, stampUpdate, softDeletePatch, notDeleted, isNotDeleted } from "../syncedWrites";
 import { getVehicleMileageEligibility } from "../../registry/countries/mileageRates";
+import { getVehicleById } from "./vehicles";
 
 const isWeb = Platform.OS === "web";
 
@@ -60,6 +61,33 @@ export function calculateMileageWriteOff(miles: number, rate: EffectiveMileageRa
     return rate.rateThreshold * rate.ratePrimary + (miles - rate.rateThreshold) * rate.rateSecondary;
   }
   return miles * rate.ratePrimary;
+}
+
+/**
+ * Mileage write-off across possibly-several vehicles, each at ITS OWN rate — not one vehicle's
+ * rate applied to everyone's total distance. `breakdown` is mileage already grouped by the
+ * vehicle that actually drove it (one row per vehicle used in the period); a row with a null
+ * vehicleId (a shift nobody assigned a vehicle to) still counts toward totalMileage for display
+ * but contributes $0 to the write-off — eligibility can't be determined for an unknown vehicle,
+ * and understating a tax write-off is the safe direction to be wrong in.
+ */
+export async function calculateMileageWriteOffForBreakdown(
+  breakdown: { vehicleId: string | null; activeMileage: number; deadMileage: number }[],
+  taxYear: number,
+  countryId: string
+): Promise<{ totalMileage: number; writeOff: number }> {
+  let totalMileage = 0;
+  let writeOff = 0;
+  for (const row of breakdown) {
+    const miles = row.activeMileage + row.deadMileage;
+    totalMileage += miles;
+    if (!row.vehicleId) continue;
+    const vehicle = await getVehicleById(row.vehicleId);
+    if (!vehicle) continue;
+    const rate = await getEffectiveMileageRate(row.vehicleId, taxYear, countryId, vehicle.type);
+    writeOff += calculateMileageWriteOff(miles, rate);
+  }
+  return { totalMileage, writeOff };
 }
 
 export async function getTaxProfilesForVehicle(vehicleId: string): Promise<any[]> {

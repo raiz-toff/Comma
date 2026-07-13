@@ -1,5 +1,5 @@
 import { db } from "../client";
-import { shifts, shiftPlatforms, vehicles, settings, goals, expenses } from "../schema";
+import { shifts, shiftPlatforms, settings, goals, expenses } from "../schema";
 import { and, gte, lte, eq, sql, inArray, like, or, isNull, type SQL } from "drizzle-orm";
 import { Platform } from "react-native";
 import { getGoalsWithProgress } from "./goals";
@@ -35,7 +35,7 @@ function getPlatformConditions(platform: string): SQL {
 // earnings from a different vehicle (e.g. a bike shift). General expenses with no vehicleId
 // still count everywhere. Returns undefined when there's nothing to scope by (caller should
 // omit the condition, not force a false match).
-function getVehicleExpenseCondition(vehicleIds: string[]): SQL | undefined {
+export function getVehicleExpenseCondition(vehicleIds: string[]): SQL | undefined {
   if (vehicleIds.length === 0) return undefined;
   return or(isNull(expenses.vehicleId), inArray(expenses.vehicleId, vehicleIds));
 }
@@ -206,40 +206,6 @@ export async function getWeekStats(platform?: string): Promise<{ gross: number; 
     .where(and(...conditions));
 
   return result[0] || { gross: 0, tips: 0, bonus: 0, count: 0, activeMileage: 0, deadMileage: 0, durationSeconds: 0 };
-}
-
-export async function getActiveVehicle(): Promise<any> {
-  if (isWeb) {
-    const existing = localStorage.getItem("comma_vehicles");
-    if (!existing) return null;
-    const list = JSON.parse(existing).filter(isNotDeleted);
-    return list.find((v: any) => v.isActive) ?? list[0] ?? null;
-  }
-
-  const activeVehicleIdRow = await db
-    .select()
-    .from(settings)
-    .where(eq(settings.key, "active_vehicle_id"))
-    .limit(1);
-
-  const vehicleId = activeVehicleIdRow[0]?.value;
-
-  if (!vehicleId) {
-    const fallbackActiveRow = await db
-      .select()
-      .from(vehicles)
-      .where(and(notDeleted(vehicles.syncDeletedAt), eq(vehicles.isActive, true)))
-      .limit(1);
-    return fallbackActiveRow[0] || null;
-  }
-
-  const vehicleRow = await db
-    .select()
-    .from(vehicles)
-    .where(and(notDeleted(vehicles.syncDeletedAt), eq(vehicles.id, vehicleId)))
-    .limit(1);
-
-  return vehicleRow[0] || null;
 }
 
 export async function getGoalProgress(period: string): Promise<any[]> {
@@ -573,6 +539,91 @@ export async function getMileageSplit(
   return { active, dead, ratio: total > 0 ? (dead / total) * 100 : 0 };
 }
 
+/**
+ * Mileage grouped by the vehicle that actually drove it, for a mileage write-off calculation
+ * that resolves each vehicle's own rate/eligibility instead of applying one vehicle's rate to
+ * everyone's distance. One row per distinct vehicle used in range (a handful at most), not one
+ * per shift — this is still SQL-side aggregation, just grouped instead of flat-summed.
+ */
+export async function getVehicleMileageBreakdown(
+  startDate: Date,
+  endDate: Date,
+  platform?: string | null
+): Promise<{ vehicleId: string | null; activeMileage: number; deadMileage: number }[]> {
+  if (isWeb) {
+    try {
+      const existing = localStorage.getItem("comma_shifts");
+      if (!existing) return [];
+      let list = JSON.parse(existing).filter((s: any) => {
+        const d = new Date(s.startTime);
+        return d >= startDate && d <= endDate && isNotDeleted(s);
+      });
+      if (platform && platform !== "all") {
+        list = list.filter((s: any) => matchesPlatformWeb(s.platform, platform));
+      }
+      const byVehicle = new Map<string | null, { activeMileage: number; deadMileage: number }>();
+      list.forEach((s: any) => {
+        const key = s.vehicleId ?? null;
+        const row = byVehicle.get(key) ?? { activeMileage: 0, deadMileage: 0 };
+        row.activeMileage += Number(s.activeMileage || 0);
+        row.deadMileage += Number(s.deadMileage || 0);
+        byVehicle.set(key, row);
+      });
+      return Array.from(byVehicle.entries()).map(([vehicleId, m]) => ({ vehicleId, ...m }));
+    } catch {
+      return [];
+    }
+  }
+
+  const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
+  if (platform && platform !== "all") {
+    conditions.push(getPlatformConditions(platform));
+  }
+
+  const rows = await db
+    .select({
+      vehicleId: shifts.vehicleId,
+      activeMileage: sql<number>`COALESCE(SUM(${shifts.activeMileage}), 0)`,
+      deadMileage: sql<number>`COALESCE(SUM(${shifts.deadMileage}), 0)`,
+    })
+    .from(shifts)
+    .where(and(...conditions))
+    .groupBy(shifts.vehicleId);
+
+  return rows;
+}
+
+/** Same as getVehicleMileageBreakdown, but for "this week" per the driver's own week-start-day setting. */
+export async function getWeekVehicleMileageBreakdown(
+  platform?: string | null
+): Promise<{ vehicleId: string | null; activeMileage: number; deadMileage: number }[]> {
+  let weekStartDay = 0;
+  if (isWeb) {
+    try {
+      const rawProfile = localStorage.getItem("comma_profile");
+      if (rawProfile) {
+        const profile = JSON.parse(rawProfile);
+        if (profile.locale?.weekStartDay !== undefined) {
+          weekStartDay = parseInt(profile.locale.weekStartDay, 10);
+        }
+      }
+    } catch {}
+  } else {
+    try {
+      const rows = await db.select().from(settings).where(eq(settings.key, "profile")).limit(1);
+      if (rows[0]?.value) {
+        const profile = JSON.parse(rows[0].value);
+        if (profile.locale?.weekStartDay !== undefined) {
+          weekStartDay = parseInt(profile.locale.weekStartDay, 10);
+        }
+      }
+    } catch {}
+  }
+
+  const { start, end } = getPeriodDates("weekly", weekStartDay);
+  return getVehicleMileageBreakdown(start, end, platform);
+}
+
 export async function getNetIncome(startDate: Date, endDate: Date, platform?: string | null): Promise<number> {
   if (isWeb) return 0;
 
@@ -589,7 +640,15 @@ export async function getNetIncome(startDate: Date, endDate: Date, platform?: st
     .where(and(...conditions));
 
   const { expenses } = await import("../schema");
-  
+
+  // Only count a vehicle-tagged expense (fuel, insurance, ...) if that vehicle was actually
+  // driven in this range — otherwise a car expense logged the same week as a bike-only shift
+  // was silently deducted from the bike earnings. General expenses (no vehicleId) always count.
+  const vehicleIdsUsed = await db.selectDistinct({ vehicleId: shifts.vehicleId }).from(shifts).where(and(...conditions));
+  const vehicleCond = getVehicleExpenseCondition(
+    vehicleIdsUsed.map((r: { vehicleId: string | null }) => r.vehicleId).filter((id: string | null): id is string => id != null)
+  );
+
   let expensesResult;
   if (platform && platform !== "all") {
     const platformCond = getPlatformConditions(platform);
@@ -606,7 +665,8 @@ export async function getNetIncome(startDate: Date, endDate: Date, platform?: st
           eq(expenses.isDeductible, true),
           gte(expenses.date, startDate),
           lte(expenses.date, endDate),
-          platformCond
+          platformCond,
+          ...(vehicleCond ? [vehicleCond] : [])
         )
       );
   } else {
@@ -620,7 +680,8 @@ export async function getNetIncome(startDate: Date, endDate: Date, platform?: st
           notDeleted(expenses.syncDeletedAt),
           eq(expenses.isDeductible, true),
           gte(expenses.date, startDate),
-          lte(expenses.date, endDate)
+          lte(expenses.date, endDate),
+          ...(vehicleCond ? [vehicleCond] : [])
         )
       );
   }
@@ -802,6 +863,9 @@ export async function getFinancialOverviewForRange(
           const shiftIds = new Set(platformShifts.map((s) => s.id));
           expList = expList.filter((e: any) => e.shiftId && shiftIds.has(e.shiftId));
         }
+        // Only count a vehicle-tagged expense if that vehicle was actually driven in range;
+        // general expenses (no vehicleId) always count. Mirrors getVehicleExpenseCondition.
+        expList = expList.filter((e: any) => !e.vehicleId || vehicleIds.includes(e.vehicleId));
         expense = expList.reduce((sum: number, e: any) => sum + Number(e.amount || 0) * Number(e.deductiblePct ?? e.pct ?? 100) / 100, 0);
       }
     } catch {}
@@ -820,7 +884,8 @@ export async function getFinancialOverviewForRange(
             eq(expenses.isDeductible, true),
             gte(expenses.date, startDate),
             lte(expenses.date, endDate),
-            platformCond
+            platformCond,
+            ...(vehicleCond ? [vehicleCond] : [])
           )
         );
     } else {
@@ -832,7 +897,8 @@ export async function getFinancialOverviewForRange(
             notDeleted(expenses.syncDeletedAt),
             eq(expenses.isDeductible, true),
             gte(expenses.date, startDate),
-            lte(expenses.date, endDate)
+            lte(expenses.date, endDate),
+            ...(vehicleCond ? [vehicleCond] : [])
           )
         );
     }

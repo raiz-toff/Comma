@@ -26,13 +26,13 @@ import { and, gte, lte, eq } from "drizzle-orm";
 import {
   calculatePensionContributions,
   calculateSelfEmploymentTax,
-  calculateCRAMileageDeduction,
   calculateIRSMileageDeduction,
   calculateHMRCMileageDeduction,
   calculateHSTOwing,
   calculateUKNationalInsurance,
   projectQuarterlyInstallment,
 } from "@/utils/taxCalculations";
+import { calculateMileageWriteOffForBreakdown } from "@/src/database/queries/taxProfiles";
 import {
   getCountryDef,
   resolveProvinceDef,
@@ -101,6 +101,10 @@ interface TaxSummary {
   distanceKm: number;
   activeMileage: number;
   deadMileage: number;
+  /** Vehicle-aware write-off (CA/US only — each vehicle's own rate applied to only its own
+   * mileage, then summed); 0 for other countries, where the component still resolves it
+   * itself via the flat HMRC/preset-rate calculators. */
+  vehicleMileageDeduction: number;
   hstCollected: number;
   itcTotal: number;
   hstRemittable: number;
@@ -153,6 +157,9 @@ async function fetchTaxSummary(
   let distanceKm = 0;
   let activeMileage = 0;
   let deadMileage = 0;
+  // vehicleId -> { activeMileage, deadMileage }, for a mileage write-off that resolves each
+  // vehicle's own rate/eligibility instead of applying one vehicle's rate to every mile driven.
+  const mileageByVehicle = new Map<string | null, { activeMileage: number; deadMileage: number }>();
 
   rawShifts.forEach((s: any) => {
     gross += Number(s.grossRevenue || 0);
@@ -163,13 +170,36 @@ async function fetchTaxSummary(
     distanceKm += active + dead;
     activeMileage += active;
     deadMileage += dead;
+
+    const vehicleId = s.vehicleId ?? null;
+    const row = mileageByVehicle.get(vehicleId) ?? { activeMileage: 0, deadMileage: 0 };
+    row.activeMileage += active;
+    row.deadMileage += dead;
+    mileageByVehicle.set(vehicleId, row);
   });
 
+  // Only count a vehicle-tagged expense (fuel, insurance, ...) if that vehicle was actually
+  // driven this year — otherwise a car expense gets deducted from a bike-only year's earnings.
+  // General expenses (no vehicleId) always count.
+  const vehicleIdsUsed = new Set(rawShifts.map((s: any) => s.vehicleId).filter(Boolean));
   let totalExpenses = 0;
   rawExpenses.forEach((e: any) => {
     // Apply each expense's business-use percentage, consistent with the Tax/Analytics queries.
-    if (e.isDeductible) totalExpenses += Number(e.amount || 0) * Number(e.deductiblePct ?? 100) / 100;
+    if (e.isDeductible && (!e.vehicleId || vehicleIdsUsed.has(e.vehicleId))) {
+      totalExpenses += Number(e.amount || 0) * Number(e.deductiblePct ?? 100) / 100;
+    }
   });
+
+  const vehicleMileageDeduction =
+    country === "CA" || country === "US"
+      ? (
+          await calculateMileageWriteOffForBreakdown(
+            Array.from(mileageByVehicle.entries()).map(([vehicleId, m]) => ({ vehicleId, ...m })),
+            year,
+            country
+          )
+        ).writeOff
+      : 0;
 
   const totalGross = gross + tips + bonus;
   const netIncome = Math.max(0, totalGross - totalExpenses);
@@ -206,6 +236,7 @@ async function fetchTaxSummary(
     distanceKm,
     activeMileage,
     deadMileage,
+    vehicleMileageDeduction,
     hstCollected,
     itcTotal,
     hstRemittable,
@@ -408,9 +439,12 @@ export default function TaxCenterScreen() {
   const netIncome = summary?.netIncome || 0;
   const totalDistance = summary?.distanceKm || 0;
 
+  // CA/US: each vehicle's own eligibility/rate applied to only the mileage it drove, then
+  // summed — computed in fetchTaxSummary, which has the per-shift vehicleId to group by
+  // (see vehicleMileageDeduction). UK/other still use a flat rate on total distance.
   const mileageDeduction =
-    profile.country === "CA"
-      ? calculateCRAMileageDeduction(totalDistance, selectedYear)
+    profile.country === "CA" || profile.country === "US"
+      ? summary?.vehicleMileageDeduction ?? 0
       : profile.country === "UK"
       ? calculateHMRCMileageDeduction(
           distanceUnit === "mi" ? totalDistance : totalDistance * 0.621371,

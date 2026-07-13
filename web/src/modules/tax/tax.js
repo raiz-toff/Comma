@@ -187,10 +187,14 @@ async function loadTaxSummary(year) {
     (sum, s) => sum + num(s.grossRevenue) + num(s.tipsRevenue) + (Number(s.bonusAmount) || 0),
     0,
   );
-  const businessExpenses = expenses.reduce(
-    (sum, e) => sum + num(e.amount) * (num(e.deductiblePct, 100) / 100),
-    0,
-  );
+  // Only count a vehicle-tagged expense (fuel, insurance, ...) if that vehicle was actually
+  // driven this year — otherwise a car expense gets deducted from a bike-only year's earnings.
+  // General expenses (no vehicleId) always count. Mirrors mobile's tax queries.
+  const vehicleIdsUsedThisYear = new Set(shifts.map((s) => s.vehicleId).filter(Boolean));
+  const businessExpenses = expenses.reduce((sum, e) => {
+    if (e.vehicleId && !vehicleIdsUsedThisYear.has(e.vehicleId)) return sum;
+    return sum + num(e.amount) * (num(e.deductiblePct, 100) / 100);
+  }, 0);
   const netIncome = Math.max(0, gross - businessExpenses);
   const taxRatePct = num(user?.taxWithholdingPct, taxProfile.defaultWithholdingPct);
   const taxSetAside = calcTaxSetAside(gross, taxRatePct);
@@ -209,16 +213,35 @@ async function loadTaxSummary(year) {
   // Eligibility-aware standard-mileage estimate: a saved tax profile (custom rate or explicit
   // opt-out) always wins over the researched country/vehicle-type default, and the default
   // itself only applies when this vehicle type is actually eligible (e.g. a bicycle isn't
-  // eligible for the CRA/IRS automobile mileage rate). Mirrors mobile's tax screen.
+  // eligible for the CRA/IRS automobile mileage rate). Mirrors mobile's tax screen. `vehicle`/
+  // `mileageRate` stay a single vehicle — that's what the editable rate/opt-out panel below
+  // edits — but the deduction TOTAL is resolved per-vehicle and summed (see mileageDeduction),
+  // so a multi-vehicle driver's write-off isn't computed off just one vehicle's rate.
   const vehicle = (await db.vehicles.toArray()).find((v) => v.isActive && v.syncDeletedAt == null) ?? null;
   let mileageRate = null;
-  let mileageDeduction = 0;
   if (vehicle) {
     mileageRate = await getEffectiveMileageRate(vehicle.id, year, country, vehicle.type);
-    // Rates (default or custom) are entered/researched in the country's native distance unit —
-    // US is per-mile, CA is per-km.
-    const distanceForRate = country === 'US' ? totalMiles : distanceKm;
-    mileageDeduction = calculateMileageWriteOff(distanceForRate, mileageRate);
+  }
+
+  let mileageDeduction = 0;
+  {
+    const mileageByVehicle = new Map();
+    for (const s of shifts) {
+      const vehicleId = s.vehicleId ?? null;
+      const row = mileageByVehicle.get(vehicleId) ?? 0;
+      mileageByVehicle.set(vehicleId, row + num(s.activeMileage));
+    }
+    const allVehicles = await db.vehicles.toArray();
+    for (const [vehicleId, km] of mileageByVehicle) {
+      if (!vehicleId) continue;
+      const v = allVehicles.find((x) => x.id === vehicleId);
+      if (!v) continue;
+      const rate = await getEffectiveMileageRate(vehicleId, year, country, v.type);
+      // Rates (default or custom) are entered/researched in the country's native distance
+      // unit — US is per-mile, CA is per-km.
+      const distanceForRate = country === 'US' ? km * 0.621371192 : km;
+      mileageDeduction += calculateMileageWriteOff(distanceForRate, rate);
+    }
   }
 
   // Mileage reduces taxable income the same way logged expenses do — CPP/SE-tax must be based

@@ -30,8 +30,8 @@ import {
   resolveProvinceDef,
 } from "@/src/registry/index";
 import { getPlatformDef } from "@/src/registry/platforms";
-import { getPeriodStats, getActiveVehicle } from "@/src/database/queries/analytics";
-import { getEffectiveMileageRate, calculateMileageWriteOff } from "@/src/database/queries/taxProfiles";
+import { getPeriodStats, getVehicleMileageBreakdown } from "@/src/database/queries/analytics";
+import { calculateMileageWriteOffForBreakdown } from "@/src/database/queries/taxProfiles";
 import { getExpenseYTDSummary } from "@/src/database/queries/expenses";
 import {
   getTaxHistory,
@@ -126,15 +126,17 @@ export default function TaxScreen() {
     enabled: isOnboardingCompleted,
   });
 
-  // Same eligibility-aware resolution as the dashboard: a saved tax profile (including an
-  // explicit opt-out) always wins over the researched default, and the default itself depends
-  // on the active vehicle's type, not just country (a bicycle isn't eligible for a car's rate).
-  const { data: mileageRate } = useQuery({
-    queryKey: ["analytics", "mileage-rate", currentYear],
+  // Vehicle-aware write-off: mileage is grouped by the vehicle that actually drove it, and each
+  // vehicle's own rate/eligibility is resolved and applied separately (a saved tax profile —
+  // including an explicit opt-out — always wins over the researched default, and the default
+  // itself depends on that vehicle's type, e.g. a bicycle isn't eligible for a car's rate),
+  // then summed. One flat rate for one "active" vehicle applied to every vehicle's mileage was
+  // the bug (issue #9) — a multi-vehicle driver's write-off was simply wrong.
+  const { data: mileageInfo } = useQuery({
+    queryKey: ["analytics", "mileage-writeoff", currentYear],
     queryFn: async () => {
-      const vehicle = await getActiveVehicle();
-      if (!vehicle) return null;
-      return getEffectiveMileageRate(vehicle.id, currentYear, profile?.country || "CA", vehicle.type);
+      const breakdown = await getVehicleMileageBreakdown(startOfYear, endOfYear);
+      return calculateMileageWriteOffForBreakdown(breakdown, currentYear, profile?.country || "CA");
     },
     enabled: isOnboardingCompleted,
   });
@@ -154,10 +156,9 @@ export default function TaxScreen() {
     let mileageDeduction = 0;
     if (countryDef.hasMileageDeduction) {
       if (profile?.country === "CA" || profile?.country === "US") {
-        // Vehicle-type-aware: respects a saved tax profile (custom rate or explicit opt-out)
-        // and, absent one, only applies the researched default when the vehicle is eligible
-        // (e.g. a bicycle isn't eligible for the CRA/IRS automobile mileage rate).
-        mileageDeduction = mileageRate ? calculateMileageWriteOff(totalMileage, mileageRate) : 0;
+        // Vehicle-aware: each vehicle's own eligibility/rate is resolved and applied to only
+        // the mileage it actually drove, then summed (see mileageInfo above).
+        mileageDeduction = mileageInfo?.writeOff ?? 0;
       } else if (profile?.country === "UK") {
         mileageDeduction = calculateHMRCMileageDeduction(totalMileage, currentYear);
       } else {
@@ -205,7 +206,7 @@ export default function TaxScreen() {
       estimatedIncomeTax,
       totalEstimatedTax,
     };
-  }, [countryDef, profile, netIncome, grossRevenue, deductibleExpenses, totalMileage, currentYear, mileageRate]);
+  }, [countryDef, profile, netIncome, grossRevenue, deductibleExpenses, totalMileage, currentYear, mileageInfo]);
 
   // 3 biggest obligation line items — shown as pills on the card
   const obligationPills = useMemo(() => {

@@ -19,6 +19,7 @@ All notable changes to Comma are documented here.
 - **Tapping some icon buttons silently did nothing (web)**: a few icon-only buttons weren't registering taps at all. They respond now.
 - **Janky arrow navigation on Expenses and Analytics (web)**: paging between weeks/months with the arrow buttons stuttered. Now smooth.
 - **Bottom sheets on desktop (web)**: sheets no longer hide their own footer, and sheets whose content is taller than the screen now scroll instead of clipping.
+- **Multi-vehicle drivers got the wrong mileage write-off and earnings (app + web)**: mileage was totalled across every vehicle and then had one vehicle's rate applied to all of it, and a car expense (fuel, insurance) logged the same week as a bike-only shift was silently deducted from that shift's earnings. Mileage now resolves each vehicle's own rate against only the distance it drove, and an expense only counts against a vehicle you actually used in that period.
 
 ## [1.3.1] — 2026-07-12 (versionCode 7)
 

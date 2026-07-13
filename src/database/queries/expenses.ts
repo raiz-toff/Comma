@@ -1,9 +1,10 @@
 import { db } from "../client";
-import { expenses, merchants } from "../schema";
+import { expenses, merchants, shifts } from "../schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { Platform } from "react-native";
 import { getExpenseCategories, canonicalCategoryId, type ExpenseCategory } from "@/src/registry/expenseCategories";
 import { stampInsert, stampUpdate, softDeletePatch, notDeleted, isNotDeleted } from "../syncedWrites";
+import { getVehicleExpenseCondition } from "./analytics";
 
 const isWeb = Platform.OS === "web";
 
@@ -90,13 +91,23 @@ export async function getExpenseYTDSummary(): Promise<{ deductible: number; nonD
   if (isWeb) {
     const existing = localStorage.getItem("comma_expenses");
     if (!existing) return { deductible: 0, nonDeductible: 0 };
-    const list: Array<{ date: string; amount: number; isDeductible: boolean; deductiblePct?: number; syncDeletedAt?: number | null }> = JSON.parse(existing);
+    const list: Array<{ date: string; amount: number; isDeductible: boolean; deductiblePct?: number; vehicleId?: string | null; syncDeletedAt?: number | null }> = JSON.parse(existing);
     const ytd = list.filter((e) => new Date(e.date).getFullYear() === currentYear && isNotDeleted(e));
+
+    // Same vehicle-attribution rule as the native path: a vehicle-tagged expense only counts
+    // toward the YTD totals if that vehicle was actually driven this year.
+    const shiftsExisting = localStorage.getItem("comma_shifts");
+    const shiftsThisYear = shiftsExisting
+      ? JSON.parse(shiftsExisting).filter((s: any) => new Date(s.startTime).getFullYear() === currentYear && isNotDeleted(s))
+      : [];
+    const vehicleIdsUsed = new Set(shiftsThisYear.map((s: any) => s.vehicleId).filter(Boolean));
+    const inScope = (e: { vehicleId?: string | null }) => !e.vehicleId || vehicleIdsUsed.has(e.vehicleId);
+
     const deductible = ytd
-      .filter((e) => e.isDeductible)
+      .filter((e) => e.isDeductible && inScope(e))
       .reduce((sum, e) => sum + e.amount * ((e.deductiblePct ?? 100) / 100), 0);
     const nonDeductible = ytd
-      .filter((e) => !e.isDeductible)
+      .filter((e) => !e.isDeductible && inScope(e))
       .reduce((sum, e) => sum + e.amount, 0);
     return { deductible, nonDeductible };
   }
@@ -104,13 +115,28 @@ export async function getExpenseYTDSummary(): Promise<{ deductible: number; nonD
   const startOfYear = new Date(currentYear, 0, 1);
   const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59, 999);
 
+  const vehicleIdsUsed = await db
+    .selectDistinct({ vehicleId: shifts.vehicleId })
+    .from(shifts)
+    .where(and(notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startOfYear), lte(shifts.startTime, endOfYear)));
+  const vehicleCond = getVehicleExpenseCondition(
+    vehicleIdsUsed.map((r: { vehicleId: string | null }) => r.vehicleId).filter((id: string | null): id is string => id != null)
+  );
+
   const rows = await db
     .select({
       deductible: sql<number>`COALESCE(SUM(CASE WHEN ${expenses.isDeductible} = 1 THEN ${expenses.amount} * ${expenses.deductiblePct} / 100.0 ELSE 0 END), 0)`,
       nonDeductible: sql<number>`COALESCE(SUM(CASE WHEN ${expenses.isDeductible} = 0 THEN ${expenses.amount} ELSE 0 END), 0)`,
     })
     .from(expenses)
-    .where(and(gte(expenses.date, startOfYear), lte(expenses.date, endOfYear), notDeleted(expenses.syncDeletedAt)));
+    .where(
+      and(
+        gte(expenses.date, startOfYear),
+        lte(expenses.date, endOfYear),
+        notDeleted(expenses.syncDeletedAt),
+        ...(vehicleCond ? [vehicleCond] : [])
+      )
+    );
 
   return {
     deductible: rows[0]?.deductible ?? 0,

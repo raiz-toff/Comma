@@ -38,9 +38,10 @@ import {
   getGoalProgress,
   getFinancialOverviewForRange,
   getPeriodStats,
-  getActiveVehicle,
+  getVehicleMileageBreakdown,
+  getWeekVehicleMileageBreakdown,
 } from "../../src/database/queries/analytics";
-import { getEffectiveMileageRate, calculateMileageWriteOff } from "../../src/database/queries/taxProfiles";
+import { getEffectiveMileageRate, calculateMileageWriteOff, calculateMileageWriteOffForBreakdown } from "../../src/database/queries/taxProfiles";
 import { getShiftsPaginated, getUnreconciledShifts, getGPSOnlyShifts, reconcileOdometerAnchors } from "../../src/database/queries/shifts";
 import { PlatformBadge } from "../../src/components/ui/PlatformBadge";
 import { AppBottomSheet, type AppBottomSheetRef } from "../../src/components/ui/AppBottomSheet";
@@ -843,17 +844,40 @@ export default function HomeScreen() {
   });
 
   // The mileage write-off is a tax estimate, not real money — it must never be subtracted from
-  // the headline earnings figure, and it only applies at all if the active vehicle is actually
-  // eligible (a saved tax profile — including an explicit opt-out — always wins over the
-  // researched country/vehicle-type default; see getEffectiveMileageRate).
-  const { data: mileageRate } = useQuery({
-    queryKey: ["analytics", "mileage-rate", todayStr],
+  // the headline earnings figure, and each vehicle's own eligibility applies to only the
+  // mileage IT drove (a saved tax profile — including an explicit opt-out — always wins over
+  // the researched country/vehicle-type default; see getEffectiveMileageRate). One flat rate
+  // for one "active" vehicle applied to every vehicle's mileage was the bug (issue #9).
+  const { data: todayMileageInfo } = useQuery({
+    queryKey: ["analytics", "mileage-writeoff-today", activePlatformFilter, todayStr],
     queryFn: async () => {
-      const vehicle = await getActiveVehicle();
+      const start = new Date(); start.setHours(0, 0, 0, 0);
+      const end = new Date(); end.setHours(23, 59, 59, 999);
+      const breakdown = await getVehicleMileageBreakdown(start, end, activePlatformFilter);
+      return calculateMileageWriteOffForBreakdown(breakdown, new Date().getFullYear(), profile?.country || "CA");
+    },
+    enabled: isOnboardingCompleted,
+  });
+
+  const { data: weekMileageInfo } = useQuery({
+    queryKey: ["analytics", "mileage-writeoff-week", activePlatformFilter],
+    queryFn: async () => {
+      const breakdown = await getWeekVehicleMileageBreakdown(activePlatformFilter);
+      return calculateMileageWriteOffForBreakdown(breakdown, new Date().getFullYear(), profile?.country || "CA");
+    },
+    enabled: isOnboardingCompleted,
+  });
+
+  // The live, in-progress shift isn't a DB row yet, so it can't be grouped by vehicle in SQL —
+  // it's driven by whichever vehicle is currently selected (the same one startShift() uses).
+  const { data: sessionMileageRate } = useQuery({
+    queryKey: ["analytics", "mileage-rate-session", preferredVehicleId, vehicles.length],
+    queryFn: async () => {
+      const vehicle = vehicles.find((v: any) => v.id === preferredVehicleId) ?? vehicles[0];
       if (!vehicle) return null;
       return getEffectiveMileageRate(vehicle.id, new Date().getFullYear(), profile?.country || "CA", vehicle.type);
     },
-    enabled: isOnboardingCompleted,
+    enabled: isOnboardingCompleted && vehicles.length > 0,
   });
 
   const { data: weeklyGoals = [] } = useQuery({
@@ -930,18 +954,18 @@ export default function HomeScreen() {
 
   // Real money earned — never reduced by the mileage write-off, which is a tax estimate, not
   // an expense. Shown separately (see writeOff below) so it can never be mistaken for lost income.
-  const writeOff    = mileageRate ? calculateMileageWriteOff(currentStats.miles, mileageRate) : 0;
+  const writeOff    = todayMileageInfo?.writeOff ?? 0;
   const netEarnings = currentStats.gross + currentStats.tips + currentStats.bonus;
   const totalMiles  = activeMileage + deadMileage;
   // Live shift's own write-off (distinct from `writeOff`, which is today's aggregate across all shifts).
-  const sessionWriteOff = mileageRate ? calculateMileageWriteOff(totalMiles, mileageRate) : 0;
+  const sessionWriteOff = sessionMileageRate ? calculateMileageWriteOff(totalMiles, sessionMileageRate) : 0;
 
   // Derive weekly summary metrics dynamically (avoiding any hardcoding)
   const weeklyGross = weekStats?.gross ?? 0;
   const weeklyTips = weekStats?.tips ?? 0;
   const weeklyBonus = weekStats?.bonus ?? 0;
   const weeklyMiles = (weekStats?.activeMileage ?? 0) + (weekStats?.deadMileage ?? 0);
-  const weeklyWriteOff = mileageRate ? calculateMileageWriteOff(weeklyMiles, mileageRate) : 0;
+  const weeklyWriteOff = weekMileageInfo?.writeOff ?? 0;
   const weeklyNet = weeklyGross + weeklyTips + weeklyBonus;
   const weeklyShiftsCount = weekStats?.count ?? 0;
   const weeklyDuration = weekStats?.durationSeconds ?? 0;
@@ -1421,11 +1445,15 @@ export default function HomeScreen() {
                 including an explicit opt-out — always wins over the registry default). This
                 is an estimated tax deduction, not money earned — kept out of the headline
                 "EARNED" figure above. */}
-            {currentStats.miles > 0 && mileageRate?.deductionMethod === "standard_mileage" && writeOff > 0 && (
+            {currentStats.miles > 0 && writeOff > 0 && (
               <View style={S.tipCard}>
                 <Text style={{ fontSize: 13 }}>🚗</Text>
                 <Text variant="paragraphS" className="text-content-secondary" style={{ flex: 1, lineHeight: 18 }}>
-                  At {mileageRate.ratePrimary != null ? `$${mileageRate.ratePrimary}` : ""}/{profile?.distanceUnit ?? "mi"} you've got an est. <Text variant="paragraphS" tabular style={{ color: C.warning, fontWeight: "bold" }}>{fmt(writeOff)}</Text> tax write-off on <Text variant="paragraphS" tabular style={{ fontWeight: "bold", color: C.contentPrimary }}>{currentStats.miles.toFixed(1)}</Text> {profile?.distanceUnit ?? "mi"} today.
+                  {/* Today's write-off can span more than one vehicle, each at its own rate — only show
+                      a single "$X/mi" label when there's one clean rate to quote (the current vehicle's). */}
+                  {sessionMileageRate?.deductionMethod === "standard_mileage" && sessionMileageRate.ratePrimary != null
+                    ? `At $${sessionMileageRate.ratePrimary}/${profile?.distanceUnit ?? "mi"} you've got an`
+                    : "You've got an"} est. <Text variant="paragraphS" tabular style={{ color: C.warning, fontWeight: "bold" }}>{fmt(writeOff)}</Text> tax write-off on <Text variant="paragraphS" tabular style={{ fontWeight: "bold", color: C.contentPrimary }}>{currentStats.miles.toFixed(1)}</Text> {profile?.distanceUnit ?? "mi"} today.
                 </Text>
               </View>
             )}

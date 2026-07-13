@@ -38,14 +38,16 @@ import { type PlatformKey } from "@/src/registry/platforms";
 import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
 
 import { getTaxProfileForVehicleYear } from "@/src/database/queries/taxProfiles";
+import { addRecurringInterval, advanceRecurringTemplate, ymd } from "@/src/services/recurringExpenses";
 
 const isWeb = Platform.OS === "web";
 
 export default function AddExpenseModal() {
   const queryClient = useQueryClient();
-  const { expenseId, shiftId: prefillShiftId } = useLocalSearchParams<{
+  const { expenseId, shiftId: prefillShiftId, recurringTemplateId } = useLocalSearchParams<{
     expenseId?: string;
     shiftId?: string;
+    recurringTemplateId?: string;
   }>();
 
   const isEditing = !!expenseId;
@@ -181,6 +183,15 @@ export default function AddExpenseModal() {
     enabled: isEditing,
   });
 
+  // Logging a paid occurrence from the "Recurring expense due" prompt's "Edit Amount"
+  // action — prefill from the template, but this always creates a new one-off row
+  // (isEditing stays false; the template itself is advanced on save, see proceedSave).
+  const { data: recurringTemplate } = useQuery({
+    queryKey: ["expense", recurringTemplateId],
+    queryFn: () => getExpenseById(recurringTemplateId!),
+    enabled: !!recurringTemplateId,
+  });
+
   const { data: vehiclesList = [] } = useQuery({
     queryKey: ["vehicles"],
     queryFn: () => getVehicles(),
@@ -239,6 +250,20 @@ export default function AddExpenseModal() {
       setDeductiblePct(existingExpense.deductiblePct ?? 100);
     }
   }, [existingExpense]);
+
+  useEffect(() => {
+    if (recurringTemplate) {
+      setCategory(recurringTemplate.category || "fuel");
+      setAmount(String(recurringTemplate.amount || ""));
+      if (recurringTemplate.recurringNextDate) {
+        setDate(new Date(`${recurringTemplate.recurringNextDate}T00:00:00`));
+      }
+      setIsDeductible(!!recurringTemplate.isDeductible);
+      setLinkedVehicleId(recurringTemplate.vehicleId || "");
+      setMerchant(recurringTemplate.merchant || "");
+      setDeductiblePct(recurringTemplate.deductiblePct ?? 100);
+    }
+  }, [recurringTemplate]);
 
   const { data: recentMerchants = [] } = useQuery({
     queryKey: ["recentMerchants"],
@@ -344,6 +369,18 @@ export default function AddExpenseModal() {
 
     const proceedSave = async () => {
       try {
+        // Only stamp an initial next-due date the first time an expense becomes
+        // recurring — don't clobber an already-ticking template's due date just
+        // because its amount/category was edited (mirrors the web fix). Omitting
+        // the keys entirely (the `wasAlreadyRecurring` case) leaves them untouched
+        // on update rather than overwriting with null.
+        const wasAlreadyRecurring = isEditing && !!existingExpense?.isRecurring && !!existingExpense?.recurringNextDate;
+        const recurringDateFields = !isRecurring
+          ? { recurringNextDate: null, recurringSnoozeUntil: null }
+          : wasAlreadyRecurring
+          ? {}
+          : { recurringNextDate: addRecurringInterval(ymd(date), recurringInterval), recurringSnoozeUntil: null };
+
         const payload = {
           category,
           amount: parsedAmount,
@@ -358,6 +395,7 @@ export default function AddExpenseModal() {
           recurringInterval: isRecurring ? recurringInterval : null,
           merchant: merchant.trim(),
           merchantNormalized: merchant.trim().toUpperCase(),
+          ...recurringDateFields,
         };
 
         if (isEditing) {
@@ -368,6 +406,10 @@ export default function AddExpenseModal() {
             ...payload,
             id: `expense_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           });
+          if (recurringTemplate) {
+            await advanceRecurringTemplate(recurringTemplate);
+            queryClient.invalidateQueries({ queryKey: ["expense", recurringTemplateId] });
+          }
         }
 
         queryClient.invalidateQueries({ queryKey: ["expenses"] });

@@ -100,6 +100,8 @@ export const expenses = sqliteTable('expenses', {
   receiptUri:  text('receipt_uri'),  // local file URI for photo receipts
   isRecurring: integer('is_recurring', { mode: 'boolean' }).default(false).notNull(),
   recurringInterval: text('recurring_interval'), // 'weekly'|'monthly'|'yearly'
+  recurringNextDate: text('recurring_next_date'), // ISO date string; next occurrence due
+  recurringSnoozeUntil: text('recurring_snooze_until'), // ISO date string; suppress due-check until this date
   merchant: text('merchant').default("").notNull(),
   merchantNormalized: text('merchant_normalized').default("").notNull(),
   ...syncColumns,

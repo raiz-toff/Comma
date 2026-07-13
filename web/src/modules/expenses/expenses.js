@@ -108,7 +108,9 @@ export function normalizeExpenseInput(input) {
     receiptUri: receiptData,
     isRecurring: recurring,
     recurringInterval: recurring ? String(input.recurringInterval || 'monthly') : null,
-    recurringNextDate: recurring ? String(input.recurringNextDate || date) : null,
+    recurringNextDate: recurring
+      ? String(input.recurringNextDate || addInterval(date, String(input.recurringInterval || 'monthly')))
+      : null,
     hstPaid,
     confirmedPaid,
     deletedAt: null,
@@ -133,7 +135,7 @@ function addInterval(dateStr, interval) {
   const d = new Date(`${dateStr}T00:00:00`);
   if (Number.isNaN(d.getTime())) return dateStr;
   if (interval === 'weekly') d.setDate(d.getDate() + 7);
-  else if (interval === 'annual') d.setFullYear(d.getFullYear() + 1);
+  else if (interval === 'annual' || interval === 'yearly') d.setFullYear(d.getFullYear() + 1);
   else d.setMonth(d.getMonth() + 1);
   return ymd(d);
 }
@@ -275,6 +277,7 @@ export async function createRecurringOccurrenceAndAdvance(template, overrides = 
     recurringNextDate: updatedNext,
     recurringSnoozeUntil: null,
     updatedAt: nowIso(),
+    syncUpdatedAt: Date.now(),
   });
   bus.emit(EXPENSE_SAVED, { id: template.id });
 }

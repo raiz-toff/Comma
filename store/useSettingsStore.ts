@@ -1041,6 +1041,24 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         }
       }
 
+      // A recurring phone-plan bill, already overdue — showcases the "Recurring expense
+      // due" reminder (Expenses tab) the moment a new demo user opens it.
+      const recurringDueDate = new Date(now);
+      recurringDueDate.setDate(recurringDueDate.getDate() - 1);
+      const recurringLoggedDate = new Date(recurringDueDate);
+      recurringLoggedDate.setMonth(recurringLoggedDate.getMonth() - 1);
+      demoExpenses.push({
+        id: "demo_expense_recurring_phone",
+        shiftId: null,
+        category: "phone",
+        amount: 49.99,
+        date: recurringLoggedDate.toISOString(),
+        isDeductible: true,
+        isRecurring: true,
+        recurringInterval: "monthly",
+        recurringNextDate: recurringDueDate.toISOString().split("T")[0],
+      });
+
       localStorage.setItem("comma_shifts", JSON.stringify(demoShifts));
       localStorage.setItem("comma_expenses", JSON.stringify(demoExpenses));
       localStorage.setItem("comma_goals", JSON.stringify([
@@ -1194,6 +1212,24 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           }
         }
       }
+
+      // A recurring phone-plan bill, already overdue — showcases the "Recurring expense
+      // due" reminder (Expenses tab) the moment a new demo user opens it.
+      const recurringDueDate = new Date(now);
+      recurringDueDate.setDate(recurringDueDate.getDate() - 1);
+      const recurringLoggedDate = new Date(recurringDueDate);
+      recurringLoggedDate.setMonth(recurringLoggedDate.getMonth() - 1);
+      demoExpenses.push({
+        id: "demo_expense_recurring_phone",
+        shiftId: null,
+        category: "phone",
+        amount: 49.99,
+        date: recurringLoggedDate,
+        isDeductible: true,
+        isRecurring: true,
+        recurringInterval: "monthly",
+        recurringNextDate: recurringDueDate.toISOString().split("T")[0],
+      });
 
       // Batch all inserts in one transaction — avoids N serial JS→native bridge round-trips
       await db.transaction(async (tx) => {

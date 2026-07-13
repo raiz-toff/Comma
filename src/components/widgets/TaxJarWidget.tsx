@@ -15,8 +15,13 @@ export default function TaxJarWidget({ taxWithholdingPct }: TaxJarWidgetProps) {
   const strokeWidth = 10;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (taxWithholdingPct / 100) * circumference;
-  const pct = Math.round(taxWithholdingPct);
+  // A non-finite withholding rate (no tax profile yet) must draw an empty ring,
+  // not throw: stroke-dashoffset="NaN" is not a valid SVG length.
+  const safePct = Number.isFinite(taxWithholdingPct)
+    ? Math.min(Math.max(taxWithholdingPct, 0), 100)
+    : 0;
+  const strokeDashoffset = circumference - (safePct / 100) * circumference;
+  const pct = Math.round(safePct);
 
   return (
     <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 12, gap: 16 }}>

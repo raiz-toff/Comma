@@ -121,12 +121,24 @@ function CircularProgress({
   const C = useColors();
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
-  const strokeDashoffset = circumference - (Math.min(progressPct, 100) / 100) * circumference;
+
+  /*
+   * Clamp, and treat a non-finite progress as zero.
+   *
+   * `progressPct` is typed `number`, but it arrives from a database row, and a
+   * goal with no target divides by zero. A NaN reaches the SVG as
+   * stroke-dashoffset="NaN", which is not a valid length — react-native-svg
+   * rejects it and the whole screen throws rather than drawing an empty ring.
+   * A goal we cannot compute should read as 0%, not take the page down.
+   */
+  const pct = Number.isFinite(progressPct) ? Math.min(Math.max(progressPct, 0), 100) : 0;
+  const strokeDashoffset = circumference - (pct / 100) * circumference;
+
   return (
     <View
       style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}
       accessible={true}
-      accessibilityLabel={`${Math.round(Math.min(progressPct, 100))}% complete`}
+      accessibilityLabel={`${Math.round(pct)}% complete`}
     >
       <Svg width={size} height={size}>
         <Circle stroke={C.surface04} fill="none" cx={size / 2} cy={size / 2} r={radius} strokeWidth={strokeWidth} />

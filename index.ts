@@ -1,7 +1,16 @@
+import { Platform } from 'react-native';
 import { registerWidgetTaskHandler } from 'react-native-android-widget';
 import { widgetTaskHandler } from './src/widgets/widgetTaskHandler';
 
-registerWidgetTaskHandler(widgetTaskHandler);
+/**
+ * Home-screen widgets are an Android feature, and so is the API that registers
+ * them: registerWidgetTaskHandler reaches for AppRegistry.registerHeadlessTask,
+ * which only exists in React Native's Android runtime. Called unconditionally it
+ * throws "registerHeadlessTask is not a function" on web at startup.
+ */
+if (Platform.OS === 'android') {
+  registerWidgetTaskHandler(widgetTaskHandler);
+}
 
 /**
  * DO NOT import the theme (or anything that reaches NativeWind) from this file.

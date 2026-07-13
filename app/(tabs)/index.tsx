@@ -259,7 +259,10 @@ const RingProgress = ({ pct, color, size = 28 }: { pct: number; color: string; s
   const r = 10;
   const stroke = 3;
   const circ = 2 * Math.PI * r;
-  const offset = circ - (Math.min(pct, 100) / 100) * circ;
+  // Clamp; a non-finite pct draws an empty ring rather than emitting
+  // stroke-dashoffset="NaN", which is not a valid SVG length and throws.
+  const safePct = Number.isFinite(pct) ? Math.min(Math.max(pct, 0), 100) : 0;
+  const offset = circ - (safePct / 100) * circ;
 
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
@@ -496,7 +499,14 @@ const CircularProgress = ({
   const color = colorProp ?? C.contentPrimary;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
-  const strokeDashoffset = circumference - (Math.min(progressPct, 100) / 100) * circumference;
+
+  // Clamp, and treat a non-finite progress as zero. `progressPct` is typed
+  // `number` but comes off a database row, and a goal with no target divides by
+  // zero. NaN reaches the SVG as stroke-dashoffset="NaN", which is not a valid
+  // length: react-native-svg rejects it and takes the whole screen down instead
+  // of drawing an empty ring.
+  const pct = Number.isFinite(progressPct) ? Math.min(Math.max(progressPct, 0), 100) : 0;
+  const strokeDashoffset = circumference - (pct / 100) * circumference;
 
   return (
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>

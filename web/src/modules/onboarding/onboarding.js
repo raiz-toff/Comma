@@ -348,6 +348,40 @@ export async function loadSampleData() {
   await activatePlatformSet(DEMO_SAMPLE_PLATFORM_IDS, 'sample');
 
   const t0 = nowIso();
+  // Mobile parity (store/useSettingsStore.ts loadSampleData): three demo vehicles, cycled
+  // across shifts in the same car/scooter/ebike order the route mini-map already uses via
+  // demoVehicleTypeForIndex, so the vehicle filter has real subset/one options to show off.
+  const demoVehicleIds = ['demo_vehicle_car', 'demo_vehicle_scooter', 'demo_vehicle_ebike'];
+  // Mirrors mobile's `await db.delete(vehicles)` before inserting demo vehicles — loadSampleData
+  // can run more than once (repeat "Try Demo" clicks, the Settings "load sample" button), and a
+  // second bulkAdd with the same fixed ids would throw a Dexie ConstraintError otherwise.
+  await db.vehicles.clear();
+  await db.vehicles.bulkAdd([
+    {
+      id: 'demo_vehicle_car', nickname: 'Toyota Prius', name: 'Toyota Prius',
+      isActive: true, active: true, type: 'hybrid', make: 'Toyota', model: 'Prius', year: 2020,
+      color: '', fuelType: null, licensePlate: '', currentOdometer: 0, fuelEfficiency: null,
+      currentFuelPrice: null, kwPer100km: null, electricityRate: null, maintenanceCostPerKm: null,
+      purchasePrice: null, expectedLifespanKm: null, totalKmLogged: 0,
+      createdAt: t0, updatedAt: t0, syncUpdatedAt: Date.now(), syncDeletedAt: null,
+    },
+    {
+      id: 'demo_vehicle_scooter', nickname: 'Honda Ruckus', name: 'Honda Ruckus',
+      isActive: false, active: false, type: 'scooter', make: 'Honda', model: 'Ruckus', year: 2022,
+      color: '', fuelType: null, licensePlate: '', currentOdometer: 0, fuelEfficiency: null,
+      currentFuelPrice: null, kwPer100km: null, electricityRate: null, maintenanceCostPerKm: null,
+      purchasePrice: null, expectedLifespanKm: null, totalKmLogged: 0,
+      createdAt: t0, updatedAt: t0, syncUpdatedAt: Date.now(), syncDeletedAt: null,
+    },
+    {
+      id: 'demo_vehicle_ebike', nickname: 'Rad Power RadCity', name: 'Rad Power RadCity',
+      isActive: false, active: false, type: 'ebike', make: 'Rad Power', model: 'RadCity', year: 2023,
+      color: '', fuelType: null, licensePlate: '', currentOdometer: 0, fuelEfficiency: null,
+      currentFuelPrice: null, kwPer100km: null, electricityRate: null, maintenanceCostPerKm: null,
+      purchasePrice: null, expectedLifespanKm: null, totalKmLogged: 0,
+      createdAt: t0, updatedAt: t0, syncUpdatedAt: Date.now(), syncDeletedAt: null,
+    },
+  ]);
   const shiftRows = [];
   const expenseRows = [];
   let weekdayShiftCount = 0;
@@ -398,7 +432,7 @@ export async function loadSampleData() {
         provinceId: sampleProvinceId,
         onlineMinutes: 220 + (seed % 80),
         activeMinutes: 170 + (seed % 70),
-        vehicleId: null,
+        vehicleId: demoVehicleIds[weekdayShiftCount % 3],
         routePath: generateDemoRoutePath(weekdayShiftCount, routeVehicleType),
         weather: seed % 3 === 0 ? 'Rain' : seed % 3 === 1 ? 'Cloudy' : 'Clear',
         mood: '🙂',
@@ -1248,7 +1282,6 @@ export async function mountOnboarding(root) {
           await applyPlatformsFromDraft(draft);
           await clearSampleData();
           await loadSampleData();
-          await persistVehicles(draft);
           await persistWeeklyGoalRow(draft);
           const displayName = draft.displayName.trim() || 'Hustler';
           await saveUser(buildCompletedUserPatch(draft, displayName));

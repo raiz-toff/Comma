@@ -283,6 +283,7 @@ async function openPeriodTypeSheet({ periodType, onPick }) {
 async function paintAnalytics(root, _ctx) {
   const myToken = ++paintToken;
   const platformFilter = String(store.get('activePlatformId') ?? 'all');
+  const vehicleFilter = String(store.get('activeVehicleId') ?? 'all');
   const user = store.get('user');
 
   const weekStartDay = Number(user?.locale?.weekStartDay ?? 0);
@@ -348,7 +349,7 @@ async function paintAnalytics(root, _ctx) {
 
   let widgetCtx;
   try {
-    widgetCtx = await buildWidgetDataContext(range, platformFilter, weekStartDay);
+    widgetCtx = await buildWidgetDataContext(range, platformFilter, weekStartDay, vehicleFilter);
   } catch (err) {
     if (myToken !== paintToken) return; // superseded by a newer repaint
     console.error('[comma analytics] failed to build widget data', err);
@@ -488,6 +489,7 @@ export async function render(root, ctx) {
 
   const unsubs = [
     bus.on('platform:changed', rerender),
+    bus.on('vehicle:filter:changed', rerender),
     bus.on('shift:saved', rerender),
     bus.on('shift:deleted', rerender),
   ];

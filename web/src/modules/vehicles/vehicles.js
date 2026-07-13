@@ -1,9 +1,9 @@
 import { db } from '../../core/db.js';
-import { bus, EXPENSE_SAVED } from '../../core/events.js';
+import { bus, EXPENSE_SAVED, VEHICLE_FILTER_CHANGED } from '../../core/events.js';
 import { store } from '../../core/store.js';
 import { calcDepreciation, calcVehicleCostPerKm } from '../../utils/calculations.js';
 import { t } from '../../utils/strings.js';
-import { renderEmptyState, showModal, showToast } from '../../ui/components.js';
+import { renderEmptyState, showModal, showToast, closeModal } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
 import { newId } from '../../core/id.js';
 
@@ -146,6 +146,11 @@ function calcVehicleStats(vehicle, expenses, maintenanceRows, shifts) {
   return { annualExpenses, costPerKm, depreciation, shiftKm, shiftCount };
 }
 
+/** Call once after `initDatabase` + initial `store.loadFromDB`, mirrors initPlatforms(). */
+export async function initVehicles() {
+  await store.refresh('vehicles');
+}
+
 async function listVehicles() {
   const rows = await db.vehicles.toArray();
   // ids are opaque client-generated strings (Fix 2 — interop plan), not sortable numbers —
@@ -153,6 +158,203 @@ async function listVehicles() {
   return rows
     .filter((v) => v.active !== false && v.syncDeletedAt == null)
     .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+}
+
+// ── Vehicle filter switcher (header) ────────────────────────────────────────
+// Mirrors the platform switcher (modules/platforms/platforms.js) — same tabs/dropdown modes,
+// same slot-mount pattern — but single-select only: web's platform filter has no all/subset/one
+// multi-select either, so a matching vehicle filter stays single-select for consistency.
+// No drag-reorder, no swipe-to-cycle — those are platform-specific polish nobody asked for here.
+
+/** @param {{ id: string; nickname?: string; name?: string; make?: string; model?: string; year?: number }} v */
+function vehicleLabel(v) {
+  const year = v.year ? `'${String(v.year).slice(-2)} ` : '';
+  const makeModel = `${v.make || ''} ${v.model || ''}`.trim();
+  return `${year}${makeModel || v.nickname || v.name || 'Vehicle'}`;
+}
+
+/**
+ * @param {'tabs'|'dropdown'} mode
+ * @param {{ activeRows: any[]; selectedId: string }} opts
+ * @returns {string}
+ */
+function renderVehicleSwitcher(mode, opts) {
+  const { activeRows, selectedId } = opts;
+  const truckIcon = getIcon('truck', 13);
+
+  if (mode === 'dropdown') {
+    const active = activeRows.find((v) => String(v.id) === selectedId);
+    const label = selectedId === 'all' ? t('app.vehicleAll') : (active ? vehicleLabel(active) : selectedId);
+
+    return `<div class="platform-switcher platform-switcher--dropdown vehicle-switcher" style="--platform-color:var(--color-brand)">
+      <button type="button" class="platform-switcher-trigger" aria-haspopup="listbox" aria-label="${esc(
+        t('vehicles.switcher') || 'Vehicle filter',
+      )}">
+        <span class="platform-switcher-trigger-logo">${truckIcon}</span>
+        <span class="platform-switcher-trigger-text">${esc(label)}</span>
+        <svg class="platform-switcher-trigger-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </div>`;
+  }
+
+  const allLabel = String(t('app.vehicleAll'));
+  const allInner = `<span class="platform-tab-inner"><span class="platform-tab-logo" aria-hidden="true">${truckIcon}</span><span class="platform-tab-label">${esc(allLabel)}</span></span>`;
+
+  const tabs = [
+    `<button type="button" class="platform-tab platform-tab--fixed platform-tab--has-logo" data-vehicle-tab-id="all" aria-selected="${selectedId === 'all' ? 'true' : 'false'}">${allInner}</button>`,
+    ...activeRows.map((v) => {
+      const id = String(v.id);
+      const label = vehicleLabel(v);
+      const sel = selectedId === id ? 'true' : 'false';
+      const inner = `<span class="platform-tab-inner"><span class="platform-tab-logo" aria-hidden="true">${truckIcon}</span><span class="platform-tab-label">${esc(label)}</span></span>`;
+      return `<button type="button" class="platform-tab platform-tab--has-logo" data-vehicle-tab-id="${esc(id)}" aria-selected="${sel}">${inner}</button>`;
+    }),
+  ];
+  return `<div class="platform-switcher platform-switcher--tabs vehicle-switcher" role="tablist" style="--platform-color:var(--color-brand)" aria-label="${esc(
+    t('vehicles.switcher') || 'Vehicle filter',
+  )}">${tabs.join('')}</div>`;
+}
+
+/** @type {WeakMap<HTMLElement, () => void>} */
+const vehicleSwitcherTeardown = new WeakMap();
+
+/**
+ * Mount header vehicle switcher into `slot` (re-renders on store/bus). Hidden entirely when
+ * there are 0 or 1 vehicles — nothing to filter.
+ * @param {HTMLElement | null} slot
+ */
+export function mountVehicleSwitcher(slot) {
+  if (!slot) return;
+
+  const prev = vehicleSwitcherTeardown.get(slot);
+  if (typeof prev === 'function') prev();
+
+  const onDocClick = (e) => {
+    const tablist = slot.querySelector('.vehicle-switcher.platform-switcher--tabs');
+    if (!tablist || !tablist.classList.contains('is-expanded')) return;
+    if (!tablist.contains(/** @type {Node} */ (e.target))) {
+      tablist.classList.remove('is-expanded');
+    }
+  };
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', onDocClick);
+  }
+
+  const render = async () => {
+    const user = store.get('user');
+    const modeRaw = user && typeof user.platformSwitcherMode === 'string' ? user.platformSwitcherMode : 'tabs';
+    const displayMode = modeRaw === 'dropdown' ? 'dropdown' : 'tabs';
+    const activeRows = /** @type {any[]} */ (store.get('vehicles') || []);
+
+    if (activeRows.length <= 1) {
+      slot.innerHTML = '';
+      slot.hidden = true;
+      return;
+    }
+
+    slot.hidden = false;
+
+    const selectedRaw = String(store.get('activeVehicleId') ?? 'all');
+    const ids = new Set(activeRows.map((r) => String(r.id)));
+    const selectedId = selectedRaw !== 'all' && !ids.has(selectedRaw) ? 'all' : selectedRaw;
+
+    slot.innerHTML = renderVehicleSwitcher(displayMode, { activeRows, selectedId });
+
+    const setFilter = (id) => {
+      const next = id === 'all' || ids.has(id) ? id : 'all';
+      store.set('activeVehicleId', next);
+      bus.emit(VEHICLE_FILTER_CHANGED, { vehicleId: next, source: 'switcher' });
+    };
+
+    if (displayMode === 'dropdown') {
+      const trigger = slot.querySelector('.platform-switcher-trigger');
+      if (trigger) {
+        trigger.addEventListener('click', () => {
+          showVehicleSelectionModal(activeRows, selectedId, setFilter);
+        });
+      }
+      return;
+    }
+
+    const tablist = slot.querySelector('.vehicle-switcher.platform-switcher--tabs');
+    if (tablist) {
+      tablist.addEventListener('click', (e) => {
+        const tEl = /** @type {HTMLElement | null} */ (e.target && /** @type {HTMLElement} */ (e.target).closest('[data-vehicle-tab-id]'));
+
+        if (!tablist.classList.contains('is-expanded')) {
+          tablist.classList.add('is-expanded');
+          return;
+        }
+
+        if (tEl) {
+          const id = tEl.getAttribute('data-vehicle-tab-id');
+          if (id) {
+            setFilter(id);
+            tablist.classList.remove('is-expanded');
+          }
+        } else {
+          tablist.classList.remove('is-expanded');
+        }
+      });
+    }
+  };
+
+  const run = (payload) => {
+    if (payload && payload.source === 'switcher') return;
+    void render();
+  };
+
+  run();
+  store.subscribe('vehicles', run);
+  const off = bus.on(VEHICLE_FILTER_CHANGED, run);
+
+  const teardown = () => {
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('click', onDocClick);
+    }
+    off();
+    store.unsubscribe('vehicles', run);
+    slot.innerHTML = '';
+  };
+  vehicleSwitcherTeardown.set(slot, teardown);
+}
+
+/**
+ * @param {any[]} activeRows
+ * @param {string} currentId
+ * @param {(id: string) => void} onSelect
+ */
+function showVehicleSelectionModal(activeRows, currentId, onSelect) {
+  const wrap = document.createElement('div');
+  wrap.className = 'platform-selection-list';
+
+  const items = [{ id: 'all', label: t('app.vehicleAll') }, ...activeRows.map((v) => ({ id: String(v.id), label: vehicleLabel(v) }))];
+
+  for (const item of items) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'platform-selection-item';
+    btn.dataset.vehicleId = item.id;
+    btn.setAttribute('aria-selected', item.id === currentId ? 'true' : 'false');
+
+    btn.innerHTML = `
+      <span class="platform-selection-item-logo">${getIcon('truck', 14)}</span>
+      <span class="platform-selection-item-name">${esc(item.label)}</span>
+      ${item.id === currentId ? '<svg class="platform-selection-item-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}
+    `;
+
+    btn.addEventListener('click', () => {
+      onSelect(item.id);
+      closeModal();
+    });
+    wrap.appendChild(btn);
+  }
+
+  showModal({
+    title: t('vehicles.switcher') || 'Vehicle filter',
+    content: wrap,
+    size: 'sm',
+  });
 }
 
 async function syncRecurringExpense(vehicleId, kind, date, amount) {
@@ -552,6 +754,7 @@ export async function renderVehiclesView(root) {
         num(payload.registrationAmount, 0),
       );
       showToast({ type: 'success', message: 'Vehicle saved', duration: 1800 });
+      await store.refresh('vehicles');
       await refresh();
       return;
     }
@@ -580,6 +783,7 @@ export async function renderVehiclesView(root) {
         num(normalized.registrationAmount, 0),
       );
       showToast({ type: 'success', message: 'Vehicle updated', duration: 1800 });
+      await store.refresh('vehicles');
       await refresh();
       return;
     }
@@ -648,6 +852,12 @@ export async function renderVehiclesView(root) {
     if (action === 'archive') {
       await db.vehicles.update(id, { active: false, updatedAt: nowIso() });
       showToast({ type: 'success', message: 'Vehicle archived', duration: 1800 });
+      // If the archived vehicle was the active filter, fall back to "all" — same rule
+      // deactivatePlatform() applies for platforms.
+      if (String(store.get('activeVehicleId')) === id) {
+        store.set('activeVehicleId', 'all');
+      }
+      await store.refresh('vehicles');
       await refresh();
     }
   });

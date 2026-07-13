@@ -1,6 +1,6 @@
 import PapaMod from '../libs/papaparse.min.js';
 import { db } from '../core/db.js';
-import { bus, PLATFORM_CHANGED, SHIFT_DELETED, SHIFT_SAVED } from '../core/events.js';
+import { bus, PLATFORM_CHANGED, VEHICLE_FILTER_CHANGED, SHIFT_DELETED, SHIFT_SAVED } from '../core/events.js';
 import { store } from '../core/store.js';
 import { t } from '../utils/strings.js';
 import { applySheetPresentation, showModal, showToast, renderEmptyState } from '../ui/components.js';
@@ -218,8 +218,12 @@ function filterAndSortShifts(list, start, end, sortDir) {
 
 async function loadAllShiftsForPlatform() {
   const platform = String(store.get('activePlatformId') ?? 'all');
+  const vehicle = String(store.get('activeVehicleId') ?? 'all');
   const rows = await db.shifts.toArray();
-  return rows.filter((s) => s.deletedAt == null).filter((s) => platform === 'all' || String(s.platformId) === platform);
+  return rows
+    .filter((s) => s.deletedAt == null)
+    .filter((s) => platform === 'all' || String(s.platformId) === platform)
+    .filter((s) => vehicle === 'all' || String(s.vehicleId) === vehicle);
 }
 
 /**
@@ -1107,6 +1111,7 @@ export async function render(root, ctx) {
   const offSaved = bus.on(SHIFT_SAVED, onBus);
   const offDel = bus.on(SHIFT_DELETED, onBus);
   const offPlatform = bus.on(PLATFORM_CHANGED, onBus);
+  const offVehicle = bus.on(VEHICLE_FILTER_CHANGED, onBus);
 
   const onSortChange = (e) => {
     const t = /** @type {HTMLElement | null} */ (e.target);
@@ -1321,6 +1326,7 @@ export async function render(root, ctx) {
     offSaved();
     offDel();
     offPlatform();
+    offVehicle();
     root.removeEventListener('click', onClick);
     root.removeEventListener('change', onSortChange);
     teardownByRoot.delete(root);

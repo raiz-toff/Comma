@@ -6,6 +6,7 @@ import {
   PLATFORM_CHANGED,
   SHIFT_DELETED,
   SHIFT_SAVED,
+  VEHICLE_FILTER_CHANGED,
 } from '../core/events.js';
 import { store } from '../core/store.js';
 import { getFinancialOverviewForRange, getFinancialMonthlyBreakdown } from '../modules/analytics/analytics.js';
@@ -119,6 +120,7 @@ async function paintDashboard(root, ctx) {
   const user = store.get('user');
   const weekStartDay = Number(user?.locale?.weekStartDay ?? 0);
   const platformFilter = String(store.get('activePlatformId') ?? 'all');
+  const vehicleFilter = String(store.get('activeVehicleId') ?? 'all');
   let range = loadDashboardRange();
   if (!range) range = defaultRangeForPreset('month', now, weekStartDay);
   if (String(range.start) > String(range.end)) {
@@ -175,12 +177,12 @@ async function paintDashboard(root, ctx) {
   `;
 
   const [fin, monthly] = await Promise.all([
-    getFinancialOverviewForRange(range.start, range.end, platformFilter, weekStartDay),
-    getFinancialMonthlyBreakdown(range.start, range.end, platformFilter),
+    getFinancialOverviewForRange(range.start, range.end, platformFilter, weekStartDay, vehicleFilter),
+    getFinancialMonthlyBreakdown(range.start, range.end, platformFilter, vehicleFilter),
   ]);
 
   // Data context for the KPI hero strip (rolling-trend sparklines, week compare, etc.)
-  const widgetCtx = await buildWidgetDataContext({ start: range.start, end: range.end }, platformFilter, weekStartDay);
+  const widgetCtx = await buildWidgetDataContext({ start: range.start, end: range.end }, platformFilter, weekStartDay, vehicleFilter);
   widgetCtx.data.financial = fin; // Inject pre-fetched financial data
 
   const localeCountry = user?.locale?.country || 'US';
@@ -1240,6 +1242,7 @@ export async function render(root, ctx) {
   };
 
   unsubs.push(bus.on(PLATFORM_CHANGED, rerender));
+  unsubs.push(bus.on(VEHICLE_FILTER_CHANGED, rerender));
   unsubs.push(bus.on(SHIFT_SAVED, rerender));
   unsubs.push(bus.on(SHIFT_DELETED, rerender));
   unsubs.push(bus.on(EXPENSE_SAVED, rerender));

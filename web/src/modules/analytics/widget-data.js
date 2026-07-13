@@ -31,9 +31,10 @@ import {
  * @param {{ start: string; end: string }} range
  * @param {string} platformFilter
  * @param {number} weekStartDay
+ * @param {string} [vehicleFilter='all']
  * @returns {Promise<{ user: unknown; data: Record<string, unknown> }>}
  */
-export async function buildWidgetDataContext(range, platformFilter, weekStartDay) {
+export async function buildWidgetDataContext(range, platformFilter, weekStartDay, vehicleFilter = 'all') {
   const user = store.get('user');
   const now = new Date();
   const y = now.getFullYear();
@@ -56,20 +57,20 @@ export async function buildWidgetDataContext(range, platformFilter, weekStartDay
     stabilityScore,
     scatter,
   ] = await Promise.all([
-    getFinancialOverviewForRange(range.start, range.end, platformFilter),
-    getMonthlySummary(m, y, platformFilter),
-    getBestDayOfWeek(range.start, range.end, platformFilter),
-    getBestTimeOfDay(range.start, range.end, platformFilter),
-    getDeadMilesSummary(range.start, range.end, platformFilter),
-    getZerodays(range.start, range.end, platformFilter),
-    getWeekOverWeek(platformFilter, { anchorDate: range.end }),
-    getAnnualSummary(y, platformFilter),
-    getStreakCountForActiveFilter(platformFilter),
-    getWeeklyProjection(platformFilter, { anchorDate: range.end }),
-    getRolling30DayTrend(platformFilter, { anchorDate: range.end }),
+    getFinancialOverviewForRange(range.start, range.end, platformFilter, weekStartDay, vehicleFilter),
+    getMonthlySummary(m, y, platformFilter, vehicleFilter),
+    getBestDayOfWeek(range.start, range.end, platformFilter, vehicleFilter),
+    getBestTimeOfDay(range.start, range.end, platformFilter, vehicleFilter),
+    getDeadMilesSummary(range.start, range.end, platformFilter, vehicleFilter),
+    getZerodays(range.start, range.end, platformFilter, vehicleFilter),
+    getWeekOverWeek(platformFilter, { anchorDate: range.end }, vehicleFilter),
+    getAnnualSummary(y, platformFilter, vehicleFilter),
+    getStreakCountForActiveFilter(platformFilter, vehicleFilter),
+    getWeeklyProjection(platformFilter, { anchorDate: range.end }, vehicleFilter),
+    getRolling30DayTrend(platformFilter, { anchorDate: range.end }, vehicleFilter),
     getPlatformShiftOfActivity(platformFilter),
     getIncomeStabilityScore(platformFilter),
-    getEarningsVsHoursScatter(range.start, range.end, platformFilter),
+    getEarningsVsHoursScatter(range.start, range.end, platformFilter, vehicleFilter),
   ]);
 
 

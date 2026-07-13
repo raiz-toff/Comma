@@ -34,6 +34,7 @@ export const strings = {
       navMore: 'More',
       navSupport: 'Help & Support',
       platformAll: 'All',
+      vehicleAll: 'All vehicles',
       headerAria: 'App header',
       navAria: 'Main navigation',
       skipToContent: 'Skip to main content',
@@ -572,6 +573,7 @@ export const strings = {
     },
     vehicles: {
       title: 'Vehicles',
+      switcher: 'Vehicle filter',
       add: 'Add vehicle',
       edit: 'Edit vehicle',
       fuel: 'Fuel',
@@ -1350,6 +1352,7 @@ export const strings = {
       navSearch: 'Recherche',
       navMore: 'Plus',
       platformAll: 'Tout',
+      vehicleAll: 'Tous les véhicules',
       headerAria: 'En-tête de l’app',
       navAria: 'Navigation principale',
       skipToContent: 'Passer au contenu principal',
@@ -1858,6 +1861,7 @@ export const strings = {
     },
     vehicles: {
       title: 'Véhicules',
+      switcher: 'Filtre véhicule',
       add: 'Ajouter un véhicule',
       edit: 'Modifier le véhicule',
       fuel: 'Carburant',

@@ -7,6 +7,7 @@ export const SHIFT_DELETED = 'shift:deleted';
 export const EXPENSE_SAVED = 'expense:saved';
 export const GOAL_UPDATED = 'goal:updated';
 export const PLATFORM_CHANGED = 'platform:changed';
+export const VEHICLE_FILTER_CHANGED = 'vehicle:filter:changed';
 export const THEME_CHANGED = 'theme:changed';
 export const BADGE_UNLOCKED = 'badge:unlocked';
 export const XP_EARNED = 'xp:earned';

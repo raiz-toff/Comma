@@ -8,6 +8,7 @@ import { store } from './store.js';
 import { Router } from './router.js';
 import { initFAB, showDrawer, showModal, showToast } from '../ui/components.js';
 import { mountPlatformSwitcher } from '../modules/platforms/platforms.js';
+import { mountVehicleSwitcher } from '../modules/vehicles/vehicles.js';
 import { openGlobalSearchOverlay } from '../modules/search/search.js';
 import { exitDemoToOnboardingStart } from '../modules/onboarding/onboarding.js';
 import { renderShiftForm } from '../modules/shifts/shift-form.js';
@@ -160,6 +161,7 @@ export async function renderAppShell(root) {
         <header class="app-header" role="banner" aria-label="${escapeAttr(t('app.headerAria'))}">
         <div class="app-header-avatar" aria-hidden="true">${initials}</div>
         <div id="platform-tabs-slot" class="platform-tabs app-header-platforms" aria-label="${escapeAttr(t('platforms.switcher'))}"></div>
+        <div id="vehicle-tabs-slot" class="platform-tabs app-header-vehicles" aria-label="${escapeAttr(t('vehicles.switcher'))}" hidden></div>
         <div class="app-header-spacer"></div>
         <div class="app-header-actions">
           <a class="btn btn-secondary btn-xs header-btn" href="#/analytics/week" title="${escapeAttr(t('views.dashboard.financial.weeklyLog'))}">
@@ -241,6 +243,7 @@ export async function renderAppShell(root) {
     void openGlobalSearchOverlay();
   });
   mountPlatformSwitcher(root.querySelector('#platform-tabs-slot'));
+  mountVehicleSwitcher(root.querySelector('#vehicle-tabs-slot'));
   await hydrateShiftTimerBar(root.querySelector('#shift-timer-bar'));
 
   root.querySelector('#bottom-nav-more')?.addEventListener('click', () => {

@@ -20,6 +20,7 @@ import { assertGoalTypeRegistryValid, GoalScopeRegistry, GoalTypeRegistry } from
 import { assertShiftFieldRegistryValid, ShiftFieldRegistry } from './registry/shift-fields/index.js';
 import { renderAppShell } from './core/shell.js';
 import { initPlatforms } from './modules/platforms/platforms.js';
+import { initVehicles } from './modules/vehicles/vehicles.js';
 import { runOnOpenNotificationCheck } from './modules/notifications/notifications.js';
 import { initExpensesModule, runRecurringExpensePromptOnce } from './modules/expenses/expenses.js';
 import { initGoalsModule } from './modules/goals/goals.js';
@@ -218,6 +219,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateOnboardingFocusClass(!store.get('user')?.onboardingComplete);
 
     await initPlatforms();
+    await initVehicles();
     initIonic();
     initAdaptiveTheme();
     initExpensesModule();

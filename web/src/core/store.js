@@ -41,6 +41,8 @@ const STATE_KEYS = [
   'marketContext',
   'activePlatformId',
   'platforms',
+  'activeVehicleId',
+  'vehicles',
   'activeShiftTimer',
   'currentWeekEarnings',
   'currentWeekGoal',
@@ -62,6 +64,8 @@ const state = {
   marketContext: null,
   activePlatformId: 'all',
   platforms: [],
+  activeVehicleId: 'all',
+  vehicles: [],
   /** @type {ActiveShiftTimer} */
   activeShiftTimer: null,
   currentWeekEarnings: 0,
@@ -237,6 +241,16 @@ async function loadActivePlatforms() {
   return rows;
 }
 
+/** Mirrors loadActivePlatforms — ids are opaque client-generated strings, so sort by
+ * createdAt (insertion order) rather than id, same as vehicles.js's own listVehicles(). */
+async function loadActiveVehicles() {
+  const rows = await db.vehicles
+    .filter((v) => v.active !== false && v.syncDeletedAt == null)
+    .toArray();
+  rows.sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+  return rows;
+}
+
 function noop() {}
 
 export function bindText(selector, storeKey, formatter) {
@@ -399,6 +413,11 @@ export const store = {
         case 'platforms': {
           const pl = await loadActivePlatforms();
           this.set('platforms', pl);
+          break;
+        }
+        case 'vehicles': {
+          const vl = await loadActiveVehicles();
+          this.set('vehicles', vl);
           break;
         }
         case 'activeShiftTimer': {

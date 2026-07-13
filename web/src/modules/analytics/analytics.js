@@ -83,20 +83,38 @@ function filterShiftsByActivePlatform(shifts, activePlatformId = 'all') {
 }
 
 /**
+ * Same rule as filterShiftsByActivePlatform, for the vehicle filter (header switcher, single-
+ * select — web has no all/subset/one multi-select the way the phone app does).
+ * @template T
+ * @param {T[]} shifts
+ * @param {string} [activeVehicleId='all']
+ * @returns {T[]}
+ */
+function filterShiftsByActiveVehicle(shifts, activeVehicleId = 'all') {
+  const vid = String(activeVehicleId ?? 'all');
+  if (vid === 'all') return shifts;
+  return shifts.filter((s) => String(/** @type {{ vehicleId?: unknown }} */ (s).vehicleId ?? '') === vid);
+}
+
+/**
  * Streak for dashboard: app-wide when filter is `all`; otherwise consecutive calendar days
  * with at least one shift on that platform (most recent work day backward until a gap).
  * @param {string} [activePlatformId='all']
+ * @param {string} [activeVehicleId='all']
  * @returns {Promise<number>}
  */
-export async function getStreakCountForActiveFilter(activePlatformId = 'all') {
+export async function getStreakCountForActiveFilter(activePlatformId = 'all', activeVehicleId = 'all') {
   const pid = String(activePlatformId ?? 'all');
   if (pid === 'all') {
     const raw = await getAppState('streak_count');
     return Number(raw) || 0;
   }
-  const rows = filterShiftsByActivePlatform(
-    await db.shifts.filter((s) => s.deletedAt == null).toArray(),
-    pid,
+  const rows = filterShiftsByActiveVehicle(
+    filterShiftsByActivePlatform(
+      await db.shifts.filter((s) => s.deletedAt == null).toArray(),
+      pid,
+    ),
+    activeVehicleId,
   );
   const dates = [...new Set(rows.map((s) => String(s.date || '')).filter(Boolean))].sort((a, b) =>
     b.localeCompare(a),
@@ -320,8 +338,9 @@ function ymdMin(a, b) {
  * @param {string} endDate YYYY-MM-DD
  * @param {string} [activePlatformId='all']
  * @param {number} [weekStartDay=0] matches `user.locale.weekStartDay`
+ * @param {string} [activeVehicleId='all']
  */
-export async function getFinancialOverviewForRange(startDate, endDate, activePlatformId = 'all', weekStartDay = 0) {
+export async function getFinancialOverviewForRange(startDate, endDate, activePlatformId = 'all', weekStartDay = 0, activeVehicleId = 'all') {
   const empty = {
     count: 0,
     gross: 0,
@@ -342,7 +361,7 @@ export async function getFinancialOverviewForRange(startDate, endDate, activePla
   };
   if (!startDate || !endDate || String(startDate) > String(endDate)) return empty;
 
-  const shifts = filterShiftsByActivePlatform(await listShiftsBetween(startDate, endDate), activePlatformId);
+  const shifts = filterShiftsByActiveVehicle(filterShiftsByActivePlatform(await listShiftsBetween(startDate, endDate), activePlatformId), activeVehicleId);
   const s = aggregateShiftsLight(shifts);
   const pid = String(activePlatformId ?? 'all') === 'all' ? undefined : String(activePlatformId);
   const [expense, outOfPocket] = await Promise.all([
@@ -370,7 +389,7 @@ export async function getFinancialOverviewForRange(startDate, endDate, activePla
     const weekEndFromAnchor = addDaysToYmd(weekAnchor, 6);
     const effStart = ymdMax(segmentStart, weekAnchor);
     const effEnd = ymdMin(endDate, weekEndFromAnchor);
-    const segShifts = filterShiftsByActivePlatform(await listShiftsBetween(effStart, effEnd), activePlatformId);
+    const segShifts = filterShiftsByActiveVehicle(filterShiftsByActivePlatform(await listShiftsBetween(effStart, effEnd), activePlatformId), activeVehicleId);
     const seg = aggregateShiftsLight(segShifts);
     const expC = await getTotalExpensesForPeriod(effStart, effEnd, pid);
     const net = seg.gross - expC;
@@ -409,16 +428,17 @@ export async function getFinancialOverviewForRange(startDate, endDate, activePla
  * @param {string} startDate YYYY-MM-DD
  * @param {string} endDate YYYY-MM-DD
  * @param {string} [activePlatformId='all']
+ * @param {string} [activeVehicleId='all']
  * @returns {Promise<{ rows: { period: string; earnings: number; expenses: number; outOfPocket: number; net: number; hours: number; efficiency: number }[]; totals: { earnings: number; expenses: number; outOfPocket: number; net: number; hours: number; avgPerHr: number; effectivePerHr: number } }>}
  */
-export async function getFinancialMonthlyBreakdown(startDate, endDate, activePlatformId = 'all') {
+export async function getFinancialMonthlyBreakdown(startDate, endDate, activePlatformId = 'all', activeVehicleId = 'all') {
   const emptyTotals = { earnings: 0, expenses: 0, outOfPocket: 0, net: 0, hours: 0, avgPerHr: 0, effectivePerHr: 0 };
   if (!startDate || !endDate || String(startDate) > String(endDate)) {
     return { rows: [], totals: emptyTotals };
   }
 
   const pid = String(activePlatformId ?? 'all') === 'all' ? undefined : String(activePlatformId);
-  const shifts = filterShiftsByActivePlatform(await listShiftsBetween(startDate, endDate), activePlatformId);
+  const shifts = filterShiftsByActiveVehicle(filterShiftsByActivePlatform(await listShiftsBetween(startDate, endDate), activePlatformId), activeVehicleId);
   const expenseRows = await db.expenses
     .filter(
       (e) =>
@@ -523,10 +543,11 @@ export async function getWeeklySummary(startDate) {
  * @param {number} month
  * @param {number} year
  * @param {string} [activePlatformId='all']
+ * @param {string} [activeVehicleId='all']
  */
-export async function getMonthlySummary(month, year, activePlatformId = 'all') {
+export async function getMonthlySummary(month, year, activePlatformId = 'all', activeVehicleId = 'all') {
   const { start, end } = monthRange(month, year);
-  const shifts = filterShiftsByActivePlatform(await listShiftsBetween(start, end), activePlatformId);
+  const shifts = filterShiftsByActiveVehicle(filterShiftsByActivePlatform(await listShiftsBetween(start, end), activePlatformId), activeVehicleId);
   const rows = await hydrateDerived(shifts);
   return aggregateSummary(rows);
 }
@@ -534,10 +555,11 @@ export async function getMonthlySummary(month, year, activePlatformId = 'all') {
 /**
  * @param {number} year
  * @param {string} [activePlatformId='all'] from `store.get('activePlatformId')` — limits metrics to one platform
+ * @param {string} [activeVehicleId='all']
  */
-export async function getAnnualSummary(year, activePlatformId = 'all') {
+export async function getAnnualSummary(year, activePlatformId = 'all', activeVehicleId = 'all') {
   const { start, end } = yearRange(year);
-  const shifts = filterShiftsByActivePlatform(await listShiftsBetween(start, end), activePlatformId);
+  const shifts = filterShiftsByActiveVehicle(filterShiftsByActivePlatform(await listShiftsBetween(start, end), activePlatformId), activeVehicleId);
   const rows = await hydrateDerived(shifts);
   return aggregateSummary(rows);
 }
@@ -545,17 +567,21 @@ export async function getAnnualSummary(year, activePlatformId = 'all') {
 /**
  * @param {string} [activePlatformId='all']
  * @param {{ anchorDate?: Date | string | null }} [options]
+ * @param {string} [activeVehicleId='all']
  */
-export async function getRolling30DayTrend(activePlatformId = 'all', options = {}) {
+export async function getRolling30DayTrend(activePlatformId = 'all', options = {}, activeVehicleId = 'all') {
   const raw = options.anchorDate;
   const today = raw instanceof Date && !Number.isNaN(raw.getTime())
     ? new Date(raw.getTime())
     : (typeof raw === 'string' && raw ? new Date(`${raw}T12:00:00`) : new Date());
   const start = new Date(today);
   start.setDate(start.getDate() - 29);
-  const shifts = filterShiftsByActivePlatform(
-    await listShiftsBetween(ymd(start), ymd(today)),
-    activePlatformId,
+  const shifts = filterShiftsByActiveVehicle(
+    filterShiftsByActivePlatform(
+      await listShiftsBetween(ymd(start), ymd(today)),
+      activePlatformId,
+    ),
+    activeVehicleId,
   );
 
   const byDayGross = new Map();
@@ -623,11 +649,15 @@ export async function getRolling30DayTrend(activePlatformId = 'all', options = {
 
 /**
  * @param {string} [activePlatformId='all']
+ * @param {string} [activeVehicleId='all']
  */
-export async function getBestDayOfWeek(startDate, endDate, activePlatformId = 'all') {
-  const shifts = filterShiftsByActivePlatform(
-    await listShiftsBetween(startDate, endDate),
-    activePlatformId,
+export async function getBestDayOfWeek(startDate, endDate, activePlatformId = 'all', activeVehicleId = 'all') {
+  const shifts = filterShiftsByActiveVehicle(
+    filterShiftsByActivePlatform(
+      await listShiftsBetween(startDate, endDate),
+      activePlatformId,
+    ),
+    activeVehicleId,
   );
   const buckets = new Map();
   for (const s of shifts) {
@@ -648,11 +678,15 @@ export async function getBestDayOfWeek(startDate, endDate, activePlatformId = 'a
  * @param {string} startDate
  * @param {string} endDate
  * @param {string} [activePlatformId='all']
+ * @param {string} [activeVehicleId='all']
  */
-export async function getBestTimeOfDay(startDate, endDate, activePlatformId = 'all') {
-  const shifts = filterShiftsByActivePlatform(
-    await listShiftsBetween(startDate, endDate),
-    activePlatformId,
+export async function getBestTimeOfDay(startDate, endDate, activePlatformId = 'all', activeVehicleId = 'all') {
+  const shifts = filterShiftsByActiveVehicle(
+    filterShiftsByActivePlatform(
+      await listShiftsBetween(startDate, endDate),
+      activePlatformId,
+    ),
+    activeVehicleId,
   );
   const buckets = new Map();
   for (const s of shifts) {
@@ -673,11 +707,15 @@ export async function getBestTimeOfDay(startDate, endDate, activePlatformId = 'a
  * @param {string} startDate
  * @param {string} endDate
  * @param {string} [activePlatformId='all']
+ * @param {string} [activeVehicleId='all']
  */
-export async function getDeadMilesSummary(startDate, endDate, activePlatformId = 'all') {
-  const shifts = filterShiftsByActivePlatform(
-    await listShiftsBetween(startDate, endDate),
-    activePlatformId,
+export async function getDeadMilesSummary(startDate, endDate, activePlatformId = 'all', activeVehicleId = 'all') {
+  const shifts = filterShiftsByActiveVehicle(
+    filterShiftsByActivePlatform(
+      await listShiftsBetween(startDate, endDate),
+      activePlatformId,
+    ),
+    activeVehicleId,
   );
   let deadKm = 0;
   let businessKm = 0;
@@ -722,11 +760,15 @@ export async function getPlatformComparison() {
 
 /**
  * @param {string} [activePlatformId='all']
+ * @param {string} [activeVehicleId='all']
  */
-export async function getIncomeSourceBreakdown(activePlatformId = 'all') {
-  const shifts = filterShiftsByActivePlatform(
-    await db.shifts.filter((s) => s.deletedAt == null).toArray(),
-    activePlatformId,
+export async function getIncomeSourceBreakdown(activePlatformId = 'all', activeVehicleId = 'all') {
+  const shifts = filterShiftsByActiveVehicle(
+    filterShiftsByActivePlatform(
+      await db.shifts.filter((s) => s.deletedAt == null).toArray(),
+      activePlatformId,
+    ),
+    activeVehicleId,
   );
   let baseCents = 0;
   let tipsCents = 0;
@@ -756,9 +798,10 @@ export async function getPersonalRecords() {
  * @param {string} startDate
  * @param {string} endDate
  * @param {string} [activePlatformId='all']
+ * @param {string} [activeVehicleId='all']
  */
-export async function getZerodays(startDate, endDate, activePlatformId = 'all') {
-  const shifts = filterShiftsByActivePlatform(await listShiftsBetween(startDate, endDate), activePlatformId);
+export async function getZerodays(startDate, endDate, activePlatformId = 'all', activeVehicleId = 'all') {
+  const shifts = filterShiftsByActiveVehicle(filterShiftsByActivePlatform(await listShiftsBetween(startDate, endDate), activePlatformId), activeVehicleId);
   const worked = new Set(shifts.map((s) => s.date));
   const start = new Date(`${startDate}T00:00:00`);
   const end = new Date(`${endDate}T00:00:00`);
@@ -780,8 +823,9 @@ export async function getEarningsPerKm(startDate, endDate) {
 /**
  * @param {string} [activePlatformId='all']
  * @param {{ anchorDate?: Date }} [options] Use `anchorDate` instead of today for week boundaries (demo sample year).
+ * @param {string} [activeVehicleId='all']
  */
-export async function getWeeklyProjection(activePlatformId = 'all', options = {}) {
+export async function getWeeklyProjection(activePlatformId = 'all', options = {}, activeVehicleId = 'all') {
   const raw = /** @type {{ anchorDate?: unknown }} */ (options).anchorDate;
   const today =
     raw instanceof Date && !Number.isNaN(/** @type {Date} */ (raw).getTime())
@@ -789,7 +833,7 @@ export async function getWeeklyProjection(activePlatformId = 'all', options = {}
       : new Date();
   const start = startOfWeek(today, 1);
   const end = endOfWeek(today, 1);
-  const shifts = filterShiftsByActivePlatform(await listShiftsBetween(ymd(start), ymd(end)), activePlatformId);
+  const shifts = filterShiftsByActiveVehicle(filterShiftsByActivePlatform(await listShiftsBetween(ymd(start), ymd(end)), activePlatformId), activeVehicleId);
   const points = shifts.map((s) => ({
     // Fix 1 (interop plan) — s.startTime is a real epoch-ms timestamp now.
     startAt: typeof s.startTime === 'number' ? new Date(s.startTime).toISOString() : `${s.date}T00:00:00`,
@@ -801,11 +845,15 @@ export async function getWeeklyProjection(activePlatformId = 'all', options = {}
 /**
  * @param {number} [limit=10]
  * @param {string} [activePlatformId='all']
+ * @param {string} [activeVehicleId='all']
  */
-export async function getTopEarningShifts(limit = 10, activePlatformId = 'all') {
-  const rows = filterShiftsByActivePlatform(
-    await db.shifts.filter((s) => s.deletedAt == null).toArray(),
-    activePlatformId,
+export async function getTopEarningShifts(limit = 10, activePlatformId = 'all', activeVehicleId = 'all') {
+  const rows = filterShiftsByActiveVehicle(
+    filterShiftsByActivePlatform(
+      await db.shifts.filter((s) => s.deletedAt == null).toArray(),
+      activePlatformId,
+    ),
+    activeVehicleId,
   );
   return rows
     .map((s) => ({
@@ -822,10 +870,11 @@ export async function getTopEarningShifts(limit = 10, activePlatformId = 'all') 
 /**
  * @param {number} [year]
  * @param {string} [activePlatformId='all']
+ * @param {string} [activeVehicleId='all']
  */
-export async function getCumulativeYtdSeries(year = new Date().getFullYear(), activePlatformId = 'all') {
+export async function getCumulativeYtdSeries(year = new Date().getFullYear(), activePlatformId = 'all', activeVehicleId = 'all') {
   const { start, end } = yearRange(year);
-  const shifts = filterShiftsByActivePlatform(await listShiftsBetween(start, end), activePlatformId);
+  const shifts = filterShiftsByActiveVehicle(filterShiftsByActivePlatform(await listShiftsBetween(start, end), activePlatformId), activeVehicleId);
   const byDay = new Map();
   for (const s of shifts) {
     byDay.set(s.date, (byDay.get(s.date) || 0) + grossCents(s));
@@ -848,9 +897,10 @@ export async function getCumulativeYtdSeries(year = new Date().getFullYear(), ac
  * @param {string} startDate
  * @param {string} endDate
  * @param {string} [activePlatformId='all']
+ * @param {string} [activeVehicleId='all']
  */
-export async function getEarningsVsHoursScatter(startDate, endDate, activePlatformId = 'all') {
-  const shifts = filterShiftsByActivePlatform(await listShiftsBetween(startDate, endDate), activePlatformId);
+export async function getEarningsVsHoursScatter(startDate, endDate, activePlatformId = 'all', activeVehicleId = 'all') {
+  const shifts = filterShiftsByActiveVehicle(filterShiftsByActivePlatform(await listShiftsBetween(startDate, endDate), activePlatformId), activeVehicleId);
   return shifts.map((s) => ({
     x: getDurationMinutes(s) / 60,
     y: grossCents(s) / 100,
@@ -862,8 +912,9 @@ export async function getEarningsVsHoursScatter(startDate, endDate, activePlatfo
 /**
  * @param {string} [activePlatformId='all']
  * @param {{ anchorDate?: Date }} [options] Use `anchorDate` instead of today for week boundaries (demo sample year).
+ * @param {string} [activeVehicleId='all']
  */
-export async function getWeekOverWeek(activePlatformId = 'all', options = {}) {
+export async function getWeekOverWeek(activePlatformId = 'all', options = {}, activeVehicleId = 'all') {
   const raw = /** @type {{ anchorDate?: unknown }} */ (options).anchorDate;
   const now =
     raw instanceof Date && !Number.isNaN(/** @type {Date} */ (raw).getTime())
@@ -879,8 +930,8 @@ export async function getWeekOverWeek(activePlatformId = 'all', options = {}) {
     listShiftsBetween(ymd(thisWeekStart), ymd(thisWeekEnd)),
     listShiftsBetween(ymd(lastWeekStart), ymd(lastWeekEnd)),
   ]);
-  const tw = filterShiftsByActivePlatform(thisWeek, activePlatformId);
-  const lw = filterShiftsByActivePlatform(lastWeek, activePlatformId);
+  const tw = filterShiftsByActiveVehicle(filterShiftsByActivePlatform(thisWeek, activePlatformId), activeVehicleId);
+  const lw = filterShiftsByActiveVehicle(filterShiftsByActivePlatform(lastWeek, activePlatformId), activeVehicleId);
   const thisGross = tw.reduce((sum, s) => sum + grossCents(s), 0);
   const lastGross = lw.reduce((sum, s) => sum + grossCents(s), 0);
   return { thisGross: thisGross / 100, lastGross: lastGross / 100, delta: (thisGross - lastGross) / 100 };
@@ -889,11 +940,15 @@ export async function getWeekOverWeek(activePlatformId = 'all', options = {}) {
 /**
  * @param {number} [limit=8]
  * @param {string} [activePlatformId='all']
+ * @param {string} [activeVehicleId='all']
  */
-export async function getRecentActivity(limit = 8, activePlatformId = 'all') {
-  const rows = filterShiftsByActivePlatform(
-    await db.shifts.filter((s) => s.deletedAt == null).toArray(),
-    activePlatformId,
+export async function getRecentActivity(limit = 8, activePlatformId = 'all', activeVehicleId = 'all') {
+  const rows = filterShiftsByActiveVehicle(
+    filterShiftsByActivePlatform(
+      await db.shifts.filter((s) => s.deletedAt == null).toArray(),
+      activePlatformId,
+    ),
+    activeVehicleId,
   );
   return rows
     .sort((a, b) => String(b.updatedAt || b.date).localeCompare(String(a.updatedAt || a.date)))

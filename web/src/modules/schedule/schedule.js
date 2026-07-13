@@ -1,6 +1,6 @@
 import { db, getAppState, setAppState } from '../../core/db.js';
 import { store } from '../../core/store.js';
-import { bus, PLATFORM_CHANGED, NAVIGATION } from '../../core/events.js';
+import { bus, PLATFORM_CHANGED, VEHICLE_FILTER_CHANGED, NAVIGATION } from '../../core/events.js';
 import { formatCurrency } from '../../utils/formatters.js';
 import { t } from '../../utils/strings.js';
 import { showModal } from '../../ui/components.js';
@@ -203,6 +203,7 @@ async function loadScheduleModel(referenceDate = new Date()) {
   const monthStart = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1);
   const monthEnd = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0);
   const activePlatformId = String(store.get('activePlatformId') || 'all');
+  const activeVehicleId = String(store.get('activeVehicleId') || 'all');
   const [weekRowsRaw, monthRowsRaw, allRowsRaw, state] = await Promise.all([
     db.shifts.where('date').between(ymd(weekStartDate), ymd(weekEndDate), true, true).filter((s) => s.deletedAt == null).toArray(),
     listShiftsForMonth(referenceDate.getFullYear(), referenceDate.getMonth()),
@@ -210,7 +211,9 @@ async function loadScheduleModel(referenceDate = new Date()) {
     getScheduleState(),
   ]);
 
-  const filterFn = (s) => activePlatformId === 'all' || String(s.platformId) === activePlatformId;
+  const filterFn = (s) =>
+    (activePlatformId === 'all' || String(s.platformId) === activePlatformId) &&
+    (activeVehicleId === 'all' || String(s.vehicleId) === activeVehicleId);
   const weekRows = weekRowsRaw.filter(filterFn);
   const monthRows = monthRowsRaw.filter(filterFn);
   const allRows = allRowsRaw.filter(filterFn);
@@ -568,9 +571,11 @@ async function showDayDetailModal(dateStr, model, root) {
   if (!date) return;
   
   const activePlatformId = String(store.get('activePlatformId') || 'all');
+  const activeVehicleId = String(store.get('activeVehicleId') || 'all');
   const dayShifts = (await db.shifts.where('date').equals(dateStr).toArray())
     .filter(s => s.deletedAt == null)
-    .filter(s => activePlatformId === 'all' || String(s.platformId) === activePlatformId);
+    .filter(s => activePlatformId === 'all' || String(s.platformId) === activePlatformId)
+    .filter(s => activeVehicleId === 'all' || String(s.vehicleId) === activeVehicleId);
   const dayPlans = (model.planning || []).filter(p => p.date === dateStr);
   const totalGross = dayShifts.reduce((sum, s) => sum + grossFromShift(s), 0);
   
@@ -1067,6 +1072,7 @@ export async function renderScheduleModule(root, ctx = {}) {
 
   const onPlatform = () => renderScheduleModule(root, ctx);
   const offPlatform = bus.on(PLATFORM_CHANGED, onPlatform);
+  const offVehicle = bus.on(VEHICLE_FILTER_CHANGED, onPlatform);
 
   // Teardown to avoid multiple listeners on re-render, AND to stop the PLATFORM_CHANGED
   // listener above from leaking after the user navigates away. Without the NAVIGATION
@@ -1082,6 +1088,7 @@ export async function renderScheduleModule(root, ctx = {}) {
       root._scheduleDocClick = null;
     }
     offPlatform();
+    offVehicle();
     if (offNav) {
       offNav();
       offNav = null;

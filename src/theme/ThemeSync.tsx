@@ -40,10 +40,38 @@ export function ThemeSync() {
   const pref = (useSettingsStore((s) => s.profile?.theme) as ThemePref | undefined) ?? "dark";
   const scheme = useResolvedScheme();
 
-  // Preference → NativeWind. Idempotent, so the common case (pref is dark, which
-  // index.ts already applied at boot) writes nothing at all on mount.
+  /*
+   * Preference → NativeWind, deferred out of the commit ON PURPOSE.
+   *
+   * colorScheme.set() writes React Native's global Appearance, whose change
+   * listener runs react-native-css-interop's observable.set() — which fans out
+   * SYNCHRONOUSLY and without batching:
+   *
+   *     set(newValue) {
+   *       if (Object.is(newValue, value)) return;
+   *       value = newValue;
+   *       for (const effect of Array.from(effects)) effect.run();   // setState
+   *     }
+   *
+   * and NativeWind subscribes those effects during RENDER, not from an effect.
+   *
+   * So firing it from inside a commit pushes a state update into components in
+   * that very commit which have rendered but not yet mounted, and React rightly
+   * objects: "Can't perform a React state update on a component that hasn't
+   * mounted yet." It happens at boot whenever the saved preference is light or
+   * auto, because the profile arrives from SQLite in the same commit that first
+   * mounts the app tree.
+   *
+   * Dark hid the bug completely: `Object.is` makes set() a no-op when the value
+   * does not change, and a dark-preference driver on a dark phone changes nothing.
+   *
+   * A macrotask puts the write after the commit has fully settled, when every
+   * subscriber is genuinely mounted. The cost is one frame of the previous theme,
+   * which is the correct thing to trade for not crashing.
+   */
   useEffect(() => {
-    applyThemePref(pref);
+    const id = setTimeout(() => applyThemePref(pref), 0);
+    return () => clearTimeout(id);
   }, [pref]);
 
   // Whatever actually rendered → the live palette, for the code outside React.

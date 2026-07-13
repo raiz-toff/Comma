@@ -58,7 +58,8 @@ export const ONBOARDING_SESSION_KEY = 'comma_onboarding_session_v3';
 const SAMPLE_NOTE = '[COMMA sample data]';
 
 /** Demo vault: three catalog platforms (Dexie seed always includes these ids). */
-const DEMO_SAMPLE_PLATFORM_IDS = ['doordash', 'ubereats', 'instacart'];
+// Mobile parity (store/useSettingsStore.ts loadSampleData templateConfigs): doordash/ubereats/skip.
+const DEMO_SAMPLE_PLATFORM_IDS = ['doordash', 'ubereats', 'skip'];
 
 function ymdFromDate(d) {
   const y = d.getFullYear();

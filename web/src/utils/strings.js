@@ -38,7 +38,7 @@ export const strings = {
       headerAria: 'App header',
       navAria: 'Main navigation',
       skipToContent: 'Skip to main content',
-      demoModeBanner: 'Demo mode — 2025 sample shifts and expenses (three platforms), not your real data.',
+      demoModeBanner: 'Demo mode — sample shifts and expenses (three platforms, three vehicles), not your real data.',
       exitDemo: 'Exit demo',
       exitDemoToast: 'Vault cleared — reloading so you can set up COMMA from scratch.',
     },
@@ -118,7 +118,7 @@ export const strings = {
           'Weekly targets, streaks, and simple charts help you pace yourself without spreadsheet fatigue.',
         footnote: 'Setup takes a few minutes. Prefer a tour first? Try the demo — a full sample year you can clear anytime.',
       },
-      demoEnabled: 'Demo vault loaded. Explore 2025 sample data.',
+      demoEnabled: 'Demo vault loaded. Explore sample data.',
       resumeTitle: 'Continue setup?',
       resumeMessage: 'You started onboarding earlier this session. Continue where you left off, or start over.',
       resumeContinue: 'Continue',
@@ -1357,7 +1357,7 @@ export const strings = {
       navAria: 'Navigation principale',
       skipToContent: 'Passer au contenu principal',
       demoModeBanner:
-        'Mode démo — quarts et dépenses fictifs pour 2025 (trois plateformes), pas vos vraies données.',
+        'Mode démo — quarts et dépenses fictifs (trois plateformes, trois véhicules), pas vos vraies données.',
       exitDemo: 'Quitter la démo',
       exitDemoToast:
         'Coffre effacé — rechargement pour recommencer la configuration de COMMA depuis le début.',
@@ -1437,7 +1437,7 @@ export const strings = {
         footnote:
           'Quelques minutes pour tout régler. Envie d’un tour d’horizon ? Essayez la démo — une année d’exemple effaçable quand vous voulez.',
       },
-      demoEnabled: 'Coffre démo chargé. Explorez les données de 2025.',
+      demoEnabled: 'Coffre démo chargé. Explorez les données d’exemple.',
       resumeTitle: 'Poursuivre la configuration ?',
       resumeMessage: 'Une configuration est déjà en cours pour cette session. Reprendre ou recommencer.',
       resumeContinue: 'Continuer',

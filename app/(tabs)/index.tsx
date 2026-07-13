@@ -670,6 +670,7 @@ export default function HomeScreen() {
     loadSettings,
     clearSampleData,
     activePlatformFilter,
+    activeVehicleFilter,
     preferredVehicleId,
     isOnboardingCompleted,
     streakDays,
@@ -806,14 +807,14 @@ export default function HomeScreen() {
   }, [wizardStep]);
 
   const { data: todayStats } = useQuery({
-    queryKey: ["analytics", "today", activePlatformFilter],
-    queryFn: () => getTodayStats(activePlatformFilter),
+    queryKey: ["analytics", "today", activePlatformFilter, activeVehicleFilter],
+    queryFn: () => getTodayStats(activePlatformFilter, activeVehicleFilter),
     enabled: isOnboardingCompleted,
   });
 
   const { data: weekStats } = useQuery({
-    queryKey: ["analytics", "week", activePlatformFilter],
-    queryFn: () => getWeekStats(activePlatformFilter),
+    queryKey: ["analytics", "week", activePlatformFilter, activeVehicleFilter],
+    queryFn: () => getWeekStats(activePlatformFilter, activeVehicleFilter),
     enabled: isOnboardingCompleted,
   });
 
@@ -821,24 +822,24 @@ export default function HomeScreen() {
   const todayStr = ymd(new Date());
 
   const { data: rangeStats, isLoading: isRangeLoading } = useQuery({
-    queryKey: ["analytics", "todayRange", activePlatformFilter, todayStr],
+    queryKey: ["analytics", "todayRange", activePlatformFilter, activeVehicleFilter, todayStr],
     queryFn: () => {
       // Build local-midnight boundaries — new Date("YYYY-MM-DD") parses as UTC
       // midnight, which lands hours into the day in non-UTC timezones and silently
       // excludes shifts logged earlier that day.
       const start = new Date(); start.setHours(0, 0, 0, 0);
       const end = new Date(); end.setHours(23, 59, 59, 999);
-      return getPeriodStats(start, end, activePlatformFilter);
+      return getPeriodStats(start, end, activePlatformFilter, activeVehicleFilter);
     },
     enabled: isOnboardingCompleted,
   });
 
   const { data: financialOverview } = useQuery({
-    queryKey: ["analytics", "financial", activePlatformFilter, todayStr],
+    queryKey: ["analytics", "financial", activePlatformFilter, activeVehicleFilter, todayStr],
     queryFn: () => {
       const start = new Date(); start.setHours(0, 0, 0, 0);
       const end = new Date(); end.setHours(23, 59, 59, 999);
-      return getFinancialOverviewForRange(start, end, activePlatformFilter, 0);
+      return getFinancialOverviewForRange(start, end, activePlatformFilter, 0, activeVehicleFilter);
     },
     enabled: isOnboardingCompleted,
   });
@@ -849,20 +850,20 @@ export default function HomeScreen() {
   // the researched country/vehicle-type default; see getEffectiveMileageRate). One flat rate
   // for one "active" vehicle applied to every vehicle's mileage was the bug (issue #9).
   const { data: todayMileageInfo } = useQuery({
-    queryKey: ["analytics", "mileage-writeoff-today", activePlatformFilter, todayStr],
+    queryKey: ["analytics", "mileage-writeoff-today", activePlatformFilter, activeVehicleFilter, todayStr],
     queryFn: async () => {
       const start = new Date(); start.setHours(0, 0, 0, 0);
       const end = new Date(); end.setHours(23, 59, 59, 999);
-      const breakdown = await getVehicleMileageBreakdown(start, end, activePlatformFilter);
+      const breakdown = await getVehicleMileageBreakdown(start, end, activePlatformFilter, activeVehicleFilter);
       return calculateMileageWriteOffForBreakdown(breakdown, new Date().getFullYear(), profile?.country || "CA");
     },
     enabled: isOnboardingCompleted,
   });
 
   const { data: weekMileageInfo } = useQuery({
-    queryKey: ["analytics", "mileage-writeoff-week", activePlatformFilter],
+    queryKey: ["analytics", "mileage-writeoff-week", activePlatformFilter, activeVehicleFilter],
     queryFn: async () => {
-      const breakdown = await getWeekVehicleMileageBreakdown(activePlatformFilter);
+      const breakdown = await getWeekVehicleMileageBreakdown(activePlatformFilter, activeVehicleFilter);
       return calculateMileageWriteOffForBreakdown(breakdown, new Date().getFullYear(), profile?.country || "CA");
     },
     enabled: isOnboardingCompleted,
@@ -887,12 +888,16 @@ export default function HomeScreen() {
   });
 
   const { data: recentShifts = [] } = useQuery({
-    queryKey: ["shifts", "recent", activePlatformFilter],
+    queryKey: ["shifts", "recent", activePlatformFilter, activeVehicleFilter],
     queryFn: async () => {
-      const filters = activePlatformFilter && activePlatformFilter !== "all"
-        ? { platforms: activePlatformFilter.split(",") }
-        : undefined;
-      const data = await getShiftsPaginated(1, filters);
+      const filters: { platforms?: string[]; vehicles?: string[] } = {};
+      if (activePlatformFilter && activePlatformFilter !== "all") {
+        filters.platforms = activePlatformFilter.split(",");
+      }
+      if (activeVehicleFilter && activeVehicleFilter !== "all") {
+        filters.vehicles = activeVehicleFilter.split(",");
+      }
+      const data = await getShiftsPaginated(1, Object.keys(filters).length > 0 ? filters : undefined);
       return data.slice(0, 3);
     },
     enabled: isOnboardingCompleted,

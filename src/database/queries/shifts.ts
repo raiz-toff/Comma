@@ -1,7 +1,7 @@
 import { db } from "../client";
 import { shifts, locationPoints, shiftPlatforms, vehicles } from "../schema";
 import * as schema from "../schema";
-import { eq, and, or, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, sql, inArray } from "drizzle-orm";
 import type { ExpoSQLiteDatabase } from "drizzle-orm/expo-sqlite";
 import { Platform } from "react-native";
 import { stampInsert, stampUpdate, softDeletePatch, notDeleted, isNotDeleted } from "../syncedWrites";
@@ -114,8 +114,8 @@ export async function getShiftById(id: string): Promise<any | null> {
 }
 
 export async function getShiftsPaginated(
-  page: number, 
-  filters?: { startDate?: Date; endDate?: Date; platforms?: string[] },
+  page: number,
+  filters?: { startDate?: Date; endDate?: Date; platforms?: string[]; vehicles?: string[] },
   limitParam?: number
 ): Promise<any[]> {
   if (isWeb) {
@@ -133,7 +133,10 @@ export async function getShiftsPaginated(
     if (filters?.platforms && filters.platforms.length > 0) {
       list = list.filter((s: any) => s.platform && filters.platforms!.some((p: string) => s.platform.includes(p)));
     }
-    
+    if (filters?.vehicles && filters.vehicles.length > 0) {
+      list = list.filter((s: any) => s.vehicleId && filters.vehicles!.includes(s.vehicleId));
+    }
+
     // Sort descending by default
     list.sort((a: any, b: any) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
     
@@ -165,6 +168,9 @@ export async function getShiftsPaginated(
       )
     );
     if (platformMatch) queryConditions.push(platformMatch);
+  }
+  if (filters?.vehicles && filters.vehicles.length > 0) {
+    queryConditions.push(inArray(shifts.vehicleId, filters.vehicles));
   }
 
   const baseQuery = db.select().from(shifts);

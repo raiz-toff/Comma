@@ -291,7 +291,7 @@ export default function ShiftsScreen() {
   const insets = useSafeAreaInsets();
   const C = useColors();
   const styles = useThemedStyles(makeStyles);
-  const { activePlatformFilter, profile, setHeaderVisible } = useSettingsStore();
+  const { activePlatformFilter, activeVehicleFilter, profile, setHeaderVisible } = useSettingsStore();
   const { platformColor, accentColor } = usePlatformTheme();
   const { gridStyle, dialogStyle } = useLayout();
 
@@ -346,13 +346,16 @@ export default function ShiftsScreen() {
 
   // 1-Week query for main shifts screen
   const { data: weeklyShifts = [], isLoading } = useQuery({
-    queryKey: ["shifts", "weekly-uber", weekStart.toISOString(), activePlatformFilter],
+    queryKey: ["shifts", "weekly-uber", weekStart.toISOString(), activePlatformFilter, activeVehicleFilter],
     queryFn: async () => {
       const filters = {
         startDate: weekStart,
         endDate: weekEnd,
         platforms: activePlatformFilter && activePlatformFilter !== "all"
           ? activePlatformFilter.split(",")
+          : undefined,
+        vehicles: activeVehicleFilter && activeVehicleFilter !== "all"
+          ? activeVehicleFilter.split(",")
           : undefined,
       };
       return getShiftsPaginated(1, filters);
@@ -364,13 +367,16 @@ export default function ShiftsScreen() {
   const selectorYearEnd = React.useMemo(() => new Date(selectorYear, 11, 31, 23, 59, 59, 999), [selectorYear]);
 
   const { data: selectorYearShifts = [], isLoading: isYearShiftsLoading } = useQuery({
-    queryKey: ["shifts", "year", selectorYear, activePlatformFilter],
+    queryKey: ["shifts", "year", selectorYear, activePlatformFilter, activeVehicleFilter],
     queryFn: async () => {
       const filters = {
         startDate: selectorYearStart,
         endDate: selectorYearEnd,
         platforms: activePlatformFilter && activePlatformFilter !== "all"
           ? activePlatformFilter.split(",")
+          : undefined,
+        vehicles: activeVehicleFilter && activeVehicleFilter !== "all"
+          ? activeVehicleFilter.split(",")
           : undefined,
       };
       const pages = [1, 2, 3, 4, 5, 6, 7, 8];

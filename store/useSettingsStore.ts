@@ -112,6 +112,10 @@ interface SettingsState {
   isLoading: boolean;
   isDemoMode: boolean;
   activePlatformFilter: string;
+  /** "all" | a vehicle id | comma-joined vehicle ids — which vehicles' data is shown on
+   * Home/Shifts/Analytics/Expenses. Independent of preferredVehicleId, which is "what vehicle
+   * does a NEW shift default to" and is set from the shift-start flow, not this filter. */
+  activeVehicleFilter: string;
   preferredVehicleId: string | null;
   isHeaderVisible: boolean;
   dbPlatforms: DBPlatform[];
@@ -148,6 +152,7 @@ interface SettingsState {
   loadSampleData: () => Promise<void>;
   clearSampleData: () => Promise<void>;
   setActivePlatformFilter: (filter: string) => void;
+  setActiveVehicleFilter: (filter: string) => void;
   setPreferredVehicle: (vehicleId: string) => Promise<void>;
   setHeaderVisible: (visible: boolean) => void;
   /** Update profile fields and re-persist. Also re-derives locale defs. */
@@ -264,6 +269,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   isLoading: true,
   isDemoMode: false,
   activePlatformFilter: "all",
+  activeVehicleFilter: "all",
   preferredVehicleId: null,
   isHeaderVisible: true,
   dbPlatforms: [],
@@ -294,6 +300,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     } else {
       set({ activePlatformFilter: filter });
     }
+  },
+
+  // Vehicles aren't tracked in this store (they're a separate SQLite table, queried via
+  // react-query where needed) — so unlike setActivePlatformFilter this can't auto-collapse
+  // to a single vehicle at the store level. GlobalTopHeader caps/collapses locally, where it
+  // already has the fetched vehicle list.
+  setActiveVehicleFilter: (filter: string) => {
+    set({ activeVehicleFilter: filter });
   },
 
   setHeaderVisible: (visible: boolean) => {

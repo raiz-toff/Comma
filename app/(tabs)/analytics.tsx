@@ -236,7 +236,7 @@ export default function AnalyticsScreen() {
   // depend on the feature flag.
   const { gridStyle, twoUpRow, twoUpItem } = useLayout();
   const insets = useSafeAreaInsets();
-  const { profile, isOnboardingCompleted, activePlatformFilter, setHeaderVisible, streakDays, bestStreak } = useSettingsStore();
+  const { profile, isOnboardingCompleted, activePlatformFilter, activeVehicleFilter, setHeaderVisible, streakDays, bestStreak } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
   const isAnalyticsEnabled = useFeatureEnabled("analytics_advanced");
 
@@ -287,19 +287,19 @@ export default function AnalyticsScreen() {
   const enabled = isOnboardingCompleted && isAnalyticsEnabled;
 
   const { data: periodStats, isLoading: loadingStats } = useQuery({ queryKey: ["analytics", "period-stats", start.toISOString(), end.toISOString()], queryFn: () => getPeriodStats(start, end), enabled });
-  const { data: platformData = [] } = useQuery({ queryKey: ["analytics", "by-platform", start.toISOString(), end.toISOString(), activePlatformFilter], queryFn: () => getEarningsByPlatform(start, end, activePlatformFilter), enabled });
-  const { data: dailyData = [] } = useQuery({ queryKey: ["analytics", "by-day-range", start.toISOString(), end.toISOString(), activePlatformFilter], queryFn: () => getEarningsByDayRange(start, end, activePlatformFilter), enabled });
-  const { data: bestDayData = [] } = useQuery({ queryKey: ["analytics", "best-day", start.toISOString(), end.toISOString(), activePlatformFilter], queryFn: () => getBestDayOfWeek(start, end, activePlatformFilter), enabled });
+  const { data: platformData = [] } = useQuery({ queryKey: ["analytics", "by-platform", start.toISOString(), end.toISOString(), activePlatformFilter, activeVehicleFilter], queryFn: () => getEarningsByPlatform(start, end, activePlatformFilter, activeVehicleFilter), enabled });
+  const { data: dailyData = [] } = useQuery({ queryKey: ["analytics", "by-day-range", start.toISOString(), end.toISOString(), activePlatformFilter, activeVehicleFilter], queryFn: () => getEarningsByDayRange(start, end, activePlatformFilter, activeVehicleFilter), enabled });
+  const { data: bestDayData = [] } = useQuery({ queryKey: ["analytics", "best-day", start.toISOString(), end.toISOString(), activePlatformFilter, activeVehicleFilter], queryFn: () => getBestDayOfWeek(start, end, activePlatformFilter, activeVehicleFilter), enabled });
   const { data: bestHourData = [] } = useQuery({ queryKey: ["analytics", "best-hour", start.toISOString(), end.toISOString()], queryFn: () => getBestHourOfDay(start, end), enabled });
   const { data: mileage } = useQuery({ queryKey: ["analytics", "mileage", start.toISOString(), end.toISOString()], queryFn: () => getMileageSplit(start, end), enabled });
   const { data: netIncome = 0 } = useQuery({ queryKey: ["analytics", "net-income", start.toISOString(), end.toISOString()], queryFn: () => getNetIncome(start, end), enabled });
   const { data: hourlyRate = 0 } = useQuery({ queryKey: ["analytics", "hourly-rate", start.toISOString(), end.toISOString()], queryFn: () => getHourlyRate(start, end), enabled });
-  const { data: scatterData = [] } = useQuery({ queryKey: ["analytics", "scatter", start.toISOString(), end.toISOString(), activePlatformFilter], queryFn: () => getEarningsVsHoursScatter(start, end, activePlatformFilter), enabled });
-  const { data: thisWeekStats } = useQuery({ queryKey: ["analytics", "week-stats", "this", thisWeekStart.toISOString(), thisWeekEnd.toISOString(), activePlatformFilter], queryFn: () => getPeriodStats(thisWeekStart, thisWeekEnd, activePlatformFilter), enabled });
-  const { data: lastWeekStats } = useQuery({ queryKey: ["analytics", "week-stats", "last", lastWeekStart.toISOString(), lastWeekEnd.toISOString(), activePlatformFilter], queryFn: () => getPeriodStats(lastWeekStart, lastWeekEnd, activePlatformFilter), enabled });
-  const { data: stabilityData } = useQuery({ queryKey: ["analytics", "stability-score", activePlatformFilter], queryFn: () => getIncomeStabilityScore(activePlatformFilter), enabled });
-  const { data: monthHourlyRate = 0 } = useQuery({ queryKey: ["analytics", "month-hourly-rate", monthStart.toISOString(), monthEnd.toISOString(), activePlatformFilter], queryFn: () => getHourlyRate(monthStart, monthEnd, activePlatformFilter), enabled });
-  const { data: monthlyBreakdown } = useQuery({ queryKey: ["analytics", "monthly-breakdown", start.toISOString(), end.toISOString(), activePlatformFilter], queryFn: () => getFinancialMonthlyBreakdown(start, end, activePlatformFilter), enabled });
+  const { data: scatterData = [] } = useQuery({ queryKey: ["analytics", "scatter", start.toISOString(), end.toISOString(), activePlatformFilter, activeVehicleFilter], queryFn: () => getEarningsVsHoursScatter(start, end, activePlatformFilter, activeVehicleFilter), enabled });
+  const { data: thisWeekStats } = useQuery({ queryKey: ["analytics", "week-stats", "this", thisWeekStart.toISOString(), thisWeekEnd.toISOString(), activePlatformFilter, activeVehicleFilter], queryFn: () => getPeriodStats(thisWeekStart, thisWeekEnd, activePlatformFilter, activeVehicleFilter), enabled });
+  const { data: lastWeekStats } = useQuery({ queryKey: ["analytics", "week-stats", "last", lastWeekStart.toISOString(), lastWeekEnd.toISOString(), activePlatformFilter, activeVehicleFilter], queryFn: () => getPeriodStats(lastWeekStart, lastWeekEnd, activePlatformFilter, activeVehicleFilter), enabled });
+  const { data: stabilityData } = useQuery({ queryKey: ["analytics", "stability-score", activePlatformFilter, activeVehicleFilter], queryFn: () => getIncomeStabilityScore(activePlatformFilter, activeVehicleFilter), enabled });
+  const { data: monthHourlyRate = 0 } = useQuery({ queryKey: ["analytics", "month-hourly-rate", monthStart.toISOString(), monthEnd.toISOString(), activePlatformFilter, activeVehicleFilter], queryFn: () => getHourlyRate(monthStart, monthEnd, activePlatformFilter, activeVehicleFilter), enabled });
+  const { data: monthlyBreakdown } = useQuery({ queryKey: ["analytics", "monthly-breakdown", start.toISOString(), end.toISOString(), activePlatformFilter, activeVehicleFilter], queryFn: () => getFinancialMonthlyBreakdown(start, end, activePlatformFilter, activeVehicleFilter), enabled });
 
   const totalRevenue  = (periodStats?.gross ?? 0) + (periodStats?.tips ?? 0) + (periodStats?.bonus ?? 0);
   const durationHrs   = (periodStats?.durationSeconds ?? 0) / 3600;

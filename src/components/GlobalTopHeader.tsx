@@ -25,7 +25,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getVehicles } from "@/src/database/queries/vehicles";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { PLATFORMS, PLATFORM_REGISTRY, type PlatformKey } from "@/src/registry/platforms";
-import { blendColors } from "../hooks/usePlatformTheme";
+import { blendColors, usePlatformTheme } from "../hooks/usePlatformTheme";
 import { Bell, Menu, ChevronDown, ChevronUp } from "lucide-react-native";
 import Svg, { Path, Circle, Rect } from "react-native-svg";
 
@@ -61,13 +61,16 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
     profile,
     activePlatformFilter,
     setActivePlatformFilter,
-    preferredVehicleId,
-    setPreferredVehicle,
+    activeVehicleFilter,
+    setActiveVehicleFilter,
     isOnboardingCompleted,
     isHeaderVisible,
     dbPlatforms,
   } = useSettingsStore();
   const unreadCount = useSettingsStore((s) => s.notifications.filter((n) => !n.read).length);
+  // Vehicle selection colour follows whichever platform is filtered — same value that already
+  // colours the platform pills, falling back to the driver's own accent when "all" is selected.
+  const { platformColor: vehiclePillColor } = usePlatformTheme();
 
   const headerVisibleAnim = React.useRef(new Animated.Value(1)).current;
 
@@ -224,6 +227,32 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
     return Math.max(1, selectedPlatformsList.length - 1);
   }, [selectedPlatformsList]);
 
+  // ── Vehicle filter (mirrors the platform filter above) ─────────────────
+  const vehicleLabel = React.useCallback((v: any) => {
+    const year = v.year ? `'${String(v.year).slice(-2)} ` : "";
+    return `${year}${`${v.make || ""} ${v.model || ""}`.trim() || v.name}`;
+  }, []);
+
+  const vehicleIdsList = React.useMemo(() => vehiclesList.map((v: any) => v.id), [vehiclesList]);
+  const allVehicleIds = vehicleIdsList.length <= 1 ? vehicleIdsList : ["all", ...vehicleIdsList];
+
+  const maxVehiclesAllowed = React.useMemo(() => {
+    return Math.max(1, vehicleIdsList.length - 1);
+  }, [vehicleIdsList]);
+
+  const activeVehicleLabel = React.useMemo(() => {
+    if (activeVehicleFilter === "all") return "All vehicles";
+    const parts = activeVehicleFilter.split(",");
+    const resolve = (id: string) => {
+      const v = vehiclesList.find((x: any) => x.id === id);
+      return v ? vehicleLabel(v) : id;
+    };
+    return parts.map(resolve).join(" + ");
+  }, [activeVehicleFilter, vehiclesList, vehicleLabel]);
+
+  // Nothing to filter when there's exactly one of each — collapse to a plain combined readout
+  // instead of a two-section grid full of single, non-interactive options.
+  const isFullyCollapsed = selectedPlatformsList.length === 1 && vehicleIdsList.length === 1;
 
 
   // ── Toggle ──────────────────────────────────────────────────────────────
@@ -267,6 +296,51 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
         setActivePlatformFilter(updated.join(","));
         // If maxAllowed are selected, close switcher smoothly after a short delay
         if (updated.length === maxAllowed) {
+          setTimeout(() => {
+            setIsExpanded(false);
+          }, 500);
+        }
+      }
+    }
+  };
+
+  // Same all/subset/one toggle as handleSelectFilter above, operating on the vehicle filter.
+  const handleSelectVehicleFilter = (id: string) => {
+    if (id === "all") {
+      setActiveVehicleFilter("all");
+      setIsExpanded(false);
+      return;
+    }
+
+    const currentFilter = activeVehicleFilter;
+    if (currentFilter === "all") {
+      setActiveVehicleFilter(id);
+      if (maxVehiclesAllowed === 1) {
+        setTimeout(() => {
+          setIsExpanded(false);
+        }, 500);
+      }
+    } else {
+      const parts = currentFilter.split(",");
+      if (parts.includes(id)) {
+        // Deselect
+        const updated = parts.filter((p) => p !== id);
+        if (updated.length === 0) {
+          setActiveVehicleFilter("all");
+          setIsExpanded(false);
+        } else {
+          setActiveVehicleFilter(updated.join(","));
+        }
+      } else {
+        // Select
+        const updated = [...parts, id];
+        if (updated.length > maxVehiclesAllowed) {
+          // Cap at maxVehiclesAllowed, remove the oldest selection
+          updated.shift();
+        }
+        setActiveVehicleFilter(updated.join(","));
+        // If maxVehiclesAllowed are selected, close switcher smoothly after a short delay
+        if (updated.length === maxVehiclesAllowed) {
           setTimeout(() => {
             setIsExpanded(false);
           }, 500);
@@ -328,11 +402,26 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
           style={[styles.filterPill, { borderColor: borderPillColor }]}
           onPress={handleToggleExpand}
           accessibilityRole="button"
-          accessibilityLabel={`Platform filter: ${activeLabel}`}
+          accessibilityLabel={
+            isFullyCollapsed
+              ? `${activeLabel}, ${vehicleLabel(vehiclesList[0])}`
+              : `Platform filter: ${activeLabel}${activeVehicleFilter !== "all" ? `, vehicle filter: ${activeVehicleLabel}` : ""}`
+          }
           accessibilityState={{ expanded: isExpanded }}
           {...pillPanResponder.panHandlers}
         >
-          {isDoubleSelected ? (
+          {isFullyCollapsed ? (
+            <View style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>
+              {activePlatformFilter !== "all" && (
+                <View style={{ marginRight: 8 }}>
+                  <PlatformLogo id={activePlatformFilter} size={16} />
+                </View>
+              )}
+              <Text variant="labelM" style={styles.filterPillLabel} numberOfLines={1}>
+                {activeLabel} <Text variant="labelM" className="text-content-muted">·</Text> {vehicleLabel(vehiclesList[0])}
+              </Text>
+            </View>
+          ) : isDoubleSelected ? (
             <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
               {/* Left Logo */}
               <View style={{ marginRight: 6 }}>
@@ -368,9 +457,12 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
               {/* Color swatch dot */}
               <View style={[styles.swatchDot, { backgroundColor: accentColor }]} />
 
-              {/* Active label */}
+              {/* Active label — vehicle appended only when narrowed from "all" */}
               <Text variant="labelM" style={styles.filterPillLabel} numberOfLines={1}>
                 {activeLabel}
+                {activeVehicleFilter !== "all" && (
+                  <Text variant="labelM" className="text-content-muted"> · {activeVehicleLabel}</Text>
+                )}
               </Text>
 
               {/* Platform logo (only when not "all") */}
@@ -422,112 +514,159 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
             dropdownPanelAnimatedStyle,
           ]}
         >
-          {/* Section: Platforms */}
-          <Text variant="labelXs" className="text-content-secondary" style={styles.panelSectionLabel}>PLATFORM</Text>
-          <View style={styles.platformGrid}>
-            {allPlatformIds.map((pId) => {
-              const isAll = pId === "all";
-              const isSelected = isAll
-                ? activePlatformFilter === "all"
-                : (activePlatformFilter.split(",").includes(pId) ||
-                   (selectedPlatformsList.length === 1 && activePlatformFilter === "all"));
-              const cfg = !isAll ? PLATFORMS[pId as PlatformKey] : null;
-              const dbCfg = !isAll && !cfg ? dbPlatforms.find((p) => p.id === pId) : null;
-              const pColor = cfg?.color ?? dbCfg?.color ?? C.contentPrimary;
-              const pLabel = cfg?.label ?? dbCfg?.label ?? pId;
+          {isFullyCollapsed ? (
+            // Nothing to pick — one platform, one vehicle. Confirm what's active, no grids.
+            <View style={styles.oneLineRow}>
+              <View style={styles.oneLineItem}>
+                {activePlatformFilter !== "all" && <PlatformLogo id={activePlatformFilter} size={16} />}
+                <Text variant="labelXs" className="text-content-muted" style={styles.oneLineLabel}>Platform</Text>
+                <Text variant="labelM" numberOfLines={1}>{activeLabel}</Text>
+              </View>
+              <View style={styles.oneLineRule} />
+              <View style={styles.oneLineItem}>
+                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none"
+                  stroke={C.contentSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <Path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2" />
+                  <Rect x="7" y="14" width="10" height="6" rx="1" />
+                  <Circle cx="7.5" cy="17.5" r="1.5" />
+                  <Circle cx="16.5" cy="17.5" r="1.5" />
+                  <Path d="M5 9V5a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v4" />
+                </Svg>
+                <Text variant="labelXs" className="text-content-muted" style={styles.oneLineLabel}>Vehicle</Text>
+                <Text variant="labelM" numberOfLines={1}>{vehicleLabel(vehiclesList[0])}</Text>
+              </View>
+            </View>
+          ) : (
+            <>
+              {/* Section: Platforms */}
+              <Text variant="labelXs" className="text-content-secondary" style={styles.panelSectionLabel}>PLATFORM</Text>
+              <View style={styles.platformGrid}>
+                {allPlatformIds.map((pId) => {
+                  const isAll = pId === "all";
+                  const isSelected = isAll
+                    ? activePlatformFilter === "all"
+                    : (activePlatformFilter.split(",").includes(pId) ||
+                       (selectedPlatformsList.length === 1 && activePlatformFilter === "all"));
+                  const cfg = !isAll ? PLATFORMS[pId as PlatformKey] : null;
+                  const dbCfg = !isAll && !cfg ? dbPlatforms.find((p) => p.id === pId) : null;
+                  const pColor = cfg?.color ?? dbCfg?.color ?? C.contentPrimary;
+                  const pLabel = cfg?.label ?? dbCfg?.label ?? pId;
 
-              return (
-                <Pressable
-                  key={pId}
-                  onPress={() => handleSelectFilter(pId)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isSelected }}
-                  style={[styles.platformGridPill, isSelected
-                      ? { borderColor: pColor, backgroundColor: withAlpha(pColor, 0.12) }
-                      : styles.dropdownPillInactive]}
-                >
-                  <View style={[
-                    styles.dropdownPillLogo,
-                    {
-                      backgroundColor: isAll
-                        ? (isSelected ? withAlpha(C.contentPrimary, 0.2) : C.surface05)
-                        : isSelected ? withAlpha(pColor, 0.2) : C.surface04,
-                      borderColor: isSelected ? withAlpha(pColor, 0.25) : "transparent",
-                      borderWidth: 1,
-                    },
-                  ]}>
-                    {isAll
-                      ? <Text variant="headingS" className="font-extrabold" style={{ color: isSelected ? C.contentPrimary : C.contentSecondary }}>∞</Text>
-                      : <PlatformLogo id={pId} size={18} />
-                    }
-                  </View>
-                  <Text variant="labelM" style={{ color: isSelected ? C.contentPrimary : C.contentSecondary, flex: 1 }} numberOfLines={1}>
-                    {isAll ? "All" : pLabel}
-                  </Text>
-                  {isSelected && (
-                    <View style={[styles.checkDot, { backgroundColor: pColor }]} />
-                  )}
-                </Pressable>
-              );
-            })}
-          </View>
+                  return (
+                    <Pressable
+                      key={pId}
+                      onPress={() => handleSelectFilter(pId)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSelected }}
+                      style={[styles.platformGridPill, isSelected
+                          ? { borderColor: pColor, backgroundColor: withAlpha(pColor, 0.12) }
+                          : styles.dropdownPillInactive]}
+                    >
+                      <View style={[
+                        styles.dropdownPillLogo,
+                        {
+                          backgroundColor: isAll
+                            ? (isSelected ? withAlpha(C.contentPrimary, 0.2) : C.surface05)
+                            : isSelected ? withAlpha(pColor, 0.2) : C.surface04,
+                          borderColor: isSelected ? withAlpha(pColor, 0.25) : "transparent",
+                          borderWidth: 1,
+                        },
+                      ]}>
+                        {isAll
+                          ? <Text variant="headingS" className="font-extrabold" style={{ color: isSelected ? C.contentPrimary : C.contentSecondary }}>∞</Text>
+                          : <PlatformLogo id={pId} size={18} />
+                        }
+                      </View>
+                      <Text variant="labelM" style={{ color: isSelected ? C.contentPrimary : C.contentSecondary, flex: 1 }} numberOfLines={1}>
+                        {isAll ? "All" : pLabel}
+                      </Text>
+                      {isSelected && (
+                        <View style={[styles.checkDot, { backgroundColor: pColor }]} />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
 
-          {/* Divider */}
-          <View style={styles.panelDivider} />
+              {/* Divider */}
+              <View style={styles.panelDivider} />
 
-          {/* Section: Vehicle */}
-          <Text variant="labelXs" className="text-content-secondary" style={styles.panelSectionLabel}>VEHICLE</Text>
-          <View style={styles.platformGrid}>
-            {vehiclesList.length === 0 ? (
-              <Text variant="paragraphS" style={{ paddingHorizontal: 4 }}>No vehicles set up</Text>
-            ) : (
-              vehiclesList.map((v: any) => {
-                const isSelected = (preferredVehicleId || vehiclesList[0]?.id) === v.id;
-                const label = `${v.make || ""} ${v.model || ""}`.trim() || v.name;
-                const year = v.year ? `'${String(v.year).slice(-2)} ` : "";
-                return (
-                  <Pressable
-                    key={v.id}
-                    onPress={async () => {
-                      await setPreferredVehicle(v.id);
-                      setIsExpanded(false);
-                    }}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: isSelected }}
-                    style={[styles.platformGridPill, isSelected
-                        ? { borderColor: C.contentPrimary, backgroundColor: C.surface04 }
-                        : styles.dropdownPillInactive]}
-                  >
-                    <View style={[
-                      styles.dropdownPillLogo,
-                      {
-                        backgroundColor: isSelected ? withAlpha(C.contentPrimary, 0.2) : C.surface04,
-                        borderColor: isSelected ? withAlpha(C.contentPrimary, 0.25) : "transparent",
-                        borderWidth: 1,
-                      },
-                    ]}>
-                      <Svg width={16} height={16} viewBox="0 0 24 24" fill="none"
-                        stroke={isSelected ? C.contentPrimary : C.contentSecondary}
-                        strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                        <Path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2" />
-                        <Rect x="7" y="14" width="10" height="6" rx="1" />
-                        <Circle cx="7.5" cy="17.5" r="1.5" />
-                        <Circle cx="16.5" cy="17.5" r="1.5" />
-                        <Path d="M5 9V5a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v4" />
-                      </Svg>
-                    </View>
-                    <Text variant="labelM" style={{ color: isSelected ? C.contentPrimary : C.contentSecondary, flex: 1 }} numberOfLines={1}>
-                      {year}{label}
-                    </Text>
-                    {isSelected && (
-                      <View style={[styles.checkDot, { backgroundColor: C.contentPrimary }]} />
-                    )}
-                  </Pressable>
-                );
-              })
-            )}
-          </View>
+              {/* Section: Vehicle — same all/subset/one control as Platform above. Selection
+                  colour follows the active platform filter (vehiclePillColor = platformColor
+                  from usePlatformTheme), so this grid recolours with whichever platform is
+                  filtered instead of carrying its own fixed accent. */}
+              <Text variant="labelXs" className="text-content-secondary" style={styles.panelSectionLabel}>VEHICLE</Text>
+              <View style={styles.platformGrid}>
+                {vehiclesList.length === 0 ? (
+                  <Text variant="paragraphS" style={{ paddingHorizontal: 4 }}>No vehicles set up</Text>
+                ) : (
+                  allVehicleIds.map((vId) => {
+                    const isAll = vId === "all";
+                    const isSelected = isAll
+                      ? activeVehicleFilter === "all"
+                      : (activeVehicleFilter.split(",").includes(vId) ||
+                         (vehicleIdsList.length === 1 && activeVehicleFilter === "all"));
+                    const v = !isAll ? vehiclesList.find((x: any) => x.id === vId) : null;
+                    const label = isAll ? "All vehicles" : (v ? vehicleLabel(v) : vId);
 
+                    return (
+                      <Pressable
+                        key={vId}
+                        onPress={() => handleSelectVehicleFilter(vId)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: isSelected }}
+                        style={[
+                          styles.platformGridPill,
+                          isAll && { width: "100%" },
+                          isSelected
+                            ? { borderColor: vehiclePillColor, backgroundColor: withAlpha(vehiclePillColor, 0.12) }
+                            : styles.dropdownPillInactive,
+                        ]}
+                      >
+                        {isAll ? (
+                          <View style={[
+                            styles.dropdownPillLogo,
+                            {
+                              backgroundColor: isSelected ? withAlpha(vehiclePillColor, 0.2) : C.surface05,
+                              borderColor: isSelected ? withAlpha(vehiclePillColor, 0.25) : "transparent",
+                              borderWidth: 1,
+                            },
+                          ]}>
+                            <Text variant="headingS" className="font-extrabold" style={{ color: isSelected ? vehiclePillColor : C.contentSecondary }}>∞</Text>
+                          </View>
+                        ) : (
+                          <View style={[
+                            styles.dropdownPillLogo,
+                            {
+                              backgroundColor: isSelected ? withAlpha(vehiclePillColor, 0.2) : C.surface04,
+                              borderColor: isSelected ? withAlpha(vehiclePillColor, 0.25) : "transparent",
+                              borderWidth: 1,
+                            },
+                          ]}>
+                            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none"
+                              stroke={isSelected ? vehiclePillColor : C.contentSecondary}
+                              strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                              <Path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2" />
+                              <Rect x="7" y="14" width="10" height="6" rx="1" />
+                              <Circle cx="7.5" cy="17.5" r="1.5" />
+                              <Circle cx="16.5" cy="17.5" r="1.5" />
+                              <Path d="M5 9V5a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v4" />
+                            </Svg>
+                          </View>
+                        )}
+                        <Text variant="labelM" style={{ color: isSelected ? C.contentPrimary : C.contentSecondary, flex: 1 }} numberOfLines={1}>
+                          {label}
+                        </Text>
+                        {isSelected && (
+                          <View style={[styles.checkDot, { backgroundColor: vehiclePillColor }]} />
+                        )}
+                      </Pressable>
+                    );
+                  })
+                )}
+              </View>
+            </>
+          )}
         </Reanimated.View>
       )}
     </Animated.View>
@@ -690,5 +829,27 @@ const makeStyles = (C: Palette) => StyleSheet.create({
     backgroundColor: C.lineStrong,
     marginHorizontal: 16,
     marginTop: 14,
+  },
+  oneLineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 14,
+  },
+  oneLineItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    flexShrink: 1,
+  },
+  oneLineLabel: {
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  oneLineRule: {
+    width: 1,
+    height: 20,
+    backgroundColor: C.lineSubtle,
   },
 });

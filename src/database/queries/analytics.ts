@@ -30,6 +30,19 @@ function getPlatformConditions(platform: string): SQL {
   return like(shifts.platform, `%${platform}%`);
 }
 
+function matchesVehicleWeb(vehicleId: string | null | undefined, filterVehicle: string): boolean {
+  if (!vehicleId) return false;
+  return filterVehicle.split(",").includes(vehicleId);
+}
+
+// The vehicle-filter equivalent of getPlatformConditions — shifts.vehicleId is a plain id
+// column (not a comma-joined multi-select field like shifts.platform), so this is a direct
+// equality/inArray match. Always called with a non-empty, non-"all" filter string.
+function getVehicleFilterConditions(vehicleFilter: string): SQL {
+  const parts = vehicleFilter.split(",");
+  return parts.length > 1 ? inArray(shifts.vehicleId, parts) : eq(shifts.vehicleId, vehicleFilter);
+}
+
 // Scopes an expense query to the vehicle(s) actually used by the shifts being totaled, so a
 // car expense (e.g. fuel, insurance) logged in the same date range doesn't get deducted from
 // earnings from a different vehicle (e.g. a bike shift). General expenses with no vehicleId
@@ -77,7 +90,7 @@ function getPeriodDates(period: string, weekStartDay: number = 0): { start: Date
   return { start, end };
 }
 
-export async function getTodayStats(platform?: string): Promise<{ gross: number; tips: number; bonus: number; count: number; activeMileage: number; deadMileage: number }> {
+export async function getTodayStats(platform?: string, vehicleFilter?: string | null): Promise<{ gross: number; tips: number; bonus: number; count: number; activeMileage: number; deadMileage: number }> {
   if (isWeb) {
     try {
       const existing = localStorage.getItem("comma_shifts");
@@ -113,6 +126,9 @@ export async function getTodayStats(platform?: string): Promise<{ gross: number;
   if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
+  if (vehicleFilter && vehicleFilter !== "all") {
+    conditions.push(getVehicleFilterConditions(vehicleFilter));
+  }
 
   const result = await db
     .select({
@@ -129,7 +145,7 @@ export async function getTodayStats(platform?: string): Promise<{ gross: number;
   return result[0] || { gross: 0, tips: 0, bonus: 0, count: 0, activeMileage: 0, deadMileage: 0 };
 }
 
-export async function getWeekStats(platform?: string): Promise<{ gross: number; tips: number; bonus: number; count: number; activeMileage: number; deadMileage: number; durationSeconds: number }> {
+export async function getWeekStats(platform?: string, vehicleFilter?: string | null): Promise<{ gross: number; tips: number; bonus: number; count: number; activeMileage: number; deadMileage: number; durationSeconds: number }> {
   let weekStartDay = 0;
   if (isWeb) {
     try {
@@ -191,6 +207,9 @@ export async function getWeekStats(platform?: string): Promise<{ gross: number; 
   if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
+  if (vehicleFilter && vehicleFilter !== "all") {
+    conditions.push(getVehicleFilterConditions(vehicleFilter));
+  }
 
   const result = await db
     .select({
@@ -223,7 +242,8 @@ export async function getGoalProgress(period: string): Promise<any[]> {
 export async function getEarningsByPlatform(
   startDate: Date,
   endDate: Date,
-  platform?: string | null
+  platform?: string | null,
+  vehicleFilter?: string | null
 ): Promise<{ platform: string; total: number; count: number; share: number }[]> {
   if (isWeb) {
     const existing = localStorage.getItem("comma_shifts");
@@ -251,6 +271,9 @@ export async function getEarningsByPlatform(
   const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
+  }
+  if (vehicleFilter && vehicleFilter !== "all") {
+    conditions.push(getVehicleFilterConditions(vehicleFilter));
   }
 
   const rows = await db
@@ -310,7 +333,8 @@ export async function getEarningsByDay(
 export async function getEarningsByDayRange(
   startDate: Date,
   endDate: Date,
-  platform?: string | null
+  platform?: string | null,
+  vehicleFilter?: string | null
 ): Promise<{ date: string; total: number }[]> {
   const result: { date: string; total: number }[] = [];
   
@@ -357,6 +381,9 @@ export async function getEarningsByDayRange(
     if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
+    if (vehicleFilter && vehicleFilter !== "all") {
+      conditions.push(getVehicleFilterConditions(vehicleFilter));
+    }
 
     const rows = await db
       .select({
@@ -383,7 +410,7 @@ export async function getEarningsByDayRange(
   return result.sort((a, b) => a.date.localeCompare(b.date));
 }
 
-export async function getHourlyRate(startDate: Date, endDate: Date, platform?: string | null): Promise<number> {
+export async function getHourlyRate(startDate: Date, endDate: Date, platform?: string | null, vehicleFilter?: string | null): Promise<number> {
   if (isWeb) {
     const existing = localStorage.getItem("comma_shifts");
     if (!existing) return 0;
@@ -402,6 +429,9 @@ export async function getHourlyRate(startDate: Date, endDate: Date, platform?: s
   if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
+  if (vehicleFilter && vehicleFilter !== "all") {
+    conditions.push(getVehicleFilterConditions(vehicleFilter));
+  }
 
   const result = await db
     .select({
@@ -418,7 +448,8 @@ export async function getHourlyRate(startDate: Date, endDate: Date, platform?: s
 export async function getBestDayOfWeek(
   startDate: Date,
   endDate: Date,
-  platform?: string | null
+  platform?: string | null,
+  vehicleFilter?: string | null
 ): Promise<{ day: number; label: string; avgEarnings: number }[]> {
   const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -448,6 +479,9 @@ export async function getBestDayOfWeek(
   const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
+  }
+  if (vehicleFilter && vehicleFilter !== "all") {
+    conditions.push(getVehicleFilterConditions(vehicleFilter));
   }
 
   const rows = await db
@@ -548,7 +582,8 @@ export async function getMileageSplit(
 export async function getVehicleMileageBreakdown(
   startDate: Date,
   endDate: Date,
-  platform?: string | null
+  platform?: string | null,
+  vehicleFilter?: string | null
 ): Promise<{ vehicleId: string | null; activeMileage: number; deadMileage: number }[]> {
   if (isWeb) {
     try {
@@ -560,6 +595,9 @@ export async function getVehicleMileageBreakdown(
       });
       if (platform && platform !== "all") {
         list = list.filter((s: any) => matchesPlatformWeb(s.platform, platform));
+      }
+      if (vehicleFilter && vehicleFilter !== "all") {
+        list = list.filter((s: any) => matchesVehicleWeb(s.vehicleId, vehicleFilter));
       }
       const byVehicle = new Map<string | null, { activeMileage: number; deadMileage: number }>();
       list.forEach((s: any) => {
@@ -579,6 +617,9 @@ export async function getVehicleMileageBreakdown(
   if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
+  if (vehicleFilter && vehicleFilter !== "all") {
+    conditions.push(getVehicleFilterConditions(vehicleFilter));
+  }
 
   const rows = await db
     .select({
@@ -595,7 +636,8 @@ export async function getVehicleMileageBreakdown(
 
 /** Same as getVehicleMileageBreakdown, but for "this week" per the driver's own week-start-day setting. */
 export async function getWeekVehicleMileageBreakdown(
-  platform?: string | null
+  platform?: string | null,
+  vehicleFilter?: string | null
 ): Promise<{ vehicleId: string | null; activeMileage: number; deadMileage: number }[]> {
   let weekStartDay = 0;
   if (isWeb) {
@@ -621,7 +663,7 @@ export async function getWeekVehicleMileageBreakdown(
   }
 
   const { start, end } = getPeriodDates("weekly", weekStartDay);
-  return getVehicleMileageBreakdown(start, end, platform);
+  return getVehicleMileageBreakdown(start, end, platform, vehicleFilter);
 }
 
 export async function getNetIncome(startDate: Date, endDate: Date, platform?: string | null): Promise<number> {
@@ -692,7 +734,8 @@ export async function getNetIncome(startDate: Date, endDate: Date, platform?: st
 export async function getPeriodStats(
   startDate: Date,
   endDate: Date,
-  platform?: string
+  platform?: string,
+  vehicleFilter?: string | null
 ): Promise<{ gross: number; tips: number; bonus: number; count: number; orders: number; activeMileage: number; deadMileage: number; durationSeconds: number; pausedSeconds: number }> {
   if (isWeb) {
     try {
@@ -738,10 +781,16 @@ export async function getPeriodStats(
   if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
+  if (vehicleFilter && vehicleFilter !== "all") {
+    conditions.push(getVehicleFilterConditions(vehicleFilter));
+  }
 
   const ordersConditions = [notDeleted(shifts.syncDeletedAt), notDeleted(shiftPlatforms.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
     ordersConditions.push(getShiftPlatformCondition(platform));
+  }
+  if (vehicleFilter && vehicleFilter !== "all") {
+    ordersConditions.push(getVehicleFilterConditions(vehicleFilter));
   }
 
   const [result, ordersResult] = await Promise.all([
@@ -777,7 +826,8 @@ export async function getFinancialOverviewForRange(
   startDate: Date,
   endDate: Date,
   platform?: string,
-  weekStartDay: number = 0
+  weekStartDay: number = 0,
+  vehicleFilter?: string | null
 ): Promise<any> {
   const empty = {
     count: 0,
@@ -823,6 +873,9 @@ export async function getFinancialOverviewForRange(
     if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
   }
+    if (vehicleFilter && vehicleFilter !== "all") {
+      conditions.push(getVehicleFilterConditions(vehicleFilter));
+    }
     shiftList = await db.select().from(shifts).where(and(...conditions));
   }
 
@@ -1038,7 +1091,8 @@ export async function getFinancialOverviewForRange(
 export async function getFinancialMonthlyBreakdown(
   startDate: Date,
   endDate: Date,
-  platform?: string
+  platform?: string,
+  vehicleFilter?: string | null
 ): Promise<{
   rows: { period: string; earnings: number; expenses: number; outOfPocket: number; net: number; hours: number; efficiency: number }[];
   totals: { earnings: number; expenses: number; outOfPocket: number; net: number; hours: number; avgPerHr: number; effectivePerHr: number };
@@ -1066,6 +1120,9 @@ export async function getFinancialMonthlyBreakdown(
     const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
     if (platform && platform !== "all") {
       conditions.push(eq(shifts.platform, platform));
+    }
+    if (vehicleFilter && vehicleFilter !== "all") {
+      conditions.push(getVehicleFilterConditions(vehicleFilter));
     }
     shiftList = await db.select().from(shifts).where(and(...conditions));
   }
@@ -1347,7 +1404,8 @@ export async function getRolling30DayTrend(platform?: string): Promise<any> {
 export async function getEarningsVsHoursScatter(
   startDate: Date,
   endDate: Date,
-  platform?: string
+  platform?: string,
+  vehicleFilter?: string | null
 ): Promise<{ x: number; y: number }[]> {
   if (isWeb) {
     try {
@@ -1372,6 +1430,9 @@ export async function getEarningsVsHoursScatter(
   const conditions = [notDeleted(shifts.syncDeletedAt), gte(shifts.startTime, startDate), lte(shifts.startTime, endDate)];
   if (platform && platform !== "all") {
     conditions.push(getPlatformConditions(platform));
+  }
+  if (vehicleFilter && vehicleFilter !== "all") {
+    conditions.push(getVehicleFilterConditions(vehicleFilter));
   }
 
   const rows = await db
@@ -1404,7 +1465,8 @@ function getMondayWeekKey(date: Date): string {
  * earnings across ALL shifts ever recorded (not scoped to the screen's selected period).
  */
 export async function getIncomeStabilityScore(
-  platform?: string
+  platform?: string,
+  vehicleFilter?: string | null
 ): Promise<{ weeklyGross: number[]; stabilityScore: number }> {
   let shiftList: any[] = [];
 
@@ -1424,6 +1486,9 @@ export async function getIncomeStabilityScore(
     const conditions = [notDeleted(shifts.syncDeletedAt)];
     if (platform && platform !== "all") {
       conditions.push(getPlatformConditions(platform));
+    }
+    if (vehicleFilter && vehicleFilter !== "all") {
+      conditions.push(getVehicleFilterConditions(vehicleFilter));
     }
     shiftList = await db
       .select({ startTime: shifts.startTime, grossRevenue: shifts.grossRevenue, tipsRevenue: shifts.tipsRevenue, bonusAmount: shifts.bonusAmount })

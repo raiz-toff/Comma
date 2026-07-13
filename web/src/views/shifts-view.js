@@ -3,7 +3,7 @@ import { db } from '../core/db.js';
 import { bus, PLATFORM_CHANGED, SHIFT_DELETED, SHIFT_SAVED } from '../core/events.js';
 import { store } from '../core/store.js';
 import { t } from '../utils/strings.js';
-import { showModal, showToast, renderEmptyState } from '../ui/components.js';
+import { isCoarsePointer, showModal, showToast, renderEmptyState } from '../ui/components.js';
 import { getIcon } from '../ui/icons.js';
 import { getPlatformConfig } from '../registry/platforms/terminology.js';
 import { renderShiftForm } from '../modules/shifts/shift-form.js';
@@ -774,7 +774,10 @@ async function openWeekSelector({ selectedWeekStart, weekStartDay, onPick }) {
   );
   modal.classList.add('shifts-week-modal');
   /** @type {any} */ (modal).breakpoints = [0, 0.65, 0.92];
-  /** @type {any} */ (modal).initialBreakpoint = 0.65;
+  // Mouse users get the full sheet immediately — dragging a handle up isn't a desktop
+  // gesture, so a short default peek would hide the year pager below the fold with no
+  // discoverable way to reach it (see isCoarsePointer).
+  /** @type {any} */ (modal).initialBreakpoint = isCoarsePointer() ? 0.65 : 0.92;
   /** @type {any} */ (modal).handle = true;
   const host = document.createElement('div');
   host.className = 'expenses-m-modal-sheet shifts-week-sheet';

@@ -4,7 +4,7 @@ import { bus, EXPENSE_SAVED, SHIFT_SAVED, XP_EARNED } from '../../core/events.js
 import { store } from '../../core/store.js';
 import { calcEVCost, calcFuelCost } from '../../utils/calculations.js';
 import { t } from '../../utils/strings.js';
-import { renderEmptyState, showConfirm, showModal, showToast } from '../../ui/components.js';
+import { isCoarsePointer, renderEmptyState, showConfirm, showModal, showToast } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
 import { ExpenseCategoryRegistry, canonicalCategoryId } from '../../registry/expense-categories/index.js';
 import { renderExpenseForm } from './expense-form.js';
@@ -936,7 +936,8 @@ export async function renderExpensesView(root, ctx = {}) {
     );
     modal.classList.add('expenses-m-month-modal');
     /** @type {any} */ (modal).breakpoints = [0, 0.65, 0.92];
-    /** @type {any} */ (modal).initialBreakpoint = 0.65;
+    // Mouse users get the full sheet immediately — see isCoarsePointer's doc comment.
+    /** @type {any} */ (modal).initialBreakpoint = isCoarsePointer() ? 0.65 : 0.92;
     /** @type {any} */ (modal).handle = true;
     const host = document.createElement('div');
     host.className = 'expenses-m-modal-sheet';

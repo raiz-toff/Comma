@@ -115,6 +115,19 @@ function reducedMotionEnabled() {
 const modalStack = [];
 
 /**
+ * True on touch devices, where dragging a sheet's handle up to reveal more of it is a
+ * familiar gesture. On a mouse-driven desktop it isn't — nothing tells a mouse user that
+ * content sits just below the visible edge of a bottom sheet (it's genuinely off-screen,
+ * not a scrollable overflow), so a sheet that *opens* at a short breakpoint hides its own
+ * footer/submit button behind an undiscoverable drag. Callers should default straight to
+ * the tallest breakpoint when this is false, instead of a shorter "peek" height.
+ * @returns {boolean}
+ */
+export function isCoarsePointer() {
+  return typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+}
+
+/**
  * Show a modal dialog rendered through `ion-modal` (centered). Focus trapping, Escape +
  * backdrop dismissal, scroll locking and stacking are Ionic's; the dialog chrome
  * (header / body / footer action buttons) and the returned handle are unchanged.
@@ -909,7 +922,9 @@ export function showDrawer(opts = {}) {
   );
   modal.classList.add('comma-drawer');
   /** @type {any} */ (modal).breakpoints = [0, ...points];
-  /** @type {any} */ (modal).initialBreakpoint = points[0];
+  // Mouse users get the tallest snap point immediately — see isCoarsePointer's doc comment.
+  // (Points are ascending, so the last one is the tallest.)
+  /** @type {any} */ (modal).initialBreakpoint = isCoarsePointer() ? points[0] : points[points.length - 1];
   /** @type {any} */ (modal).handle = true;
   if (!dismissible) {
     /** @type {any} */ (modal).backdropDismiss = false;

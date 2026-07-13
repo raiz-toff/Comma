@@ -7,6 +7,7 @@ import { getIcon } from '../ui/icons.js';
 import { ymd } from '../utils/date-range-presets.js';
 import { formatCurrency } from '../utils/formatters.js';
 import { calcTaxSetAside } from '../utils/calculations.js';
+import { isCoarsePointer } from '../ui/components.js';
 
 
 /** @param {string} h */
@@ -247,7 +248,8 @@ async function openPeriodTypeSheet({ periodType, onPick }) {
   );
   modal.classList.add('analytics-period-modal');
   /** @type {any} */ (modal).breakpoints = [0, 0.65, 0.92];
-  /** @type {any} */ (modal).initialBreakpoint = 0.65;
+  // Mouse users get the full sheet immediately — see isCoarsePointer's doc comment.
+  /** @type {any} */ (modal).initialBreakpoint = isCoarsePointer() ? 0.65 : 0.92;
   /** @type {any} */ (modal).handle = true;
 
   const host = document.createElement('div');

@@ -39,6 +39,11 @@ let periodOffset = 0;
 // refresh / stuck skeleton" race.
 let paintToken = 0;
 
+// Coalesces rapid period-arrow clicks into ONE repaint. A full paint tears down and
+// rebuilds every chart, so without this a click burst starts N paints of which N-1 are
+// discarded by the token check above — the screen looks frozen until the burst ends.
+let stepRepaintTimer = /** @type {ReturnType<typeof setTimeout> | null} */ (null);
+
 // Consolidated from 21 single-purpose widgets down to 6 grouped cards (see
 // docs/analytics-consolidation.md-equivalent proposal): each of these merges
 // several former standalone widgets behind a segmented control or compact
@@ -437,12 +442,18 @@ export async function render(root, ctx) {
       return;
     }
 
-    // Prev/next period arrows
+    // Prev/next period arrows. The offset advances on every click; the repaint waits for a
+    // short pause so a burst of clicks becomes one paint at the final period instead of a
+    // stack of chart rebuilds that all but the last get thrown away.
     const stepBtn = target.closest('[data-period-step]');
     if (stepBtn && !stepBtn.hasAttribute('disabled')) {
       const step = Number(stepBtn.dataset.periodStep) || 0;
       periodOffset = Math.min(0, periodOffset + step);
-      rerender();
+      if (stepRepaintTimer) clearTimeout(stepRepaintTimer);
+      stepRepaintTimer = setTimeout(() => {
+        stepRepaintTimer = null;
+        rerender();
+      }, 160);
       return;
     }
 

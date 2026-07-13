@@ -621,6 +621,9 @@ export function initExpensesModule() {
  * @param {Record<string, unknown>} [ctx]
  * @returns {Promise<() => void>}
  */
+/** Touch devices get swipeable rows; mouse devices act via the visible row buttons. */
+const COARSE_POINTER = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+
 export async function renderExpensesView(root, ctx = {}) {
   const categories = await getAllCategories();
   const user = store.get('user');
@@ -886,13 +889,7 @@ export async function renderExpensesView(root, ctx = {}) {
         const badge = ded
           ? `<span class="expenses-m-badge">${esc(t('expenses.taxDeductible') || 'Tax Deductible')}</span>`
           : '';
-        // Ionic rollout: the row rides inside an ion-item-sliding so touch users swipe left
-        // for actions; the in-row delete button stays for mouse users and is hidden on coarse
-        // pointers in expenses.css. data-expense-id lives on the sliding host too so the
-        // existing closest('[data-expense-id]') delegation resolves the id for option taps.
-        return `<ion-item-sliding class="expenses-m-sliding" data-expense-id="${esc(exp.id)}">
-          <ion-item class="expenses-m-ion-item" lines="none">
-            <div class="expenses-m-row" data-expense-id="${esc(exp.id)}">
+        const rowHtml = `<div class="expenses-m-row" data-expense-id="${esc(exp.id)}">
               <button type="button" class="expenses-m-row-main" data-action="edit">
                 <span class="expenses-m-row-icon">${esc(meta.emoji)}</span>
                 <span class="expenses-m-row-body">
@@ -906,7 +903,15 @@ export async function renderExpensesView(root, ctx = {}) {
                 <span class="expenses-m-row-amount">-${esc(money(num(exp.amount)))}</span>
                 <button type="button" class="expenses-m-row-del" data-action="delete" aria-label="${esc(t('common.delete'))}">${getIcon('trash', 12)}</button>
               </div>
-            </div>
+            </div>`;
+        // Swipe wrapper only where swipe exists (touch). Every ion-item-sliding is a live
+        // component (shadow DOM + gesture controller), and this list rebuilds wholesale on
+        // each month step — wrapping on desktop made rapid arrow clicks visibly stutter for
+        // zero benefit, since mouse users act via the always-visible row buttons instead.
+        if (!COARSE_POINTER) return rowHtml;
+        return `<ion-item-sliding class="expenses-m-sliding" data-expense-id="${esc(exp.id)}">
+          <ion-item class="expenses-m-ion-item" lines="none">
+            ${rowHtml}
           </ion-item>
           <ion-item-options side="end">
             <ion-item-option color="medium" data-action="edit">${esc(t('common.edit'))}</ion-item-option>

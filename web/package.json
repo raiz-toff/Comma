@@ -27,5 +27,8 @@
     "offline-first",
     "delivery-driver",
     "local-first"
-  ]
+  ],
+  "dependencies": {
+    "@ionic/core": "^8.8.13"
+  }
 }

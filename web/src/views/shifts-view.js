@@ -3,7 +3,7 @@ import { db } from '../core/db.js';
 import { bus, PLATFORM_CHANGED, SHIFT_DELETED, SHIFT_SAVED } from '../core/events.js';
 import { store } from '../core/store.js';
 import { t } from '../utils/strings.js';
-import { showDrawer, showModal, showToast, renderEmptyState, renderSkeleton } from '../ui/components.js';
+import { showModal, showToast, renderEmptyState } from '../ui/components.js';
 import { getIcon } from '../ui/icons.js';
 import { getPlatformConfig } from '../registry/platforms/terminology.js';
 import { renderShiftForm } from '../modules/shifts/shift-form.js';
@@ -658,26 +658,39 @@ function shiftCardHtml(s, platformRows = []) {
     platformRows.length > 1
       ? `<div class="shift-card-platform"><span class="shift-card-platform-breakdown">${platformBreakdownChipsHtml(platformRows)}</span></div>`
       : '';
+  // Ionic spike: the card rides inside an ion-item-sliding so touch users swipe left for
+  // actions (the classic mobile-app gesture); the in-card buttons stay for mouse users and
+  // are hidden on coarse pointers in shifts.css. data-shift-id lives on the sliding host so
+  // the existing click delegation resolves the id for option taps too.
   return `
-    <article class="shift-card" data-shift-id="${escapeAttr(String(s.id))}">
-      <div class="shift-card-top">
-        <div class="shift-card-ident">
-          <span class="shift-card-plat-icon" data-platform-id="${escapeAttr(pid)}" title="${escapeAttr(platName)}">${iconGlyph}</span>
-          <span class="shift-card-date">${escapeHtml(shiftDayLabel(s))}</span>
-        </div>
-        <div class="shift-card-earn">${earn}</div>
-      </div>
-      ${breakdown}
-      <div class="shift-card-main">
-        ${shiftCardMetricsHtml(s)}
-      </div>
-      ${shiftRouteAndOdometerHtml(s)}
-      <div class="shift-card-actions">
-        <button type="button" class="btn btn-ghost btn-sm" data-action="edit">${escapeHtml(t('common.edit'))}</button>
-        <button type="button" class="btn btn-ghost btn-sm" data-action="duplicate">${escapeHtml(t('shifts.duplicateShift'))}</button>
-        <button type="button" class="btn btn-danger btn-sm" data-action="delete">${escapeHtml(t('common.delete'))}</button>
-      </div>
-    </article>
+    <ion-item-sliding class="shift-sliding" data-shift-id="${escapeAttr(String(s.id))}">
+      <ion-item class="shift-ion-item" lines="none">
+        <article class="shift-card" data-shift-id="${escapeAttr(String(s.id))}">
+          <div class="shift-card-top">
+            <div class="shift-card-ident">
+              <span class="shift-card-plat-icon" data-platform-id="${escapeAttr(pid)}" title="${escapeAttr(platName)}">${iconGlyph}</span>
+              <span class="shift-card-date">${escapeHtml(shiftDayLabel(s))}</span>
+            </div>
+            <div class="shift-card-earn">${earn}</div>
+          </div>
+          ${breakdown}
+          <div class="shift-card-main">
+            ${shiftCardMetricsHtml(s)}
+          </div>
+          ${shiftRouteAndOdometerHtml(s)}
+          <div class="shift-card-actions">
+            <button type="button" class="btn btn-ghost btn-sm" data-action="edit">${escapeHtml(t('common.edit'))}</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-action="duplicate">${escapeHtml(t('shifts.duplicateShift'))}</button>
+            <button type="button" class="btn btn-danger btn-sm" data-action="delete">${escapeHtml(t('common.delete'))}</button>
+          </div>
+        </article>
+      </ion-item>
+      <ion-item-options side="end">
+        <ion-item-option color="medium" data-action="edit">${escapeHtml(t('common.edit'))}</ion-item-option>
+        <ion-item-option color="primary" data-action="duplicate">${escapeHtml(t('shifts.duplicateShift'))}</ion-item-option>
+        <ion-item-option color="danger" data-action="delete">${escapeHtml(t('common.delete'))}</ion-item-option>
+      </ion-item-options>
+    </ion-item-sliding>
   `;
 }
 
@@ -753,11 +766,19 @@ async function openWeekSelector({ selectedWeekStart, weekStartDay, onPick }) {
   const selectedYear = Number(String(selectedWeekStart).slice(0, 4)) || realYear;
   let viewYear = Number.isFinite(selectedYear) ? selectedYear : realYear;
 
-  // Host element (fixed bottom-sheet). Reuses the expenses month-modal chrome. Remove any prior
-  // instance first so rapid re-opens can't stack sheets.
+  // Ionic spike: a real sheet modal (drag handle, breakpoints, swipe-down dismiss) hosting the
+  // same week-card content. Remove any prior instance first so rapid re-opens can't stack.
   document.querySelectorAll('.shifts-week-modal').forEach((n) => n.remove());
+  const modal = /** @type {HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean> }} */ (
+    document.createElement('ion-modal')
+  );
+  modal.classList.add('shifts-week-modal');
+  /** @type {any} */ (modal).breakpoints = [0, 0.65, 0.92];
+  /** @type {any} */ (modal).initialBreakpoint = 0.65;
+  /** @type {any} */ (modal).handle = true;
   const host = document.createElement('div');
-  host.className = 'expenses-m-modal shifts-week-modal';
+  host.className = 'expenses-m-modal-sheet shifts-week-sheet';
+  modal.appendChild(host);
 
   /** Build the sheet markup for `viewYear`. */
   const build = () => {
@@ -794,8 +815,6 @@ async function openWeekSelector({ selectedWeekStart, weekStartDay, onPick }) {
 
     const nextDisabled = viewYear >= realYear;
     host.innerHTML = `
-      <div class="expenses-m-modal-backdrop" data-week-close></div>
-      <div class="expenses-m-modal-sheet" role="dialog" aria-modal="true" aria-label="${escapeAttr(t('shifts.selectWeek'))}">
         <div class="expenses-m-modal-head">
           <h2 class="expenses-m-modal-title">${escapeHtml(t('shifts.selectWeek'))}</h2>
           <button type="button" class="expenses-m-modal-done" data-week-close>${escapeHtml(t('common.done') || 'Done')}</button>
@@ -809,21 +828,16 @@ async function openWeekSelector({ selectedWeekStart, weekStartDay, onPick }) {
           <button type="button" class="expenses-m-modal-year" data-week-year="prev">${escapeHtml(t('expenses.previousYear') || 'Previous Year')}</button>
           <span class="expenses-m-modal-yearlbl">${viewYear}</span>
           <button type="button" class="expenses-m-modal-year${nextDisabled ? ' is-disabled' : ''}" data-week-year="next"${nextDisabled ? ' disabled' : ''}>${escapeHtml(t('expenses.nextYear') || 'Next Year')}</button>
-        </div>
-      </div>`;
+        </div>`;
   };
 
   build();
-  document.body.appendChild(host);
+  modal.addEventListener('ionModalDidDismiss', () => modal.remove());
+  document.body.appendChild(modal);
+  await modal.present();
 
-  const close = () => {
-    host.remove();
-    document.removeEventListener('keydown', onKey);
-  };
-  const onKey = (ev) => {
-    if (ev.key === 'Escape') close();
-  };
-  document.addEventListener('keydown', onKey);
+  // Escape / backdrop tap / swipe-down are ion-modal's own dismissal paths.
+  const close = () => void modal.dismiss();
 
   host.addEventListener('click', (ev) => {
     const el = ev.target instanceof Element ? ev.target : null;
@@ -882,6 +896,16 @@ async function openShiftFormModal({ initial, onSaved, title, mode = 'full', subm
     }
   }
 
+  // Ionic spike: the form presents as a bottom sheet (drag handle, swipe-down dismiss)
+  // instead of the centered modal — the interaction drivers know from every phone app.
+  const modal = /** @type {HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean> }} */ (
+    document.createElement('ion-modal')
+  );
+  /** @type {any} */ (modal).breakpoints = [0, 0.92];
+  /** @type {any} */ (modal).initialBreakpoint = 0.92;
+  /** @type {any} */ (modal).handle = true;
+  const handle = { close: () => void modal.dismiss() };
+
   const formApi = renderShiftForm({
     mode,
     initial: initial || {},
@@ -890,11 +914,17 @@ async function openShiftFormModal({ initial, onSaved, title, mode = 'full', subm
     allowWeeklyEntry: !Number.isFinite(editingId),
   });
 
-  const handle = showModal({
-    title: title || t('shifts.addShift'),
-    content: formApi.el,
-    actions: [],
-  });
+  const wrap = document.createElement('div');
+  wrap.className = 'shift-sheet-body';
+  const heading = document.createElement('h2');
+  heading.className = 'shift-sheet-title';
+  heading.textContent = title || t('shifts.addShift');
+  wrap.appendChild(heading);
+  wrap.appendChild(formApi.el);
+  modal.appendChild(wrap);
+  modal.addEventListener('ionModalDidDismiss', () => modal.remove());
+  document.body.appendChild(modal);
+  await modal.present();
 
   const formEl = formApi.el.querySelector('form');
   if (formEl) {
@@ -935,14 +965,14 @@ export async function render(root, ctx) {
         <div class="shifts-view-header-main">
           <h1 class="shifts-view-title">
             ${escapeHtml(t('views.shifts.title'))}
-            <span class="shifts-count-badge" data-slot="shifts-count" hidden></span>
+            <ion-badge class="shifts-count-badge" data-slot="shifts-count" hidden></ion-badge>
           </h1>
           <p class="shifts-view-subtitle">${escapeHtml(t('views.shifts.subtitle'))}</p>
         </div>
         <div class="shifts-view-header-tools" role="toolbar" aria-label="${escapeHtml(t('shifts.headerToolsAria'))}">
-          <button type="button" class="btn btn-secondary btn-sm" data-action="start-timer">${escapeHtml(t('shifts.startShift'))}</button>
-          <button type="button" class="btn btn-secondary btn-sm" data-action="templates">${escapeHtml(t('shifts.templates'))}</button>
-          <button type="button" class="btn btn-secondary btn-sm" data-action="trash">${getIcon('trash', 14)} <span>${escapeHtml(t('shifts.trash'))}</span></button>
+          <ion-button size="small" data-action="start-timer">${escapeHtml(t('shifts.startShift'))}</ion-button>
+          <ion-button size="small" fill="outline" data-action="templates">${escapeHtml(t('shifts.templates'))}</ion-button>
+          <ion-button size="small" fill="outline" data-action="trash">${escapeHtml(t('shifts.trash'))}</ion-button>
         </div>
       </header>
 
@@ -999,10 +1029,12 @@ export async function render(root, ctx) {
 
     listSlot.innerHTML = `
       <div class="shifts-skeleton-list" style="display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-2);">
-        ${renderSkeleton('card')}
-        ${renderSkeleton('card')}
-        ${renderSkeleton('card')}
-        ${renderSkeleton('card')}
+        ${Array.from({ length: 4 }, () => `
+          <div class="shift-skel">
+            <ion-skeleton-text animated style="width: 38%; height: 14px;"></ion-skeleton-text>
+            <ion-skeleton-text animated style="width: 72%; height: 22px;"></ion-skeleton-text>
+            <ion-skeleton-text animated style="width: 55%; height: 14px;"></ion-skeleton-text>
+          </div>`).join('')}
       </div>
     `;
 
@@ -1215,6 +1247,10 @@ export async function render(root, ctx) {
     const card = /** @type {HTMLElement | null} */ (tEl.closest('[data-shift-id]'));
     const id = card ? card.getAttribute('data-shift-id') : null;
     if (!id) return;
+
+    // Swipe-action taps come from inside an open ion-item-sliding — snap it shut before acting.
+    const slider = /** @type {{ close?: () => Promise<void> } | null} */ (tEl.closest('ion-item-sliding'));
+    if (slider && typeof slider.close === 'function') void slider.close();
 
     if (action === 'edit') {
       const row = await db.shifts.get(id);

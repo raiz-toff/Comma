@@ -1,0 +1,55 @@
+/* COMMA — Ionic theme bridge. Ionic components read --ion-* custom properties; every value
+ * here points at comma's own tokens, so Ionic controls wear the app's identity and flip
+ * with html[data-theme] automatically. The -rgb variants can't reference var() tokens
+ * (Ionic composes them inside rgba()), so they carry literal channel triplets per theme.
+ */
+
+:root {
+  --ion-font-family: var(--font-body);
+
+  --ion-background-color: var(--color-bg);
+  --ion-background-color-rgb: 250, 250, 248;
+  --ion-text-color: var(--color-text-primary);
+  --ion-text-color-rgb: 26, 25, 22;
+
+  --ion-border-color: var(--color-border);
+  --ion-item-background: var(--color-surface);
+  --ion-toolbar-background: var(--color-surface);
+  --ion-card-background: var(--color-surface);
+  --ion-overlay-background-color: var(--color-surface);
+
+  --ion-color-primary: var(--color-brand);
+  --ion-color-primary-rgb: var(--color-brand-rgb);
+  --ion-color-primary-contrast: var(--color-brand-contrast);
+  --ion-color-primary-contrast-rgb: 26, 25, 22;
+  --ion-color-primary-shade: color-mix(in srgb, var(--color-brand), #000 12%);
+  --ion-color-primary-tint: color-mix(in srgb, var(--color-brand), #fff 10%);
+
+  --ion-color-success: var(--color-success);
+  --ion-color-success-contrast: #ffffff;
+  --ion-color-warning: var(--color-warning);
+  --ion-color-warning-contrast: #1a1916;
+  --ion-color-danger: var(--color-danger);
+  --ion-color-danger-rgb: 239, 68, 68;
+  --ion-color-danger-contrast: #ffffff;
+  --ion-color-danger-contrast-rgb: 255, 255, 255;
+  --ion-color-danger-shade: color-mix(in srgb, var(--color-danger), #000 12%);
+  --ion-color-danger-tint: color-mix(in srgb, var(--color-danger), #fff 10%);
+
+  --ion-color-medium: var(--color-text-secondary);
+  --ion-color-medium-contrast: var(--color-bg);
+  --ion-color-light: var(--color-surface-raised);
+  --ion-color-light-contrast: var(--color-text-primary);
+}
+
+html[data-theme='dark'] {
+  --ion-background-color-rgb: 18, 17, 15;
+  --ion-text-color-rgb: 244, 242, 237;
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-theme='auto'] {
+    --ion-background-color-rgb: 18, 17, 15;
+    --ion-text-color-rgb: 244, 242, 237;
+  }
+}

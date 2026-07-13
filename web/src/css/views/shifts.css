@@ -1437,3 +1437,59 @@ html[data-theme='dark'] .shifts-form {
 .shift-route-status--info .shift-route-badge-value {
   color: var(--color-info);
 }
+
+/* ── Ionic component spike (shifts screen) ─────────────────────────────────────────────
+ * Sliding rows keep the existing shift-card inside an ion-item; the item's own chrome is
+ * zeroed so the card looks unchanged until you swipe. Sheet modals reuse the expenses
+ * month-picker content styles inside ion-modal (the fixed-overlay wrapper is ion-modal's
+ * job now). */
+ion-item-sliding.shift-sliding {
+  display: block;
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-lg);
+}
+.shift-ion-item {
+  --background: transparent;
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  --min-height: 0;
+  width: 100%;
+}
+.shift-ion-item::part(native) {
+  padding: 0;
+}
+.shift-sliding .shift-card {
+  width: 100%;
+  margin: 0;
+}
+/* Touch devices act via swipe; the button row is mouse-only. */
+@media (pointer: coarse) {
+  .shift-sliding .shift-card-actions {
+    display: none;
+  }
+}
+ion-modal .expenses-m-modal-sheet {
+  max-height: none;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+}
+.shift-sheet-body {
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-4) var(--space-8);
+}
+.shift-sheet-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  margin: 0 0 var(--space-4);
+}
+.shift-skel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}

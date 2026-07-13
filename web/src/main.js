@@ -38,6 +38,7 @@ import './utils/strings.js';
 import { t } from './utils/strings.js';
 import './ui/icons.js';
 import { initDatePickers, showToast } from './ui/components.js';
+import { initIonic } from './core/ionic.js';
 import { initAdaptiveTheme } from './core/adaptive-theme.js';
 import { initDriveAuth } from './modules/backup/drive-auth.js';
 import { initBackupTriggers } from './modules/backup/backup-triggers.js';
@@ -217,6 +218,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateOnboardingFocusClass(!store.get('user')?.onboardingComplete);
 
     await initPlatforms();
+    initIonic();
     initAdaptiveTheme();
     initExpensesModule();
     initSearchModule();

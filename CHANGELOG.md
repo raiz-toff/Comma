@@ -17,6 +17,7 @@ All notable changes to Comma are documented here.
 - **Over-the-air updates**: builds now carry the `production` update channel, so JS-only fixes and improvements arrive automatically on next app launch — no store update or reinstall needed. Native changes still ship as regular releases.
 
 ### Changed
+- **App-grade interactions on the Shifts screen (web)**: swipe a shift card for edit, duplicate and delete, and the week picker and shift form now open as real bottom sheets you can drag, snap and flick away.
 - **Livelier welcome screen (web)**: the logo now sits inside a slowly turning ring — *every dollar · every kilometre · every write-off* — and the headline names your work the way your app does, cycling through shift, dash, block, batch and week. Both settle into stillness if your device asks for reduced motion.
 
 ### Fixed

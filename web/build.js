@@ -26,8 +26,10 @@ const isDev = !isProd;
 
 const CSS_ORDER = [
   'reset.css',
+  'ionic.css', // vendored @ionic/core base — before tokens so the theme bridge can override it
   'tokens.css',
   'themes.css',
+  'ionic-theme.css', // maps --ion-* onto comma tokens; after themes.css to see final values
   'components.css',
   'layout.css',
   'animations.css',

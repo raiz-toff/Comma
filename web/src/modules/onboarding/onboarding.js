@@ -357,9 +357,14 @@ export async function loadSampleData() {
   // can run more than once (repeat "Try Demo" clicks, the Settings "load sample" button), and a
   // second bulkAdd with the same fixed ids would throw a Dexie ConstraintError otherwise.
   await db.vehicles.clear();
+  // Web's `active` is an archive/soft-delete flag (listVehicles() and loadActiveVehicles() both
+  // drop active:false rows from every screen, including this switcher) — NOT mobile's `isActive`,
+  // which just marks the currently-preferred vehicle and never hides anything. All 3 demo vehicles
+  // need active:true here so they actually show up; nickname is left blank so vehicleLabel() (which
+  // joins nickname + make + model + year) doesn't duplicate "Toyota Prius" when nickname === name.
   await db.vehicles.bulkAdd([
     {
-      id: 'demo_vehicle_car', nickname: 'Toyota Prius', name: 'Toyota Prius',
+      id: 'demo_vehicle_car', nickname: '', name: 'Toyota Prius',
       isActive: true, active: true, type: 'hybrid', make: 'Toyota', model: 'Prius', year: 2020,
       color: '', fuelType: null, licensePlate: '', currentOdometer: 0, fuelEfficiency: null,
       currentFuelPrice: null, kwPer100km: null, electricityRate: null, maintenanceCostPerKm: null,
@@ -367,16 +372,16 @@ export async function loadSampleData() {
       createdAt: t0, updatedAt: t0, syncUpdatedAt: Date.now(), syncDeletedAt: null,
     },
     {
-      id: 'demo_vehicle_scooter', nickname: 'Honda Ruckus', name: 'Honda Ruckus',
-      isActive: false, active: false, type: 'scooter', make: 'Honda', model: 'Ruckus', year: 2022,
+      id: 'demo_vehicle_scooter', nickname: '', name: 'Honda Ruckus',
+      isActive: false, active: true, type: 'scooter', make: 'Honda', model: 'Ruckus', year: 2022,
       color: '', fuelType: null, licensePlate: '', currentOdometer: 0, fuelEfficiency: null,
       currentFuelPrice: null, kwPer100km: null, electricityRate: null, maintenanceCostPerKm: null,
       purchasePrice: null, expectedLifespanKm: null, totalKmLogged: 0,
       createdAt: t0, updatedAt: t0, syncUpdatedAt: Date.now(), syncDeletedAt: null,
     },
     {
-      id: 'demo_vehicle_ebike', nickname: 'Rad Power RadCity', name: 'Rad Power RadCity',
-      isActive: false, active: false, type: 'ebike', make: 'Rad Power', model: 'RadCity', year: 2023,
+      id: 'demo_vehicle_ebike', nickname: '', name: 'Rad Power RadCity',
+      isActive: false, active: true, type: 'ebike', make: 'Rad Power', model: 'RadCity', year: 2023,
       color: '', fuelType: null, licensePlate: '', currentOdometer: 0, fuelEfficiency: null,
       currentFuelPrice: null, kwPer100km: null, electricityRate: null, maintenanceCostPerKm: null,
       purchasePrice: null, expectedLifespanKm: null, totalKmLogged: 0,

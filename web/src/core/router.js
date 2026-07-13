@@ -23,6 +23,9 @@ import { render as renderImport } from '../views/import-view.js';
 import { render as renderNotifications } from '../views/notifications-view.js';
 import { render as renderSupport } from '../views/support-view.js';
 import { render as renderDebug } from '../views/debug-view.js';
+import { render as renderSetupPlatforms } from '../views/setup-platforms-view.js';
+import { render as renderSetupVehicle } from '../views/setup-vehicle-view.js';
+import { render as renderSetupGoal } from '../views/setup-goal-view.js';
 import { t } from '../utils/strings.js';
 
 let activeViewCleanup = null;
@@ -65,6 +68,9 @@ function resolveRouteDef(hash) {
     { hash: '#/import-guide', name: 'reports', render: renderImportHelp },
     { hash: '#/support', name: 'support', render: renderSupport },
     { hash: '#/debug', name: 'debug', render: renderDebug },
+    { hash: '#/setup/platforms', name: 'dashboard', render: renderSetupPlatforms },
+    { hash: '#/setup/vehicle', name: 'dashboard', render: renderSetupVehicle },
+    { hash: '#/setup/goal', name: 'dashboard', render: renderSetupGoal },
   ];
   const row = table.find((r) => r.hash === hash);
   return row ? { hash: row.hash, name: row.name, context: buildContext(row), render: row.render } : null;

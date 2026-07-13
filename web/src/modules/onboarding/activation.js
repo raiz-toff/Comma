@@ -101,7 +101,7 @@ export async function buildActivationItems() {
       title: t('onboarding.activation.platformsTitle'),
       detail: t('onboarding.activation.platformsDetail'),
       done: doneOverrides.has('platforms') || activePlatforms > 1,
-      href: '#/settings',
+      href: '#/setup/platforms',
     },
     {
       id: 'vehicle',
@@ -111,7 +111,7 @@ export async function buildActivationItems() {
       // added a second vehicle still couldn't tick this off, because the untouched placeholder
       // onboarding created was the one being read.
       done: doneOverrides.has('vehicle') || vehicles.some((v) => String(v?.make ?? '').trim()),
-      href: '#/vehicles',
+      href: '#/setup/vehicle',
     },
     {
       id: 'goal',
@@ -120,14 +120,17 @@ export async function buildActivationItems() {
       // Either they changed it from the seeded default, or they saved the Goals screen at all —
       // the latter so that deliberately choosing 500 still counts. See DONE_KEY.
       done: doneOverrides.has('goal') || (weeklyGoal != null && weeklyGoal !== DEFAULT_WEEKLY_GOAL),
-      href: '#/goals',
+      href: '#/setup/goal',
     },
     {
       id: 'backup',
       title: t('onboarding.activation.backupTitle'),
       detail: t('onboarding.activation.backupDetail'),
       done: syncOn,
-      href: '#/settings',
+      // Not a dedicated setup screen on the phone app either — it deep-links straight into
+      // the backup section of Settings. Web's equivalent: land on the Data tab, not the
+      // generic first tab the driver would have to hunt through.
+      href: '#/settings?tab=data',
     },
   ];
 }

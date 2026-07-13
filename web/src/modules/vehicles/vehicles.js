@@ -166,13 +166,6 @@ async function listVehicles() {
 // multi-select either, so a matching vehicle filter stays single-select for consistency.
 // No drag-reorder, no swipe-to-cycle — those are platform-specific polish nobody asked for here.
 
-/** @param {{ id: string; nickname?: string; name?: string; make?: string; model?: string; year?: number }} v */
-function vehicleLabel(v) {
-  const year = v.year ? `'${String(v.year).slice(-2)} ` : '';
-  const makeModel = `${v.make || ''} ${v.model || ''}`.trim();
-  return `${year}${makeModel || v.nickname || v.name || 'Vehicle'}`;
-}
-
 /**
  * @param {'tabs'|'dropdown'} mode
  * @param {{ activeRows: any[]; selectedId: string }} opts

@@ -522,7 +522,7 @@ function wireSavedFilterActions(root, queryInput) {
   }
 
   root.addEventListener('click', async (event) => {
-    const target = event.target instanceof HTMLElement ? event.target.closest('[data-action]') : null;
+    const target = event.target instanceof Element ? event.target.closest('[data-action]') : null;
     if (!target) return;
     const action = target.getAttribute('data-action');
     if (action === 'save-filter') {

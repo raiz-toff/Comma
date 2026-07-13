@@ -1190,7 +1190,7 @@ export function showNumericKeypad(opts = {}) {
   updateDisplay();
 
   wrap.addEventListener('click', (e) => {
-    const target = /** @type {HTMLElement | null} */ (e.target instanceof HTMLElement ? e.target.closest('[data-key]') : null);
+    const target = /** @type {HTMLElement | null} */ (e.target instanceof Element ? e.target.closest('[data-key]') : null);
     if (!target) return;
     const k = target.getAttribute('data-key');
     if (!k) return;

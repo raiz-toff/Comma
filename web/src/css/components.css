@@ -1567,3 +1567,14 @@ body.zen-mode .app-main {
   width: 100%; padding: 13px; border: none; background: none;
   color: var(--color-text-muted); font-weight: 600; cursor: pointer;
 }
+
+/* Icons never swallow clicks: an inline SVG inside an interactive control is decoration, so
+   clicks on it must resolve to the control itself. Click delegation across the views guards
+   ev.target with instanceof checks — an SVG target used to fail HTMLElement guards and made
+   buttons (period/month arrows especially) appear dead when hit dead-center on the icon. */
+button svg,
+ion-button svg,
+[data-action] svg,
+[role="button"] svg {
+  pointer-events: none;
+}

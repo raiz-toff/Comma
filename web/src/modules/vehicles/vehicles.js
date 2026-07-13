@@ -537,7 +537,7 @@ export async function renderVehiclesView(root) {
   };
 
   root.addEventListener('click', async (e) => {
-    const el = /** @type {HTMLElement | null} */ (e.target instanceof HTMLElement ? e.target.closest('[data-action],[data-vehicle-id]') : null);
+    const el = /** @type {HTMLElement | null} */ (e.target instanceof Element ? e.target.closest('[data-action],[data-vehicle-id]') : null);
     if (!el) return;
     const action = el.getAttribute('data-action');
     if (action === 'add-vehicle') {

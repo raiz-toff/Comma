@@ -263,7 +263,7 @@ async function openPeriodTypeSheet({ periodType, onPick }) {
   modal.appendChild(host);
 
   host.addEventListener('ionChange', (ev) => {
-    const target = ev.target instanceof HTMLElement ? ev.target : null;
+    const target = ev.target instanceof Element ? ev.target : null;
     if (!target || !target.matches('[data-period-type-segment]')) return;
     const type = String(/** @type {CustomEvent<{ value?: unknown }>} */ (ev).detail?.value ?? '');
     if (PERIOD_TYPES.includes(type)) {
@@ -428,7 +428,9 @@ export async function render(root, ctx) {
 
   const handleClick = (ev) => {
     const target = ev.target;
-    if (!(target instanceof HTMLElement)) return;
+    // Element, NOT HTMLElement: a click on an inline SVG icon targets an SVGElement, and an
+    // HTMLElement guard silently swallowed every click landing on the arrow chevrons.
+    if (!(target instanceof Element)) return;
 
     // Hero stat card tap-to-expand (Avg Rate / Expenses / Tax Set-Aside detail)
     const statToggle = target.closest('[data-stat-toggle]');
@@ -473,7 +475,7 @@ export async function render(root, ctx) {
   // The category tab bar is an ion-segment: it fires ionChange (not a plain click).
   // Delegated on root so it survives every innerHTML repaint.
   const handleIonChange = (ev) => {
-    const target = ev.target instanceof HTMLElement ? ev.target : null;
+    const target = ev.target instanceof Element ? ev.target : null;
     if (!target || !target.matches('[data-analytics-tab-segment]')) return;
     const tab = String(/** @type {CustomEvent<{ value?: unknown }>} */ (ev).detail?.value ?? '');
     if (ANALYTICS_TAB_WIDGETS[tab] && tab !== loadActiveTab()) {

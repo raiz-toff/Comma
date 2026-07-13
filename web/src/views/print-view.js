@@ -168,7 +168,7 @@ export function render(root, ctx) {
   `;
 
   container.addEventListener('click', (e) => {
-    const target = e.target instanceof HTMLElement ? e.target.closest('[data-action]') : null;
+    const target = e.target instanceof Element ? e.target.closest('[data-action]') : null;
     if (!target) return;
     const action = target.getAttribute('data-action');
     if (action === 'print') {

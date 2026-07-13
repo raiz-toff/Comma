@@ -1109,7 +1109,7 @@ export async function renderExpensesView(root, ctx = {}) {
   root.addEventListener(
     'click',
     async (e) => {
-      const target = e.target instanceof HTMLElement ? e.target.closest('[data-action]') : null;
+      const target = e.target instanceof Element ? e.target.closest('[data-action]') : null;
       if (!target || !root.contains(target)) return;
       const action = target.getAttribute('data-action');
 

@@ -524,6 +524,9 @@ export async function loadSampleData() {
   await db.expenses.bulkAdd(expenseRows);
   await setAppState('demo_mode', true);
   store.set('demoMode', true);
+  // The demo path client-side-navigates to the dashboard without a reload, so the header vehicle
+  // switcher would otherwise keep the empty vehicle list it read at boot and stay hidden.
+  await store.refresh('vehicles');
   bus.emit(GOAL_UPDATED, { source: 'sample' });
 }
 

@@ -2,6 +2,8 @@
 
 A shift is one work session, tracked live from start to finish. This page covers the live console on the phone, the Big Clock on the web, and how to log a shift you forgot to start.
 
+<ShiftStrip accent="blue" blocks={[{ label: "dead — driving to the zone", pct: 20, kind: "idle" }, { label: "active — Got First Order", pct: 45 }, { label: "paused", pct: 12, kind: "idle" }, { label: "active", pct: 23 }]} caption="One shift, start to end swipe. Got First Order splits dead distance from active; paused time is excluded from your hourly rate." />
+
 ---
 
 ## Starting a live shift (phone)

@@ -151,9 +151,9 @@ async function renderNotificationsScreen(root) {
       <div class="notif-skel-list">
         ${Array.from({ length: 3 }, () => `
           <div class="notif-skel">
-            <ion-skeleton-text animated style="width: 42%; height: 16px;"></ion-skeleton-text>
-            <ion-skeleton-text animated style="width: 88%; height: 14px;"></ion-skeleton-text>
-            <ion-skeleton-text animated style="width: 30%; height: 12px;"></ion-skeleton-text>
+            <ion-skeleton-text animated></ion-skeleton-text>
+            <ion-skeleton-text animated></ion-skeleton-text>
+            <ion-skeleton-text animated></ion-skeleton-text>
           </div>`).join('')}
       </div>
     </div>

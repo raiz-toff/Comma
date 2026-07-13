@@ -2,6 +2,8 @@
 
 Comma is a local-first monorepo holding two apps that share one data model — a native Android/Expo app and a browser PWA — plus the documentation site that renders these pages.
 
+<LayerStack accent="indigo" layers={[{ name: "Expo Router", note: "file-based routes" }, { name: "Zustand + React Query", note: "sync state / db cache" }, { name: "Drizzle ORM", note: "queries, syncedWrites" }, { name: "SQLite", note: "the local vault" }]} caption="Two apps — an Expo phone app and a vanilla-JS PWA — share one data model and one Drive-based sync engine. There is no backend to draw." />
+
 ---
 
 ## Design principles

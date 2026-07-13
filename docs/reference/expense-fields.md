@@ -2,6 +2,8 @@
 
 Every field on the expense form and the full category list, with deductibility and the standard-mileage guardrail explained.
 
+<MoneySplit total="$120.00 phone bill" parts={[{ label: "business use — deducts", pct: 50, accent: "emerald" }, { label: "personal — does not", pct: 50, accent: "amber" }]} caption="Business use defaults to 100%, except phone, data, and meals at 50% and out-of-pocket at 0%. Standard-mileage vehicles cannot also deduct fuel, maintenance, or insurance." />
+
 ---
 
 ## Fields

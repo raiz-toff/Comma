@@ -176,8 +176,9 @@ export function WelcomeScreen({
           </Text>
         </View>
 
-        {/* CTAs — one real button; the side paths are quiet text links under it. */}
-        <View style={{ gap: 6 }}>
+        {/* CTAs — a clear ladder: commit (filled) → explore (outlined) → return (quiet link,
+            set apart by a divider). Mirrors the web landing's three-tier hierarchy. */}
+        <View style={{ gap: 10 }}>
           <Pressable
             onPress={onStart}
             disabled={demoLoading}
@@ -201,12 +202,17 @@ export function WelcomeScreen({
             </Text>
           </Pressable>
 
+          {/* Explore path — a real outlined button, one rung below the filled primary, so it
+              reads as an option rather than a throwaway text link. */}
           <Pressable
             onPress={demoLoading ? undefined : onDemo}
             accessibilityRole="button"
             accessibilityState={{ disabled: demoLoading }}
             style={{
-              paddingVertical: 12,
+              borderWidth: 1,
+              borderColor: C.lineStrong,
+              borderRadius: 16,
+              paddingVertical: 16,
               alignItems: "center",
               flexDirection: "row",
               justifyContent: "center",
@@ -216,17 +222,21 @@ export function WelcomeScreen({
             {demoLoading
               ? <>
                   <ActivityIndicator size="small" color={C.contentSecondary} />
-                  <Text variant="labelM" style={{ color: C.contentSecondary }}>Setting up demo...</Text>
+                  <Text variant="labelL" style={{ color: C.contentSecondary }}>Setting up demo...</Text>
                 </>
-              : <Text variant="labelM" style={{ color: C.contentSecondary }}>Try with demo data</Text>
+              : <Text variant="labelL" style={{ color: C.contentPrimary }}>Try with demo data</Text>
             }
           </Pressable>
+
+          {/* Returning-user path, set apart by a hairline so it doesn't compete with the two
+              first-run actions above it. */}
+          <View style={{ height: 1, backgroundColor: C.lineSubtle, marginTop: 4 }} />
 
           <Pressable
             onPress={demoLoading ? undefined : onRestoreSync}
             accessibilityRole="button"
             accessibilityState={{ disabled: demoLoading }}
-            style={{ paddingVertical: 12, alignItems: "center" }}
+            style={{ paddingVertical: 10, alignItems: "center" }}
           >
             <Text variant="labelM" style={{ color: C.contentSecondary }}>Restore or sync existing data</Text>
           </Pressable>

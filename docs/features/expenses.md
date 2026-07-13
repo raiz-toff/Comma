@@ -2,6 +2,8 @@
 
 Log the business costs of driving — fuel, maintenance, phone, and the rest — so they reduce your taxable income and sit alongside your earnings. Amounts are in CAD.
 
+<StatRow accent="cyan" items={[{ value: "20", label: "categories, CRA-aligned" }, { value: "0–100%", label: "business use, per expense" }, { value: "±7 days", label: "shifts offered to link" }, { value: "2", label: "YTD tiles: deductible vs spend" }]} caption="Nothing is simply deductible or not. A phone bill that is half personal is 50% business use — and only that half reduces taxable income." />
+
 ---
 
 ## The expense form

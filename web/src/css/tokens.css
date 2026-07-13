@@ -18,14 +18,16 @@
   --color-amazonflex: #ff9900;
   --color-other: #6b7280;
 
-  /* Semantic colors (light mode defaults) */
-  --color-bg: #fafaf8;
+  /* Semantic colors (light mode defaults).
+     Neutral white/grey/near-black — the LIGHT half of Comma's brand system (AGENTS.md §7);
+     no warm tint. The dark half (pitch black) lives in themes.css. */
+  --color-bg: #ffffff;
   --color-surface: #ffffff;
-  --color-surface-raised: #f2f0eb;
-  --color-border: #e5e2da;
-  --color-text-primary: #1a1916;
-  --color-text-secondary: #6b6860;
-  --color-text-muted: #a09d96;
+  --color-surface-raised: #f4f4f6;
+  --color-border: #e5e5eb;
+  --color-text-primary: #0e0e11;
+  --color-text-secondary: #53535a;
+  --color-text-muted: #8a8a93;
   /* Alias — several widgets (tips-total, deliveries, month-orders, etc.) reference
      --color-text-main, which was never actually defined. Most usages are plain `color:` on an
      inherited property, so the missing var() silently fell back to the inherited color and
@@ -38,6 +40,20 @@
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
   --color-info: #3b82f6;
+
+  /* Semantic aliases + derived rungs.
+     Referenced across views (settings/tax/dashboard/notifications/shifts/reports/import/
+     onboarding/calendar) but were never defined — so that markup pointed at nothing and
+     stopped following the theme. Defined ONCE here, derived from the base palette above, so
+     they flip automatically between the white (light) and pitch-black (dark) systems and are
+     the single place to tweak these shades. */
+  --color-text: var(--color-text-primary);
+  --color-error: var(--color-danger);
+  --color-white: #ffffff; /* fixed white — for text/marks on a saturated accent fill */
+  --color-surface-hover: color-mix(in srgb, var(--color-text-primary) 5%, var(--color-surface));
+  --color-surface-02: color-mix(in srgb, var(--color-text-primary) 3%, var(--color-surface));
+  --color-border-subtle: color-mix(in srgb, var(--color-border) 55%, var(--color-surface));
+  --color-border-strong: color-mix(in srgb, var(--color-text-primary) 18%, var(--color-border));
 
   /* Spacing scale */
   --space-1: 4px;
@@ -53,12 +69,17 @@
 
   /* Typography */
   --font-display: 'DM Serif Display', Georgia, serif;
-  --font-body: 'DM Sans', system-ui, sans-serif;
+  /* Body/UI face is Inter, matching the docs site for a consistent feel across the product.
+     Headlines stay DM Serif Display and money stays DM Mono (the docs site pairs Inter with the
+     same DM accents). Inter loads from the Google Fonts link in index.html; system-ui is the
+     offline fallback until Inter is vendored into web/public/fonts. */
+  --font-body: 'Inter', system-ui, sans-serif;
   --font-mono: 'DM Mono', 'Courier New', monospace;
 
   --text-base: 15px;
   --text-xs: calc(var(--text-base) * 0.733);
   --text-sm: calc(var(--text-base) * 0.867);
+  --text-md: calc(var(--text-base) * 1.067); /* ~16px — was referenced (reports/settings/import) but undefined */
   --text-lg: calc(var(--text-base) * 1.133);
   --text-xl: calc(var(--text-base) * 1.333);
   --text-2xl: calc(var(--text-base) * 1.6);
@@ -66,8 +87,31 @@
   --text-4xl: calc(var(--text-base) * 2.533);
   --text-5xl: calc(var(--text-base) * 3.2);
 
+  /* Layout constitution (F007 phase 1) — every screen uses these; no view defines its own
+     breakpoint, page width, or chrome height. Exactly two real breakpoints app-wide:
+     --bp-desktop (sidebar appears) and --bp-wide (dashboard aside, wide chrome). */
+  --bp-desktop: 768px;
+  --bp-wide: 1120px;
+
+  --rail-w: 240px;       /* desktop sidebar */
+  --content: 720px;      /* DEFAULT page width: lists, forms, overview main column */
+  --content-wide: 960px; /* wide pages: tables, charts, calendar, reports */
+  --aside-w: 340px;      /* dashboard right column, >=1120px only */
+
+  --header-h: 56px;      /* mobile */
+  --header-h-lg: 64px;   /* desktop */
+  --bottomnav-h: 56px;   /* + safe-area-inset-bottom */
+
+  --page-pad: 16px;      /* mobile */
+  --page-pad-lg: 32px;   /* desktop */
+
+  --control-h: 44px;     /* mobile touch target */
+  --control-h-lg: 40px;  /* desktop */
+
   /* Shared max content width for the main tab views (shifts, expenses, goals, analytics) so they
-     line up at the same column width across screen sizes. */
+     line up at the same column width across screen sizes.
+     Superseded by --content above; kept as an alias until the final sweep phase deletes every
+     view's reference to it (AGENTS.md §1 — do not delete until all views are migrated). */
   --app-content-width: 720px;
 
   /* Radii */
@@ -76,6 +120,10 @@
   --radius-lg: 16px;
   --radius-xl: 24px;
   --radius-pill: 999px;
+  --radius-full: 999px; /* alias of pill — referenced (layout/import) but was undefined */
+
+  /* Letter-spacing */
+  --tracking-tight: -0.02em; /* referenced (tax/vehicles headings) but was undefined */
 
   /* Shadows */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);

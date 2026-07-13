@@ -15,6 +15,15 @@ export const metadata: Metadata = {
   },
   description:
     'Documentation for Comma, a local-first earnings tracker for gig drivers, on Android and the web.',
+  openGraph: {
+    type: 'website',
+    siteName: 'Comma Docs',
+    images: [{ url: '/og.png', width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    images: ['/og.png'],
+  },
 };
 
 export default function Layout({ children }: LayoutProps<'/'>) {

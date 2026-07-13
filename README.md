@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="marketing/final/web/github-banner-1280x400.png" alt="Comma — track every shift, keep every byte" width="100%" />
+</p>
+
 # Comma
 
 [![Latest release](https://img.shields.io/github/v/release/raiz-toff/CommaApp)](https://github.com/raiz-toff/CommaApp/releases/latest)

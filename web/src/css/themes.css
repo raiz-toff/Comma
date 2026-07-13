@@ -8,13 +8,15 @@ html[data-theme='light'] {
 
 html[data-theme='dark'] {
   color-scheme: dark;
-  --color-bg: #12110f;
-  --color-surface: #1c1b18;
-  --color-surface-raised: #262522;
-  --color-border: #3d3a35;
-  --color-text-primary: #f4f2ed;
-  --color-text-secondary: #b8b4ab;
-  --color-text-muted: #7a7670;
+  /* Pitch black — the DARK half of Comma's brand system (AGENTS.md §7 PRODUCT MODE):
+     true-black canvas, near-black surfaces, white text. No warm charcoal. */
+  --color-bg: #000000;
+  --color-surface: #0a0a0c;
+  --color-surface-raised: #16161a;
+  --color-border: #26262c;
+  --color-text-primary: #f6f6f7;
+  --color-text-secondary: #9b9ba4;
+  --color-text-muted: #65656e;
   --color-success: #4ade80;
   --color-warning: #fbbf24;
   --color-danger: #f87171;
@@ -27,13 +29,13 @@ html[data-theme='auto'] {
 
 @media (prefers-color-scheme: dark) {
   html[data-theme='auto'] {
-    --color-bg: #12110f;
-    --color-surface: #1c1b18;
-    --color-surface-raised: #262522;
-    --color-border: #3d3a35;
-    --color-text-primary: #f4f2ed;
-    --color-text-secondary: #b8b4ab;
-    --color-text-muted: #7a7670;
+    --color-bg: #000000;
+    --color-surface: #0a0a0c;
+    --color-surface-raised: #16161a;
+    --color-border: #26262c;
+    --color-text-primary: #f6f6f7;
+    --color-text-secondary: #9b9ba4;
+    --color-text-muted: #65656e;
     --color-success: #4ade80;
     --color-warning: #fbbf24;
     --color-danger: #f87171;

@@ -4,10 +4,11 @@ import { bus, PLATFORM_CHANGED, VEHICLE_FILTER_CHANGED, SHIFT_DELETED, SHIFT_SAV
 import { store } from '../core/store.js';
 import { filterIds, matchesFilter } from '../utils/filters.js';
 import { t } from '../utils/strings.js';
-import { applySheetPresentation, showModal, showToast, renderEmptyState } from '../ui/components.js';
+import { applySheetPresentation, showModal, showToast, renderEmptyState, renderPlatformBadge } from '../ui/components.js';
 import { getIcon } from '../ui/icons.js';
 import { getPlatformConfig } from '../registry/platforms/terminology.js';
 import { renderShiftForm } from '../modules/shifts/shift-form.js';
+import { openShiftDetailModal } from '../modules/shifts/shift-detail.js';
 import {
   applyTemplate,
   checkHoursWarning,
@@ -604,7 +605,7 @@ function shiftsWeekChartHtml(allShifts, nav, weekStartDay) {
       const title = `${d}: ${sym}${val.toFixed(2)}`;
       return `
         <button type="button" class="shifts-chart-col${selCls}" data-shifts-day="${escapeAttr(d)}" title="${escapeAttr(title)}" aria-pressed="${isSel ? 'true' : 'false'}">
-          <span class="shifts-chart-track"><span class="shifts-chart-fill${dim}" style="height:${h}%"></span></span>
+          <span class="shifts-chart-track"><span class="shifts-chart-fill${dim}" style="--h:${h}%"></span></span>
           <span class="shifts-chart-daylabel">${escapeHtml(dayLetter(d))}</span>
         </button>`;
     })
@@ -801,7 +802,7 @@ async function openWeekSelector({ selectedWeekStart, weekStartDay, onPick }) {
       const mini = days
         .map((d, di) => {
           const h = maxDay > 0 ? Math.max((dayTotals[di] / maxDay) * 100, dayTotals[di] > 0 ? 8 : 2) : 2;
-          return `<span class="expenses-m-mini-col"><span class="expenses-m-mini-track"><span class="expenses-m-mini-fill" style="height:${h}%"></span></span></span>`;
+          return `<span class="expenses-m-mini-col"><span class="expenses-m-mini-track"><span class="expenses-m-mini-fill" style="--h:${h}%"></span></span></span>`;
         })
         .join('');
       const range = weekPillLabel({ start: days[0], end: days[days.length - 1] });
@@ -864,6 +865,63 @@ async function openWeekSelector({ selectedWeekStart, weekStartDay, onPick }) {
         close();
       }
     }
+  });
+}
+
+/** Open the edit form for a shift by id — the path the card's "Edit" button and the detail
+ *  view's "Edit" button both use. */
+async function openShiftEditById(id) {
+  const row = await db.shifts.get(id);
+  if (!row) return;
+  await openShiftFormModal({
+    title: t('shifts.editShift'),
+    initial: shiftRowToFormTimeFields(row),
+    submitLabel: t('common.save'),
+    onSaved: async (val) => {
+      await updateShift(id, val);
+      return id;
+    },
+  });
+}
+
+/** Confirm-and-delete a shift with an undo toast — shared by the card's Delete button and the
+ *  detail view's Delete action. */
+async function runDeleteShift(id) {
+  const ok = await new Promise((resolve) => {
+    showModal({
+      title: t('shifts.deleteShift'),
+      content: `<p>${escapeHtml(t('shifts.deleteConfirm'))}</p>`,
+      actions: [
+        { label: t('common.cancel'), variant: 'ghost', onClick: () => resolve(false) },
+        { label: t('common.delete'), variant: 'danger', onClick: () => resolve(true) },
+      ],
+      onClose: () => resolve(false),
+    });
+  });
+  if (!ok) return;
+  try {
+    await deleteShift(id);
+    showToast({
+      type: 'success',
+      message: t('shifts.deletedToast'),
+      duration: 2500,
+      actionLabel: t('shifts.undo'),
+      onAction: async () => {
+        await restoreShift(id);
+        showToast({ type: 'success', message: t('shifts.restoredToast'), duration: 1600 });
+      },
+    });
+  } catch (err) {
+    console.warn('[comma shifts] delete failed', err);
+    showToast({ type: 'error', message: t('errors.generic'), duration: 2200 });
+  }
+}
+
+/** Open the read-only detail view for a shift, wired to the shared edit/delete flows. */
+function openShiftDetail(id) {
+  return openShiftDetailModal(id, {
+    onEdit: (sid) => void openShiftEditById(sid),
+    onDeleted: (sid) => runDeleteShift(sid),
   });
 }
 
@@ -1028,12 +1086,12 @@ export async function render(root, ctx) {
     }
 
     listSlot.innerHTML = `
-      <div class="shifts-skeleton-list" style="display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-2);">
+      <div class="shifts-skeleton-list">
         ${Array.from({ length: 4 }, () => `
           <div class="shift-skel">
-            <ion-skeleton-text animated style="width: 38%; height: 14px;"></ion-skeleton-text>
-            <ion-skeleton-text animated style="width: 72%; height: 22px;"></ion-skeleton-text>
-            <ion-skeleton-text animated style="width: 55%; height: 14px;"></ion-skeleton-text>
+            <ion-skeleton-text animated></ion-skeleton-text>
+            <ion-skeleton-text animated></ion-skeleton-text>
+            <ion-skeleton-text animated></ion-skeleton-text>
           </div>`).join('')}
       </div>
     `;
@@ -1250,24 +1308,20 @@ export async function render(root, ctx) {
     const id = card ? card.getAttribute('data-shift-id') : null;
     if (!id) return;
 
+    // A plain tap on the card body (no action button) opens the read-only detail view — like
+    // tapping a shift on the phone app — instead of doing nothing. The card's Edit/Duplicate/
+    // Delete buttons and the swipe options still carry their own data-action and are handled below.
+    if (!action) {
+      await openShiftDetail(id);
+      return;
+    }
+
     // Swipe-action taps come from inside an open ion-item-sliding — snap it shut before acting.
     const slider = /** @type {{ close?: () => Promise<void> } | null} */ (tEl.closest('ion-item-sliding'));
     if (slider && typeof slider.close === 'function') void slider.close();
 
     if (action === 'edit') {
-      const row = await db.shifts.get(id);
-      if (!row) return;
-      await openShiftFormModal({
-        title: t('shifts.editShift'),
-        // Fix 1 (interop plan) — the stored row's startTime/endTime are epoch-ms timestamps;
-        // convert back to the date/HH:mm-string shape shift-form.js's `initial` expects.
-        initial: shiftRowToFormTimeFields(row),
-        submitLabel: t('common.save'),
-        onSaved: async (val) => {
-          await updateShift(id, val);
-          return id;
-        },
-      });
+      await openShiftEditById(id);
       return;
     }
 
@@ -1288,35 +1342,7 @@ export async function render(root, ctx) {
     }
 
     if (action === 'delete') {
-      const ok = await new Promise((resolve) => {
-        const h = showModal({
-          title: t('shifts.deleteShift'),
-          content: `<p>${escapeHtml(t('shifts.deleteConfirm'))}</p>`,
-          actions: [
-            { label: t('common.cancel'), variant: 'ghost', onClick: () => resolve(false) },
-            { label: t('common.delete'), variant: 'danger', onClick: () => resolve(true) },
-          ],
-          onClose: () => resolve(false),
-        });
-        void h;
-      });
-      if (!ok) return;
-      try {
-        await deleteShift(id);
-        showToast({
-          type: 'success',
-          message: t('shifts.deletedToast'),
-          duration: 2500,
-          actionLabel: t('shifts.undo'),
-          onAction: async () => {
-            await restoreShift(id);
-            showToast({ type: 'success', message: t('shifts.restoredToast'), duration: 1600 });
-          },
-        });
-      } catch (err) {
-        console.warn('[comma shifts] delete failed', err);
-        showToast({ type: 'error', message: t('errors.generic'), duration: 2200 });
-      }
+      await runDeleteShift(id);
       return;
     }
   };
@@ -1344,6 +1370,10 @@ export async function render(root, ctx) {
       submitLabel: t('common.save'),
       onSaved: async (val) => saveShift(val),
     });
+  } else if (ctx && ctx.openShiftId) {
+    // Deep-linked from the dashboard's recent-shifts list (#/shifts?open=<id>) — open the
+    // read-only detail view (like the phone app), with Edit/Delete available from there.
+    await openShiftDetail(ctx.openShiftId);
   }
 
   return teardown;
@@ -1358,7 +1388,7 @@ async function openTrashManager() {
     if (!listContainer) return;
 
     if (deleted.length === 0) {
-      listContainer.innerHTML = `<div class="text-sm shifts-muted" style="text-align:center; padding:var(--space-6) 0;">${escapeHtml(t('shifts.noTrash'))}</div>`;
+      listContainer.innerHTML = `<div class="text-sm shifts-muted shifts-trash-empty">${escapeHtml(t('shifts.noTrash'))}</div>`;
       const purgeBtn = bodyEl.querySelector('[data-action="purge-trash"]');
       if (purgeBtn) purgeBtn.setAttribute('disabled', '');
       return;
@@ -1373,33 +1403,30 @@ async function openTrashManager() {
       const platformDisplay =
         platformRows.length > 1
           ? `<span class="trash-row-platform-breakdown">${platformBreakdownChipsHtml(platformRows)}</span>`
-          : `<span class="trash-row-platform badge" data-platform-id="${escapeAttr(pid)}" style="background-color: var(--color-${pid}, var(--color-other)); color: #fff; margin-left: var(--space-2);">${escapeHtml(pl.name || pid)}</span>`;
+          : renderPlatformBadge(pid, pl.name || pid);
       return `
         <div class="trash-row" data-shift-id="${escapeAttr(String(s.id))}">
           <div class="trash-row-info">
             <span class="trash-row-date">${escapeHtml(s.date || '')}</span>
             ${platformDisplay}
-            <span class="trash-row-gross" style="margin-left: var(--space-2); font-weight: 600;">${grossFormatted}</span>
+            <span class="trash-row-gross">${grossFormatted}</span>
           </div>
           <button type="button" class="btn btn-secondary btn-sm" data-action="restore-trash">${escapeHtml(t('shifts.restore'))}</button>
         </div>
       `;
     }).join('');
-    
+
     const purgeBtn = bodyEl.querySelector('[data-action="purge-trash"]');
     if (purgeBtn) purgeBtn.removeAttribute('disabled');
   };
 
   const body = document.createElement('div');
   body.className = 'shifts-trash';
-  body.style.display = 'flex';
-  body.style.flexDirection = 'column';
-  body.style.gap = 'var(--space-4)';
   body.innerHTML = `
-    <div class="shifts-trash-actions" style="display:flex; justify-content:flex-end;">
+    <div class="shifts-trash-actions">
       <button type="button" class="btn btn-danger btn-sm" data-action="purge-trash">${escapeHtml(t('shifts.purgeTrash'))}</button>
     </div>
-    <div class="shifts-trash-list" style="display:flex; flex-direction:column; gap:var(--space-2); max-height: 350px; overflow-y: auto;">
+    <div class="shifts-trash-list">
       <div class="text-sm shifts-muted">Loading trash...</div>
     </div>
   `;

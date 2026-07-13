@@ -2,6 +2,8 @@
 
 A complete reference to every setting in Comma, organized by tab, with the differences between the phone app and the web app called out.
 
+<Chips accent="blue" items={["You", "Appearance", "Platforms", "Alerts", "Data"]} caption="Five tabs on the phone, saved with one button; the same groups on the web as accordion cards that save as you go." />
+
 ---
 
 ## Where settings live

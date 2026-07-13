@@ -227,9 +227,13 @@ function renderOnboardingLanding() {
       </div>
 
       <div class="onboarding-landing-actions">
+        <!-- Three-tier hierarchy: commit (filled) → explore (outlined) → return (quiet link).
+             The divider groups the two "new here" paths apart from the "already have data" one. -->
         <button type="button" class="btn btn-primary btn-lg onboarding-landing-primary" data-start-onboarding>${esc(t('onboarding.landing.startCta'))}</button>
-        <button type="button" class="onboarding-landing-link" data-demo>${esc(t('onboarding.tryDemo'))}</button>
-        <button type="button" class="onboarding-landing-link" data-action="restore-sync">${esc(t('onboarding.landing.restoreLink'))}</button>
+        <button type="button" class="btn btn-lg onboarding-landing-secondary" data-demo>${esc(t('onboarding.tryDemo'))}</button>
+        <div class="onboarding-landing-tertiary">
+          <button type="button" class="onboarding-landing-link" data-action="restore-sync">${esc(t('onboarding.landing.restoreLink'))}</button>
+        </div>
         <p class="onboarding-landing-trust">${esc(t('onboarding.landing.trustLine'))}</p>
       </div>
 

@@ -8,6 +8,8 @@ The phone app stores all data in a local SQLite database, defined with Drizzle O
 
 Every column below is taken from the schema. Eleven tables carry the two sync columns and participate in cloud sync; four (`settings`, `locationPoints`, `tempNativePoints`, `syncOverwriteLog`) are deliberately device-local.
 
+<Chips accent="teal" items={["shifts", "shiftPlatforms", "expenses", "merchants", "vehicles", "maintenanceLogs", "vehicleTaxProfiles", "goals", "platforms", "taxHistory", "profile"]} caption="The eleven synced tables. Each row carries syncUpdatedAt (the last-write-wins clock) and syncDeletedAt (the tombstone) — every read filters the tombstones out." />
+
 ---
 
 ## `shifts`

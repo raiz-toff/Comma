@@ -1,7 +1,6 @@
-import PapaMod from '../libs/papaparse.min.js';
 import { db } from '../core/db.js';
 import { store } from '../core/store.js';
-import { showToast, showModal } from '../ui/components.js';
+import { showToast } from '../ui/components.js';
 import { t } from '../utils/strings.js';
 import { getIcon } from '../ui/icons.js';
 import {
@@ -21,15 +20,9 @@ import {
   getPlatformReport,
   getWeeklyReportCard,
   getYearInReviewModel,
-  previewVaultImportDiff,
-  restoreVaultBackup,
 } from '../modules/reports/reports.js';
-import { saveShift } from '../modules/shifts/shifts.js';
-import { saveExpense } from '../modules/expenses/expenses.js';
 import { ReportRegistry } from '../registry/reports/index.js';
 import '../css/views/reports.css';
-
-const Papa = /** @type {any} */ (PapaMod).default || PapaMod;
 
 function generateYirSvg(yir) {
   const grossStr = formatMoney(yir.summary.gross);
@@ -140,111 +133,105 @@ export async function render(root, ctx) {
 
   container.innerHTML = `
     <section class="reports-view">
-      <header class="card card-raised tax-header" style="padding: var(--space-4);">
-        <div class="tax-header-title">
-          <h1>${esc(t('reports.title'))}</h1>
-          <p>${esc(t('reports.subtitle'))}</p>
-        </div>
+      <header class="reports-header">
+        <h1>${esc(t('reports.title'))}</h1>
+        <p>${esc(t('reports.subtitle'))}</p>
       </header>
 
-      <div class="reports-config-grid">
-        <section class="card">
-          <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-4);">
-            ${getIcon('calendar', 18, 'text-brand')}
-            <h2 style="margin: 0; font-size: var(--text-md);">${esc(t('reports.periodTitle'))}</h2>
-          </div>
-          
-          <ion-segment class="reports-period-segment" value="weekly" data-reports-period>
-            <ion-segment-button value="weekly">${esc(t('reports.weekly'))}</ion-segment-button>
-            <ion-segment-button value="monthly">${esc(t('reports.monthly'))}</ion-segment-button>
-            <ion-segment-button value="annual">${esc(t('reports.annual'))}</ion-segment-button>
-            <ion-segment-button value="platform">${esc(t('reports.platform'))}</ion-segment-button>
-            <ion-segment-button value="custom">${esc(t('reports.custom'))}</ion-segment-button>
-          </ion-segment>
+      <div class="reports-toolbar">
+        <ion-segment class="reports-period-segment" value="weekly" data-reports-period>
+          <ion-segment-button value="weekly">${esc(t('reports.weekly'))}</ion-segment-button>
+          <ion-segment-button value="monthly">${esc(t('reports.monthly'))}</ion-segment-button>
+          <ion-segment-button value="annual">${esc(t('reports.annual'))}</ion-segment-button>
+          <ion-segment-button value="platform">${esc(t('reports.platform'))}</ion-segment-button>
+          <ion-segment-button value="custom">${esc(t('reports.custom'))}</ion-segment-button>
+        </ion-segment>
 
-          <div class="reports-filter-grid">
-            <label class="field" data-slot="platform-filter">
-              <span class="field-label">Platform Filter</span>
-              <select class="input" name="platformId">
-                <option value="all">All Platforms</option>
-              </select>
+        <div class="reports-filters is-hidden" data-slot="filters">
+          <label class="field reports-filter-platform" data-slot="platform-filter">
+            <span class="field-label">Platform</span>
+            <select class="input" name="platformId">
+              <option value="all">All platforms</option>
+            </select>
+          </label>
+          <div class="reports-filter-dates" data-slot="date-filter">
+            <label class="field">
+              <span class="field-label">Start</span>
+              <input class="input" type="date" name="startDate" />
             </label>
-            <div class="reports-date-grid">
-              <label class="field">
-                <span class="field-label">Start</span>
-                <input class="input" type="date" name="startDate" />
-              </label>
-              <label class="field">
-                <span class="field-label">End</span>
-                <input class="input" type="date" name="endDate" />
-              </label>
+            <label class="field">
+              <span class="field-label">End</span>
+              <input class="input" type="date" name="endDate" />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <section class="card report-card" data-slot="report-card"></section>
+
+      <section class="card" data-slot="yir"></section>
+
+      <section class="card reports-exports">
+        <div class="reports-exports-head">
+          ${getIcon('download', 18, 'text-brand')}
+          <h2>Export &amp; share</h2>
+        </div>
+
+        <div class="reports-export-groups">
+          <div class="reports-export-group">
+            <span class="reports-export-group-label">This period</span>
+            <div class="reports-export-buttons">
+              <ion-button size="small" data-action="copy"><span slot="start">${getIcon('copy', 16)}</span>Copy summary</ion-button>
+              <ion-button size="small" fill="outline" data-action="share-native"><span slot="start">${getIcon('share-2', 16)}</span>Share stats</ion-button>
+              <ion-button size="small" fill="outline" data-action="print"><span slot="start">${getIcon('printer', 16)}</span>Print</ion-button>
             </div>
           </div>
-        </section>
 
-        <section class="card">
-          <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-4);">
-            ${getIcon('settings', 18, 'text-muted')}
-            <h2 style="margin: 0; font-size: var(--text-md);">${esc(t('reports.templateBuilder'))}</h2>
-          </div>
-          <div class="reports-template-grid">
-            <label class="template-check"><input data-template-section="overview" type="checkbox" /> Overview</label>
-            <label class="template-check"><input data-template-section="platform_breakdown" type="checkbox" /> Platforms</label>
-            <label class="template-check"><input data-template-section="shifts" type="checkbox" /> Shifts</label>
-            <label class="template-check"><input data-template-section="expenses" type="checkbox" /> Expenses</label>
-            <label class="template-check"><input data-template-section="chart" type="checkbox" /> Review</label>
-            <label class="template-check"><input data-template-section="qr" type="checkbox" /> Share Stats</label>
-            <label class="template-check"><input data-template-section="notes" type="checkbox" /> Notes</label>
-          </div>
-        </section>
-      </div>
-
-      <section class="card" data-slot="report-card"></section>
-
-      <div class="reports-visuals-grid">
-        <section class="card" data-slot="qr"></section>
-        <section class="card" data-slot="yir"></section>
-      </div>
-
-      <section class="card">
-        <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-6);">
-          ${getIcon('download', 20, 'text-brand')}
-          <h2 style="margin: 0; font-size: var(--text-lg); font-weight: 800;">Data Management & Exports</h2>
-        </div>
-        
-        <div class="reports-actions-grid">
-          <div class="export-btn-group">
-            <ion-button data-action="copy"><span slot="start">${getIcon('copy', 16)}</span>Copy Summary</ion-button>
-            <ion-button fill="outline" data-action="print"><span slot="start">${getIcon('printer', 16)}</span>Print View</ion-button>
+          <div class="reports-export-group">
+            <span class="reports-export-group-label">Your data</span>
+            <div class="reports-export-buttons">
+              <ion-button size="small" fill="outline" data-action="csv-shifts"><span slot="start">${getIcon('file-text', 16)}</span>Shifts CSV</ion-button>
+              <ion-button size="small" fill="outline" data-action="csv-expenses"><span slot="start">${getIcon('file-text', 16)}</span>Expenses CSV</ion-button>
+              <ion-button size="small" fill="outline" data-action="csv-mileage"><span slot="start">${getIcon('map', 16)}</span>Mileage CSV</ion-button>
+            </div>
           </div>
 
-          <div class="export-btn-group">
-            <ion-button fill="outline" data-action="csv-shifts"><span slot="start">${getIcon('file-text', 16)}</span>Export Shifts CSV</ion-button>
-            <ion-button fill="outline" data-action="csv-expenses"><span slot="start">${getIcon('file-text', 16)}</span>Export Expenses CSV</ion-button>
-            <ion-button fill="outline" data-action="csv-mileage"><span slot="start">${getIcon('map', 16)}</span>Export Mileage Log CSV</ion-button>
+          <div class="reports-export-group">
+            <span class="reports-export-group-label">Tax</span>
+            <div class="reports-export-buttons">
+              <ion-button size="small" fill="outline" data-action="tax-csv"><span slot="start">${getIcon('chart-donut', 16)}</span>Tax CSV</ion-button>
+              <ion-button size="small" fill="outline" data-action="tax-json"><span slot="start">${getIcon('code', 16)}</span>Tax JSON</ion-button>
+            </div>
           </div>
 
-          <div class="export-btn-group">
-            <ion-button fill="outline" data-action="tax-csv"><span slot="start">${getIcon('chart-donut', 16)}</span>Export Tax CSV</ion-button>
-            <ion-button fill="outline" data-action="tax-json"><span slot="start">${getIcon('code', 16)}</span>Export Tax JSON</ion-button>
-          </div>
-
-          <div class="export-btn-group">
-            <ion-button fill="outline" data-action="json-backup"><span slot="start">${getIcon('shield', 16)}</span>Vault Backup</ion-button>
-          </div>
-
-          <div style="grid-column: 1 / -1; margin-top: var(--space-2); padding: var(--space-3); background-color: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-xs); color: var(--color-text-secondary); display: flex; gap: var(--space-2); align-items: flex-start;">
-            <span style="font-size: 1.1rem; line-height: 1;">⚠️</span>
-            <span><strong>Disclaimers & Compliance:</strong> All exported reports, CSVs, and JSON files are planning-grade tools. Please verify all calculations and contemporaneous mileage logs with a certified accountant before final filing.</span>
+          <div class="reports-export-group">
+            <span class="reports-export-group-label">Backup</span>
+            <div class="reports-export-buttons">
+              <ion-button size="small" fill="outline" data-action="json-backup"><span slot="start">${getIcon('shield', 16)}</span>Vault backup</ion-button>
+            </div>
           </div>
         </div>
 
-            <pre data-slot="import-diff" style="margin-top:var(--space-2); white-space:pre-wrap; font-size: 11px; color: var(--color-text-secondary);"></pre>
-          </div>
-        </div>
-
-
+        <p class="reports-disclaimer">
+          Planning-grade exports. Verify all calculations and your contemporaneous mileage log with a certified accountant before final filing.
+        </p>
       </section>
+
+      <details class="card reports-template">
+        <summary class="reports-template-summary">
+          ${getIcon('settings', 16, 'text-muted')}
+          <span>${esc(t('reports.templateBuilder'))}</span>
+        </summary>
+        <div class="reports-template-grid">
+          <label class="template-check"><input data-template-section="overview" type="checkbox" /> Overview</label>
+          <label class="template-check"><input data-template-section="platform_breakdown" type="checkbox" /> Platforms</label>
+          <label class="template-check"><input data-template-section="shifts" type="checkbox" /> Shifts</label>
+          <label class="template-check"><input data-template-section="expenses" type="checkbox" /> Expenses</label>
+          <label class="template-check"><input data-template-section="chart" type="checkbox" /> Review</label>
+          <label class="template-check"><input data-template-section="qr" type="checkbox" /> Share stats</label>
+          <label class="template-check"><input data-template-section="notes" type="checkbox" /> Notes</label>
+        </div>
+      </details>
     </section>
   `;
 
@@ -254,17 +241,29 @@ export async function render(root, ctx) {
     endDate: /** @type {HTMLInputElement} */ (container.querySelector('[name="endDate"]')),
   };
   const reportSlot = /** @type {HTMLElement} */ (container.querySelector('[data-slot="report-card"]'));
-  const qrSlot = /** @type {HTMLElement} */ (container.querySelector('[data-slot="qr"]'));
   const yirSlot = /** @type {HTMLElement} */ (container.querySelector('[data-slot="yir"]'));
-  const diffSlot = /** @type {HTMLElement} */ (container.querySelector('[data-slot="import-diff"]'));
+  const filtersSlot = /** @type {HTMLElement} */ (container.querySelector('[data-slot="filters"]'));
+  const platformField = /** @type {HTMLElement} */ (container.querySelector('[data-slot="platform-filter"]'));
+  const dateField = /** @type {HTMLElement} */ (container.querySelector('[data-slot="date-filter"]'));
   const template = buildTemplateState(container);
 
   let currentPeriod = 'weekly';
   let currentReport = await getWeeklyReportCard(new Date(), Number(store.get('user')?.locale?.weekStartDay || 0));
 
+  /** Reveal only the filters the active period actually uses (dates for custom, platform for
+   *  platform/custom) instead of always showing an empty filter row. */
+  function syncFilterVisibility(period) {
+    const showPlatform = period === 'platform' || period === 'custom';
+    const showDates = period === 'custom';
+    platformField.classList.toggle('is-hidden', !showPlatform);
+    dateField.classList.toggle('is-hidden', !showDates);
+    filtersSlot.classList.toggle('is-hidden', !showPlatform && !showDates);
+  }
+
   async function refreshReport() {
     currentReport = await periodPayload(currentPeriod, form);
     const rows = summaryRows(currentReport);
+    syncFilterVisibility(currentPeriod);
 
     // Synchronize UI date inputs with the dynamically computed preset range
     if (currentPeriod !== 'custom') {
@@ -282,28 +281,21 @@ export async function render(root, ctx) {
 
     if (!currentReport.hasData) {
       reportSlot.innerHTML = `
-        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--space-8) var(--space-4); text-align: center;">
-          <div style="font-size: 3rem; margin-bottom: var(--space-4);">📊</div>
-          <h3 style="margin: 0 0 var(--space-2) 0; font-size: var(--text-lg); font-weight: 700;">No Activity This Period</h3>
-          <p style="color: var(--color-text-secondary); max-width: 320px; margin: 0; font-size: var(--text-sm);">
-            You haven't logged any shifts or expenses for the selected dates.
-          </p>
+        <div class="report-empty">
+          <div class="report-empty-icon">📊</div>
+          <h3>No activity this period</h3>
+          <p>You haven't logged any shifts or expenses for the selected dates.</p>
         </div>
       `;
-      qrSlot.style.display = 'none';
-      yirSlot.style.display = 'none';
+      yirSlot.hidden = true;
       return;
     }
-
-    qrSlot.style.display = 'block';
-    yirSlot.style.display = 'block';
+    yirSlot.hidden = false;
 
     let metricsHtml = `
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
-        <h2 style="margin: 0;">${esc(t('reports.reportCard'))}</h2>
-        <span style="font-size: var(--text-xs); color: var(--color-text-secondary); font-weight: 700; text-transform: uppercase;">
-          ${esc(currentReport.startDate)} — ${esc(currentReport.endDate)}
-        </span>
+      <div class="report-card-head">
+        <h2>${esc(t('reports.reportCard'))}</h2>
+        <span class="report-range">${esc(currentReport.startDate)} — ${esc(currentReport.endDate)}</span>
       </div>
       <div class="reports-metrics-grid">
         ${rows.map(([k, v]) => `
@@ -317,9 +309,9 @@ export async function render(root, ctx) {
 
     if (currentReport.summary.isNetNegative) {
       metricsHtml += `
-        <div class="warning-banner" style="margin-top: var(--space-4); padding: var(--space-3); background-color: color-mix(in srgb, var(--color-danger) 15%, transparent); border: 1px solid var(--color-warning); border-radius: var(--radius-md); color: var(--color-danger); display: flex; align-items: center; gap: var(--space-2); font-weight: 600; font-size: var(--text-sm);">
-          <span style="font-size: 1.2rem;">⚠️</span>
-          <span>Expenses exceeded gross this period — see expense breakdown</span>
+        <div class="report-warning">
+          <span>⚠️</span>
+          <span>Expenses exceeded gross this period — see the expense breakdown.</span>
         </div>
       `;
     }
@@ -329,8 +321,8 @@ export async function render(root, ctx) {
       if (pbSection) {
         const pbHtml = await pbSection.renderHTML(currentReport, store.get('user'));
         metricsHtml += `
-          <div style="margin-top: var(--space-6); border-top: 1px solid var(--color-border); padding-top: var(--space-4);">
-            <h3 style="margin: 0 0 var(--space-2) 0; font-size: var(--text-md); font-weight: 700;">Platform Breakdown</h3>
+          <div class="report-breakdown">
+            <h3>Platform breakdown</h3>
             ${pbHtml}
           </div>
         `;
@@ -339,55 +331,41 @@ export async function render(root, ctx) {
 
     reportSlot.innerHTML = metricsHtml;
 
-    if (template.sections.qr) {
-      qrSlot.innerHTML = `
-        <div style="display:flex; flex-direction:column; align-items:flex-start; gap:var(--space-3); width:100%;">
-          <h2 style="margin:0; font-size: var(--text-md); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary);">Share Stats</h2>
-          <p style="font-size: var(--text-xs); color: var(--color-text-secondary); margin: 0; line-height: 1.4;">Export this period's performance metrics securely using your device's native sharing capabilities.</p>
-          <ion-button expand="block" data-action="share-native" style="width:100%; margin-top:var(--space-2);">
-            <span slot="start">${getIcon('share-2', 16)}</span>Share Stats via OS Sheet
-          </ion-button>
-        </div>
-      `;
-    } else {
-      qrSlot.innerHTML = '<h2 style="margin:0; font-size: var(--text-md); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary);">Share Stats</h2><p style="color:var(--color-text-secondary); margin-top: var(--space-4); font-size: var(--text-xs);">Disabled by template builder.</p>';
-    }
-
     const year = new Date(currentReport.endDate).getFullYear();
     const annual = await getAnnualReport(year);
     const yir = getYearInReviewModel(year, annual);
     yirSlot.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); flex-wrap: wrap; gap: var(--space-2);">
-        <h2 style="margin:0;">Year in Review</h2>
+      <div class="yir-head">
+        <h2>Year in review</h2>
         ${getIcon('award', 20, 'text-brand')}
       </div>
       <div data-yir-card class="yir-card">
-        <h3 style="font-size: var(--text-xl); font-weight: 800; margin: 0 0 var(--space-4) 0;">${esc(yir.title)}</h3>
-        <div style="display:flex; flex-direction:column; gap: var(--space-1); opacity: 0.9; font-size: var(--text-sm);">
+        <h3>${esc(yir.title)}</h3>
+        <div class="yir-meta">
           <p>Generated on ${esc(yir.generatedAt)}</p>
-          <div style="height: 1px; background: rgba(255,255,255,0.2); margin: var(--space-2) 0;"></div>
+          <div class="yir-divider"></div>
           <div class="yir-grid">
             <div>
-              <p style="font-size: 10px; text-transform: uppercase; font-weight: 700;">Gross Earnings</p>
-              <p style="font-size: var(--text-lg); font-weight: 800;">${esc(formatMoney(yir.summary.gross))}</p>
+              <div class="yir-stat-label">Gross earnings</div>
+              <div class="yir-stat-value">${esc(formatMoney(yir.summary.gross))}</div>
             </div>
             <div>
-              <p style="font-size: 10px; text-transform: uppercase; font-weight: 700;">Net Profit</p>
-              <p style="font-size: var(--text-lg); font-weight: 800;">${esc(formatMoney(yir.summary.net))}</p>
+              <div class="yir-stat-label">Net profit</div>
+              <div class="yir-stat-value">${esc(formatMoney(yir.summary.net))}</div>
             </div>
             <div>
-              <p style="font-size: 10px; text-transform: uppercase; font-weight: 700;">Shifts Logged</p>
-              <p style="font-size: var(--text-lg); font-weight: 800;">${esc(String(yir.summary.shiftCount))}</p>
+              <div class="yir-stat-label">Shifts logged</div>
+              <div class="yir-stat-value">${esc(String(yir.summary.shiftCount))}</div>
             </div>
             <div>
-              <p style="font-size: 10px; text-transform: uppercase; font-weight: 700;">Road Hours</p>
-              <p style="font-size: var(--text-lg); font-weight: 800;">${esc(yir.summary.hours.toFixed(1))}h</p>
+              <div class="yir-stat-label">Road hours</div>
+              <div class="yir-stat-value">${esc(yir.summary.hours.toFixed(1))}h</div>
             </div>
           </div>
         </div>
       </div>
-      <ion-button fill="outline" expand="block" data-action="capture-yir" style="margin-top:var(--space-4); width: 100%;">
-        <span slot="start">${getIcon('camera', 14)}</span>Export Shareable PNG
+      <ion-button fill="outline" expand="block" data-action="capture-yir" class="yir-export-btn">
+        <span slot="start">${getIcon('camera', 14)}</span>Export shareable PNG
       </ion-button>
     `;
   }
@@ -441,24 +419,6 @@ export async function render(root, ctx) {
     });
   });
 
-  let importPreview = null;
-  let importText = '';
-  const importInput = /** @type {HTMLInputElement|null} */ (container.querySelector('[data-action="import-file"]'));
-  importInput?.addEventListener('change', async () => {
-    const file = importInput.files?.[0];
-    if (!file) return;
-    importText = await file.text();
-    try {
-      importPreview = previewVaultImportDiff(importText);
-      diffSlot.textContent = importPreview.tableDiff.map((row) => `${row.table}: ${row.incomingCount} incoming rows`).join('\n');
-    } catch {
-      importPreview = null;
-      diffSlot.textContent = 'Could not parse backup JSON.';
-    }
-  });
-
-
-
   container.addEventListener('click', async (e) => {
     const target = e.target instanceof Element ? e.target.closest('[data-action]') : null;
     if (!target) return;
@@ -495,15 +455,6 @@ export async function render(root, ctx) {
     if (action === 'tax-csv') {
       await exportTaxSummaryCsv(new Date(currentReport.endDate).getFullYear());
       showToast({ type: 'success', message: 'Tax CSV exported.', duration: 1800 });
-    }
-    if (action === 'import-json') {
-      if (!importPreview) {
-        showToast({ type: 'warning', message: 'Select a backup file first.', duration: 1800 });
-        return;
-      }
-      await restoreVaultBackup(importPreview.backup);
-      showToast({ type: 'success', message: 'Backup restored.', duration: 1800 });
-      await refreshReport();
     }
     if (action === 'share-native') {
       if (navigator.share) {

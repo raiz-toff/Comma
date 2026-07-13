@@ -2,6 +2,8 @@
 
 The phone app uses Expo Router: the folder tree under `app/` maps directly to routes, wrapped in a custom shell that provides a left drawer, a hidden tab navigator, and a right-slide Reports panel.
 
+<LayerStack accent="amber" layers={[{ name: "left drawer", note: "hand-built, swipe from the edge" }, { name: "tabs", note: "Expo Router tabs, bar hidden" }, { name: "reports panel", note: "right-slide overlay" }]} caption="File-based routes wrapped in a hand-built shell. Android back closes the Reports panel, then the drawer, then exits." />
+
 ---
 
 ## Route tree

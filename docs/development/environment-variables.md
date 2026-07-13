@@ -2,6 +2,8 @@
 
 Comma uses a `.env` file for configuration that varies between development and production builds.
 
+<StepFlow accent="blue" steps={[{ title: "Create a Google Cloud project", body: "Enable the Google Drive API." }, { title: "Configure the consent screen", body: "External, with the drive.appdata scope." }, { title: "Create the OAuth client", body: "Only the Web client ID goes in .env." }]} caption="Comma has essentially one environment variable: GOOGLE_WEB_CLIENT_ID. Everything else is a default." />
+
 ---
 
 ## Setup

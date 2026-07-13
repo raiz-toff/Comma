@@ -82,17 +82,15 @@ function daysUntilReset(nextResetDate) {
 function ring(pct, o = {}) {
   const size = o.size ?? 140;
   const stroke = o.stroke ?? 10;
-  // Tokens only (AGENTS.md §5) — `stroke` moves to an inline style because CSS var() does not
-  // resolve inside SVG presentation attributes.
   const color = o.color ?? 'var(--color-warning)';
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const off = c - (Math.min(100, Math.max(0, Number(pct) || 0)) / 100) * c;
   return `
-    <div class="gv-ring" style="width:${size}px;height:${size}px;">
+    <div class="gv-ring" style="--ring-size:${size}px;">
       <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
         <circle class="gv-ring-track" cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke-width="${stroke}"></circle>
-        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" style="stroke:${color};" stroke-width="${stroke}"
+        <circle class="gv-ring-arc" cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" style="--ring-color:${color};" stroke-width="${stroke}"
           stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" stroke-linecap="round"
           transform="rotate(-90 ${size / 2} ${size / 2})"></circle>
       </svg>
@@ -131,7 +129,7 @@ export async function render(root, ctx) {
     ? `
       <div class="gv-card gv-hero">
         <div class="gv-hero-main">
-          <span class="gv-kicker" style="color:var(--color-warning);">Weekly Thermometer</span>
+          <span class="gv-kicker gv-icon-warning">Weekly Thermometer</span>
           <h1 class="gv-hero-title">${esc(humanizeType(weeklyGoal.type))}</h1>
           <p class="gv-hero-sub">Weekly Target Progress</p>
           <div class="gv-hero-value">${esc(formatCurrency(weeklyGoal.current || 0))}</div>
@@ -191,19 +189,19 @@ export async function render(root, ctx) {
 
   // ── Progress tab ──
   const xpHtml = `
-    <div class="gv-card" style="padding:20px;">
-      <div class="gv-row-between" style="margin-bottom:16px;">
-        <div class="gv-inline"><span style="color:var(--color-info);">${getIcon('award', 16)}</span><span class="gv-cap">Driver XP</span></div>
+    <div class="gv-card gv-card--pad">
+      <div class="gv-row-between gv-row-between--mb16">
+        <div class="gv-inline"><span class="gv-icon-info">${getIcon('award', 16)}</span><span class="gv-cap">Driver XP</span></div>
         <div class="gv-lvl">LVL ${xpLevel}</div>
       </div>
       <div class="gv-xp">${esc(formatLargeNumber(xpTotal))} <span class="gv-xp-unit">XP</span></div>
-      <ion-progress-bar class="gv-bar gv-bar--info" style="margin:10px 0;" value="${((xpTotal % 100) / 100).toFixed(2)}"></ion-progress-bar>
+      <ion-progress-bar class="gv-bar gv-bar--info gv-bar--m10" value="${((xpTotal % 100) / 100).toFixed(2)}"></ion-progress-bar>
       <div class="gv-hint">${100 - (xpTotal % 100)} XP to Level ${xpLevel + 1}</div>
     </div>`;
 
   const streakHtml = `
-    <div class="gv-card" style="padding:20px;">
-      <div class="gv-inline" style="margin-bottom:20px;"><span style="color:var(--color-danger);">${getIcon('fire', 16)}</span><span class="gv-cap">Day Streak</span></div>
+    <div class="gv-card gv-card--pad">
+      <div class="gv-inline gv-inline--mb20"><span class="gv-icon-danger">${getIcon('fire', 16)}</span><span class="gv-cap">Day Streak</span></div>
       <div class="gv-streak">
         ${ring(streakPct, { size: 110, stroke: 8, color: 'var(--color-danger)', center: `<span class="gv-streak-n">${streakDays}</span><span class="gv-streak-l">days</span>` })}
         <div class="gv-streak-side">
@@ -221,7 +219,7 @@ export async function render(root, ctx) {
     </div>`;
 
   const challengesHtml = `
-    <div class="gv-card" style="padding:20px;">
+    <div class="gv-card gv-card--pad">
       <h2 class="gv-card-title">Weekly Challenges</h2>
       <div class="gv-challenges">
         ${activeChallenges.length === 0
@@ -237,12 +235,12 @@ export async function render(root, ctx) {
                     <div class="gv-ch-body">
                       <div class="gv-row-between">
                         <span class="gv-ch-name">${esc(c.name)}</span>
-                        <span class="gv-ch-pct" style="color:${done ? 'var(--color-success)' : 'var(--color-brand)'};">${done ? '✓ Done' : pct + '%'}</span>
+                        <span class="gv-ch-pct${done ? ' done' : ''}">${done ? '✓ Done' : pct + '%'}</span>
                       </div>
                       ${c.description ? `<div class="gv-ch-desc">${esc(c.description)}</div>` : ''}
                     </div>
                   </div>
-                  <ion-progress-bar class="gv-bar ${done ? 'gv-bar--success' : 'gv-bar--brand'}" style="margin:6px 0;" value="${(pct / 100).toFixed(2)}"></ion-progress-bar>
+                  <ion-progress-bar class="gv-bar gv-bar--m6 ${done ? 'gv-bar--success' : 'gv-bar--brand'}" value="${(pct / 100).toFixed(2)}"></ion-progress-bar>
                   <div class="gv-hint">${done ? `Resets in ${resetDays} day${resetDays === 1 ? '' : 's'}` : `${resetDays} day${resetDays === 1 ? '' : 's'} remaining`}</div>
                 </div>`;
             }).join('')}
@@ -250,10 +248,10 @@ export async function render(root, ctx) {
     </div>`;
 
   const badgesHtml = `
-    <div class="gv-card" style="padding:20px;">
-      <div class="gv-row-between" style="margin-bottom:18px;">
-        <div class="gv-inline"><span style="color:#8b5cf6;">${getIcon('star', 16)}</span><h2 class="gv-card-title" style="margin:0;">Driver Badges</h2></div>
-        <span class="gv-hint" style="font-weight:700;">${unlockedBadges.length} / ${badges.length}</span>
+    <div class="gv-card gv-card--pad">
+      <div class="gv-row-between gv-row-between--mb18">
+        <div class="gv-inline"><span class="gv-icon-brand">${getIcon('star', 16)}</span><h2 class="gv-card-title gv-card-title--flush">Driver Badges</h2></div>
+        <span class="gv-hint gv-hint--strong">${unlockedBadges.length} / ${badges.length}</span>
       </div>
       <div class="gv-badges">
         ${badges.map((b) => `
@@ -267,7 +265,7 @@ export async function render(root, ctx) {
   const bestHtml = `
     <div class="gv-card gv-best">
       <div class="gv-inline">
-        <span style="color:var(--color-warning);">${getIcon('trending-up', 18)}</span>
+        <span class="gv-icon-warning">${getIcon('trending-up', 18)}</span>
         <div>
           <div class="gv-cap">Best Shift — All Time</div>
           <div class="gv-best-val">${esc(formatCurrency(bestGross))}</div>
@@ -298,132 +296,6 @@ export async function render(root, ctx) {
         ${bestHtml}
       </div>
     </div>
-
-    <style>
-      .goals-view-container {
-        /* Dark (default — matches the Android look). Light theme overrides below. */
-        --gv-card:#0F0F12; --gv-border:#1E1E23; --gv-inset:#16161A; --gv-inset2:#1C1C21;
-        --gv-text:#F6F6F7; --gv-muted:#9B9BA4; --gv-dim:#65656E; --gv-faint:#2E2E36;
-        --gv-track:#1C1C21; --gv-badge:#0a0a0a; --gv-badge-on:#ffffff08; --gv-badge-on-bd:#ffffff18;
-        --gv-lvl-bg:#1e3a8a22; --gv-done-bg:#052e1640;
-        max-width: var(--app-content-width, 720px); margin: 0 auto; padding: 20px 16px 120px;
-        animation: gvFade 0.35s ease-out;
-      }
-      /* Light theme (explicit) + auto theme when the OS prefers light. */
-      html[data-theme='light'] .goals-view-container {
-        --gv-card:#ffffff; --gv-border:#e5e2da; --gv-inset:#f2f0eb; --gv-inset2:#e5e2da;
-        --gv-text:#1a1916; --gv-muted:#6b6860; --gv-dim:#a09d96; --gv-faint:#d5d1c8;
-        --gv-track:#e5e2da; --gv-badge:#f2f0eb; --gv-badge-on:rgba(0,0,0,0.035); --gv-badge-on-bd:#e5e2da;
-        --gv-lvl-bg:rgba(59,130,246,0.12); --gv-done-bg:rgba(34,197,94,0.14);
-      }
-      @media (prefers-color-scheme: light) {
-        html[data-theme='auto'] .goals-view-container {
-          --gv-card:#ffffff; --gv-border:#e5e2da; --gv-inset:#f2f0eb; --gv-inset2:#e5e2da;
-          --gv-text:#1a1916; --gv-muted:#6b6860; --gv-dim:#a09d96; --gv-faint:#d5d1c8;
-          --gv-track:#e5e2da; --gv-badge:#f2f0eb; --gv-badge-on:rgba(0,0,0,0.035); --gv-badge-on-bd:#e5e2da;
-          --gv-lvl-bg:rgba(59,130,246,0.12); --gv-done-bg:rgba(34,197,94,0.14);
-        }
-      }
-      .gv-ring-track { stroke: var(--gv-track); }
-      @keyframes gvFade { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-
-      .gv-header { text-align:center; padding:6px 0 16px; }
-      .gv-page-title { margin:0; font-size:17px; font-weight:900; letter-spacing:-0.3px; color:var(--gv-text); }
-
-      /* Goals/Progress switch is an ion-segment now — host plumbing lives in css/views/goals.css. */
-
-      .gv-panel { display:none; flex-direction:column; gap:16px; }
-      .gv-panel.is-active { display:flex; }
-
-      .gv-card { background:var(--gv-card); border:0.8px solid var(--gv-border); border-radius:20px; }
-
-      /* Hero */
-      .gv-hero { padding:24px; display:flex; align-items:center; gap:24px; overflow:hidden; }
-      .gv-hero-main { flex:1; min-width:0; }
-      .gv-kicker { display:block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:6px; }
-      .gv-hero-title { margin:0 0 6px; font-size:24px; font-weight:900; letter-spacing:-0.5px; line-height:1.15; color:var(--gv-text); text-transform:capitalize; }
-      .gv-hero-sub { margin:0 0 14px; font-size:12px; font-weight:600; color:var(--gv-muted); }
-      .gv-hero-value { font-size:38px; font-weight:800; letter-spacing:-0.5px; color:var(--gv-text); margin-bottom:18px; line-height:1; }
-      /* .gv-edit-target is an ion-button now — see css/views/goals.css. */
-
-      /* Ring */
-      .gv-ring { position:relative; display:grid; place-items:center; flex-shrink:0; }
-      .gv-ring-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-      .gv-ring-pct { font-size:28px; font-weight:800; color:var(--gv-text); letter-spacing:-0.5px; }
-
-      /* Active goals list */
-      .gv-list-head { display:flex; align-items:center; justify-content:space-between; padding:20px; border-bottom:0.8px solid var(--gv-border); }
-      .gv-list-head h2 { margin:0; font-size:16px; font-weight:800; color:var(--gv-text); }
-      /* .gv-add is an ion-button (fill=clear, color=warning) now — see css/views/goals.css. */
-      .gv-list-body { padding:20px; display:flex; flex-direction:column; gap:20px; }
-      .gv-empty { margin:0; font-size:13px; color:var(--gv-muted); font-style:italic; text-align:center; }
-      .gv-goal { display:flex; flex-direction:column; gap:10px; }
-      .gv-goal-top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
-      .gv-goal-id { display:flex; align-items:center; gap:10px; min-width:0; }
-      .gv-goal-icon { width:36px; height:36px; border-radius:12px; background:var(--gv-inset); border:1px solid var(--gv-inset2);
-        display:grid; place-items:center; font-size:16px; flex-shrink:0; }
-      .gv-goal-name { font-size:14px; font-weight:800; color:var(--gv-text); text-transform:capitalize; }
-      .gv-goal-meta { font-size:11px; font-weight:700; color:var(--gv-muted); text-transform:uppercase; margin-top:2px; }
-      .gv-goal-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
-      .gv-goal-target { font-size:14px; font-weight:900; color:var(--gv-text); }
-      .gv-goal-actions { display:flex; gap:8px; align-items:center; }
-      /* .gv-ibtn is an ion-button (fill=clear) now — see css/views/goals.css. */
-      .gv-bar { height:5px; border-radius:3px; overflow:hidden; --background: var(--gv-border); }
-      .gv-bar--success { --progress-background: var(--color-success); }
-      .gv-bar--warning { --progress-background: var(--color-warning); }
-      .gv-bar--brand { --progress-background: var(--color-brand); }
-      .gv-bar--info { --progress-background: var(--color-info); }
-
-      /* Progress tab shared */
-      .gv-row-between { display:flex; align-items:center; justify-content:space-between; }
-      .gv-inline { display:flex; align-items:center; gap:8px; }
-      .gv-cap { font-size:12px; font-weight:800; color:var(--gv-muted); text-transform:uppercase; }
-      .gv-card-title { margin:0 0 18px; font-size:16px; font-weight:800; color:var(--gv-text); }
-      .gv-hint { font-size:11px; font-weight:700; color:var(--gv-dim); }
-
-      .gv-lvl { background:var(--gv-lvl-bg); border:1px solid color-mix(in srgb, var(--color-info) 25%, transparent); border-radius:8px; padding:4px 10px; font-size:11px; font-weight:900; color:var(--color-info); }
-      .gv-xp { font-size:34px; font-weight:800; letter-spacing:-0.5px; color:var(--gv-text); line-height:1; }
-      .gv-xp-unit { font-size:16px; color:var(--gv-dim); font-weight:600; }
-
-      .gv-streak { display:flex; align-items:center; gap:20px; }
-      .gv-streak-n { font-size:26px; font-weight:800; color:var(--gv-text); line-height:1; }
-      .gv-streak-l { font-size:10px; font-weight:700; color:var(--gv-muted); }
-      .gv-streak-side { flex:1; display:flex; flex-direction:column; gap:12px; }
-      .gv-mini-cap { font-size:10px; font-weight:800; color:var(--gv-dim); text-transform:uppercase; margin-bottom:4px; }
-      .gv-streak-ms { font-size:13px; font-weight:800; color:var(--gv-text); }
-      .gv-shields { display:flex; align-items:center; gap:6px; }
-      .gv-shield { color:var(--gv-faint); display:inline-flex; }
-      .gv-shield.on { color:#6366f1; }
-      .gv-shields-n { font-size:11px; font-weight:700; color:#6366f1; margin-left:2px; }
-
-      .gv-challenges { display:flex; flex-direction:column; gap:16px; }
-      .gv-ch-top { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
-      .gv-ch-icon { width:40px; height:40px; border-radius:20px; background:var(--gv-card); border:1px solid var(--gv-inset2);
-        display:grid; place-items:center; color:var(--color-brand); flex-shrink:0; }
-      .gv-ch-icon.done { background:var(--gv-done-bg); border-color:color-mix(in srgb, var(--color-success) 25%, transparent); color:var(--color-success); }
-      .gv-ch-body { flex:1; min-width:0; }
-      .gv-ch-name { font-size:13px; font-weight:800; color:var(--gv-text); }
-      .gv-ch-pct { font-size:12px; font-weight:900; }
-      .gv-ch-desc { font-size:11px; color:var(--gv-muted); margin-top:3px; }
-
-      .gv-badges { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
-      .gv-badge { aspect-ratio:1; display:grid; place-items:center; background:var(--gv-badge); border:1px solid var(--gv-border);
-        border-radius:14px; cursor:pointer; }
-      .gv-badge.on { background:var(--gv-badge-on); border-color:var(--gv-badge-on-bd); }
-      .gv-badge-icon { font-size:32px; filter:grayscale(1) opacity(0.25); }
-      .gv-badge.on .gv-badge-icon { filter:none; }
-      .gv-badges-hint { text-align:center; font-size:11px; color:var(--gv-dim); font-style:italic; margin:14px 0 0; }
-
-      .gv-best { padding:20px; display:flex; align-items:center; justify-content:space-between; cursor:default; }
-      .gv-best-val { font-size:22px; font-weight:900; letter-spacing:-0.5px; color:var(--gv-text); margin-top:2px; }
-      .gv-chevron { font-size:18px; color:var(--gv-dim); }
-
-      @media (max-width: 30rem) {
-        .gv-hero { flex-direction:column; text-align:center; gap:18px; }
-        .gv-hero-main { width:100%; }
-        .gv-edit-target { align-self:center; }
-      }
-    </style>
   `;
 
   // ── Tab switching (ion-segment; no re-render, preserves scroll) ──
@@ -486,12 +358,12 @@ export async function render(root, ctx) {
       const badge = badges.find((b) => String(b.id) === btn.dataset.id);
       if (!badge) return;
       const el = document.createElement('div');
-      el.style.textAlign = 'center';
+      el.className = 'gv-badge-modal';
       el.innerHTML = `
-        <div style="font-size:56px;filter:${badge.unlockedAt ? 'none' : 'grayscale(1) opacity(0.3)'};">${esc(badge.icon)}</div>
-        <h3 style="margin:12px 0 4px;font-weight:900;">${esc(badge.name)}</h3>
-        <p style="margin:0;color:var(--color-text-muted);font-size:0.85rem;">${esc(badge.description || '')}</p>
-        <div style="margin-top:12px;font-weight:800;font-size:0.75rem;color:${badge.unlockedAt ? 'var(--color-success)' : 'var(--color-text-muted)'};">
+        <div class="gv-badge-modal-icon${badge.unlockedAt ? '' : ' is-locked'}">${esc(badge.icon)}</div>
+        <h3 class="gv-badge-modal-name">${esc(badge.name)}</h3>
+        <p class="gv-badge-modal-desc">${esc(badge.description || '')}</p>
+        <div class="gv-badge-modal-status${badge.unlockedAt ? ' is-unlocked' : ''}">
           ${badge.unlockedAt ? '✓ UNLOCKED' : 'LOCKED'}
         </div>`;
       showModal({ title: '', content: el, actions: [{ label: t('common.close'), class: 'btn btn-secondary' }] });
@@ -513,13 +385,13 @@ export async function render(root, ctx) {
           ${types.map((tp) => `<option value="${tp.key}" ${goal?.type === tp.key ? 'selected' : ''}>${esc(humanizeType(tp.key))}</option>`).join('')}
         </select>
       </div>
-      <div class="input-group" style="margin-top: var(--space-4);">
+      <div class="input-group input-group--spaced">
         <label class="input-label">Frequency</label>
         <select class="input" id="goal-scope">
           ${scopes.map((s) => `<option value="${s}" ${goal?.scope === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
         </select>
       </div>
-      <div class="input-group" style="margin-top: var(--space-4);">
+      <div class="input-group input-group--spaced">
         <label class="input-label">Target Value</label>
         <div class="input-with-action">
           <input type="number" class="input" id="goal-target" value="${goal?.target || 100}" step="any">

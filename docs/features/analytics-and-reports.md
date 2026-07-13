@@ -2,6 +2,8 @@
 
 Comma turns your shifts and expenses into a dashboard you check at a glance, an analytics tab for going deeper, and exports you can hand to an accountant.
 
+<LayerStack accent="indigo" layers={[{ name: "Dashboard", note: "the glance — today, this week" }, { name: "Analytics tab", note: "the dig — 6 grouped cards, by week/month/year" }, { name: "Reports", note: "the hand-off — CSV, PDF, tax summary" }]} caption="Three depths of the same records. Each one answers a longer question than the last." />
+
 ---
 
 ## The dashboard

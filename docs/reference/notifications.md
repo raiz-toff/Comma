@@ -2,6 +2,8 @@
 
 What Comma can notify you about, where the toggles live, and how the phone and web apps differ.
 
+<Chips accent="cyan" items={["Badge unlocked", "Level up", "Streak at risk", "Tax instalment due", "Shift reminder · 30 min before", "Backup complete"]} caption="Seven toggles under Settings → Alerts. Only the phone can deliver these in the background; the web shows them in the page while a tab is open." />
+
 ---
 
 ## Where the toggles live

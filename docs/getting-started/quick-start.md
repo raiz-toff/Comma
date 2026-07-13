@@ -2,6 +2,8 @@
 
 Install Comma, answer two questions, and see what your last shift was really worth. About five minutes, most of it install time.
 
+<StatRow accent="emerald" items={[{ value: "$142.00", label: "gross, one shift" }, { value: "−$39.76", label: "tax to set aside (28%)" }, { value: "$102.24", label: "yours to keep" }, { value: "$15.73/hr", label: "real rate — the app said $21.85" }]} caption="This is the reveal at the end of setup: your own last shift, priced honestly. Two questions, about five minutes." />
+
 ---
 
 ## 1. Install

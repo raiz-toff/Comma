@@ -2,6 +2,8 @@
 
 The markets Comma supports, the one that is enabled, and the ones written but deliberately held back.
 
+<StatRow accent="emerald" items={[{ value: "$0.73/km", label: "first 5,000 km" }, { value: "$0.67/km", label: "every km after" }, { value: "CAD · km", label: "currency and distance" }, { value: "CRA", label: "tax authority" }]} caption="Canada is the only enabled market. The US, UK, and Nepal are written but held back until their tax rules are verified." />
+
 ---
 
 ## Canada

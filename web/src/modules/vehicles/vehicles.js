@@ -548,8 +548,8 @@ async function addMaintenanceLog(vehicleId, defaults = {}) {
 async function addOdometerEntry(vehicleId) {
   const wrap = document.createElement('div');
   wrap.innerHTML = `
-    <div style="padding: var(--space-2) 0;">
-      <p style="margin-bottom: var(--space-4); color: var(--color-text-secondary); font-size: var(--text-sm);">
+    <div class="vehicles-modal-body">
+      <p class="vehicles-modal-hint">
         Enter the current odometer reading for your vehicle. This will update the total mileage and cost-per-km estimates.
       </p>
       <form class="vehicles-form-simple">
@@ -592,7 +592,7 @@ async function addOdometerEntry(vehicleId) {
 export async function renderVehiclesView(root) {
   root.innerHTML = `
     <section class="vehicles-view">
-      <header class="card card-raised tax-header" style="padding: var(--space-4);">
+      <header class="card card-raised tax-header">
         <div class="tax-header-title">
           <h1>${esc(t('vehicles.title'))}</h1>
           <p>${esc(t('vehicles.subtitle'))}</p>
@@ -738,7 +738,7 @@ export async function renderVehiclesView(root) {
     if (compareSlot && vehicles.length > 1) {
       statsRows.sort((a, b) => a.costPerKm - b.costPerKm);
       compareSlot.innerHTML = `
-        <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-4);">
+        <div class="vehicles-compare-heading">
           ${getIcon('trending-up', 20, 'text-brand')}
           <h2>Fleet Efficiency Comparison</h2>
         </div>
@@ -756,7 +756,7 @@ export async function renderVehiclesView(root) {
             ${statsRows.map((s, idx) => `
               <tr>
                 <td class="comparison-rank">#${idx + 1}</td>
-                <td style="font-weight: 600;">${esc(s.label)}</td>
+                <td class="comparison-vehicle-name">${esc(s.label)}</td>
                 <td class="${idx === 0 ? 'comparison-best' : ''}">${esc(money(s.costPerKm))}</td>
                 <td>${esc(money(s.annualExpenses))}</td>
                 <td>${esc(fixed(s.shiftCount ? s.shiftKm / Math.max(1, s.shiftCount) : 0, 1))} km</td>
@@ -844,8 +844,8 @@ export async function renderVehiclesView(root) {
       const currentVal = String(row.type) === 'ev' ? row.kwPer100km : row.fuelEfficiency;
       
       wrap.innerHTML = `
-        <div style="padding: var(--space-2) 0;">
-          <p style="margin-bottom: var(--space-4); color: var(--color-text-secondary); font-size: var(--text-sm);">
+        <div class="vehicles-modal-body">
+          <p class="vehicles-modal-hint">
             Update the rated fuel or electricity efficiency for this vehicle (${unit}).
           </p>
           <form class="vehicles-form-simple">

@@ -4,6 +4,8 @@ Sync keeps every device you use in step, through your own Google Drive, with no 
 
 Log a shift on the phone. Open the browser. It's there.
 
+<LayerStack accent="teal" layers={[{ name: "local vault", note: "every row stamped syncUpdatedAt" }, { name: "change log (.cmlog)", note: "what changed since the last cursor" }, { name: "Drive appDataFolder", note: "dumb file storage — no logic, no server" }]} caption="Newer edit wins, whole row at a time. Deletions travel as tombstones, and superseded money rows are kept in a local overwrite log." />
+
 ---
 
 ## Setup

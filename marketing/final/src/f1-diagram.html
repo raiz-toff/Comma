@@ -1,0 +1,74 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face{font-family:"DM Sans";src:url("../../press-kit/fonts/DMSans[opsz,wght].ttf");font-weight:100 1000}
+@font-face{font-family:"DM Mono";src:url("../../press-kit/fonts/DMMono-Regular.ttf")}
+*{margin:0;padding:0}html,body{width:1600px;height:1200px;overflow:hidden}
+body{background:#0A0A0C;font-family:"DM Sans",sans-serif}
+text{font-family:"DM Sans",sans-serif}
+.mono{font-family:"DM Mono",monospace}
+</style></head><body>
+<svg width="1600" height="1200" viewBox="0 0 1600 1200">
+  <!-- ============ Google Drive (top center) ============ -->
+  <g>
+    <path d="M690 150 h90 l30 30 h100 a16 16 0 0 1 16 16 v168 a16 16 0 0 1 -16 16 h-220 a16 16 0 0 1 -16 -16 v-198 a16 16 0 0 1 16 -16 z"
+          fill="#16161A" stroke="#2E2E36" stroke-width="3"/>
+    <!-- padlock -->
+    <rect x="770" y="255" width="60" height="48" rx="8" fill="none" stroke="#22c55e" stroke-width="4"/>
+    <path d="M782 255 v-16 a18 18 0 0 1 36 0 v16" fill="none" stroke="#22c55e" stroke-width="4"/>
+    <circle cx="800" cy="279" r="6" fill="#22c55e"/>
+    <text x="800" y="430" text-anchor="middle" fill="#F6F6F7" font-size="30" font-weight="600">Your Google Drive</text>
+    <text x="800" y="468" text-anchor="middle" fill="#9B9BA4" font-size="22">optional, encrypted</text>
+  </g>
+
+  <!-- ============ Phone (left) ============ -->
+  <g>
+    <rect x="160" y="330" width="240" height="470" rx="34" fill="#16161A" stroke="#2E2E36" stroke-width="3"/>
+    <rect x="240" y="352" width="80" height="14" rx="7" fill="#2E2E36"/>
+    <!-- SQLite cylinder -->
+    <path d="M225 520 a55 20 0 0 1 110 0 v90 a55 20 0 0 1 -110 0 z" fill="#0A0A0C" stroke="#9B9BA4" stroke-width="3"/>
+    <ellipse cx="280" cy="520" rx="55" ry="20" fill="#0A0A0C" stroke="#9B9BA4" stroke-width="3"/>
+    <text x="280" y="672" text-anchor="middle" fill="#9B9BA4" font-size="24" class="mono">SQLite</text>
+    <text x="280" y="866" text-anchor="middle" fill="#F6F6F7" font-size="30" font-weight="600">Your phone</text>
+  </g>
+
+  <!-- ============ Browser (right) ============ -->
+  <g>
+    <rect x="1200" y="360" width="270" height="420" rx="18" fill="#16161A" stroke="#2E2E36" stroke-width="3"/>
+    <line x1="1200" y1="420" x2="1470" y2="420" stroke="#2E2E36" stroke-width="3"/>
+    <circle cx="1230" cy="390" r="7" fill="#2E2E36"/>
+    <circle cx="1256" cy="390" r="7" fill="#2E2E36"/>
+    <circle cx="1282" cy="390" r="7" fill="#2E2E36"/>
+    <!-- IndexedDB cylinder -->
+    <path d="M1280 540 a55 20 0 0 1 110 0 v90 a55 20 0 0 1 -110 0 z" fill="#0A0A0C" stroke="#9B9BA4" stroke-width="3"/>
+    <ellipse cx="1335" cy="540" rx="55" ry="20" fill="#0A0A0C" stroke="#9B9BA4" stroke-width="3"/>
+    <text x="1335" y="692" text-anchor="middle" fill="#9B9BA4" font-size="24" class="mono">IndexedDB</text>
+    <text x="1335" y="846" text-anchor="middle" fill="#F6F6F7" font-size="30" font-weight="600">Your browser</text>
+  </g>
+
+  <!-- ============ arrows phone <-> drive <-> browser ============ -->
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#22c55e"/>
+    </marker>
+  </defs>
+  <path d="M420 470 L640 330" stroke="#22c55e" stroke-width="5" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  <path d="M960 330 L1180 470" stroke="#22c55e" stroke-width="5" marker-start="url(#ah)" marker-end="url(#ah)"/>
+
+  <!-- ============ crossed-out server (bottom center) ============ -->
+  <g>
+    <g stroke="#45454C" stroke-width="3" fill="#0F0F12">
+      <rect x="690" y="880" width="220" height="52" rx="10"/>
+      <rect x="690" y="944" width="220" height="52" rx="10"/>
+      <rect x="690" y="1008" width="220" height="52" rx="10"/>
+    </g>
+    <g fill="#45454C">
+      <circle cx="720" cy="906" r="6"/><circle cx="744" cy="906" r="6"/>
+      <circle cx="720" cy="970" r="6"/><circle cx="744" cy="970" r="6"/>
+      <circle cx="720" cy="1034" r="6"/><circle cx="744" cy="1034" r="6"/>
+    </g>
+    <line x1="660" y1="856" x2="940" y2="1084" stroke="#22c55e" stroke-width="10" stroke-linecap="round"/>
+    <line x1="940" y1="856" x2="660" y2="1084" stroke="#22c55e" stroke-width="10" stroke-linecap="round"/>
+    <text x="800" y="1128" text-anchor="middle" fill="#9B9BA4" font-size="26" font-weight="600">Comma&#8217;s servers</text>
+    <text x="800" y="1162" text-anchor="middle" fill="#65656E" font-size="22">(there are none)</text>
+  </g>
+</svg>
+</body></html>

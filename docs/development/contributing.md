@@ -2,6 +2,8 @@
 
 Thanks for contributing to Comma. This document covers the conventions, patterns, and process across both apps in the monorepo.
 
+<Chips accent="emerald" items={["feat", "fix", "refactor", "docs", "test", "chore"]} caption="Conventional Commits, strict TypeScript, no any. Adding a country or a platform is data in two mirrored registries — phone and web — never new logic." />
+
 ---
 
 ## Code style

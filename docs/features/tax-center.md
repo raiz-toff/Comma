@@ -2,6 +2,8 @@
 
 Comma estimates what you'll owe so nothing is a surprise at filing time. These are estimates to bring to an accountant, **not tax advice and not a filing service** — always verify with a professional before you file.
 
+<MoneySplit total="$142.00 gross" parts={[{ label: "set aside for the CRA", pct: 28, accent: "amber" }, { label: "yours to keep", pct: 72, accent: "emerald" }]} caption="Estimates to bring to an accountant — not tax advice. The mileage write-off is a deduction, never cash: it lowers the income you are taxed on." />
+
 ---
 
 ## What it estimates

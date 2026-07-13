@@ -4,6 +4,8 @@ Connecting Google Drive is how you protect your data against a lost phone and ke
 
 The same connection powers both backup and continuous [Cloud Sync](./cloud-sync.md) — they are not separate features. This page covers connecting, restoring, and disconnecting; the sync mechanics live in [Cloud Sync](./cloud-sync.md), and the two security modes in [Encryption](./encryption.md).
 
+<StepFlow accent="blue" steps={[{ title: "Settings → Data → Cloud Sync", body: "One screen for backup and sync alike." }, { title: "Connect Google Drive", body: "Scope is drive.appdata — Comma cannot see the rest of your Drive." }, { title: "Sign in and grant access", body: "Pulls happen on every open; pushes daily by default." }]} caption="One tap, and by default there is nothing to remember." />
+
 ---
 
 ## Connecting

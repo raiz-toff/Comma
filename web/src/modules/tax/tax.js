@@ -13,7 +13,7 @@ import { getEffectiveMileageRate, calculateMileageWriteOff, upsertTaxProfile } f
 import { WITHHOLDING_PRESETS_CA, WITHHOLDING_PRESETS_US } from '../../registry/tax/withholding-presets.js';
 import { ProvinceRegistry } from '../../registry/provinces/index.js';
 import { t } from '../../utils/strings.js';
-import { renderProgressRing, showToast } from '../../ui/components.js';
+import { showToast } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
 
 const DEFAULT_CA_REGION = 'ON';
@@ -286,64 +286,23 @@ async function loadTaxSummary(year) {
 }
 
 /**
- * @param {ReturnType<typeof getCountryTaxProfile>} taxProfile
+ * The top 2-3 things that make up what you owe, as compact pills under the "estimated taxes"
+ * hero — mirrors mobile's obligation pills (biggest line items first). Everything that isn't a
+ * pill still shows in the full breakdown below.
+ * @param {Awaited<ReturnType<typeof loadTaxSummary>>} summary
  */
-function renderTaxHelpersClean(taxProfile) {
-  const t2125Rows = [
-    t('tax.t2125.grossIncome'),
-    t('tax.t2125.advertising'),
-    t('tax.t2125.meals'),
-    t('tax.t2125.motorVehicle'),
-    t('tax.t2125.supplies'),
-    t('tax.t2125.other'),
-  ];
-  const scheduleCRows = [
-    t('tax.scheduleC.partIIncome'),
-    t('tax.scheduleC.partIIExpenses'),
-    t('tax.scheduleC.carTruck'),
-    t('tax.scheduleC.depreciation'),
-    t('tax.scheduleC.homeOffice'),
-    t('tax.scheduleC.other'),
-  ];
-
-  return `
-    <div class="bento-grid" style="margin-top: var(--space-4);">
-      <article class="card bento-cell-1x1">
-        <div style="display: flex; gap: var(--space-2); align-items: center; margin-bottom: var(--space-4);">
-          ${getIcon('receipt', 18, 'text-brand')}
-          <h3>${esc(t('tax.t2125.title'))}</h3>
-        </div>
-        <ul class="tax-helper-list">
-          ${t2125Rows.map((row) => `<li class="tax-helper-item">${esc(row)}</li>`).join('')}
-        </ul>
-      </article>
-      
-      <article class="card bento-cell-1x1">
-        <div style="display: flex; gap: var(--space-2); align-items: center; margin-bottom: var(--space-4);">
-          ${getIcon('flag', 18, 'text-success')}
-          <h3>${esc(t('tax.scheduleC.title'))}</h3>
-        </div>
-        <ul class="tax-helper-list">
-          ${scheduleCRows.map((row) => `<li class="tax-helper-item">${esc(row)}</li>`).join('')}
-        </ul>
-      </article>
-
-      <article class="card bento-cell-1x1">
-        <div style="display: flex; gap: var(--space-2); align-items: center; margin-bottom: var(--space-4);">
-          ${getIcon('info', 18, 'text-muted')}
-          <h3>${esc(t('tax.referenceLinks'))}</h3>
-        </div>
-        <ul class="tax-helper-list">
-          <li><a href="https://www.canada.ca/en/revenue-agency.html" target="_blank" rel="noopener noreferrer" style="color: var(--color-brand); font-size: var(--text-sm);">CRA — ${esc(t('tax.links.businessIncomeGuide'))}</a></li>
-          <li><a href="https://www.irs.gov/forms-pubs/about-schedule-c-form-1040" target="_blank" rel="noopener noreferrer" style="color: var(--color-brand); font-size: var(--text-sm);">IRS — ${esc(t('tax.links.scheduleCGuide'))}</a></li>
-          <li><a href="https://www.irs.gov/businesses/small-businesses-self-employed/estimated-taxes" target="_blank" rel="noopener noreferrer" style="color: var(--color-brand); font-size: var(--text-sm);">IRS — ${esc(t('tax.links.estimatedTaxes'))}</a></li>
-        </ul>
-        <p style="margin-top: var(--space-4); color: var(--color-text-secondary); font-size: var(--text-xs); line-height: 1.4;">
-          ${esc(taxProfile.footnote === 'canada' ? t('tax.footnoteCanada') : taxProfile.footnote === 'us' ? t('tax.footnoteUs') : t('tax.footnoteGeneric'))}
-        </p>
-      </article>
-    </div>
-  `;
+function topObligations(summary) {
+  const tp = summary.taxProfile;
+  const items = [];
+  if (tp.secondaryEstimator === 'cpp' && summary.cppEstimate > 0) {
+    items.push({ label: t('tax.cppEstimator'), amount: summary.cppEstimate });
+  } else if (tp.secondaryEstimator === 'se' && summary.seTaxEstimate > 0) {
+    items.push({ label: t('tax.seTaxEstimator'), amount: summary.seTaxEstimate });
+  }
+  if (tp.hstOnboarding && summary.hstRemittable > 0) {
+    items.push({ label: t('tax.remittable'), amount: summary.hstRemittable });
+  }
+  return items.sort((a, b) => b.amount - a.amount).slice(0, 3);
 }
 
 function toTaxSummaryJson(summary) {
@@ -531,38 +490,56 @@ export async function renderTaxDashboard(root, ctx = {}) {
     ? `${nextDeadline.label} · ${nextDeadline.daysUntil < 0 ? t('tax.overdue') : `${nextDeadline.daysUntil}d`}`
     : '';
 
-  const jarBody = `
-    <div style="display:flex; flex-direction: column; align-items: center;">
-      ${renderProgressRing({
-        value: summary.virtualJar,
-        max: Math.max(summary.taxSetAside, calcTaxSetAside(summary.gross, selectedRegionRate), 1),
-        size: 120,
-        strokeWidth: 10,
-        label: formatPercent(summary.setAsideCoveragePct, 0),
-      })}
-
-      <div class="tax-metric-row" style="width: 100%; margin-top: var(--space-6);">
-        <div class="tax-metric-item">
-          <span class="tax-metric-label">${esc(t('tax.targetSetAside'))}</span>
-          <span class="tax-metric-value">${esc(fmt(calcTaxSetAside(summary.gross, selectedRegionRate)))}</span>
+  // Top-of-page "Tax savings jar" hero — the number a driver checks and acts on most. Mirrors
+  // mobile's jar card: big "saved" figure, target on the right, a progress bar, and quick chips
+  // to log what you set aside. The target follows the region preset the driver has selected.
+  const jarTarget = calcTaxSetAside(summary.gross, selectedRegionRate);
+  const jarPct = jarTarget > 0 ? Math.min(100, (summary.virtualJar / jarTarget) * 100) : 0;
+  const jarCard = `
+    <article class="card card-raised tax-hero tax-jar-card">
+      <div class="tax-jar-top">
+        <div class="tax-jar-saved">
+          <span class="tax-hero-label">${esc(t('tax.savedForTaxes'))} · ${selectedYear}</span>
+          <span class="tax-hero-value is-positive">${esc(fmt(summary.virtualJar))}</span>
         </div>
-        <div class="tax-metric-item">
-          <span class="tax-metric-label">${esc(t('tax.currentSetAside'))}</span>
-          <span class="tax-metric-value is-positive">${esc(fmt(summary.virtualJar))}</span>
+        <div class="tax-jar-target">
+          <span class="tax-hero-label">${esc(t('tax.targetSetAside'))}</span>
+          <span class="tax-jar-target-value">${esc(fmt(jarTarget))}</span>
         </div>
       </div>
-
+      <div class="tax-jar-bar"><div class="tax-jar-bar-fill" style="width:${jarPct.toFixed(0)}%;"></div></div>
+      <span class="tax-hero-sub">${esc(`${formatPercent(jarPct, 0)} ${t('tax.ofTargetSaved')}`)}</span>
       <div class="tax-jar-controls">
         <ion-chip data-jar-adjust="-25">-25</ion-chip>
         <ion-chip data-jar-adjust="-10">-10</ion-chip>
         <ion-chip data-jar-adjust="10">+10</ion-chip>
         <ion-chip data-jar-adjust="25">+25</ion-chip>
       </div>
+    </article>`;
 
-      <div style="margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--color-border); font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.4;">
-        <strong>💡 Pro Tip:</strong> Consistently saving a fixed percentage of each payout protects you from unexpected bills at tax time. It's much safer to over-save and receive a lump-sum refund than to scramble for funds when taxes are due.
-      </div>
-    </div>`;
+  // "Estimated taxes you owe" hero — the total plus the 2-3 biggest line items as pills; the
+  // full row-by-row breakdown lives in the collapsible below.
+  const owedPills = topObligations(summary);
+  const owedCard = `
+    <article class="card card-raised tax-hero">
+      <span class="tax-hero-label">${esc(t('tax.obligationsTitle'))} · ${selectedYear}</span>
+      <span class="tax-hero-value">${esc(fmt(summary.totalEstimatedTax))}</span>
+      ${owedPills.length > 0 ? `
+      <div class="tax-owe-pills">
+        ${owedPills.map((p) => `<span class="tax-owe-pill">${esc(p.label)} <strong>${esc(fmt(p.amount))}</strong></span>`).join('')}
+      </div>` : ''}
+      <span class="tax-hero-sub">${esc(t('tax.grossIncome'))} ${esc(fmt(summary.gross))} · ${esc(t('tax.netAfterSetAside'))} ${esc(fmt(netAfterSetAside))}</span>
+    </article>`;
+
+  const nextDeadlineRow = nextDeadline
+    ? `
+    <div class="tax-next-deadline">
+      <span class="tax-next-deadline-icon">${getIcon('clock', 16)}</span>
+      <span class="tax-next-deadline-label">${esc(t('tax.nextPayment'))}</span>
+      <span class="tax-next-deadline-name">${esc(nextDeadline.label)}</span>
+      <span class="tax-next-deadline-days ${nextDeadline.daysUntil < 0 ? 'is-urgent' : ''}">${nextDeadline.daysUntil < 0 ? esc(t('tax.overdue')) : `${nextDeadline.daysUntil}d`}</span>
+    </div>`
+    : '';
 
   const incomeBody = `
     <div class="tax-metric-row" style="margin-top: 0;">
@@ -675,6 +652,16 @@ export async function renderTaxDashboard(root, ctx = {}) {
       </div>
     </div>`;
 
+  // Everything that used to be its own top-level accordion row now lives inside one "Full
+  // breakdown" body — income, the owe-it row-by-row, and the vehicle/mileage section — so the
+  // page opens as just the two hero cards + next deadline, and detail is one tap away.
+  const fullBreakdownBody = `
+    ${incomeBody}
+    <h3 style="margin-top: var(--space-6); font-size: var(--text-sm); font-weight: 700;">${esc(t('tax.sectionObligations'))}</h3>
+    ${renderObligationsCard(summary)}
+    <h3 style="margin-top: var(--space-6); font-size: var(--text-sm); font-weight: 700;">${esc(t('tax.vehicleActualCosts'))}</h3>
+    ${vehicleBody}`;
+
   root.innerHTML = `
     <section class="tax-view">
       <header class="card card-raised tax-header">
@@ -695,21 +682,19 @@ export async function renderTaxDashboard(root, ctx = {}) {
         </div>
       </header>
 
-      <!-- Hero — the one number that matters at a glance; everything else is opt-in detail below. -->
-      <article class="card card-raised tax-hero">
-        <span class="tax-hero-label">${esc(t('tax.obligationsTitle'))} · ${selectedYear}</span>
-        <span class="tax-hero-value">${esc(fmt(summary.totalEstimatedTax))}</span>
-        <span class="tax-hero-sub">${esc(t('tax.grossIncome'))} ${esc(fmt(summary.gross))} · ${esc(t('tax.netAfterSetAside'))} ${esc(fmt(netAfterSetAside))}</span>
-      </article>
+      <!-- Two hero cards a driver reads at a glance: what they've set aside, and what they'll owe. -->
+      <div class="tax-cards">
+        ${jarCard}
+        ${owedCard}
+      </div>
 
+      ${nextDeadlineRow}
+
+      <!-- Detail is collapsed by default so the page opens on just the numbers that matter. -->
       <div class="tax-accordion">
-        ${renderAccordionItem('jar', t('tax.virtualJar'), `${formatPercent(summary.setAsideCoveragePct, 0)} saved`, jarBody)}
-        ${renderAccordionItem('income', t('tax.incomeSnapshot'), fmt(netAfterSetAside), incomeBody)}
-        ${renderAccordionItem('owe', t('tax.sectionObligations'), fmt(summary.totalEstimatedTax), renderObligationsCard(summary))}
+        ${renderAccordionItem('breakdown', t('tax.fullBreakdown'), fmt(summary.totalEstimatedTax), fullBreakdownBody)}
         ${renderAccordionItem('deadlines', t('tax.installmentDeadlines'), deadlinePreview, deadlinesBody)}
-        ${renderAccordionItem('vehicle', t('tax.vehicleActualCosts'), `${formatLargeNumber(summary.distanceUnit === 'mi' ? summary.totalMiles : summary.distanceKm)} ${mileageUnitLabel}`, vehicleBody)}
         ${renderAccordionItem('settings', t('tax.withholdingSettings'), `${formatPercent(summary.taxRatePct, 0)} · ${summary.country}`, settingsBody)}
-        ${renderAccordionItem('reference', t('tax.sectionReference'), '', renderTaxHelpersClean(summary.taxProfile))}
       </div>
 
       <!-- Export -->

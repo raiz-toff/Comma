@@ -2,6 +2,8 @@
 
 The optional features you can switch on or off, what each one gates, and which parts of the app are always on.
 
+<Chips accent="indigo" items={["analytics_advanced · on", "tax_workspace · on", "goals · on", "schedule · off", "pdf_reports · off"]} caption="Five flags gate whole screens, so the app is only as large as you need. Turn goals off and badges and streaks go with it." />
+
 ---
 
 ## The toggles

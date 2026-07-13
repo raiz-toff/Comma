@@ -312,7 +312,7 @@ export async function mountSettings(root, ctx = {}) {
   const userAccentNorm = normalizeAccentHex(user.accentColor);
 
   updateAccentColor();
-  applyFontSize(user.fontSize || 'medium');
+  applyFontSize(user.fontSize || 'xl');
   applyDensity(user.layoutDensity || 'comfortable');
 
   const th = (id) => (initialSettingsTab === id ? '' : 'hidden');
@@ -357,16 +357,10 @@ export async function mountSettings(root, ctx = {}) {
         <span class="settings-collapsible-icon">${getIcon('chevron-down', 20)}</span>
       </header>
       <div class="settings-collapsible-body">
-        <div class="settings-grid">
-          <label class="input-group">
-            <span class="input-label">Display name</span>
-            <input class="input" type="text" data-setting-display-name value="${esc(user.displayName || '')}" />
-          </label>
-          <label class="input-group">
-            <span class="input-label">Avatar emoji</span>
-            <input class="input" type="text" maxlength="3" data-setting-avatar value="${esc(typeof user.avatarData === 'string' ? user.avatarData : '')}" placeholder="🙂" />
-          </label>
-        </div>
+        <label class="input-group">
+          <span class="input-label">Display name</span>
+          <input class="input" type="text" data-setting-display-name value="${esc(user.displayName || '')}" />
+        </label>
         <div class="settings-actions">
           <ion-button size="small" data-save-profile>${esc(t('common.save'))}</ion-button>
         </div>
@@ -472,28 +466,30 @@ export async function mountSettings(root, ctx = {}) {
         </header>
         <div class="settings-collapsible-body">
           <p class="text-secondary settings-section-lead">Personalize the layout and visual style of COMMA.</p>
-          <div class="settings-grid">
-            <div class="input-group">
-              <span class="input-label">${esc(t('settings.theme'))}</span>
-              <ion-segment class="settings-theme-segment" value="${esc(user.theme || 'auto')}" aria-label="Theme selection" data-theme-switcher>
-                <ion-segment-button value="auto" layout="icon-start" data-theme="auto">
-                  ${getIcon('monitor', 16)} <span>Auto</span>
-                </ion-segment-button>
-                <ion-segment-button value="light" layout="icon-start" data-theme="light">
-                  ${getIcon('sun', 16)} <span>Light</span>
-                </ion-segment-button>
-                <ion-segment-button value="dark" layout="icon-start" data-theme="dark">
-                  ${getIcon('moon', 16)} <span>Dark</span>
-                </ion-segment-button>
-              </ion-segment>
-            </div>
+
+          <div class="input-group settings-theme-group">
+            <span class="input-label">${esc(t('settings.theme'))}</span>
+            <ion-segment class="settings-theme-segment" value="${esc(user.theme || 'auto')}" aria-label="Theme selection" data-theme-switcher>
+              <ion-segment-button value="auto" layout="icon-start" data-theme="auto">
+                ${getIcon('monitor', 16)} <span>Auto</span>
+              </ion-segment-button>
+              <ion-segment-button value="light" layout="icon-start" data-theme="light">
+                ${getIcon('sun', 16)} <span>Light</span>
+              </ion-segment-button>
+              <ion-segment-button value="dark" layout="icon-start" data-theme="dark">
+                ${getIcon('moon', 16)} <span>Dark</span>
+              </ion-segment-button>
+            </ion-segment>
+          </div>
+
+          <div class="settings-grid settings-grid-2">
             <label class="input-group">
               <span class="input-label">Font size</span>
               <select class="input" data-setting-font>
                 <option value="small" ${user.fontSize === 'small' ? 'selected' : ''}>Small</option>
-                <option value="medium" ${!user.fontSize || user.fontSize === 'medium' ? 'selected' : ''}>Medium</option>
+                <option value="medium" ${user.fontSize === 'medium' ? 'selected' : ''}>Medium</option>
                 <option value="large" ${user.fontSize === 'large' ? 'selected' : ''}>Large</option>
-                <option value="xl" ${user.fontSize === 'xl' ? 'selected' : ''}>XL</option>
+                <option value="xl" ${user.fontSize === 'xl' || !user.fontSize ? 'selected' : ''}>XL</option>
               </select>
             </label>
             <label class="input-group">
@@ -503,12 +499,6 @@ export async function mountSettings(root, ctx = {}) {
                 <option value="compact" ${user.layoutDensity === 'compact' ? 'selected' : ''}>Compact</option>
               </select>
             </label>
-            <div class="input-group">
-              <span class="input-label">${esc(t('pwa.toggleFullscreen'))}</span>
-              <ion-button size="small" fill="outline" expand="block" data-toggle-fullscreen-appearance>
-                ${getIcon('maximize', 16)} <span>Toggle Full Screen</span>
-              </ion-button>
-            </div>
           </div>
 
           <div class="settings-accent" style="margin-top: var(--space-4);">
@@ -532,7 +522,12 @@ export async function mountSettings(root, ctx = {}) {
             </div>
           </div>
 
-          <div class="settings-actions">
+          <!-- Fullscreen is an immediate action, not a Save-gated preference — it sits in the
+               actions row (secondary, left) apart from the settings above, with Save on the right. -->
+          <div class="settings-actions settings-actions-split">
+            <ion-button size="small" fill="outline" data-toggle-fullscreen-appearance>
+              ${getIcon('maximize', 16)} <span>${esc(t('pwa.toggleFullscreen'))}</span>
+            </ion-button>
             <ion-button size="small" data-save-display>${esc(t('common.save'))}</ion-button>
           </div>
         </div>
@@ -838,8 +833,10 @@ export async function mountSettings(root, ctx = {}) {
 
   root.querySelector('[data-save-profile]')?.addEventListener('click', async () => {
     const name = /** @type {HTMLInputElement | null} */ (root.querySelector('[data-setting-display-name]'))?.value || '';
-    const avatar = /** @type {HTMLInputElement | null} */ (root.querySelector('[data-setting-avatar]'))?.value || '';
-    await saveUser({ displayName: name.trim(), avatarType: avatar.trim() ? 'emoji' : 'initials', avatarData: avatar.trim() || null });
+    // Only displayName is edited here. avatarType/avatarData are synced profile fields set during
+    // onboarding (and possibly on mobile) but never shown in the web UI — leave them untouched so
+    // saving a name doesn't wipe an avatar the vault already carries.
+    await saveUser({ displayName: name.trim() });
     await store.refresh('user');
     showToast({ type: 'success', message: 'Profile saved.' });
   });

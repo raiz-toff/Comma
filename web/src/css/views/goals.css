@@ -1,8 +1,166 @@
-/* ── Goals view — Ionic component plumbing ─────────────────────────────────────────────
- * The view's own look (cards, rings, gv-* palette) lives in the inline <style> block of
- * src/views/goals-view.js; this file only carries the Ionic-host wiring, mirroring the
- * pattern at the bottom of shifts.css: sliding rows keep the existing goal markup inside
- * an ion-item whose chrome is zeroed, so a row looks unchanged until you swipe. */
+/* ── Goals view ──────────────────────────────────────────────────────────────────────
+ * The goals screen keeps its own `--gv-*` names (used by every rule below), but they are
+ * now thin aliases over the GLOBAL design tokens — so goals renders the exact same
+ * pitch-black (dark) / white (light) system as every other page and can't drift from it.
+ * Derived shades are color-mix over the global tokens, so they flip with the theme
+ * automatically. (Was a private OLED palette; unified into the one brand system — AGENTS.md §7.)
+ * Moved here from an inline <style> block in goals-view.js (plan 007, Part 3 item 7). */
+
+.goals-view-container {
+  --gv-card: var(--color-surface);
+  --gv-border: var(--color-border);
+  --gv-inset: var(--color-surface-raised);
+  --gv-inset2: color-mix(in srgb, var(--color-text-primary) 10%, var(--color-surface-raised));
+  --gv-text: var(--color-text-primary);
+  --gv-muted: var(--color-text-secondary);
+  --gv-dim: var(--color-text-muted);
+  --gv-faint: color-mix(in srgb, var(--color-text-primary) 14%, transparent);
+  --gv-track: var(--color-surface-raised);
+  --gv-badge: var(--color-bg);
+  --gv-badge-on: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  --gv-badge-on-bd: color-mix(in srgb, var(--color-text-primary) 12%, var(--color-border));
+  --gv-lvl-bg: color-mix(in srgb, var(--color-info) 14%, transparent);
+  --gv-done-bg: color-mix(in srgb, var(--color-success) 16%, transparent);
+  /* List template: shares the constitution's default content width (plan 007 pt.1). */
+  max-width: var(--content, 720px);
+  margin: 0 auto;
+  padding: 20px 16px 120px;
+  animation: gvFade 0.35s ease-out;
+}
+.gv-ring-track {
+  stroke: var(--gv-track);
+}
+@keyframes gvFade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.gv-header { text-align: center; padding: 6px 0 16px; }
+.gv-page-title { margin: 0; font-size: 17px; font-weight: 900; letter-spacing: -0.3px; color: var(--gv-text); }
+
+.gv-panel { display: none; flex-direction: column; gap: 16px; }
+.gv-panel.is-active { display: flex; }
+
+.gv-card { background: var(--gv-card); border: 0.8px solid var(--gv-border); border-radius: 20px; }
+.gv-card--pad { padding: 20px; }
+
+/* Hero */
+.gv-hero { padding: 24px; display: flex; align-items: center; gap: 24px; overflow: hidden; }
+.gv-hero-main { flex: 1; min-width: 0; }
+.gv-kicker { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px; }
+.gv-hero-title { margin: 0 0 6px; font-size: 24px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.15; color: var(--gv-text); text-transform: capitalize; }
+.gv-hero-sub { margin: 0 0 14px; font-size: 12px; font-weight: 600; color: var(--gv-muted); }
+.gv-hero-value { font-size: 38px; font-weight: 800; letter-spacing: -0.5px; color: var(--gv-text); margin-bottom: 18px; line-height: 1; }
+
+/* Ring */
+.gv-ring { position: relative; display: grid; place-items: center; flex-shrink: 0; width: var(--ring-size); height: var(--ring-size); }
+.gv-ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.gv-ring-pct { font-size: 28px; font-weight: 800; color: var(--gv-text); letter-spacing: -0.5px; }
+.gv-ring-arc { stroke: var(--ring-color); }
+
+/* Active goals list */
+.gv-list-head { display: flex; align-items: center; justify-content: space-between; padding: 20px; border-bottom: 0.8px solid var(--gv-border); }
+.gv-list-head h2 { margin: 0; font-size: 16px; font-weight: 800; color: var(--gv-text); }
+.gv-list-body { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+.gv-empty { margin: 0; font-size: 13px; color: var(--gv-muted); font-style: italic; text-align: center; }
+.gv-goal { display: flex; flex-direction: column; gap: 10px; }
+.gv-goal-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.gv-goal-id { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.gv-goal-icon {
+  width: 36px; height: 36px; border-radius: 12px; background: var(--gv-inset); border: 1px solid var(--gv-inset2);
+  display: grid; place-items: center; font-size: 16px; flex-shrink: 0;
+}
+.gv-goal-name { font-size: 14px; font-weight: 800; color: var(--gv-text); text-transform: capitalize; }
+.gv-goal-meta { font-size: 11px; font-weight: 700; color: var(--gv-muted); text-transform: uppercase; margin-top: 2px; }
+.gv-goal-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.gv-goal-target { font-size: 14px; font-weight: 900; color: var(--gv-text); }
+.gv-goal-actions { display: flex; gap: 8px; align-items: center; }
+.gv-bar { height: 5px; border-radius: 3px; overflow: hidden; --background: var(--gv-border); }
+.gv-bar--success { --progress-background: var(--color-success); }
+.gv-bar--warning { --progress-background: var(--color-warning); }
+.gv-bar--brand { --progress-background: var(--color-brand); }
+.gv-bar--info { --progress-background: var(--color-info); }
+.gv-bar--m10 { margin: 10px 0; }
+.gv-bar--m6 { margin: 6px 0; }
+
+/* Progress tab shared */
+.gv-row-between { display: flex; align-items: center; justify-content: space-between; }
+.gv-row-between--mb16 { margin-bottom: 16px; }
+.gv-row-between--mb18 { margin-bottom: 18px; }
+.gv-inline { display: flex; align-items: center; gap: 8px; }
+.gv-inline--mb20 { margin-bottom: 20px; }
+.gv-cap { font-size: 12px; font-weight: 800; color: var(--gv-muted); text-transform: uppercase; }
+.gv-card-title { margin: 0 0 18px; font-size: 16px; font-weight: 800; color: var(--gv-text); }
+.gv-card-title--flush { margin: 0; }
+.gv-hint { font-size: 11px; font-weight: 700; color: var(--gv-dim); }
+.gv-hint--strong { font-weight: 700; }
+
+.gv-icon-info { color: var(--color-info); }
+.gv-icon-danger { color: var(--color-danger); }
+.gv-icon-warning { color: var(--color-warning); }
+.gv-icon-brand { color: var(--color-brand); }
+
+.gv-lvl { background: var(--gv-lvl-bg); border: 1px solid color-mix(in srgb, var(--color-info) 25%, transparent); border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 900; color: var(--color-info); }
+.gv-xp { font-size: 34px; font-weight: 800; letter-spacing: -0.5px; color: var(--gv-text); line-height: 1; }
+.gv-xp-unit { font-size: 16px; color: var(--gv-dim); font-weight: 600; }
+
+.gv-streak { display: flex; align-items: center; gap: 20px; }
+.gv-streak-n { font-size: 26px; font-weight: 800; color: var(--gv-text); line-height: 1; }
+.gv-streak-l { font-size: 10px; font-weight: 700; color: var(--gv-muted); }
+.gv-streak-side { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+.gv-mini-cap { font-size: 10px; font-weight: 800; color: var(--gv-dim); text-transform: uppercase; margin-bottom: 4px; }
+.gv-streak-ms { font-size: 13px; font-weight: 800; color: var(--gv-text); }
+.gv-shields { display: flex; align-items: center; gap: 6px; }
+.gv-shield { color: var(--gv-faint); display: inline-flex; }
+.gv-shield.on { color: var(--color-brand); }
+.gv-shields-n { font-size: 11px; font-weight: 700; color: var(--color-brand); margin-left: 2px; }
+
+.gv-challenges { display: flex; flex-direction: column; gap: 16px; }
+.gv-ch-top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.gv-ch-icon {
+  width: 40px; height: 40px; border-radius: 20px; background: var(--gv-card); border: 1px solid var(--gv-inset2);
+  display: grid; place-items: center; color: var(--color-brand); flex-shrink: 0;
+}
+.gv-ch-icon.done { background: var(--gv-done-bg); border-color: color-mix(in srgb, var(--color-success) 25%, transparent); color: var(--color-success); }
+.gv-ch-body { flex: 1; min-width: 0; }
+.gv-ch-name { font-size: 13px; font-weight: 800; color: var(--gv-text); }
+.gv-ch-pct { font-size: 12px; font-weight: 900; color: var(--color-brand); }
+.gv-ch-pct.done { color: var(--color-success); }
+.gv-ch-desc { font-size: 11px; color: var(--gv-muted); margin-top: 3px; }
+
+.gv-badges { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.gv-badge {
+  aspect-ratio: 1; display: grid; place-items: center; background: var(--gv-badge); border: 1px solid var(--gv-border);
+  border-radius: 14px; cursor: pointer;
+}
+.gv-badge.on { background: var(--gv-badge-on); border-color: var(--gv-badge-on-bd); }
+.gv-badge-icon { font-size: 32px; filter: grayscale(1) opacity(0.25); }
+.gv-badge.on .gv-badge-icon { filter: none; }
+.gv-badges-hint { text-align: center; font-size: 11px; color: var(--gv-dim); font-style: italic; margin: 14px 0 0; }
+
+.gv-best { padding: 20px; display: flex; align-items: center; justify-content: space-between; cursor: default; }
+.gv-best-val { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; color: var(--gv-text); margin-top: 2px; }
+.gv-chevron { font-size: 18px; color: var(--gv-dim); }
+
+/* Badge detail modal */
+.gv-badge-modal { text-align: center; }
+.gv-badge-modal-icon { font-size: 56px; }
+.gv-badge-modal-icon.is-locked { filter: grayscale(1) opacity(0.3); }
+.gv-badge-modal-name { margin: 12px 0 4px; font-weight: 900; }
+.gv-badge-modal-desc { margin: 0; color: var(--color-text-muted); font-size: 0.85rem; }
+.gv-badge-modal-status { margin-top: 12px; font-weight: 800; font-size: 0.75rem; color: var(--color-text-muted); }
+.gv-badge-modal-status.is-unlocked { color: var(--color-success); }
+
+/* Goal edit/create modal */
+.input-group--spaced { margin-top: var(--space-4); }
+
+@media (max-width: 30rem) {
+  .gv-hero { flex-direction: column; text-align: center; gap: 18px; }
+  .gv-hero-main { width: 100%; }
+  .gv-edit-target { align-self: center; }
+}
+
+/* ── Ionic component plumbing ────────────────────────────────────────────────────────── */
 
 /* Goals / Progress segment — reproduce the old pill tab-bar with segment custom props. */
 .goals-view-container ion-segment.gv-tabs {

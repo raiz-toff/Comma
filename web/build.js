@@ -26,6 +26,7 @@ const isDev = !isProd;
 
 const CSS_ORDER = [
   'reset.css',
+  'fonts.css', // self-hosted DM type — before tokens.css, which names these families
   'ionic.css', // vendored @ionic/core base — before tokens so the theme bridge can override it
   'tokens.css',
   'themes.css',

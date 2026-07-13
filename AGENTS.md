@@ -132,7 +132,9 @@ and why it matters to someone earning money with this app. It does not say "refa
 the changelog at all.
 
 Only `**bold**`, `` `code` ``, and `[links](url)` render — the site's parser handles nothing
-else. No nested lists, no images.
+else. No nested lists, no images. A release's *visual* lives outside this file: the
+`/changelog` page renders a styled card above each version from this file's bold
+claims — see §7.
 
 ---
 
@@ -155,6 +157,45 @@ commit. A doc that describes an app that no longer exists is worse than no doc.
 `app/docs/` is something different: internal design notes and audits, not published. Leave
 them as the historical record they are. Don't rewrite an old audit to match new code — write
 a new note.
+
+### Every page opens with one small graphic
+
+A wall of prose is a page nobody reads. So each docs page carries **exactly one** small
+visual, right after the intro paragraph, before the first `---`. It is not decoration:
+it shows the one idea that page exists to teach, and it must be **curated from that
+page's own content** — its real numbers, its real field names, its real steps.
+
+The kit lives in `docs-site/components/doc-visuals.tsx` and is registered globally, so a
+page in `docs/` uses it as plain JSX with **no import line**:
+
+```jsx
+<StatRow items={[{ value: "$36.04", label: "real hourly" }]} caption="…" />
+```
+
+| Component | Use it when the page is about… |
+|---|---|
+| `StatRow` | numbers a driver reads — earnings, rates, totals |
+| `RouteSplit` | active vs dead distance |
+| `MoneySplit` | one amount divided up — tax, write-offs, take-home |
+| `StepFlow` | a procedure with 3 steps |
+| `VaultFlow` | where data lives and what talks to what |
+| `ShiftStrip` | time — a shift, a session, a sequence |
+| `LayerStack` | code layers, modules, a stack |
+| `PlatformGrid` | the delivery apps a driver runs |
+
+The rules that keep this from turning into wallpaper:
+
+- **One per page. At the top. Never two.** If a page has no single idea worth drawing,
+  it gets nothing — a reference table of field names is already a visual.
+- **Never the same component on adjacent pages** in the sidebar. Sameness reads as a
+  template; variety is the whole point. Pick a different accent, too.
+- **Curate, don't stamp.** Feed it the page's real content. A `MoneySplit` on the tax page
+  uses that page's actual percentages. Inventing numbers to fill a component is worse
+  than leaving the page bare.
+- **Never paste raw HTML or a `<div>` soup into a doc.** Only these components. If a page
+  needs a shape the kit can't make, add a component to the kit (theme-aware, palette-only,
+  per §7) rather than hand-rolling markup in the markdown.
+- Everything is HTML/CSS and theme-aware — see §7. Never a screenshot of a diagram.
 
 ---
 
@@ -207,6 +248,47 @@ a new note.
 
 ---
 
+## 7. Brand & generated imagery
+
+Every image made for Comma — ads, store assets, docs art, OG images, release cards —
+follows the design system in [`marketing/design-prompts.md`](./marketing/design-prompts.md).
+The **Brand Block** and hard rules in that file are the contract; this is the short version:
+
+- **Two modes, never mixed in one asset.** PRODUCT MODE (default): near-black surfaces
+  `#000000` / `#0A0A0C` / `#16161A`, hairlines `#2E2E36`, text `#F6F6F7` / `#9B9BA4`, one
+  accent — emerald `#22c55e`. DM Serif Display for display lines, DM Sans for UI and body,
+  DM Mono for money. MASCOT MODE (social/community): the beanie-and-cash mascot and the
+  outlined "COMMA" wordmark, flat sticker style. If a color isn't in `src/theme/colors.ts`
+  or the Brand Block, it isn't in the brand — no invented hexes, gradients, or glows.
+- **Canonical assets** live in `marketing/press-kit/` (transparent wordmark, brand sheet,
+  vendored DM fonts) and `assets/logo-mascot.png`. Reuse them; never redraw the wordmark
+  or mascot by hand or by model.
+- **Text-bearing assets are built, not generated.** Anything with words on it (cards,
+  banners, diagrams, OG images) is authored as HTML in `marketing/final/src/` and rendered
+  with headless Chromium — image models mangle text. AI generation is for illustration
+  only, and **never for fake app UI**: use real screenshots or leave a blank frame.
+- **Anything rendered *inside* a site is HTML/CSS, and follows the reader's theme.** Don't
+  ship a PNG of something the browser can draw — it can't be selected, read by a screen
+  reader, or re-themed, and it blurs on a retina screen. Style it with **both** palettes
+  from `src/theme/colors.ts`: LIGHT surfaces (`#FCFCFD` / `#E5E5EB` / `#0E0E11` / `#53535A`)
+  and DARK (`#0A0A0C` / `#26262C` / `#F6F6F7` / `#9B9BA4`). A hardcoded dark block on a
+  light page is a bug. **Accents do not carry across themes**: the dark-canvas hues
+  (`#22c55e`, `#14b8a6`, …) fail contrast on white, so each needs its 600/700 twin
+  (`#15803D`, `#0F766E`, …) — the same split `colors.ts` already makes between DARK and
+  LIGHT. Pattern to copy: put both hues on one CSS variable and flip it under `dark:`
+  (see the release card in `docs-site/app/(home)/changelog/page.tsx`).
+  PNG exports stay for what leaves the site — store listings, ads, print, OG images.
+- **Release cards.** The `/changelog` page renders a card above each version natively in
+  HTML/CSS (`docs-site/app/(home)/changelog/page.tsx`) — no image files. The anatomy is
+  fixed (version pill, one serif headline, 2–3 ticks, faint oversized version numeral,
+  dark PRODUCT-MODE surface); only the accent varies, rotating per release through the
+  KPI palette so releases read as siblings, not copies. Headline and ticks auto-derive
+  from the release's `**bold claims**` in `CHANGELOG.md`; when a release deserves better
+  copy, add an entry to the `CURATED` map in that file. `CHANGELOG.md` itself stays
+  text-only (§3).
+
+---
+
 ## Before you say you're done
 
 ```
@@ -217,6 +299,7 @@ a new note.
 [ ] User-visible change? — CHANGELOG.md entry written, in this commit (§3)
 [ ] Behaviour a doc describes? — that docs/ page updated (§4)
 [ ] Shipping to users? — node scripts/version.mjs bump <x.y.z>, then docs/development/releasing.md
+[ ] Cut a release? — /changelog card reads right (auto-derives from bold claims; override via CURATED, §7)
 ```
 
 Say plainly what you did and what you did not verify. A change reported as working when it

@@ -2,6 +2,8 @@
 
 Get Comma running on your phone, on the web, or on both.
 
+<StepFlow accent="emerald" steps={[{ title: "Download the APK", body: "From the latest GitHub release." }, { title: "Allow unknown apps", body: "Android asks once; confirm the install." }, { title: "Open it", body: "Or skip all of this and install the web app from your browser." }]} caption="Android sideload, or the browser PWA. JS-only fixes then arrive over the air." />
+
 ---
 
 ## Android

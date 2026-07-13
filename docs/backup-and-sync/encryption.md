@@ -4,6 +4,8 @@ Comma has two modes for cloud data. The distinction is not a settings detail —
 
 **The password is the mode.** If you have set one, your data is end-to-end encrypted. If you haven't, it isn't. There is no third state.
 
+<StatRow accent="indigo" items={[{ value: "AES-256-GCM", label: "cipher, authenticated" }, { value: "210,000", label: "PBKDF2 iterations" }, { value: "per file", label: "random salt and IV" }, { value: "never", label: "the key is written or uploaded" }]} caption="The password is the mode. Set one and only you can read the cloud copy — including if you forget it, in which case it is mathematically gone." />
+
 ---
 
 ## The two modes

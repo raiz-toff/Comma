@@ -2,6 +2,8 @@
 
 Comma runs as an installable Progressive Web App at [comma-psi.vercel.app](https://comma-psi.vercel.app) — a full companion to the phone app for logging and reviewing your work from any browser.
 
+<VaultFlow accent="blue" nodes={["Phone — SQLite", "Browser — IndexedDB"]} hub="Your Google Drive" caption="Two separate local vaults kept in step by one Drive folder. Track on the phone, reckon on the laptop." />
+
 ---
 
 ## Installing

@@ -601,797 +601,552 @@
 
 /* ------------------------------------------------------------------------- */
 /* Dashboard route — Financial overview (`views/dashboard.js`)               */
+/* Vanilla-clean rebuild (plan 007, phase 2): plain-sentence hero, one money- */
+/* split bar, a week of day-boxes, a live-shift + recent-shifts aside. Flat, */
+/* hairlines over boxes, one accent (emerald), amber reserved for the live   */
+/* shift only. Breakpoint below mirrors the shell's --bp-wide (1120px) and   */
+/* --aside-w (340px) constitution tokens (plan 007 pt.1) — those tokens live */
+/* in tokens.css, owned by the shell phase; @media conditions can't read a   */
+/* custom property, so the pixel value is duplicated here on purpose.       */
 /* ------------------------------------------------------------------------- */
 
-.dashboard-view--financial {
+.dash {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
-  max-width: 1200px;
+  gap: var(--space-6);
+  max-width: var(--content, 720px);
   margin: 0 auto;
+  padding-bottom: var(--space-8);
 }
 
-.financial-dash-header {
+@media (min-width: 1120px) {
+  .dash {
+    max-width: calc(var(--content, 720px) + var(--space-8) + var(--aside-w, 340px));
+  }
+}
+
+.dash-header {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
+  flex-wrap: wrap;
 }
 
-.financial-dash-title {
+.dash-title {
   margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
   font-size: var(--text-2xl);
-  font-weight: 800;
-  letter-spacing: -0.02em;
   color: var(--color-text-primary);
 }
 
-.financial-dash-subtitle {
-  margin: var(--space-2) 0 0;
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-  max-width: 36rem;
+.dash-shift-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-pill);
+  font-weight: 600;
 }
 
-.financial-dash-actions {
+.dash-shift-btn--live {
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 14%, var(--color-surface));
+  color: var(--color-text-primary);
+}
+
+.dash-shift-btn-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-warning);
+  animation: dash-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes dash-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.25);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-shift-btn-dot,
+  .dash-live-dot {
+    animation: none;
+  }
+}
+
+/* Period picker — one row of preset pills + an optional custom-range row. Replaces the old
+   double-accordion (shortcuts panel + nested custom-filter panel). */
+.dash-period {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
   align-items: center;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
 }
 
-.financial-dash-export {
+.dash-period-presets {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  gap: var(--space-1);
+}
+
+.dash-period-presets::-webkit-scrollbar {
+  display: none;
+}
+
+.dash-preset {
+  flex: 0 0 auto;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.dash-preset:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-raised);
+}
+
+.dash-preset.is-active {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-brand) 16%, var(--color-surface));
+}
+
+.dash-period-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.dash-period-toggle:hover {
+  color: var(--color-text-primary);
+}
+
+.dash-period-custom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.dash-date-field {
+  width: 9.5rem;
+  max-width: 100%;
+  cursor: pointer;
+}
+
+/* Two-column layout at wide desktop; single column (aside falls below main) otherwise. */
+.dash-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+@media (min-width: 1120px) {
+  .dash-grid {
+    display: grid;
+    grid-template-columns: 1fr var(--aside-w, 340px);
+    align-items: start;
+    gap: var(--space-8);
+  }
+}
+
+.dash-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.dash-section-title {
+  margin: 0 0 var(--space-3);
+  font-size: calc(var(--text-base) + 1px);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* Hero — plain sentence + one big number. Mono touches the money digits only. */
+.dash-hero {
+  padding-top: var(--space-2);
+}
+
+.dash-hero-lede {
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--color-text-secondary);
+}
+
+.dash-hero-amount {
+  margin: var(--space-1) 0 var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-hero-rate {
+  display: inline-block;
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-pill);
+}
+
+.dash-hero-rate--muted {
+  background: transparent;
+  padding-left: 0;
+}
+
+/* Where your money went — one segmented bar, plain-word legend underneath. */
+.dash-split-bar {
+  display: flex;
+  width: 100%;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--color-surface-raised);
+}
+
+.dash-split-seg {
+  display: block;
+  height: 100%;
+  width: var(--w, 0%);
+  transition: width var(--transition-slow);
+}
+
+.dash-split-seg--kept {
+  background: var(--color-brand);
+}
+
+.dash-split-seg--gas {
+  background: color-mix(in srgb, var(--color-text-primary) 35%, var(--color-surface-raised));
+}
+
+.dash-split-seg--car {
+  background: color-mix(in srgb, var(--color-text-primary) 16%, var(--color-surface-raised));
+}
+
+.dash-split-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.dash-split-legend li {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
 }
 
-.financial-dash-export .financial-dash-export-icon {
+.dash-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   flex-shrink: 0;
 }
 
-.financial-dash-filter {
-  padding: 0;
+.dash-legend-dot--kept {
+  background: var(--color-brand);
+}
+
+.dash-legend-dot--gas {
+  background: color-mix(in srgb, var(--color-text-primary) 35%, var(--color-surface-raised));
+}
+
+.dash-legend-dot--car {
+  background: color-mix(in srgb, var(--color-text-primary) 16%, var(--color-surface-raised));
+}
+
+.dash-legend-amount {
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* This week — seven day boxes, hairlines not cards. */
+.dash-week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
-.financial-dash-filter-summary {
+.dash-day {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: var(--space-3) var(--space-4);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  transition: background-color 0.2s ease;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-2);
+  background: var(--color-surface);
+  text-align: center;
 }
 
-.financial-dash-filter-summary:hover {
+.dash-day-name {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.dash-day-amount {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-day-hours {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.dash-day-off {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  padding-top: var(--space-2);
+}
+
+.dash-day.is-today {
   background: var(--color-surface-raised);
 }
 
-.financial-dash-filter-content {
-  padding: var(--space-4);
-  display: block;
+.dash-day.is-live {
+  background: color-mix(in srgb, var(--color-warning) 14%, var(--color-surface));
 }
 
-.financial-dash-summary-left {
+.dash-day.is-live .dash-day-name {
+  color: color-mix(in srgb, var(--color-warning) 70%, var(--color-text-primary));
+}
+
+/* Aside — live shift + recent shifts. Below --bp-wide it just falls under the main column
+   (see .dash-grid), so nothing here needs its own responsive rule. */
+.dash-aside {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-4);
   min-width: 0;
 }
 
-.financial-dash-summary-icon {
-  flex-shrink: 0;
-  color: var(--color-brand);
+.dash-live-card {
+  padding: var(--space-4);
+  border-color: color-mix(in srgb, var(--color-warning) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 6%, var(--color-surface));
 }
 
-.financial-dash-summary-text {
+.dash-live-card.is-paused {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+
+.dash-live-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dash-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-warning);
+  animation: dash-pulse 1.4s ease-in-out infinite;
+}
+
+.dash-live-card.is-paused .dash-live-dot {
+  animation: none;
+  background: var(--color-text-muted);
+}
+
+.dash-live-platform {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.dash-live-paused-pill {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-raised);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+}
+
+.dash-live-earnings {
+  margin: var(--space-3) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-live-elapsed {
+  margin: 2px 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.dash-live-rate {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid color-mix(in srgb, var(--color-warning) 25%, var(--color-border));
+  font-size: var(--text-sm);
+}
+
+.dash-live-rate-label {
+  color: var(--color-text-secondary);
+}
+
+.dash-live-rate-value {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-live-compare {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.dash-live-end-btn {
+  width: 100%;
+  margin-top: var(--space-4);
+}
+
+.dash-recent-card {
+  padding: var(--space-4);
+}
+
+.dash-recent-empty {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.dash-recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-recent-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2);
+  margin: 0 calc(var(--space-2) * -1);
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.dash-recent-row:hover {
+  background: var(--color-surface-raised);
+}
+
+.dash-recent-list li:last-child .dash-recent-row {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.dash-recent-chip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  background: var(--chip-color, var(--color-other));
+  color: #fff;
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+/* Platform brand logo inside the chip — sized to sit inside the 30px square, inheriting the
+   chip's white `color` via the logo's currentColor paths. */
+.dash-recent-chip--logo svg {
+  width: 18px;
+  height: 18px;
+}
+
+.dash-recent-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-recent-day {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.dash-recent-hours {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.dash-recent-amount {
+  flex-shrink: 0;
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   font-weight: 700;
   color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.financial-dash-summary-right {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-shrink: 0;
-}
-
-.financial-dash-summary-preset.badge {
-  background: color-mix(in srgb, var(--color-brand) 12%, var(--color-surface-raised));
-  color: var(--color-text-primary);
-  font-size: 10px;
-  letter-spacing: 0.02em;
-}
-
-.financial-dash-summary-chevron {
-  display: flex;
-  color: var(--color-text-muted);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.financial-dash-filter.is-expanded .financial-dash-summary-chevron {
-  transform: rotate(180deg);
-}
-
-.financial-dash-filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.financial-dash-filter-left {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-4);
-  min-width: 0;
-  width: 100%;
-}
-
-.financial-dash-filter-right {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
-}
-
-@media (min-width: 768px) {
-  .financial-dash-filter-left {
-    width: auto;
-  }
-  .financial-dash-filter-right {
-    width: auto;
-    margin-left: auto;
-  }
-}
-
-.financial-dash-filter-label {
-  flex-shrink: 0;
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--color-text-secondary);
-}
-
-.financial-dash-dates {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  align-items: center;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.financial-dash-date {
-  min-width: 0;
-  flex: 1 1 120px;
-  max-width: 100%;
-}
-
-@media (min-width: 480px) {
-  .financial-dash-date {
-    flex: 0 0 11rem;
-  }
-}
-
-.financial-dash-presets {
-  display: flex;
-  flex-wrap: nowrap !important;
-  overflow-x: auto !important;
-  scrollbar-width: none;
-  align-items: stretch;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-raised);
-}
-
-.financial-dash-presets::-webkit-scrollbar {
-  display: none;
-}
-
-.financial-dash-preset.btn {
-  flex: 0 0 auto !important;
-  border-radius: 0;
-  border-width: 0 1px 0 0;
-  border-color: var(--color-border);
-  border-style: solid;
-  padding-inline: var(--space-3);
-  white-space: nowrap !important;
-}
-
-.financial-dash-preset.btn:last-child {
-  border-right-width: 0;
-}
-
-.financial-dash-preset.is-active {
-  border-color: var(--color-border);
-  background: color-mix(in srgb, var(--color-brand) 14%, var(--color-surface));
-  color: var(--color-text-primary);
-}
-
-.financial-dash-apply {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-  min-width: 100px;
-}
-
-@media (max-width: 480px) {
-  .financial-dash-apply {
-    width: 100%;
-  }
-  .financial-dash-presets {
-    width: 100%;
-    justify-content: flex-start !important;
-  }
-  .financial-dash-preset.btn {
-    flex: 0 0 auto !important;
-  }
-}
-
-.dashboard-hero-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0;
-  padding: 0;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-}
-
-@media (min-width: 1024px) {
-  .dashboard-hero-stats {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-.hero-stat-item {
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-3);
-  position: relative;
-  min-width: 0;
-  border-right: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.hero-stat-item:nth-child(3n) {
-  border-right: none;
-}
-
-@media (min-width: 1024px) {
-  .hero-stat-item {
-    border-bottom: none;
-  }
-  .hero-stat-item:nth-child(3n) {
-    border-right: 1px solid var(--color-border);
-  }
-  .hero-stat-item:last-child {
-    border-right: none;
-  }
-}
-
-.hero-stat-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  margin-bottom: var(--space-1);
-}
-
-.hero-stat-delta {
-  font-size: 9px;
-  font-weight: 800;
-}
-.hero-stat-delta.is-up { color: var(--color-success); }
-.hero-stat-delta.is-down { color: var(--color-danger); }
-
-.hero-stat-value {
-  font-size: var(--text-base);
-  font-weight: 900;
-  color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-  position: relative;
-  z-index: 2;
-}
-
-.hero-stat-viz {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 1;
-}
-
-.hero-stat-viz.kpi-viz--spark {
-  height: 40%;
-  opacity: 0.15;
-}
-
-.hero-stat-viz.kpi-viz--spark svg {
-  width: 100%;
-  height: 100%;
-}
-
-.hero-stat-viz.kpi-viz--spark path {
-  fill: none;
-  stroke: var(--stat-color, var(--color-brand));
-  stroke-width: 3;
-}
-
-.hero-stat-viz.kpi-viz--bar {
-  height: 2px;
-  background: transparent;
-}
-
-.hero-stat-viz.kpi-viz--bar .kpi-bar-fill {
-  height: 100%;
-  background: var(--stat-color, var(--color-brand));
-  opacity: 0.6;
-}
-
-@media (min-width: 480px) {
-  .hero-stat-item {
-    padding: var(--space-4);
-  }
-  .hero-stat-value {
-    font-size: var(--text-lg);
-  }
-}
-
-@media (min-width: 1280px) {
-  .hero-stat-value {
-    font-size: 1.75rem;
-  }
-}
-
-.financial-kpi-trend {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
-.financial-dash-secondary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
-}
-
-@media (min-width: 900px) {
-  .financial-dash-secondary {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1100px) {
-  .financial-dash-secondary {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-}
-
-.financial-metric {
-  padding: var(--space-3) var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.financial-metric-label {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--color-text-secondary);
-}
-
-.financial-metric-value {
-  font-size: var(--text-lg);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-primary);
-}
-
-.financial-metric-value--positive {
-  color: var(--color-success);
-}
-
-.financial-metric-value--negative {
-  color: var(--color-danger);
-}
-
-.financial-metric-value--accent {
-  color: var(--color-info);
-}
-
-/* Monthly breakdown table (financial dashboard) */
-.financial-monthly-card {
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.financial-monthly-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.financial-monthly-title {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-lg);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--color-text-primary);
-}
-
-.financial-monthly-title .financial-monthly-title-icon {
-  flex-shrink: 0;
-  display: block;
-  color: var(--color-text-secondary);
-}
-
-.financial-monthly-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.financial-monthly-action {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.financial-monthly-action .financial-monthly-action-icon {
-  flex-shrink: 0;
-  opacity: 0.75;
-}
-
-.financial-monthly-table-wrap {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.financial-monthly-pager {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: start;
-  gap: var(--space-3);
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
-}
-
-.financial-monthly-pager-mid {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.financial-monthly-pager-pages {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-1);
-}
-
-.financial-monthly-page-num.is-active {
-  font-weight: 800;
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-primary);
-}
-
-.financial-monthly-pager-status {
-  text-align: center;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text-secondary);
-}
-
-.financial-monthly-table {
-  width: 100%;
-  min-width: 640px;
-  border-collapse: collapse;
-  font-size: var(--text-sm);
-}
-
-.financial-monthly-table thead th {
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-  background: var(--color-surface-raised);
-  border-bottom: 1px solid var(--color-border);
-  text-align: right;
-  white-space: nowrap;
-}
-
-.financial-monthly-table thead th:first-child {
-  text-align: left;
-  border-radius: var(--radius-sm) 0 0 0;
-}
-
-.financial-monthly-table thead th:last-child {
-  border-radius: 0 var(--radius-sm) 0 0;
-}
-
-.financial-monthly-table tbody td {
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
-  vertical-align: middle;
-}
-
-.financial-monthly-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.financial-monthly-num {
-  text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-.financial-monthly-net--pos {
-  color: var(--color-success);
-  font-weight: 700;
-}
-
-.financial-monthly-net--neg {
-  color: var(--color-danger);
-  font-weight: 700;
-}
-
-.financial-monthly-empty {
-  text-align: center;
-  padding: var(--space-5) var(--space-3);
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-}
-
-.financial-monthly-foot-row td {
-  padding: var(--space-3) var(--space-3) var(--space-1);
-  border-top: 1px solid var(--color-border);
-  vertical-align: top;
-  text-align: right;
-}
-
-.financial-monthly-foot-spacer {
-  border-top-color: var(--color-border);
-}
-
-.financial-monthly-foot-cell {
-  min-width: 5.5rem;
-}
-
-.financial-monthly-foot-label {
-  display: block;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-  margin-bottom: var(--space-1);
-}
-
-.financial-monthly-foot-value {
-  display: block;
-  font-size: var(--text-base);
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-primary);
-}
-
-.financial-monthly-foot-value.financial-monthly-eff {
-  color: var(--color-info);
-}
-
-.financial-dash-highlights {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-3);
-}
-
-@media (min-width: 800px) {
-  .financial-dash-highlights {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.financial-highlight {
+.dash-skel-stack {
   display: flex;
+  flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-4);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.financial-highlight:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-/* Financial Highlights - Cleaned */
-
-.financial-highlight-icon {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-surface-raised);
-}
-
-.financial-highlight--best .financial-highlight-icon {
-  color: #14b8a6;
-  background: color-mix(in srgb, #14b8a6 10%, var(--color-surface-raised));
-}
-
-.financial-highlight--worst .financial-highlight-icon {
-  color: #f59e0b;
-  background: color-mix(in srgb, #f59e0b 10%, var(--color-surface-raised));
-}
-
-.financial-highlight-title {
-  margin: 0;
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-secondary);
-}
-
-.financial-highlight-metric {
-  margin: 4px 0 0;
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: var(--color-text-primary);
-  letter-spacing: -0.01em;
-}
-
-.financial-highlight-hint {
-  margin: 2px 0 0;
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
-/* Dashboard Widget Removal Button */
-.dashboard-widget-remove {
-  position: absolute !important;
-  top: 8px !important;
-  right: 8px !important;
-  z-index: 10 !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  transition: opacity 0.2s ease !important;
-  background: var(--color-surface-raised) !important;
-  border: 1px solid var(--color-border) !important;
-  color: var(--color-text-secondary) !important;
-  border-radius: 50% !important;
-  width: 24px !important;
-  height: 24px !important;
-  min-height: 0 !important;
-  padding: 0 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
-.card:hover .dashboard-widget-remove {
-  opacity: 1 !important;
-  pointer-events: auto !important;
-}
-
-.dashboard-widget-remove:hover {
-  color: var(--color-error) !important;
-  border-color: var(--color-error) !important;
-  background: rgba(244, 63, 94, 0.1) !important;
-}
-
-/* Minimalist View All Link */
-.dashboard-explore-minimal {
-  display: flex;
-  justify-content: flex-start;
-  margin: var(--space-2) 0 var(--space-6);
-  padding-left: var(--space-1);
-}
-
-.minimal-cta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  text-decoration: none;
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  opacity: 0.8;
-  transition: all 0.2s ease;
-}
-
-.minimal-cta:hover {
-  color: var(--color-brand);
-  opacity: 1;
-  transform: translateX(2px);
-}
-
-.minimal-cta-icon {
-  display: flex;
-  align-items: center;
-}
-
-.minimal-cta-arrow {
-  transition: transform 0.2s ease;
-}
-
-.minimal-cta:hover .minimal-cta-arrow {
-  transform: translateX(4px);
-}
-
-@media (max-width: 768px) {
-  .dashboard-explore-minimal {
-    margin: var(--space-4) 0 var(--space-8);
-  }
-}
-
-/* Mobile Safety Buffer */
-@media (max-width: 768px) {
-  .dashboard-view {
-    padding-bottom: 140px !important; /* Extra room for FAB + Bottom Nav */
-  }
-  
-  .financial-dash-highlights {
-    margin-bottom: var(--space-4);
-  }
-}
-
-/* Absolute Mobile Clearance */
-.dashboard-mobile-spacer {
-  display: none;
-}
-
-@media (max-width: 768px) {
-  .dashboard-mobile-spacer {
-    display: block !important;
-    height: 180px !important; /* Massive physical gap */
-    width: 100% !important;
-    pointer-events: none !important;
-  }
 }
 
 /* ── Activation panel ─────────────────────────────────────────────────────────
@@ -1399,7 +1154,7 @@
    sharpens. Mirrors the phone app's ActivationChecklist. Removes itself once done or dismissed. */
 
 .dashboard-activation {
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-2);
   padding: var(--space-4);
 }
 
@@ -1489,78 +1244,11 @@
 }
 
 .dashboard-activation-empty {
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-2);
 }
 
-/* ── Ionic component spike (dashboard screen) ──────────────────────────────────────────
- * Header/action buttons are ion-buttons, the KPI Active/Online toggles are mini
- * ion-segments, and the first-paint loading state uses ion-skeleton-text (same pattern
- * as the shifts screen — see shifts.css). Sizing values below are carried over from the
- * inline styles the old buttons wore; nothing here is a new design decision. */
-
-/* Header Start/Active-shift pill (was an inline-styled .btn). */
-ion-button.dash-timer-btn {
-  --border-radius: 20px;
-  font-weight: 700;
-}
-.dash-timer-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 8px currentColor;
-  margin-inline-end: var(--space-2);
-}
-.dash-timer-play {
-  width: 14px;
-  height: 14px;
-  margin-inline-end: var(--space-2);
-}
-
-/* KPI-card Active/Online mini segment (was two inline-styled .btn-xs tabs). */
-ion-segment.kpi-card-tabs {
-  --background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  min-height: 0;
-  align-self: center;
-}
-ion-segment.kpi-card-tabs ion-segment-button {
-  --padding-start: 6px;
-  --padding-end: 6px;
-  --color: var(--color-text-secondary);
-  --color-checked: var(--color-text-primary);
-  min-height: 18px;
-  min-width: 0;
-  height: 18px;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: none;
-}
-
-/* Monthly-breakdown action links became ion-buttons; keep the icon/label gap. */
-ion-button.financial-monthly-action .financial-monthly-action-icon {
-  margin-inline-end: var(--space-1);
-}
-
-/* Slotted content sits in ion-button's own flex row, where the old `gap` rules can't
- * reach — restore the icon/label spacing the native buttons had. */
-ion-button.financial-dash-apply svg {
-  margin-inline-end: var(--space-2);
-}
-ion-button[data-dashboard-toggle-filter] svg {
-  margin-inline-start: var(--space-1);
-}
-
-/* First-paint skeleton card (copy of .shift-skel from shifts.css). */
-.dash-skel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
+@media (max-width: 767px) {
+  .dash {
+    padding-bottom: calc(var(--space-16) + env(safe-area-inset-bottom, 0));
+  }
 }

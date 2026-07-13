@@ -30,3 +30,4 @@ next-env.d.ts
 /docs-src
 /changelog-src.md
 /lib/legal
+/public/images

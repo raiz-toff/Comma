@@ -358,7 +358,7 @@
   height: 56px;
   border-radius: 50%;
   background: var(--color-brand);
-  color: #1a1916;
+  color: var(--color-brand-contrast);
   box-shadow: var(--shadow-lg);
   border: none;
   transition:
@@ -715,6 +715,21 @@ ion-toast.comma-toast {
   font-weight: 500;
   transform: translateY(calc(-1 * var(--comma-toast-lift, 0px)));
   transition: transform var(--transition-base);
+}
+
+/* Success/celebration confirmations follow the user's accent (--color-brand — set from the
+   Appearance page or the active platform), not a fixed Ionic green, so a "Saved" toast matches
+   the colour the driver picked. Error/warning keep their semantic red/amber; info stays neutral.
+   Ionic's color="success" styles the wrapper from --ion-color-base (set with !important by the
+   generated .ion-color-success rule), so overriding --background alone doesn't win — we override
+   the base/contrast the wrapper actually reads. */
+ion-toast.comma-toast--success,
+ion-toast.comma-toast--celebration {
+  --ion-color-base: var(--color-brand) !important;
+  --ion-color-contrast: var(--color-brand-contrast, #fff) !important;
+  --background: var(--color-brand);
+  --color: var(--color-brand-contrast, #fff);
+  --button-color: var(--color-brand-contrast, #fff);
 }
 
 /* Toast container — still hosts the richer COMMANotify cards */

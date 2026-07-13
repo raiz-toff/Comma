@@ -14,7 +14,7 @@ import { exitDemoToOnboardingStart } from '../modules/onboarding/onboarding.js';
 import { renderShiftForm } from '../modules/shifts/shift-form.js';
 import { restoreShiftTimerFromLocalStorage, saveShift, stopShiftTimer, startShiftTimer } from '../modules/shifts/shifts.js';
 import { db } from './db.js';
-import { bus } from './events.js';
+import { bus, NAVIGATION } from './events.js';
 import { GPSTracker } from './gps-tracker.js';
 
 /** @type {ReturnType<typeof setInterval> | null} */
@@ -64,8 +64,19 @@ function escapeHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function navLink(href, iconName, labelKey) {
-  const label = t(labelKey);
+/**
+ * @param {string} href
+ * @param {string} iconName
+ * @param {string} labelKey
+ * @param {string} [overrideLabel] Plain-language display text for the desktop rail
+ *   (e.g. "My car" instead of the translated "Vehicles"). Bypasses `t()` when given —
+ *   `core/shell.js` is the only one of the three F007-phase-1 files, and adding proper
+ *   i18n keys means touching `utils/strings.js`, which is out of scope here. Only used
+ *   for the handful of sidebar entries the redesign explicitly softens; every other nav
+ *   label, and the mobile bottom nav, still goes through `t()` unchanged.
+ */
+function navLink(href, iconName, labelKey, overrideLabel) {
+  const label = overrideLabel || t(labelKey);
   return `<a href="${escapeAttr(href)}" data-nav-route="${escapeAttr(href)}" class="nav-link">${getIcon(iconName, 20, 'nav-icon')}<span>${label}</span></a>`;
 }
 
@@ -133,6 +144,90 @@ function bindDemoModeBar(root) {
 }
 
 /**
+ * Moves the platform/vehicle switcher slots between the header (mobile, unchanged) and
+ * the desktop toolbar as the `--bp-desktop` breakpoint is crossed. Reparents the same
+ * live DOM nodes rather than mounting a second switcher instance, so there is exactly
+ * one set of listeners/state regardless of viewport.
+ * @param {HTMLElement} root `#app`
+ */
+function bindToolbarSwitcherRelocation(root) {
+  const platformSlot = root.querySelector('#platform-tabs-slot');
+  const vehicleSlot = root.querySelector('#vehicle-tabs-slot');
+  const toolbar = root.querySelector('#app-toolbar');
+  const toolbarSpacer = toolbar ? toolbar.querySelector('.app-toolbar-spacer') : null;
+  const headerSpacer = root.querySelector('.app-header-spacer');
+  if (!platformSlot || !vehicleSlot || !toolbar || !toolbarSpacer || !headerSpacer) return;
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+
+  const place = (isDesktop) => {
+    if (isDesktop) {
+      toolbar.insertBefore(platformSlot, toolbarSpacer);
+      toolbar.insertBefore(vehicleSlot, toolbarSpacer);
+    } else {
+      headerSpacer.before(platformSlot);
+      headerSpacer.before(vehicleSlot);
+    }
+  };
+
+  const mq = window.matchMedia('(min-width: 768px)');
+  place(mq.matches);
+  if (typeof mq.addEventListener === 'function') {
+    mq.addEventListener('change', (e) => place(e.matches));
+  } else if (typeof mq.addListener === 'function') {
+    // Safari < 14 fallback.
+    mq.addListener((e) => place(e.matches));
+  }
+}
+
+/**
+ * `#app-toolbar-actions` (inside `#app-toolbar`, visible >=768px only) is the shell-level
+ * slot a view may render one primary action into — e.g. the dashboard's "Start shift"
+ * button on desktop, in place of the mobile-only FAB. Nothing populates it yet; this just
+ * clears whatever a previous view left behind on every route change, so it never leaks
+ * into a screen that never asked for it.
+ */
+function bindToolbarActionsReset() {
+  bus.on(NAVIGATION, () => {
+    const actions = document.getElementById('app-toolbar-actions');
+    if (actions) actions.innerHTML = '';
+  });
+}
+
+/**
+ * The desktop toolbar exists only to host the platform/vehicle switchers and an optional
+ * per-view action. When a driver has nothing to switch between (0–1 platforms AND 0–1
+ * vehicles — both switchers hide themselves) and no view has put an action in it, the band
+ * is empty and just wastes a strip of vertical space above the content. Collapse it in that
+ * case by toggling `.is-empty` (which `display:none`s it at desktop widths).
+ *
+ * A MutationObserver keeps this live: the switchers flip their slot's `hidden` attribute as
+ * platforms/vehicles are added or removed, and views add/remove children in the actions slot
+ * — so the toolbar reappears the moment there's something real to show, with no event wiring
+ * per source. (On mobile the toolbar is `display:none` regardless, so the class is a no-op.)
+ * @param {HTMLElement} root `#app`
+ */
+function bindToolbarAutoHide(root) {
+  const toolbar = root.querySelector('#app-toolbar');
+  const platformSlot = root.querySelector('#platform-tabs-slot');
+  const vehicleSlot = root.querySelector('#vehicle-tabs-slot');
+  const actions = root.querySelector('#app-toolbar-actions');
+  if (!toolbar || !platformSlot || !vehicleSlot || !actions) return;
+
+  const update = () => {
+    const hasSwitcher = !platformSlot.hidden || !vehicleSlot.hidden;
+    const hasActions = actions.childElementCount > 0;
+    toolbar.classList.toggle('is-empty', !hasSwitcher && !hasActions);
+  };
+
+  update();
+  const obs = new MutationObserver(update);
+  obs.observe(platformSlot, { attributes: true, attributeFilter: ['hidden'] });
+  obs.observe(vehicleSlot, { attributes: true, attributeFilter: ['hidden'] });
+  obs.observe(actions, { childList: true });
+  bus.on(NAVIGATION, update);
+}
+
+/**
  * @param {HTMLElement} root `#app`
  */
 export async function renderAppShell(root) {
@@ -179,32 +274,42 @@ export async function renderAppShell(root) {
           ${getIcon('bell', 22, 'header-bell-icon')}
           <span id="header-unread-badge" style="position:absolute; top:-4px; right:-4px; background:var(--color-danger); color:white; font-size:10px; font-weight:700; border-radius:10px; padding:2px 5px; display:none;"></span>
         </a>
-        <a href="#/settings" class="app-header-settings" data-nav-route="#/settings" aria-label="${escapeAttr(t('app.navSettings'))}">
-          ${getIcon('settings', 22, 'header-settings-icon')}
-        </a>
         </header>
       </div>
       <div class="app-body">
         <nav class="app-sidebar" aria-label="${escapeAttr(t('app.navAria'))}">
-          ${navLink('#/dashboard', 'home', 'app.navDashboard')}
+          ${navLink('#/dashboard', 'home', 'app.navDashboard', 'Home')}
           ${navLink('#/shifts', 'calendar', 'app.navShifts')}
-          ${navLink('#/analytics', 'trending-up', 'app.navAnalytics')}
-          ${navLink('#/expenses', 'receipt', 'app.navExpenses')}
-          ${navLink('#/tax', 'tax', 'app.navTax')}
-          ${navLink('#/vehicles', 'truck', 'app.navVehicles')}
           ${navLink('#/schedule', 'calendar', 'app.navSchedule')}
+          <hr class="nav-divider" />
+          ${navLink('#/expenses', 'receipt', 'app.navExpenses', 'Gas & expenses')}
+          ${navLink('#/vehicles', 'truck', 'app.navVehicles', 'My car')}
+          <hr class="nav-divider" />
+          ${navLink('#/analytics', 'trending-up', 'app.navAnalytics', 'Earnings')}
           ${navLink('#/goals', 'trophy', 'app.navGoals')}
+          <hr class="nav-divider" />
+          ${navLink('#/tax', 'tax', 'app.navTax')}
           ${navLink('#/reports', 'bag', 'app.navReports')}
           ${navLink('#/import', 'file-plus', 'app.navImport')}
-          ${navLink('#/settings', 'settings', 'app.navSettings')}
+          <hr class="nav-divider" />
           ${navLink('#/support', 'info', 'app.navSupport')}
+          <div class="app-sidebar-footer">
+            <span id="offline-indicator" class="offline-pill" role="status" aria-live="polite"></span>
+            ${navLink('#/settings', 'settings', 'app.navSettings')}
+          </div>
         </nav>
-        <main class="app-main" role="main" id="app-main">
-          <div id="shift-timer-bar" class="shift-timer-bar is-collapsed" hidden></div>
-          <div id="view-container" tabindex="-1"></div>
-          <div id="toast-container" class="toast-host" aria-live="polite" aria-atomic="true"></div>
-          <div id="modal-overlay" class="modal-host" aria-live="polite"></div>
-        </main>
+        <div class="app-content-col">
+          <div id="app-toolbar" class="app-toolbar" role="toolbar" aria-label="${escapeAttr(t('app.navAria'))} toolbar">
+            <div class="app-toolbar-spacer"></div>
+            <div id="app-toolbar-actions" class="app-toolbar-actions"></div>
+          </div>
+          <main class="app-main" role="main" id="app-main">
+            <div id="shift-timer-bar" class="shift-timer-bar is-collapsed" hidden></div>
+            <div id="view-container" tabindex="-1"></div>
+            <div id="toast-container" class="toast-host" aria-live="polite" aria-atomic="true"></div>
+            <div id="modal-overlay" class="modal-host" aria-live="polite"></div>
+          </main>
+        </div>
       </div>
       <nav class="bottom-nav" aria-label="${escapeAttr(t('app.navAria'))}">
         ${bottomNavButton('#/dashboard', 'home', 'app.navDashboard')}
@@ -244,6 +349,9 @@ export async function renderAppShell(root) {
   });
   mountPlatformSwitcher(root.querySelector('#platform-tabs-slot'));
   mountVehicleSwitcher(root.querySelector('#vehicle-tabs-slot'));
+  bindToolbarSwitcherRelocation(root);
+  bindToolbarActionsReset();
+  bindToolbarAutoHide(root);
   await hydrateShiftTimerBar(root.querySelector('#shift-timer-bar'));
 
   root.querySelector('#bottom-nav-more')?.addEventListener('click', () => {

@@ -56,7 +56,7 @@ const TREE = [
   {
     dir: 'reference',
     title: 'Reference',
-    pages: ['settings', 'shift-fields', 'expense-fields', 'feature-flags', 'platforms', 'countries', 'notifications', 'keyboard-shortcuts'],
+    pages: ['settings', 'shift-fields', 'expense-fields', 'backup-format', 'feature-flags', 'platforms', 'countries', 'notifications', 'keyboard-shortcuts'],
   },
   {
     dir: 'architecture',
@@ -96,6 +96,10 @@ function escapeAngles(md) {
 }
 
 const GITHUB_BLOB = 'https://github.com/raiz-toff/Comma/blob/main';
+// Images must resolve to raw file bytes — a /blob/ URL serves an HTML page and
+// renders as a broken <img> on the site.
+const GITHUB_RAW = 'https://raw.githubusercontent.com/raiz-toff/Comma/main';
+const IMAGE_RE = /\.(png|jpe?g|gif|webp|svg)$/i;
 
 // Map a docs-relative markdown path to its published route.
 function routeFor(docPath) {
@@ -122,7 +126,8 @@ function resolveLinks(md, dirRel) {
     // Escapes docs/ -> a repository file.
     if (resolved.startsWith('..')) {
       const repoPath = path.posix.normalize(path.posix.join('docs', dirRel, file));
-      return `](${GITHUB_BLOB}/${repoPath.replace(/^(\.\.\/)+/, '')})`;
+      const host = IMAGE_RE.test(file) ? GITHUB_RAW : GITHUB_BLOB;
+      return `](${host}/${repoPath.replace(/^(\.\.\/)+/, '')})`;
     }
     // A docs page.
     if (/\.md$/i.test(resolved)) {
@@ -130,9 +135,16 @@ function resolveLinks(md, dirRel) {
     }
     // A non-page file. Prefer the repo root if it exists there (authors often
     // write src/... or package.json meaning the repository, not docs/).
+    // docs/images/** is copied into the site's public/ by main(), so those
+    // references stay local — remote URLs would 404 at build time until the
+    // commit that adds them is pushed (remark-image fetches them for sizing).
+    if (IMAGE_RE.test(file) && resolved.startsWith('images/')) {
+      return `](/${resolved})`;
+    }
     const fromRoot = path.posix.normalize(file);
-    if (existsSync(path.join(REPO_ROOT, fromRoot))) return `](${GITHUB_BLOB}/${fromRoot})`;
-    return `](${GITHUB_BLOB}/docs/${resolved})`;
+    const host = IMAGE_RE.test(file) ? GITHUB_RAW : GITHUB_BLOB;
+    if (existsSync(path.join(REPO_ROOT, fromRoot))) return `](${host}/${fromRoot})`;
+    return `](${host}/docs/${resolved})`;
   });
 }
 
@@ -188,6 +200,13 @@ async function writeFile(file, content) {
 async function main() {
   await fs.rm(OUT, { recursive: true, force: true });
   await fs.mkdir(OUT, { recursive: true });
+
+  // Vendor docs/images into the site's public dir (git-ignored, regenerated
+  // every sync) so image references in the docs resolve locally at build time.
+  const IMG_SRC = path.join(SRC, 'images');
+  const IMG_OUT = path.resolve(__dirname, '../public/images');
+  await fs.rm(IMG_OUT, { recursive: true, force: true });
+  if (existsSync(IMG_SRC)) await fs.cp(IMG_SRC, IMG_OUT, { recursive: true });
 
   // Root landing of the /docs tree.
   const rootMeta = { title: 'Documentation', pages: [] };

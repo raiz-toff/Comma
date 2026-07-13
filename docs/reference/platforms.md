@@ -2,6 +2,8 @@
 
 The gig platforms Comma supports in Canada, the earnings model each one uses, and how to add your own.
 
+<PlatformGrid caption="The seven Canadian platforms. Each carries an earnings model — fixed-price delivery, grocery batch, or parcel route — which decides the money fields on the shift form." />
+
 ---
 
 ## Built-in platforms

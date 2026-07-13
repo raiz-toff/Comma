@@ -2,6 +2,8 @@
 
 Bring existing records into Comma from a CSV file.
 
+<StepFlow accent="cyan" steps={[{ title: "Choose what to import", body: "Shifts, expenses, or platform incomes." }, { title: "Map your columns", body: "Point your spreadsheet headers at Comma fields." }, { title: "Preview, then commit", body: "Nothing is written until the preview looks right." }]} caption="The web importer takes any CSV with a header row. Amount and date are the only required columns." />
+
 ---
 
 Comma's full CSV importer is a **web-app feature**. The phone has a simpler CSV import under **Settings → Data**, covered at the end of this page.

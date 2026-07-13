@@ -822,7 +822,7 @@ export async function renderExpensesView(root, ctx = {}) {
         const selected = selectedWeekIndex === idx;
         return `<button type="button" class="expenses-m-chart-col" data-action="select-week" data-week="${idx}">
           <span class="expenses-m-chart-track">
-            <span class="expenses-m-chart-fill${active ? '' : ' is-dim'}" style="height:${h}%"></span>
+            <span class="expenses-m-chart-fill${active ? '' : ' is-dim'}" style="--h:${h}%"></span>
           </span>
           <span class="expenses-m-chart-lbl${selected ? ' is-selected' : ''}">${esc(week.label)}</span>
         </button>`;
@@ -962,7 +962,7 @@ export async function renderExpensesView(root, ctx = {}) {
           .map((week) => {
             const pct = max > 0 ? (week.total / max) * 100 : 0;
             const h = Math.max(pct, week.total > 0 ? 8 : 2);
-            return `<span class="expenses-m-mini-col"><span class="expenses-m-mini-track"><span class="expenses-m-mini-fill" style="height:${h}%"></span></span></span>`;
+            return `<span class="expenses-m-mini-col"><span class="expenses-m-mini-track"><span class="expenses-m-mini-fill" style="--h:${h}%"></span></span></span>`;
           })
           .join('');
         cards.push(`<button type="button" class="expenses-m-mcard${isSel ? ' is-selected' : ''}" data-action="pick-month" data-month="${i}">

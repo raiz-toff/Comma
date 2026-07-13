@@ -2,6 +2,8 @@
 
 Every field on the shift form, what it means, and which fields depend on the platform you worked.
 
+<StepFlow accent="amber" steps={[{ title: "tracking", body: "A shift is running right now." }, { title: "pending_reconciliation", body: "GPS ended it, but the earnings only you know are still missing." }, { title: "reconciled", body: "Complete. A hand-logged shift starts here." }]} caption="The three reconciliation states. Distance can be measured; what you were paid cannot." />
+
 ---
 
 ## Core fields

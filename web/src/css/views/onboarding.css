@@ -459,7 +459,7 @@ html[data-theme='dark'] .onboarding-landing {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: var(--space-2);
+  gap: var(--space-3);
   width: 100%;
 }
 
@@ -478,6 +478,32 @@ html[data-theme='dark'] .onboarding-landing {
   filter: none;
 }
 
+/* Secondary "explore" action — a real outlined button, one clear rung below the filled primary,
+   so "Try demo first" reads as an option rather than a throwaway text link. */
+.onboarding-landing-secondary {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+
+.onboarding-landing-secondary:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: var(--color-text-secondary);
+  filter: none;
+}
+
+/* Tertiary "returning user" path, set apart by a hairline so it doesn't compete with the two
+   first-run actions above it. */
+.onboarding-landing-tertiary {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-1);
+  padding-top: var(--space-3);
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
 .onboarding-landing-link {
   background: none;
   border: none;
@@ -485,7 +511,7 @@ html[data-theme='dark'] .onboarding-landing {
   color: var(--color-text-secondary);
   font-size: var(--text-sm);
   font-weight: 600;
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
 }
 
 .onboarding-landing-link:hover {
@@ -496,6 +522,7 @@ html[data-theme='dark'] .onboarding-landing {
   margin: var(--space-2) 0 0;
   font-size: var(--text-xs);
   color: var(--color-text-muted);
+  text-align: center;
 }
 
 .onboarding-landing-footer {

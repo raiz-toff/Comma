@@ -2,6 +2,8 @@
 
 A platform is a delivery app you work. Comma tracks each one separately so you can see which apps actually pay, and adapts its wording to match the app you're driving for.
 
+<PlatformGrid caption="Every app is its own ledger — even inside one shift. Comma also adapts its wording: an Amazon Flex shift is a block." />
+
 ---
 
 ## Built-in platforms

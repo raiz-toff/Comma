@@ -3,6 +3,9 @@
   flex-direction: column;
   gap: var(--space-6);
   padding-bottom: var(--space-12);
+  /* List template: shares the constitution's default content width (plan 007 pt.1). */
+  max-width: var(--content, 720px);
+  margin-inline: auto;
 }
 
 .vehicles-grid {
@@ -184,6 +187,27 @@
 .comparison-best {
   color: var(--color-success);
   font-weight: 700;
+}
+
+.comparison-vehicle-name {
+  font-weight: 600;
+}
+
+.vehicles-compare-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.vehicles-modal-body {
+  padding: var(--space-2) 0;
+}
+
+.vehicles-modal-hint {
+  margin-bottom: var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
 }
 
 /* ── Ionic conversion (vehicles screen) ─────────────────────────────────────────────────

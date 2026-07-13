@@ -2,6 +2,8 @@
 
 Comma is a privacy-first earnings tracker for gig workers in Canada: it records shifts, GPS mileage, expenses, and CRA-aware tax estimates, and everything stays on your device unless you choose to sync it.
 
+![A quiet street on a winter night, with a shift's GPS trail winding through it — a shift as Comma sees it](images/brand/hero-night.png)
+
 ---
 
 ## Get Comma

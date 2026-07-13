@@ -4,6 +4,8 @@ How a new version of Comma gets built, published to GitHub, shipped to Google Pl
 
 This page is for maintainers. You need the release keystore and the Play service-account key — neither is in the repository, and neither can be recreated from it.
 
+<StepFlow accent="amber" steps={[{ title: "Bump", body: "node scripts/version.mjs bump 1.4.0 — never hand-edit a version." }, { title: "Build", body: "./build.sh — then install the real artifact on a real device." }, { title: "Publish", body: "GitHub release, Play upload, then OTA for JS-only fixes." }]} caption="versionCode must increase on every Play upload, and the release keystore cannot be recreated. A release build is not a debug build." />
+
 ---
 
 ## What a release consists of

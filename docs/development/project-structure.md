@@ -2,6 +2,8 @@
 
 An annotated map of the Comma monorepo: the Android/Expo phone app at the root, the web PWA under `web/`, these docs under `docs/`, and the docs site under `docs-site/`.
 
+<LayerStack accent="indigo" layers={[{ name: "/", note: "the Expo phone app" }, { name: "web/", note: "the vanilla-JS PWA" }, { name: "docs/", note: "these pages — the source of truth" }, { name: "docs-site/", note: "the Fumadocs site that renders them" }]} caption="One monorepo, four parts. The phone app lives at the root because Expo expects to." />
+
 ---
 
 ## Top level

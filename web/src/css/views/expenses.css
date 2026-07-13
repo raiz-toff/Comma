@@ -4,7 +4,8 @@
  */
 
 .expenses-m {
-  max-width: var(--app-content-width);
+  /* List template: shares the constitution's default content width (plan 007 pt.1). */
+  max-width: var(--content, 720px);
   margin: 0 auto;
   padding: var(--space-4) var(--space-4) var(--space-16);
   display: flex;
@@ -177,6 +178,7 @@ ion-button.expenses-m-add svg {
 }
 .expenses-m-chart-fill {
   width: 100%;
+  height: var(--h, 0%);
   background: var(--color-brand);
   border-radius: var(--radius-pill);
   transition: height var(--transition-base), opacity var(--transition-fast);
@@ -532,7 +534,7 @@ ion-button.expenses-m-add svg {
   display: flex;
   align-items: flex-end;
 }
-.expenses-m-mini-fill { width: 100%; background: var(--color-brand); border-radius: var(--radius-sm); }
+.expenses-m-mini-fill { width: 100%; height: var(--h, 0%); background: var(--color-brand); border-radius: var(--radius-sm); }
 .expenses-m-modal-foot {
   display: flex;
   align-items: center;

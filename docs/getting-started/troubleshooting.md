@@ -4,6 +4,8 @@ Fixes for the most common issues on the phone app (Android) and the web app (PWA
 
 If you can, make a [Google Drive backup](../backup-and-sync/google-drive-backup.md) before you change settings — almost every fix here is safe, but a backup means nothing you try can cost you data.
 
+<StepFlow accent="amber" steps={[{ title: "Location: allow all the time", body: "While-using-the-app stops recording the moment you switch to your delivery app." }, { title: "Battery: unrestricted", body: "Samsung and Xiaomi kill the tracking service under their default power settings." }, { title: "Confirm a shift is running", body: "Comma only records between Start Shift and the end swipe." }]} caption="Most missing distance is one of these three, in this order." />
+
 ---
 
 ## GPS and mileage (phone app)

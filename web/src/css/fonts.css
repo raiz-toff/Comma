@@ -1,0 +1,38 @@
+/* Self-hosted DM type family — vendored from marketing/press-kit/fonts (AGENTS.md §7:
+   canonical assets, reuse rather than redraw). Without these @font-face rules the
+   `--font-display` / `--font-body` / `--font-mono` vars in tokens.css silently fall back
+   to Georgia/system-ui, which is why the app rendered in the generic system sans everyone
+   else's dashboard uses instead of Comma's own face. TTF, not woff2 — no font subsetting
+   tool was available in this environment; revisit for smaller transfer size later. */
+
+@font-face {
+  font-family: 'DM Serif Display';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/DMSerifDisplay-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 100 1000;
+  font-display: swap;
+  src: url('fonts/DMSans-Variable.ttf') format('truetype-variations');
+}
+
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/DMMono-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('fonts/DMMono-Medium.ttf') format('truetype');
+}

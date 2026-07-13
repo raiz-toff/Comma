@@ -2,6 +2,8 @@
 
 Goals turn a vague intention into a number you can watch fill. A light gamification layer sits on top for the drivers who want it — and stays out of the way for those who don't.
 
+<StatRow accent="indigo" items={[{ value: "100 XP", label: "one level" }, { value: "24", label: "badges" }, { value: "3", label: "streak freezes, max held" }, { value: "$500", label: "default weekly goal" }]} caption="Three challenges reset every Monday. Turn the Goals flag off and the whole layer — badges, streaks, XP — goes with it." />
+
 ---
 
 ## Goals

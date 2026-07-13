@@ -2,6 +2,8 @@
 
 Explore a fully populated Comma without entering any of your own records.
 
+<Chips accent="teal" items={["Shifts with GPS routes", "Expenses", "Goals in progress", "Badges already unlocked"]} caption="About two months of sample records, in a sandboxed vault. Real writes and Drive sync are blocked; Exit demo clears it all." />
+
 ---
 
 ## Start demo mode

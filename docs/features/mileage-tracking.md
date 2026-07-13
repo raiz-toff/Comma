@@ -2,6 +2,8 @@
 
 How Comma records the distance you drive, splits it into active and dead kilometres, and turns it into a CRA-aligned deduction. Distance is measured in km in Canada.
 
+<RouteSplit caption="Your car doesn't know the difference. Comma does — only active kilometres earn, but both cost you fuel." />
+
 ---
 
 ## The phone GPS engine

@@ -93,6 +93,10 @@ function buildContext(row) {
     if (fab === 'expense') ctx.fabQuickExpense = true;
     if (fab === 'schedule') ctx.fabQuickSchedule = true;
     if (fab === 'goals') ctx.fabQuickGoals = true;
+    if (row.hash === '#/shifts') {
+      const openId = params.get('open');
+      if (openId) ctx.openShiftId = openId;
+    }
   } catch {
     /* ignore malformed query */
   }

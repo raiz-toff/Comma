@@ -4,6 +4,8 @@ Answers to the most common questions about Comma, on both the phone app (Android
 
 If your question isn't here, check [Troubleshooting](./troubleshooting.md) or open an issue on [GitHub](https://github.com/raiz-toff/Comma).
 
+<VaultFlow accent="cyan" nodes={["Phone — SQLite", "Browser — IndexedDB"]} hub="Your Google Drive" caption="Two apps, two local vaults, one Drive folder. The only thing the browser cannot do is track GPS in the background." />
+
 ---
 
 ## General

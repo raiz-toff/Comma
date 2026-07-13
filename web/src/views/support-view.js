@@ -1,15 +1,6 @@
 import { db } from '../core/db.js';
 import { store } from '../core/store.js';
-import { t } from '../utils/strings.js';
 import { getIcon } from '../ui/icons.js';
-
-function esc(v) {
-  return String(v ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 /** @param {HTMLElement} root @param {Record<string, unknown>} ctx */
 export async function render(root, ctx) {
@@ -50,21 +41,38 @@ export async function render(root, ctx) {
       </p>
     </header>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-4);">
-      
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4);">
+
       <!-- GitHub Issue Card -->
       <section class="card card-raised" style="display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4);">
         <div style="display: flex; align-items: center; gap: var(--space-2); color: var(--color-brand);">
           ${getIcon('code', 22)}
-          <h2 style="font-size: var(--text-lg); font-weight: 700; margin: 0;">Create a GitHub Issue</h2>
+          <h2 style="font-size: var(--text-lg); font-weight: 700; margin: 0;">GitHub Issues</h2>
         </div>
         <p class="text-secondary" style="font-size: var(--text-sm); margin: 0; line-height: 1.5;">
-          COMMA is a fully open-source, community-driven project. If you are comfortable using GitHub, we track and resolve bugs, feature requests, and tasks publicly on our repository.
+          COMMA is open source. Report bugs or request features on our repository.
         </p>
         <div style="margin-top: auto; padding-top: var(--space-2);">
           <ion-button size="small" href="https://github.com/raiz-toff/CommaApp/issues/new" target="_blank" rel="noopener noreferrer">
             <span slot="start" aria-hidden="true" style="display: inline-flex;">${getIcon('export', 16)}</span>
             Open GitHub Issues
+          </ion-button>
+        </div>
+      </section>
+
+      <!-- Help & Docs Card -->
+      <section class="card card-raised" style="display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4);">
+        <div style="display: flex; align-items: center; gap: var(--space-2); color: var(--color-brand);">
+          ${getIcon('help', 22)}
+          <h2 style="font-size: var(--text-lg); font-weight: 700; margin: 0;">Help & Docs</h2>
+        </div>
+        <p class="text-secondary" style="font-size: var(--text-sm); margin: 0; line-height: 1.5;">
+          Check the FAQ for answers to common questions before reaching out.
+        </p>
+        <div style="margin-top: auto; padding-top: var(--space-2);">
+          <ion-button size="small" href="https://comma-docs.vercel.app/docs/getting-started/faq" target="_blank" rel="noopener noreferrer">
+            <span slot="start" aria-hidden="true" style="display: inline-flex;">${getIcon('export', 16)}</span>
+            View FAQ
           </ion-button>
         </div>
       </section>
@@ -76,7 +84,7 @@ export async function render(root, ctx) {
           <h2 style="font-size: var(--text-lg); font-weight: 700; margin: 0; color: var(--color-text-primary);">Buy Me a Coffee</h2>
         </div>
         <p class="text-secondary" style="font-size: var(--text-sm); margin: 0; line-height: 1.5;">
-          COMMA is entirely free, local-first, and open source. If you love using this app and want to support its ongoing development, consider buying the developer a coffee!
+          COMMA is free and local-first. If it's useful to you, consider supporting its development.
         </p>
         <div style="margin-top: auto; padding-top: var(--space-2);">
           <ion-button size="small" color="warning" href="https://buymeacoffee.com/raiztuffy" target="_blank" rel="noopener noreferrer">
@@ -85,59 +93,38 @@ export async function render(root, ctx) {
         </div>
       </section>
 
-      <!-- Email Support Card -->
-      <section class="card card-raised" style="display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4);">
-        <div style="display: flex; align-items: center; gap: var(--space-2); color: var(--color-brand);">
-          ${getIcon('bell', 22)}
-          <h2 style="font-size: var(--text-lg); font-weight: 700; margin: 0;">Email Support Directly</h2>
-        </div>
-        <p class="text-secondary" style="font-size: var(--text-sm); margin: 0; line-height: 1.5;">
-          Send us an email. We automatically package diagnostic info below to help us investigate faster.
-        </p>
-
-        <form id="support-email-form" style="display: flex; flex-direction: column; gap: var(--space-3);">
-          <div class="field" style="display: flex; flex-direction: column; gap: var(--space-1);">
-            <label class="label" style="font-size: var(--text-xs); font-weight: 600;">Feedback Type</label>
-            <select class="input" name="feedbackType" style="width: 100%;">
-              <option value="Bug Report">🐛 Bug Report</option>
-              <option value="Feature Request">💡 Feature Request</option>
-              <option value="General Feedback">💬 General Feedback / Question</option>
-            </select>
-          </div>
-
-          <div class="field" style="display: flex; flex-direction: column; gap: var(--space-1);">
-            <label class="label" style="font-size: var(--text-xs); font-weight: 600;">Message</label>
-            <textarea class="input" name="message" rows="5" placeholder="Explain what happened or what you expect..." style="width: 100%; resize: vertical; min-height: 100px; padding: var(--space-2); font-family: inherit; font-size: var(--text-sm);"></textarea>
-          </div>
-
-          <button type="submit" class="btn btn-secondary btn-sm" style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); font-weight: 600;">
-            ${getIcon('plus', 16)} Draft Support Email
-          </button>
-        </form>
-      </section>
-
     </div>
 
-    <!-- Diagnostic Info Footer -->
-    <footer class="card" style="padding: var(--space-4); background: var(--color-surface-raised); border-top: 1px solid var(--color-border);">
-      <h3 style="font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-secondary); margin: 0 0 var(--space-3) 0;">
-        System Diagnostic Details (Included in email)
-      </h3>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-3); font-size: var(--text-xs); font-family: var(--font-mono); color: var(--color-text-secondary);">
-        <div><strong>App Version:</strong> ${esc(appVersion)}</div>
-        <div><strong>Date / Time:</strong> ${esc(new Date().toLocaleString())}</div>
-        <div><strong>Active Theme:</strong> ${esc(theme)}</div>
-        <div><strong>Weekly Goal:</strong> $${esc(weeklyGoal.toFixed(2))}</div>
-        <div><strong>Distance Unit:</strong> ${esc(distanceUnit)}</div>
-        <div><strong>Active Platforms:</strong> ${esc(platformCount)}</div>
-        <div><strong>Shifts Logged:</strong> ${esc(shiftCount)}</div>
-        <div><strong>Expenses Logged:</strong> ${esc(expenseCount)}</div>
-        <div><strong>Connection:</strong> ${esc(isOnline)}</div>
+    <!-- Email Support Card -->
+    <section class="card card-raised" style="display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4);">
+      <div style="display: flex; align-items: center; gap: var(--space-2); color: var(--color-brand);">
+        ${getIcon('bell', 22)}
+        <h2 style="font-size: var(--text-lg); font-weight: 700; margin: 0;">Email Support Directly</h2>
       </div>
-      <div style="font-size: 10px; font-family: var(--font-mono); color: var(--color-text-muted); margin-top: var(--space-3); border-top: 1px dashed var(--color-border); padding-top: var(--space-2); word-break: break-all;">
-        <strong>User Agent:</strong> ${esc(userAgent)}
-      </div>
-    </footer>
+      <p class="text-secondary" style="font-size: var(--text-sm); margin: 0; line-height: 1.5;">
+        Send us an email. We automatically include diagnostic info to help us investigate faster.
+      </p>
+
+      <form id="support-email-form" style="display: flex; flex-direction: column; gap: var(--space-3);">
+        <div class="field" style="display: flex; flex-direction: column; gap: var(--space-1);">
+          <label class="label" style="font-size: var(--text-xs); font-weight: 600;">Feedback Type</label>
+          <select class="input" name="feedbackType" style="width: 100%;">
+            <option value="Bug Report">🐛 Bug Report</option>
+            <option value="Feature Request">💡 Feature Request</option>
+            <option value="General Feedback">💬 General Feedback / Question</option>
+          </select>
+        </div>
+
+        <div class="field" style="display: flex; flex-direction: column; gap: var(--space-1);">
+          <label class="label" style="font-size: var(--text-xs); font-weight: 600;">Message</label>
+          <textarea class="input" name="message" rows="5" placeholder="Explain what happened or what you expect..." style="width: 100%; resize: vertical; min-height: 100px; padding: var(--space-2); font-family: inherit; font-size: var(--text-sm);"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-secondary btn-sm" style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); font-weight: 600;">
+          ${getIcon('plus', 16)} Draft Support Email
+        </button>
+      </form>
+    </section>
   `;
 
   // Attach submit listener

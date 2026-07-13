@@ -41,6 +41,7 @@ import './ui/icons.js';
 import { initDatePickers, showToast } from './ui/components.js';
 import { initIonic } from './core/ionic.js';
 import { initAdaptiveTheme } from './core/adaptive-theme.js';
+import { applyFontSize, applyDensity } from './modules/settings/settings-utils.js';
 import { initDriveAuth } from './modules/backup/drive-auth.js';
 import { initBackupTriggers } from './modules/backup/backup-triggers.js';
 import { initChangelog, APP_VERSION } from './modules/changelog/changelog.js';
@@ -215,6 +216,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     await store.loadFromDB();
     window.__comma.store = store;
+
+    // Apply the saved font size + layout density at boot. Theme is handled pre-paint by
+    // public/theme-init.js, but font/density live in the (async) user record — without this they
+    // only took effect once the Settings view was opened, so a new user never saw the XL default.
+    const bootUser = store.get('user') || {};
+    applyFontSize(bootUser.fontSize || 'xl');
+    applyDensity(bootUser.layoutDensity || 'comfortable');
 
     updateOnboardingFocusClass(!store.get('user')?.onboardingComplete);
 

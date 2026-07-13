@@ -2,6 +2,8 @@
 
 The phone app uses two complementary systems: **Zustand** for synchronous global state, and **TanStack React Query** for asynchronous, database-backed state with caching.
 
+<StatRow accent="blue" items={[{ value: "2", label: "Zustand stores" }, { value: "30 s", label: "React Query staleTime" }, { value: "7", label: "query-key domains" }, { value: "1", label: "retry on failure" }]} caption="Zustand owns small synchronous state — the running shift, settings. Anything that comes from a database query belongs to React Query." />
+
 ---
 
 ## The split

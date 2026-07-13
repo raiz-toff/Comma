@@ -2,6 +2,8 @@
 
 Carry your vault to a new phone, or run the same data on a phone and a laptop at once.
 
+<VaultFlow accent="emerald" nodes={["Old phone", "New phone or laptop"]} hub="Your Google Drive" caption="One Google account on both devices and the vault flows across. The backup file is the offline fallback — and importing one replaces the target vault." />
+
 ---
 
 ## The recommended path: Cloud Sync
@@ -39,6 +41,9 @@ If you would rather not use Cloud Sync, you can move a vault by hand:
 
 1. On the source app, export a backup file.
 2. On the target app, import it.
+
+The backup is a single JSON file holding your whole vault; if you want to know exactly what it
+contains, see [Backup file format](../reference/backup-format.md).
 
 Two cautions before you do:
 

@@ -4,6 +4,8 @@ Comma is an earnings tracker for gig drivers. It records what you were paid, how
 
 It runs on Android and in the browser. There is no account, no sign-up, and no Comma server. Your data is a database on your device.
 
+<MoneySplit total="$142.00 — what the app said you made" parts={[{ label: "tax you will owe", pct: 28, accent: "amber" }, { label: "actually yours", pct: 72, accent: "emerald" }]} caption="Gross is not income. Two shifts can both pay $142 — one in 4 hours over 40 km, the other in 7 hours over 110 km — and only one of them was worth driving." />
+
 ---
 
 ## The problem it solves

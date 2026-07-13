@@ -68,3 +68,6 @@ assets/logowithtext.png
 assets/mylogo.png
 .vercel
 .env*
+
+# Build output (APKs etc.) — never commit
+/builds/

@@ -1,49 +1,339 @@
+/* COMMA — Reports view. Document template (plan 007 pt.2): a wide, centered column with a
+   period toolbar, one report card, a Year-in-Review card, and a grouped export section.
+   Token-driven; follows the global light/dark system. */
+
 .reports-view {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
+  max-width: var(--content-wide, 960px);
+  margin-inline: auto;
+  width: 100%;
   padding-bottom: var(--space-12);
 }
 
-/* Grid Layouts */
-.reports-config-grid {
-  display: grid;
-  grid-template-columns: 1.5fr 1fr;
-  gap: var(--space-4);
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.reports-header h1 {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  letter-spacing: var(--tracking-tight);
 }
 
-.reports-filter-grid {
+.reports-header p {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+/* ── Period toolbar ─────────────────────────────────────────────────────── */
+.reports-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.reports-period-segment {
+  width: 100%;
+}
+
+.reports-period-segment ion-segment-button {
+  min-width: 0;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: none;
+}
+
+/* Contextual filters — only revealed for Platform / Custom periods. */
+.reports-filters {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.reports-filter-dates {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.reports-filters.is-hidden,
+.reports-filter-platform.is-hidden,
+.reports-filter-dates.is-hidden {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .reports-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── The report card (hero) ─────────────────────────────────────────────── */
+.report-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.report-card-head h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+
+.report-range {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.reports-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: var(--space-3);
   margin-top: var(--space-4);
 }
 
-.reports-date-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-2);
+.report-metric-card {
+  padding: var(--space-3);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-subtle);
 }
 
-@media (max-width: 768px) {
-  .reports-config-grid {
-    grid-template-columns: 1fr;
-  }
+.report-metric-label {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }
 
-@media (max-width: 480px) {
-  .reports-filter-grid,
-  .reports-date-grid {
-    grid-template-columns: 1fr;
-  }
+.report-metric-value {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--text-md);
+  font-weight: 800;
+  font-family: var(--font-mono);
 }
 
-/* Template Builder */
-.reports-template-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+.report-breakdown {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.report-breakdown h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+
+.report-warning {
+  display: flex;
+  align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-4);
+  padding: var(--space-3);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
+  border-radius: var(--radius-md);
+  color: var(--color-danger);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+/* Empty state */
+.report-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-8) var(--space-4);
+}
+
+.report-empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: var(--space-3);
+}
+
+.report-empty h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.report-empty p {
+  margin: 0;
+  max-width: 320px;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+/* ── Year in Review ─────────────────────────────────────────────────────── */
+.yir-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.yir-head h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+
+.yir-card {
+  background: linear-gradient(135deg, var(--color-brand) 0%, var(--color-brand-dark) 100%);
+  color: var(--color-white);
+  padding: var(--space-5);
+  border-radius: var(--radius-xl);
+  position: relative;
+  overflow: hidden;
+}
+
+.yir-card h3 {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-xl);
+  font-weight: 800;
+}
+
+.yir-meta {
+  font-size: var(--text-sm);
+  opacity: 0.9;
+}
+
+.yir-divider {
+  height: 1px;
+  margin: var(--space-3) 0;
+  background: color-mix(in srgb, var(--color-white) 25%, transparent);
+}
+
+.yir-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+}
+
+.yir-stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.yir-stat-value {
+  margin-top: 2px;
+  font-size: var(--text-lg);
+  font-weight: 800;
+  font-family: var(--font-mono);
+}
+
+.yir-export-btn {
+  margin-top: var(--space-4);
+  width: 100%;
+}
+
+@media (max-width: 560px) {
+  .yir-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+}
+
+/* ── Export & share ─────────────────────────────────────────────────────── */
+.reports-exports-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.reports-exports-head h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+
+.reports-export-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-5);
+}
+
+.reports-export-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.reports-export-group-label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.reports-export-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.reports-export-buttons ion-button {
+  width: 100%;
+  margin: 0;
+}
+
+.reports-disclaimer {
+  margin: var(--space-5) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* ── Customize printed report (disclosure) ──────────────────────────────── */
+.reports-template {
+  padding: 0;
+}
+
+.reports-template-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  list-style: none;
+}
+
+.reports-template-summary::-webkit-details-marker {
+  display: none;
+}
+
+.reports-template[open] .reports-template-summary {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.reports-template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: var(--space-2);
+  padding: var(--space-4);
 }
 
 .template-check {
@@ -57,271 +347,4 @@
   cursor: pointer;
   font-size: var(--text-xs);
   font-weight: 600;
-}
-
-/* Metrics Grid */
-.reports-metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: var(--space-3);
-  margin-top: var(--space-4);
-}
-
-.report-metric-card {
-  padding: var(--space-3);
-  background: var(--color-surface-raised);
-  border-radius: var(--radius-lg);
-  border: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
-}
-
-.report-metric-value {
-  font-size: var(--text-md);
-  font-weight: 800;
-  font-family: var(--font-mono);
-}
-
-/* Visual Assets */
-.reports-visuals-grid {
-  display: grid;
-  grid-template-columns: 1fr 1.5fr;
-  gap: var(--space-4);
-}
-
-@media (max-width: 900px) {
-  .reports-visuals-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.qr-container {
-  padding: var(--space-4);
-  background: var(--color-white);
-  border-radius: var(--radius-lg);
-  border: 2px solid var(--color-brand);
-}
-
-.qr-container canvas {
-  max-width: 100%;
-  height: auto !important;
-}
-
-/* Year in Review */
-.yir-card {
-  background: linear-gradient(135deg, var(--color-brand) 0%, #f7931e 100%);
-  color: var(--color-white);
-  padding: var(--space-5);
-  border-radius: var(--radius-xl);
-  position: relative;
-  overflow: hidden;
-}
-
-.yir-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-4);
-}
-
-@media (max-width: 380px) {
-  .yir-grid {
-    grid-template-columns: 1fr;
-    gap: var(--space-2);
-  }
-}
-
-/* Actions Section */
-.reports-actions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-4);
-}
-
-.export-btn-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.export-btn-group ion-button {
-  width: 100%;
-  margin: 0;
-}
-
-.import-section {
-  padding: var(--space-4);
-  border-radius: var(--radius-lg);
-  border: 2px dashed var(--color-border);
-}
-
-.import-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  justify-content: center;
-}
-
-@media (max-width: 480px) {
-  .import-controls .input {
-    max-width: 100% !important;
-    width: 100%;
-  }
-  .import-controls .btn {
-    width: 100%;
-  }
-}
-
-/* Partial Data Import Section */
-.import-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: var(--space-6);
-  margin-top: var(--space-4);
-}
-
-.import-card {
-  border: 1px dashed var(--color-border) !important;
-  transition: border-color 0.2s ease, transform 0.2s ease;
-}
-
-.import-card:hover {
-  border-color: var(--color-brand) !important;
-  transform: translateY(-2px);
-}
-
-.import-card h3 {
-  font-size: var(--text-md);
-  margin-bottom: var(--space-2);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.import-card p {
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-  margin-bottom: var(--space-4);
-}
-
-.import-preview-box {
-  max-height: 120px;
-  overflow: auto;
-  background: var(--color-surface-raised);
-  border-radius: var(--radius-md);
-  padding: var(--space-2);
-  font-size: 10px;
-  margin-bottom: var(--space-3);
-  border: 1px solid var(--color-border);
-  font-family: var(--font-mono);
-}
-
-.import-file-input {
-  margin-bottom: var(--space-3);
-  font-size: 11px;
-}
-
-/* SMART PREVIEW */
-.import-smart-preview {
-  margin: var(--space-4) 0;
-}
-
-.smart-preview-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  animation: slideIn 0.3s ease;
-}
-
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.smart-preview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.preview-badge {
-  background: var(--color-brand);
-  color: white;
-  font-size: 10px;
-  font-weight: 800;
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-  text-transform: uppercase;
-}
-
-.preview-range {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--color-text-secondary);
-}
-
-.smart-preview-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-}
-
-.preview-stat label {
-  display: block;
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-  margin-bottom: 2px;
-}
-
-.preview-stat span {
-  font-size: var(--text-md);
-  font-weight: 800;
-  font-family: var(--font-mono);
-}
-
-.preview-sample label {
-  display: block;
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-  margin-bottom: var(--space-2);
-}
-
-.preview-sample table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 11px;
-}
-
-.preview-sample tr td {
-  padding: 6px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
-}
-
-.preview-sample tr:last-child td {
-  border-bottom: none;
-}
-
-.text-right {
-  text-align: right;
-}
-
-/* ── Ionic component conversion (reports screen) ───────────────────────────────────────
- * The report-period picker is an ion-segment (replaces the old .reports-period-btn group);
- * export/share actions are ion-buttons. Full-width sizing the old .btn classes provided in
- * the export groups moves onto the ion-buttons above. */
-.reports-period-segment {
-  width: 100%;
-}
-
-.reports-period-segment ion-segment-button {
-  min-width: 0;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: none;
 }

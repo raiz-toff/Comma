@@ -1,87 +1,35 @@
 /* COMMA — shifts view (F11).
  *
- * ── Mobile-parity design layer ──────────────────────────────────────────────────────────────
- * The shift screens (list, detail, add/edit form) are restyled to match the mobile Android app's
- * look (commaApp/src/global.css + app/(tabs)/shifts). Mobile ships a cool-neutral, near-black
- * "OLED" palette with flat hairline borders and no shadows — distinct from the web app's warm
- * charcoal dark theme. Rather than touch the global tokens (which would restyle the whole app), we
- * scope a local token override to the shift roots below: every `var(--color-surface)` etc. used by
- * the existing shift markup resolves to mobile's values ONLY inside these screens. Light mode gets
- * a clean, flat equivalent so web's light-theme users aren't left with a dark island.
- *
- * Mobile dark hexes (from global.css): canvas #000, card #0F0F12, raised #16161A, pressed #1C1C21,
- * text #F6F6F7 / #9B9BA4 / #65656E, hairlines #1E1E23 / #2E2E36. Card radius 20px, input/row 12px,
- * chip 8px. Numbers are tabular; micro-labels are 700-weight uppercase with letter-spacing.
+ * ── Palette ─────────────────────────────────────────────────────────────────────────────────
+ * The shift screens keep their own `--sh-*` names (used by every rule below), but those names are
+ * now thin aliases over the GLOBAL design tokens — so shifts renders the exact same pitch-black
+ * (dark) / white (light) system as every other page and can never drift from it again. Derived
+ * shades (pressed, strong hairline) are color-mix over the global tokens, so they flip with the
+ * theme automatically. Radii keep the Comma DS scale. (Was a private OLED palette; unified into
+ * the one brand system — AGENTS.md §7.)
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
 .shifts-view,
 .shifts-form {
-  /* Cool-neutral surface ramp + flat hairlines (light-mode equivalent of mobile's dark ramp). */
-  --sh-canvas: #f4f5f7;
-  --sh-card: #ffffff;
-  --sh-raised: #f0f1f4;
-  --sh-pressed: #e7e9ee;
-  --sh-text: #14151a;
-  --sh-text-2: #565a66;
-  --sh-text-muted: #8b8f9c;
-  --sh-line: #e3e5ea;
-  --sh-line-strong: #cfd2da;
+  --sh-canvas: var(--color-bg);
+  --sh-card: var(--color-surface);
+  --sh-raised: var(--color-surface-raised);
+  --sh-pressed: color-mix(in srgb, var(--color-text-primary) 8%, var(--color-surface));
+  --sh-text: var(--color-text-primary);
+  --sh-text-2: var(--color-text-secondary);
+  --sh-text-muted: var(--color-text-muted);
+  --sh-line: var(--color-border);
+  --sh-line-strong: color-mix(in srgb, var(--color-text-primary) 15%, var(--color-border));
   --sh-accent: var(--color-brand);
-  --sh-accent-contrast: #ffffff;
-  --sh-success: #16a34a;
-  --sh-danger: #e5484d;
-  --sh-warning: #d97706;
+  --sh-accent-contrast: var(--color-brand-contrast);
+  --sh-success: var(--color-success);
+  --sh-danger: var(--color-danger);
+  --sh-warning: var(--color-warning);
 
-  /* Radii mapped to mobile's Comma DS scale. */
+  /* Radii mapped to the Comma DS scale. */
   --sh-r-chip: 8px;
   --sh-r-input: 12px;
   --sh-r-card: 20px;
-
-  /* Re-point the app tokens the existing shift markup already consumes, so cards/inputs/badges
-     inherit the mobile look without rewriting every rule. */
-  --color-surface: var(--sh-card);
-  --color-surface-raised: var(--sh-raised);
-  --color-border: var(--sh-line);
-  --color-text-primary: var(--sh-text);
-  --color-text-secondary: var(--sh-text-2);
-  --color-text-muted: var(--sh-text-muted);
-}
-
-/* Mobile's cool near-black OLED ramp — applied in dark mode (explicit + auto/system). */
-html[data-theme='dark'] .shifts-view,
-html[data-theme='dark'] .shifts-form {
-  --sh-canvas: #000000;
-  --sh-card: #0f0f12;
-  --sh-raised: #16161a;
-  --sh-pressed: #1c1c21;
-  --sh-text: #f6f6f7;
-  --sh-text-2: #9b9ba4;
-  --sh-text-muted: #65656e;
-  --sh-line: #1e1e23;
-  --sh-line-strong: #2e2e36;
-  --sh-success: #1fc16b;
-  --sh-danger: #ff5247;
-  --sh-warning: #f5a623;
-  --sh-accent-contrast: #ffffff;
-}
-
-@media (prefers-color-scheme: dark) {
-  html[data-theme='auto'] .shifts-view,
-  html[data-theme='auto'] .shifts-form {
-    --sh-canvas: #000000;
-    --sh-card: #0f0f12;
-    --sh-raised: #16161a;
-    --sh-pressed: #1c1c21;
-    --sh-text: #f6f6f7;
-    --sh-text-2: #9b9ba4;
-    --sh-text-muted: #65656e;
-    --sh-line: #1e1e23;
-    --sh-line-strong: #2e2e36;
-    --sh-success: #1fc16b;
-    --sh-danger: #ff5247;
-    --sh-warning: #f5a623;
-    --sh-accent-contrast: #ffffff;
-  }
 }
 
 /* Shared micro-label eyebrow (mobile: 700 uppercase, letter-spaced, secondary color). */
@@ -98,8 +46,8 @@ html[data-theme='dark'] .shifts-form {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  /* Share the common content column width with expenses/goals/analytics. */
-  max-width: var(--app-content-width);
+  /* List template: shares the constitution's default content width (plan 007 pt.1). */
+  max-width: var(--content, 720px);
   margin-inline: auto;
   width: 100%;
 }
@@ -111,7 +59,7 @@ html[data-theme='dark'] .shifts-form {
   align-items: start;
 }
 
-@media (min-width: 720px) {
+@media (min-width: 768px) {
   .shifts-view-header {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
@@ -131,7 +79,7 @@ html[data-theme='dark'] .shifts-form {
   justify-content: flex-start;
 }
 
-@media (min-width: 720px) {
+@media (min-width: 768px) {
   .shifts-view-header-tools {
     justify-content: flex-end;
   }
@@ -576,6 +524,7 @@ html[data-theme='dark'] .shifts-form {
 
 .shifts-chart-fill {
   width: 100%;
+  height: var(--h, 0%);
   border-radius: 7px;
   background: var(--sh-accent);
   transition: height var(--transition-base), opacity var(--transition-fast);
@@ -889,7 +838,7 @@ html[data-theme='dark'] .shifts-form {
 .shifts-pager-number.is-active {
   background: var(--color-brand);
   border-color: var(--color-brand-dark);
-  color: #1a1916;
+  color: var(--color-brand-contrast);
   box-shadow: var(--shadow-sm);
 }
 
@@ -1287,6 +1236,27 @@ html[data-theme='dark'] .shifts-form {
 /* Trash Manager */
 .shifts-trash {
   min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.shifts-trash-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.shifts-trash-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.shifts-trash-empty {
+  text-align: center;
+  padding: var(--space-6) 0;
 }
 
 .trash-row {
@@ -1484,6 +1454,12 @@ ion-modal .expenses-m-modal-sheet {
   font-size: var(--text-xl);
   margin: 0 0 var(--space-4);
 }
+.shifts-skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
 .shift-skel {
   display: flex;
   flex-direction: column;
@@ -1493,3 +1469,10 @@ ion-modal .expenses-m-modal-sheet {
   border-radius: var(--radius-lg);
   padding: var(--space-4);
 }
+.shift-skel ion-skeleton-text {
+  width: 100%;
+  height: 14px;
+}
+.shift-skel ion-skeleton-text:nth-child(1) { width: 38%; }
+.shift-skel ion-skeleton-text:nth-child(2) { width: 72%; height: 22px; }
+.shift-skel ion-skeleton-text:nth-child(3) { width: 55%; }

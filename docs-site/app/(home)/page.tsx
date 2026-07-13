@@ -222,6 +222,11 @@ export default function HomePage() {
 
       {/* Platform marquee */}
       <section className="border-b border-fd-border py-9">
+        <p className="mx-auto mb-6 max-w-xl px-4 text-center text-sm leading-relaxed text-fd-muted-foreground">
+          A Dasher on DoorDash, a Shopper on Instacart, a Courier on Uber Eats. Comma speaks
+          each app&rsquo;s language — and keeps every one its own ledger, so you can see which
+          actually pays.
+        </p>
         <LogosCarousel className="w-full py-4">
           {PLATFORM_MARKS.map((p) => (
             <PlatformMark key={p.name} {...p} />

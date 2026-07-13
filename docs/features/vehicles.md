@@ -2,6 +2,8 @@
 
 Each shift is driven in one vehicle, and each vehicle carries its own tax treatment. This page covers the default vehicle Comma creates for you, adding your real one, and the tax profile that decides how your driving is deducted.
 
+<Chips accent="amber" items={["Gas", "Hybrid", "EV", "Motorcycle", "Bicycle", "E-bike", "Scooter", "Walking"]} caption="The type is not cosmetic: under CRA rules a bicycle, e-bike, or scooter is not an automobile, so no per-km mileage rate is offered for it." />
+
 ---
 
 ## The default vehicle

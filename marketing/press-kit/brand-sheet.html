@@ -1,0 +1,313 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face {
+    font-family: "DM Serif Display";
+    src: url("fonts/DMSerifDisplay-Regular.ttf") format("truetype");
+  }
+  @font-face {
+    font-family: "DM Sans";
+    src: url("fonts/DMSans[opsz,wght].ttf") format("truetype");
+    font-weight: 100 1000;
+  }
+  @font-face {
+    font-family: "DM Mono";
+    src: url("fonts/DMMono-Regular.ttf") format("truetype");
+    font-weight: 400;
+  }
+  @font-face {
+    font-family: "DM Mono";
+    src: url("fonts/DMMono-Medium.ttf") format("truetype");
+    font-weight: 500;
+  }
+
+  @page { size: A4 landscape; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { width: 1123px; height: 794px; }
+  body {
+    font-family: "DM Sans", sans-serif;
+    background: #ffffff;
+    color: #1a1916;
+    display: flex;
+    flex-direction: column;
+    padding: 34px 44px 28px;
+  }
+
+  /* ---------- header ---------- */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e2da;
+  }
+  .h-left { display: flex; align-items: center; gap: 12px; }
+  .h-left img { width: 34px; height: 34px; }
+  .h-title { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+  .h-title span { color: #a09d96; font-weight: 450; }
+  .h-right { font-family: "DM Mono", monospace; font-size: 10.5px; color: #a09d96; letter-spacing: 0.08em; }
+
+  /* ---------- main grid ---------- */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 352px 1fr 282px;
+    column-gap: 0;
+    min-height: 0;
+    margin-top: 22px;
+  }
+  .col { padding: 0 30px; min-width: 0; }
+  .col:first-child { padding-left: 0; }
+  .col:last-child { padding-right: 0; }
+  .col + .col { border-left: 1px solid #e5e2da; }
+
+  .sec-label {
+    font-family: "DM Mono", monospace;
+    font-size: 9.5px; font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #a09d96;
+    margin-bottom: 14px;
+  }
+  .sec-label b { color: #1a1916; font-weight: 500; margin-right: 8px; }
+
+  /* ---------- logo chips ---------- */
+  .chips { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .chip {
+    height: 128px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .chip.black { background: #000000; }
+  .chip.white { background: #ffffff; border: 1px solid #e5e2da; }
+  .chip .tag {
+    position: absolute; top: 8px; left: 10px;
+    font-family: "DM Mono", monospace; font-size: 8px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  .chip.black .tag { color: #65656e; }
+  .chip.white .tag { color: #c9c5bc; }
+  .chip img.mascot { height: 92px; }
+  .chip img.wordmark { width: 124px; }
+
+  /* ---------- clear space ---------- */
+  .clearspace {
+    margin-top: 14px;
+    background: #fcfcfd;
+    border: 1px solid #e5e2da;
+    border-radius: 10px;
+    height: 158px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .cs-box {
+    position: relative;
+    border: 1.5px dashed #c9c5bc;
+    padding: 26px 30px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cs-box img { width: 190px; display: block; }
+  .cs-m {
+    position: absolute;
+    font-family: "DM Mono", monospace; font-size: 9px; color: #a09d96;
+  }
+  .cs-m.top { top: 6px; left: 50%; transform: translateX(-50%); }
+  .cs-m.left { left: 9px; top: 50%; transform: translateY(-50%); }
+  .caption {
+    margin-top: 10px;
+    font-size: 11px; color: #6b6860; line-height: 1.5;
+  }
+  .caption b { font-weight: 600; color: #1a1916; }
+
+  /* ---------- type ---------- */
+  .type-block { padding: 17px 0 19px; }
+  .type-block + .type-block { border-top: 1px solid #eeece6; }
+  .t-meta {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: "DM Mono", monospace; font-size: 9.5px;
+    letter-spacing: 0.1em; color: #a09d96; margin-bottom: 9px;
+    text-transform: uppercase;
+  }
+  .t-meta b { color: #1a1916; font-weight: 500; }
+  .sample-serif {
+    font-family: "DM Serif Display", serif;
+    font-size: 38px; line-height: 1.12; letter-spacing: -0.005em;
+  }
+  .sample-serif em { font-style: italic; color: #15803d; }
+  .sample-sans { font-size: 13px; line-height: 1.55; color: #1a1916; max-width: 34em; }
+  .sample-sans .muted { color: #6b6860; }
+  .weights {
+    margin-top: 8px; font-size: 12px; color: #6b6860; letter-spacing: 0.01em;
+  }
+  .weights span { margin-right: 14px; }
+  .sample-mono {
+    font-family: "DM Mono", monospace; font-size: 13.5px; font-weight: 500;
+    letter-spacing: 0;
+    background: #000000; color: #f6f6f7;
+    border-radius: 8px; padding: 13px 14px;
+    display: block; white-space: nowrap; text-align: center;
+  }
+  .sample-mono .g { color: #22c55e; }
+
+  /* ---------- color ---------- */
+  .swatches { display: flex; flex-direction: column; }
+  .swatch {
+    display: flex; align-items: center; gap: 12px;
+    padding: 7.5px 0;
+  }
+  .swatch + .swatch { border-top: 1px solid #eeece6; }
+  .sw {
+    width: 40px; height: 30px; border-radius: 7px; flex: none;
+  }
+  .sw.bordered { border: 1px solid #e5e2da; }
+  .sw-name { font-size: 11.5px; font-weight: 550; letter-spacing: -0.005em; }
+  .sw-role { font-size: 10px; color: #a09d96; margin-top: 1px; }
+  .sw-hex {
+    margin-left: auto;
+    font-family: "DM Mono", monospace; font-size: 10.5px; color: #6b6860;
+  }
+
+  /* ---------- usage band ---------- */
+  .usage {
+    border-top: 1px solid #e5e2da;
+    margin-top: 20px; padding-top: 16px;
+  }
+  .usage .sec-label { margin-bottom: 12px; }
+  .rules {
+    display: grid;
+    grid-template-columns: 352px 1fr 282px;
+  }
+  .rule { padding: 0 30px; font-size: 11.5px; line-height: 1.55; color: #6b6860; }
+  .rule:first-child { padding-left: 0; }
+  .rule:last-child { padding-right: 0; }
+  .rule + .rule { border-left: 1px solid #e5e2da; }
+  .rule b { display: block; color: #1a1916; font-weight: 650; margin-bottom: 3px; font-size: 12px; }
+
+  /* ---------- footer ---------- */
+  footer {
+    display: flex; justify-content: space-between; align-items: baseline;
+    border-top: 1px solid #e5e2da;
+    padding-top: 14px; margin-top: 20px;
+  }
+  .f-left { font-size: 12px; color: #1a1916; font-weight: 550; }
+  .f-left span { color: #6b6860; font-weight: 450; }
+  .f-right { font-family: "DM Mono", monospace; font-size: 11px; color: #15803d; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-left">
+    <img src="../../assets/logo-mascot.png" alt="">
+    <div class="h-title">Comma <span>— Brand sheet</span></div>
+  </div>
+  <div class="h-right">V1 · JULY 2026</div>
+</header>
+
+<main>
+  <!-- ================ LOGO ================ -->
+  <div class="col">
+    <div class="sec-label"><b>01</b> Logo</div>
+    <div class="chips">
+      <div class="chip black"><span class="tag">Mascot / dark</span>
+        <img class="mascot" src="../../assets/logo-mascot.png"></div>
+      <div class="chip white"><span class="tag">Mascot / light</span>
+        <img class="mascot" src="../../assets/logo-mascot.png"></div>
+      <div class="chip black"><span class="tag">Wordmark / dark</span>
+        <img class="wordmark" src="comma-wordmark.png"></div>
+      <div class="chip white"><span class="tag">Wordmark / light</span>
+        <img class="wordmark" src="comma-wordmark.png"></div>
+    </div>
+
+    <div class="clearspace">
+      <div class="cs-box">
+        <span class="cs-m top">1M</span>
+        <span class="cs-m left">1M</span>
+        <img src="comma-wordmark.png">
+      </div>
+    </div>
+    <div class="caption"><b>Clear space:</b> one letter-width (“M”) on every
+      side&nbsp;&nbsp;·&nbsp;&nbsp;min width 96&thinsp;px / 25&thinsp;mm</div>
+  </div>
+
+  <!-- ================ TYPE ================ -->
+  <div class="col">
+    <div class="sec-label"><b>02</b> Typography</div>
+
+    <div class="type-block" style="padding-top:2px">
+      <div class="t-meta"><b>DM Serif Display</b><span>Headlines</span></div>
+      <div class="sample-serif">Know what you <em>really</em> made.</div>
+    </div>
+
+    <div class="type-block">
+      <div class="t-meta"><b>DM Sans</b><span>Interface &amp; body</span></div>
+      <div class="sample-sans">Comma is a privacy-first earnings tracker for gig
+        drivers. <span class="muted">No account, no server — every shift,
+        kilometre, and write-off stays on the driver’s own device.</span></div>
+      <div class="weights">
+        <span style="font-weight:400">Regular</span>
+        <span style="font-weight:500">Medium</span>
+        <span style="font-weight:700">Bold</span>
+      </div>
+    </div>
+
+    <div class="type-block">
+      <div class="t-meta"><b>DM Mono</b><span>Money &amp; data</span></div>
+      <div class="sample-mono">$187.42 · 5h 12m · <span class="g">$36.04/hr</span> · 84.3 km</div>
+    </div>
+  </div>
+
+  <!-- ================ COLOR ================ -->
+  <div class="col">
+    <div class="sec-label"><b>03</b> Color</div>
+    <div class="swatches">
+      <div class="swatch"><div class="sw" style="background:#000000"></div>
+        <div><div class="sw-name">Canvas</div><div class="sw-role">true black, OLED</div></div>
+        <div class="sw-hex">#000000</div></div>
+      <div class="swatch"><div class="sw" style="background:#0A0A0C"></div>
+        <div><div class="sw-name">Surface 01</div><div class="sw-role">page sections</div></div>
+        <div class="sw-hex">#0A0A0C</div></div>
+      <div class="swatch"><div class="sw" style="background:#16161A"></div>
+        <div><div class="sw-name">Surface 03</div><div class="sw-role">cards, sheets</div></div>
+        <div class="sw-hex">#16161A</div></div>
+      <div class="swatch"><div class="sw bordered" style="background:#F6F6F7"></div>
+        <div><div class="sw-name">Content primary</div><div class="sw-role">headlines, money</div></div>
+        <div class="sw-hex">#F6F6F7</div></div>
+      <div class="swatch"><div class="sw bordered" style="background:#9B9BA4"></div>
+        <div><div class="sw-name">Content secondary</div><div class="sw-role">body, captions</div></div>
+        <div class="sw-hex">#9B9BA4</div></div>
+      <div class="swatch"><div class="sw" style="background:#22c55e"></div>
+        <div><div class="sw-name">Primary</div><div class="sw-role">money, actions</div></div>
+        <div class="sw-hex">#22C55E</div></div>
+      <div class="swatch"><div class="sw" style="background:#F5A623"></div>
+        <div><div class="sw-name">Warning</div><div class="sw-role">write-offs due</div></div>
+        <div class="sw-hex">#F5A623</div></div>
+      <div class="swatch"><div class="sw" style="background:#3B82F6"></div>
+        <div><div class="sw-name">Info</div><div class="sw-role">net, notices</div></div>
+        <div class="sw-hex">#3B82F6</div></div>
+    </div>
+  </div>
+</main>
+
+<section class="usage">
+  <div class="sec-label"><b>04</b> Usage</div>
+  <div class="rules">
+    <div class="rule"><b>Only these eight colors.</b>
+      If a value is not on this sheet, it is not in the brand — no invented
+      hexes, gradients, glows, or shadows.</div>
+    <div class="rule"><b>Two modes, never mixed.</b>
+      The mascot carries social, stickers, and community. Ads, the store, and
+      the web stay on dark product surfaces.</div>
+    <div class="rule"><b>Wordmark on flat fields only.</b>
+      Black or white — never over photos, gradients, or the orange badge.</div>
+  </div>
+</section>
+
+<footer>
+  <div class="f-left">Comma <span>— the private earnings tracker.</span></div>
+  <div class="f-right">comma-psi.vercel.app</div>
+</footer>
+
+</body>
+</html>

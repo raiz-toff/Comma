@@ -4,6 +4,8 @@ Comma reconstructs a shift's route from GPS: on the phone through a native Kotli
 
 The split on the phone exists because mobile OSes aggressively suspend background JavaScript. Reliable tracking when the screen is off needs a native foreground service; JavaScript only orchestrates and post-processes.
 
+<StepFlow accent="emerald" steps={[{ title: "Collect", body: "A Kotlin foreground service writes raw fixes straight to SQLite — no JS on the hot path." }, { title: "Filter", body: "At shift end: Haversine distance, and any fix implying over 150 km/h is a spike, not movement." }, { title: "Split and simplify", body: "Active vs dead by speed, then Ramer–Douglas–Peucker to ~10 m — a thousand points become a few dozen." }]} caption="The native layer is deliberately thin. All the intelligence is in JavaScript, where it can be changed without a native build." />
+
 ---
 
 ## Phone architecture

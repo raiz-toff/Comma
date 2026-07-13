@@ -4,6 +4,8 @@ The `comma-tracker` native module provides reliable background GPS tracking. It 
 
 **Location:** [`modules/comma-tracker/`](../../modules/comma-tracker/)
 
+<LayerStack accent="teal" layers={[{ name: "GPS hardware", note: "FusedLocationProvider, 5 s / 2 s" }, { name: "tempNativePoints", note: "Kotlin writes raw fixes straight to SQLite" }, { name: "useGPSTracking", note: "JS polls every ~5 s, filters jitter" }, { name: "locationPoints", note: "clean points, mileage recalculated" }]} caption="The only native code in Comma. It writes to a table instead of calling across the bridge — a high-frequency bridge would be the bottleneck." />
+
 ---
 
 ## Why a native module?

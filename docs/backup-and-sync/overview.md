@@ -6,6 +6,8 @@ Your data is a database on your device — nobody can breach it, sell it, or swi
 
 So Comma gives you one thing to turn on: **sync through your own Google Drive.** It takes one tap.
 
+<VaultFlow accent="cyan" nodes={["Phone — SQLite", "Browser — IndexedDB"]} hub="Drive appDataFolder" caption="Comma has no server. Your own Drive holds a private folder only Comma can see — that is both the backup and the sync." />
+
 ---
 
 ## Backup and sync are different words

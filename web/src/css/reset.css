@@ -6,6 +6,21 @@
   box-sizing: border-box;
 }
 
+/* Scrollbars are invisible app-wide — content still scrolls, but the chrome never shows.
+   House style (the same `scrollbar-width: none` / `::-webkit-scrollbar { display:none }` pair
+   was already applied ad-hoc to every horizontal strip; this makes it universal). Applies to
+   all scroll containers — the page, panels, modals, sheets, drawers. */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge/IE */
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none; /* WebKit — Chrome, Safari, Chromium Edge */
+}
+
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;

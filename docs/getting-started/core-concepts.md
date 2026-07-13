@@ -2,6 +2,8 @@
 
 The vocabulary Comma uses, and what each term actually means.
 
+<ShiftStrip accent="teal" blocks={[{ label: "dead", pct: 18, kind: "idle" }, { label: "active — order on", pct: 34 }, { label: "dead", pct: 22, kind: "idle" }, { label: "active", pct: 26 }]} caption="A 40% dead ratio means four kilometres in ten burn fuel for free. Movement below 5 km/h does not count as driving." />
+
 ---
 
 ## Shift

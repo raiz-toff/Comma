@@ -2,6 +2,8 @@
 
 This guide gets all three parts of the monorepo running locally: the phone app, the web app, and this documentation site.
 
+<Chips accent="cyan" items={["Node 20+", "npm 10+", "JDK 17+", "Android SDK"]} caption="Three apps in one repo: the phone app, the web PWA, and this docs site. GPS work needs a native dev build — there is no working Expo Go path." />
+
 ---
 
 ## Prerequisites

@@ -566,7 +566,7 @@ export default function SettingsScreen() {
 
 
   // ── Tab: Appearance ─────────────────────────────────────────────────────────
-  const [theme, setTheme] = useState<"auto" | "light" | "dark">(profile?.theme ?? "dark");
+  const [theme, setTheme] = useState<"auto" | "light" | "dark">(profile?.theme ?? "auto");
 
   /**
    * Theme applies on tap, not on Save. Everything else on this tab is staged in
@@ -629,7 +629,7 @@ export default function SettingsScreen() {
 
   // ── Sync appearance/locale → local state ────────────────────────────────────
   useEffect(() => {
-    setTheme(profile?.theme ?? "dark");
+    setTheme(profile?.theme ?? "auto");
     setSelectedAccent(
       (profile?.avatarData && profile?.avatarData.startsWith("#")) ? profile.avatarData : "#F6F6F7"
     );

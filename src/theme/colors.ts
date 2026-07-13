@@ -58,7 +58,12 @@ export interface Palette {
   scrim: string;
 }
 
-/** Dark — the app's default. Gig driver = night driving. */
+/**
+ * Dark. Not the default any more — Appearance defaults to "auto", so a driver
+ * gets whatever their phone is set to unless they say otherwise. It is still the
+ * fallback everywhere a scheme cannot be resolved, and still the one most gig
+ * drivers will land on, since most driving is night driving.
+ */
 export const DARK: Palette = {
   /** #000000 — canvas, true black for OLED */
   background: "#000000",

@@ -12,9 +12,10 @@
  *   drive. An earlier revision defined `.light:root`, which nothing ever set, so
  *   it was dead CSS and the light palette had never once rendered.
  *
- *   The app still BOOTS DARK: src/theme/theme.ts calls colorScheme.set("dark")
- *   at import, before first paint. Light is opt-in, from the Appearance control
- *   in onboarding and in Settings. "auto" follows the OS.
+ *   Appearance defaults to "auto", which hands the choice to the OS — and is
+ *   also where NativeWind already starts, so the app boots without writing a
+ *   scheme at all. Light and dark are explicit choices, made in Settings.
+ *   src/theme/ThemeSync.tsx is the only thing that sets the scheme.
  *
  * JS-side consumers (StyleSheet, SVG, charts) cannot read these vars. They use
  * the hex mirror in src/theme/colors.ts — the two files MUST stay in sync.
@@ -94,8 +95,10 @@
 
   .dark:root {
     /*
-     * ── DARK (cool-neutral ramp, hue 240) — the app's default ──────
-     * Single cool-neutral scale from true black up. Gig driver = night driving.
+     * ── DARK (cool-neutral ramp, hue 240) ──────────────────────────
+     * Single cool-neutral scale from true black up. Appearance defaults to
+     * "auto", so this is what a driver gets when their phone is in dark mode —
+     * which, since most driving is night driving, is most of them.
      */
 
     /* ── Surfaces ──────────────────────────────────────────────── */

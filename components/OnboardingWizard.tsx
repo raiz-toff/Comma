@@ -117,7 +117,7 @@ export default function OnboardingWizard() {
     taxWithholdingPct: countryDef.tax.defaultWithholdingPct,
     hstRegistered: false,
     distanceUnit: countryDef.distanceUnit,
-    theme: "dark",
+    theme: "auto",
     accentColor: "#F6F6F7",
     locale: { weekStartDay: 1, timeFormat: "12h" },
   });
@@ -252,7 +252,7 @@ export default function OnboardingWizard() {
       taxWithholdingPct: 25,
       hstRegistered: false,
       distanceUnit: "km",
-      theme: "dark",
+      theme: "auto",
       accentColor: "#22c55e",
       locale: { weekStartDay: 1, timeFormat: "12h" },
     };

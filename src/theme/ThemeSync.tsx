@@ -18,14 +18,17 @@
  * Components need nothing from this file. They call useColors(), which
  * subscribes to NativeWind directly and re-renders on change.
  *
- * BOOTING DARK. `pref` below falls back to dark until the profile arrives from
- * SQLite, so the effect applies dark on the very first commit — NativeWind's
- * only chance to be wrong is the initial frame, where it starts on the OS
- * scheme. That is at most one frame, and only on a light phone.
+ * BOOTING. The default preference is "auto", and `pref` below falls back to it
+ * until the profile arrives from SQLite. That happens to be the cheapest possible
+ * default: NativeWind already starts on the OS scheme, so "auto" agrees with
+ * where it started and the boot writes nothing at all — no Appearance write, no
+ * fan-out, and no flash of the wrong theme. A driver who has explicitly chosen
+ * light or dark gets one frame of the OS's scheme before their choice lands, once,
+ * while the profile loads. There is no synchronous store to cache it in.
  *
- * Do not "improve" this by setting the scheme at the entry point instead. That
- * was tried: importing the theme from index.ts hoists NativeWind's runtime ahead
- * of expo-router/entry and kills the app at startup ("property is not writable").
+ * Do not "improve" that away by setting the scheme at the entry point. It was
+ * tried: importing the theme from index.ts hoists NativeWind's runtime ahead of
+ * expo-router/entry and kills the app at startup ("property is not writable").
  * See ./scheme.ts. One frame is not worth a crash.
  */
 
@@ -37,7 +40,7 @@ import { applyThemePref } from "./scheme";
 import { useResolvedScheme } from "./useColors";
 
 export function ThemeSync() {
-  const pref = (useSettingsStore((s) => s.profile?.theme) as ThemePref | undefined) ?? "dark";
+  const pref = (useSettingsStore((s) => s.profile?.theme) as ThemePref | undefined) ?? "auto";
   const scheme = useResolvedScheme();
 
   /*

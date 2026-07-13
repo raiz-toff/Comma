@@ -116,15 +116,36 @@ const modalStack = [];
 
 /**
  * True on touch devices, where dragging a sheet's handle up to reveal more of it is a
- * familiar gesture. On a mouse-driven desktop it isn't — nothing tells a mouse user that
- * content sits just below the visible edge of a bottom sheet (it's genuinely off-screen,
- * not a scrollable overflow), so a sheet that *opens* at a short breakpoint hides its own
- * footer/submit button behind an undiscoverable drag. Callers should default straight to
- * the tallest breakpoint when this is false, instead of a shorter "peek" height.
+ * familiar gesture. On a mouse-driven desktop it isn't.
  * @returns {boolean}
  */
 export function isCoarsePointer() {
   return typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+}
+
+/**
+ * Configures an `ion-modal` as either a draggable mobile sheet (touch) or a centered,
+ * content-sized dialog (mouse) — never Ionic's fixed-viewport-fraction sheet on a mouse
+ * device. Ionic sheet mode always renders at exactly `breakpoint × viewport height`
+ * regardless of how tall the content actually is: a short breakpoint hides content laid
+ * out further down behind a drag gesture no mouse user knows to try (it's genuinely
+ * off-screen, not a scrollable overflow); a tall breakpoint leaves a large blank gap
+ * under short content, pushing a footer to the very bottom of an oversized box. Skipping
+ * `breakpoints` on a mouse device makes Ionic fall back to its normal auto-height card
+ * presentation, sized via the `--width`/`--height`/`--max-height` custom properties this
+ * sets through the shared `.comma-ion-sheet` class (`@media (pointer: fine)` in
+ * components.css) — the dialog hugs its own content, exactly like `showModal`.
+ * @param {HTMLElement} modal
+ * @param {number[]} breakpoints Must start with 0. Only applied on touch.
+ * @param {number} coarseInitialBreakpoint Which breakpoint touch opens to.
+ */
+export function applySheetPresentation(modal, breakpoints, coarseInitialBreakpoint) {
+  modal.classList.add('comma-ion-sheet');
+  if (isCoarsePointer()) {
+    /** @type {any} */ (modal).breakpoints = breakpoints;
+    /** @type {any} */ (modal).initialBreakpoint = coarseInitialBreakpoint;
+    /** @type {any} */ (modal).handle = true;
+  }
 }
 
 /**
@@ -921,11 +942,7 @@ export function showDrawer(opts = {}) {
     document.createElement('ion-modal')
   );
   modal.classList.add('comma-drawer');
-  /** @type {any} */ (modal).breakpoints = [0, ...points];
-  // Mouse users get the tallest snap point immediately — see isCoarsePointer's doc comment.
-  // (Points are ascending, so the last one is the tallest.)
-  /** @type {any} */ (modal).initialBreakpoint = isCoarsePointer() ? points[0] : points[points.length - 1];
-  /** @type {any} */ (modal).handle = true;
+  applySheetPresentation(modal, [0, ...points], points[0]);
   if (!dismissible) {
     /** @type {any} */ (modal).backdropDismiss = false;
     // Block swipe-down and backdrop dismissal; programmatic close() still works.

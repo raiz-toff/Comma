@@ -3,7 +3,7 @@ import { db } from '../core/db.js';
 import { bus, PLATFORM_CHANGED, SHIFT_DELETED, SHIFT_SAVED } from '../core/events.js';
 import { store } from '../core/store.js';
 import { t } from '../utils/strings.js';
-import { isCoarsePointer, showModal, showToast, renderEmptyState } from '../ui/components.js';
+import { applySheetPresentation, showModal, showToast, renderEmptyState } from '../ui/components.js';
 import { getIcon } from '../ui/icons.js';
 import { getPlatformConfig } from '../registry/platforms/terminology.js';
 import { renderShiftForm } from '../modules/shifts/shift-form.js';
@@ -773,12 +773,7 @@ async function openWeekSelector({ selectedWeekStart, weekStartDay, onPick }) {
     document.createElement('ion-modal')
   );
   modal.classList.add('shifts-week-modal');
-  /** @type {any} */ (modal).breakpoints = [0, 0.65, 0.92];
-  // Mouse users get the full sheet immediately — dragging a handle up isn't a desktop
-  // gesture, so a short default peek would hide the year pager below the fold with no
-  // discoverable way to reach it (see isCoarsePointer).
-  /** @type {any} */ (modal).initialBreakpoint = isCoarsePointer() ? 0.65 : 0.92;
-  /** @type {any} */ (modal).handle = true;
+  applySheetPresentation(modal, [0, 0.65, 0.92], 0.65);
   const host = document.createElement('div');
   host.className = 'expenses-m-modal-sheet shifts-week-sheet';
   modal.appendChild(host);
@@ -899,14 +894,11 @@ async function openShiftFormModal({ initial, onSaved, title, mode = 'full', subm
     }
   }
 
-  // Ionic spike: the form presents as a bottom sheet (drag handle, swipe-down dismiss)
-  // instead of the centered modal — the interaction drivers know from every phone app.
+  // Touch: bottom sheet with drag handle. Mouse: centered dialog sized to content.
   const modal = /** @type {HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean> }} */ (
     document.createElement('ion-modal')
   );
-  /** @type {any} */ (modal).breakpoints = [0, 0.92];
-  /** @type {any} */ (modal).initialBreakpoint = 0.92;
-  /** @type {any} */ (modal).handle = true;
+  applySheetPresentation(modal, [0, 0.92], 0.92);
   const handle = { close: () => void modal.dismiss() };
 
   const formApi = renderShiftForm({

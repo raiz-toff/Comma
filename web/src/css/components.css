@@ -583,6 +583,26 @@ ion-modal.comma-ion-modal--xl {
   --width: min(920px, calc(100vw - var(--space-8)));
 }
 
+/* Sheets (see applySheetPresentation() in this file): touch gets Ionic's draggable bottom
+   sheet via JS-set breakpoints, unchanged. A mouse-driven desktop gets NO breakpoints at
+   all, so Ionic falls back to its normal auto-height card presentation — sized here to hug
+   its own content instead of a fixed viewport fraction that either hides a footer below an
+   undiscoverable drag or leaves a large blank gap under short content. */
+@media (pointer: fine) {
+  ion-modal.comma-ion-sheet {
+    --width: min(640px, calc(100vw - var(--space-8)));
+    --height: auto;
+    --max-height: min(85dvh, 720px);
+    --box-shadow: var(--shadow-xl);
+    --backdrop-opacity: 0.38;
+  }
+  /* .comma-drawer already declares its own --background/--border-radius. */
+  ion-modal.comma-ion-sheet:not(.comma-drawer) {
+    --background: var(--color-surface);
+    --border-radius: var(--radius-xl);
+  }
+}
+
 .comma-modal {
   position: relative;
   width: 100%;

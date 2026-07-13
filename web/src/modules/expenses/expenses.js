@@ -4,7 +4,7 @@ import { bus, EXPENSE_SAVED, SHIFT_SAVED, XP_EARNED } from '../../core/events.js
 import { store } from '../../core/store.js';
 import { calcEVCost, calcFuelCost } from '../../utils/calculations.js';
 import { t } from '../../utils/strings.js';
-import { isCoarsePointer, renderEmptyState, showConfirm, showModal, showToast } from '../../ui/components.js';
+import { applySheetPresentation, renderEmptyState, showConfirm, showModal, showToast } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
 import { ExpenseCategoryRegistry, canonicalCategoryId } from '../../registry/expense-categories/index.js';
 import { renderExpenseForm } from './expense-form.js';
@@ -935,10 +935,7 @@ export async function renderExpensesView(root, ctx = {}) {
       document.createElement('ion-modal')
     );
     modal.classList.add('expenses-m-month-modal');
-    /** @type {any} */ (modal).breakpoints = [0, 0.65, 0.92];
-    // Mouse users get the full sheet immediately — see isCoarsePointer's doc comment.
-    /** @type {any} */ (modal).initialBreakpoint = isCoarsePointer() ? 0.65 : 0.92;
-    /** @type {any} */ (modal).handle = true;
+    applySheetPresentation(modal, [0, 0.65, 0.92], 0.65);
     const host = document.createElement('div');
     host.className = 'expenses-m-modal-sheet';
     modal.appendChild(host);
@@ -1065,9 +1062,7 @@ export async function renderExpensesView(root, ctx = {}) {
     const modal = /** @type {HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean> }} */ (
       document.createElement('ion-modal')
     );
-    /** @type {any} */ (modal).breakpoints = [0, 0.92];
-    /** @type {any} */ (modal).initialBreakpoint = 0.92;
-    /** @type {any} */ (modal).handle = true;
+    applySheetPresentation(modal, [0, 0.92], 0.92);
     const handle = { close: () => void modal.dismiss() };
 
     const wrap = document.createElement('div');
@@ -1207,9 +1202,7 @@ async function openRecurringOccurrenceEditor({ template, categories, platformRow
   const modal = /** @type {HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean> }} */ (
     document.createElement('ion-modal')
   );
-  /** @type {any} */ (modal).breakpoints = [0, 0.92];
-  /** @type {any} */ (modal).initialBreakpoint = 0.92;
-  /** @type {any} */ (modal).handle = true;
+  applySheetPresentation(modal, [0, 0.92], 0.92);
   const handle = { close: () => void modal.dismiss() };
 
   const formApi = renderExpenseForm({
@@ -1270,9 +1263,7 @@ async function openExpenseEditor({ initial = {}, categories, platformRows, isHst
   const modal = /** @type {HTMLElement & { present: () => Promise<void>; dismiss: () => Promise<boolean> }} */ (
     document.createElement('ion-modal')
   );
-  /** @type {any} */ (modal).breakpoints = [0, 0.92];
-  /** @type {any} */ (modal).initialBreakpoint = 0.92;
-  /** @type {any} */ (modal).handle = true;
+  applySheetPresentation(modal, [0, 0.92], 0.92);
   const handle = { close: () => void modal.dismiss() };
 
   const formApi = renderExpenseForm({

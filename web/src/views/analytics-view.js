@@ -7,7 +7,7 @@ import { getIcon } from '../ui/icons.js';
 import { ymd } from '../utils/date-range-presets.js';
 import { formatCurrency } from '../utils/formatters.js';
 import { calcTaxSetAside } from '../utils/calculations.js';
-import { isCoarsePointer } from '../ui/components.js';
+import { applySheetPresentation } from '../ui/components.js';
 
 
 /** @param {string} h */
@@ -247,10 +247,7 @@ async function openPeriodTypeSheet({ periodType, onPick }) {
     document.createElement('ion-modal')
   );
   modal.classList.add('analytics-period-modal');
-  /** @type {any} */ (modal).breakpoints = [0, 0.65, 0.92];
-  // Mouse users get the full sheet immediately — see isCoarsePointer's doc comment.
-  /** @type {any} */ (modal).initialBreakpoint = isCoarsePointer() ? 0.65 : 0.92;
-  /** @type {any} */ (modal).handle = true;
+  applySheetPresentation(modal, [0, 0.65, 0.92], 0.65);
 
   const host = document.createElement('div');
   host.className = 'analytics-period-sheet-panel';

@@ -1,7 +1,7 @@
 import { db, getUser, saveUser, getAppState, setAppState, purgeOldDeleted } from '../../core/db.js';
 import { store } from '../../core/store.js';
 import { bus, THEME_CHANGED, PLATFORM_CHANGED, GOAL_UPDATED } from '../../core/events.js';
-import { isCoarsePointer, showConfirm, showToast } from '../../ui/components.js';
+import { applySheetPresentation, showConfirm, showToast } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
 import { t } from '../../utils/strings.js';
 import { resetVault, exitDemoToOnboardingStart } from '../onboarding/onboarding.js';
@@ -226,10 +226,7 @@ function mountKeyboardOverlay() {
       document.createElement('ion-modal')
     );
     m.classList.add('settings-shortcuts-modal');
-    /** @type {any} */ (m).breakpoints = [0, 0.65, 0.92];
-    // Mouse users get the full sheet immediately — see isCoarsePointer's doc comment.
-    /** @type {any} */ (m).initialBreakpoint = isCoarsePointer() ? 0.65 : 0.92;
-    /** @type {any} */ (m).handle = true;
+    applySheetPresentation(m, [0, 0.65, 0.92], 0.65);
     const sheet = document.createElement('div');
     sheet.className = 'settings-shortcuts-sheet';
     sheet.innerHTML = `

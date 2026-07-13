@@ -34,6 +34,9 @@ import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useLayout } from "@/src/hooks/useLayout";
 import { withAlpha } from "@/src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
+import { useDueRecurringExpense } from "@/hooks/useDueRecurringExpense";
+import { materializeRecurringOccurrence, snoozeRecurringExpense } from "@/src/services/recurringExpenses";
+import { FeedbackDialog } from "@/src/components/ui/FeedbackDialog";
 
 export { getExpenseCategories, getCategoryMeta, type ExpenseCategory };
 export type ExpenseCategoryId = string;
@@ -66,6 +69,7 @@ type ExpenseItem = {
   date: string;
   notes?: string;
   isDeductible: boolean;
+  isRecurring?: boolean;
 };
 
 type MonthSection = {
@@ -173,6 +177,22 @@ function ExpenseRow({
               </Text>
             </View>
           )}
+          {expense.isRecurring && (
+            <View
+              style={{
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                backgroundColor: withAlpha(C.info, 0.12),
+                borderWidth: 1,
+                borderColor: withAlpha(C.info, 0.25),
+                borderRadius: 8,
+              }}
+            >
+              <Text variant="labelXs" style={{ color: C.info }}>
+                Recurring
+              </Text>
+            </View>
+          )}
         </View>
         <Text variant="paragraphS" className="text-content-secondary">
           {dateLabel}
@@ -218,6 +238,10 @@ export default function ExpensesScreen() {
   const C = useColors();
   const styles = useThemedStyles(makeStyles);
   const { gridStyle, dialogStyle } = useLayout();
+
+  // Recurring expense reminder — once per app session, fires when this tab is opened.
+  const { dueExpense: dueRecurringExpense, dismiss: dismissDueRecurring } = useDueRecurringExpense(isOnboardingCompleted);
+  const [isResolvingRecurring, setIsResolvingRecurring] = useState(false);
 
   const lastScrollY = useRef(0);
   const handleScroll = (event: any) => {
@@ -734,6 +758,54 @@ export default function ExpensesScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ── Recurring Expense Due Prompt — fires once per session, on this tab only ── */}
+      {dueRecurringExpense ? (
+        <FeedbackDialog
+          visible={!!dueRecurringExpense}
+          variant="info"
+          accentColor={accentColor}
+          title="Recurring expense due"
+          message={`${getCategoryMeta(dueRecurringExpense.category, country, customCategories).label} — ${formatCurrency(dueRecurringExpense.amount, country)} — due ${dueRecurringExpense.recurringNextDate}. Did you pay it?`}
+          cancelLabel="Skip for now"
+          actions={[
+            {
+              label: "Yes, Paid",
+              onPress: async () => {
+                if (isResolvingRecurring) return;
+                setIsResolvingRecurring(true);
+                try {
+                  await materializeRecurringOccurrence(dueRecurringExpense);
+                  queryClient.invalidateQueries({ queryKey: ["expenses"] });
+                  queryClient.invalidateQueries({ queryKey: ["analytics"] });
+                } finally {
+                  setIsResolvingRecurring(false);
+                  dismissDueRecurring();
+                }
+              },
+            },
+            {
+              label: "Edit Amount",
+              variant: "neutral",
+              onPress: () => {
+                const templateId = dueRecurringExpense.id;
+                dismissDueRecurring();
+                router.push({ pathname: "/expense/add", params: { recurringTemplateId: templateId } });
+              },
+            },
+          ]}
+          onClose={async () => {
+            if (isResolvingRecurring) return;
+            setIsResolvingRecurring(true);
+            try {
+              await snoozeRecurringExpense(dueRecurringExpense.id);
+            } finally {
+              setIsResolvingRecurring(false);
+              dismissDueRecurring();
+            }
+          }}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }

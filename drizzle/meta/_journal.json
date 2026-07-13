@@ -169,6 +169,13 @@
       "when": 1783287000000,
       "tag": "0023_category_canonicalize",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1783954849057,
+      "tag": "0024_glorious_naoko",
+      "breakpoints": true
     }
   ]
 }

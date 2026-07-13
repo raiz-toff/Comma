@@ -7,6 +7,7 @@ import { db, saveUser, getUser } from '../../core/db.js';
 import { store } from '../../core/store.js';
 import { bus, PLATFORM_CHANGED } from '../../core/events.js';
 import { t } from '../../utils/strings.js';
+import { filterIds, filterLabel, pruneFilter, toggleFilter } from '../../utils/filters.js';
 import { getPlatformConfig } from '../../registry/platforms/terminology.js';
 import { resolvePlatformLogoHtml, showModal, closeModal } from '../../ui/components.js';
 
@@ -71,21 +72,22 @@ export function renderPlatformSwitcher(mode, opts) {
       .replace(/"/g, '&quot;');
 
   if (mode === 'dropdown') {
-    const active = activeRows.find((p) => String(p.id) === selectedId);
-    const label = selectedId === 'all' ? t('app.platformAll') : active?.name || selectedId;
-    const col =
-      selectedId === 'all'
-        ? 'var(--color-text-muted)'
-        : active?.color || getPlatformConfig(selectedId).color;
+    // The filter may name a subset, so the trigger reads "DoorDash + Uber Eats"; only a single
+    // selection has one platform's logo and brand colour to show.
+    const ids = filterIds(selectedId);
+    const only = ids.length === 1 ? ids[0] : null;
+    const active = only ? activeRows.find((p) => String(p.id) === only) : null;
+    const label = filterLabel(
+      selectedId,
+      (id) => String(activeRows.find((p) => String(p.id) === id)?.name || id),
+      String(t('app.platformAll')),
+    );
+    const col = only ? active?.color || getPlatformConfig(only).color : 'var(--color-text-muted)';
 
-    let logo = selectedId === 'all' ? null : resolvePlatformLogoHtml(selectedId);
-    if (!logo && selectedId !== 'all') {
+    let logo = only ? resolvePlatformLogoHtml(only) : null;
+    if (!logo) {
       logo = `<span style="font-size:12px;font-weight:800;line-height:1;">${esc(
         String(label).charAt(0).toUpperCase(),
-      )}</span>`;
-    } else if (selectedId === 'all') {
-      logo = `<span style="font-size:12px;font-weight:800;line-height:1;">${esc(
-        String(t('app.platformAll')).charAt(0).toUpperCase(),
       )}</span>`;
     }
 
@@ -104,13 +106,15 @@ export function renderPlatformSwitcher(mode, opts) {
   const allInitial = allLabel.charAt(0).toUpperCase();
   const allInner = `<span class="platform-tab-inner"><span class="platform-tab-logo" aria-hidden="true"><span style="font-size:13px;font-weight:800;line-height:1;">${esc(allInitial)}</span></span><span class="platform-tab-label">${esc(allLabel)}</span></span>`;
 
+  const selectedSet = new Set(filterIds(selectedId));
+
   const tabs = [
-    `<button type="button" class="platform-tab platform-tab--fixed platform-tab--has-logo" data-platform-id="all" data-draggable="false" aria-selected="${selectedId === 'all' ? 'true' : 'false'}" style="--platform-color:var(--color-text-muted)">${allInner}</button>`,
+    `<button type="button" class="platform-tab platform-tab--fixed platform-tab--has-logo" data-platform-id="all" data-draggable="false" aria-selected="${selectedSet.size === 0 ? 'true' : 'false'}" style="--platform-color:var(--color-text-muted)">${allInner}</button>`,
     ...activeRows.map((p) => {
       const id = String(p.id);
       const label = typeof p.name === 'string' && p.name ? p.name : id;
       const col = typeof p.color === 'string' && p.color ? p.color : getPlatformConfig(id).color;
-      const sel = selectedId === id ? 'true' : 'false';
+      const sel = selectedSet.has(id) ? 'true' : 'false';
       
       let logo = resolvePlatformLogoHtml(id);
       if (!logo) {
@@ -184,31 +188,48 @@ export function mountPlatformSwitcher(slot) {
     slot.hidden = false;
     slot.removeAttribute('data-platform-switcher');
 
-    const selectedRaw = String(store.get('activePlatformId') ?? 'all');
     const ids = new Set(activeRows.map((r) => String(r.id)));
-    const selectedId = selectedRaw !== 'all' && !ids.has(selectedRaw) ? 'all' : selectedRaw === 'all' ? 'all' : selectedRaw;
+    // A platform that was archived since the filter was set must not linger in it and silently
+    // hide every shift.
+    const selectedId = pruneFilter(store.get('activePlatformId'), ids);
 
     slot.innerHTML = renderPlatformSwitcher(displayMode, { activeRows, selectedId });
 
-    const applySelectionVisual = (id) => {
+    const applySelectionVisual = (filter) => {
+      const set = new Set(filterIds(filter));
       slot.querySelectorAll('.platform-tab').forEach((el) => {
-        const pid = el.getAttribute('data-platform-id');
-        el.setAttribute('aria-selected', pid === id ? 'true' : 'false');
+        const pid = String(el.getAttribute('data-platform-id'));
+        const on = pid === 'all' ? set.size === 0 : set.has(pid);
+        el.setAttribute('aria-selected', on ? 'true' : 'false');
       });
     };
 
-    const setFilter = (id) => {
-      const next = id === 'all' || ids.has(id) ? id : 'all';
+    /** Set the filter outright (swipe-to-cycle, the dropdown modal). */
+    const commitFilter = (next) => {
       demoSwitcherShouldBeExpanded = false;
       // Apply visual state instantly for snappy UI
       applySelectionVisual(next);
-      
+
       // Defer global state updates until AFTER the 300ms CSS collapse animation finishes
       // so the heavy re-renders don't block the main thread and drop animation frames.
       setTimeout(() => {
         store.set('activePlatformId', next);
         bus.emit(PLATFORM_CHANGED, { platformId: next, source: 'switcher' });
       }, 300);
+    };
+
+    /**
+     * All / subset / one, exactly as the phone app does it (see utils/filters.js): tap to add,
+     * tap again to remove, and you may hold at most `count - 1` at once — selecting every
+     * platform is just 'all'.
+     * @returns {string} the filter that was applied
+     */
+    const setFilter = (id) => {
+      const current = String(store.get('activePlatformId') ?? 'all');
+      if (id !== 'all' && !ids.has(id)) return current;
+      const next = toggleFilter(current, id, count);
+      commitFilter(next);
+      return next;
     };
 
     if (displayMode === 'dropdown') {
@@ -274,19 +295,18 @@ export function mountPlatformSwitcher(slot) {
           const dy = e.changedTouches[0].clientY - startY;
           if (Math.abs(dx) > 40 && Math.abs(dy) < 30) {
             const allIds = ['all', ...activeRows.map((r) => String(r.id))];
-            const currentIndex = allIds.indexOf(selectedId);
-            if (currentIndex !== -1) {
-              let nextIndex = currentIndex;
-              if (dx < 0) nextIndex = (currentIndex + 1) % allIds.length;
-              else nextIndex = (currentIndex - 1 + allIds.length) % allIds.length;
-              
-              const nextId = allIds[nextIndex];
-              // Apply visual feedback
-              applySelectionVisual(nextId);
-              // Set filter (includes the 300ms delay for stability)
-              setFilter(nextId);
-              isScrolling = true; // Prevent the 'click' event from expanding it
-            }
+            // Swipe cycles one-at-a-time, so it SETS the filter rather than toggling it; from a
+            // multi-selection it resumes from the first one picked.
+            const chosen = filterIds(selectedId);
+            const currentIndex = chosen.length === 0 ? 0 : Math.max(0, allIds.indexOf(chosen[0]));
+            const nextIndex =
+              dx < 0
+                ? (currentIndex + 1) % allIds.length
+                : (currentIndex - 1 + allIds.length) % allIds.length;
+
+            // commitFilter sets outright (and includes the 300ms delay for stability)
+            commitFilter(allIds[nextIndex]);
+            isScrolling = true; // Prevent the 'click' event from expanding it
           }
         }
       });
@@ -306,12 +326,19 @@ export function mountPlatformSwitcher(slot) {
           return;
         }
 
-        // 2. If open, and a tab is clicked, update active and collapse
+        // 2. If open, and a tab is clicked, toggle it. Stay open while a subset is still being
+        //    assembled (phone parity) — collapsing on the first tap would make picking a second
+        //    platform impossible. Close on 'All', or once the cap of `count - 1` is reached.
         if (tEl) {
           const id = tEl.getAttribute('data-platform-id');
           if (id) {
-            setFilter(id);
-            tablist.classList.remove('is-expanded');
+            const chosen = filterIds(setFilter(id));
+            const maxAllowed = Math.max(1, count - 1);
+            if (chosen.length === 0) {
+              tablist.classList.remove('is-expanded');
+            } else if (chosen.length >= maxAllowed) {
+              setTimeout(() => tablist.classList.remove('is-expanded'), 500);
+            }
           }
         } else {
           // 3. Close if clicked outside tabs but inside container
@@ -501,9 +528,10 @@ export async function deactivatePlatform(platformId) {
 
   await saveUser({ platforms: pl, primaryPlatform: primary });
 
-  if (String(store.get('activePlatformId')) === id) {
-    store.set('activePlatformId', 'all');
-  }
+  // Drop just this platform from the filter — a subset like "doordash,skip" must survive losing
+  // one member, and only fall back to 'all' when nothing selectable is left.
+  const remaining = filterIds(store.get('activePlatformId')).filter((x) => x !== id);
+  store.set('activePlatformId', remaining.length ? remaining.join(',') : 'all');
 
   await pushPlatformStateFromDb();
   bus.emit(PLATFORM_CHANGED, { platformId: id, source: 'deactivatePlatform' });
@@ -618,13 +646,18 @@ function showPlatformSelectionModal(activeRows, currentId, onSelect) {
     ...activeRows,
   ];
 
+  // `currentId` is a filter (possibly a comma-joined subset), so a row is ticked when it is a
+  // member of it — and the 'All' row when nothing is selected.
+  const selected = new Set(filterIds(currentId));
+  const isOn = (id) => (id === 'all' ? selected.size === 0 : selected.has(id));
+
   for (const p of items) {
     const id = String(p.id);
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'platform-selection-item';
     btn.dataset.platformId = id;
-    btn.setAttribute('aria-selected', id === currentId ? 'true' : 'false');
+    btn.setAttribute('aria-selected', isOn(id) ? 'true' : 'false');
 
     const col = p.color || getPlatformConfig(id).color;
     btn.style.setProperty('--platform-color', col);
@@ -639,7 +672,7 @@ function showPlatformSelectionModal(activeRows, currentId, onSelect) {
     btn.innerHTML = `
       <span class="platform-selection-item-logo">${logo}</span>
       <span class="platform-selection-item-name">${String(p.name || id)}</span>
-      ${id === currentId ? '<svg class="platform-selection-item-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}
+      ${isOn(id) ? '<svg class="platform-selection-item-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}
     `;
 
     btn.addEventListener('click', () => {

@@ -2,6 +2,7 @@ import PapaMod from '../libs/papaparse.min.js';
 import { db } from '../core/db.js';
 import { bus, PLATFORM_CHANGED, VEHICLE_FILTER_CHANGED, SHIFT_DELETED, SHIFT_SAVED } from '../core/events.js';
 import { store } from '../core/store.js';
+import { filterIds, matchesFilter } from '../utils/filters.js';
 import { t } from '../utils/strings.js';
 import { applySheetPresentation, showModal, showToast, renderEmptyState } from '../ui/components.js';
 import { getIcon } from '../ui/icons.js';
@@ -222,8 +223,8 @@ async function loadAllShiftsForPlatform() {
   const rows = await db.shifts.toArray();
   return rows
     .filter((s) => s.deletedAt == null)
-    .filter((s) => platform === 'all' || String(s.platformId) === platform)
-    .filter((s) => vehicle === 'all' || String(s.vehicleId) === vehicle);
+    .filter((s) => matchesFilter(s.platformId, platform))
+    .filter((s) => matchesFilter(s.vehicleId, vehicle));
 }
 
 /**
@@ -1222,8 +1223,9 @@ export async function render(root, ctx) {
 
     const action = tEl.getAttribute('data-action');
     if (action === 'start-timer') {
-      const pid = String(store.get('activePlatformId') ?? 'all');
-      const platformId = pid === 'all' ? String(store.get('platforms')?.[0]?.id || 'other') : pid;
+      // A new shift needs exactly one platform, so a subset filter contributes only its first id.
+      const picked = filterIds(store.get('activePlatformId'))[0];
+      const platformId = picked || String(store.get('platforms')?.[0]?.id || 'other');
       try {
         await startShiftTimer(platformId);
         showToast({ type: 'success', message: t('shifts.timerStarted'), duration: 1800 });

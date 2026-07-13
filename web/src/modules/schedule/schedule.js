@@ -1,5 +1,6 @@
 import { db, getAppState, setAppState } from '../../core/db.js';
 import { store } from '../../core/store.js';
+import { matchesFilter } from '../../utils/filters.js';
 import { bus, PLATFORM_CHANGED, VEHICLE_FILTER_CHANGED, NAVIGATION } from '../../core/events.js';
 import { formatCurrency } from '../../utils/formatters.js';
 import { t } from '../../utils/strings.js';
@@ -212,8 +213,7 @@ async function loadScheduleModel(referenceDate = new Date()) {
   ]);
 
   const filterFn = (s) =>
-    (activePlatformId === 'all' || String(s.platformId) === activePlatformId) &&
-    (activeVehicleId === 'all' || String(s.vehicleId) === activeVehicleId);
+    matchesFilter(s.platformId, activePlatformId) && matchesFilter(s.vehicleId, activeVehicleId);
   const weekRows = weekRowsRaw.filter(filterFn);
   const monthRows = monthRowsRaw.filter(filterFn);
   const allRows = allRowsRaw.filter(filterFn);
@@ -574,8 +574,8 @@ async function showDayDetailModal(dateStr, model, root) {
   const activeVehicleId = String(store.get('activeVehicleId') || 'all');
   const dayShifts = (await db.shifts.where('date').equals(dateStr).toArray())
     .filter(s => s.deletedAt == null)
-    .filter(s => activePlatformId === 'all' || String(s.platformId) === activePlatformId)
-    .filter(s => activeVehicleId === 'all' || String(s.vehicleId) === activeVehicleId);
+    .filter((s) => matchesFilter(s.platformId, activePlatformId))
+    .filter((s) => matchesFilter(s.vehicleId, activeVehicleId));
   const dayPlans = (model.planning || []).filter(p => p.date === dateStr);
   const totalGross = dayShifts.reduce((sum, s) => sum + grossFromShift(s), 0);
   

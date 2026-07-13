@@ -4,6 +4,7 @@ import { bus, EXPENSE_SAVED, SHIFT_SAVED, XP_EARNED } from '../../core/events.js
 import { store } from '../../core/store.js';
 import { calcEVCost, calcFuelCost } from '../../utils/calculations.js';
 import { t } from '../../utils/strings.js';
+import { matchesFilter } from '../../utils/filters.js';
 import { applySheetPresentation, renderEmptyState, showConfirm, showModal, showToast } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
 import { ExpenseCategoryRegistry, canonicalCategoryId } from '../../registry/expense-categories/index.js';
@@ -395,7 +396,7 @@ export async function getTotalExpensesForPeriod(startDate, endDate, platformId) 
         e.deletedAt == null &&
         String(e.date || '') >= startDate &&
         String(e.date || '') <= endDate &&
-        (platformId ? String(e.platformId || '') === String(platformId) : true),
+        matchesFilter(e.platformId, platformId ?? 'all'),
     )
     .toArray();
   return rows.reduce((sum, row) => sum + num(row.amount) * (num(row.deductiblePct, 100) / 100), 0);
@@ -415,7 +416,7 @@ export async function getOutOfPocketExpensesForPeriod(startDate, endDate, platfo
         e.deletedAt == null &&
         String(e.date || '') >= startDate &&
         String(e.date || '') <= endDate &&
-        (platformId ? String(e.platformId || '') === String(platformId) : true),
+        matchesFilter(e.platformId, platformId ?? 'all'),
     )
     .toArray();
   return rows.reduce((sum, row) => {

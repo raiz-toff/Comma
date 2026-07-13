@@ -1,6 +1,7 @@
 import { db, getAppState } from '../../core/db.js';
 import { MetricRegistry, getMetricValue } from '../../registry/metrics/index.js';
 import { formatCurrency, formatLargeNumber } from '../../utils/formatters.js';
+import { filterIds, matchesFilter } from '../../utils/filters.js';
 import {
   calcBonusDependencyRatio,
   calcEarningsPerKm,
@@ -70,30 +71,32 @@ async function listShiftsBetween(startDate, endDate) {
 }
 
 /**
- * Same rule as shifts list / header switcher: `'all'` keeps every shift; otherwise `platformId` must match.
+ * Same rule as shifts list / header switcher. The filter is the phone's all/subset/one format —
+ * `'all'`, one id, or a comma-joined subset — so any of the selected platforms matches.
  * @template T
  * @param {T[]} shifts
  * @param {string} [activePlatformId='all']
  * @returns {T[]}
  */
 function filterShiftsByActivePlatform(shifts, activePlatformId = 'all') {
-  const pid = String(activePlatformId ?? 'all');
-  if (pid === 'all') return shifts;
-  return shifts.filter((s) => String(/** @type {{ platformId?: unknown }} */ (s).platformId ?? '') === pid);
+  if (filterIds(activePlatformId).length === 0) return shifts;
+  return shifts.filter((s) =>
+    matchesFilter(/** @type {{ platformId?: unknown }} */ (s).platformId, activePlatformId),
+  );
 }
 
 /**
- * Same rule as filterShiftsByActivePlatform, for the vehicle filter (header switcher, single-
- * select — web has no all/subset/one multi-select the way the phone app does).
+ * Same rule as filterShiftsByActivePlatform, for the vehicle filter.
  * @template T
  * @param {T[]} shifts
  * @param {string} [activeVehicleId='all']
  * @returns {T[]}
  */
 function filterShiftsByActiveVehicle(shifts, activeVehicleId = 'all') {
-  const vid = String(activeVehicleId ?? 'all');
-  if (vid === 'all') return shifts;
-  return shifts.filter((s) => String(/** @type {{ vehicleId?: unknown }} */ (s).vehicleId ?? '') === vid);
+  if (filterIds(activeVehicleId).length === 0) return shifts;
+  return shifts.filter((s) =>
+    matchesFilter(/** @type {{ vehicleId?: unknown }} */ (s).vehicleId, activeVehicleId),
+  );
 }
 
 /**
@@ -363,7 +366,8 @@ export async function getFinancialOverviewForRange(startDate, endDate, activePla
 
   const shifts = filterShiftsByActiveVehicle(filterShiftsByActivePlatform(await listShiftsBetween(startDate, endDate), activePlatformId), activeVehicleId);
   const s = aggregateShiftsLight(shifts);
-  const pid = String(activePlatformId ?? 'all') === 'all' ? undefined : String(activePlatformId);
+  // Pass the filter through as-is — it may name a subset, and the expense helpers understand it.
+  const pid = String(activePlatformId ?? 'all');
   const [expense, outOfPocket] = await Promise.all([
     getTotalExpensesForPeriod(startDate, endDate, pid),
     getOutOfPocketExpensesForPeriod(startDate, endDate, pid),
@@ -437,7 +441,8 @@ export async function getFinancialMonthlyBreakdown(startDate, endDate, activePla
     return { rows: [], totals: emptyTotals };
   }
 
-  const pid = String(activePlatformId ?? 'all') === 'all' ? undefined : String(activePlatformId);
+  // Pass the filter through as-is — it may name a subset, and the expense helpers understand it.
+  const pid = String(activePlatformId ?? 'all');
   const shifts = filterShiftsByActiveVehicle(filterShiftsByActivePlatform(await listShiftsBetween(startDate, endDate), activePlatformId), activeVehicleId);
   const expenseRows = await db.expenses
     .filter(
@@ -445,7 +450,7 @@ export async function getFinancialMonthlyBreakdown(startDate, endDate, activePla
         e.deletedAt == null &&
         String(e.date || '') >= startDate &&
         String(e.date || '') <= endDate &&
-        (pid ? String(e.platformId || '') === pid : true),
+        matchesFilter(e.platformId, pid),
     )
     .toArray();
 

@@ -1,5 +1,6 @@
 import { store } from './store.js';
 import { getPlatformConfig } from '../registry/platforms/terminology.js';
+import { filterIds } from '../utils/filters.js';
 
 /**
  * Converts hex to RGB components for use in CSS color-mix.
@@ -39,7 +40,11 @@ function getContrastColor(hex) {
  */
 export function updateAccentColor(hexOverride) {
   const user = store.get('user');
-  const activeId = String(store.get('activePlatformId') ?? 'all');
+  // The filter may be a comma-joined subset. A single selected platform tints the app with its
+  // brand colour; 'all' — or any multi-selection, which has no one brand colour — keeps the
+  // user's own accent.
+  const selectedIds = filterIds(store.get('activePlatformId'));
+  const activeId = selectedIds.length === 1 ? selectedIds[0] : 'all';
   const platforms = store.get('platforms') || [];
   
   // Use hexOverride only if it looks like a hex color string

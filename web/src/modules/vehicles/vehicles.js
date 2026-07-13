@@ -3,6 +3,7 @@ import { bus, EXPENSE_SAVED, VEHICLE_FILTER_CHANGED } from '../../core/events.js
 import { store } from '../../core/store.js';
 import { calcDepreciation, calcVehicleCostPerKm } from '../../utils/calculations.js';
 import { t } from '../../utils/strings.js';
+import { filterIds, filterLabel, pruneFilter, toggleFilter } from '../../utils/filters.js';
 import { renderEmptyState, showModal, showToast, closeModal } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
 import { newId } from '../../core/id.js';
@@ -161,9 +162,8 @@ async function listVehicles() {
 }
 
 // ── Vehicle filter switcher (header) ────────────────────────────────────────
-// Mirrors the platform switcher (modules/platforms/platforms.js) — same tabs/dropdown modes,
-// same slot-mount pattern — but single-select only: web's platform filter has no all/subset/one
-// multi-select either, so a matching vehicle filter stays single-select for consistency.
+// Mirrors the platform switcher (modules/platforms/platforms.js) — same tabs/dropdown modes, same
+// slot-mount pattern, and the same all/subset/one selection the phone app uses (see utils/filters.js).
 // No drag-reorder, no swipe-to-cycle — those are platform-specific polish nobody asked for here.
 
 /**
@@ -176,8 +176,14 @@ function renderVehicleSwitcher(mode, opts) {
   const truckIcon = getIcon('truck', 13);
 
   if (mode === 'dropdown') {
-    const active = activeRows.find((v) => String(v.id) === selectedId);
-    const label = selectedId === 'all' ? t('app.vehicleAll') : (active ? vehicleLabel(active) : selectedId);
+    const label = filterLabel(
+      selectedId,
+      (id) => {
+        const v = activeRows.find((x) => String(x.id) === id);
+        return v ? vehicleLabel(v) : id;
+      },
+      String(t('app.vehicleAll')),
+    );
 
     return `<div class="platform-switcher platform-switcher--dropdown vehicle-switcher" style="--platform-color:var(--color-brand)">
       <button type="button" class="platform-switcher-trigger" aria-haspopup="listbox" aria-label="${esc(
@@ -193,12 +199,14 @@ function renderVehicleSwitcher(mode, opts) {
   const allLabel = String(t('app.vehicleAll'));
   const allInner = `<span class="platform-tab-inner"><span class="platform-tab-logo" aria-hidden="true">${truckIcon}</span><span class="platform-tab-label">${esc(allLabel)}</span></span>`;
 
+  const selectedSet = new Set(filterIds(selectedId));
+
   const tabs = [
-    `<button type="button" class="platform-tab platform-tab--fixed platform-tab--has-logo" data-vehicle-tab-id="all" aria-selected="${selectedId === 'all' ? 'true' : 'false'}">${allInner}</button>`,
+    `<button type="button" class="platform-tab platform-tab--fixed platform-tab--has-logo" data-vehicle-tab-id="all" aria-selected="${selectedSet.size === 0 ? 'true' : 'false'}">${allInner}</button>`,
     ...activeRows.map((v) => {
       const id = String(v.id);
       const label = vehicleLabel(v);
-      const sel = selectedId === id ? 'true' : 'false';
+      const sel = selectedSet.has(id) ? 'true' : 'false';
       const inner = `<span class="platform-tab-inner"><span class="platform-tab-logo" aria-hidden="true">${truckIcon}</span><span class="platform-tab-label">${esc(label)}</span></span>`;
       return `<button type="button" class="platform-tab platform-tab--has-logo" data-vehicle-tab-id="${esc(id)}" aria-selected="${sel}">${inner}</button>`;
     }),
@@ -247,16 +255,35 @@ export function mountVehicleSwitcher(slot) {
 
     slot.hidden = false;
 
-    const selectedRaw = String(store.get('activeVehicleId') ?? 'all');
     const ids = new Set(activeRows.map((r) => String(r.id)));
-    const selectedId = selectedRaw !== 'all' && !ids.has(selectedRaw) ? 'all' : selectedRaw;
+    const count = activeRows.length;
+    // An archived vehicle must not linger in the filter and silently hide every shift.
+    const selectedId = pruneFilter(store.get('activeVehicleId'), ids);
 
     slot.innerHTML = renderVehicleSwitcher(displayMode, { activeRows, selectedId });
 
+    const applySelectionVisual = (filter) => {
+      const set = new Set(filterIds(filter));
+      slot.querySelectorAll('.platform-tab').forEach((el) => {
+        const vid = String(el.getAttribute('data-vehicle-tab-id'));
+        const on = vid === 'all' ? set.size === 0 : set.has(vid);
+        el.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+    };
+
+    /**
+     * All / subset / one, same rule as the platform switcher and the phone app: tap to add, tap
+     * again to remove, at most `count - 1` at once.
+     * @returns {string} the filter that was applied
+     */
     const setFilter = (id) => {
-      const next = id === 'all' || ids.has(id) ? id : 'all';
+      const current = String(store.get('activeVehicleId') ?? 'all');
+      if (id !== 'all' && !ids.has(id)) return current;
+      const next = toggleFilter(current, id, count);
+      applySelectionVisual(next);
       store.set('activeVehicleId', next);
       bus.emit(VEHICLE_FILTER_CHANGED, { vehicleId: next, source: 'switcher' });
+      return next;
     };
 
     if (displayMode === 'dropdown') {
@@ -282,8 +309,15 @@ export function mountVehicleSwitcher(slot) {
         if (tEl) {
           const id = tEl.getAttribute('data-vehicle-tab-id');
           if (id) {
-            setFilter(id);
-            tablist.classList.remove('is-expanded');
+            // Stay open while a subset is still being assembled — collapsing on the first tap
+            // would make picking a second vehicle impossible.
+            const chosen = filterIds(setFilter(id));
+            const maxAllowed = Math.max(1, count - 1);
+            if (chosen.length === 0) {
+              tablist.classList.remove('is-expanded');
+            } else if (chosen.length >= maxAllowed) {
+              setTimeout(() => tablist.classList.remove('is-expanded'), 500);
+            }
           }
         } else {
           tablist.classList.remove('is-expanded');
@@ -323,17 +357,22 @@ function showVehicleSelectionModal(activeRows, currentId, onSelect) {
 
   const items = [{ id: 'all', label: t('app.vehicleAll') }, ...activeRows.map((v) => ({ id: String(v.id), label: vehicleLabel(v) }))];
 
+  // `currentId` is a filter (possibly a comma-joined subset), so a row is ticked when it is a
+  // member of it — and the 'All' row when nothing is selected.
+  const selected = new Set(filterIds(currentId));
+  const isOn = (id) => (id === 'all' ? selected.size === 0 : selected.has(id));
+
   for (const item of items) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'platform-selection-item';
     btn.dataset.vehicleId = item.id;
-    btn.setAttribute('aria-selected', item.id === currentId ? 'true' : 'false');
+    btn.setAttribute('aria-selected', isOn(item.id) ? 'true' : 'false');
 
     btn.innerHTML = `
       <span class="platform-selection-item-logo">${getIcon('truck', 14)}</span>
       <span class="platform-selection-item-name">${esc(item.label)}</span>
-      ${item.id === currentId ? '<svg class="platform-selection-item-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}
+      ${isOn(item.id) ? '<svg class="platform-selection-item-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}
     `;
 
     btn.addEventListener('click', () => {
@@ -845,11 +884,11 @@ export async function renderVehiclesView(root) {
     if (action === 'archive') {
       await db.vehicles.update(id, { active: false, updatedAt: nowIso() });
       showToast({ type: 'success', message: 'Vehicle archived', duration: 1800 });
-      // If the archived vehicle was the active filter, fall back to "all" — same rule
-      // deactivatePlatform() applies for platforms.
-      if (String(store.get('activeVehicleId')) === id) {
-        store.set('activeVehicleId', 'all');
-      }
+      // Drop just this vehicle from the filter — a subset must survive losing one member, and
+      // only fall back to "all" when nothing selectable is left. Same rule deactivatePlatform()
+      // applies for platforms.
+      const remaining = filterIds(store.get('activeVehicleId')).filter((x) => x !== id);
+      store.set('activeVehicleId', remaining.length ? remaining.join(',') : 'all');
       await store.refresh('vehicles');
       await refresh();
     }

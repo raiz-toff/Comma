@@ -6,11 +6,10 @@ All notable changes to Comma are documented here.
 
 ### Added
 - **Comma fits a tablet now.** It was built for a phone, and on a big screen it showed: cards stretched the full width, and a line of text ran so far across that you lost your place in it. Now the page holds a comfortable width and sits centred, and on a wide screen the Analytics cards sit two side by side instead of one enormous one. Your phone is untouched — none of this happens below tablet width. Rotating, unfolding, or dropping Comma into a split-screen now re-lays the page out properly rather than leaving it stuck at whatever size it started.
-- **Light mode**: Comma can now be light. Out of the box it follows your phone — set your phone to dark for a night shift and Comma goes dark with it. You can pin it either way under **Settings → Appearance → Theme**, which offers *Auto*, *Light* and *Dark*. It changes the moment you tap it — nothing to save, nothing to restart — and it fades rather than snapping, so switching themes at night doesn't put a screenful of white in your eyes. Your route maps switch over too, so a light screen no longer wraps a dark map.
+- **Light mode**: Comma can now be light. It always follows your phone's own setting — set your phone to dark for a night shift and Comma goes dark with it, no configuring required. It fades rather than snapping, so switching themes at night doesn't put a screenful of white in your eyes. Your route maps switch over too, so a light screen no longer wraps a dark map.
 
 ### Fixed
 - **A restored phone now asks for location.** Restoring your vault onto a new phone left that phone with no location access — Comma saw the restored setup, decided you were already sorted, and never asked. But a location permission belongs to a *phone*, not to a backup: it cannot travel in your vault. The cost was invisible. Tracking would stop the moment you switched to your delivery app, so shifts logged short and you under-claimed the write-off, with nothing on screen to suggest anything was wrong. A phone that has never been asked is now asked, once.
-- **The Theme setting now actually changes the theme.** It had been sitting in Settings for a while and it remembered what you picked — but the app carried on looking exactly the same. It works now.
 
 ## [1.3.1] — 2026-07-12 (versionCode 7)
 

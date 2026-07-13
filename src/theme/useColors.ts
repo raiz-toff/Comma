@@ -29,44 +29,33 @@
  * "Can't perform a React state update on a component that hasn't mounted yet",
  * once per component, RootLayout first.
  *
- * So the scheme is resolved from two sources that ARE safe — Zustand and React
- * Native's own useColorScheme, both useSyncExternalStore-backed and both cleaned
- * up on unmount.
+ * So the scheme is resolved from a source that IS safe — React Native's own
+ * useColorScheme, which is useSyncExternalStore-backed and cleans up on unmount.
  *
- * This does not reintroduce the "auto latches" bug that sent me to NativeWind's
- * hook in the first place. That bug was real: setting a theme writes RN's global
- * Appearance, so reading Appearance back returns our own write rather than the
- * phone's setting. It does not bite here, because the two cases never overlap:
- *
- *   - pref is light or dark → returned straight from the preference. Appearance
- *     is never consulted, so it cannot lie to us.
- *   - pref is auto → ThemeSync hands NativeWind "system", which calls
- *     Appearance.setColorScheme("unspecified") and gives scheme control BACK to
- *     the OS. Appearance is then reporting the phone, not us — which is exactly
- *     what we want to read.
+ * There is no manual override to resolve here: the app always follows the OS.
+ * A `theme` field still exists on the synced profile (the web app has its own
+ * picker and needs it), but the phone never reads it — see ThemeSync/scheme.ts
+ * for why: writing a pin to RN's global Appearance and then reading Appearance
+ * back to resolve "auto" is exactly the kind of write-then-read-your-own-write
+ * trap a fixed preference used to create here. Always-system sidesteps it
+ * entirely — Appearance only ever reflects the phone.
  */
 
 import { useMemo } from "react";
 import { useColorScheme as useSystemScheme } from "react-native";
-import { useSettingsStore } from "@/store/useSettingsStore";
 import { PALETTES, type Palette, type Scheme, type ThemePref } from "./colors";
 import { usePinnedScheme } from "./pinnedScheme";
 
 export type { Palette, Scheme, ThemePref };
 
 /**
- * The TARGET scheme — where the driver's preference says we should be.
- *
- * Not what is on screen during a theme transition; for that, see
- * useDisplayedScheme below. Dark is the fallback wherever a scheme cannot be
- * resolved: an OS that reports nothing lands on dark, which is where most gig
- * drivers want to be anyway.
+ * The TARGET scheme — always the phone's own setting. There is no manual
+ * override: the app follows the OS, full stop. Dark is the fallback wherever
+ * a scheme cannot be resolved: an OS that reports nothing lands on dark,
+ * which is where most gig drivers want to be anyway.
  */
 export function useResolvedScheme(): Scheme {
-  const pref = (useSettingsStore((s) => s.profile?.theme) as ThemePref | undefined) ?? "auto";
   const system = useSystemScheme();
-
-  if (pref === "light" || pref === "dark") return pref;
   return system === "light" ? "light" : "dark";
 }
 

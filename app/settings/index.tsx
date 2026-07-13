@@ -36,7 +36,7 @@ import { eq } from "drizzle-orm";
 import { ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Trash2, Check, ChevronDown, ChevronUp, Calculator, Target, CalendarDays, Trophy, FileText, BarChart2 } from "lucide-react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 
-import { useSettingsStore, type DriverProfile } from "@/store/useSettingsStore";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import { PLATFORMS, type PlatformKey, getPlatformsByCountry } from "@/src/registry/platforms";
 import { FEATURE_MODULES, listCaProvinceCodes, listUsStateCodes } from "@/src/registry/index";
 import { GIG_DRIVER_DEFAULTS } from "@/src/hooks/useAppContext";
@@ -566,19 +566,6 @@ export default function SettingsScreen() {
 
 
   // ── Tab: Appearance ─────────────────────────────────────────────────────────
-  const [theme, setTheme] = useState<"auto" | "light" | "dark">(profile?.theme ?? "auto");
-
-  /**
-   * Theme applies on tap, not on Save. Everything else on this tab is staged in
-   * local state and written when the driver saves, but a theme you have to save
-   * to see is a theme you cannot preview — you would be picking blind. Writing
-   * straight to the profile re-themes the app underneath the picker, which is
-   * also the preview. The Save handler still sends `theme`, harmlessly.
-   */
-  const chooseTheme = (next: "auto" | "light" | "dark") => {
-    setTheme(next);
-    void updateProfile({ theme: next });
-  };
   const [selectedAccent, setSelectedAccent] = useState(
     (profile?.avatarData && profile?.avatarData.startsWith("#")) ? profile.avatarData : "#F6F6F7"
   );
@@ -629,7 +616,6 @@ export default function SettingsScreen() {
 
   // ── Sync appearance/locale → local state ────────────────────────────────────
   useEffect(() => {
-    setTheme(profile?.theme ?? "auto");
     setSelectedAccent(
       (profile?.avatarData && profile?.avatarData.startsWith("#")) ? profile.avatarData : "#F6F6F7"
     );
@@ -690,7 +676,6 @@ export default function SettingsScreen() {
         taxRegion: profile?.taxRegion,
         distanceUnit: profile?.distanceUnit,
         selectedPlatforms: activePlatforms,
-        theme: theme as DriverProfile["theme"],
         avatarData: selectedAccent,
         locale: {
           ...(profile.locale ?? {}),
@@ -1090,17 +1075,6 @@ export default function SettingsScreen() {
           <>
             <GroupLabel text="Interface" />
             <Card>
-              <Row label="Theme" block last={false}>
-                <Segmented
-                  options={[
-                    { value: "auto" as const, label: "Auto" },
-                    { value: "light" as const, label: "Light" },
-                    { value: "dark" as const, label: "Dark" },
-                  ]}
-                  value={theme}
-                  onChange={chooseTheme}
-                />
-              </Row>
               <Row label="Accent color" block last>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={s.swatches}>

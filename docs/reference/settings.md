@@ -44,7 +44,8 @@ How the app looks. On the web app this tab also carries typography and layout co
 
 | Setting | Values | Default | Platform |
 |---|---|---|---|
-| Theme | Auto, Light, Dark | Dark | Phone and web |
+| Theme | Follows the system setting | — | Phone (not user-configurable) |
+| Theme | Auto, Light, Dark | Auto | Web only |
 | Accent color | 12 swatches | — | Phone and web |
 | Currency | Locked to the country | CAD | Phone (locked) |
 | Currency | USD, CAD, EUR, GBP, AUD | CAD | Web only |

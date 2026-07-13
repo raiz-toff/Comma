@@ -52,7 +52,7 @@ export function showChangelogModal(lastVersion = '') {
           <div class="changelog-item-icon">${getIcon('moon', 24)}</div>
           <div class="changelog-item-text">
             <h4>Light mode comes to the phone app</h4>
-            <p>Comma's Android app can now be light, dark, or set to follow your phone — under Settings, Appearance, Theme. This browser app has always had that choice; now the two match.</p>
+            <p>Comma's Android app now follows your phone's own light/dark setting automatically, the way this browser app always has.</p>
           </div>
         </div>
       </div>

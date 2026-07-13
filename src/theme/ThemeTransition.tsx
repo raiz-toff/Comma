@@ -46,7 +46,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { useSettingsStore } from "@/store/useSettingsStore";
 import { PALETTES, type Scheme, type ThemePref } from "./colors";
 import { setPinnedScheme } from "./pinnedScheme";
 import { applyThemePref } from "./scheme";
@@ -61,7 +60,9 @@ const WATCHDOG_MS = 1200;
 
 export function ThemeTransition() {
   const target = useResolvedScheme();
-  const pref = (useSettingsStore((s) => s.profile?.theme) as ThemePref | undefined) ?? "auto";
+  // No manual override exists on the phone — always tell NativeWind "auto"
+  // and let it hand scheme control to the OS. See useColors.ts.
+  const pref: ThemePref = "auto";
 
   /** The scheme currently on screen. null until the first one is applied. */
   const applied = useRef<Scheme | null>(null);

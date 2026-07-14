@@ -64,11 +64,19 @@ const ACCENTS: ReadonlyArray<readonly [string, string]> = [
 ];
 
 const CURATED: Record<string, { headline: string; ticks?: string[] }> = {
+  '1.4.1': {
+    headline: 'Vehicle filters, and money that adds up right.',
+    ticks: [
+      'Multi-vehicle mileage write-offs are finally per-vehicle',
+      'Filter by vehicle, and pick more than one platform at once',
+      'Recurring expense reminders now on the phone app too',
+    ],
+  },
   '1.4.0': {
     headline: 'Light mode. Tablet layouts. Vehicle filters.',
     ticks: [
       'The web app now feels native — sheets, swipes, real dialogs',
-      'Multi-vehicle mileage write-offs are finally per-vehicle',
+      'No more Google sign-in prompts on every open',
       'A restored phone asks for location again',
     ],
   },

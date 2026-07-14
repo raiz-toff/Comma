@@ -2,16 +2,16 @@
 
 All notable changes to Comma are documented here.
 
-## [1.4.0] — 2026-07-12 (versionCode 8)
+## [1.4.1] — 2026-07-13 (versionCode 9)
 
 ### Added
+- **Recurring expense reminders (app)**: expenses marked recurring now nudge you when they're due — weekly, monthly or yearly — the same due/snooze workflow the web app already had, with a "Recurring" badge on the expense row.
 - **Tap a shift to see its details (web)**: tapping a shift — from the dashboard's recent list or the Shifts screen — now opens a full detail view (net earnings, hourly rate, distance, the per-platform and mileage breakdowns, notes and any linked expenses), like the phone app, instead of dropping you straight into the edit form. Edit and delete are one tap away from there.
 - **Delivery logos in Recent activity (web)**: the dashboard's recent-shifts list now shows each app's logo instead of a plain letter.
-- **Comma fits a tablet now.** It was built for a phone, and on a big screen it showed: cards stretched the full width, and a line of text ran so far across that you lost your place in it. Now the page holds a comfortable width and sits centred, and on a wide screen the Analytics cards sit two side by side instead of one enormous one. Your phone is untouched — none of this happens below tablet width. Rotating, unfolding, or dropping Comma into a split-screen now re-lays the page out properly rather than leaving it stuck at whatever size it started.
-- **Light mode**: Comma can now be light. It always follows your phone's own setting — set your phone to dark for a night shift and Comma goes dark with it, no configuring required. It fades rather than snapping, so switching themes at night doesn't put a screenful of white in your eyes. Your route maps switch over too, so a light screen no longer wraps a dark map.
 - **Filter by vehicle (app + web)**: if you drive more than one vehicle, the same switcher that already filters by delivery platform now filters by vehicle too, on Home, Shifts and Analytics — all of them, a few, or just one. When you only have one platform and one vehicle there's nothing to pick, so the switcher collapses to a plain readout instead of an empty menu.
 
 ### Changed
+- **Pick more than one platform to filter by (web)**: the platform switcher only ever let you look at one app at a time, or all of them. Now it works the way the phone app does — tap to add a second, tap again to drop it, and see DoorDash and Uber Eats together without Skip in the mix. The vehicle switcher works the same way.
 - **One typeface with the docs (web)**: the app's body and interface text now use Inter — the same face as the Comma docs site — so the app and the docs read as one product. Headlines keep their serif and money keeps its mono.
 - **Bigger and comfier out of the box (web)**: new installs now start at the XL text size and comfortable spacing, and your size/density choice is applied the moment the app opens rather than only after you first visit Settings.
 - **Saved-confirmations match your accent (web)**: the little "Saved" pop-ups now take on whatever accent colour you picked in Appearance, instead of always being green.
@@ -25,7 +25,19 @@ All notable changes to Comma are documented here.
 - **Tidier Reports page (web)**: the reports screen used to lay everything out at once — period picker, a section-toggle grid, the report, a share card and a wall of export buttons all at once. It now reads top to bottom: pick a period, see the report, then a Year-in-Review card and one grouped Export & share panel. The date and platform filters only appear when the period needs them, and the print-section toggles tuck into a "Customize printed report" you open when you want them.
 - **No more scrollbars (web)**: scrollbars are hidden throughout — panels, sheets and lists still scroll, they just no longer show the chrome.
 - **Emptier toolbar tucks away (web)**: on a wide screen, when you run only one platform and one vehicle there is nothing to switch, so the strip that held those switchers no longer takes up space above the page.
-- **Pick more than one platform to filter by (web)**: the platform switcher only ever let you look at one app at a time, or all of them. Now it works the way the phone app does — tap to add a second, tap again to drop it, and see DoorDash and Uber Eats together without Skip in the mix. The vehicle switcher works the same way.
+- **Demo Mode now seeds 3 vehicles, matching the phone app (web)**: Try Demo shows a Toyota Prius, Honda Ruckus and Rad Power RadCity — the same three the phone app's demo uses — instead of one generic vehicle, so the new vehicle filter has something real to try. The third demo delivery platform now matches mobile too (DoorDash/Uber Eats/Skip, not Instacart), and Skip's demo logo is its real carrot mark instead of a placeholder letter.
+
+### Fixed
+- **Multi-vehicle drivers got the wrong mileage write-off and earnings (app + web)**: mileage was totalled across every vehicle and then had one vehicle's rate applied to all of it, and a car expense (fuel, insurance) logged the same week as a bike-only shift was silently deducted from that shift's earnings. Mileage now resolves each vehicle's own rate against only the distance it drove, and an expense only counts against a vehicle you actually used in that period.
+- **Recurring expense reminders kept resurfacing after you'd dealt with them (web)**: advancing a recurring expense to its next due date didn't save that change for sync, so other sessions and devices kept seeing the old, already-handled due date and re-nagged you. A freshly created recurring expense also no longer defaults its first reminder to the day you logged it — it's one interval out, like it should be.
+
+## [1.4.0] — 2026-07-12 (versionCode 8)
+
+### Added
+- **Comma fits a tablet now.** It was built for a phone, and on a big screen it showed: cards stretched the full width, and a line of text ran so far across that you lost your place in it. Now the page holds a comfortable width and sits centred, and on a wide screen the Analytics cards sit two side by side instead of one enormous one. Your phone is untouched — none of this happens below tablet width. Rotating, unfolding, or dropping Comma into a split-screen now re-lays the page out properly rather than leaving it stuck at whatever size it started.
+- **Light mode**: Comma can now be light. It always follows your phone's own setting — set your phone to dark for a night shift and Comma goes dark with it, no configuring required. It fades rather than snapping, so switching themes at night doesn't put a screenful of white in your eyes. Your route maps switch over too, so a light screen no longer wraps a dark map.
+
+### Changed
 - **App-grade interactions everywhere (web)**: the whole app now behaves like a native app. Swipe a shift, expense, vehicle or notification for its actions; pickers and forms open as bottom sheets you can drag, snap and flick away; confirms are proper dialogs, toasts and toggles feel like the ones on your phone. Same look, same speed — new touch.
 - **Dashboard checklist opens a focused screen, not the general Settings (web)**: "Add your other apps," "Tell us your real vehicle" and "Set a weekly goal" now each open one small screen that does exactly that job and returns you to the dashboard — matching how the phone app already works — instead of dropping you into Settings, Vehicles or Goals to hunt for the right spot.
 - **Livelier welcome screen (web)**: the logo now sits inside a slowly turning ring — *every dollar · every kilometre · every write-off* — and the headline names your work the way your app does, cycling through shift, dash, block, batch and week. Both settle into stillness if your device asks for reduced motion.
@@ -36,7 +48,6 @@ All notable changes to Comma are documented here.
 - **Tapping some icon buttons silently did nothing (web)**: a few icon-only buttons weren't registering taps at all. They respond now.
 - **Janky arrow navigation on Expenses and Analytics (web)**: paging between weeks/months with the arrow buttons stuttered. Now smooth.
 - **Bottom sheets on desktop (web)**: sheets no longer hide their own footer, and sheets whose content is taller than the screen now scroll instead of clipping.
-- **Multi-vehicle drivers got the wrong mileage write-off and earnings (app + web)**: mileage was totalled across every vehicle and then had one vehicle's rate applied to all of it, and a car expense (fuel, insurance) logged the same week as a bike-only shift was silently deducted from that shift's earnings. Mileage now resolves each vehicle's own rate against only the distance it drove, and an expense only counts against a vehicle you actually used in that period.
 
 ## [1.3.1] — 2026-07-12 (versionCode 7)
 

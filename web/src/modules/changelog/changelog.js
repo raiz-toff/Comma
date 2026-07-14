@@ -7,7 +7,7 @@ import { showModal } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
 import { t } from '../../utils/strings.js';
 
-export const APP_VERSION = '1.4.0';
+export const APP_VERSION = '1.4.1';
 const STORAGE_KEY = 'comma_last_seen_version';
 
 /**
@@ -49,34 +49,34 @@ export function showChangelogModal(lastVersion = '') {
 
       <div class="changelog-highlights">
         <div class="changelog-item">
-          <div class="changelog-item-icon">${getIcon('moon', 24)}</div>
+          <div class="changelog-item-icon">${getIcon('dollar', 24)}</div>
           <div class="changelog-item-text">
-            <h4>Light mode comes to the phone app</h4>
-            <p>Comma's Android app now follows your phone's own light/dark setting automatically, the way this browser app always has.</p>
+            <h4>Correct mileage and expenses for multi-vehicle drivers</h4>
+            <p>Mileage write-off now resolves each vehicle's own rate against only the distance it drove, and an expense only counts against a vehicle you actually used in that period.</p>
           </div>
         </div>
 
         <div class="changelog-item">
-          <div class="changelog-item-icon">${getIcon('layout-grid', 24)}</div>
+          <div class="changelog-item-icon">${getIcon('filter', 24)}</div>
           <div class="changelog-item-text">
-            <h4>App-grade interactions everywhere</h4>
-            <p>Swipe a shift, expense, vehicle or notification for its actions. Pickers and forms open as bottom sheets you can drag, snap and flick away. Same look, same speed — new touch.</p>
+            <h4>Filter by vehicle, and pick more than one platform</h4>
+            <p>If you drive more than one vehicle, the same switcher that filters by delivery platform now filters by vehicle too — and both switchers let you hold a few selected at once, not just one or all.</p>
           </div>
         </div>
 
         <div class="changelog-item">
-          <div class="changelog-item-icon">${getIcon('check', 24)}</div>
+          <div class="changelog-item-icon">${getIcon('bell', 24)}</div>
           <div class="changelog-item-text">
-            <h4>Dashboard checklist opens the right screen</h4>
-            <p>"Add your other apps," "Tell us your real vehicle" and "Set a weekly goal" now each open one small screen that does exactly that job, instead of dropping you into Settings to hunt for it.</p>
+            <h4>Recurring expense reminders, now on the phone app too</h4>
+            <p>Expenses marked recurring nudge you when they're due — weekly, monthly or yearly — with a "Recurring" badge on the row.</p>
           </div>
         </div>
 
         <div class="changelog-item">
-          <div class="changelog-item-icon">${getIcon('shield', 24)}</div>
+          <div class="changelog-item-icon">${getIcon('receipt', 24)}</div>
           <div class="changelog-item-text">
-            <h4>No more sign-in prompts on every open</h4>
-            <p>Your Google Drive session now survives reloads. The app never asks you to sign in on its own — only when you tap a sync or backup action yourself.</p>
+            <h4>Tap a shift to see its full details</h4>
+            <p>Net earnings, hourly rate, distance, per-platform and mileage breakdowns, notes and linked expenses — one tap away, like the phone app. Edit and delete are one tap from there.</p>
           </div>
         </div>
       </div>

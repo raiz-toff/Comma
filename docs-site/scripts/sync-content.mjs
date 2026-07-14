@@ -10,6 +10,14 @@
 //
 // It also vendors ../CHANGELOG.md to lib/changelog.md so the /changelog page
 // builds even when docs-site is deployed in isolation (no repo root available).
+//
+// HAND_AUTHORED pages below are the deliberate exception: their content/docs/*.mdx
+// is not derived from docs/*.md at all. It is vendored as-is from a file under
+// content/custom/ (which this script's `rm(OUT, ...)` never touches) because that
+// page's design intentionally broke from the "docs/*.md is the single source,
+// GitHub renders it as-is" contract — see AGENTS.md §4 and the FAQ page.
+// docs/getting-started/faq.md still exists and still renders on GitHub; it is
+// simply no longer what the live site's /docs/getting-started/faq page shows.
 
 import { promises as fs, existsSync } from 'node:fs';
 import path from 'node:path';
@@ -94,6 +102,11 @@ function escapeAngles(md) {
     })
     .join('');
 }
+
+// section/slug -> vendored file, copied verbatim instead of generated. See note above main().
+const HAND_AUTHORED = {
+  'getting-started/faq': path.resolve(__dirname, '../content/custom/faq.mdx'),
+};
 
 const GITHUB_BLOB = 'https://github.com/raiz-toff/Comma/blob/main';
 // Images must resolve to raw file bytes — a /blob/ URL serves an HTML page and
@@ -217,6 +230,12 @@ async function main() {
 
     const present = [];
     for (const slug of section.pages) {
+      const handAuthored = HAND_AUTHORED[`${section.dir}/${slug}`];
+      if (handAuthored) {
+        await writeFile(path.join(OUT, section.dir, `${slug}.mdx`), await fs.readFile(handAuthored, 'utf8'));
+        present.push(slug);
+        continue;
+      }
       const srcFile = path.join(inDir, `${slug}.md`);
       if (!existsSync(srcFile)) continue;
       const raw = stripEmoji(await fs.readFile(srcFile, 'utf8'));

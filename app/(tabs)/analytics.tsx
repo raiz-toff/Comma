@@ -31,6 +31,7 @@ import {
   getFinancialMonthlyBreakdown,
 } from "@/src/database/queries/analytics";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { DEMO_STRIP_HEIGHT } from "@/src/components/GlobalTopHeader";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
 import { useLayout } from "@/src/hooks/useLayout";
@@ -236,7 +237,7 @@ export default function AnalyticsScreen() {
   // depend on the feature flag.
   const { gridStyle, twoUpRow, twoUpItem } = useLayout();
   const insets = useSafeAreaInsets();
-  const { profile, isOnboardingCompleted, activePlatformFilter, activeVehicleFilter, setHeaderVisible, streakDays, bestStreak } = useSettingsStore();
+  const { profile, isOnboardingCompleted, activePlatformFilter, activeVehicleFilter, setHeaderVisible, streakDays, bestStreak, isDemoMode } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
   const isAnalyticsEnabled = useFeatureEnabled("analytics_advanced");
 
@@ -474,7 +475,7 @@ export default function AnalyticsScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={["bottom", "left", "right"]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[{ paddingBottom: 24, paddingTop: insets.top + 64 }, gridStyle]}
+        contentContainerStyle={[{ paddingBottom: 24, paddingTop: insets.top + 64 + (isDemoMode ? DEMO_STRIP_HEIGHT : 0) }, gridStyle]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >

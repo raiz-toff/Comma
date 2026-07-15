@@ -15,6 +15,7 @@ import { Text } from "@/src/components/ui/text";
 import { EmptyState } from "@/src/components/ui/EmptyState";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { DEMO_STRIP_HEIGHT } from "@/src/components/GlobalTopHeader";
 import { parseRoutePath } from "@/utils/polyline";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useLayout } from "@/src/hooks/useLayout";
@@ -291,7 +292,7 @@ export default function ShiftsScreen() {
   const insets = useSafeAreaInsets();
   const C = useColors();
   const styles = useThemedStyles(makeStyles);
-  const { activePlatformFilter, activeVehicleFilter, profile, setHeaderVisible } = useSettingsStore();
+  const { activePlatformFilter, activeVehicleFilter, profile, setHeaderVisible, isDemoMode } = useSettingsStore();
   const { platformColor, accentColor } = usePlatformTheme();
   const { gridStyle, dialogStyle } = useLayout();
 
@@ -604,7 +605,7 @@ export default function ShiftsScreen() {
           />
         )}
         ItemSeparatorComponent={ShiftSeparator}
-        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 64 }, gridStyle]}
+        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 64 + (isDemoMode ? DEMO_STRIP_HEIGHT : 0) }, gridStyle]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}

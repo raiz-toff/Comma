@@ -41,8 +41,8 @@ export async function mountAppearanceSettings(root) {
           <label class="input-group">
             <span class="input-label">Layout density</span>
             <select class="input" data-setting-density>
-              <option value="comfortable" ${!user.layoutDensity || user.layoutDensity === 'comfortable' ? 'selected' : ''}>Comfortable</option>
-              <option value="compact" ${user.layoutDensity === 'compact' ? 'selected' : ''}>Compact</option>
+              <option value="comfortable" ${user.layoutDensity === 'comfortable' ? 'selected' : ''}>Comfortable</option>
+              <option value="compact" ${!user.layoutDensity || user.layoutDensity === 'compact' ? 'selected' : ''}>Compact</option>
             </select>
           </label>
         </div>

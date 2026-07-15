@@ -63,16 +63,13 @@ Yes. Connect both to the **same Google Drive account** (Settings, then Data, the
 
 ### Is my cloud data encrypted?
 
-There are two modes:
+Always. Cloud Sync has one mode, and it's the private one: when you connect Google Drive you set a **backup password**, and Comma encrypts each file on your device before upload with AES-256-GCM, using a key derived from that password. The files sit in a private, app-only folder in your Drive that no other app can see, and not even someone with your Google login can read them.
 
-- **Default (no password).** Your sync files sit in a private, app-only folder in your Drive, reachable only through your Google account. Comma requests a scope that cannot touch anything else in your Drive, and anyone else would need your Google login to read them.
-- **End-to-end encryption (opt-in).** Turn this on under Advanced and Comma encrypts each file on your device before upload with AES-256-GCM, using a key derived from a password only you know. Not even someone with your Google login can read the files.
-
-If you enable end-to-end encryption and then **forget that password, the cloud copy is unrecoverable** — there is no reset by design. The data still on your original device is unaffected; you can turn encryption off there to re-upload it. See [Encryption](../backup-and-sync/encryption.md).
+You need that password on every device, and Comma cannot recover it. If you **forget it**, the cloud copy is unreadable — but the data still on your device was never encrypted with it, so on that device you use **Forgot your password?** to rebuild the cloud copy under a new password, keeping your local data. See [Encryption](../backup-and-sync/encryption.md).
 
 ### Does Comma track me or sell my data?
 
-No. Comma collects no analytics and no telemetry, and it has no server to send anything to. Your earnings, location, and expenses never leave your device unless you turn on Google Drive backup or sync, and with end-to-end encryption on, only you can read them.
+No. Comma collects no analytics and no telemetry, and it has no server to send anything to. Your earnings, location, and expenses never leave your device unless you turn on Google Drive sync — and when they do, they're end-to-end encrypted with your backup password, so only you can read them.
 
 ---
 
@@ -104,7 +101,7 @@ Yes. Use Log Past Shift and enter the times, earnings, and distance (leave dista
 
 ### Which countries does Comma support?
 
-Canada only, today. Comma loads Canadian mileage rates, HST/GST, CPP, and province presets. Definitions for the US, the UK, and Nepal are written into the source but are deliberately not enabled — Comma will not offer a country whose tax rules haven't been signed off — so you will not see them in the app.
+Canada only, today. Comma loads Canadian mileage rates, HST/GST, CPP, and province presets. Other countries were removed from the source until their tax rules can be verified — Comma will not offer a country whose numbers haven't been signed off.
 
 ### Are the tax numbers advice?
 

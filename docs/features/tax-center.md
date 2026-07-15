@@ -78,7 +78,7 @@ Export a tax summary as **JSON** or **CSV** to hand to an accountant or keep for
 
 ## A note on other countries
 
-Tax logic for the US and UK exists in the codebase but is **not enabled** in shipped builds. Comma ships for Canada only, and every number above uses CRA rules.
+Comma ships for Canada only, and every number above uses CRA rules. Definitions for other countries were removed until their tax numbers can be verified — see [Countries](../reference/countries.md).
 
 ---
 

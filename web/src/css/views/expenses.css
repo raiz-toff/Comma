@@ -471,6 +471,46 @@ ion-button.expenses-m-add svg {
   font-weight: 700;
   cursor: pointer;
 }
+
+/* Year stepper — moved OUT of a bottom footer (which sat below the fold on the sheet and was
+   untappable) into the always-visible header/subhead. Shared by the shifts week picker and the
+   expenses month picker. */
+.expenses-m-modal-headline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.expenses-m-modal-yearnav {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+.expenses-m-modal-yearnav .expenses-m-modal-yearlbl {
+  min-width: 3.2ch;
+  text-align: center;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.expenses-m-modal-yearbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+.expenses-m-modal-yearbtn.is-disabled {
+  opacity: 0.35;
+  cursor: default;
+}
 .expenses-m-modal-subhead {
   display: flex;
   align-items: center;
@@ -539,7 +579,11 @@ ion-button.expenses-m-add svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
   padding: var(--space-3) var(--space-4);
+  /* Lift the year-nav buttons clear of the home-indicator / bottom edge so they stay tappable
+     when the sheet's footer sits against the bottom of the screen. */
+  padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--color-border);
 }
 .expenses-m-modal-year {

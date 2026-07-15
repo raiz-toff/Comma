@@ -718,13 +718,18 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                 the chips up with the rest of the dialog — otherwise they sit alone at the far
                 left of a tablet while everything above and below them is centred — and leaves
                 the row free to scroll inside it. */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={dialogStyle}
-              contentContainerStyle={styles.presetRow}
-            >
-              {QUICK_PRESETS.map((p) => {
+            {/* The vertical padding lives on this wrapper, NOT on the horizontal ScrollView's
+                contentContainerStyle: a horizontal ScrollView doesn't reserve cross-axis
+                padding in its measured height, so paddingVertical there clipped the tops of
+                the chips. The wrapper gives the row guaranteed height; the scroller just holds
+                the chips. */}
+            <View style={[styles.presetWrap, dialogStyle]}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.presetRow}
+              >
+                {QUICK_PRESETS.map((p) => {
                 const active = periodMode === p.mode;
                 return (
                   <Pressable
@@ -744,7 +749,8 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                   </Pressable>
                 );
               })}
-            </ScrollView>
+              </ScrollView>
+            </View>
 
             {/* Table sub-header */}
             <View style={[styles.tableHeader, dialogStyle]}>
@@ -1181,11 +1187,14 @@ const makeStyles = (C: Palette) => StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: C.lineSubtle,
   },
+  presetWrap: {
+    paddingVertical: 12,
+  },
   presetRow: {
     flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     paddingHorizontal: 16,
-    paddingVertical: 12,
   },
   presetChip: {
     paddingHorizontal: 16,

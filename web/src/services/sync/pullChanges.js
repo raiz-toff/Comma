@@ -12,7 +12,7 @@
  * read).
  */
 
-import { getDeviceId, getAppliedLogs, getQuarantinedLogs } from './syncState.js';
+import { getDeviceId, getAppliedLogs, getQuarantinedLogs, getForgottenLogs } from './syncState.js';
 import { listAppDataFiles, downloadFile } from '../../modules/backup/drive-api.js';
 import { decodeChangeLog, parseSyncFilename } from './changeLog.js';
 import { isPassphraseError } from '../../modules/backup/cryptoEnvelope.js';
@@ -44,13 +44,16 @@ export async function pullChanges(passphrase) {
   const deviceId = getDeviceId();
   const applied = getAppliedLogs();
   const quarantined = getQuarantinedLogs();
+  const forgotten = getForgottenLogs();
   const files = await listChangeLogFiles();
 
   // Filter: not already applied AND not authored by me AND not quarantined (a log whose apply
-  // failed repeatedly — see syncState.js — must not wedge every newer log behind it). Pairing
-  // with the applied-set means my own just-pushed logs — already in the set — are skipped too.
+  // failed repeatedly — see syncState.js — must not wedge every newer log behind it) AND not
+  // explicitly forgotten (the user said they no longer have the password and chose to abandon
+  // it). Pairing with the applied-set means my own just-pushed logs — already in the set — are
+  // skipped too.
   const toFetch = files.filter((f) => {
-    if (applied.has(f.name) || quarantined.has(f.name)) return false;
+    if (applied.has(f.name) || quarantined.has(f.name) || forgotten.has(f.name)) return false;
     const parsed = parseSyncFilename(f.name);
     return parsed != null && parsed.deviceId !== deviceId;
   });
@@ -67,6 +70,7 @@ export async function pullChanges(passphrase) {
   // (that would let a single bad/encrypted file block every other device's data forever).
   const logs = [];
   const failed = [];
+  const passphraseLockedFiles = [];
   let needsPassphrase = false;
 
   for (const f of toFetch) {
@@ -79,6 +83,7 @@ export async function pullChanges(passphrase) {
       if (isPassphraseError(e)) {
         // Encrypted and we lack the key — recoverable, so DON'T quarantine. Ask the user.
         needsPassphrase = true;
+        passphraseLockedFiles.push(f.name);
         continue;
       }
       failed.push(f.name);
@@ -86,5 +91,5 @@ export async function pullChanges(passphrase) {
     }
   }
 
-  return { logs, needsPassphrase, failed };
+  return { logs, needsPassphrase, passphraseLockedFiles, failed };
 }

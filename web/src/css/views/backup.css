@@ -5,13 +5,24 @@
 .settings-backup-card {
   padding: 0 !important;
   overflow: hidden;
-  border-left: 4px solid var(--color-brand);
+  position: relative;
+}
+
+/* Brand accent as a clipped inset bar so it follows the card's rounded corners,
+   instead of a hard border-left that squares them off. */
+.settings-backup-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--color-brand);
 }
 
 .settings-backup-header {
-  padding: var(--space-4) var(--space-4) var(--space-2);
+  padding: var(--space-4) var(--space-4) var(--space-3);
   display: flex;
   flex-direction: column;
+  gap: 2px;
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -144,6 +155,19 @@ ion-modal.e2ee-modal .e2ee-takeover {
   inset: auto;
   z-index: auto;
   height: 100%;
+}
+
+/* Desktop (mouse): the modal is still a breakpoint sheet, but `height:100%` on this slotted
+ * div doesn't reliably resolve against Ionic's internal slot sizing (same issue documented for
+ * .comma-ion-sheet in components.css) — so the flex column isn't bounded and the pinned footer
+ * (the Continue / Save button) gets pushed off the bottom and clipped. Self-bound the takeover
+ * to a definite viewport-relative height so its body's overflow-y:auto engages and the footer
+ * stays in view. */
+@media (pointer: fine) {
+  ion-modal.e2ee-modal .e2ee-takeover {
+    height: auto;
+    max-height: min(85dvh, 720px);
+  }
 }
 
 .restore-loading ion-progress-bar {

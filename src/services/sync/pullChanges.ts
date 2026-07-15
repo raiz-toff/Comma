@@ -14,6 +14,7 @@ import {
   getDeviceId,
   getAppliedLogs,
   getQuarantinedLogs,
+  getForgottenLogs,
 } from "../../database/syncState";
 import { getValidAccessToken, fetchWithTimeout } from "../googleDrive";
 import { isPassphraseError } from "../cryptoEnvelope";
@@ -41,6 +42,9 @@ export interface PullResult {
    * good backup permanently invisible after 3 syncs.
    */
   needsPassphrase: boolean;
+  /** Filenames currently locked behind a password this device doesn't have. The "Forgot
+   *  password?" flow needs the exact names to abandon (see syncState's forgotten-logs). */
+  passphraseLockedFiles: string[];
   /** Filenames that failed to download/decode for any OTHER reason (corrupt, truncated…).
    *  These DO go through the quarantine counter. */
   failed: string[];
@@ -74,18 +78,21 @@ async function downloadFile(fileId: string): Promise<string> {
 export async function pullChanges(passphrase: string): Promise<PullResult> {
   // An EMPTY passphrase is legal — it's the default one-tap mode. Plain envelopes decode
   // with no key; genuinely encrypted files surface as `needsPassphrase` below.
-  const [deviceId, applied, quarantined] = await Promise.all([
+  const [deviceId, applied, quarantined, forgotten] = await Promise.all([
     getDeviceId(),
     getAppliedLogs(),
     getQuarantinedLogs(),
+    getForgottenLogs(),
   ]);
   const files = await listChangeLogFiles();
 
   // Filter: not already applied AND not authored by me AND not quarantined (a log whose
-  // apply failed repeatedly — see syncState — must not wedge every newer log behind it).
-  // Pairing with the applied-set means my own just-pushed logs are skipped here too.
+  // apply failed repeatedly — see syncState — must not wedge every newer log behind it)
+  // AND not explicitly forgotten (the user said they no longer have the password and chose
+  // to abandon it — see syncState's forgotten-logs). Pairing with the applied-set means my
+  // own just-pushed logs are skipped here too.
   const toFetch = files.filter((f) => {
-    if (applied.has(f.name) || quarantined.has(f.name)) return false;
+    if (applied.has(f.name) || quarantined.has(f.name) || forgotten.has(f.name)) return false;
     const parsed = parseSyncFilename(f.name);
     return parsed != null && parsed.deviceId !== deviceId;
   });
@@ -103,6 +110,7 @@ export async function pullChanges(passphrase: string): Promise<PullResult> {
   // (that would let a single bad/encrypted file block every other device's data forever).
   const logs: PulledLog[] = [];
   const failed: string[] = [];
+  const passphraseLockedFiles: string[] = [];
   let needsPassphrase = false;
 
   for (const f of toFetch) {
@@ -114,6 +122,7 @@ export async function pullChanges(passphrase: string): Promise<PullResult> {
       if (isPassphraseError(e)) {
         // Encrypted and we lack the key — recoverable, so DON'T quarantine. Ask the user.
         needsPassphrase = true;
+        passphraseLockedFiles.push(f.name);
         continue;
       }
       failed.push(f.name);
@@ -121,5 +130,5 @@ export async function pullChanges(passphrase: string): Promise<PullResult> {
     }
   }
 
-  return { logs, needsPassphrase, failed };
+  return { logs, needsPassphrase, passphraseLockedFiles, failed };
 }

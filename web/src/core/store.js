@@ -83,6 +83,27 @@ const state = {
 /** @type {Map<string, Set<(v: unknown, old: unknown) => void>>} */
 const subs = new Map();
 
+/**
+ * Structural equality for the small row arrays `refresh` re-reads (platforms, vehicles).
+ * Skipping an identical re-set avoids a redundant `notify` — e.g. the extra
+ * `refresh('platforms')` the PLATFORM_CHANGED handler fires on top of the explicit
+ * refresh a platform add/remove already did. Without it, a single add/remove re-rendered
+ * the switcher and every platform-filtered view a second time with identical data.
+ * @param {unknown} a
+ * @param {unknown} b
+ * @returns {boolean}
+ */
+function rowsEqual(a, b) {
+  if (a === b) return true;
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
 function notify(key, value, old) {
   const set = subs.get(key);
   if (!set) return;
@@ -412,12 +433,15 @@ export const store = {
         }
         case 'platforms': {
           const pl = await loadActivePlatforms();
-          this.set('platforms', pl);
+          // Skip the re-set (and its notify) when the active set is byte-identical —
+          // a platform add/remove refreshes 'platforms' twice (explicitly, then again
+          // via the PLATFORM_CHANGED handler below), and the second pass is redundant.
+          if (!rowsEqual(state.platforms, pl)) this.set('platforms', pl);
           break;
         }
         case 'vehicles': {
           const vl = await loadActiveVehicles();
-          this.set('vehicles', vl);
+          if (!rowsEqual(state.vehicles, vl)) this.set('vehicles', vl);
           break;
         }
         case 'activeShiftTimer': {

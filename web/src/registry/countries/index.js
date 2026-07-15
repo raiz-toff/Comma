@@ -4,17 +4,14 @@
  */
 
 import CA from './CA.country.js';
-// Written and deliberately UNREGISTERED — see COUNTRIES below. Kept imported so they stay one line
-// away from being switched on.
-import US from './US.country.js';
-import UK from './UK.country.js';
 
 /**
  * ── THE REGISTRY ─────────────────────────────────────────────────────────────
  * The one place that decides which countries this app ships. Mirror of the phone app's
  * COUNTRY_MAP — the two must agree (see scripts/check-country-parity.mjs).
  *
- * Canada only, for now. The app must not offer a country whose tax rules haven't been signed off.
+ * Canada only. Other countries (US, UK, NP, …) were removed pending accurate, signed-off tax
+ * and mileage research — the app must not offer a country whose numbers haven't been verified.
  *
  * TO ADD A COUNTRY:
  *   1. add it to COUNTRIES below (and register its provinces in ../provinces/)
@@ -24,8 +21,6 @@ import UK from './UK.country.js';
  * `if (country === 'CA')` switches to hunt down.
  */
 const COUNTRIES = [CA];
-void US;
-void UK;
 
 /** @type {Map<string, typeof CA>} */
 const byId = new Map(COUNTRIES.map((c) => [c.id, c]));

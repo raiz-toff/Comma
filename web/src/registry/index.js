@@ -19,9 +19,7 @@ export { ProvinceRegistry, assertProvinceRegistryValid } from './provinces/index
 
 export {
   WITHHOLDING_PRESETS_CA,
-  WITHHOLDING_PRESETS_US,
   getWithholdingPresetPct,
-  listUsWithholdingRegionCodes,
 } from './tax/withholding-presets.js';
 export { getMarketContext, resolveAvailablePlatformIds } from './market/resolve.js';
 

@@ -110,7 +110,7 @@ export function normalizeVehicleInput(input) {
 }
 
 /** @param {Record<string, unknown>} row */
-function vehicleLabel(row) {
+export function vehicleLabel(row) {
   const bits = [row.nickname || '', row.make || '', row.model || '', row.year || ''].filter(Boolean);
   return bits.join(' ').trim() || 'Vehicle';
 }
@@ -446,37 +446,74 @@ async function openVehicleEditor(initial = {}) {
       <label class="field"><span class="field-label">Make</span><input class="input" name="make" value="${esc(initial.make || '')}" /></label>
       <label class="field"><span class="field-label">Model</span><input class="input" name="model" value="${esc(initial.model || '')}" /></label>
       <label class="field"><span class="field-label">Year</span><input class="input" type="number" min="1990" max="2100" name="year" value="${esc(initial.year || '')}" /></label>
-      <label class="field"><span class="field-label">Fuel Type</span>
-        <select class="select" name="fuelType">
-          <option value="" ${!initial.fuelType ? 'selected' : ''}>Not set</option>
-          <option value="gas" ${String(initial.fuelType || '') === 'gas' ? 'selected' : ''}>Gas</option>
-          <option value="diesel" ${String(initial.fuelType || '') === 'diesel' ? 'selected' : ''}>Diesel</option>
-          <option value="electric" ${String(initial.fuelType || '') === 'electric' ? 'selected' : ''}>Electric</option>
-          <option value="hybrid" ${String(initial.fuelType || '') === 'hybrid' ? 'selected' : ''}>Hybrid</option>
-          <option value="other" ${String(initial.fuelType || '') === 'other' ? 'selected' : ''}>Other</option>
-        </select>
-      </label>
-      <label class="field"><span class="field-label">License Plate</span><input class="input" name="licensePlate" value="${esc(initial.licensePlate || '')}" /></label>
+
+      <!-- Fuel — only for combustion / hybrid vehicles -->
+      <div class="vehicles-form-group" data-vtypes="gas hybrid">
+        <p class="vehicles-form-grouphead">Fuel</p>
+        <label class="field"><span class="field-label">Fuel Type</span>
+          <select class="select" name="fuelType">
+            <option value="" ${!initial.fuelType ? 'selected' : ''}>Not set</option>
+            <option value="gas" ${String(initial.fuelType || '') === 'gas' ? 'selected' : ''}>Gas</option>
+            <option value="diesel" ${String(initial.fuelType || '') === 'diesel' ? 'selected' : ''}>Diesel</option>
+            <option value="electric" ${String(initial.fuelType || '') === 'electric' ? 'selected' : ''}>Electric</option>
+            <option value="hybrid" ${String(initial.fuelType || '') === 'hybrid' ? 'selected' : ''}>Hybrid</option>
+            <option value="other" ${String(initial.fuelType || '') === 'other' ? 'selected' : ''}>Other</option>
+          </select>
+        </label>
+        <label class="field"><span class="field-label">Fuel economy (L/100km)</span><input class="input" type="number" min="0" step="0.1" name="fuelEfficiency" value="${esc(initial.fuelEfficiency || '')}" /></label>
+        <label class="field"><span class="field-label">Fuel price (per L)</span><input class="input" type="number" min="0" step="0.01" name="currentFuelPrice" value="${esc(initial.currentFuelPrice || '')}" /></label>
+      </div>
+
+      <!-- Electric — only for EV / hybrid vehicles -->
+      <div class="vehicles-form-group" data-vtypes="ev hybrid">
+        <p class="vehicles-form-grouphead">Electric</p>
+        <label class="field"><span class="field-label">Energy use (kWh/100km)</span><input class="input" type="number" min="0" step="0.1" name="kwPer100km" value="${esc(initial.kwPer100km || '')}" /></label>
+        <label class="field"><span class="field-label">Electricity rate (per kWh)</span><input class="input" type="number" min="0" step="0.01" name="electricityRate" value="${esc(initial.electricityRate || '')}" /></label>
+      </div>
+
+      <!-- Usage & value — every vehicle -->
       <label class="field"><span class="field-label">Current Odometer (km)</span><input class="input" type="number" min="0" step="1" name="currentOdometer" value="${esc(initial.currentOdometer || 0)}" /></label>
-      <label class="field"><span class="field-label">Fuel L/100km</span><input class="input" type="number" min="0" step="0.1" name="fuelEfficiency" value="${esc(initial.fuelEfficiency || '')}" /></label>
-      <label class="field"><span class="field-label">kWh/100km</span><input class="input" type="number" min="0" step="0.1" name="kwPer100km" value="${esc(initial.kwPer100km || '')}" /></label>
-      <label class="field"><span class="field-label">Fuel or charge price</span><input class="input" type="number" min="0" step="0.01" name="currentFuelPrice" value="${esc(initial.currentFuelPrice || '')}" /></label>
-      <label class="field"><span class="field-label">Electricity rate</span><input class="input" type="number" min="0" step="0.01" name="electricityRate" value="${esc(initial.electricityRate || '')}" /></label>
       <label class="field"><span class="field-label">Estimated annual km</span><input class="input" type="number" min="1" step="1" name="estimatedAnnualKm" value="${esc(initial.estimatedAnnualKm || 20000)}" /></label>
       <label class="field"><span class="field-label">Purchase price</span><input class="input" type="number" min="0" step="0.01" name="purchasePrice" value="${esc(initial.purchasePrice || '')}" /></label>
       <label class="field"><span class="field-label">Expected lifespan (km)</span><input class="input" type="number" min="1" step="1" name="expectedLifespanKm" value="${esc(initial.expectedLifespanKm || '')}" /></label>
-      <label class="field"><span class="field-label">Insurance renewal date</span><input class="input" type="date" name="insuranceRenewalDate" value="${esc(initial.insuranceRenewalDate || '')}" /></label>
-      <label class="field"><span class="field-label">Insurance amount</span><input class="input" type="number" min="0" step="0.01" name="insuranceAmount" value="${esc(initial.insuranceAmount || '')}" /></label>
-      <label class="field"><span class="field-label">Registration renewal date</span><input class="input" type="date" name="registrationRenewalDate" value="${esc(initial.registrationRenewalDate || '')}" /></label>
-      <label class="field"><span class="field-label">Registration amount</span><input class="input" type="number" min="0" step="0.01" name="registrationAmount" value="${esc(initial.registrationAmount || '')}" /></label>
-      <label class="field"><span class="field-label">Oil change interval (km)</span><input class="input" type="number" min="0" step="100" name="oilChangeIntervalKm" value="${esc(initial.oilChangeIntervalKm || 8000)}" /></label>
-      <label class="field"><span class="field-label">Last oil change odometer (km)</span><input class="input" type="number" min="0" step="1" name="lastOilChangeOdometerKm" value="${esc(initial.lastOilChangeOdometerKm || 0)}" /></label>
-      <label class="field"><span class="field-label">Current tire tread (mm)</span><input class="input" type="number" min="0" step="0.1" name="tireTreadMm" value="${esc(initial.tireTreadMm || 7)}" /></label>
-      <label class="field"><span class="field-label">Minimum tire tread (mm)</span><input class="input" type="number" min="0" step="0.1" name="tireTreadMinMm" value="${esc(initial.tireTreadMinMm || 3)}" /></label>
+
+      <!-- Registration & insurance — motor vehicles only (not bicycles) -->
+      <div class="vehicles-form-group" data-vtypes="gas ev hybrid">
+        <p class="vehicles-form-grouphead">Registration &amp; insurance</p>
+        <label class="field"><span class="field-label">License Plate</span><input class="input" name="licensePlate" value="${esc(initial.licensePlate || '')}" /></label>
+        <label class="field"><span class="field-label">Insurance renewal date</span><input class="input" type="date" name="insuranceRenewalDate" value="${esc(initial.insuranceRenewalDate || '')}" /></label>
+        <label class="field"><span class="field-label">Insurance amount</span><input class="input" type="number" min="0" step="0.01" name="insuranceAmount" value="${esc(initial.insuranceAmount || '')}" /></label>
+        <label class="field"><span class="field-label">Registration renewal date</span><input class="input" type="date" name="registrationRenewalDate" value="${esc(initial.registrationRenewalDate || '')}" /></label>
+        <label class="field"><span class="field-label">Registration amount</span><input class="input" type="number" min="0" step="0.01" name="registrationAmount" value="${esc(initial.registrationAmount || '')}" /></label>
+      </div>
+
+      <!-- Upkeep — motor vehicles; oil is combustion-only -->
+      <div class="vehicles-form-group" data-vtypes="gas ev hybrid">
+        <p class="vehicles-form-grouphead">Upkeep</p>
+        <label class="field" data-vtypes="gas hybrid"><span class="field-label">Oil change interval (km)</span><input class="input" type="number" min="0" step="100" name="oilChangeIntervalKm" value="${esc(initial.oilChangeIntervalKm || 8000)}" /></label>
+        <label class="field" data-vtypes="gas hybrid"><span class="field-label">Last oil change odometer (km)</span><input class="input" type="number" min="0" step="1" name="lastOilChangeOdometerKm" value="${esc(initial.lastOilChangeOdometerKm || 0)}" /></label>
+        <label class="field"><span class="field-label">Current tire tread (mm)</span><input class="input" type="number" min="0" step="0.1" name="tireTreadMm" value="${esc(initial.tireTreadMm || 7)}" /></label>
+        <label class="field"><span class="field-label">Minimum tire tread (mm)</span><input class="input" type="number" min="0" step="0.1" name="tireTreadMinMm" value="${esc(initial.tireTreadMinMm || 3)}" /></label>
+      </div>
     </form>
   `;
   const form = /** @type {HTMLFormElement | null} */ (wrap.querySelector('form'));
   if (!form) return null;
+
+  // Dynamic form: show only the fields that make sense for the chosen vehicle type.
+  // A bike drops fuel/electric/registration/upkeep entirely; a Fuel car hides the EV
+  // fields (and vice-versa); a hybrid shows both. Elements carry a `data-vtypes` list of
+  // the types they apply to; anything without one is always shown.
+  const typeSelect = /** @type {HTMLSelectElement | null} */ (form.querySelector('select[name="type"]'));
+  const applyTypeVisibility = () => {
+    const type = String(typeSelect?.value || 'gas');
+    form.querySelectorAll('[data-vtypes]').forEach((el) => {
+      const list = String(el.getAttribute('data-vtypes') || '').split(/\s+/).filter(Boolean);
+      /** @type {HTMLElement} */ (el).hidden = list.length > 0 && !list.includes(type);
+    });
+  };
+  typeSelect?.addEventListener('change', applyTypeVisibility);
+  applyTypeVisibility();
   return new Promise((resolve) => {
     const handle = showModal({
       title: initial.id ? t('vehicles.edit') : t('vehicles.add'),

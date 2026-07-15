@@ -29,6 +29,14 @@ import { blendColors, usePlatformTheme } from "../hooks/usePlatformTheme";
 import { Bell, Menu, ChevronDown, ChevronUp } from "lucide-react-native";
 import Svg, { Path, Circle, Rect } from "react-native-svg";
 
+/**
+ * Extra vertical space the Demo Mode strip adds at the top of the header (strip height + its
+ * bottom margin). The header folds this into its scroll-hide distance, and every tab screen
+ * adds it to its own header-clearance padding ONLY when demo mode is on — so the non-demo
+ * layout is untouched and, in demo mode, the first row isn't hidden behind the taller header.
+ */
+export const DEMO_STRIP_HEIGHT = 34;
+
 // ── Platform SVG logos (exact PWA brand assets) ────────────────────────────
 export const PLATFORM_LOGO_IDS = new Set(
   Object.values(PLATFORM_REGISTRY)
@@ -68,6 +76,7 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
     dbPlatforms,
   } = useSettingsStore();
   const unreadCount = useSettingsStore((s) => s.notifications.filter((n) => !n.read).length);
+  const isDemoMode = useSettingsStore((s) => s.isDemoMode);
   // Vehicle selection colour follows whichever platform is filtered — same value that already
   // colours the platform pills, falling back to the driver's own accent when "all" is selected.
   const { platformColor: vehiclePillColor } = usePlatformTheme();
@@ -83,9 +92,13 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
     }).start();
   }, [isHeaderVisible]);
 
+  // The demo strip (when shown) sits above the header row, so the header is taller by its
+  // height + margin; fold that into the hide distance so a scroll-away leaves no amber sliver.
+  // Tab screens add the SAME constant to their top clearance in demo mode (see DEMO_STRIP_HEIGHT)
+  // so their first row isn't hidden behind the taller header.
   const headerTranslateY = headerVisibleAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [-(56 + Math.max(insets.top, 8) + 16), 0],
+    outputRange: [-(56 + Math.max(insets.top, 8) + 16 + (isDemoMode ? DEMO_STRIP_HEIGHT : 0)), 0],
   });
 
   const { data: vehiclesList = [] } = useQuery({
@@ -368,6 +381,28 @@ export default function GlobalTopHeader({ onMenuPress, onNotificationsPress }: G
 
   return (
     <Animated.View style={[styles.container, { paddingTop: Math.max(insets.top, 8), transform: [{ translateY: headerTranslateY }] }]} pointerEvents={isTaxTab ? "box-none" : "auto"}>
+      {/* ── Demo strip ── slim caution row above the filter row (in-flow, so it never overlaps
+          the switcher the way the old floating pill did). Laid out inside the header, so it
+          scrolls away with it and reappears on scroll-up. */}
+      {isDemoMode && (
+        <View
+          style={[styles.demoStrip, gridStyle, { backgroundColor: withAlpha(C.warning, 0.16), borderColor: withAlpha(C.warning, 0.32) }]}
+        >
+          <Text style={[styles.demoStripText, { color: C.contentPrimary }]} numberOfLines={1}>
+            Demo Mode — sample data
+          </Text>
+          <Pressable
+            onPress={() => router.push("/settings")}
+            accessibilityRole="button"
+            accessibilityLabel="Exit Demo Mode"
+            hitSlop={8}
+            style={[styles.demoStripExit, { borderColor: withAlpha(C.warning, 0.45) }]}
+          >
+            <Text style={[styles.demoStripExitText, { color: blendColors(C.warning, C.contentPrimary) }]}>Exit</Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* ── Backdrop for closing switcher when clicked outside ── */}
       {showDropdown && (
         <Reanimated.View style={[styles.backdropOverlay, backdropAnimatedStyle]}>
@@ -704,6 +739,27 @@ const makeStyles = (C: Palette) => StyleSheet.create({
     marginTop: 8,
     zIndex: 110,
   },
+  demoStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    zIndex: 110,
+  },
+  demoStripText: { fontSize: 11, fontWeight: "700", flexShrink: 1 },
+  demoStripExit: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  demoStripExitText: { fontSize: 11, fontWeight: "800" },
 
   // Hamburger button
   hamburgerBtn: {

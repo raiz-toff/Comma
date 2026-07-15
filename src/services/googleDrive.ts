@@ -15,6 +15,7 @@ import {
   vehicleTaxProfiles,
 } from "../database/schema";
 import { encryptBackup, decryptBackup } from "./cryptoHelper";
+import { clearBackupPassword } from "./backupPassword";
 import { GOOGLE_WEB_CLIENT_ID } from "../config/google";
 
 let GoogleSignin: any = null;
@@ -78,6 +79,49 @@ export async function getTokens(): Promise<GoogleTokens | null> {
   }
 }
 
+/** Delete the stored Google Drive OAuth tokens on this device. */
+export async function clearTokens(): Promise<void> {
+  if (isWeb) {
+    localStorage.removeItem("comma_gdrive_tokens");
+    return;
+  }
+  await SecureStore.deleteItemAsync("comma_gdrive_tokens");
+}
+
+/** Delete the cached backup encryption key on this device. */
+export async function clearEncryptionKey(): Promise<void> {
+  if (isWeb) {
+    localStorage.removeItem(ENCRYPTION_KEY_STORE_KEY);
+    return;
+  }
+  await SecureStore.deleteItemAsync(ENCRYPTION_KEY_STORE_KEY);
+}
+
+/**
+ * Clear every device-local auth/crypto secret so a wiped device ("Reset app")
+ * starts fully disconnected. SecureStore survives a SQLite/settings wipe, so
+ * without this the next account silently inherits the previous Google session and
+ * sync password (issue #12). Clears: Google Drive OAuth tokens, the cached backup
+ * encryption key, the sync/backup password, and — on native — the live GoogleSignin
+ * session (so the account isn't just re-handed back on next sign-in).
+ *
+ * Web's resetVault already does localStorage.clear(); this makes the same guarantee
+ * explicit and keeps the native path (its only real gap) covered from one call site.
+ */
+export async function clearDeviceAuthSecrets(): Promise<void> {
+  await clearTokens();
+  await clearEncryptionKey();
+  await clearBackupPassword();
+
+  if (!isWeb && GoogleSignin) {
+    try {
+      await GoogleSignin.signOut();
+    } catch {
+      // No live session to sign out of — clearing the keystore is what matters.
+    }
+  }
+}
+
 let refreshInFlight: Promise<string> | null = null;
 
 export async function refreshGoogleToken(refreshToken: string): Promise<string> {
@@ -113,13 +157,24 @@ export async function refreshGoogleToken(refreshToken: string): Promise<string> 
   return refreshInFlight;
 }
 
-export async function getValidAccessToken(): Promise<string> {
+export async function getValidAccessToken(forceRefresh = false): Promise<string> {
   const tokens = await getTokens();
   if (!tokens) throw new Error("Google Drive is not authenticated.");
 
   // Native: GoogleSignin owns the token lifecycle and refreshes silently.
   if (!isWeb && GoogleSignin) {
     try {
+      if (forceRefresh) {
+        // Drive just rejected the last token (401). GoogleSignin.getTokens() can hand back a
+        // still-cached, already-expired access token, so drop it from the SDK cache first —
+        // then getTokens() is forced to mint a genuinely fresh one.
+        try {
+          const cached = await GoogleSignin.getTokens();
+          if (cached?.accessToken) await GoogleSignin.clearCachedAccessToken(cached.accessToken);
+        } catch {
+          /* nothing cached to clear */
+        }
+      }
       const nativeTokens = await GoogleSignin.getTokens();
       return nativeTokens.accessToken;
     } catch (e) {

@@ -164,7 +164,7 @@ function getMonthsDifference(ymd1: string, ymd2: string): number {
 }
 
 /** Returns ISO string for next Monday at midnight local time */
-function getNextMondayIso(): string {
+export function getNextMondayIso(): string {
   const now = new Date();
   const day = now.getDay(); // 0=Sun … 6=Sat
   const daysUntil = (8 - day) % 7 || 7; // Mon=7, Tue=6, …, Sun=1

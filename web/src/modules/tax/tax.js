@@ -10,14 +10,12 @@ import { getAllTaxDeadlines, getLocaleConfig } from '../../utils/locale.js';
 import { getCountryTaxProfile } from '../../registry/countries/index.js';
 import { getVehicleMileageEligibility } from '../../registry/countries/mileageRates.js';
 import { getEffectiveMileageRate, calculateMileageWriteOff, upsertTaxProfile } from '../vehicles/taxProfiles.js';
-import { WITHHOLDING_PRESETS_CA, WITHHOLDING_PRESETS_US } from '../../registry/tax/withholding-presets.js';
-import { ProvinceRegistry } from '../../registry/provinces/index.js';
+import { WITHHOLDING_PRESETS_CA } from '../../registry/tax/withholding-presets.js';
 import { t } from '../../utils/strings.js';
 import { showToast } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
 
 const DEFAULT_CA_REGION = 'ON';
-const DEFAULT_US_REGION = 'CA';
 const TAX_VIRTUAL_JAR_KEY = 'tax_virtual_jar';
 
 function num(v, fallback = 0) {
@@ -129,17 +127,6 @@ function buildRegionOptions(taxProfile) {
     const map = WITHHOLDING_PRESETS_CA;
     return Object.entries(map).map(([code, rate]) => ({ code, rate }));
   }
-  if (taxProfile.regionPresetType === 'US') {
-    const provs = ProvinceRegistry.getByCountry('US');
-    return provs
-      .map((p) => {
-        const code = p.id;
-        const rate = WITHHOLDING_PRESETS_US[code];
-        return Number.isFinite(rate) ? { code, rate } : null;
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.code.localeCompare(b.code));
-  }
   return [];
 }
 
@@ -147,7 +134,7 @@ function buildRegionOptions(taxProfile) {
  * @param {ReturnType<typeof getCountryTaxProfile>} taxProfile
  */
 function defaultRegionCode(taxProfile) {
-  return taxProfile.defaultRegionCode || (taxProfile.regionPresetType === 'CA' ? DEFAULT_CA_REGION : DEFAULT_US_REGION);
+  return taxProfile.defaultRegionCode || DEFAULT_CA_REGION;
 }
 
 /**
@@ -155,14 +142,6 @@ function defaultRegionCode(taxProfile) {
  */
 function getTaxRatePresets(taxProfile) {
   if (taxProfile.regionPresetType === 'CA') return WITHHOLDING_PRESETS_CA;
-  if (taxProfile.regionPresetType === 'US') {
-    const out = /** @type {Record<string, number>} */ ({});
-    for (const p of ProvinceRegistry.getByCountry('US')) {
-      const v = WITHHOLDING_PRESETS_US[p.id];
-      if (Number.isFinite(v)) out[p.id] = v;
-    }
-    return out;
-  }
   return /** @type {Record<string, number>} */ ({});
 }
 

@@ -24,7 +24,7 @@
  * next sync push.
  */
 
-import { db, backfillMobileShapeKeys } from '../../core/db.js';
+import { db, backfillMobileShapeKeys, setAppState } from '../../core/db.js';
 import { newId } from '../../core/id.js';
 import { showModal, showConfirm } from '../../ui/components.js';
 import { t } from '../../utils/strings.js';
@@ -303,6 +303,11 @@ async function importLegacyVault(data) {
   // Mobile-shape keys + sync-stamp backfill + push-cursor rewind — the imported data must
   // reach the phone on the next sync.
   await backfillMobileShapeKeys();
+
+  // appState is preserved wholesale above (this device's own cursors/schema_version survive),
+  // but demo_mode must never survive an import — real data just replaced whatever was here.
+  // See vault-serializer.js's deserializeVault for the non-legacy path's identical fix.
+  await setAppState('demo_mode', false);
 
   return { success: true, counts, skipped };
 }

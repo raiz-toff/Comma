@@ -51,7 +51,7 @@ export function updateAccentColor(hexOverride) {
   const override = (typeof hexOverride === 'string' && hexOverride.startsWith('#')) ? hexOverride : null;
   
   // Default/User accent
-  let targetHex = override || user?.accentColor || '#10b981';
+  let targetHex = override || user?.accentColor || '#f97316';
   
   // Adaptive Logic:
   if (!override && platforms.length > 1 && activeId !== 'all') {

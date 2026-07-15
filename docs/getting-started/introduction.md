@@ -49,7 +49,7 @@ The trade-off is real and worth stating plainly: **if you lose the device and ha
 
 Comma ships for **Canada** today. Your country sets your currency, distance unit, tax rules, mileage rate, and which delivery apps you're offered.
 
-Definitions for the United States, the United Kingdom, and Nepal are written and sitting in the codebase, but are deliberately switched off: shipping tax rules nobody has checked would be worse than shipping none. Turning a country on is a single file per platform — see [Contributing](../development/contributing.md).
+Other countries were removed from the codebase until their tax and mileage numbers can be verified: shipping tax rules nobody has checked would be worse than shipping none. Adding one means writing a fresh country definition, using Canada as the template — see [Contributing](../development/contributing.md).
 
 Delivery platforms available in Canada: **DoorDash, Uber Eats, SkipTheDishes, Foodora, Instacart, Amazon Flex** — plus a catch-all *Other*, and any custom platform you define yourself.
 

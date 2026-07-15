@@ -283,17 +283,23 @@ export async function render(root, ctx) {
         <ion-segment-button value="1"><ion-label>Progress</ion-label></ion-segment-button>
       </ion-segment>
 
-      <div class="gv-panel is-active" data-panel="0">
-        ${heroHtml}
-        ${goalsListHtml}
-      </div>
+      <!-- Mobile: only the .is-active panel shows (tab switch). Desktop (>=1024px):
+           the tab bar is hidden and .gv-panels becomes a two-column grid showing both. -->
+      <div class="gv-panels">
+        <div class="gv-panel is-active" data-panel="0">
+          <h2 class="gv-col-title">Goals</h2>
+          ${heroHtml}
+          ${goalsListHtml}
+        </div>
 
-      <div class="gv-panel" data-panel="1">
-        ${xpHtml}
-        ${streakHtml}
-        ${challengesHtml}
-        ${badgesHtml}
-        ${bestHtml}
+        <div class="gv-panel" data-panel="1">
+          <h2 class="gv-col-title">Progress</h2>
+          ${xpHtml}
+          ${streakHtml}
+          ${challengesHtml}
+          ${badgesHtml}
+          ${bestHtml}
+        </div>
       </div>
     </div>
   `;

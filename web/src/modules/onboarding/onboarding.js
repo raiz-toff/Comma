@@ -23,11 +23,13 @@ import { ProvinceRegistry } from '../../registry/provinces/index.js';
 import { getDefaultSamplePlatformId } from '../../registry/platforms/index.js';
 import { showConfirm, showToast, showModal } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
-import { requestToken, isDriveConnected, getAccessToken } from '../backup/drive-auth.js';
+import { requestToken, isDriveConnected, getAccessToken, disconnectDrive } from '../backup/drive-auth.js';
 import { listAvailableBackups, runRestore } from '../backup/restore-engine.js';
-import { setBackupPassword, clearBackupPassword } from '../../services/sync/backupPassword.js';
-import { setSyncEnabled, resetLogFailures } from '../../services/sync/syncState.js';
+import { getBackupPassword, setBackupPassword } from '../../services/sync/backupPassword.js';
+import { setSyncEnabled, setLastPushedAt } from '../../services/sync/syncState.js';
 import { promptEncryptionPassword } from '../backup/backup-ui.js';
+import { showSetBackupPassword } from '../backup/backup-password-setup.js';
+import { readManifest, verifyPassword } from '../../services/sync/vaultManifest.js';
 import { syncNow } from '../../services/sync/syncNow.js';
 import { importVaultFile } from '../backup/vault-import.js';
 import { runOnOpenNotificationCheck } from '../notifications/notifications.js';
@@ -124,7 +126,7 @@ function handleRestoreSync() {
 /**
  * "Google Sync" flow: connect Drive with the SAME Google account as the phone
  * → run the first full sync → adopt the synced profile and mark onboarding complete.
- * Password is no longer required — Drive connection + Google Account security is sufficient.
+ * Sync always encrypts — this device sets or enters a backup password as part of joining.
  */
 async function handleJoinSync() {
   let unsubOk = null;
@@ -141,7 +143,7 @@ async function handleJoinSync() {
     content: `
       <p class="text-secondary" style="margin:0 0 var(--space-3)">
         Connect the <strong>same Google account</strong> you use in the Comma app.
-        Your records will sync into this browser and stay in sync both ways — no password needed.
+        Your records will sync into this browser and stay in sync both ways.
       </p>
       <button type="button" class="btn btn-primary" data-join-connect style="width:100%">
         ${getIcon('google-drive', 18)} <span data-join-connect-label>Connect Google Drive</span>
@@ -149,7 +151,10 @@ async function handleJoinSync() {
       <button type="button" class="btn btn-primary" data-join-start style="width:100%;margin-top:var(--space-3)" disabled>
         Start syncing
       </button>
-      <p class="text-xs text-secondary" data-join-status style="margin-top:var(--space-2);min-height:1em"></p>
+      <button type="button" class="text-xs text-secondary" data-join-switch hidden style="margin-top:var(--space-2);background:none;border:none;padding:0;text-decoration:underline;cursor:pointer;align-self:center;display:none;">
+        Use a different Google account
+      </button>
+      <p class="join-status" data-join-status></p>
     `,
     size: 'sm',
     actions: [],
@@ -160,61 +165,112 @@ async function handleJoinSync() {
   const connectBtn = root.querySelector('[data-join-connect]');
   const connectLabel = root.querySelector('[data-join-connect-label]');
   const startBtn = root.querySelector('[data-join-start]');
+  const switchBtn = root.querySelector('[data-join-switch]');
   const statusEl = root.querySelector('[data-join-status]');
 
-  const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg; };
+  /** @param {string} msg @param {'info'|'error'} [kind] */
+  const setStatus = (msg, kind = 'info') => {
+    if (!statusEl) return;
+    statusEl.classList.toggle('join-status--error', kind === 'error' && !!msg);
+    statusEl.textContent = kind === 'error' && msg ? `⚠ ${msg}` : msg;
+  };
   const markConnected = () => {
     if (connectLabel) connectLabel.textContent = 'Google Drive connected ✓';
     connectBtn?.setAttribute('disabled', 'true');
     startBtn?.removeAttribute('disabled');
+    if (switchBtn) switchBtn.style.display = 'inline';
+    setStatus('');
+  };
+  const markDisconnected = () => {
+    if (connectLabel) connectLabel.textContent = 'Connect Google Drive';
+    connectBtn?.removeAttribute('disabled');
+    startBtn?.setAttribute('disabled', 'true');
+    if (switchBtn) switchBtn.style.display = 'none';
     setStatus('');
   };
 
   if (getAccessToken()) markConnected();
 
   unsubOk = bus.on('drive:auth_success', markConnected);
-  unsubFail = bus.on('drive:auth_failed', () => setStatus('Google sign-in failed — try again.'));
+  unsubFail = bus.on('drive:auth_failed', () => setStatus('Google sign-in failed — try again.', 'error'));
 
   connectBtn?.addEventListener('click', () => {
     setStatus('Waiting for Google sign-in…');
     requestToken();
   });
 
-  startBtn?.addEventListener('click', async () => {
+  // Let the user switch accounts without clearing browser data: drop the cached Drive token
+  // (revokes it too) and re-open the connect flow, which asks with prompt:'select_account'.
+  switchBtn?.addEventListener('click', () => {
+    // Drop the cached Drive token (revokes it too) and re-open the connect flow — which asks
+    // with prompt:'select_account', so the user can pick a different account. Any stored
+    // backup password is left alone: the join flow reads the new account's manifest and
+    // prompts for the right password fresh, overwriting it on success.
+    disconnectDrive();
+    markDisconnected();
+    setStatus('Waiting for Google sign-in…');
+    requestToken();
+  });
+
+    startBtn?.addEventListener('click', async () => {
     startBtn.setAttribute('disabled', 'true');
-    setStatus('Syncing your data…');
+    setStatus('Checking your backup…');
     setSyncEnabled(true);
     try {
-      // Default one-tap mode needs no password — the engine reads plain envelopes with an
-      // empty key. But if the OTHER device turned E2E encryption ON, its files are encrypted
-      // and we must ask for that password (syncNow reports needsPassphrase) — otherwise the
-      // join silently pulls nothing and looks like "no data found".
-      let res = await syncNow('');
+      // The manifest is the account's single source of truth for whether a vault (and which
+      // password) already exists — so we consult it BEFORE deciding "enter" vs "set". Without
+      // it, a vault that has a manifest but no data yet is indistinguishable from a brand-new
+      // account, and we'd wrongly ask the joiner to set a fresh password (forking it).
+      const { ref } = await readManifest();
 
-      if (res.needsPassphrase) {
-        setStatus('Your other device is end-to-end encrypted — enter its password.');
-        const pw = await promptEncryptionPassword('enter');
+      if (ref) {
+        // A vault exists on this Google account. Enter ITS password — verify against the
+        // manifest so a typo is caught here, cleanly, instead of forking or half-enabling.
+        let pw = await promptEncryptionPassword();
+        while (pw && !(await verifyPassword(pw, ref.manifest))) {
+          setStatus("That's not the password for this backup — try again.", 'error');
+          pw = await promptEncryptionPassword();
+        }
         if (!pw) {
           setSyncEnabled(false);
-          setStatus('Encryption password needed to sync from that device.');
+          setStatus('The backup password is needed to sync from that device.', 'error');
           startBtn.removeAttribute('disabled');
           return;
         }
         setBackupPassword(pw);
-        res = await syncNow(pw);
-        if (res.needsPassphrase || res.pulledLogs === 0) {
-          // Still can't read it → wrong password. Undo so a typo can't leave sync half-on.
+      } else {
+        // No vault yet — this browser is starting one. Full-screen set-password flow (the
+        // "save this, we can't recover it" warning needs to land). syncNow below mints the
+        // manifest and pushes this browser's state under the new password.
+        const pw = await showSetBackupPassword();
+        if (!pw) {
           setSyncEnabled(false);
-          clearBackupPassword();
-          resetLogFailures();
-          setStatus("That password didn't decrypt your data — make sure it matches your other device.");
+          setStatus('A backup password is needed to start syncing.', 'error');
           startBtn.removeAttribute('disabled');
           return;
         }
+        setBackupPassword(pw);
+        setLastPushedAt(0); // re-upload this browser's full state encrypted on the next push
       }
 
-      if (res.pulledLogs === 0) {
-        setStatus('No synced data found yet. On your phone: Settings → Cloud Sync → Sync now, then press "Start syncing" again.');
+      setStatus('Syncing your data…');
+      let res = await syncNow(getBackupPassword() ?? '');
+
+      if (ref && res.needsPassphrase) {
+        // The password opened the vault manifest, but the data files already on Drive won't
+        // decrypt with it — they were written under a DIFFERENT password. That's a real
+        // mismatch (not "no data yet"), so say so and point at the fix instead of the
+        // misleading "your other device hasn't backed up" nudge.
+        setSyncEnabled(false);
+        setStatus("This password opened your backup, but the data already synced was saved under a different password and can't be read. Re-sync from that device after matching the password there, or reset the cloud backup to start clean.", 'error');
+        startBtn.removeAttribute('disabled');
+        return;
+      }
+
+      if (ref && res.pulledLogs === 0 && res.appliedRows === 0) {
+        // Vault + password are fine, but nothing came down — the other device genuinely
+        // hasn't pushed data yet (or isn't signed into this same Google account).
+        setStatus('Connected — but no backup from your other device arrived. On it: Settings → Cloud Sync → Sync now, then press "Start syncing" again — and make sure it\'s the same Google account.', 'error');
         startBtn.removeAttribute('disabled');
         return;
       }
@@ -225,13 +281,18 @@ async function handleJoinSync() {
         platforms: active.map((p) => p.id),
         primaryPlatform: active[0]?.id || null,
       });
-      showToast({ type: 'success', message: `Synced ✓ ${res.appliedRows} records from your other device.` });
+      showToast({
+        type: 'success',
+        message: ref
+          ? `Synced ✓ ${res.appliedRows} records from your other device.`
+          : 'Cloud Sync is on ✓ This device now backs up to your Google Drive.',
+      });
       cleanup();
       modal.close();
       setTimeout(() => window.location.reload(), 800);
     } catch (err) {
       setSyncEnabled(false);
-      setStatus(err?.message || 'Sync failed — check your connection and try again.');
+      setStatus(err?.message || 'Sync failed — check your connection and try again.', 'error');
       startBtn.removeAttribute('disabled');
     }
   });
@@ -353,10 +414,15 @@ export async function loadSampleData() {
   // across shifts in the same car/scooter/ebike order the route mini-map already uses via
   // demoVehicleTypeForIndex, so the vehicle filter has real subset/one options to show off.
   const demoVehicleIds = ['demo_vehicle_car', 'demo_vehicle_scooter', 'demo_vehicle_ebike'];
-  // Mirrors mobile's `await db.delete(vehicles)` before inserting demo vehicles — loadSampleData
-  // can run more than once (repeat "Try Demo" clicks, the Settings "load sample" button), and a
-  // second bulkAdd with the same fixed ids would throw a Dexie ConstraintError otherwise.
-  await db.vehicles.clear();
+  // Mirrors mobile's `db.delete(vehicles).where(eq(vehicles.isDemo, true))` before inserting demo
+  // vehicles — loadSampleData can run more than once (repeat "Try Demo" clicks, the Settings "load
+  // sample" button), and a second bulkAdd with the same fixed ids would throw a Dexie
+  // ConstraintError otherwise. Filtered by `isDemo` (not a blanket `.clear()`) so a real vehicle
+  // can never be wiped out by this.
+  const priorDemoVehicles = await db.vehicles.filter((v) => v.isDemo === true).toArray();
+  for (const v of priorDemoVehicles) {
+    if (v.id != null) await db.vehicles.delete(v.id);
+  }
   // Web's `active` is an archive/soft-delete flag (listVehicles() and loadActiveVehicles() both
   // drop active:false rows from every screen, including this switcher) — NOT mobile's `isActive`,
   // which just marks the currently-preferred vehicle and never hides anything. All 3 demo vehicles
@@ -368,7 +434,7 @@ export async function loadSampleData() {
       isActive: true, active: true, type: 'hybrid', make: 'Toyota', model: 'Prius', year: 2020,
       color: '', fuelType: null, licensePlate: '', currentOdometer: 0, fuelEfficiency: null,
       currentFuelPrice: null, kwPer100km: null, electricityRate: null, maintenanceCostPerKm: null,
-      purchasePrice: null, expectedLifespanKm: null, totalKmLogged: 0,
+      purchasePrice: null, expectedLifespanKm: null, totalKmLogged: 0, isDemo: true,
       createdAt: t0, updatedAt: t0, syncUpdatedAt: Date.now(), syncDeletedAt: null,
     },
     {
@@ -376,7 +442,7 @@ export async function loadSampleData() {
       isActive: false, active: true, type: 'scooter', make: 'Honda', model: 'Ruckus', year: 2022,
       color: '', fuelType: null, licensePlate: '', currentOdometer: 0, fuelEfficiency: null,
       currentFuelPrice: null, kwPer100km: null, electricityRate: null, maintenanceCostPerKm: null,
-      purchasePrice: null, expectedLifespanKm: null, totalKmLogged: 0,
+      purchasePrice: null, expectedLifespanKm: null, totalKmLogged: 0, isDemo: true,
       createdAt: t0, updatedAt: t0, syncUpdatedAt: Date.now(), syncDeletedAt: null,
     },
     {
@@ -384,7 +450,7 @@ export async function loadSampleData() {
       isActive: false, active: true, type: 'ebike', make: 'Rad Power', model: 'RadCity', year: 2023,
       color: '', fuelType: null, licensePlate: '', currentOdometer: 0, fuelEfficiency: null,
       currentFuelPrice: null, kwPer100km: null, electricityRate: null, maintenanceCostPerKm: null,
-      purchasePrice: null, expectedLifespanKm: null, totalKmLogged: 0,
+      purchasePrice: null, expectedLifespanKm: null, totalKmLogged: 0, isDemo: true,
       createdAt: t0, updatedAt: t0, syncUpdatedAt: Date.now(), syncDeletedAt: null,
     },
   ]);
@@ -446,6 +512,7 @@ export async function loadSampleData() {
         isTemplate: false,
         templateName: null,
         isPlaceholder: true,
+        isDemo: true, // schema-level demo tag (audit DEMO-05) — isPlaceholder kept for existing UI reads
         isMultiApp: false,
         multiAppSplit: {},
         deletedAt: null,
@@ -482,6 +549,7 @@ export async function loadSampleData() {
         updatedAt: t0,
         source: 'manual',
         shiftId: null,
+        isDemo: true,
         syncUpdatedAt: Date.now(),
         syncDeletedAt: null,
       });
@@ -514,6 +582,7 @@ export async function loadSampleData() {
         updatedAt: t0,
         source: 'manual',
         shiftId: null,
+        isDemo: true,
         syncUpdatedAt: Date.now(),
         syncDeletedAt: null,
       });
@@ -530,17 +599,27 @@ export async function loadSampleData() {
   bus.emit(GOAL_UPDATED, { source: 'sample' });
 }
 
-/** Remove sample shifts and expenses created by `loadSampleData`. */
+/**
+ * Remove sample shifts/expenses/vehicles created by `loadSampleData`. `isDemo` is the
+ * authoritative tag (survives an edit that clears `notes`); the `isPlaceholder`/`SAMPLE_NOTE`
+ * checks are kept as a fallback for rows seeded before that flag existed.
+ */
 export async function clearSampleData() {
-  const all = await db.shifts.filter((s) => s.isPlaceholder === true || (typeof s.notes === 'string' && s.notes.includes(SAMPLE_NOTE))).toArray();
-  for (const s of all) {
+  const demoShifts = await db.shifts
+    .filter((s) => s.isDemo === true || s.isPlaceholder === true || (typeof s.notes === 'string' && s.notes.includes(SAMPLE_NOTE)))
+    .toArray();
+  for (const s of demoShifts) {
     if (s.id != null) await db.shifts.delete(s.id);
   }
   const demoExpenses = await db.expenses
-    .filter((e) => typeof e.notes === 'string' && e.notes.includes(SAMPLE_NOTE))
+    .filter((e) => e.isDemo === true || (typeof e.notes === 'string' && e.notes.includes(SAMPLE_NOTE)))
     .toArray();
   for (const e of demoExpenses) {
     if (e.id != null) await db.expenses.delete(e.id);
+  }
+  const demoVehicles = await db.vehicles.filter((v) => v.isDemo === true).toArray();
+  for (const v of demoVehicles) {
+    if (v.id != null) await db.vehicles.delete(v.id);
   }
   await setAppState('demo_mode', false);
   store.set('demoMode', false);
@@ -587,6 +666,8 @@ export async function exitDemoToOnboardingStart() {
 
 /**
  * Wipe vault after backup + typed RESET (Feature 20). Settings should call when export exists.
+ * NOTE: this is the LOCAL device wipe ("Reset app"). Forgetting a sync password does NOT come
+ * here — that rebuilds the CLOUD copy and keeps local data (see resetCloudVault / backup-ui).
  * @param {{ skipExportCheck?: boolean }} [opts]
  */
 export async function resetVault(opts = {}) {

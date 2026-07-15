@@ -141,6 +141,6 @@ When a new `*.province.js` exists with `availablePlatforms`, resolvers **prefer*
 
 ## Related docs
 
-- [adding-a-country.md](adding-a-country.md), [adding-a-province.md](adding-a-province.md), [adding-a-platform.md](adding-a-platform.md)
+- [adding-a-country.md](../../docs/development/adding-a-country.md), [adding-a-province.md](../../docs/development/adding-a-province.md), [adding-a-platform.md](adding-a-platform.md)
 - [feature_modularity.md](feature_modularity.md) (Category A — link from registry section)
 - [Registry_arch.md](Registry_arch.md)

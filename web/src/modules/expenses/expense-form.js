@@ -1,5 +1,6 @@
 import { t } from '../../utils/strings.js';
 import { showNumericKeypad } from '../../ui/components.js';
+import { initFormWizard } from '../../ui/form-wizard.js';
 import { ExpenseCategoryRegistry } from '../../registry/expense-categories/index.js';
 
 /** @deprecated Use `ExpenseCategoryRegistry.getAll()` — kept for bundle callers expecting this export. */
@@ -85,77 +86,82 @@ export function renderExpenseForm(options = {}) {
   root.className = 'expenses-form-inner';
   root.innerHTML = `
     <form class="expenses-form" novalidate>
-      <div class="expenses-categories" data-slot="categories"></div>
+      <!-- Step 1 — Amount, date & merchant -->
+      <div class="wizard-step">
+        <label class="field">
+          <span class="field-label">${esc(t('expenses.amount'))}</span>
+          <div class="field-inline">
+            <input class="input" type="number" step="0.01" min="0" name="amount" inputmode="decimal" />
+            <button type="button" class="btn btn-ghost btn-sm" data-action="keypad">${esc(t('ui.keypad.open'))}</button>
+          </div>
+        </label>
 
-      <label class="field">
-        <span class="field-label">${esc(t('expenses.amount'))}</span>
-        <div class="field-inline">
-          <input class="input" type="number" step="0.01" min="0" name="amount" inputmode="decimal" />
-          <button type="button" class="btn btn-ghost btn-sm" data-action="keypad">${esc(t('ui.keypad.open'))}</button>
-        </div>
-      </label>
+        <label class="field">
+          <span class="field-label">${esc(t('expenses.date'))}</span>
+          <input class="input" type="date" name="date" />
+        </label>
 
-      <label class="field">
-        <span class="field-label">${esc(t('expenses.date'))}</span>
-        <input class="input" type="date" name="date" />
-      </label>
+        <label class="field">
+          <span class="field-label">Merchant</span>
+          <input class="input" type="text" name="merchant" autocomplete="off" placeholder="e.g. Shell, Tim Hortons" />
+        </label>
+      </div>
 
-      <label class="field">
-        <span class="field-label">${esc(t('expenses.platformAssignment'))}</span>
-        <select class="select" name="platformId">${platformOptions}</select>
-      </label>
+      <!-- Step 2 — Category & business use -->
+      <div class="wizard-step">
+        <span class="field-label">${esc(t('expenses.category') !== 'expenses.category' ? t('expenses.category') : 'Category')}</span>
+        <div class="expenses-categories" data-slot="categories"></div>
 
-      <label class="field">
-        <span class="field-label">${esc(t('expenses.businessUsePct'))}</span>
-        <input type="range" min="0" max="100" step="1" name="deductiblePct" />
-        <span class="field-hint" data-slot="deductible-pct-label"></span>
-      </label>
+        <label class="field">
+          <span class="field-label">${esc(t('expenses.businessUsePct'))}</span>
+          <input type="range" min="0" max="100" step="1" name="deductiblePct" />
+          <span class="field-hint" data-slot="deductible-pct-label"></span>
+        </label>
+      </div>
 
-      <label class="field">
-        <span class="field-label">Merchant</span>
-        <input class="input" type="text" name="merchant" autocomplete="off" placeholder="e.g. Shell, Tim Hortons" />
-      </label>
+      <!-- Step 3 — Details -->
+      <div class="wizard-step">
+        <label class="field">
+          <span class="field-label">${esc(t('expenses.platformAssignment'))}</span>
+          <select class="select" name="platformId">${platformOptions}</select>
+        </label>
 
-      <label class="field">
-        <span class="field-label">${esc(t('expenses.notes'))}</span>
-        <textarea class="input textarea" name="notes" placeholder="${esc(t('expenses.notesPlaceholder'))}"></textarea>
-      </label>
+        <label class="toggle">
+          <input type="checkbox" name="isRecurring" />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span>${esc(t('expenses.recurring'))}</span>
+        </label>
 
-      <label class="field">
-        <span class="field-label">${esc(t('expenses.receipt'))}</span>
-        <input class="input" type="file" accept="image/*" name="receiptFile" />
-        <span class="field-hint" data-slot="receipt-label">${esc(t('expenses.receiptHint'))}</span>
-      </label>
+        <label class="field" data-slot="interval-wrap" hidden>
+          <span class="field-label">${esc(t('expenses.recurringInterval'))}</span>
+          <select class="select" name="recurringInterval">
+            <option value="monthly">${esc(t('expenses.recurringMonthly'))}</option>
+            <option value="annual">${esc(t('expenses.recurringAnnual'))}</option>
+            <option value="weekly">${esc(t('expenses.recurringWeekly'))}</option>
+          </select>
+        </label>
 
-      <label class="toggle">
-        <input type="checkbox" name="isRecurring" />
-        <span class="toggle-track"><span class="toggle-thumb"></span></span>
-        <span>${esc(t('expenses.recurring'))}</span>
-      </label>
+        <label class="toggle" data-slot="confirmed-wrap" hidden>
+          <input type="checkbox" name="confirmedPaid" />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span>${esc(t('expenses.confirmedPaid'))}</span>
+        </label>
 
-      <label class="field" data-slot="interval-wrap" hidden>
-        <span class="field-label">${esc(t('expenses.recurringInterval'))}</span>
-        <select class="select" name="recurringInterval">
-          <option value="monthly">${esc(t('expenses.recurringMonthly'))}</option>
-          <option value="annual">${esc(t('expenses.recurringAnnual'))}</option>
-          <option value="weekly">${esc(t('expenses.recurringWeekly'))}</option>
-        </select>
-      </label>
+        <label class="field" data-slot="hst-wrap" ${isHstRegistered ? '' : 'hidden'}>
+          <span class="field-label">${esc(t('expenses.hstItc'))}</span>
+          <input class="input" type="number" name="hstPaid" min="0" step="0.01" inputmode="decimal" />
+        </label>
 
-      <label class="toggle" data-slot="confirmed-wrap" hidden>
-        <input type="checkbox" name="confirmedPaid" />
-        <span class="toggle-track"><span class="toggle-thumb"></span></span>
-        <span>${esc(t('expenses.confirmedPaid'))}</span>
-      </label>
+        <label class="field">
+          <span class="field-label">${esc(t('expenses.notes'))}</span>
+          <textarea class="input textarea" name="notes" placeholder="${esc(t('expenses.notesPlaceholder'))}"></textarea>
+        </label>
 
-      <label class="field" data-slot="hst-wrap" ${isHstRegistered ? '' : 'hidden'}>
-        <span class="field-label">${esc(t('expenses.hstItc'))}</span>
-        <input class="input" type="number" name="hstPaid" min="0" step="0.01" inputmode="decimal" />
-      </label>
-
-      <div class="shifts-form-actions">
-        <button type="button" class="btn btn-ghost" data-action="cancel">${esc(t('common.cancel'))}</button>
-        <button type="submit" class="btn btn-primary">${esc(submitLabel)}</button>
+        <label class="field">
+          <span class="field-label">${esc(t('expenses.receipt'))}</span>
+          <input class="input" type="file" accept="image/*" name="receiptFile" />
+          <span class="field-hint" data-slot="receipt-label">${esc(t('expenses.receiptHint'))}</span>
+        </label>
       </div>
     </form>
   `;
@@ -280,6 +286,32 @@ export function renderExpenseForm(options = {}) {
     const lab = root.querySelector('[data-slot="receipt-label"]');
     if (lab) lab.textContent = t('expenses.receiptAttached');
   });
+
+  // Step-by-step wizard chrome (mirrors the phone app's Add Expense flow). The
+  // final step's Save button is the form's real submit, so the caller's submit
+  // listener still runs unchanged.
+  if (form) {
+    initFormWizard(form, {
+      submitLabel,
+      onCancel: () => onCancel?.(),
+      steps: [
+        {
+          title: t('expenses.amount'),
+          validate: () => {
+            const amt = Number(form.amount.value);
+            if (!form.amount.value || !Number.isFinite(amt) || amt <= 0) {
+              return t('expenses.amountInvalid') !== 'expenses.amountInvalid'
+                ? t('expenses.amountInvalid')
+                : 'Enter an amount greater than 0.';
+            }
+            return null;
+          },
+        },
+        { title: t('expenses.category') !== 'expenses.category' ? t('expenses.category') : 'Category' },
+        { title: t('expenses.details') !== 'expenses.details' ? t('expenses.details') : 'Details' },
+      ],
+    });
+  }
 
   return {
     el: root,

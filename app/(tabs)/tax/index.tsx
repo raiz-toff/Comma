@@ -20,6 +20,7 @@ import { CurrencyText } from "@/src/components/ui/CurrencyText";
 import { withAlpha } from "@/src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { DEMO_STRIP_HEIGHT } from "@/src/components/GlobalTopHeader";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useLayout } from "@/src/hooks/useLayout";
 import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
@@ -73,7 +74,7 @@ export default function TaxScreen() {
   const insets = useSafeAreaInsets();
   const C = useColors();
   const S = useThemedStyles(makeStyles);
-  const { profile, isOnboardingCompleted, setHeaderVisible, updateProfile } =
+  const { profile, isOnboardingCompleted, setHeaderVisible, updateProfile, isDemoMode } =
     useSettingsStore();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
   // Called here, with the other hooks, because this screen early-returns twice below.
@@ -316,7 +317,7 @@ export default function TaxScreen() {
   if (countryDef.hasSelfAssessmentTax === false) {
     return (
       <SafeAreaView style={S.root} edges={["left", "right"]}>
-        <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8, paddingLeft: 70, height: Math.max(insets.top, 8) + 64 }, gridStyle]}>
+        <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8 + (isDemoMode ? DEMO_STRIP_HEIGHT : 0), paddingLeft: 70, height: Math.max(insets.top, 8) + 64 + (isDemoMode ? DEMO_STRIP_HEIGHT : 0) }, gridStyle]}>
           <Text variant="headingM">Tax · {currentYear}</Text>
         </View>
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20, backgroundColor: C.background }}>
@@ -340,7 +341,7 @@ export default function TaxScreen() {
            It is a sibling of the ScrollView, not inside it, so it takes the same
            `gridStyle` cap as the content — otherwise on a tablet the gear button
            hugs the screen edge while the cards it belongs to sit centred. */}
-      <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8, paddingLeft: 70, height: Math.max(insets.top, 8) + 64 }, gridStyle]}>
+      <View style={[S.header, { paddingTop: Math.max(insets.top, 8) + 8 + (isDemoMode ? DEMO_STRIP_HEIGHT : 0), paddingLeft: 70, height: Math.max(insets.top, 8) + 64 + (isDemoMode ? DEMO_STRIP_HEIGHT : 0) }, gridStyle]}>
         <View style={{ flex: 1 }}>
           <Text variant="headingM">Tax · {currentYear}</Text>
           <Text variant="paragraphS" style={S.headerSub}>{regionLabel} · {profile?.taxWithholdingPct || 0}% saved for taxes</Text>

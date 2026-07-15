@@ -31,12 +31,18 @@ import {
   resetSyncStateForReset,
   applyPostResetSyncStateNative,
   applyPostResetSyncStateWeb,
+  isDemoModeActive,
 } from "../database/syncState";
 
 const isWeb = Platform.OS === "web";
 
 /** Build + share `comma-backup-YYYYMMDD.json`. Resolves once the share sheet is handed off. */
 export async function exportBackupFile(): Promise<void> {
+  // Same hard stop as Cloud Sync (see syncNow.ts): a demo export is indistinguishable from a
+  // real one once it's a file on disk, so it must never be produced in the first place.
+  if (await isDemoModeActive()) {
+    throw new Error("Backup file export is disabled while Demo Mode is active.");
+  }
   const payload = await buildBackupPayload();
   const json = JSON.stringify(payload);
   const stamp = payload.createdAt.slice(0, 10).replace(/-/g, "");
@@ -74,6 +80,9 @@ export interface RestoreFileResult {
  * invalid files (including web-app vault backups, which must be imported on web instead).
  */
 export async function restoreBackupFile(): Promise<RestoreFileResult> {
+  if (await isDemoModeActive()) {
+    throw new Error("Restoring a backup is disabled while Demo Mode is active. Turn off Demo Mode in Settings first.");
+  }
   const res = await DocumentPicker.getDocumentAsync({
     type: ["application/json", "text/plain"],
     copyToCacheDirectory: true,

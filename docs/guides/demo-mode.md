@@ -40,6 +40,7 @@ Demo mode is a sandbox. To keep sample data from mixing with anything real, thes
 - Starting a real live shift
 - Adding or editing real shifts, expenses, or goals
 - Connecting Google Drive — sync is disabled entirely (see [Cloud Sync](../backup-and-sync/cloud-sync.md))
+- Exporting or restoring a backup file — so sample data can't escape as a file either
 
 ---
 

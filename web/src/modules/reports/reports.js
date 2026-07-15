@@ -333,6 +333,9 @@ export async function exportMileageLogCsv() {
 }
 
 export async function buildVaultBackup() {
+  if (store.get('demoMode')) {
+    throw new Error('Backup export is disabled in Demo Mode.');
+  }
   const tableNames = db.tables.map((t) => t.name);
   const tables = {};
   for (const name of tableNames) {

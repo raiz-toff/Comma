@@ -18,6 +18,7 @@ import { notifyImport } from "../../services/notify";
 import { PLATFORM_REGISTRY } from "../../registry/platforms";
 import { usePlatformTheme } from "../../hooks/usePlatformTheme";
 import { useColors } from "../../theme/useColors";
+import { withAlpha } from "../../theme/colors";
 import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 
@@ -447,6 +448,24 @@ export function CSVImportWizard() {
               You map them on the next step.
             </Text>
           </View>
+
+          {/* On the phone, column-mapping on a small screen is fiddly and easy to get wrong.
+              The web app opens the same vault, so point drivers there for anything sizeable. */}
+          {!isWeb && (
+            <View
+              className="w-full bg-surface-04 rounded-md p-4 flex flex-col gap-1"
+              style={{ borderWidth: 1, borderColor: withAlpha(C.warning, 0.32) }}
+            >
+              <Text variant="labelXs" style={{ color: C.warning }}>
+                Better on a computer
+              </Text>
+              <Text variant="paragraphS" className="text-content-secondary leading-relaxed">
+                You can import here, but mapping columns on a small screen is fiddly and easy to get
+                wrong. For a large file, open the Comma web app on a computer and import there — it
+                writes to the same vault, so the shifts show up on your phone after the next sync.
+              </Text>
+            </View>
+          )}
         </View>
       )}
 

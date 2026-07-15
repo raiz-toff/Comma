@@ -2,6 +2,32 @@
 
 All notable changes to Comma are documented here.
 
+## [1.4.2] — 2026-07-15 (versionCode 10)
+
+### Added
+- **"View all" on Recent shifts (web)**: the dashboard's Recent shifts card now has a **View all** link that jumps straight to your full Shifts list.
+- **Import CSVs on a computer (app)**: the phone's CSV import wizard now suggests opening the Comma web app on a computer for large files — mapping columns on a small screen is fiddly, and the web app writes to the same vault, so imported shifts land on your phone after the next sync.
+
+### Changed
+- **Cloud Sync is always encrypted now (app + web)**: connecting Google Drive asks you to set a **backup password**, and everything is end-to-end encrypted with it before it leaves your device — there's no longer an unencrypted mode. A second device enters the same password to join; if you forget it, **Forgot your password?** rebuilds the cloud copy from a device that still has your data, so nothing local is lost.
+- **The vehicle form only asks what fits your vehicle (web)**: adding or editing a vehicle no longer shows one long wall of every field. It now adapts to the type you pick — a fuel car shows fuel economy and fuel price, an EV shows kWh/100km and your electricity rate, a hybrid shows both, and a bicycle drops fuel, registration and oil-change fields entirely — grouped under clear headings.
+- **Polished Cloud Sync settings (web)**: the backup and sync cards got a cleaner look — a status badge that turns green when connected (amber when a backup is overdue), tidier spacing, and a proper Advanced settings toggle.
+- **Smaller pop-up messages (web)**: the toast notifications — especially long error messages — are more compact now, with smaller text and tighter padding, instead of ballooning into large pills.
+- **Goals & Progress uses the whole screen on a computer (web)**: on a wide screen the page no longer hides half of itself behind a Goals/Progress tab switch — your goals sit on the left and your progress (XP, streak, challenges, badges) on the right, both visible at once. On a phone it stays tabbed.
+- **Analytics shows everything at once on a computer (web)**: on a wide screen Analytics no longer hides two-thirds of itself behind a Performance/Insights/Stat Cards tab switch — the three now sit side by side as columns, so you can see your performance, insights and stat cards together. On a phone it stays tabbed.
+- **Adding a shift or expense is now step by step (web)**: logging an expense or a shift no longer drops you into one long form. It walks you through it a page at a time — for an expense: the amount and date, then the category, then any extra details; for a shift: the platform and times, then earnings, then distance and details — with a progress bar and Back/Continue buttons, the same paced flow the phone app uses.
+- **Warmer default accent (web)**: a fresh install now starts on Comma's orange accent instead of green — change it any time in Appearance.
+- **Permissions explained up front (app)**: Comma now asks for location, notifications, activity and battery access during setup — each on its own page saying what it's for and what stops working without it — instead of stacking all the prompts on you the moment you start your first shift. You can still grant anything you skipped later.
+
+### Fixed
+- **Backup password screen shows its button again on a computer (web)**: setting or changing your backup password on a wide screen cut off the bottom of the panel, hiding the Continue/Save button so you couldn't finish. The panel now fits and scrolls properly, with the button always in view.
+- **Missing icons on the sync screen (web)**: the connected-status and offline markers were showing a generic "?" because their icons weren't in the set — they now show a proper check, alert and back arrow.
+- **No stray platform switcher during setup (web)**: on a computer, the DoorDash/Skip platform switcher chips were peeking in at the top of the welcome/onboarding screens. They're hidden now until you've finished setting up.
+- **The add button is back on a computer (web)**: on a wider screen the floating **+** button — the quick way to log a shift, expense, goal or schedule — had gone missing entirely. It's back, in the bottom-right corner, with the same menu as on your phone.
+- **CSV import wizard opens again (app)**: opening the import wizard could throw an error and leave you on a blank screen. Fixed — the first page loads normally.
+- **Reset app now fully disconnects (app)**: wiping your device and starting over no longer leaves it signed in to your old Google account or holding your previous sync password — a fresh start is now genuinely fresh.
+- **Instant platform changes (app + web)**: adding or removing a delivery platform now updates the switcher, filters and dashboard immediately, instead of lagging behind while everything saved.
+
 ## [1.4.1] — 2026-07-13 (versionCode 9)
 
 ### Added

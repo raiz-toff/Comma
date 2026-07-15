@@ -7,7 +7,7 @@ import { showModal } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
 import { t } from '../../utils/strings.js';
 
-export const APP_VERSION = '1.4.1';
+export const APP_VERSION = '1.4.2';
 const STORAGE_KEY = 'comma_last_seen_version';
 
 /**
@@ -49,34 +49,34 @@ export function showChangelogModal(lastVersion = '') {
 
       <div class="changelog-highlights">
         <div class="changelog-item">
-          <div class="changelog-item-icon">${getIcon('dollar', 24)}</div>
+          <div class="changelog-item-icon">${getIcon('shield', 24)}</div>
           <div class="changelog-item-text">
-            <h4>Correct mileage and expenses for multi-vehicle drivers</h4>
-            <p>Mileage write-off now resolves each vehicle's own rate against only the distance it drove, and an expense only counts against a vehicle you actually used in that period.</p>
+            <h4>Cloud Sync is always encrypted now</h4>
+            <p>Connecting Google Drive asks you to set a backup password, and everything is end-to-end encrypted with it before it leaves your device. A second device enters the same password to join; forget it and "Forgot your password?" rebuilds the cloud copy from a device that still has your data.</p>
           </div>
         </div>
 
         <div class="changelog-item">
-          <div class="changelog-item-icon">${getIcon('filter', 24)}</div>
+          <div class="changelog-item-icon">${getIcon('edit', 24)}</div>
           <div class="changelog-item-text">
-            <h4>Filter by vehicle, and pick more than one platform</h4>
-            <p>If you drive more than one vehicle, the same switcher that filters by delivery platform now filters by vehicle too — and both switchers let you hold a few selected at once, not just one or all.</p>
+            <h4>Adding a shift or expense is now step by step</h4>
+            <p>Logging a shift or an expense walks you through it a page at a time, with a progress bar and Back/Continue buttons — the same paced flow the phone app uses, instead of one long form.</p>
           </div>
         </div>
 
         <div class="changelog-item">
-          <div class="changelog-item-icon">${getIcon('bell', 24)}</div>
+          <div class="changelog-item-icon">${getIcon('layout-grid', 24)}</div>
           <div class="changelog-item-text">
-            <h4>Recurring expense reminders, now on the phone app too</h4>
-            <p>Expenses marked recurring nudge you when they're due — weekly, monthly or yearly — with a "Recurring" badge on the row.</p>
+            <h4>Analytics and Goals use the whole screen on a computer</h4>
+            <p>On a wide screen the pages no longer hide half of themselves behind a tab switch — Analytics shows performance, insights and stat cards side by side, and Goals sits next to your progress. On a phone they stay tabbed.</p>
           </div>
         </div>
 
         <div class="changelog-item">
-          <div class="changelog-item-icon">${getIcon('receipt', 24)}</div>
+          <div class="changelog-item-icon">${getIcon('fuel', 24)}</div>
           <div class="changelog-item-text">
-            <h4>Tap a shift to see its full details</h4>
-            <p>Net earnings, hourly rate, distance, per-platform and mileage breakdowns, notes and linked expenses — one tap away, like the phone app. Edit and delete are one tap from there.</p>
+            <h4>The vehicle form only asks what fits your vehicle</h4>
+            <p>Adding or editing a vehicle now adapts to the type you pick — a fuel car shows fuel economy and price, an EV shows kWh/100km and your electricity rate, a hybrid shows both, and a bicycle drops fuel, registration and oil-change fields entirely.</p>
           </div>
         </div>
       </div>

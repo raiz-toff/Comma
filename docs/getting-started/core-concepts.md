@@ -104,13 +104,11 @@ Both go through **your** Google Drive. Comma has no server in the middle. See [B
 
 ---
 
-## The two sync modes
+## How sync is protected
 
-**Default (no password)** — your data sits in a private folder of your Google Drive that only Comma can see. It's protected by your Google account, the same way everything else in your Drive is. Nothing to remember, nothing to lose. This is the mode almost everyone should use.
+Cloud Sync is always end-to-end encrypted. When you connect Google Drive you set a **backup password**, and your data is encrypted with it before it leaves the device — not even Google can read what lands in your Drive. There is no unencrypted mode and no toggle: the password is part of turning sync on.
 
-**End-to-end encrypted (opt-in)** — you set a password, and your data is encrypted with it before it leaves the device. Not even Google can read it. If you forget the password, the backup is gone forever — there is no reset.
-
-The password *is* the mode: setting one turns encryption on, and having none means the default. See [Encryption](../backup-and-sync/encryption.md).
+You need that password on every device, and Comma cannot recover it. If you forget it, the cloud copy is unreadable — but the data on your device is untouched, so you rebuild the cloud copy from it under a new password. See [Encryption](../backup-and-sync/encryption.md).
 
 ---
 

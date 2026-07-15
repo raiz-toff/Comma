@@ -38,12 +38,12 @@ import * as LocalAuthentication from "expo-local-authentication";
 
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { PLATFORMS, type PlatformKey, getPlatformsByCountry } from "@/src/registry/platforms";
-import { FEATURE_MODULES, listCaProvinceCodes, listUsStateCodes } from "@/src/registry/index";
+import { FEATURE_MODULES, listCaProvinceCodes } from "@/src/registry/index";
 import { GIG_DRIVER_DEFAULTS } from "@/src/hooks/useAppContext";
 import { getMileagePresetRate, getRegionsByCountry, getCountryDef } from "@/src/registry/countries/index";
 import { resolveAvailablePlatformIds } from "@/src/registry/market/resolve";
 import { insertTaxHistory } from "@/src/database/queries/tax";
-import { getDBPlatforms, updateDBPlatform } from "@/src/database/queries/platforms";
+import { getDBPlatforms, updateDBPlatform, type DBPlatform } from "@/src/database/queries/platforms";
 import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
 import { db } from "@/src/database/client";
 import { settings, shifts, expenses } from "@/src/database/schema";
@@ -363,7 +363,6 @@ const COUNTRIES = [
 ] as const;
 
 const CA_PROVINCES = listCaProvinceCodes();
-const US_STATES = listUsStateCodes();
 
 const WORK_PRESETS = [
   { value: "flexible", label: "Flexible" },
@@ -658,15 +657,53 @@ export default function SettingsScreen() {
         console.error("[settings] failed to load persisted settings", e);
       }
     })();
-  }, [profile]);
+    // Key on the COUNTRY, not the whole profile. handleSave mutates `profile`
+    // (selectedPlatforms, locale…), so keying on `profile` re-ran this loader on every
+    // save — and its getDBPlatforms read raced the save's own writes, reloading the
+    // toggles from a stale snapshot. That's why a turned-off app popped back on and had to
+    // be removed twice. The available platform set only changes when the country does, so
+    // that's the only thing that should re-seed these configs; the user's live toggles are
+    // otherwise the source of truth until they Save.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile.country]);
 
   // ── Save ─────────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      const cc = profile?.country || "CA";
       const activePlatforms = Object.keys(platformConfigs).filter(
         (k) => platformConfigs[k].active,
       );
+
+      // ── Optimistic switcher/dashboard update ──────────────────────────────────
+      // Reflect the edited platform set in the store on THIS frame so the header
+      // switcher, filters and dashboard update instantly — before any DB write or
+      // query refetch returns. The DB write below is the source of truth; this is
+      // just the paint-ahead. (#14: add/remove used to lag behind a full save.)
+      const prevDb = useSettingsStore.getState().dbPlatforms;
+      const optimistic: DBPlatform[] = Object.keys(platformConfigs).map((pKey) => {
+        const cfg = platformConfigs[pKey];
+        const existing = prevDb.find((p) => p.id === pKey);
+        return {
+          id: pKey,
+          label: cfg.customLabel ?? existing?.label ?? pKey,
+          color: cfg.customColor ?? existing?.color ?? "#9B9BA4",
+          textColor: existing?.textColor ?? "#F6F6F7",
+          country: existing?.country ?? cc,
+          isActive: cfg.active,
+          hourlyRate: cfg.hourlyRate,
+          mileageRate: cfg.mileageRate,
+          sortPriority: parseInt(cfg.priority, 10) || 1,
+          logoEmoji: cfg.customEmoji || null,
+        };
+      });
+      useSettingsStore.setState({
+        dbPlatforms: [
+          ...prevDb.filter((p) => !(p.id in platformConfigs)),
+          ...optimistic,
+        ],
+      });
 
       // Profile identity (name/country/region) is managed by /settings/profile screen.
       // Here we only update appearance, locale, and platform selections.
@@ -686,28 +723,38 @@ export default function SettingsScreen() {
         },
       });
 
-      // Save platform customizations (hourlyRate, mileageRate, sortPriority) to DB
-      for (const pKey of Object.keys(platformConfigs)) {
-        await updateDBPlatform(profile?.country || "CA", pKey, {
-          isActive: platformConfigs[pKey].active,
-          hourlyRate: platformConfigs[pKey].hourlyRate,
-          mileageRate: platformConfigs[pKey].mileageRate,
-          sortPriority: parseInt(platformConfigs[pKey].priority, 10) || 1,
-          label: platformConfigs[pKey].customLabel,
-          color: platformConfigs[pKey].customColor,
-          logoEmoji: platformConfigs[pKey].customEmoji || null,
-        });
-      }
+      // Save platform customizations (hourlyRate, mileageRate, sortPriority) to DB.
+      // Run in parallel: the old serial await-per-row loop blocked the Save spinner on
+      // one SQLite round-trip at a time, and did so for every platform on every save.
+      await Promise.all(
+        Object.keys(platformConfigs).map((pKey) =>
+          updateDBPlatform(cc, pKey, {
+            isActive: platformConfigs[pKey].active,
+            hourlyRate: platformConfigs[pKey].hourlyRate,
+            mileageRate: platformConfigs[pKey].mileageRate,
+            sortPriority: parseInt(platformConfigs[pKey].priority, 10) || 1,
+            label: platformConfigs[pKey].customLabel,
+            color: platformConfigs[pKey].customColor,
+            logoEmoji: platformConfigs[pKey].customEmoji || null,
+          }),
+        ),
+      );
 
       await Promise.all([
         upsertSetting("notification_prefs", JSON.stringify(notifs)),
         upsertSetting("week_start_day", weekStartDay),
       ]);
 
-      const refreshed = await getDBPlatforms(country);
+      const refreshed = await getDBPlatforms(cc);
       useSettingsStore.setState({ dbPlatforms: refreshed });
 
-      queryClient.invalidateQueries();
+      // Narrow invalidation: only the platform-dependent views need refreshing, not
+      // every query in the app. A keyless invalidateQueries() forced the dashboard,
+      // reports, tax, vehicles and expenses screens to all refetch on each save — the
+      // refetch storm behind #14's lag. The switcher/filters update from the store
+      // above, not from react-query.
+      queryClient.invalidateQueries({ queryKey: ["analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["shifts"] });
       setSavedFeedback(true);
       setTimeout(() => setSavedFeedback(false), 2000);
     } catch (err: any) {
@@ -1520,29 +1567,21 @@ export default function SettingsScreen() {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                          onPress={async () => {
+                          onPress={() => {
                             if (!newPlatformLabel.trim()) {
                               Alert.alert("Required", "Please enter a platform name.");
                               return;
                             }
                             const newId = `custom_platform_${Date.now()}`;
                             const defaultMileage = getMileagePresetRate(country, profile?.taxRegion ?? "ON");
-                            
-                            // Insert into database directly
-                            await updateDBPlatform(country, newId, {
-                              id: newId,
-                              label: newPlatformLabel.trim(),
-                              color: newPlatformColor.trim() || "#9B9BA4",
-                              textColor: "#F6F6F7",
-                              country: country,
-                              isActive: true,
-                              hourlyRate: "20",
-                              mileageRate: defaultMileage,
-                              sortPriority: 10,
-                              logoEmoji: newPlatformEmoji.trim() || null,
-                            });
+                            const label = newPlatformLabel.trim();
+                            const color = newPlatformColor.trim() || "#9B9BA4";
+                            const emoji = newPlatformEmoji.trim() || null;
 
-                            // Update local configs state so it shows up active immediately!
+                            // Optimistic: show the new platform active in the form + store on
+                            // this frame, then persist + reconcile in the background. (Was:
+                            // await the DB insert first, so the platform only appeared after
+                            // the write returned — #14.)
                             setPlatformConfigs(prev => ({
                               ...prev,
                               [newId]: {
@@ -1550,21 +1589,57 @@ export default function SettingsScreen() {
                                 hourlyRate: "20",
                                 mileageRate: defaultMileage,
                                 priority: "10",
-                                customLabel: newPlatformLabel.trim(),
-                                customColor: newPlatformColor.trim() || "#9B9BA4",
-                                customEmoji: newPlatformEmoji.trim() || "",
+                                customLabel: label,
+                                customColor: color,
+                                customEmoji: emoji ?? "",
                               }
                             }));
+                            useSettingsStore.setState((st) => ({
+                              dbPlatforms: [
+                                ...st.dbPlatforms,
+                                {
+                                  id: newId,
+                                  label,
+                                  color,
+                                  textColor: "#F6F6F7",
+                                  country,
+                                  isActive: true,
+                                  hourlyRate: "20",
+                                  mileageRate: defaultMileage,
+                                  sortPriority: 10,
+                                  logoEmoji: emoji,
+                                },
+                              ],
+                            }));
 
-                            // Invalidate store and reload
-                            const refreshed = await getDBPlatforms(country);
-                            useSettingsStore.setState({ dbPlatforms: refreshed });
-
-                            // Close the form
+                            // Close the form immediately.
                             setIsAddingCustom(false);
                             setNewPlatformLabel("");
                             setNewPlatformColor("#a855f7");
                             setNewPlatformEmoji("🚲");
+
+                            // Persist off the UI path; reconcile the store from the DB (which
+                            // stamps the row for sync) once the write lands.
+                            void (async () => {
+                              try {
+                                await updateDBPlatform(country, newId, {
+                                  id: newId,
+                                  label,
+                                  color,
+                                  textColor: "#F6F6F7",
+                                  country,
+                                  isActive: true,
+                                  hourlyRate: "20",
+                                  mileageRate: defaultMileage,
+                                  sortPriority: 10,
+                                  logoEmoji: emoji,
+                                });
+                                const refreshed = await getDBPlatforms(country);
+                                useSettingsStore.setState({ dbPlatforms: refreshed });
+                              } catch (e) {
+                                console.error("[settings] failed to persist custom platform", e);
+                              }
+                            })();
                           }}
                           accessibilityRole="button"
                           activeOpacity={0.8}

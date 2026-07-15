@@ -21,7 +21,8 @@ export default function CSVImportScreen() {
           <Text variant="labelXs" className="text-content-secondary">← Cancel</Text>
         </TouchableOpacity>
         <Text variant="labelL" className="text-content-primary">CSV Import Wizard</Text>
-        <View style={{ width: 60 }} /> {/* Spacer */}
+        {/* Spacer to balance the Cancel button so the title stays centred. */}
+        <View style={{ width: 60 }} />
       </View>
 
       <ScrollView contentContainerStyle={columnStyle} contentContainerClassName="p-4 flex flex-col gap-4">

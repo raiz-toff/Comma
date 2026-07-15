@@ -219,10 +219,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Apply the saved font size + layout density at boot. Theme is handled pre-paint by
     // public/theme-init.js, but font/density live in the (async) user record — without this they
-    // only took effect once the Settings view was opened, so a new user never saw the XL default.
+    // only took effect once the Settings view was opened, so a new user never saw the default.
     const bootUser = store.get('user') || {};
-    applyFontSize(bootUser.fontSize || 'xl');
-    applyDensity(bootUser.layoutDensity || 'comfortable');
+    applyFontSize(bootUser.fontSize || 'medium');
+    applyDensity(bootUser.layoutDensity || 'compact');
 
     updateOnboardingFocusClass(!store.get('user')?.onboardingComplete);
 

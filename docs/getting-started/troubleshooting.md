@@ -64,13 +64,13 @@ The PWA caches itself so it can work offline, so an update can take one reload t
 
 The second device has nothing to pull because the first one hasn't pushed yet. On the first device, open Settings, then Cloud Sync, and press **Sync now** to push. Then retry the sync on the second device.
 
-### Sync is asking for a password I never set
+### Sync is asking for a backup password
 
-Your other device has **end-to-end encryption** switched on, and its files can only be read with that password. Enter the password you set on that device, or turn end-to-end encryption off there so the files upload in plain form again.
+Your vault is encrypted — it always is — so this device needs the same backup password you set on the first one. Enter it and both devices align. If Comma says the password is wrong, it pauses the push rather than forking your data into two encrypted copies; enter the correct password to continue.
 
-### I forgot my end-to-end encryption password
+### I forgot my backup password
 
-The cloud copy encrypted with that password is **unrecoverable** — there is no reset, by design. Your original device is unaffected: the data on it was never encrypted locally. On that device, turn end-to-end encryption off, which re-uploads your data in the default (no-password) form, and sync becomes readable again on your other devices. See [Encryption](../backup-and-sync/encryption.md).
+The cloud copy encrypted with that password is **unrecoverable** — there is no reset, by design. But the data on your device was never encrypted with it, so you haven't lost your records. On a device that still has your data, open Settings, then Cloud Sync, and tap **Forgot your password?**. Comma deletes the unreadable cloud backup and rebuilds it from this device under a new password — your local data is kept, and your other devices then reconnect with the new password. See [Encryption](../backup-and-sync/encryption.md).
 
 ### A number changed after syncing two devices
 

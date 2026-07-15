@@ -977,7 +977,14 @@ export async function renderExpensesView(root, ctx = {}) {
       const nextYearDisabled = selectorYear >= realYear;
       host.innerHTML = `
         <div class="expenses-m-modal-head">
-          <h2 class="expenses-m-modal-title">${selectorYear} ${esc(t('expenses.title'))}</h2>
+          <div class="expenses-m-modal-headline">
+            <h2 class="expenses-m-modal-title">${esc(t('expenses.title'))}</h2>
+            <span class="expenses-m-modal-yearnav">
+              <button type="button" class="expenses-m-modal-yearbtn" data-action="prev-year" aria-label="${esc(t('expenses.previousYear') || 'Previous Year')}">${getIcon('chevron-left', 18)}</button>
+              <span class="expenses-m-modal-yearlbl">${selectorYear}</span>
+              <button type="button" class="expenses-m-modal-yearbtn${nextYearDisabled ? ' is-disabled' : ''}" data-action="next-year" ${nextYearDisabled ? 'disabled' : ''} aria-label="${esc(t('expenses.nextYear') || 'Next Year')}">${getIcon('chevron-right', 18)}</button>
+            </span>
+          </div>
           <button type="button" class="expenses-m-modal-done" data-action="close-month-modal">${esc(t('common.done') || 'Done')}</button>
         </div>
         <div class="expenses-m-modal-subhead">
@@ -985,11 +992,6 @@ export async function renderExpensesView(root, ctx = {}) {
           <span>${esc((t('expenses.ytdDeductibleShort') || 'YTD DEDUCTIBLE'))}: ${esc(money(s.deductible))}</span>
         </div>
         <div class="expenses-m-modal-list">${cards.join('')}</div>
-        <div class="expenses-m-modal-foot">
-          <button type="button" class="expenses-m-modal-year" data-action="prev-year">${esc(t('expenses.previousYear') || 'Previous Year')}</button>
-          <span class="expenses-m-modal-yearlbl">${selectorYear}</span>
-          <button type="button" class="expenses-m-modal-year${nextYearDisabled ? ' is-disabled' : ''}" data-action="next-year" ${nextYearDisabled ? 'disabled' : ''}>${esc(t('expenses.nextYear') || 'Next Year')}</button>
-        </div>
       `;
     };
 

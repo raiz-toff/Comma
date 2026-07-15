@@ -6,6 +6,7 @@
 import { t } from '../../utils/strings.js';
 import { store } from '../../core/store.js';
 import { showNumericKeypad } from '../../ui/components.js';
+import { initFormWizard } from '../../ui/form-wizard.js';
 import { calcHourlyRate } from '../../utils/calculations.js';
 import { enumerateWeekDates } from '../../utils/date-range-presets.js';
 import { getPlatformConfig } from '../../registry/platforms/terminology.js';
@@ -131,175 +132,180 @@ export function renderShiftForm(opts = {}) {
   wrapper.dataset.shiftFieldRegistryCount = String(ShiftFieldRegistry.getAll().length);
   wrapper.innerHTML = `
     <form class="shifts-form-container" novalidate>
-      <div class="shifts-form-fields">
-        ${
-          allowWeeklyEntry && mode === 'full'
-            ? `<div class="field">
-                <span class="field-label">${escapeHtml(t('shifts.entryScopeLabel'))}</span>
-                <div class="btn-group w-full" role="group">
-                  <button type="button" class="btn btn-ghost btn-sm is-active" data-scope="day">${escapeHtml(
-                    t('shifts.entryOneDay'),
-                  )}</button>
-                  <button type="button" class="btn btn-ghost btn-sm" data-scope="week">${escapeHtml(
-                    t('shifts.entryWeekDays'),
-                  )}</button>
+      <!-- Step 1 — Platform, date & times -->
+      <div class="wizard-step">
+        <div class="shifts-form-fields">
+          ${
+            allowWeeklyEntry && mode === 'full'
+              ? `<div class="field field--span2">
+                  <span class="field-label">${escapeHtml(t('shifts.entryScopeLabel'))}</span>
+                  <div class="btn-group w-full" role="group">
+                    <button type="button" class="btn btn-ghost btn-sm is-active" data-scope="day">${escapeHtml(
+                      t('shifts.entryOneDay'),
+                    )}</button>
+                    <button type="button" class="btn btn-ghost btn-sm" data-scope="week">${escapeHtml(
+                      t('shifts.entryWeekDays'),
+                    )}</button>
+                  </div>
+                  <input type="hidden" name="entryScope" value="day" />
                 </div>
-                <input type="hidden" name="entryScope" value="day" />
-              </div>
-              
-              <div class="shifts-week-panel is-hidden" data-week-panel>
-                <label class="field">
-                  <span class="field-label">${escapeHtml(t('shifts.weekContaining'))}</span>
-                  <input class="input" name="weekAnchor" type="date" value="${escapeAttr(weekAnchorSeed)}" />
-                </label>
-                <div class="shifts-weekday-row" data-week-day-row role="group" aria-label="${escapeAttr(t('shifts.weekDaysHint'))}"></div>
-                <p class="field-hint">${escapeHtml(t('shifts.weekSaveHint'))}</p>
-              </div>`
-            : ''
-        }
 
-        <label class="field" data-day-date-wrap>
-          <span class="field-label">${escapeHtml(t('shifts.platform'))}</span>
-          <select class="input" name="platformId" required>
-            ${displayPlatforms.length > 0
-              ? displayPlatforms
-                  .map((p) => {
-                    const id = String(p.id);
-                    const label = typeof p.name === 'string' && p.name ? p.name : id;
-                    const sel = id === defaultPlatformId ? ' selected' : '';
-                    return `<option value="${escapeAttr(id)}"${sel}>${escapeHtml(label)}</option>`;
-                  })
-                  .join('')
-              : `<option value="" disabled selected>No platforms detected</option>`
-            }
-          </select>
-          ${displayPlatforms.length === 0 ? `
-            <span class="field-hint" style="color: var(--color-danger); margin-top: var(--space-1);">
-              No active platforms detected. <a href="#/settings?tab=platforms" style="text-decoration: underline; font-weight: bold; color: inherit;">Enable platforms in Settings</a> to add shifts.
-            </span>
-          ` : ''}
-        </label>
+                <div class="shifts-week-panel is-hidden field--span2" data-week-panel>
+                  <label class="field">
+                    <span class="field-label">${escapeHtml(t('shifts.weekContaining'))}</span>
+                    <input class="input" name="weekAnchor" type="date" value="${escapeAttr(weekAnchorSeed)}" />
+                  </label>
+                  <div class="shifts-weekday-row" data-week-day-row role="group" aria-label="${escapeAttr(t('shifts.weekDaysHint'))}"></div>
+                  <p class="field-hint">${escapeHtml(t('shifts.weekSaveHint'))}</p>
+                </div>`
+              : ''
+          }
 
-        <label class="field">
-          <span class="field-label">${escapeHtml(t('shifts.date'))}</span>
-          <input class="input" name="date" type="date" value="${escapeAttr(dateVal)}" required />
-        </label>
+          <label class="field field--span2" data-day-date-wrap>
+            <span class="field-label">${escapeHtml(t('shifts.platform'))}</span>
+            <select class="input" name="platformId" required>
+              ${displayPlatforms.length > 0
+                ? displayPlatforms
+                    .map((p) => {
+                      const id = String(p.id);
+                      const label = typeof p.name === 'string' && p.name ? p.name : id;
+                      const sel = id === defaultPlatformId ? ' selected' : '';
+                      return `<option value="${escapeAttr(id)}"${sel}>${escapeHtml(label)}</option>`;
+                    })
+                    .join('')
+                : `<option value="" disabled selected>No platforms detected</option>`
+              }
+            </select>
+            ${displayPlatforms.length === 0 ? `
+              <span class="field-hint" style="color: var(--color-danger); margin-top: var(--space-1);">
+                No active platforms detected. <a href="#/settings?tab=platforms" style="text-decoration: underline; font-weight: bold; color: inherit;">Enable platforms in Settings</a> to add shifts.
+              </span>
+            ` : ''}
+          </label>
 
-        <label class="field">
-          <span class="field-label">${escapeHtml(t('shifts.startTime'))}</span>
-          <input class="input" name="startTime" type="text" data-clocklet="format: HH:mm" placeholder="hh:mm" value="${escapeAttr(startTimeVal)}" readonly style="cursor: pointer;" />
-        </label>
+          <label class="field field--span2">
+            <span class="field-label">${escapeHtml(t('shifts.date'))}</span>
+            <input class="input" name="date" type="date" value="${escapeAttr(dateVal)}" required />
+          </label>
 
-        <label class="field">
-          <span class="field-label">${escapeHtml(t('shifts.endTime'))}</span>
-          <input class="input" name="endTime" type="text" data-clocklet="format: HH:mm" placeholder="hh:mm" value="${escapeAttr(endTimeVal)}" readonly style="cursor: pointer;" />
-        </label>
+          <label class="field">
+            <span class="field-label">${escapeHtml(t('shifts.startTime'))}</span>
+            <input class="input" name="startTime" type="text" data-clocklet="format: HH:mm" placeholder="hh:mm" value="${escapeAttr(startTimeVal)}" readonly style="cursor: pointer;" />
+          </label>
 
-        <label class="field field--span2">
-          <span class="field-label">${escapeHtml(t('shifts.gross'))}</span>
-          <div class="field-inline">
-            <input class="input" name="gross" inputmode="decimal" placeholder="0.00" />
-            <button type="button" class="btn btn-ghost" data-keypad="gross">${escapeHtml(t('ui.keypad.open'))}</button>
-          </div>
-        </label>
-
-        <div class="shifts-multiplatform field--span2" data-mp-section>
-          <div class="shifts-mp-header">
-            <span class="field-label">${escapeHtml(t('shifts.platformsWorkedLabel'))}</span>
-            <button type="button" class="btn btn-ghost btn-sm" data-action="add-platform">${escapeHtml(t('shifts.addPlatformBtn'))}</button>
-          </div>
-          <p class="field-hint is-hidden" data-mp-hint>${escapeHtml(t('shifts.platformsWorkedHint'))}</p>
-          <div class="shifts-mp-list" data-mp-list></div>
+          <label class="field">
+            <span class="field-label">${escapeHtml(t('shifts.endTime'))}</span>
+            <input class="input" name="endTime" type="text" data-clocklet="format: HH:mm" placeholder="hh:mm" value="${escapeAttr(endTimeVal)}" readonly style="cursor: pointer;" />
+          </label>
         </div>
+      </div>
 
-        <div class="shifts-form-toggle">
-          <button type="button" class="btn btn-ghost" data-action="toggle-advanced" aria-expanded="false">${escapeHtml(t('shifts.advancedToggle'))}</button>
-        </div>
-
-        <div class="shifts-advanced" data-advanced>
-          <div class="shifts-advanced-grid">
-            <label class="field">
-              <span class="field-label">${escapeHtml(t('shifts.tips'))}</span>
-              <input class="input" name="tips" inputmode="decimal" placeholder="0.00" />
-            </label>
-
-            <label class="field">
-              <span class="field-label" data-bonus-label>${escapeHtml(t('shifts.bonus'))}</span>
-              <input class="input" name="bonus" inputmode="decimal" placeholder="0.00" />
-            </label>
-
-            <label class="field">
-              <span class="field-label">${escapeHtml(t('shifts.orders'))}</span>
-              <input class="input" name="orders" inputmode="numeric" placeholder="0" />
-            </label>
-
-            <label class="field">
-              <span class="field-label">${escapeHtml(t('shifts.distance'))}</span>
-              <input class="input" name="distance" inputmode="decimal" placeholder="0" />
-              <span class="field-hint" data-distance-unit></span>
-            </label>
-
-            <label class="field">
-              <span class="field-label">${escapeHtml(t('shifts.onlineMinutes'))}</span>
-              <input class="input" name="onlineMinutes" inputmode="numeric" placeholder="0" />
-            </label>
-
-            <label class="field">
-              <span class="field-label">${escapeHtml(t('shifts.activeMinutes'))}</span>
-              <input class="input" name="activeMinutes" inputmode="numeric" placeholder="0" />
-            </label>
-
-            <label class="field">
-              <span class="field-label">${escapeHtml(t('shifts.vehicle'))}</span>
-              <select class="input" name="vehicleId">
-                <option value="">${escapeHtml(t('shifts.vehicleNone'))}</option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span class="field-label">${escapeHtml(t('shifts.weather'))}</span>
-              <select class="input" name="weather">
-                <option value="">${escapeHtml(t('common.optional'))}</option>
-                <option value="clear">☀️ ${escapeHtml(t('shifts.weatherClear'))}</option>
-                <option value="rain">🌧️ ${escapeHtml(t('shifts.weatherRain'))}</option>
-                <option value="snow">❄️ ${escapeHtml(t('shifts.weatherSnow'))}</option>
-                <option value="fog">🌫️ ${escapeHtml(t('shifts.weatherFog'))}</option>
-                <option value="heat">🔥 ${escapeHtml(t('shifts.weatherHeat'))}</option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span class="field-label">${escapeHtml(t('shifts.deadMiles'))}</span>
-              <input class="input" name="deadMilesKm" inputmode="decimal" placeholder="0" />
-              <span class="field-hint">${escapeHtml(distanceUnit() === 'mi' ? t('shifts.unitMiles') : t('shifts.unitKm'))}</span>
-            </label>
-
-            <label class="field">
-              <span class="field-label">${escapeHtml(t('shifts.outOfPocketExpense'))}</span>
-              <input class="input" name="outOfPocketExpense" inputmode="decimal" placeholder="0.00" />
-            </label>
-
-            <div class="field field--span2 is-hidden" data-ps-wrap>
-              <span class="field-label">${escapeHtml(t('shifts.platformExtras'))}</span>
-              <div class="shifts-advanced-grid" data-ps-fields></div>
-              <p class="field-hint is-hidden" data-ps-object-hint>${escapeHtml(t('shifts.psObjectHint'))}</p>
+      <!-- Step 2 — Earnings -->
+      <div class="wizard-step">
+        <div class="shifts-form-fields">
+          <label class="field field--span2">
+            <span class="field-label">${escapeHtml(t('shifts.gross'))}</span>
+            <div class="field-inline">
+              <input class="input" name="gross" inputmode="decimal" placeholder="0.00" />
+              <button type="button" class="btn btn-ghost" data-keypad="gross">${escapeHtml(t('ui.keypad.open'))}</button>
             </div>
+          </label>
 
-            <div class="field">
-              <span class="field-label">${escapeHtml(t('shifts.mood'))}</span>
-              <div class="mood-row" role="group" aria-label="${escapeAttr(t('shifts.mood'))}">
-                ${['😊', '🙂', '😐', '😤', '😩']
-                  .map((m) => `<button type="button" class="mood-btn" data-mood="${escapeAttr(m)}">${escapeHtml(m)}</button>`)
-                  .join('')}
-              </div>
-              <input type="hidden" name="mood" value="" />
+          <label class="field">
+            <span class="field-label">${escapeHtml(t('shifts.tips'))}</span>
+            <input class="input" name="tips" inputmode="decimal" placeholder="0.00" />
+          </label>
+
+          <label class="field">
+            <span class="field-label" data-bonus-label>${escapeHtml(t('shifts.bonus'))}</span>
+            <input class="input" name="bonus" inputmode="decimal" placeholder="0.00" />
+          </label>
+
+          <label class="field field--span2">
+            <span class="field-label">${escapeHtml(t('shifts.orders'))}</span>
+            <input class="input" name="orders" inputmode="numeric" placeholder="0" />
+          </label>
+
+          <div class="shifts-multiplatform field--span2" data-mp-section>
+            <div class="shifts-mp-header">
+              <span class="field-label">${escapeHtml(t('shifts.platformsWorkedLabel'))}</span>
+              <button type="button" class="btn btn-ghost btn-sm" data-action="add-platform">${escapeHtml(t('shifts.addPlatformBtn'))}</button>
             </div>
-
-            <label class="field field--span2">
-              <span class="field-label">${escapeHtml(t('shifts.notes'))}</span>
-              <textarea class="input textarea" name="notes" rows="3" placeholder="${escapeAttr(t('shifts.notesPlaceholder'))}"></textarea>
-            </label>
+            <p class="field-hint is-hidden" data-mp-hint>${escapeHtml(t('shifts.platformsWorkedHint'))}</p>
+            <div class="shifts-mp-list" data-mp-list></div>
           </div>
+        </div>
+      </div>
+
+      <!-- Step 3 — Distance & details -->
+      <div class="wizard-step">
+        <div class="shifts-form-fields">
+          <label class="field">
+            <span class="field-label">${escapeHtml(t('shifts.distance'))}</span>
+            <input class="input" name="distance" inputmode="decimal" placeholder="0" />
+            <span class="field-hint" data-distance-unit></span>
+          </label>
+
+          <label class="field">
+            <span class="field-label">${escapeHtml(t('shifts.deadMiles'))}</span>
+            <input class="input" name="deadMilesKm" inputmode="decimal" placeholder="0" />
+            <span class="field-hint">${escapeHtml(distanceUnit() === 'mi' ? t('shifts.unitMiles') : t('shifts.unitKm'))}</span>
+          </label>
+
+          <label class="field">
+            <span class="field-label">${escapeHtml(t('shifts.onlineMinutes'))}</span>
+            <input class="input" name="onlineMinutes" inputmode="numeric" placeholder="0" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">${escapeHtml(t('shifts.activeMinutes'))}</span>
+            <input class="input" name="activeMinutes" inputmode="numeric" placeholder="0" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">${escapeHtml(t('shifts.vehicle'))}</span>
+            <select class="input" name="vehicleId">
+              <option value="">${escapeHtml(t('shifts.vehicleNone'))}</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="field-label">${escapeHtml(t('shifts.weather'))}</span>
+            <select class="input" name="weather">
+              <option value="">${escapeHtml(t('common.optional'))}</option>
+              <option value="clear">☀️ ${escapeHtml(t('shifts.weatherClear'))}</option>
+              <option value="rain">🌧️ ${escapeHtml(t('shifts.weatherRain'))}</option>
+              <option value="snow">❄️ ${escapeHtml(t('shifts.weatherSnow'))}</option>
+              <option value="fog">🌫️ ${escapeHtml(t('shifts.weatherFog'))}</option>
+              <option value="heat">🔥 ${escapeHtml(t('shifts.weatherHeat'))}</option>
+            </select>
+          </label>
+
+          <label class="field field--span2">
+            <span class="field-label">${escapeHtml(t('shifts.outOfPocketExpense'))}</span>
+            <input class="input" name="outOfPocketExpense" inputmode="decimal" placeholder="0.00" />
+          </label>
+
+          <div class="field field--span2 is-hidden" data-ps-wrap>
+            <span class="field-label">${escapeHtml(t('shifts.platformExtras'))}</span>
+            <div class="shifts-advanced-grid" data-ps-fields></div>
+            <p class="field-hint is-hidden" data-ps-object-hint>${escapeHtml(t('shifts.psObjectHint'))}</p>
+          </div>
+
+          <div class="field field--span2">
+            <span class="field-label">${escapeHtml(t('shifts.mood'))}</span>
+            <div class="mood-row" role="group" aria-label="${escapeAttr(t('shifts.mood'))}">
+              ${['😊', '🙂', '😐', '😤', '😩']
+                .map((m) => `<button type="button" class="mood-btn" data-mood="${escapeAttr(m)}">${escapeHtml(m)}</button>`)
+                .join('')}
+            </div>
+            <input type="hidden" name="mood" value="" />
+          </div>
+
+          <label class="field field--span2">
+            <span class="field-label">${escapeHtml(t('shifts.notes'))}</span>
+            <textarea class="input textarea" name="notes" rows="3" placeholder="${escapeAttr(t('shifts.notesPlaceholder'))}"></textarea>
+          </label>
         </div>
       </div>
 
@@ -317,18 +323,10 @@ export function renderShiftForm(opts = {}) {
           <span class="shifts-livebar-value" data-live-vehicle>—</span>
         </div>
       </div>
-
-      <div class="shifts-form-footer">
-        <button type="button" class="btn btn-ghost" data-action="cancel">${escapeHtml(t('common.cancel'))}</button>
-        <button type="submit" class="btn btn-primary" data-action="submit">${escapeHtml(submitLabel)}</button>
-      </div>
     </form>
   `;
 
   const form = /** @type {HTMLFormElement | null} */ (wrapper.querySelector('form'));
-  const adv = /** @type {HTMLElement | null} */ (wrapper.querySelector('[data-advanced]'));
-  const advWrap = /** @type {HTMLElement | null} */ (wrapper.querySelector('[data-advanced]'));
-  const toggleBtn = /** @type {HTMLButtonElement | null} */ (wrapper.querySelector('[data-action="toggle-advanced"]'));
 
   const platformSel = /** @type {HTMLSelectElement | null} */ (wrapper.querySelector('select[name="platformId"]'));
   const dateEl = /** @type {HTMLInputElement | null} */ (wrapper.querySelector('input[name="date"]'));
@@ -518,14 +516,6 @@ export function renderShiftForm(opts = {}) {
   const unit = distanceUnit();
   if (distanceHint) distanceHint.textContent = unit === 'mi' ? t('shifts.unitMiles') : t('shifts.unitKm');
 
-  let advancedOpen = false;
-  const applyAdvanced = () => {
-    if (!toggleBtn || !advWrap) return;
-    toggleBtn.setAttribute('aria-expanded', advancedOpen ? 'true' : 'false');
-    advWrap.classList.toggle('is-hidden', !advancedOpen);
-  };
-  applyAdvanced();
-
   function applyBonusLabel() {
     if (!platformSel || !bonusLabel) return;
     const pid = String(platformSel.value || 'other');
@@ -704,12 +694,6 @@ export function renderShiftForm(opts = {}) {
       onCancel?.();
       return;
     }
-    if (action === 'toggle-advanced') {
-      e.preventDefault();
-      advancedOpen = !advancedOpen;
-      applyAdvanced();
-      return;
-    }
     if (action === 'add-platform') {
       e.preventDefault();
       extraPlatformRows.push(blankMpRow());
@@ -798,6 +782,32 @@ export function renderShiftForm(opts = {}) {
   renderMpRows();
 
   recomputeLive();
+
+  // Step-by-step wizard chrome (mirrors the phone app's Log Shift flow): step 1
+  // context, step 2 earnings, step 3 distance & details. The final step's Save
+  // button is the form's real submit, so the view's submit listener still fires.
+  if (form) {
+    initFormWizard(form, {
+      submitLabel,
+      onCancel: () => onCancel?.(),
+      steps: [
+        {
+          title: t('shifts.platform'),
+          validate: () => {
+            if (displayPlatforms.length === 0 || !platformSel?.value) {
+              return t('shifts.platformRequired') !== 'shifts.platformRequired'
+                ? t('shifts.platformRequired')
+                : 'Select a platform first.';
+            }
+            return null;
+          },
+        },
+        { title: t('shifts.gross') },
+        { title: t('shifts.distance') },
+      ],
+      onStepChange: () => recomputeLive(),
+    });
+  }
 
   const getValue = () => {
     const platformId = platformSel?.value || defaultPlatformId;

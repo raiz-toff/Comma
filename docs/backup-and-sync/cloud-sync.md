@@ -12,7 +12,7 @@ Log a shift on the phone. Open the browser. It's there.
 
 **Settings → Data → Cloud Sync → Connect Google Drive.**
 
-Sync turns itself on when the connection succeeds. There is no password to set and no second toggle to find. If you want end-to-end encryption on top, that's an opt-in under **Advanced** — see [Encryption](./encryption.md).
+When the connection succeeds, Comma asks you to set a **backup password** — the key that encrypts everything before it reaches Drive. Sync has no unencrypted mode, so nothing uploads until the password is set. Once it is, sync turns itself on; there's no separate toggle to find. A second device joins by entering the same password — see [Encryption](./encryption.md).
 
 ---
 
@@ -133,13 +133,13 @@ In order: sync is turned off, the local database is wiped, cursors are reset, an
 
 That last step is the one that matters. Change-logs record who wrote them, and a device skips its own. Without a fresh ID, a reset device would look at every log it ever pushed, think "that's mine, already applied", and skip them all — leaving you with an empty app and a full Drive.
 
-To get your data back after a reset: reconnect. The device pulls everything down.
+To get your data back after a reset: reconnect and enter your backup password. The device pulls everything down. Resetting also signs the device out of Google and clears its stored backup password, so a fresh start is genuinely fresh.
 
 ---
 
 ## Demo mode
 
-Sync is disabled while demo data is loaded. Sample shifts never reach your Drive.
+Sync is disabled while demo data is loaded — sample shifts never reach your Drive. Exporting or restoring a backup file is blocked in demo mode too, so seeded data can't escape as a file either.
 
 ---
 
@@ -147,6 +147,8 @@ Sync is disabled while demo data is loaded. Sample shifts never reach your Drive
 
 **"No synced data found yet"** when joining from a second device — that device has nothing to pull because the first one hasn't pushed. On the phone: Settings → Cloud Sync → **Sync now**, then retry.
 
-**It asks for a password you didn't set** — your other device has end-to-end encryption switched on. Its files can only be read with that password. Enter it, or turn E2E off on the original device.
+**It asks for a backup password** — your vault is encrypted (it always is), and this device needs the same password you set on the first one. Enter it and both devices align.
+
+**It says the password is wrong, and sync is paused** — the password here doesn't match the one on your vault, so Comma holds the push rather than forking your data into two encrypted copies. Enter the correct password. If you no longer have it, use **Forgot your password?** to rebuild the cloud copy from this device (your local data is kept) — see [Encryption](./encryption.md#forgetting-the-password).
 
 **A number is wrong after syncing two devices** — see *Money is treated differently* above; the superseded version is in the overwrite log.

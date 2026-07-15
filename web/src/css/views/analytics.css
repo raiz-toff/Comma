@@ -698,6 +698,63 @@ ion-segment.analytics-segbar {
   }
 }
 
+/* ── Desktop three-column layout ──
+   The phone's tab switch (Performance / Insights / Stat Cards) becomes three side-by-side
+   columns on a wide screen — each category's cards stacked within its column. Mobile keeps
+   the tabbed single-category view (this markup isn't rendered there). */
+.analytics-columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.analytics-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.analytics-col-title {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-secondary);
+}
+
+.analytics-col-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.analytics-col-empty {
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+@media (min-width: 1024px) {
+  .analytics-android--wide {
+    max-width: min(1200px, 100%);
+  }
+  .analytics-columns {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  /* Desktop never shows the category tab switch — hide it in the transient loading/error
+     states too (their markup still includes it before the three-column body paints). */
+  .analytics-segbar {
+    display: none;
+  }
+}
+
 /* ── Stat-card hero block (Android renderStatCards parity) ── */
 .astat-grid {
   display: grid;

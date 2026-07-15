@@ -686,19 +686,27 @@
    double-accordion (shortcuts panel + nested custom-filter panel). */
 .dash-period {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: var(--space-3);
   padding-bottom: var(--space-4);
   border-bottom: 1px solid var(--color-border);
 }
 
+/* Segmented control: a subtle track holding the preset chips, scrollable when it overflows a
+   narrow screen. `flex:0 1 auto; min-width:0` lets the track shrink and scroll instead of
+   pushing the Custom toggle off the row. */
 .dash-period-presets {
   display: flex;
   flex-wrap: nowrap;
+  flex: 0 1 auto;
+  min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
-  gap: var(--space-1);
+  gap: 2px;
+  padding: 3px;
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-pill);
 }
 
 .dash-period-presets::-webkit-scrollbar {
@@ -707,28 +715,33 @@
 
 .dash-preset {
   flex: 0 0 auto;
-  padding: var(--space-1) var(--space-3);
+  padding: 6px 14px;
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-text-secondary);
   border-radius: var(--radius-pill);
   white-space: nowrap;
+  transition: color 0.15s ease, background-color 0.15s ease;
 }
 
 .dash-preset:hover {
   color: var(--color-text-primary);
-  background: var(--color-surface-raised);
 }
 
+/* Active = a lifted neutral chip (iOS-segmented style), not the old muddy brand-tint that
+   read as brown on the dark surface. Clean and high-contrast in both themes. */
 .dash-preset.is-active {
   color: var(--color-text-primary);
-  background: color-mix(in srgb, var(--color-brand) 16%, var(--color-surface));
+  background: var(--color-surface);
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
 }
 
 .dash-period-toggle {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  flex-shrink: 0;
   margin-left: auto;
   font-size: var(--text-sm);
   font-weight: 600;
@@ -1052,6 +1065,30 @@
 
 .dash-recent-card {
   padding: var(--space-4);
+}
+
+.dash-recent-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.dash-recent-header .dash-section-title {
+  margin: 0;
+}
+
+.dash-recent-viewall {
+  flex: none;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-brand);
+  text-decoration: none;
+}
+
+.dash-recent-viewall:hover {
+  text-decoration: underline;
 }
 
 .dash-recent-empty {

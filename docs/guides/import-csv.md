@@ -86,7 +86,7 @@ The phone's CSV wizard is simpler. It maps these columns:
 | Active mileage | Optional |
 | Dead mileage | Optional |
 
-Find it under **Settings → Data**.
+Find it under **Settings → Data**. For a large file, the wizard suggests opening the Comma web app on a computer instead — mapping columns is fiddly on a small screen, and the web app writes to the same vault, so imported shifts land on your phone after the next sync.
 
 ---
 

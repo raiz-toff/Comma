@@ -30,6 +30,10 @@ export const vehicles = sqliteTable('vehicles', {
   fuelType: text('fuel_type'),   // 'gas' | 'electric' | 'hybrid' | 'other'
   licensePlate: text('license_plate'),
   currentOdometer: integer('current_odometer').default(0).notNull(),
+  // Demo Mode row, seeded by loadSampleData() — lets clearSampleData() delete surgically
+  // instead of wiping the whole table. Device-local in spirit (demo data never syncs), but
+  // lives as a real column because SQLite has no schemaless escape hatch like Dexie's.
+  isDemo: integer('is_demo', { mode: 'boolean' }).default(false).notNull(),
   ...syncColumns,
 });
 
@@ -70,6 +74,7 @@ export const shifts = sqliteTable('shifts', {
   startOdometer: integer('start_odometer'),
   endOdometer: integer('end_odometer'),
   distanceSource: text('distance_source').default('gps_only').notNull(),
+  isDemo: integer('is_demo', { mode: 'boolean' }).default(false).notNull(),
   ...syncColumns,
 });
 
@@ -104,6 +109,7 @@ export const expenses = sqliteTable('expenses', {
   recurringSnoozeUntil: text('recurring_snooze_until'), // ISO date string; suppress due-check until this date
   merchant: text('merchant').default("").notNull(),
   merchantNormalized: text('merchant_normalized').default("").notNull(),
+  isDemo: integer('is_demo', { mode: 'boolean' }).default(false).notNull(),
   ...syncColumns,
 });
 
@@ -115,6 +121,7 @@ export const goals = sqliteTable('goals', {
   period:      text('period').notNull(),  // 'daily'|'weekly'|'monthly'|'yearly'
   isActive:    integer('is_active', { mode: 'boolean' }).default(true).notNull(),
   createdAt:   integer('created_at', { mode: 'timestamp' }).notNull(),
+  isDemo:      integer('is_demo', { mode: 'boolean' }).default(false).notNull(),
   ...syncColumns,
 });
 

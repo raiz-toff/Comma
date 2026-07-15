@@ -41,29 +41,15 @@ Full mechanics: [Cloud Sync](./cloud-sync.md).
 
 ---
 
-## The two modes
+## Always encrypted
 
-The one decision you have to understand — and Comma deliberately made it a decision you can ignore.
-
-### Default: no password
-
-Your data goes to a hidden folder in your Google Drive that only Comma can see. It's protected the same way everything else in your Drive is: by your Google account.
-
-Nothing to memorise, nothing to lose, nothing to type on a new device. Sign in with the same Google account and your data is there.
-
-**Who can read it:** you, and Google — exactly like every document already in your Drive.
-
-### Opt-in: end-to-end encryption
-
-Set a password and Comma encrypts everything with it before it leaves the device. Google stores bytes it cannot read.
+Cloud Sync has one mode, and it's the private one. When you connect Google Drive, Comma asks you to set a **backup password** and encrypts everything with it before it leaves the device. Google stores bytes it cannot read.
 
 **Who can read it:** you, on a device where you've entered the password. Not Google. Not us.
 
-**The cost:** if you forget that password, your cloud data is unrecoverable. Not "hard to recover" — mathematically gone. No reset exists, because nobody is holding a key.
+**The cost:** you need that password on every device, and Comma cannot recover it. If you forget it, the cloud copy is unreadable — but the data on your device is untouched, so you rebuild the cloud copy from it under a new password and lose nothing that was already synced there.
 
-The password *is* the mode: setting one turns encryption on, having none means the default.
-
-> **Most people should use the default.** It is the WhatsApp-backup model, and it defends against every threat a driver realistically faces: a stolen phone, a dead phone, a new phone. Choose end-to-end encryption if "Google could technically read this" is a line you won't cross — and you are confident you will not lose the password.
+The files land in a hidden folder only Comma can see (`appDataFolder`), so even the ciphertext is out of the way of the rest of your Drive.
 
 Details: [Encryption](./encryption.md).
 
@@ -86,7 +72,7 @@ Details: [Encryption](./encryption.md).
 
 - **Send your data to a Comma server.** There isn't one.
 - **Read the rest of your Drive.** The permission it requests (`drive.appdata`) can only see its own private folder — not your documents, not your photos.
-- **Sync in demo mode.** Sample data never touches your cloud.
+- **Sync or back up in demo mode.** Sample data never touches your cloud, and exporting or restoring a backup file is blocked too.
 
 ---
 
@@ -94,7 +80,7 @@ Details: [Encryption](./encryption.md).
 
 **Settings → Data → Cloud Sync → Connect Google Drive.**
 
-That's the whole setup. Sync switches on the moment you connect — there's no password step, no schedule to pick, no "enable sync" toggle to hunt for afterwards.
+Connect the account, set a backup password, and sync switches on — no schedule to pick and no separate "enable sync" toggle to hunt for afterwards. The password is the one thing setup asks of you, because nothing reaches Drive unencrypted.
 
 It syncs about once a day by default, plus whenever you press **Sync now**. Change that to manual or weekly under **Advanced**.
 
@@ -104,5 +90,5 @@ It syncs about once a day by default, plus whenever you press **Sync now**. Chan
 
 - [Google Drive Backup](./google-drive-backup.md) — connecting, restoring, disconnecting
 - [Cloud Sync](./cloud-sync.md) — how the merge actually works
-- [Encryption](./encryption.md) — the two modes in detail
+- [Encryption](./encryption.md) — how the backup password protects your cloud copy
 - [Moving Between Devices](./moving-devices.md) — new phone, phone ↔ laptop, exports

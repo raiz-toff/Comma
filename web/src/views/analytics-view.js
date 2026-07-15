@@ -276,6 +276,40 @@ async function openPeriodTypeSheet({ periodType, onPick }) {
   await modal.present();
 }
 
+/** Desktop shows all three categories side by side; below this the phone tab switch stays. */
+const ANALYTICS_DESKTOP_QUERY = '(min-width: 1024px)';
+function isAnalyticsDesktop() {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia(ANALYTICS_DESKTOP_QUERY).matches
+    : false;
+}
+
+/**
+ * Render one category's widget cards (the `<article data-widget-id>` blocks) as a joined
+ * HTML string. Shared by the mobile single-tab layout and the desktop three-column layout.
+ * @param {string[]} widgetIds
+ * @param {unknown} widgetCtx
+ * @returns {Promise<string>}
+ */
+async function renderWidgetCards(widgetIds, widgetCtx) {
+  return (await Promise.all(widgetIds.map(async (id) => {
+    const w = WidgetRegistry.getById(id);
+    if (!w) return '';
+    let inner;
+    try {
+      inner = await w.render(widgetCtx);
+    } catch (err) {
+      console.error(`Widget ${id} failed to render:`, err);
+      inner = `<div class="widget-error">${getIcon('warning', 24)}<p>Failed to load insight</p></div>`;
+    }
+    return `
+      <article class="card analytics-widget-card" data-widget-id="${esc(id)}">
+        <div class="analytics-card-content">${inner}</div>
+      </article>
+    `;
+  }))).join('');
+}
+
 /**
  * @param {HTMLElement} root
  * @param {Record<string, unknown>} _ctx
@@ -370,26 +404,48 @@ async function paintAnalytics(root, _ctx) {
   const taxRatePct = Number(widgetCtx.taxRatePct) || 0;
   const netIncome = Number(financial?.netIncome) || 0;
 
+  // Desktop: drop the tab switch and lay the three categories out in three columns
+  // (Performance | Insights | Stat Cards). Mobile keeps the tabbed single-category view.
+  if (isAnalyticsDesktop()) {
+    const [perfCards, insightsCards, statsCards] = await Promise.all([
+      renderWidgetCards(ANALYTICS_TAB_WIDGETS.perf, widgetCtx),
+      renderWidgetCards(ANALYTICS_TAB_WIDGETS.insights, widgetCtx),
+      renderWidgetCards(ANALYTICS_TAB_WIDGETS.stats, widgetCtx),
+    ]);
+    if (myToken !== paintToken) return; // widgets finished after a newer repaint started
+
+    const statHeroHtml = renderStatCards(widgetCtx, taxRatePct, localeCountry, currency);
+    const emptyCol = `<p class="analytics-col-empty">${esc('Nothing here yet.')}</p>`;
+    const columns = [
+      { key: 'perf', body: perfCards },
+      { key: 'insights', body: insightsCards },
+      { key: 'stats', body: `${statHeroHtml}${statsCards}` },
+    ];
+    const columnsHtml = columns
+      .map(({ key, body }) => {
+        const label = CATEGORY_CONFIG.find((c) => c.key === key)?.label || key;
+        return `
+          <section class="analytics-col" data-analytics-col="${esc(key)}">
+            <h2 class="analytics-col-title">${esc(label)}</h2>
+            <div class="analytics-col-cards">${body || emptyCol}</div>
+          </section>`;
+      })
+      .join('');
+
+    root.innerHTML = `
+      <section class="view-body analytics-android analytics-android--wide" style="padding-bottom: var(--space-20);">
+        ${navHtml(netIncome)}
+        <div class="analytics-columns">${columnsHtml}</div>
+      </section>
+    `;
+
+    afterRenderWidgets(root, widgetCtx);
+    return;
+  }
+
   const categoryWidgetIds = ANALYTICS_TAB_WIDGETS[activeTab] || ANALYTICS_TAB_WIDGETS.perf;
 
-  const cardsHtml = (await Promise.all(categoryWidgetIds.map(async (id) => {
-    const w = WidgetRegistry.getById(id);
-    if (!w) return '';
-    return `
-      <article class="card analytics-widget-card" data-widget-id="${esc(id)}">
-        <div class="analytics-card-content">
-          ${await (async () => {
-            try {
-              return await w.render(widgetCtx);
-            } catch (err) {
-              console.error(`Widget ${id} failed to render:`, err);
-              return `<div class="widget-error">${getIcon('warning', 24)}<p>Failed to load insight</p></div>`;
-            }
-          })()}
-        </div>
-      </article>
-    `;
-  }))).join('');
+  const cardsHtml = await renderWidgetCards(categoryWidgetIds, widgetCtx);
 
   if (myToken !== paintToken) return; // widgets finished after a newer repaint started
 
@@ -487,6 +543,18 @@ export async function render(root, ctx) {
   root.addEventListener('click', handleClick);
   root.addEventListener('ionChange', handleIonChange);
 
+  // Repaint when crossing the desktop breakpoint so the layout swaps between the phone's
+  // tabbed single-category view and the desktop three-column view.
+  const bpQuery =
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia(ANALYTICS_DESKTOP_QUERY)
+      : null;
+  const onBreakpointChange = () => rerender();
+  if (bpQuery) {
+    if (typeof bpQuery.addEventListener === 'function') bpQuery.addEventListener('change', onBreakpointChange);
+    else if (typeof bpQuery.addListener === 'function') bpQuery.addListener(onBreakpointChange); // Safari < 14
+  }
+
   const unsubs = [
     bus.on('platform:changed', rerender),
     bus.on('vehicle:filter:changed', rerender),
@@ -499,6 +567,10 @@ export async function render(root, ctx) {
     disposed = true;
     root.removeEventListener('click', handleClick);
     root.removeEventListener('ionChange', handleIonChange);
+    if (bpQuery) {
+      if (typeof bpQuery.removeEventListener === 'function') bpQuery.removeEventListener('change', onBreakpointChange);
+      else if (typeof bpQuery.removeListener === 'function') bpQuery.removeListener(onBreakpointChange);
+    }
     while (unsubs.length) {
       const u = unsubs.pop();
       if (typeof u === 'function') u();

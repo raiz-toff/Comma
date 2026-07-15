@@ -3,7 +3,7 @@
  * Handles converting the Dexie database to a portable JSON format and back.
  */
 
-import { db, CURRENT_LOGICAL_SCHEMA_VERSION, getAppState, backfillMobileShapeKeys } from '../../core/db.js';
+import { db, CURRENT_LOGICAL_SCHEMA_VERSION, getAppState, setAppState, backfillMobileShapeKeys } from '../../core/db.js';
 
 /**
  * Serializes the entire database into a JSON structure.
@@ -92,6 +92,12 @@ export async function deserializeVault(data) {
     // re-apply the mobile-shape backfill directly in case this vault predates the interop fix
     // (2026-07-03 audit): restored rows must carry platform/name/label/… before they sync.
     await backfillMobileShapeKeys();
+
+    // appState as a whole is deliberately preserved (not cleared/overwritten above) so THIS
+    // device's own cursors/schema_version survive — but demo_mode is the one appState key that
+    // must never survive a restore: real data just replaced whatever was here, so the vault is
+    // real now, and leaving demo_mode stuck on would keep blocking this account's Cloud Sync.
+    await setAppState('demo_mode', false);
 
     return { success: true };
   } catch (err) {

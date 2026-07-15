@@ -59,7 +59,7 @@ const TREE = [
   {
     dir: 'backup-and-sync',
     title: 'Backup & Sync',
-    pages: ['overview', 'google-drive-backup', 'cloud-sync', 'encryption', 'moving-devices'],
+    pages: ['overview', 'google-drive-backup', 'cloud-sync', 'encryption', 'moving-devices', 'fixing-google-drive-connection'],
   },
   {
     dir: 'reference',
@@ -74,7 +74,7 @@ const TREE = [
   {
     dir: 'development',
     title: 'Development',
-    pages: ['setup', 'project-structure', 'environment-variables', 'native-module', 'releasing', 'contributing'],
+    pages: ['setup', 'project-structure', 'environment-variables', 'native-module', 'releasing', 'contributing', 'adding-a-country', 'adding-a-province'],
   },
 ];
 

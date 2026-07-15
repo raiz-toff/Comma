@@ -243,8 +243,8 @@ export const DEFAULT_USER = {
   notificationPrefs: {},
   theme: 'auto',
   accentColor: null,
-  fontSize: 'xl',
-  layoutDensity: 'comfortable',
+  fontSize: 'medium',
+  layoutDensity: 'compact',
   dashboardWidgets: null,
 
   /** @type {'tabs'|'dropdown'} */

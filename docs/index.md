@@ -22,7 +22,7 @@ Comma is a privacy-first earnings tracker for gig workers in Canada: it records 
 - **Local-first.** Your data lives in a database on your own device — SQLite on the phone, IndexedDB in the browser. Comma has no backend and cannot see your earnings.
 - **Background GPS on the phone.** A native foreground service records your route during a shift and separates active delivery distance from dead distance. The web app tracks too, but only while its tab stays open.
 - **CRA-aware tax.** Comma loads Canadian mileage rates, HST/GST, CPP, and province presets, and keeps a running self-employment estimate. It is an estimator, not tax advice.
-- **Optional Google Drive sync.** Connect your own Drive to keep the phone and the web app in step. It is off until you connect it, and end-to-end encryption is available as an opt-in.
+- **Optional Google Drive sync.** Connect your own Drive to keep the phone and the web app in step. It is off until you connect it, and everything it syncs is end-to-end encrypted with a backup password only you hold.
 
 Comma ships for **Canada only** today. Definitions for other countries exist in the source but are deliberately not enabled.
 

@@ -3,8 +3,15 @@ import { Platform } from "react-native";
 import { db } from "../src/database/client";
 import { queryClient } from "../providers/QueryProvider";
 import { settings, vehicles, shifts, expenses, goals, platforms, shiftPlatforms, maintenanceLogs, vehicleTaxProfiles, taxHistory, merchants, syncOverwriteLog } from "../src/database/schema";
+import * as schema from "../src/database/schema";
+import type { ExpoSQLiteDatabase } from "drizzle-orm/expo-sqlite";
 import { eq } from "drizzle-orm";
+
+// Transaction handle type derived from the drizzle expo-sqlite db (the runtime `db` export is
+// typed `any` for the web fallback, so we recover a precise tx type for transaction callbacks).
+type Tx = Parameters<Parameters<ExpoSQLiteDatabase<typeof schema>["transaction"]>[0]>[0];
 import { resetSyncStateForReset, applyPostResetSyncStateWeb, applyPostResetSyncStateNative } from "../src/database/syncState";
+import { clearDeviceAuthSecrets } from "../src/services/googleDrive";
 import { DEMO_ROUTES } from './demoRoutes';
 import { getDBPlatforms, updateDBPlatform, seedDBPlatforms, type DBPlatform } from "../src/database/queries/platforms";
 import { getPlatformsByCountry } from "../src/registry/platforms";
@@ -17,6 +24,7 @@ import { getMarketContext, type MarketContext } from "../src/registry/market/res
 import { type FeatureKey, type OperationalModelId, getWithholdingPresetPct } from "../src/registry/index";
 import {
   GamificationService,
+  getNextMondayIso,
   type Challenge,
   type NotificationItem,
   type PersonalRecords,
@@ -538,12 +546,21 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
     await seedDBPlatforms(finalProfile.country, finalProfile.selectedPlatforms);
     const mileageVal = useMileagePreset ? getMileagePresetRate(finalProfile.country, finalProfile.taxRegion) : "0.62";
-    for (const pKey of finalProfile.selectedPlatforms) {
-      await updateDBPlatform(finalProfile.country, pKey, {
-        isActive: true,
-        mileageRate: mileageVal,
-      });
-    }
+    // Reconcile the FULL active set to exactly what was selected: activate the chosen apps AND
+    // deactivate every other platform. Activating only the selected ones left stale actives
+    // behind — e.g. the apps Demo Mode switches on aren't isDemo-tagged, so exiting demo and
+    // onboarding a fresh account inherited DoorDash/Uber Eats/Skip as "already added" even
+    // though the driver never picked them. The active set now equals the picked set, period.
+    const selectedSet = new Set(finalProfile.selectedPlatforms);
+    const allDbPlatforms = await getDBPlatforms(finalProfile.country);
+    await Promise.all(
+      allDbPlatforms.map((p) =>
+        updateDBPlatform(finalProfile.country, p.id, {
+          isActive: selectedSet.has(p.id),
+          ...(selectedSet.has(p.id) ? { mileageRate: mileageVal } : {}),
+        }),
+      ),
+    );
 
     const appConfig = {
       operationalModelId: finalProfile.operationalModelId || 'delivery_fixed' as OperationalModelId,
@@ -769,10 +786,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
 
     const localeDefs = syncLocaleDefsFromProfile(updated);
+    // Reconcile the header's active filter to the new platform set. A single platform selects
+    // itself; otherwise, if the current filter points at ANY platform that's no longer
+    // selected — including the zero-platforms case, where the filter used to be left stranded
+    // on the just-removed app so the switcher kept showing it until a restart — fall back to
+    // "all".
+    const sel = updated.selectedPlatforms ?? [];
     let nextFilter = get().activePlatformFilter;
-    if (updated.selectedPlatforms && updated.selectedPlatforms.length === 1) {
-      nextFilter = updated.selectedPlatforms[0];
-    } else if (updated.selectedPlatforms && updated.selectedPlatforms.length > 1 && !updated.selectedPlatforms.includes(nextFilter) && nextFilter !== "all") {
+    if (sel.length === 1) {
+      nextFilter = sel[0];
+    } else if (nextFilter !== "all" && nextFilter.split(",").some((id) => !sel.includes(id))) {
       nextFilter = "all";
     }
     set({ profile: updated, activePlatformFilter: nextFilter, ...localeDefs });
@@ -784,15 +807,18 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         await seedDBPlatforms(patch.country, patch.selectedPlatforms || []);
       }
       if (patch.selectedPlatforms) {
-        for (const pKey of patch.selectedPlatforms) {
-          await updateDBPlatform(activeCountry, pKey, { isActive: true });
-        }
+        const selected = patch.selectedPlatforms;
         const allPlatforms = await getDBPlatforms(activeCountry);
-        for (const dbP of allPlatforms) {
-          if (!patch.selectedPlatforms.includes(dbP.id)) {
-            await updateDBPlatform(activeCountry, dbP.id, { isActive: false });
-          }
-        }
+        // One parallel pass instead of two serial loops (activate-selected, then
+        // deactivate-the-rest). The switcher's snappiness comes from the optimistic store
+        // update in the caller; this just stops the save from blocking on one SQLite
+        // round-trip per platform (issue #14). updateDBPlatform no-ops a missing row, same
+        // as the old loops, and stamping (syncUpdatedAt) is unchanged.
+        await Promise.all(
+          allPlatforms.map((dbP) =>
+            updateDBPlatform(activeCountry, dbP.id, { isActive: selected.includes(dbP.id) }),
+          ),
+        );
       }
       const dbPlatforms = await getDBPlatforms(activeCountry);
       set({ dbPlatforms });
@@ -911,6 +937,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       // sync OFF, cursors cleared, device id re-minted. Written AFTER the settings
       // wipe so these keys survive.
       await applyPostResetSyncStateNative(freshDeviceId);
+
+      // SecureStore survives the table wipe — clear the Google session, backup
+      // password, and cached encryption key so the new account starts fully
+      // disconnected instead of inheriting the old one (issue #12).
+      await clearDeviceAuthSecrets();
 
       set({
         isOnboardingCompleted: false,
@@ -1107,11 +1138,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           set: { value: "true" },
         });
 
-      await db.delete(vehicles);
+      // Surgical: only clear previously-seeded demo vehicles (re-rolling demo data), never a
+      // real vehicle — the old unconditional `db.delete(vehicles)` would have wiped a real
+      // user's fleet if this ever ran on top of real data.
+      await db.delete(vehicles).where(eq(vehicles.isDemo, true));
       await db.insert(vehicles).values([
-        { id: 'demo_vehicle_car', name: 'Toyota Prius', type: 'hybrid', isActive: true, createdAt: new Date(), make: 'Toyota', model: 'Prius', year: 2020 },
-        { id: 'demo_vehicle_scooter', name: 'Honda Ruckus', type: 'scooter', isActive: false, createdAt: new Date(), make: 'Honda', model: 'Ruckus', year: 2022 },
-        { id: 'demo_vehicle_ebike', name: 'Rad Power RadCity', type: 'ebike', isActive: false, createdAt: new Date(), make: 'Rad Power', model: 'RadCity', year: 2023 },
+        { id: 'demo_vehicle_car', name: 'Toyota Prius', type: 'hybrid', isActive: true, createdAt: new Date(), make: 'Toyota', model: 'Prius', year: 2020, isDemo: true },
+        { id: 'demo_vehicle_scooter', name: 'Honda Ruckus', type: 'scooter', isActive: false, createdAt: new Date(), make: 'Honda', model: 'Ruckus', year: 2022, isDemo: true },
+        { id: 'demo_vehicle_ebike', name: 'Rad Power RadCity', type: 'ebike', isActive: false, createdAt: new Date(), make: 'Rad Power', model: 'RadCity', year: 2023, isDemo: true },
       ]);
       await db
         .insert(settings)
@@ -1162,8 +1196,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           set: { value: JSON.stringify(demoTemplates) },
         });
 
-      const demoShifts = [];
-      const demoExpenses = [];
+      const demoShifts: (typeof shifts.$inferInsert)[] = [];
+      const demoExpenses: (typeof expenses.$inferInsert)[] = [];
       const platforms = ["doordash", "ubereats", "skip"];
 
       let shiftCounter = 0;
@@ -1212,6 +1246,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
             pausedSeconds: 0,
             notes: "[COMMA Sample Data]",
             routePath: generateMockRoutePath(shiftCounter, VEHICLE_TYPES[shiftCounter % 3]),
+            isDemo: true,
           });
 
           if (shiftCounter % 4 === 0) {
@@ -1222,6 +1257,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
               amount: 45.0 + (shiftCounter % 15),
               date: shiftDate,
               isDeductible: true,
+              isDemo: true,
             });
           }
         }
@@ -1243,17 +1279,25 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         isRecurring: true,
         recurringInterval: "monthly",
         recurringNextDate: recurringDueDate.toISOString().split("T")[0],
+        isDemo: true,
       });
 
       // Batch all inserts in one transaction — avoids N serial JS→native bridge round-trips
-      await db.transaction(async (tx) => {
+      await db.transaction(async (tx: Tx) => {
         if (demoShifts.length > 0) await tx.insert(shifts).values(demoShifts);
         if (demoExpenses.length > 0) await tx.insert(expenses).values(demoExpenses);
-        await tx.delete(goals);
+        // Surgical: only clear previously-seeded demo goals, never a real one. Demo goals use
+        // their OWN `demo_`-namespaced ids (like every other demo row — vehicles, shifts,
+        // expenses) so they never collide with the real onboarding goals `goal_weekly` etc.
+        // Reusing those real ids here used to throw `UNIQUE constraint failed: goals.id` for any
+        // driver who'd finished onboarding (their real goal survives the isDemo-scoped delete,
+        // then this insert hits it). The activation/goal screens match the weekly goal by
+        // period+unit too, so the demo goal still reads as the weekly currency goal.
+        await tx.delete(goals).where(eq(goals.isDemo, true));
         await tx.insert(goals).values([
-          { id: "goal_weekly", label: "Weekly Revenue Goal", targetValue: 500, unit: "currency", period: "weekly", isActive: true, createdAt: new Date() },
-          { id: "goal_monthly", label: "Monthly Revenue Goal", targetValue: 2165, unit: "currency", period: "monthly", isActive: true, createdAt: new Date() },
-          { id: "goal_yearly", label: "Yearly Revenue Goal", targetValue: 26000, unit: "currency", period: "yearly", isActive: true, createdAt: new Date() },
+          { id: "demo_goal_weekly", label: "Weekly Revenue Goal", targetValue: 500, unit: "currency", period: "weekly", isActive: true, createdAt: new Date(), isDemo: true },
+          { id: "demo_goal_monthly", label: "Monthly Revenue Goal", targetValue: 2165, unit: "currency", period: "monthly", isActive: true, createdAt: new Date(), isDemo: true },
+          { id: "demo_goal_yearly", label: "Yearly Revenue Goal", targetValue: 26000, unit: "currency", period: "yearly", isActive: true, createdAt: new Date(), isDemo: true },
         ]);
       });
 
@@ -1286,11 +1330,18 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
 
     try {
-      await db.delete(settings);
-      await db.delete(vehicles);
-      await db.delete(shifts);
-      await db.delete(expenses);
-      await db.delete(goals);
+      // Surgical: delete only demo-tagged rows, and only the settings keys loadSampleData()
+      // itself wrote. This used to be an unconditional `db.delete(settings)` / `db.delete(vehicles)`
+      // / etc. — safe only because demo mode was assumed to never coexist with real data. Filtering
+      // by `isDemo` means a real vehicle/shift/expense/goal (or an unrelated setting) now survives
+      // "Exit demo" even if that assumption is ever violated.
+      await db.delete(vehicles).where(eq(vehicles.isDemo, true));
+      await db.delete(shifts).where(eq(shifts.isDemo, true));
+      await db.delete(expenses).where(eq(expenses.isDemo, true));
+      await db.delete(goals).where(eq(goals.isDemo, true));
+      for (const key of ["demo_mode", "preferred_vehicle_id", "shift_templates", "onboarding_completed"]) {
+        await db.delete(settings).where(eq(settings.key, key));
+      }
 
       // Save empty gamification state on clear
       const defaultState: GamificationState = {
@@ -1313,6 +1364,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
             current: 0,
             completedAt: null,
             startedAt: new Date().toISOString(),
+            nextResetDate: getNextMondayIso(),
+            weekStartedAt: new Date().toISOString(),
           },
           {
             id: "challenge_20_deliveries_week",
@@ -1323,6 +1376,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
             current: 0,
             completedAt: null,
             startedAt: new Date().toISOString(),
+            nextResetDate: getNextMondayIso(),
+            weekStartedAt: new Date().toISOString(),
           },
           {
             id: "challenge_5_shift_streak",
@@ -1333,6 +1388,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
             current: 0,
             completedAt: null,
             startedAt: new Date().toISOString(),
+            nextResetDate: getNextMondayIso(),
+            weekStartedAt: new Date().toISOString(),
           },
         ],
         notifications: [],

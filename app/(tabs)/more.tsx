@@ -6,6 +6,7 @@ import { Target, BarChart3, Calendar, Car, Settings, Info, Calculator, ChevronRi
 import { Text } from "../../src/components/ui/text";
 import { useColors } from "@/src/theme/useColors";
 import { useSettingsStore } from "../../store/useSettingsStore";
+import { DEMO_STRIP_HEIGHT } from "../../src/components/GlobalTopHeader";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
 import { useLayout } from "@/src/hooks/useLayout";
 import { getCountryDef } from "@/src/registry/index";
@@ -43,7 +44,7 @@ const MenuItem = ({ title, subtitle, icon: Icon, onPress, accentColor }: MenuIte
 export default function MoreScreen() {
   const insets = useSafeAreaInsets();
   const C = useColors();
-  const { setHeaderVisible, profile } = useSettingsStore();
+  const { setHeaderVisible, profile, isDemoMode } = useSettingsStore();
   const { accentColor } = usePlatformTheme();
   const { gridStyle } = useLayout();
   const countryDef = getCountryDef(profile?.country || "CA");
@@ -73,7 +74,7 @@ export default function MoreScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.background }} edges={["bottom", "left", "right"]}>
       <ScrollView
-        contentContainerStyle={[{ paddingTop: insets.top + 64, paddingHorizontal: 16, paddingBottom: 48 }, gridStyle]}
+        contentContainerStyle={[{ paddingTop: insets.top + 64 + (isDemoMode ? DEMO_STRIP_HEIGHT : 0), paddingHorizontal: 16, paddingBottom: 48 }, gridStyle]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}

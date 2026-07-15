@@ -147,9 +147,19 @@ export function useGoogleDriveSync() {
     } else {
       await SecureStore.deleteItemAsync("comma_gdrive_tokens");
       if (GoogleSignin) {
+        // revokeAccess, not just signOut: signOut clears the local session but leaves the
+        // account's OAuth GRANT intact on Google's side, so a reconnect silently reuses it.
+        // If that grant is stale or missing the drive.appdata scope, every reconnect keeps
+        // handing back a token that 403s on Drive. Revoking forces a fresh consent screen on
+        // the next connect, which re-grants the scope cleanly. Fall back to signOut if revoke
+        // isn't available (older module) or fails.
         try {
-          await GoogleSignin.signOut();
-        } catch (e) {}
+          await GoogleSignin.revokeAccess();
+        } catch (e) {
+          try {
+            await GoogleSignin.signOut();
+          } catch {}
+        }
       }
     }
     setIsAuthenticated(false);

@@ -14,7 +14,7 @@ The same connection powers both backup and continuous [Cloud Sync](./cloud-sync.
 2. Tap **Connect Google Drive**.
 3. Sign in with the Google account you want to store your data in, and grant access.
 
-That's the whole setup. Sync switches on the moment the connection succeeds — there is no password step and no second toggle to find.
+Comma then asks you to set a **backup password**, which encrypts everything before it reaches Drive. That's the whole setup: connect the account, set the password, and sync switches on — there's no separate toggle to find.
 
 Comma requests only the `drive.appdata` scope. That gives it a private per-app folder that does not appear in your Drive and that no other app can read. It cannot see your documents, your photos, or anything else in your account.
 
@@ -22,9 +22,9 @@ Comma requests only the `drive.appdata` scope. That gives it a private per-app f
 
 ## Where your data goes, and who can read it
 
-By default, your data is stored readable in that private folder, protected the same way everything else in your Drive is — by your Google account. Nothing to memorise, nothing to lose.
+Your data is encrypted on the device before it leaves, with the backup password you set — so what sits in that private folder is ciphertext only. Google stores bytes it cannot read, and only a device with your password can open them.
 
-If you would rather Google could not read it either, turn on **end-to-end encryption** under **Advanced**. Then your data is encrypted on the device before it leaves, and only a device with your password can read it. The trade-off is absolute: if you forget that password, the cloud copy is unrecoverable. See [Encryption](./encryption.md) for the full picture.
+The trade-off is absolute: Comma cannot recover that password. If you forget it, the cloud copy is unreadable — but the data on your device is untouched, so you rebuild the cloud copy from it under a new password. See [Encryption](./encryption.md) for the full picture.
 
 ---
 
@@ -65,7 +65,7 @@ A pull happens on every app open regardless — that is what makes another devic
 
 You rarely need a manual restore, because sync is continuous. To bring your data onto a new device, connect it to the **same Google account** and your data flows down — the profile syncs too, so the device comes up already configured.
 
-If you use end-to-end encryption, the new device will ask for your password before it can read anything.
+The new device will ask for your backup password before it can read anything — the vault is always encrypted, so enter the same password you set on the first device.
 
 For the step-by-step, see [Moving Between Devices](../guides/moving-devices.md).
 
@@ -73,7 +73,7 @@ For the step-by-step, see [Moving Between Devices](../guides/moving-devices.md).
 
 ## Demo mode
 
-While demo data is loaded, connecting Google Drive is blocked and sync is disabled. Sample data never reaches your cloud.
+While demo data is loaded, connecting Google Drive is blocked and sync is disabled. Exporting or restoring a backup file is blocked too, so sample data never reaches your cloud or escapes as a file.
 
 ---
 
@@ -91,4 +91,4 @@ This removes Comma's access token and stops syncing. Your local database is unto
 
 **A second device shows no data** — it has nothing to pull until the first device has pushed. On the first device: **Sync now**, then retry on the second.
 
-**It asks for a password you did not set** — the other device has end-to-end encryption on. Enter that password, or turn encryption off on the original device. See [Encryption](./encryption.md).
+**It asks for a backup password** — your vault is encrypted (it always is). Enter the same password you set on the first device. If it says the password is wrong, sync pauses rather than forking your data; enter the correct one, or use **Forgot your password?** to rebuild the cloud copy from a device that still has your data. See [Encryption](./encryption.md).

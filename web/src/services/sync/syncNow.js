@@ -15,6 +15,8 @@
 
 import {
   isSyncEnabled,
+  isDemoModeActive,
+  getDeviceId,
   addAppliedLog,
   setLastPushRunAt,
   setLastCloudSaveAt,
@@ -22,6 +24,7 @@ import {
   clearLogFailure,
   LOG_QUARANTINE_THRESHOLD,
 } from './syncState.js';
+import { readManifest, verifyPassword, createManifest } from './vaultManifest.js';
 import { pullChanges } from './pullChanges.js';
 import { pushChanges } from './pushChanges.js';
 import { applyChangeLog } from './applyChangeLog.js';
@@ -44,6 +47,21 @@ import { bus } from '../../core/events.js';
  * @property {number} failedLogs pulled logs whose apply threw this run (retried/quarantined)
  * @property {boolean} pushed
  * @property {number} pushedRows
+ * @property {boolean} needsPassphrase true when a file is encrypted and this browser
+ *   couldn't open it (no password stored, or the wrong one)
+ * @property {string[]} passphraseLockedFiles filenames behind needsPassphrase — what
+ *   "Forgot password?" would abandon
+ * @property {boolean} needsPasswordSetup true when the push was skipped because no
+ *   password has ever been set here — sync has no plain mode
+ * @property {boolean} pushBlocked true when the push was skipped because the pull hit files
+ *   this browser can't decrypt (needsPassphrase) OR the manifest verifier rejected our
+ *   password (wrongPassword). Pushing anyway would fork the vault into two encrypted streams
+ *   under different passwords (see plans/008 §1), so we hold the push until they reconcile.
+ * @property {boolean} wrongPassword true when a vault manifest exists and this browser's
+ *   password did not decrypt its verifier — the authoritative "wrong password" signal.
+ * @property {boolean} vaultExists true when a vault manifest exists on this Google account.
+ *   Lets the UI tell apart the two cases behind needsPasswordSetup: a vault exists → ENTER
+ *   its password; no vault → SET a new one.
  */
 
 /**
@@ -52,6 +70,12 @@ import { bus } from '../../core/events.js';
  * @returns {Promise<SyncResult>}
  */
 async function runSync(passphrase, opts) {
+  // Hard stop in demo mode: the seeded sample data must never reach the user's real cloud
+  // copy. This backstops the UI gate on the sync screen and the auto-sync triggers — mirrors
+  // mobile's `src/services/sync/syncNow.ts` hard stop, which this file otherwise ports verbatim.
+  if (await isDemoModeActive()) {
+    throw new Error('Cloud Sync is disabled while Demo Mode is active.');
+  }
   if (!isSyncEnabled()) {
     throw new Error('Sync is not enabled. Unlock sync to use it.');
   }
@@ -72,12 +96,14 @@ async function runSync(passphrase, opts) {
   let auditedRows = 0;
   let failedLogs = 0;
   let needsPassphrase = false;
+  let passphraseLockedFiles = [];
 
   // ── PULL + merge ──
   if (doPull) {
     const pulled = await pullChanges(passphrase);
     pulledLogs = pulled.logs.length;
     needsPassphrase = pulled.needsPassphrase;
+    passphraseLockedFiles = pulled.passphraseLockedFiles;
 
     // Files that failed to DOWNLOAD/DECODE (corrupt — not merely encrypted) still go through
     // the quarantine counter, so a permanently-broken file stops being re-fetched forever.
@@ -121,9 +147,51 @@ async function runSync(passphrase, opts) {
   }
 
   // ── PUSH ──
+  // Sync has no plain mode: never push without a password, full stop — this is the engine's
+  // own backstop, not just a UI gate, so a stray call can't slip an unencrypted file onto
+  // Drive because the UI happened not to collect a password first.
+  const needsPasswordSetup = !passphrase;
+
+  // ── MANIFEST GATE (plans/008 Phase 1) ──
+  // The manifest is the account's single source of truth for the password. We read it on every
+  // push-capable sync (even one with no password yet) so `vaultExists` can tell the UI whether
+  // to ask the user to ENTER an existing password vs SET a brand-new one — the two are
+  // otherwise indistinguishable and getting it wrong forks the vault. Then, before writing:
+  //  • vault exists + a password → it MUST decrypt the verifier or we don't push (wrongPassword).
+  //    Authoritative "wrong password" signal; fires even on a push-only sync that never pulled,
+  //    so a password rotated on another device is caught here too.
+  //  • no manifest + a password + nothing we couldn't read → we're the vault's creator (fresh)
+  //    or its first upgrader (legacy pre-manifest files, all decryptable). Mint the manifest.
+  //  • no manifest + files we COULDN'T read → a legacy fork; Phase 0's pushBlocked already
+  //    holds us, and we must NOT stamp a manifest over a vault we can't fully read.
+  let wrongPassword = false;
+  let vaultExists = false;
+  if (doPush) {
+    try {
+      const { ref } = await readManifest();
+      vaultExists = !!ref;
+      if (ref) {
+        if (!needsPasswordSetup) wrongPassword = !(await verifyPassword(passphrase, ref.manifest));
+      } else if (!needsPasswordSetup && !needsPassphrase) {
+        const { ref: created, wonRace } = await createManifest(passphrase, getDeviceId());
+        vaultExists = true;
+        if (!wonRace) wrongPassword = !(await verifyPassword(passphrase, created.manifest));
+      }
+    } catch (e) {
+      console.warn('[sync] manifest gate failed:', e);
+      if (!needsPasswordSetup) wrongPassword = true;
+    }
+  }
+
+  // FORK GUARD (plans/008 Phase 0): if the pull couldn't decrypt something on Drive, our
+  // password disagrees with whatever wrote it. Pushing now creates a SECOND encrypted stream
+  // under OUR password — the vault forks and both halves pile up unreadably. Hold the push
+  // until the passwords reconcile. `needsPassphrase` is only set when doPull ran, so a
+  // first-ever sync (which always pulls) can't slip past this.
+  const pushBlocked = needsPassphrase || wrongPassword;
   let pushed = false;
   let pushedRows = 0;
-  if (doPush) {
+  if (doPush && !needsPasswordSetup && !pushBlocked) {
     const push = await pushChanges(passphrase);
     pushed = push.pushed;
     pushedRows = push.rowCount;
@@ -149,7 +217,21 @@ async function runSync(passphrase, opts) {
     bus.emit('sync:changed', { appliedRows, pushed, pushedRows });
   }
 
-  return { pulledLogs, appliedRows, skippedRows, auditedRows, failedLogs, pushed, pushedRows, needsPassphrase };
+  return {
+    pulledLogs,
+    appliedRows,
+    skippedRows,
+    auditedRows,
+    failedLogs,
+    pushed,
+    pushedRows,
+    needsPassphrase,
+    passphraseLockedFiles,
+    needsPasswordSetup,
+    pushBlocked,
+    wrongPassword,
+    vaultExists,
+  };
 }
 
 // Serialize all syncs: each call waits for the previous to settle, then runs its own.

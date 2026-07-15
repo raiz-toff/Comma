@@ -1,8 +1,8 @@
 # Countries
 
-The markets Comma supports, the one that is enabled, and the ones written but deliberately held back.
+The single market Comma ships today, and how a new one gets added.
 
-<StatRow accent="emerald" items={[{ value: "$0.73/km", label: "first 5,000 km" }, { value: "$0.67/km", label: "every km after" }, { value: "CAD · km", label: "currency and distance" }, { value: "CRA", label: "tax authority" }]} caption="Canada is the only enabled market. The US, UK, and Nepal are written but held back until their tax rules are verified." />
+<StatRow accent="emerald" items={[{ value: "$0.73/km", label: "first 5,000 km" }, { value: "$0.67/km", label: "every km after" }, { value: "CAD · km", label: "currency and distance" }, { value: "CRA", label: "tax authority" }]} caption="Canada is the only market Comma ships. Adding another means writing a new country definition from scratch — none are waiting in the codebase." />
 
 ---
 
@@ -36,8 +36,8 @@ The rate applies to automobiles only. A bicycle or e-scooter is not an automobil
 
 ---
 
-## Markets that are not enabled
+## Adding another market
 
-The codebase contains country definitions for the United States, the United Kingdom, and Nepal. These are written but deliberately not enabled, because their tax rules have not been verified. They do not appear as choices in the app, and their platforms and categories are not available to drivers.
+Canada is the only country in the codebase. Earlier definitions for the United States, the United Kingdom, and Nepal were removed, because their tax and mileage rules had not been verified and Comma will not offer a country whose numbers have not been signed off.
 
-They exist so that adding a market later is a matter of verifying and switching on an existing definition rather than building one from scratch. For how a country is defined and what has to be confirmed before it can be enabled, see [Contributing](../development/contributing.md).
+Adding a market means writing a new country definition from scratch, using Canada as the template — it is data, not new logic, since nothing in the app branches on the country id. For how a country is defined and what has to be confirmed before it can ship, see [Adding a country](../development/adding-a-country.md).

@@ -1,8 +1,13 @@
 import { useEffect } from "react";
-import { Platform, Alert, Linking, PermissionsAndroid } from "react-native";
+import { Platform, Alert, Linking } from "react-native";
 import { promptForFullLocationAccess } from "../src/services/permissions/locationAccess";
+import {
+  getNotificationStatus,
+  requestNotifications,
+  requestActivity,
+  requestBatteryOptimizationExemption,
+} from "../src/services/permissions/permissionRequests";
 import * as Location from "expo-location";
-import * as Notifications from "expo-notifications";
 import { useActiveShift } from "../store/useActiveShift";
 import { useSettingsStore } from "../store/useSettingsStore";
 import CommaTracker from "../modules/comma-tracker";
@@ -102,37 +107,26 @@ export function useGPSTracking() {
         promptForFullLocationAccess();
       }
 
-      // Android 13+ suppresses the foreground-service notification unless
-      // POST_NOTIFICATIONS is granted. Request it so the "Recording mileage"
-      // notification is actually visible. Non-blocking — tracking proceeds regardless.
-      try {
-        const { status: notifStatus } = await Notifications.getPermissionsAsync();
-        if (notifStatus !== "granted") {
-          await Notifications.requestPermissionsAsync();
-        }
-      } catch (notifErr) {
-        console.warn("Notification permission request failed:", notifErr);
+      // The remaining permissions are the same ones onboarding primes, requested through the same
+      // shared service (src/services/permissions/permissionRequests.ts) — this is the fallback for
+      // anyone who skipped or denied them during onboarding. All non-blocking; tracking proceeds
+      // regardless of the outcome.
+
+      // Android 13+ suppresses the foreground-service notification unless POST_NOTIFICATIONS is
+      // granted, so the "Recording mileage" notification would be silently invisible.
+      if ((await getNotificationStatus()) !== "granted") {
+        await requestNotifications();
       }
 
-      // Activity Recognition (Android 10+/API 29+) powers battery-first movement-gated GPS:
-      // the native service pauses the GPS radio while the user is still. Non-blocking — if
-      // denied, the service falls back to GPS-on for the whole shift.
-      if (Platform.OS === "android" && typeof Platform.Version === "number" && Platform.Version >= 29) {
-        try {
-          await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION);
-        } catch (arErr) {
-          console.warn("[useGPSTracking] Activity recognition permission request failed:", arErr);
-        }
-      }
+      // Activity recognition (Android 10+/API 29+) powers battery-first movement-gated GPS: the
+      // native service pauses the GPS radio while the user is still. If denied, it falls back to
+      // GPS-on for the whole shift. The service no-ops where the permission doesn't apply.
+      await requestActivity();
 
-      // Request battery optimization exemption so OEM killers (Samsung, Xiaomi, etc.)
-      // cannot terminate the foreground service when the app is swiped from recents.
-      // The dialog only appears once; subsequent calls are no-ops if already granted.
-      try {
-        CommaTracker.requestBatteryOptimizationExemption();
-      } catch (batteryErr) {
-        console.warn("[useGPSTracking] Battery optimization exemption request failed:", batteryErr);
-      }
+      // Battery-optimization exemption so OEM killers (Samsung, Xiaomi, etc.) cannot terminate the
+      // foreground service when the app is swiped from recents. Idempotent — the dialog only
+      // appears if the app isn't already exempt.
+      requestBatteryOptimizationExemption();
 
       // Launch the native foreground service (CommaTrackerModule.kt →
       // LocationTrackingService.kt). It shows the ongoing notification and

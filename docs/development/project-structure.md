@@ -103,8 +103,7 @@ src/
 ├── registry/
 │   ├── countries/           # Country tax rules, mileage, provinces
 │   │   ├── index.ts         # THE registry — only CA is registered
-│   │   ├── CA/              # Canada: index.ts, provinces/, tax/
-│   │   ├── US/, UK/, NP/    # Written but deliberately unregistered
+│   │   ├── CA/              # Canada: index.ts, provinces/, tax/ (only country)
 │   │   └── mileageRates.ts
 │   ├── platforms/           # Built-in gig platforms by country
 │   ├── operationalModels/, badges/, market/
@@ -172,7 +171,7 @@ web/
 │   │   └── gps-tracker.js   # Foreground/tab-open GPS tracker
 │   ├── services/sync/  # Change-log cloud-sync engine (mirrors src/services/sync)
 │   ├── registry/
-│   │   └── countries/  # CA.country.js (registered), US/UK written, index.js
+│   │   └── countries/  # CA.country.js (only country), _TEMPLATE.country.js, index.js
 │   ├── modules/        # Feature modules (onboarding, backup, tax, goals, …)
 │   ├── css/, ui/, views/, libs/, utils/
 ├── public/, icons/     # Static assets, manifest, service worker source

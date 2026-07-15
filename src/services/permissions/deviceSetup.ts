@@ -30,6 +30,7 @@ import { Platform } from "react-native";
 import { eq } from "drizzle-orm";
 import { db } from "../../database/client";
 import { settings } from "../../database/schema";
+import { isDemoModeActive } from "../../database/syncState";
 import {
   getLocationAccessLevel,
   requestFullLocationAccess,
@@ -77,6 +78,12 @@ async function markAsked(): Promise<void> {
  */
 export async function ensureDeviceLocationSetup(): Promise<LocationAccessLevel | null> {
   if (isWeb) return null;
+  // Never prompt in demo mode — sample data has no shift to track. The dashboard hook
+  // already guards on the `isDemoMode` React flag, but that races the two-step store update
+  // when Demo Mode is first entered (isOnboardingCompleted flips true a tick before
+  // isDemoMode). Reading the persisted `demo_mode` marker here is authoritative and closes
+  // that window, so no caller can surface a location dialog behind the demo.
+  if (await isDemoModeActive()) return null;
   if (await readAsked()) return null;
 
   const level = await getLocationAccessLevel();

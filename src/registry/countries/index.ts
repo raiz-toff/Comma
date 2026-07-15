@@ -1,14 +1,5 @@
 import { type CountryDef, type TaxProfile, type ProvinceDef } from "./types";
 import { CA, CA_PROVINCES } from "./CA";
-// Written, type-checked, and deliberately UNREGISTERED — see COUNTRY_MAP below. Kept imported so
-// they keep compiling against CountryDef and stay one line away from being switched on.
-import { US, US_STATES } from "./US";
-import { UK, UK_REGIONS } from "./UK";
-import { NP, NP_PROVINCES } from "./NP";
-
-void US; void US_STATES;
-void UK; void UK_REGIONS;
-void NP; void NP_PROVINCES;
 
 // Re-export the types so callers can import them from here
 export { type CountryDef, type TaxProfile, type ProvinceDef } from "./types";
@@ -18,8 +9,9 @@ export { type MileageTable, type MileageRate, type MileageCategory } from "./typ
  * ── THE REGISTRY ─────────────────────────────────────────────────────────────
  * The one place that decides which countries this app ships.
  *
- * Canada only, for now. US / UK / NP definitions exist on disk, fully written, but are NOT
- * registered — the app must not offer a country whose tax rules haven't been signed off.
+ * Canada only. Other countries (US, UK, NP, …) were removed pending accurate, signed-off tax
+ * and mileage research — the app must not offer a country whose numbers haven't been verified.
+ * Re-add one by writing its definition file (see CA/ as the template) and listing it below.
  *
  * TO ADD A COUNTRY:
  *   1. add it to COUNTRY_MAP below, and its regions to ALL_REGIONS
@@ -125,26 +117,16 @@ export function getSalesTaxRate(countryId: string, regionCode: string): number {
   const province = resolveProvinceDef(countryId, regionCode);
   if (province) return province.salesTaxRate;
   // Fallback
-  if (countryId === "CA") return 0.13;
-  if (countryId === "UK") return 0.20;
+  if (String(countryId).toUpperCase() === "CA") return 0.13;
   return 0;
 }
 
 /** Get the regional/national mileage preset rate ($ per unit distance) */
 export function getMileagePresetRate(countryId: string, regionCode: string): string {
   const c = String(countryId).toUpperCase();
-  const r = String(regionCode).toUpperCase();
+  void regionCode;
   if (c === "CA") {
     return "0.70"; // CRA rate
-  }
-  if (c === "US") {
-    if (r === "CA") {
-      return "0.35"; // California Prop 22 active mileage reimbursement
-    }
-    return "0.67"; // IRS Standard rate
-  }
-  if (c === "UK") {
-    return "0.45"; // HMRC Standard rate
   }
   return "0.00";
 }
@@ -152,12 +134,7 @@ export function getMileagePresetRate(countryId: string, regionCode: string): str
 /** Get the readable label for a region's standard mileage preset */
 export function getMileagePresetLabel(countryId: string, regionCode: string): string {
   const c = String(countryId).toUpperCase();
-  const r = String(regionCode).toUpperCase();
+  void regionCode;
   if (c === "CA") return "CRA ($0.70/km)";
-  if (c === "US") {
-    if (r === "CA") return "California Prop 22 ($0.35/mi)";
-    return "IRS Standard ($0.67/mi)";
-  }
-  if (c === "UK") return "HMRC (£0.45/mi)";
   return "None";
 }

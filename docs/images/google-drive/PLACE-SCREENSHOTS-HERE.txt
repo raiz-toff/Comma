@@ -1,0 +1,4 @@
+The 3 Google-account screenshots for docs/backup-and-sync/fixing-google-drive-connection.md go here:
+  1-search-third-party.png     — searching 'third party' -> 'Your connections to third-party apps and services'
+  2-search-comma.png           — searching 'comma' -> the COMMA entry
+  3-delete-all-connections.png — the COMMA page with 'Delete all connections that you have with COMMA'

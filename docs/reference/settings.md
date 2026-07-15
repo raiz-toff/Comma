@@ -54,7 +54,7 @@ How the app looks. On the web app this tab also carries typography and layout co
 | Week starts | Sunday, Monday | — | Phone and web |
 | Time format | 12-hour, 24-hour | — | Phone and web |
 | Font size | S, M, L, XL | M | Web only |
-| Layout density | Comfortable, Compact | Comfortable | Web only |
+| Layout density | Comfortable, Compact | Compact | Web only |
 | Date format | Locale-based options | — | Web only |
 
 On the phone app the currency follows the country and cannot be changed. The web app allows an independent currency choice for drivers who want their figures displayed in a different currency.

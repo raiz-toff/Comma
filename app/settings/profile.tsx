@@ -8,7 +8,7 @@ import { router } from "expo-router";
 import { ChevronLeft, Check } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
 import { useSettingsStore, type DriverProfile } from "@/store/useSettingsStore";
-import { getCountryDef, getRegionsByCountry, listCaProvinceCodes, listUsStateCodes } from "@/src/registry/index";
+import { getCountryDef, getRegionsByCountry, listCaProvinceCodes } from "@/src/registry/index";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { useLayout } from "@/src/hooks/useLayout";

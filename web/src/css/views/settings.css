@@ -826,10 +826,17 @@ html[data-layout-density='compact'] {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3);
+  padding: var(--space-4);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-base), background var(--transition-base);
+}
+
+/* Stack rows within a card body with even spacing. */
+.settings-backup-body > .backup-status-item + .backup-status-item,
+.sync-advanced-body > .backup-status-item + .backup-status-item {
+  margin-top: var(--space-3);
 }
 
 .status-icon {
@@ -839,9 +846,21 @@ html[data-layout-density='compact'] {
   width: 44px;
   height: 44px;
   background: var(--color-surface);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-pill);
   border: 1px solid var(--color-border);
   flex-shrink: 0;
+}
+
+/* Status badge takes on the state's tone: green when connected/active, amber when a
+   backup is overdue — a clearer signal than a neutral grey circle. */
+.status-connected .status-icon {
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 32%, var(--color-border));
+}
+
+.backup-status-item.is-overdue .status-icon {
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning) 32%, var(--color-border));
 }
 
 .status-content {
@@ -865,6 +884,52 @@ html[data-layout-density='compact'] {
   gap: var(--space-2);
   flex-wrap: wrap;
 }
+
+/* Advanced settings disclosure — styled instead of the browser's default triangle. */
+.sync-advanced {
+  margin-top: var(--space-3);
+}
+
+.sync-advanced-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: color var(--transition-base);
+}
+
+.sync-advanced-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.sync-advanced-toggle::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform var(--transition-base);
+}
+
+.sync-advanced[open] > .sync-advanced-toggle::before {
+  transform: rotate(90deg);
+}
+
+.sync-advanced-toggle:hover {
+  color: var(--color-text-primary);
+}
+
+.sync-advanced-body {
+  padding-top: var(--space-3);
+}
+
 .settings-collapsible-title-wrap {
   display: flex;
   flex-direction: column;

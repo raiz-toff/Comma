@@ -25,8 +25,10 @@ import { renderActivationPanel } from '../modules/onboarding/activation.js';
 
 const DASHBOARD_RANGE_KEY = 'comma-dashboard-range-v1';
 const RECENT_SHIFTS_LIMIT = 5;
-// Presets kept identical to the pre-redesign dashboard so saved ranges keep resolving the same way.
-const PRESETS = ['day', 'week', 'month', 'q1', 'q2', 'q3', 'q4', 'year', 'ytd'];
+// Quick presets shown as chips on the dashboard — just the everyday three. Quarter/Year/YTD
+// were dropped from the row (too many chips); those longer ranges live behind "Custom". A saved
+// range still resolving to one of them stays valid, it just won't highlight a chip.
+const PRESETS = ['day', 'week', 'month'];
 
 function esc(v) {
   return String(v ?? '')
@@ -314,7 +316,10 @@ function renderAside(activeTimer, fin, widgetCtx, recentShifts, fmt) {
     <aside class="dash-aside">
       ${renderLiveCard(activeTimer, fin, widgetCtx, fmt)}
       <article class="card dash-recent-card">
-        <h2 class="dash-section-title">${esc(t('views.dashboard.financial.recentShiftsTitle'))}</h2>
+        <div class="dash-recent-header">
+          <h2 class="dash-section-title">${esc(t('views.dashboard.financial.recentShiftsTitle'))}</h2>
+          <a class="dash-recent-viewall" href="#/shifts">${esc(t('views.dashboard.financial.recentShiftsViewAll'))}</a>
+        </div>
         ${renderRecentList(recentShifts, fmt)}
       </article>
     </aside>`;

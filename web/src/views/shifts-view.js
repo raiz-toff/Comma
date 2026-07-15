@@ -779,7 +779,10 @@ async function openWeekSelector({ selectedWeekStart, weekStartDay, onPick }) {
     document.createElement('ion-modal')
   );
   modal.classList.add('shifts-week-modal');
-  applySheetPresentation(modal, [0, 0.65, 0.92], 0.65);
+  // Open near full height (0.92) rather than 0.65 — at 0.65 the pinned footer (Previous/Next
+  // Year) sat at the very bottom edge, below the fold / under the home-indicator area, so it
+  // couldn't be tapped on mobile. 0.65 stays as a mid drag-stop; 0 dismisses.
+  applySheetPresentation(modal, [0, 0.65, 0.92], 0.92);
   const host = document.createElement('div');
   host.className = 'expenses-m-modal-sheet shifts-week-sheet';
   modal.appendChild(host);
@@ -825,14 +828,13 @@ async function openWeekSelector({ selectedWeekStart, weekStartDay, onPick }) {
         </div>
         <div class="expenses-m-modal-subhead">
           <span>${escapeHtml(t('shifts.weeklyEarnings'))}</span>
-          <span>${viewYear}</span>
+          <span class="expenses-m-modal-yearnav">
+            <button type="button" class="expenses-m-modal-yearbtn" data-week-year="prev" aria-label="${escapeAttr(t('expenses.previousYear') || 'Previous Year')}">${getIcon('chevron-left', 18)}</button>
+            <span class="expenses-m-modal-yearlbl">${viewYear}</span>
+            <button type="button" class="expenses-m-modal-yearbtn${nextDisabled ? ' is-disabled' : ''}" data-week-year="next"${nextDisabled ? ' disabled' : ''} aria-label="${escapeAttr(t('expenses.nextYear') || 'Next Year')}">${getIcon('chevron-right', 18)}</button>
+          </span>
         </div>
-        <div class="expenses-m-modal-list">${cards.join('')}</div>
-        <div class="expenses-m-modal-foot">
-          <button type="button" class="expenses-m-modal-year" data-week-year="prev">${escapeHtml(t('expenses.previousYear') || 'Previous Year')}</button>
-          <span class="expenses-m-modal-yearlbl">${viewYear}</span>
-          <button type="button" class="expenses-m-modal-year${nextDisabled ? ' is-disabled' : ''}" data-week-year="next"${nextDisabled ? ' disabled' : ''}>${escapeHtml(t('expenses.nextYear') || 'Next Year')}</button>
-        </div>`;
+        <div class="expenses-m-modal-list">${cards.join('')}</div>`;
   };
 
   build();

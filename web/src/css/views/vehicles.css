@@ -248,3 +248,36 @@ ion-item-sliding.vehicles-sliding {
 .vehicle-actions ion-button {
   flex: 1;
 }
+
+/* ── Vehicle editor form ────────────────────────────────────────────────────
+ * The form is type-aware (see openVehicleEditor): fields carry a `data-vtypes`
+ * list and are hidden when they don't apply to the chosen vehicle type. The
+ * `.field` base sets display:flex, so [hidden] needs an explicit override. */
+.vehicles-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.vehicles-form [hidden] {
+  display: none !important;
+}
+
+/* A labelled cluster of type-specific fields (Fuel / Electric / Upkeep …). */
+.vehicles-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--color-border);
+}
+
+.vehicles-form-grouphead {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-secondary);
+}

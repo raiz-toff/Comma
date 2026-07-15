@@ -142,6 +142,11 @@ function applyDensity(density) {
 }
 
 async function exportVaultSnapshot() {
+  // Same reasoning as Cloud Sync (backup-engine.js): a demo export is a file on disk
+  // indistinguishable from a real one once it exists, so it must never be produced.
+  if (store.get('demoMode')) {
+    throw new Error('Backup export is disabled in Demo Mode.');
+  }
   const tables = {};
   for (const table of db.tables) {
     tables[table.name] = await table.toArray();
@@ -312,8 +317,8 @@ export async function mountSettings(root, ctx = {}) {
   const userAccentNorm = normalizeAccentHex(user.accentColor);
 
   updateAccentColor();
-  applyFontSize(user.fontSize || 'xl');
-  applyDensity(user.layoutDensity || 'comfortable');
+  applyFontSize(user.fontSize || 'medium');
+  applyDensity(user.layoutDensity || 'compact');
 
   const th = (id) => (initialSettingsTab === id ? '' : 'hidden');
   root.className = 'settings-root';
@@ -487,16 +492,16 @@ export async function mountSettings(root, ctx = {}) {
               <span class="input-label">Font size</span>
               <select class="input" data-setting-font>
                 <option value="small" ${user.fontSize === 'small' ? 'selected' : ''}>Small</option>
-                <option value="medium" ${user.fontSize === 'medium' ? 'selected' : ''}>Medium</option>
+                <option value="medium" ${user.fontSize === 'medium' || !user.fontSize ? 'selected' : ''}>Medium</option>
                 <option value="large" ${user.fontSize === 'large' ? 'selected' : ''}>Large</option>
-                <option value="xl" ${user.fontSize === 'xl' || !user.fontSize ? 'selected' : ''}>XL</option>
+                <option value="xl" ${user.fontSize === 'xl' ? 'selected' : ''}>XL</option>
               </select>
             </label>
             <label class="input-group">
               <span class="input-label">Layout density</span>
               <select class="input" data-setting-density>
-                <option value="comfortable" ${!user.layoutDensity || user.layoutDensity === 'comfortable' ? 'selected' : ''}>Comfortable</option>
-                <option value="compact" ${user.layoutDensity === 'compact' ? 'selected' : ''}>Compact</option>
+                <option value="comfortable" ${user.layoutDensity === 'comfortable' ? 'selected' : ''}>Comfortable</option>
+                <option value="compact" ${!user.layoutDensity || user.layoutDensity === 'compact' ? 'selected' : ''}>Compact</option>
               </select>
             </label>
           </div>
@@ -1120,6 +1125,10 @@ export async function mountSettings(root, ctx = {}) {
   });
 
   root.querySelector('[data-export-snapshot]')?.addEventListener('click', async () => {
+    if (store.get('demoMode')) {
+      showToast({ type: 'info', message: 'Backup export is disabled in Demo Mode.' });
+      return;
+    }
     try {
       await exportVaultSnapshot();
       exportedThisSession = true;
@@ -1132,6 +1141,10 @@ export async function mountSettings(root, ctx = {}) {
   });
 
   root.querySelector('[data-export-vault-reports]')?.addEventListener('click', async () => {
+    if (store.get('demoMode')) {
+      showToast({ type: 'info', message: 'Backup export is disabled in Demo Mode.' });
+      return;
+    }
     try {
       await exportVaultBackupJson();
       await setAppState('last_backup', new Date().toISOString());
@@ -1145,6 +1158,10 @@ export async function mountSettings(root, ctx = {}) {
   });
 
   root.querySelector('[data-export-backup]')?.addEventListener('click', async () => {
+    if (store.get('demoMode')) {
+      showToast({ type: 'info', message: 'Backup export is disabled in Demo Mode.' });
+      return;
+    }
     try {
       await exportVaultSnapshot();
       exportedThisSession = true;
@@ -1165,6 +1182,10 @@ export async function mountSettings(root, ctx = {}) {
     const file = /** @type {HTMLInputElement} */ (e.target).files?.[0];
     if (importVaultInput) importVaultInput.value = ''; // allow re-picking the same file
     if (!file) return;
+    if (store.get('demoMode')) {
+      showToast({ type: 'info', message: 'Restoring a backup is disabled in Demo Mode. Exit demo first.' });
+      return;
+    }
     const res = await importVaultFile(file);
     if ('cancelled' in res && res.cancelled) return;
     if (res.success) {

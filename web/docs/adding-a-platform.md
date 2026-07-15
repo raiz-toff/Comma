@@ -184,5 +184,5 @@ If you add a new **analytics module** name, you must implement the corresponding
 
 ## See also
 
-- [`adding-a-province.md`](adding-a-province.md) — province registry, `availablePlatforms`, and expense categories.
-- [`adding-a-country.md`](adding-a-country.md) — country registry and `tax` profile before wiring provinces.
+- [`adding-a-province.md`](../../docs/development/adding-a-province.md) — province registry, `availablePlatforms`, and expense categories.
+- [`adding-a-country.md`](../../docs/development/adding-a-country.md) — country registry and `tax` profile before wiring provinces.

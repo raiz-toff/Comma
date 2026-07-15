@@ -52,7 +52,7 @@ import { useDeviceLocationSetup } from "../../hooks/useDeviceLocationSetup";
 import Svg, { Path, Circle, Defs, LinearGradient, Stop, Polyline, Line } from "react-native-svg";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
 import { PLATFORMS } from "../../src/registry/platforms";
-import { PlatformLogo } from "../../src/components/GlobalTopHeader";
+import { PlatformLogo, DEMO_STRIP_HEIGHT } from "../../src/components/GlobalTopHeader";
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -668,7 +668,6 @@ export default function HomeScreen() {
     isDemoMode,
     isLoading,
     loadSettings,
-    clearSampleData,
     activePlatformFilter,
     activeVehicleFilter,
     preferredVehicleId,
@@ -1127,7 +1126,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={S.root} edges={["top", "left", "right", "bottom"]}>
       <ScrollView
-        contentContainerStyle={[S.scroll, { paddingBottom: 24 }, gridStyle]}
+        contentContainerStyle={[S.scroll, { paddingBottom: 24 }, gridStyle, isDemoMode && { paddingTop: 76 + DEMO_STRIP_HEIGHT }]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -1460,16 +1459,6 @@ export default function HomeScreen() {
                     ? `At $${sessionMileageRate.ratePrimary}/${profile?.distanceUnit ?? "mi"} you've got an`
                     : "You've got an"} est. <Text variant="paragraphS" tabular style={{ color: C.warning, fontWeight: "bold" }}>{fmt(writeOff)}</Text> tax write-off on <Text variant="paragraphS" tabular style={{ fontWeight: "bold", color: C.contentPrimary }}>{currentStats.miles.toFixed(1)}</Text> {profile?.distanceUnit ?? "mi"} today.
                 </Text>
-              </View>
-            )}
-
-            {/* ── Demo Mode Banner (Moved to bottom) ────────────────────────── */}
-            {isDemoMode && (
-              <View style={S.demoBanner}>
-                <Text style={S.demoText}>Demo Mode Active (Sample Data)</Text>
-                <Pressable onPress={clearSampleData} accessibilityRole="button" style={S.demoBtn}>
-                  <Text style={S.demoBtnText}>Clear Data</Text>
-                </Pressable>
               </View>
             )}
           </>
@@ -2016,9 +2005,4 @@ const makeS = (C: Palette) => StyleSheet.create({
   wizardFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 0.5, borderTopColor: C.lineSubtle, paddingTop: 14, marginTop: 2 },
   wizardBackBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
   wizardNextBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8 },
-
-  demoBanner: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: withAlpha(C.warning, 0.12), borderWidth: StyleSheet.hairlineWidth, borderColor: withAlpha(C.warning, 0.2), padding: 12, borderRadius: 20, marginBottom: 12, marginHorizontal: 16 },
-  demoText: { fontSize: 11, fontWeight: "800", color: C.warning },
-  demoBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: withAlpha(C.warning, 0.2) },
-  demoBtnText: { fontSize: 11, fontWeight: "800", color: C.warning },
 });

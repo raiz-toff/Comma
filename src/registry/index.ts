@@ -22,10 +22,8 @@ export {
 
 export {
   WITHHOLDING_PRESETS_CA,
-  WITHHOLDING_PRESETS_US,
   getWithholdingPresetPct,
   listCaProvinceCodes,
-  listUsStateCodes,
 } from "./countries/tax/index";
 
 export {

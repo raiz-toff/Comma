@@ -86,7 +86,7 @@ export default function VehiclesScreen() {
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const { isOnboardingCompleted } = useSettingsStore();
+  const { isOnboardingCompleted, isDemoMode } = useSettingsStore();
   const { columnStyle } = useLayout();
 
   const [showAddForm, setShowAddForm] = useState(false);
@@ -115,6 +115,17 @@ export default function VehiclesScreen() {
   };
 
   const handleSave = async () => {
+    if (isDemoMode) {
+      Alert.alert(
+        "Demo Mode Active",
+        "You cannot add vehicles while Demo Mode is active. Please turn off Demo Mode in Settings to manage your vehicles.",
+        [
+          { text: "Go to Settings", onPress: () => router.push("/settings") },
+          { text: "Cancel", style: "cancel" },
+        ]
+      );
+      return;
+    }
     if (!name.trim()) {
       Alert.alert("Validation", "Please enter a vehicle name.");
       return;

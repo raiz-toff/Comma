@@ -41,6 +41,23 @@
 .gv-panel { display: none; flex-direction: column; gap: 16px; }
 .gv-panel.is-active { display: flex; }
 
+/* Column headers replace the tab labels on desktop; hidden on mobile (tabs show instead). */
+.gv-col-title { display: none; margin: 0 0 4px; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gv-muted); }
+
+/* Desktop: drop the Goals/Progress tab switch and show both panels side by side. */
+@media (min-width: 1024px) {
+  .goals-view-container { max-width: min(1120px, 100%); }
+  .goals-view-container ion-segment.gv-tabs { display: none; }
+  .gv-panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  .gv-panels > .gv-panel { display: flex; }
+  .gv-col-title { display: block; }
+}
+
 .gv-card { background: var(--gv-card); border: 0.8px solid var(--gv-border); border-radius: 20px; }
 .gv-card--pad { padding: 20px; }
 

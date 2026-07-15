@@ -17,6 +17,7 @@
 
 import { newDashFreeId } from '../../core/id.js';
 import { coerceSchedule } from './schedule.js';
+import { getAppState } from '../../core/db.js';
 
 export const SYNC_KEYS = {
   deviceId: 'sync_device_id',
@@ -26,6 +27,7 @@ export const SYNC_KEYS = {
   schedule: 'sync_schedule', // auto-push cadence: 'manual' | 'daily' | 'weekly'
   lastPushRunAt: 'sync_last_push_run_at', // WALL-CLOCK ms of the last push run (schedule timer)
   failedLogs: 'sync_failed_logs', // JSON object {filename: consecutive apply-failure count}
+  forgottenLogs: 'sync_forgotten_logs', // JSON array — filenames abandoned via "Forgot password?"
 };
 
 /** A log that fails to apply this many times is QUARANTINED: pull stops re-downloading it. */
@@ -108,6 +110,18 @@ export function isSyncEnabled() {
   return readSyncKey(SYNC_KEYS.enabled) === '1';
 }
 
+/**
+ * Whether Demo Mode is active. Reads straight from the `appState` IndexedDB table (not the
+ * reactive `store.demoMode` mirror), so low-level callers like the sync engine can gate on it
+ * without depending on the store having hydrated yet. Sync must never run in demo mode — the
+ * seeded sample data would overwrite the user's real cloud copy. Mirrors mobile's
+ * `src/database/syncState.ts` `isDemoModeActive()`.
+ * @returns {Promise<boolean>}
+ */
+export async function isDemoModeActive() {
+  return (await getAppState('demo_mode')) === true;
+}
+
 /** @param {boolean} enabled */
 export function setSyncEnabled(enabled) {
   writeSyncKey(SYNC_KEYS.enabled, enabled ? '1' : '0');
@@ -123,6 +137,20 @@ export function getLastPushedAt() {
 /** @param {number} value */
 export function setLastPushedAt(value) {
   writeSyncKey(SYNC_KEYS.lastPushedAt, String(value));
+}
+
+/**
+ * Wipe this browser's cloud-tracking cursors for a fresh start against a rebuilt vault (the
+ * "Forgot password → reset the cloud" flow). Rewinds the push cursor to 0 so the next push
+ * re-uploads FULL local state, and forgets the applied/quarantine/forgotten sets (they named
+ * files that no longer exist). Deliberately does NOT touch the device id or the sync-enabled
+ * flag — this keeps LOCAL data, only the cloud copy was rebuilt.
+ */
+export function clearSyncTrackingForCloudReset() {
+  writeSyncKey(SYNC_KEYS.appliedLogs, '[]');
+  writeSyncKey(SYNC_KEYS.lastPushedAt, '0');
+  writeSyncKey(SYNC_KEYS.failedLogs, '{}');
+  writeSyncKey(SYNC_KEYS.forgottenLogs, '[]');
 }
 
 /**
@@ -231,4 +259,38 @@ export function getQuarantinedLogs() {
  *  are fine; the password was wrong) so good files don't end up quarantined. */
 export function resetLogFailures() {
   writeSyncKey(SYNC_KEYS.failedLogs, '{}');
+}
+
+// ─── Forgotten-password abandonment ("Forgot password?" on the sync screen) ─────────────
+//
+// Deliberately separate from the quarantine above. Quarantine is for a BUG — apply logic
+// that keeps throwing — and can be retried later. A file abandoned here failed for a
+// different reason: the user explicitly said they no longer have the password that
+// encrypted it. That's permanent, so unlike the quarantine counters this must NOT be
+// cleared by `resetLogFailures` or a routine vault reset — doing so would silently
+// resurrect the exact prompt the user already dismissed on purpose.
+
+/** @returns {Set<string>} filenames explicitly abandoned via "Forgot password?" */
+export function getForgottenLogs() {
+  const raw = readSyncKey(SYNC_KEYS.forgottenLogs);
+  if (!raw) return new Set();
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? new Set(arr.map(String)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Permanently mark filenames as abandoned. Call AFTER a "Forgot password?" reset wipes
+ * local state (not before) — forgottenLogs is deliberately excluded from
+ * `postResetSyncState` so it isn't clobbered by a routine, unrelated vault reset later.
+ * @param {string[]} filenames
+ */
+export function forgetLogsPermanently(filenames) {
+  if (!filenames.length) return;
+  const existing = getForgottenLogs();
+  filenames.forEach((f) => existing.add(f));
+  writeSyncKey(SYNC_KEYS.forgottenLogs, JSON.stringify([...existing]));
 }

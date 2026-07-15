@@ -6,15 +6,16 @@ import { getIcon } from '../ui/icons.js';
 import { t } from '../utils/strings.js';
 import { store } from './store.js';
 import { Router } from './router.js';
-import { initFAB, showDrawer, showModal, showToast } from '../ui/components.js';
+import { initFAB, showDrawer, showModal, showToast, resolvePlatformLogoHtml } from '../ui/components.js';
 import { mountPlatformSwitcher } from '../modules/platforms/platforms.js';
+import { mountFilterTrigger } from '../modules/platforms/filter-trigger.js';
 import { mountVehicleSwitcher } from '../modules/vehicles/vehicles.js';
 import { openGlobalSearchOverlay } from '../modules/search/search.js';
 import { exitDemoToOnboardingStart } from '../modules/onboarding/onboarding.js';
 import { renderShiftForm } from '../modules/shifts/shift-form.js';
 import { restoreShiftTimerFromLocalStorage, saveShift, stopShiftTimer, startShiftTimer } from '../modules/shifts/shifts.js';
 import { db } from './db.js';
-import { bus, NAVIGATION } from './events.js';
+import { bus, NAVIGATION, PLATFORM_CHANGED } from './events.js';
 import { GPSTracker } from './gps-tracker.js';
 
 /** @type {ReturnType<typeof setInterval> | null} */
@@ -77,7 +78,7 @@ function escapeHtml(s) {
  */
 function navLink(href, iconName, labelKey, overrideLabel) {
   const label = overrideLabel || t(labelKey);
-  return `<a href="${escapeAttr(href)}" data-nav-route="${escapeAttr(href)}" class="nav-link">${getIcon(iconName, 20, 'nav-icon')}<span>${label}</span></a>`;
+  return `<a href="${escapeAttr(href)}" data-nav-route="${escapeAttr(href)}" class="nav-link">${getIcon(iconName, 22, 'nav-icon')}<span>${label}</span></a>`;
 }
 
 function bottomNavButton(href, iconName, labelKey) {
@@ -148,24 +149,26 @@ function bindDemoModeBar(root) {
  * the desktop toolbar as the `--bp-desktop` breakpoint is crossed. Reparents the same
  * live DOM nodes rather than mounting a second switcher instance, so there is exactly
  * one set of listeners/state regardless of viewport.
+ *
+ * Moves `#header-filters-group` (platform + vehicle slots together) as a single unit, not
+ * each slot individually — on mobile this wrapper is styled as one combined pill (phone-app
+ * parity: platform and vehicle read as one filter control, not two stacked pill-bars), and
+ * moving the slots separately would pull them back out of that wrapper on every relocation.
  * @param {HTMLElement} root `#app`
  */
 function bindToolbarSwitcherRelocation(root) {
-  const platformSlot = root.querySelector('#platform-tabs-slot');
-  const vehicleSlot = root.querySelector('#vehicle-tabs-slot');
+  const filtersGroup = root.querySelector('#header-filters-group');
   const toolbar = root.querySelector('#app-toolbar');
   const toolbarSpacer = toolbar ? toolbar.querySelector('.app-toolbar-spacer') : null;
   const headerSpacer = root.querySelector('.app-header-spacer');
-  if (!platformSlot || !vehicleSlot || !toolbar || !toolbarSpacer || !headerSpacer) return;
+  if (!filtersGroup || !toolbar || !toolbarSpacer || !headerSpacer) return;
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
 
   const place = (isDesktop) => {
     if (isDesktop) {
-      toolbar.insertBefore(platformSlot, toolbarSpacer);
-      toolbar.insertBefore(vehicleSlot, toolbarSpacer);
+      toolbar.insertBefore(filtersGroup, toolbarSpacer);
     } else {
-      headerSpacer.before(platformSlot);
-      headerSpacer.before(vehicleSlot);
+      headerSpacer.before(filtersGroup);
     }
   };
 
@@ -228,6 +231,81 @@ function bindToolbarAutoHide(root) {
 }
 
 /**
+ * Mobile nav drawer (phone-app parity — see the Android drawer: name + platform pills + full
+ * tab list + About footer). The desktop sidebar and this drawer are the SAME `.app-sidebar`
+ * element; CSS turns it into an off-canvas slide-out below the desktop breakpoint, and the
+ * hamburger button in the header toggles `.is-open` here. On desktop the hamburger is
+ * `display:none` and the sidebar is always visible, so none of this runs visibly there.
+ * @param {HTMLElement} root `#app`
+ */
+function bindNavDrawer(root) {
+  const toggle = root.querySelector('#nav-drawer-toggle');
+  const sidebar = root.querySelector('#app-sidebar');
+  const backdrop = root.querySelector('#nav-drawer-backdrop');
+  const pillsEl = root.querySelector('#sidebar-platform-pills');
+  if (!toggle || !sidebar || !backdrop) return;
+
+  const open = () => {
+    sidebar.classList.add('is-open');
+    backdrop.hidden = false;
+    toggle.setAttribute('aria-expanded', 'true');
+  };
+  const close = () => {
+    sidebar.classList.remove('is-open');
+    backdrop.hidden = true;
+    toggle.setAttribute('aria-expanded', 'false');
+  };
+
+  toggle.addEventListener('click', () => {
+    if (sidebar.classList.contains('is-open')) close();
+    else open();
+  });
+  backdrop.addEventListener('click', close);
+  // Any nav link (or the About link) navigates → close the drawer so the destination shows.
+  sidebar.addEventListener('click', (e) => {
+    if (/** @type {HTMLElement} */ (e.target).closest('a[href]')) close();
+  });
+  // A route change from anywhere (bottom nav, deep link, back button) also closes it.
+  bus.on(NAVIGATION, close);
+
+  // On secondary screens (notifications) the hamburger gives way to a back button — the drawer
+  // is a top-level nav affordance; a screen you drilled into wants "go back" instead. Add more
+  // route names here to extend it to other detail screens.
+  const backBtn = root.querySelector('#nav-back-btn');
+  const BACK_ROUTES = new Set(['notifications']);
+  const updateHeaderNav = (name) => {
+    const showBack = BACK_ROUTES.has(String(name || ''));
+    if (backBtn) backBtn.hidden = !showBack;
+    toggle.hidden = showBack;
+  };
+  backBtn?.addEventListener('click', () => {
+    if (window.history.length > 1) window.history.back();
+    else Router.navigate('#/dashboard');
+  });
+  bus.on(NAVIGATION, (payload) => updateHeaderNav(payload && payload.name));
+  updateHeaderNav(window.__comma?.currentRoute?.name);
+
+  // The three platform pills at the top of the drawer mirror the active platforms (phone
+  // parity). Purely a visual summary — the interactive filter lives in the header pill.
+  const renderPills = () => {
+    if (!pillsEl) return;
+    const platforms = /** @type {any[]} */ (store.get('platforms') || []);
+    pillsEl.innerHTML = platforms
+      .slice(0, 3)
+      .map((p) => {
+        const id = String(p.id);
+        const logo = resolvePlatformLogoHtml(id) || `${String(p.name || id).charAt(0).toUpperCase()}`;
+        const col = (typeof p.color === 'string' && p.color) || 'var(--color-text-secondary)';
+        return `<span class="app-sidebar-pill" style="--platform-color:${escapeAttr(col)}" title="${escapeAttr(String(p.name || id))}">${logo}</span>`;
+      })
+      .join('');
+  };
+  renderPills();
+  store.subscribe('platforms', renderPills);
+  bus.on(PLATFORM_CHANGED, renderPills);
+}
+
+/**
  * @param {HTMLElement} root `#app`
  */
 export async function renderAppShell(root) {
@@ -254,9 +332,18 @@ export async function renderAppShell(root) {
           </button>
         </div>
         <header class="app-header" role="banner" aria-label="${escapeAttr(t('app.headerAria'))}">
+        <button type="button" id="nav-drawer-toggle" class="app-header-hamburger" aria-label="${escapeAttr(t('app.navAria'))}" aria-expanded="false" aria-controls="app-sidebar">
+          ${getIcon('menu', 22)}
+        </button>
+        <button type="button" id="nav-back-btn" class="app-header-hamburger app-header-back" aria-label="${escapeAttr(t('common.back'))}" hidden>
+          ${getIcon('chevron-left', 22)}
+        </button>
         <div class="app-header-avatar" aria-hidden="true">${initials}</div>
-        <div id="platform-tabs-slot" class="platform-tabs app-header-platforms" aria-label="${escapeAttr(t('platforms.switcher'))}"></div>
-        <div id="vehicle-tabs-slot" class="platform-tabs app-header-vehicles" aria-label="${escapeAttr(t('vehicles.switcher'))}" hidden></div>
+        <div id="header-filters-group" class="app-header-filters">
+          <div id="platform-tabs-slot" class="platform-tabs app-header-platforms" aria-label="${escapeAttr(t('platforms.switcher'))}"></div>
+          <div id="vehicle-tabs-slot" class="platform-tabs app-header-vehicles" aria-label="${escapeAttr(t('vehicles.switcher'))}" hidden></div>
+        </div>
+        <div id="filter-trigger-slot" class="app-header-filter-trigger" hidden></div>
         <div class="app-header-spacer"></div>
         <div class="app-header-actions">
           <a class="btn btn-secondary btn-xs header-btn" href="#/analytics/week" title="${escapeAttr(t('views.dashboard.financial.weeklyLog'))}">
@@ -270,14 +357,19 @@ export async function renderAppShell(root) {
           </a>
         </div>
         <time id="header-clock" class="app-header-clock"></time>
-        <a href="#/notifications" class="app-header-notifications" data-nav-route="#/notifications" aria-label="Notifications" style="position:relative; display:flex; align-items:center;">
+        <a href="#/notifications" class="app-header-notifications" data-nav-route="#/notifications" aria-label="Notifications">
           ${getIcon('bell', 22, 'header-bell-icon')}
-          <span id="header-unread-badge" style="position:absolute; top:-4px; right:-4px; background:var(--color-danger); color:white; font-size:10px; font-weight:700; border-radius:10px; padding:2px 5px; display:none;"></span>
+          <span id="header-unread-badge" class="header-unread-badge"></span>
         </a>
         </header>
       </div>
       <div class="app-body">
-        <nav class="app-sidebar" aria-label="${escapeAttr(t('app.navAria'))}">
+        <div id="nav-drawer-backdrop" class="nav-drawer-backdrop" hidden></div>
+        <nav id="app-sidebar" class="app-sidebar" aria-label="${escapeAttr(t('app.navAria'))}">
+          <div class="app-sidebar-mobilehead">
+            <span id="sidebar-name" class="app-sidebar-name">${escapeHtml((user && typeof user.displayName === 'string' && user.displayName.trim()) || 'Driver')}</span>
+            <div id="sidebar-platform-pills" class="app-sidebar-pills" aria-hidden="true"></div>
+          </div>
           ${navLink('#/dashboard', 'home', 'app.navDashboard', 'Home')}
           ${navLink('#/shifts', 'calendar', 'app.navShifts')}
           ${navLink('#/schedule', 'calendar', 'app.navSchedule')}
@@ -291,11 +383,13 @@ export async function renderAppShell(root) {
           ${navLink('#/tax', 'tax', 'app.navTax')}
           ${navLink('#/reports', 'bag', 'app.navReports')}
           ${navLink('#/import', 'file-plus', 'app.navImport')}
-          <hr class="nav-divider" />
-          ${navLink('#/support', 'info', 'app.navSupport')}
           <div class="app-sidebar-footer">
             <span id="offline-indicator" class="offline-pill" role="status" aria-live="polite"></span>
             ${navLink('#/settings', 'settings', 'app.navSettings')}
+            <hr class="nav-divider" />
+            <!-- Help & Support and About Comma were the same #/support page — keep one (About). -->
+            <a class="app-sidebar-about" href="#/support" data-nav-route="#/support">${escapeHtml(t('app.navAbout'))}</a>
+            <span class="app-sidebar-tagline">${escapeHtml(t('app.navTagline'))}</span>
           </div>
         </nav>
         <div class="app-content-col">
@@ -349,9 +443,14 @@ export async function renderAppShell(root) {
   });
   mountPlatformSwitcher(root.querySelector('#platform-tabs-slot'));
   mountVehicleSwitcher(root.querySelector('#vehicle-tabs-slot'));
+  // Mobile-only combined trigger (CSS shows/hides between this and #header-filters-group at
+  // the desktop breakpoint) — see filter-trigger.js for why it's a separate mount rather than
+  // a third mode of the existing switchers.
+  mountFilterTrigger(root.querySelector('#filter-trigger-slot'));
   bindToolbarSwitcherRelocation(root);
   bindToolbarActionsReset();
   bindToolbarAutoHide(root);
+  bindNavDrawer(root);
   await hydrateShiftTimerBar(root.querySelector('#shift-timer-bar'));
 
   root.querySelector('#bottom-nav-more')?.addEventListener('click', () => {
@@ -361,6 +460,11 @@ export async function renderAppShell(root) {
   store.subscribe('user', () => {
     const av = root.querySelector('.app-header-avatar');
     if (av) av.textContent = initialsFromUser(store.get('user'));
+    const nameEl = root.querySelector('#sidebar-name');
+    if (nameEl) {
+      const u = store.get('user');
+      nameEl.textContent = (u && typeof u.displayName === 'string' && u.displayName.trim()) || 'Driver';
+    }
   });
 
   async function updateUnreadBadge() {

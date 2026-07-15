@@ -12,7 +12,7 @@ Connecting two devices to the same Google account is the whole job. Your data fl
 
 On each device: **Settings → Data → Cloud Sync → Connect Google Drive**, signing in with the **same** Google account on both.
 
-If you use end-to-end encryption, the new device pulls down files it can't read yet and asks for your password. Enter it once and both devices are aligned. See [Encryption](../backup-and-sync/encryption.md).
+The new device pulls down files it can't read yet and asks for your **backup password** — the vault is always encrypted, so enter the same password you set on the first device. Enter it once and both devices are aligned. If it says the password is wrong, sync pauses instead of forking your data; if you no longer have the password, use **Forgot your password?** on a device that still has your data to rebuild the cloud copy. See [Encryption](../backup-and-sync/encryption.md).
 
 ---
 
@@ -21,7 +21,8 @@ If you use end-to-end encryption, the new device pulls down files it can't read 
 1. Install Comma on the new phone — see [Install Comma](./install.md).
 2. On the welcome screen, choose **Restore or sync existing data** instead of Get started.
 3. Connect the **same** Google account you used on the old phone.
-4. Wait for the first pull to finish. Your shifts, expenses, goals, and profile arrive together.
+4. Enter your **backup password** when asked — it's the same one you set on the old phone.
+5. Wait for the first pull to finish. Your shifts, expenses, goals, and profile arrive together.
 
 If the new phone reports "No synced data found yet", the old phone hasn't pushed recently. On the old phone: **Settings → Data → Cloud Sync → Sync now**, then retry.
 
@@ -29,7 +30,8 @@ If the new phone reports "No synced data found yet", the old phone hasn't pushed
 
 1. Open [comma-psi.vercel.app](https://comma-psi.vercel.app) and, optionally, install the PWA — see [Install Comma](./install.md).
 2. **Settings → Data → Cloud Sync → Connect Google Drive**, using the **same** Google account as the phone.
-3. The web app pulls your vault down and stays in step from then on.
+3. Enter your **backup password** when the web app asks — the same one you set on the phone.
+4. The web app pulls your vault down and stays in step from then on.
 
 The full mechanics are in [Cloud Sync](../backup-and-sync/cloud-sync.md).
 

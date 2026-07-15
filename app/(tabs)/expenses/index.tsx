@@ -25,6 +25,7 @@ import {
   deleteExpense,
 } from "@/src/database/queries/expenses";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { DEMO_STRIP_HEIGHT } from "@/src/components/GlobalTopHeader";
 import {
   getExpenseCategories,
   getCategoryMeta,
@@ -233,7 +234,7 @@ const ItemSeparator = () => <View style={{ height: 10 }} />;
 export default function ExpensesScreen() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const { isOnboardingCompleted, profile, setHeaderVisible } = useSettingsStore();
+  const { isOnboardingCompleted, profile, setHeaderVisible, isDemoMode } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
   const C = useColors();
   const styles = useThemedStyles(makeStyles);
@@ -452,7 +453,7 @@ export default function ExpensesScreen() {
         renderItem={renderExpenseItem}
         ItemSeparatorComponent={ItemSeparator}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[{ paddingBottom: 100, paddingTop: insets.top + 64 }, gridStyle]}
+        contentContainerStyle={[{ paddingBottom: 100, paddingTop: insets.top + 64 + (isDemoMode ? DEMO_STRIP_HEIGHT : 0) }, gridStyle]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         ListHeaderComponent={

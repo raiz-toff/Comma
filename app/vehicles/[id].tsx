@@ -175,8 +175,21 @@ export default function VehicleDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const { profile } = useSettingsStore();
+  const { profile, isDemoMode } = useSettingsStore();
   const { columnStyle } = useLayout();
+
+  const blockedByDemo = () => {
+    if (!isDemoMode) return false;
+    Alert.alert(
+      "Demo Mode Active",
+      "You cannot edit vehicles while Demo Mode is active. Please turn off Demo Mode in Settings to manage your vehicles.",
+      [
+        { text: "Go to Settings", onPress: () => router.push("/settings") },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
+    return true;
+  };
 
   // Edit form state
   const [name, setName] = useState("");
@@ -229,6 +242,7 @@ export default function VehicleDetailScreen() {
   }, [mileageEligibility]);
 
   const handleSaveTaxProfile = async () => {
+    if (blockedByDemo()) return;
     const yr = parseInt(taxYear, 10);
     if (isNaN(yr) || yr < 2000 || yr > 2100) {
       Alert.alert("Validation", "Please enter a valid tax year.");
@@ -261,6 +275,7 @@ export default function VehicleDetailScreen() {
   };
 
   const handleDeleteTaxProfile = async (profileId: string) => {
+    if (blockedByDemo()) return;
     Alert.alert(
       "Delete Profile",
       "Are you sure you want to delete this tax year profile?",
@@ -316,6 +331,7 @@ export default function VehicleDetailScreen() {
   });
 
   const handleSaveVehicle = async () => {
+    if (blockedByDemo()) return;
     if (!name.trim()) {
       Alert.alert("Validation", "Vehicle name is required.");
       return;
@@ -342,6 +358,7 @@ export default function VehicleDetailScreen() {
   };
 
   const handleDeleteVehicle = () => {
+    if (blockedByDemo()) return;
     const performDelete = async () => {
       try {
         await deleteVehicle(id!);
@@ -364,6 +381,7 @@ export default function VehicleDetailScreen() {
   };
 
   const handleSaveMaintenance = async () => {
+    if (blockedByDemo()) return;
     if (!mCost || isNaN(parseFloat(mCost))) {
       Alert.alert("Validation", "Please enter a valid cost.");
       return;
@@ -393,6 +411,7 @@ export default function VehicleDetailScreen() {
   };
 
   const handleDeleteMaintenance = (logId: string) => {
+    if (blockedByDemo()) return;
     const performDelete = async () => {
       await deleteMaintenanceLog(logId);
       queryClient.invalidateQueries({ queryKey: ["maintenance", id] });

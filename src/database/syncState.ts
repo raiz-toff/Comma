@@ -44,6 +44,7 @@ export const SYNC_KEYS = {
   lastPushRunAt: "sync_last_push_run_at", // WALL-CLOCK ms of the last push run (schedule timer)
   failedLogs: "sync_failed_logs", // JSON object {filename: consecutive apply-failure count}
   applyVersion: "sync_apply_version", // APPLY_LOGIC_VERSION last seen — quarantine resets on change
+  forgottenLogs: "sync_forgotten_logs", // JSON array — filenames abandoned via "Forgot password?"
 } as const;
 
 /** A log that fails to apply this many times is QUARANTINED: pull stops re-downloading it. */
@@ -176,6 +177,20 @@ export async function setLastPushedAt(value: number): Promise<void> {
 }
 
 /**
+ * Wipe this device's cloud-tracking cursors for a fresh start against a rebuilt vault (the
+ * "Forgot password → reset the cloud" flow). Rewinds the push cursor to 0 so the next push
+ * re-uploads FULL local state, and forgets the applied/quarantine/forgotten sets (they named
+ * files that no longer exist). Deliberately does NOT touch the device id (still ours) or the
+ * sync-enabled flag (still on) — this keeps LOCAL data, only the cloud copy was rebuilt.
+ */
+export async function clearSyncTrackingForCloudReset(): Promise<void> {
+  await writeSyncKey(SYNC_KEYS.appliedLogs, "[]");
+  await writeSyncKey(SYNC_KEYS.lastPushedAt, "0");
+  await writeSyncKey(SYNC_KEYS.failedLogs, "{}");
+  await writeSyncKey(SYNC_KEYS.forgottenLogs, "[]");
+}
+
+/**
  * The set of change-log filenames already applied (or authored) by this device.
  * Stored as a JSON array; returned as a Set for O(1) membership tests during pull.
  * This is the cursor — NOT a scalar timestamp — so out-of-order uploads and partial
@@ -288,4 +303,39 @@ export async function getQuarantinedLogs(): Promise<Set<string>> {
     if (Number(count) >= LOG_QUARANTINE_THRESHOLD) out.add(name);
   }
   return out;
+}
+
+// ─── Forgotten-password abandonment ("Forgot password?" on the sync screen) ─────────────
+//
+// Deliberately separate from the quarantine above. Quarantine is for a BUG — apply logic
+// that keeps throwing — and is designed to self-heal (resetQuarantineOnUpgrade retries
+// everything after a fix ships). A file abandoned here failed for a different reason
+// entirely: the user explicitly said they no longer have the password that encrypted it.
+// That's permanent by definition (there's no "fix" to retry), so this must NOT be cleared
+// by an app update the way the quarantine counters are — doing so would silently resurrect
+// the exact prompt the user already dismissed on purpose.
+
+/** Filenames explicitly abandoned via "Forgot password?" — pull skips them forever. */
+export async function getForgottenLogs(): Promise<Set<string>> {
+  const raw = await readSyncKey(SYNC_KEYS.forgottenLogs);
+  if (!raw) return new Set();
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? new Set(arr.map(String)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Permanently mark filenames as abandoned. Call AFTER a "Forgot password?" reset wipes
+ * local state (not before) — the wipe re-mints the device id and clears the applied/failed
+ * KV via postResetSyncState, and forgottenLogs is deliberately excluded from that rewrite
+ * so it isn't clobbered by a routine, unrelated Reset App later.
+ */
+export async function forgetLogsPermanently(filenames: string[]): Promise<void> {
+  if (!filenames.length) return;
+  const existing = await getForgottenLogs();
+  filenames.forEach((f) => existing.add(f));
+  await writeSyncKey(SYNC_KEYS.forgottenLogs, JSON.stringify([...existing]));
 }

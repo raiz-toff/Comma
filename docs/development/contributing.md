@@ -55,7 +55,7 @@ Do not add comments that restate what the code does.
 
 ## Adding a supported country
 
-Comma ships **Canada only**. The US, UK, and Nepal are written and type-checked but deliberately **not registered** — the app must never offer a country whose tax rules haven't been signed off. Nothing in the app branches on the country id; every tax, mileage, currency, and onboarding path reads from the country definition, so adding a market is data, not new logic.
+Comma ships **Canada only**. Earlier US, UK, and Nepal definitions were **removed** pending accurate, signed-off tax and mileage numbers — the app must never offer a country whose rules haven't been verified. Nothing in the app branches on the country id; every tax, mileage, currency, and onboarding path reads from the country definition, so adding a market is writing one new definition file per app, not new logic.
 
 A country is **one registry file per app**, and both must agree.
 

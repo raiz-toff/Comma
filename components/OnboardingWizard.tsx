@@ -25,6 +25,7 @@ import {
   FirstShiftReveal,
   NoShiftYetStep,
 } from "./OnboardingSteps";
+import { PermissionsOnboarding } from "../src/components/onboarding/PermissionsOnboarding";
 import {
   computeFirstShift,
   ASSUMED_VEHICLE_TYPE,
@@ -81,6 +82,9 @@ export default function OnboardingWizard() {
   // Reveal — set once the driver has given us a shift (or told us they have none yet).
   const [revealMath, setRevealMath] = useState<FirstShiftMath | null>(null);
   const [showNoShiftYet, setShowNoShiftYet] = useState(false);
+
+  // Permission priming — shown between the reveal and the dashboard, once, gated on live OS status.
+  const [showPermissions, setShowPermissions] = useState(false);
 
   // "Restore / Sync existing data" (welcome screen third option)
   const [showRestoreChooser, setShowRestoreChooser] = useState(false);
@@ -386,12 +390,20 @@ export default function OnboardingWizard() {
     );
   }
 
+  // The reveal and the "no shift yet" screen both hand off to the permission-priming sequence,
+  // which then finishes onboarding. Priming sits AFTER the first-number payoff on purpose — nothing
+  // should stand between install and that number — and self-skips any permission already granted,
+  // so it's usually a page or two and sometimes nothing at all.
+  if (showPermissions) {
+    return <PermissionsOnboarding onDone={handleEnterDashboard} />;
+  }
+
   if (revealMath) {
-    return <FirstShiftReveal math={revealMath} onEnter={handleEnterDashboard} />;
+    return <FirstShiftReveal math={revealMath} onEnter={() => setShowPermissions(true)} />;
   }
 
   if (showNoShiftYet) {
-    return <NoShiftYetStep onEnter={handleEnterDashboard} />;
+    return <NoShiftYetStep onEnter={() => setShowPermissions(true)} />;
   }
 
   return (

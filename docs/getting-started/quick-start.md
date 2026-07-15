@@ -78,6 +78,8 @@ Comma does the arithmetic the platform never shows you:
 
 That gap is the entire reason Comma exists. Tap through and the shift you just described is **saved as your first real shift** — you start with data, not an empty app.
 
+On the phone, Comma then walks you through the permissions it needs — location, notifications, activity, and battery — one page at a time, each explaining what it's for and what stops working without it. Skip any you're not ready for; you can grant them later. Then it drops you on the dashboard.
+
 ---
 
 ## 5. Finish setting up (when you're ready)

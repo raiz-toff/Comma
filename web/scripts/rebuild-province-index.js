@@ -1,17 +1,18 @@
 #!/usr/bin/env node
 /**
  * Regenerate `src/registry/provinces/index.js` from all country subfolders:
- *   `src/registry/provinces/{CA|US|UK|…}/*.province.js` (skip `_*.province.js`).
+ *   `src/registry/provinces/{CA|…}/*.province.js` (skip `_*.province.js`).
  *
- * **US only:** also creates missing `US/{CODE}.province.js` stubs from
- * `WITHHOLDING_PRESETS_US` in `withholding-presets.js` (use `--force-us` to overwrite all).
+ * Country-agnostic: it scans every two-letter country folder and imports each `*.province.js`
+ * it finds. There are no per-country special cases — adding a country's provinces means
+ * dropping files into a new `{ISO}/` folder and re-running this. See docs/adding-a-province.md.
  *
- * **Import names:** `ON` for CA Ontario; `prov{SUB}` for other CA provinces;
- * `p{SUB}` for US states (matches prior convention); `prov{COUNTRY}_{SUB}` for any other country.
+ * **Import names:** `ON` for CA Ontario (kept first, it is the fallback); `prov{SUB}` for other
+ * CA provinces; `prov{COUNTRY}_{SUB}` for any other country.
  *
  * Usage:
+ *   npm run rebuild:provinces      (from web/)
  *   node scripts/rebuild-province-index.js
- *   node scripts/rebuild-province-index.js --force-us
  */
 
 const fs = require('fs');
@@ -19,23 +20,8 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
 const PROVINCES_DIR = path.join(ROOT, 'src', 'registry', 'provinces');
-const WITHHOLDING_PATH = path.join(ROOT, 'src', 'registry', 'tax', 'withholding-presets.js');
 
-const US_STUB = (code) =>
-  `import { createUsStateProvince } from './_usStateProvince.js';\n\nexport default createUsStateProvince('${code}');\n`;
-
-function parseUsWithholdingKeys() {
-  const wp = fs.readFileSync(WITHHOLDING_PATH, 'utf8');
-  const i = wp.indexOf('export const WITHHOLDING_PRESETS_US = Object.freeze({');
-  if (i < 0) throw new Error('WITHHOLDING_PRESETS_US block not found in withholding-presets.js');
-  const end = wp.indexOf('\n});\n\n/**', i);
-  if (end < 0) throw new Error('WITHHOLDING_PRESETS_US block end not found');
-  const block = wp.slice(i, end);
-  const keys = [...block.matchAll(/^\s+([A-Z]{2}):\s+\d+/gm)].map((m) => m[1]);
-  return [...new Set(keys)].sort((a, b) => a.localeCompare(b));
-}
-
-/** Two-letter country folders only (matches CountryRegistry ids: CA, US, UK, …). */
+/** Two-letter country folders only (matches CountryRegistry ids: CA, …). CA sorts first. */
 function listCountryDirs() {
   if (!fs.existsSync(PROVINCES_DIR)) return [];
   return fs
@@ -45,8 +31,6 @@ function listCountryDirs() {
     .sort((a, b) => {
       if (a === 'CA') return -1;
       if (b === 'CA') return 1;
-      if (a === 'US') return -1;
-      if (b === 'US') return 1;
       return a.localeCompare(b);
     });
 }
@@ -71,14 +55,13 @@ function listProvinceFilesForCountry(countryId) {
 }
 
 /**
- * Unique JS binding for a province module (stable across rebuilds for CA/US).
+ * Unique JS binding for a province module (stable across rebuilds for CA).
  * @param {string} countryId
  * @param {string} subdivisionCode from filename without .province.js
  */
 function importBindingName(countryId, subdivisionCode) {
   const c = String(countryId).toUpperCase();
   const s = String(subdivisionCode).toUpperCase();
-  if (c === 'US') return `p${s}`;
   if (c === 'CA' && s === 'ON') return 'ON';
   if (c === 'CA') return `prov${s}`;
   return `prov${c}_${s}`;
@@ -135,23 +118,9 @@ function registryFooter() {
 }
 
 function main() {
-  const forceUs = process.argv.includes('--force-us');
   const countries = listCountryDirs();
   if (!countries.includes('CA')) {
     throw new Error('Expected a CA country folder under src/registry/provinces/');
-  }
-
-  const usDir = path.join(PROVINCES_DIR, 'US');
-  const usKeys = parseUsWithholdingKeys();
-
-  if (countries.includes('US')) {
-    if (!fs.existsSync(usDir)) fs.mkdirSync(usDir, { recursive: true });
-    for (const code of usKeys) {
-      const fp = path.join(usDir, `${code}.province.js`);
-      if (forceUs || !fs.existsSync(fp)) {
-        fs.writeFileSync(fp, US_STUB(code));
-      }
-    }
   }
 
   const allImports = [];
@@ -159,13 +128,7 @@ function main() {
   const counts = /** @type {Record<string, number>} */ ({});
 
   for (const countryId of countries) {
-    let files;
-    if (countryId === 'US') {
-      files = usKeys.map((k) => `${k}.province.js`);
-    } else {
-      files = listProvinceFilesForCountry(countryId);
-    }
-
+    const files = listProvinceFilesForCountry(countryId);
     counts[countryId] = files.length;
     for (const file of files) {
       const sub = file.replace(/\.province\.js$/i, '').toUpperCase();
@@ -182,9 +145,8 @@ function main() {
   const header =
     '/**\n' +
     ' * Province / territory registry (plan F9).\n' +
-    ' * Layout: `{ISO}/*.province.js` under this folder (CA, US, UK, …). Skip `_*.province.js`.\n' +
-    ' * Run `npm run rebuild:provinces` to regenerate this file from the folders; US stubs also\n' +
-    ' * sync from `WITHHOLDING_PRESETS_US`.\n' +
+    ' * Layout: `{ISO}/*.province.js` under this folder (CA, …). Skip `_*.province.js`.\n' +
+    ' * Run `npm run rebuild:provinces` to regenerate this file from the folders.\n' +
     ' */\n\n';
 
   const imports = allImports.join('\n');
@@ -200,10 +162,6 @@ ${registryFooter()}`;
   fs.writeFileSync(indexPath, body);
   const summary = countries.map((c) => `${c}:${counts[c] ?? 0}`).join(', ');
   console.log(`Wrote ${indexPath} (${summary}).`);
-  if (countries.includes('US')) {
-    if (forceUs) console.log('US stubs: --force-us (all US/*.province.js overwritten).');
-    else console.log('US stubs: created missing files only (use --force-us to overwrite all).');
-  }
 }
 
 main();

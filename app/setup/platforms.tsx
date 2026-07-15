@@ -10,7 +10,7 @@ import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors"
 import { useLayout } from "@/src/hooks/useLayout";
 import { PlatformLogo } from "@/src/components/GlobalTopHeader";
 import { getPlatformsByCountry, PLATFORM_REGISTRY } from "@/src/registry/platforms";
-import { getDBPlatforms, updateDBPlatform } from "@/src/database/queries/platforms";
+import { getDBPlatforms } from "@/src/database/queries/platforms";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { markActivationDone } from "@/src/services/onboarding/activationChecklist";
 
@@ -25,7 +25,7 @@ export default function SetupPlatformsScreen() {
   const C = useColors();
   const s = useThemedStyles(makeStyles);
   const { columnStyle } = useLayout();
-  const { profile } = useSettingsStore();
+  const { profile, updateProfile } = useSettingsStore();
   const queryClient = useQueryClient();
   const country = profile?.country ?? "CA";
 
@@ -59,13 +59,12 @@ export default function SetupPlatformsScreen() {
     if (saving || selected.size === 0) return;
     setSaving(true);
     try {
-      // Write every platform's state, not just the additions — an unticked app has to actually
-      // switch off, or the driver's per-platform comparison keeps counting somewhere they quit.
-      await Promise.all(
-        available.map((p) =>
-          updateDBPlatform(country, p.id, { isActive: selected.has(p.id) } as any)
-        )
-      );
+      // Route through updateProfile, NOT raw updateDBPlatform writes: the header switcher
+      // reads profile.selectedPlatforms + dbPlatforms from the store, so writing only the DB
+      // here left it showing the old set until an app restart. updateProfile reconciles the
+      // full active set (activate ticked, deactivate the rest — an unticked app has to
+      // actually switch off) AND updates the store, so the switcher reflects it instantly.
+      await updateProfile({ selectedPlatforms: [...selected] });
       await markActivationDone("platforms");
       queryClient.invalidateQueries();
       router.back();

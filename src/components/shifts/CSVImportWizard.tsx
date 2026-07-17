@@ -11,6 +11,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import Papa from "papaparse";
 import { Text } from "../ui/text";
+import { Card } from "../ui/card";
 import { CurrencyText } from "../ui/CurrencyText";
 import { PlatformBadge } from "../ui/PlatformBadge";
 import { insertManyShifts } from "../../database/queries/shifts";
@@ -376,7 +377,7 @@ export function CSVImportWizard() {
   return (
     <ScrollView contentContainerClassName="flex flex-col gap-5 pb-8">
       {/* Step progress */}
-      <View className="flex-row items-center justify-between bg-surface-02 p-4 border border-line-subtle rounded-lg">
+      <Card className="flex-row items-center justify-between">
         {[1, 2, 3, 4].map((num) => {
           const reached = step >= num;
           return (
@@ -402,7 +403,7 @@ export function CSVImportWizard() {
             </View>
           );
         })}
-      </View>
+      </Card>
 
       {errorMessage ? (
         <View className="bg-destructive/10 border border-destructive/20 p-4 rounded-lg">
@@ -412,7 +413,7 @@ export function CSVImportWizard() {
 
       {/* STEP 1: UPLOAD */}
       {step === 1 && (
-        <View className="bg-surface-02 border border-line-subtle rounded-lg p-5 flex flex-col gap-4 items-center justify-center py-10">
+        <Card className="flex-col gap-4 items-center justify-center py-10">
           <View
             className="w-14 h-14 rounded-lg items-center justify-center border"
             style={{ backgroundColor: accentColorDim, borderColor: accentColor }}
@@ -466,12 +467,12 @@ export function CSVImportWizard() {
               </Text>
             </View>
           )}
-        </View>
+        </Card>
       )}
 
       {/* STEP 2: COLUMN MAPPING */}
       {step === 2 && (
-        <View className="bg-surface-02 border border-line-subtle rounded-lg p-5 flex flex-col gap-4">
+        <Card className="flex-col gap-4">
           <View className="flex-col gap-1 mb-1">
             <Text variant="labelM">Map CSV Columns</Text>
             <Text variant="paragraphS">
@@ -495,12 +496,12 @@ export function CSVImportWizard() {
               <Text variant="labelXs" style={{ color: accentColorContrast }}>Preview</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Card>
       )}
 
       {/* STEP 3: PREVIEW */}
       {step === 3 && (
-        <View className="bg-surface-02 border border-line-subtle rounded-lg p-5 flex flex-col gap-4">
+        <Card className="flex-col gap-4">
           <View className="flex-col gap-1 mb-1">
             <Text variant="labelM">Data Preview</Text>
             <Text variant="paragraphS">Review parsed shifts before importing.</Text>
@@ -572,12 +573,12 @@ export function CSVImportWizard() {
               )}
             </TouchableOpacity>
           </View>
-        </View>
+        </Card>
       )}
 
       {/* STEP 4: SUMMARY */}
       {step === 4 && (
-        <View className="bg-surface-02 border border-line-subtle rounded-lg p-5 flex flex-col gap-4 items-center justify-center py-10">
+        <Card className="flex-col gap-4 items-center justify-center py-10">
           <View
             className="w-14 h-14 rounded-lg items-center justify-center border"
             style={{ backgroundColor: accentColorDim, borderColor: accentColor }}
@@ -603,7 +604,7 @@ export function CSVImportWizard() {
           <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ backgroundColor: accentColor }} className="w-full py-4 rounded-md items-center mt-4">
             <Text variant="labelXs" style={{ color: accentColorContrast }}>Finish & Close</Text>
           </TouchableOpacity>
-        </View>
+        </Card>
       )}
     </ScrollView>
   );

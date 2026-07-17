@@ -2,6 +2,8 @@ import React from "react";
 import { View } from "react-native";
 import { CreditCard } from "lucide-react-native";
 import { Text } from "../ui/text";
+import { IconBadge } from "../ui/IconBadge";
+import { RatioBar } from "../ui/RatioBar";
 import { TIERS, withAlpha } from "@/src/theme/colors";
 import { useColors, type Palette } from "@/src/theme/useColors";
 
@@ -36,9 +38,7 @@ export default function OutOfPocketWidget({ outOfPocket, gross, country }: OutOf
   return (
     <View style={{ gap: 12 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <View style={{ backgroundColor: withAlpha(tier.color, 0.12), padding: 8, borderRadius: 12 }}>
-          <CreditCard size={18} color={tier.color} strokeWidth={2.5} />
-        </View>
+        <IconBadge icon={CreditCard} color={tier.color} tone="tinted" size="sm" iconSize={18} strokeWidth={2.5} />
         <View style={{ backgroundColor: withAlpha(tier.color, 0.12), paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
           <Text variant="labelXs" tabular style={{ color: tier.color }}>
             {pct !== null ? `${pct.toFixed(1)}% of Gross` : tier.label}
@@ -55,13 +55,12 @@ export default function OutOfPocketWidget({ outOfPocket, gross, country }: OutOf
         </Text>
       </View>
 
-      <View
-        accessible={true}
+      <RatioBar
+        mode="percent"
+        height={4}
         accessibilityLabel={pct !== null ? `Out-of-pocket costs are ${pct.toFixed(1)}% of gross earnings` : "Out-of-pocket costs: no data"}
-        style={{ height: 4, borderRadius: 8, backgroundColor: C.surface04, overflow: "hidden" }}
-      >
-        <View style={{ width: `${safePct}%`, height: "100%", backgroundColor: tier.color, borderRadius: 8 }} />
-      </View>
+        segments={[{ value: safePct, color: tier.color }]}
+      />
     </View>
   );
 }

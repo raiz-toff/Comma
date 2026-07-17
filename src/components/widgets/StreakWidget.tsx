@@ -2,7 +2,8 @@ import React from "react";
 import { View } from "react-native";
 import { Flame } from "lucide-react-native";
 import { Text } from "../ui/text";
-import { KPI, withAlpha } from "@/src/theme/colors";
+import { IconBadge } from "../ui/IconBadge";
+import { KPI } from "@/src/theme/colors";
 import { useColors } from "@/src/theme/useColors";
 
 interface StreakWidgetProps {
@@ -13,9 +14,7 @@ export default function StreakWidget({ streak }: StreakWidgetProps) {
   const C = useColors();
   return (
     <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 16, gap: 12 }}>
-      <View style={{ backgroundColor: withAlpha(KPI.rate, 0.12), padding: 12, borderRadius: 16 }}>
-        <Flame size={32} color={KPI.rate} strokeWidth={2.5} />
-      </View>
+      <IconBadge icon={Flame} color={KPI.rate} tone="tinted" size="lg" strokeWidth={2.5} />
 
       <View style={{ alignItems: "center" }}>
         <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}>

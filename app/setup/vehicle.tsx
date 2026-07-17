@@ -161,7 +161,7 @@ export default function SetupVehicleScreen() {
             </View>
 
             <View style={{ gap: 8, marginBottom: 22 }}>
-              <Text variant="labelXs" style={{ color: C.contentMuted }}>
+              <Text variant="labelXs" className="text-content-muted">
                 TYPE
               </Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -280,7 +280,7 @@ function Field({
   const s = useThemedStyles(makeStyles);
   return (
     <View style={{ gap: 8, marginBottom: 16 }}>
-      <Text variant="labelXs" style={{ color: C.contentMuted }}>
+      <Text variant="labelXs" className="text-content-muted">
         {label}
       </Text>
       <TextInput

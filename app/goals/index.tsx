@@ -16,6 +16,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Award, Flame, Star, TrendingUp, Plus, Edit2, Trash2, X, Target, Shield } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
+import { Card } from "@/src/components/ui/card";
 import { EmptyState } from "@/src/components/ui/EmptyState";
 import { KPI, withAlpha } from "@/src/theme/colors";
 import { useColors } from "@/src/theme/useColors";
@@ -346,19 +347,7 @@ export default function GoalsScreen() {
     <>
       {/* Weekly thermometer hero */}
       {weeklyEarningsGoal && (
-        <View
-          style={{
-            backgroundColor: C.surface02,
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: C.lineSubtle,
-            borderRadius: 16,
-            padding: 24,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 24,
-            overflow: "hidden",
-          }}
-        >
+        <Card className="flex-row items-center gap-6 overflow-hidden p-6">
           <View style={{ flex: 1 }}>
             <Text variant="labelXs" style={{ color: KPI.rate, marginBottom: 6 }}>
               Weekly Thermometer
@@ -396,11 +385,11 @@ export default function GoalsScreen() {
               {Math.round(weeklyEarningsGoal.progressPct)}%
             </Text>
           </CircularProgress>
-        </View>
+        </Card>
       )}
 
       {/* Active goals list */}
-      <View style={{ backgroundColor: C.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, borderRadius: 16, overflow: "hidden" }}>
+      <Card className="overflow-hidden p-0">
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.lineSubtle }}>
           <Text variant="headingS">
             {weeklyEarningsGoal ? "Other Active Goals" : "Active Goals"}
@@ -481,14 +470,14 @@ export default function GoalsScreen() {
               })
           )}
         </View>
-      </View>
+      </Card>
     </>
   );
 
   const ProgressTab = (
     <>
       {/* XP & Level card */}
-      <View style={{ backgroundColor: C.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, borderRadius: 16, padding: 20 }}>
+      <Card className="p-5">
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Award size={16} color={C.info} />
@@ -526,10 +515,10 @@ export default function GoalsScreen() {
             ))}
           </View>
         )}
-      </View>
+      </Card>
 
       {/* Streak card */}
-      <View style={{ backgroundColor: C.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, borderRadius: 16, padding: 20 }}>
+      <Card className="p-5">
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 20 }}>
           <Flame size={16} color={C.destructive} />
           <Text variant="labelXs" style={{ color: C.contentSecondary }}>Day Streak</Text>
@@ -569,10 +558,10 @@ export default function GoalsScreen() {
             </Pressable>
           </View>
         </View>
-      </View>
+      </Card>
 
       {/* Challenges section */}
-      <View style={{ backgroundColor: C.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, borderRadius: 16, padding: 20 }}>
+      <Card className="p-5">
         <Text variant="headingS" style={{ marginBottom: 18 }}>Weekly Challenges</Text>
         <View style={{ gap: 16 }}>
           {challenges && challenges.length > 0 ? (
@@ -629,10 +618,10 @@ export default function GoalsScreen() {
             />
           )}
         </View>
-      </View>
+      </Card>
 
       {/* Badges grid */}
-      <View style={{ backgroundColor: C.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, borderRadius: 16, padding: 20 }}>
+      <Card className="p-5">
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Star size={16} color={KPI.hours} />
@@ -670,7 +659,7 @@ export default function GoalsScreen() {
         <Text variant="paragraphS" style={{ textAlign: "center", marginTop: 14 }}>
           Tap a badge to see details
         </Text>
-      </View>
+      </Card>
 
       {/* Best shift stat */}
       <TouchableOpacity

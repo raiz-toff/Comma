@@ -21,6 +21,7 @@ import Animated, {
   interpolate,
 } from "react-native-reanimated";
 import { Text } from "../src/components/ui/text";
+import { Card } from "../src/components/ui/card";
 import { withAlpha } from "../src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { getPlatformsByCountry, PLATFORMS, PLATFORM_REGISTRY } from "../src/registry/platforms";
@@ -723,16 +724,7 @@ export function GoalStep({
         </View>
 
         {num > 0 && (
-          <View
-            style={{
-              backgroundColor: C.card,
-              borderWidth: 1,
-              borderColor: C.lineSubtle,
-              borderRadius: 16,
-              padding: 16,
-              gap: 4,
-            }}
-          >
+          <Card className="gap-1">
             <Text variant="labelXs" style={{ color: C.contentMuted }}>
               That works out to
             </Text>
@@ -744,7 +736,7 @@ export function GoalStep({
               {currencySymbol}
               {(num * 52).toLocaleString()} / year
             </Text>
-          </View>
+          </Card>
         )}
       </View>
     </View>

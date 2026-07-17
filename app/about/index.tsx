@@ -16,6 +16,8 @@ import Constants from "expo-constants";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { Text } from "@/src/components/ui/text";
+import { Card } from "@/src/components/ui/card";
+import { Divider } from "@/src/components/ui/Divider";
 import { Image } from "expo-image";
 import { ChevronLeft, ChevronRight, Heart, Share2, Terminal, Globe, Coffee, BookOpen } from "lucide-react-native";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
@@ -27,15 +29,12 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-na
 const makeDS = (C: Palette) =>
   ({
     pageBg: C.background,
-    cardBg: C.surface02,
-    cardBorder: C.lineSubtle,
     inputBg: C.surface03,
     inputBorder: C.lineStrong,
     sep: C.lineSubtle,
     textPrimary: C.contentPrimary,
     textSecondary: C.contentSecondary,
     textLabel: C.contentMuted,
-    rCard: 16,
     pagePad: 16,
     cardPad: 16,
   }) as const;
@@ -157,10 +156,10 @@ export default function AboutScreen() {
         </View>
 
         {/* Divider */}
-        <View style={s.divider} />
+        <Divider className="mx-4 mb-2" />
 
         {/* Links */}
-        <View style={s.links}>
+        <Card className="p-0 gap-0 overflow-hidden" style={s.links}>
           <LinkRow
             icon={<BookOpen size={18} color={accentColor} />}
             label="Help & Docs"
@@ -198,7 +197,7 @@ export default function AboutScreen() {
             onPress={handleExportDiagnostics}
             disabled={isExporting}
           />
-        </View>
+        </Card>
 
         {/* Footer */}
         <View style={s.footer}>
@@ -294,20 +293,8 @@ const makeStyles = (C: Palette) => {
     gap: 4,
   },
 
-  divider: {
-    height: 0.5,
-    backgroundColor: DS.cardBorder,
-    marginHorizontal: DS.pagePad,
-    marginBottom: 8,
-  },
-
   links: {
     marginHorizontal: DS.pagePad,
-    backgroundColor: DS.cardBg,
-    borderRadius: DS.rCard,
-    borderWidth: 0.5,
-    borderColor: DS.cardBorder,
-    overflow: "hidden",
     marginTop: 12,
   },
   linkRow: {

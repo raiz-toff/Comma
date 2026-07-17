@@ -13,6 +13,7 @@ import { router, useLocalSearchParams, Stack } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Pencil, Trash2 } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
+import { Card } from "@/src/components/ui/card";
 import { EmptyState } from "@/src/components/ui/EmptyState";
 import { getExpenseById, deleteExpense } from "@/src/database/queries/expenses";
 import { getShiftById } from "@/src/database/queries/shifts";
@@ -244,7 +245,7 @@ export default function ExpenseDetailScreen() {
         )}
 
         {/* ── Info card ───────────────────────────────────────────────── */}
-        <View style={s.card}>
+        <Card className="p-0 gap-0 overflow-hidden">
           <Row label="Date" value={dateStr} />
           <Sep />
           <Row label="Category" value={meta.label} />
@@ -266,11 +267,11 @@ export default function ExpenseDetailScreen() {
               />
             </>
           ) : null}
-        </View>
+        </Card>
 
         {/* ── Deductibility breakdown ──────────────────────────────────── */}
         {isBusinessExp && (
-          <View style={s.card}>
+          <Card className="p-0 gap-0 overflow-hidden">
             <Row label="Business Use" value={`${deductiblePct}%`} />
             <Sep />
             <Row label="Full Amount" value={`${currSymbol}${rawAmount.toFixed(2)}`} />
@@ -284,36 +285,36 @@ export default function ExpenseDetailScreen() {
                 </View>
               </>
             ) : null}
-          </View>
+          </Card>
         )}
 
         {/* ── Context links ────────────────────────────────────────────── */}
         {(shiftLabel || vehicleLabel) ? (
-          <View style={s.card}>
+          <Card className="p-0 gap-0 overflow-hidden">
             {shiftLabel ? <Row label="Linked Shift" value={shiftLabel} /> : null}
             {shiftLabel && vehicleLabel ? <Sep /> : null}
             {vehicleLabel ? <Row label="Vehicle" value={vehicleLabel} /> : null}
-          </View>
+          </Card>
         ) : null}
 
         {/* ── Notes ───────────────────────────────────────────────────── */}
         {expense.notes ? (
-          <View style={s.card}>
+          <Card className="p-0 gap-0 overflow-hidden">
             <Text variant="labelXs" className="text-content-muted" style={s.notesLabel}>Notes</Text>
             <Text variant="paragraphM" className="text-content-primary" style={s.notesBody}>{expense.notes}</Text>
-          </View>
+          </Card>
         ) : null}
 
         {/* ── Receipt ─────────────────────────────────────────────────── */}
         {expense.receiptUri ? (
-          <View style={[s.card, { overflow: "hidden" }]}>
+          <Card className="p-0 gap-0 overflow-hidden">
             <Text variant="labelXs" className="text-content-muted" style={[s.notesLabel, { paddingBottom: 0 }]}>Receipt</Text>
             <Image
               source={{ uri: expense.receiptUri }}
               style={s.receiptImg}
               resizeMode="cover"
             />
-          </View>
+          </Card>
         ) : null}
 
         {/* ── Edit button ──────────────────────────────────────────────── */}
@@ -365,7 +366,6 @@ const makeStyles = (C: Palette) => {
   taxBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
 
   // info card
-  card: { backgroundColor: SURFACE, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: BORDER, overflow: "hidden" },
   sep:  { height: StyleSheet.hairlineWidth, backgroundColor: BORDER, marginHorizontal: 16 },
   row:  { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
 

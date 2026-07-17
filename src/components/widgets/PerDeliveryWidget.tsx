@@ -2,7 +2,8 @@ import React from "react";
 import { View } from "react-native";
 import { Truck } from "lucide-react-native";
 import { Text } from "../ui/text";
-import { KPI, withAlpha } from "@/src/theme/colors";
+import { IconBadge } from "../ui/IconBadge";
+import { KPI } from "@/src/theme/colors";
 
 interface PerDeliveryWidgetProps {
   perDelivery: number;
@@ -21,9 +22,7 @@ export default function PerDeliveryWidget({ perDelivery, count, country }: PerDe
 
   return (
     <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 16, gap: 12 }}>
-      <View style={{ backgroundColor: withAlpha(KPI.gross, 0.12), padding: 12, borderRadius: 16 }}>
-        <Truck size={32} color={KPI.gross} strokeWidth={2.5} />
-      </View>
+      <IconBadge icon={Truck} color={KPI.gross} tone="tinted" size="lg" strokeWidth={2.5} />
       <View style={{ alignItems: "center" }}>
         <Text variant="headingXl" tabular numberOfLines={1} adjustsFontSizeToFit>{formatCurrency(perDelivery)}</Text>
         <Text variant="labelXs" className="text-content-secondary" tabular style={{ marginTop: 4 }}>

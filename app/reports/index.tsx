@@ -16,9 +16,10 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { DatePickerModal } from "@/src/components/ui/DatePickerModal";
 import { FeedbackDialog, BusyOverlay, type FeedbackVariant } from "@/src/components/ui/FeedbackDialog";
-import { X, FileText, Table, BarChart2, Download, CalendarDays, Settings } from "lucide-react-native";
+import { X, FileText, Table, BarChart2, Download, CalendarDays, Settings, ChevronRight } from "lucide-react-native";
 import Svg, { Path } from "react-native-svg";
 import { Text } from "@/src/components/ui/text";
+import { Card } from "@/src/components/ui/card";
 import { EmptyState } from "@/src/components/ui/EmptyState";
 import { withAlpha } from "@/src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
@@ -50,15 +51,6 @@ const ChevronLeft = ({ size = 22, color }: { size?: number; color?: string }) =>
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color ?? C.contentPrimary} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
       <Path d="m15 18-6-6 6-6" />
-    </Svg>
-  );
-};
-
-const ChevronRight = ({ size = 22, color }: { size?: number; color?: string }) => {
-  const C = useColors();
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color ?? C.contentPrimary} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-      <Path d="m9 18 6-6-6-6" />
     </Svg>
   );
 };
@@ -494,7 +486,7 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
               accessibilityState={{ disabled: arrowsDisabled || isCurrentOrFutureMonth }}
               style={[styles.arrowBtn, (arrowsDisabled || isCurrentOrFutureMonth) && styles.arrowBtnDisabled]}
             >
-              <ChevronRight color={(arrowsDisabled || isCurrentOrFutureMonth) ? C.contentDisabled : C.contentPrimary} />
+              <ChevronRight size={22} strokeWidth={3} color={(arrowsDisabled || isCurrentOrFutureMonth) ? C.contentDisabled : C.contentPrimary} />
             </Pressable>
           </View>
         </View>
@@ -567,12 +559,12 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
         ) : (
           <View style={styles.statGrid}>
             <View style={styles.statsRow}>
-              <View style={styles.statCard}>
-                <Text variant="labelXs" style={styles.statLabel}>Gross Revenue</Text>
+              <Card className="flex-1 gap-1.5">
+                <Text variant="labelXs" className="text-content-muted">Gross Revenue</Text>
                 <Text variant="headingM" tabular>{formatCurrency(grossRevenue)}</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text variant="labelXs" style={styles.statLabel}>Net Earnings</Text>
+              </Card>
+              <Card className="flex-1 gap-1.5">
+                <Text variant="labelXs" className="text-content-muted">Net Earnings</Text>
                 <Text
                   variant="headingM"
                   tabular
@@ -580,26 +572,26 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
                 >
                   {formatCurrency(netIncome)}
                 </Text>
-              </View>
+              </Card>
             </View>
             <View style={styles.statsRow}>
-              <View style={styles.statCard}>
-                <Text variant="labelXs" style={styles.statLabel}>Total Shifts</Text>
+              <Card className="flex-1 gap-1.5">
+                <Text variant="labelXs" className="text-content-muted">Total Shifts</Text>
                 <Text variant="headingM" tabular>{stats?.count ?? 0}</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text variant="labelXs" style={styles.statLabel}>Mileage Logged</Text>
+              </Card>
+              <Card className="flex-1 gap-1.5">
+                <Text variant="labelXs" className="text-content-muted">Mileage Logged</Text>
                 <Text variant="headingM" tabular>
                   {totalMileage.toFixed(1)} {profile?.distanceUnit ?? "km"}
                 </Text>
-              </View>
+              </Card>
             </View>
           </View>
         )}
 
         {/* ── Export Actions ── */}
         <View style={styles.exportSection}>
-          <Text variant="labelXs" style={styles.sectionLabel}>Export Actions</Text>
+          <Text variant="labelXs" className="text-content-muted mb-0.5">Export Actions</Text>
 
           <TouchableOpacity
             onPress={handleExportShifts}
@@ -1122,27 +1114,11 @@ const makeStyles = (C: Palette) => StyleSheet.create({
     flexDirection: "row",
     gap: 12,
   },
-  statCard: {
-    flex: 1,
-    backgroundColor: C.surface02,
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.lineSubtle,
-    padding: 16,
-  },
-  statLabel: {
-    color: C.contentSecondary,
-    marginBottom: 6,
-  },
 
   // Export section
   exportSection: {
     paddingHorizontal: 16,
     gap: 10,
-  },
-  sectionLabel: {
-    color: C.contentSecondary,
-    marginBottom: 2,
   },
   exportRow: {
     backgroundColor: C.surface02,

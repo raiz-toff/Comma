@@ -15,6 +15,8 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, ChevronDown, LayoutGrid, Sparkles, BarChart2, DollarSign, Wallet, TrendingDown, Landmark, Clock, Activity } from "lucide-react-native";
 import Svg, { Path } from "react-native-svg";
 import { Text } from "@/src/components/ui/text";
+import { IconBadge } from "@/src/components/ui/IconBadge";
+import { Divider } from "@/src/components/ui/Divider";
 import { KPI, withAlpha } from "@/src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import {
@@ -124,16 +126,18 @@ function formatCurrencyParts(value: number, country?: string) {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 function StatDetailRows({ rows }: { rows: { label: string; value: string; color?: string }[] }) {
   const C = useColors();
-  const { BORDER } = useThemedStyles(makeDS);
   return (
-    <View style={{ marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: BORDER, gap: 8 }}>
-      {rows.map((r) => (
-        <View key={r.label} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-          <Text variant="paragraphS" className="text-content-secondary">{r.label}</Text>
-          <Text variant="labelM" tabular style={{ color: r.color ?? C.contentPrimary }}>{r.value}</Text>
-        </View>
-      ))}
-    </View>
+    <>
+      <Divider className="mt-3.5 pt-3.5" />
+      <View style={{ gap: 8 }}>
+        {rows.map((r) => (
+          <View key={r.label} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
+            <Text variant="paragraphS" className="text-content-secondary">{r.label}</Text>
+            <Text variant="labelM" tabular style={{ color: r.color ?? C.contentPrimary }}>{r.value}</Text>
+          </View>
+        ))}
+      </View>
+    </>
   );
 }
 
@@ -151,9 +155,7 @@ function PremiumStatCard({ label, value, subtitle, color, Icon, width, flex, det
       style={{ width, flex, backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER, borderRadius: 16, padding: 16 }}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 }}>
-        <View style={{ backgroundColor: withAlpha(color, 0.12), padding: 6, borderRadius: 8 }}>
-          <Icon size={14} color={color} strokeWidth={2.5} />
-        </View>
+        <IconBadge icon={Icon} color={color} tone="tinted" size="xs" strokeWidth={2.5} />
         <Text variant="labelXs" className="text-content-secondary">{label}</Text>
       </View>
       <Text variant="headingXl" tabular style={{ paddingVertical: 2, includeFontPadding: false }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
@@ -184,9 +186,7 @@ function SwitchableStatCard({ label, activeValue, onlineValue, activeSubtitle, o
     <View style={{ width, flex, backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER, borderRadius: 16, padding: 16 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <View style={{ backgroundColor: withAlpha(color, 0.12), padding: 6, borderRadius: 8 }}>
-            <Icon size={14} color={color} strokeWidth={2.5} />
-          </View>
+          <IconBadge icon={Icon} color={color} tone="tinted" size="xs" strokeWidth={2.5} />
           <Text variant="labelXs" className="text-content-secondary">{label}</Text>
         </View>
 

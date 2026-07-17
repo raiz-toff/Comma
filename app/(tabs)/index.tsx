@@ -18,6 +18,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Text } from "../../src/components/ui/text";
+import { Card } from "../../src/components/ui/card";
 import { withAlpha } from "../../src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { EmptyState } from "../../src/components/ui/EmptyState";
@@ -302,16 +303,16 @@ const HomeSkeleton = () => {
   return (
     <RNAnimated.View style={{ opacity: pulse, gap: 10, width: "100%" }}>
       <View style={{ height: 40, width: 140, backgroundColor: C.lineSubtle, borderRadius: 8 }} />
-      <View style={{ height: 160, backgroundColor: C.surface02, borderRadius: 12, borderWidth: 1, borderColor: C.lineSubtle }} />
+      <Card style={{ height: 160 }} />
       <View style={{ flexDirection: "row", gap: 8 }}>
-        <View style={{ height: 100, flex: 1, backgroundColor: C.surface02, borderRadius: 12, borderWidth: 0.5, borderColor: C.lineSubtle }} />
-        <View style={{ height: 100, flex: 1, backgroundColor: C.surface02, borderRadius: 12, borderWidth: 0.5, borderColor: C.lineSubtle }} />
+        <Card style={{ height: 100, flex: 1 }} />
+        <Card style={{ height: 100, flex: 1 }} />
       </View>
       <View style={{ flexDirection: "row", gap: 8 }}>
-        <View style={{ height: 100, flex: 1, backgroundColor: C.surface02, borderRadius: 12, borderWidth: 0.5, borderColor: C.lineSubtle }} />
-        <View style={{ height: 100, flex: 1, backgroundColor: C.surface02, borderRadius: 12, borderWidth: 0.5, borderColor: C.lineSubtle }} />
+        <Card style={{ height: 100, flex: 1 }} />
+        <Card style={{ height: 100, flex: 1 }} />
       </View>
-      <View style={{ height: 90, backgroundColor: C.surface02, borderRadius: 12, borderWidth: 0.5, borderColor: C.lineSubtle }} />
+      <Card style={{ height: 90 }} />
     </RNAnimated.View>
   );
 };
@@ -1450,7 +1451,7 @@ export default function HomeScreen() {
                 is an estimated tax deduction, not money earned — kept out of the headline
                 "EARNED" figure above. */}
             {currentStats.miles > 0 && writeOff > 0 && (
-              <View style={S.tipCard}>
+              <Card className="flex-row items-center gap-2.5 bg-surface-01">
                 <Text style={{ fontSize: 13 }}>🚗</Text>
                 <Text variant="paragraphS" className="text-content-secondary" style={{ flex: 1, lineHeight: 18 }}>
                   {/* Today's write-off can span more than one vehicle, each at its own rate — only show
@@ -1459,7 +1460,7 @@ export default function HomeScreen() {
                     ? `At $${sessionMileageRate.ratePrimary}/${profile?.distanceUnit ?? "mi"} you've got an`
                     : "You've got an"} est. <Text variant="paragraphS" tabular style={{ color: C.warning, fontWeight: "bold" }}>{fmt(writeOff)}</Text> tax write-off on <Text variant="paragraphS" tabular style={{ fontWeight: "bold", color: C.contentPrimary }}>{currentStats.miles.toFixed(1)}</Text> {profile?.distanceUnit ?? "mi"} today.
                 </Text>
-              </View>
+              </Card>
             )}
           </>
         )}
@@ -1976,8 +1977,6 @@ const makeS = (C: Palette) => StyleSheet.create({
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
   headerTitle: { letterSpacing: -0.2 },
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.surface04, alignItems: "center", justifyContent: "center" },
-
-  tipCard: { flexDirection: "row", gap: 10, backgroundColor: C.surface01, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, padding: 12, alignItems: "center" },
 
   pulseDot: { width: 8, height: 8, borderRadius: 4 },
 

@@ -2,7 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import { Sparkles } from "lucide-react-native";
 import { Text } from "../ui/text";
-import { withAlpha } from "@/src/theme/colors";
+import { IconBadge } from "../ui/IconBadge";
 import { useColors } from "@/src/theme/useColors";
 
 interface TipsTotalWidgetProps {
@@ -25,9 +25,7 @@ export default function TipsTotalWidget({ tips, gross, country }: TipsTotalWidge
 
   return (
     <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 16, gap: 12 }}>
-      <View style={{ backgroundColor: withAlpha(C.info, 0.12), padding: 12, borderRadius: 16 }}>
-        <Sparkles size={32} color={C.info} strokeWidth={2.5} />
-      </View>
+      <IconBadge icon={Sparkles} color={C.info} tone="tinted" size="lg" strokeWidth={2.5} />
       <View style={{ alignItems: "center" }}>
         <Text variant="headingXl" tabular style={{ color: C.contentPrimary }} numberOfLines={1} adjustsFontSizeToFit>{formatCurrency(tips)}</Text>
         {tipsPct > 0 ? (

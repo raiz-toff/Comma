@@ -7,7 +7,7 @@ import { showModal } from '../../ui/components.js';
 import { getIcon } from '../../ui/icons.js';
 import { t } from '../../utils/strings.js';
 
-export const APP_VERSION = '1.4.2';
+export const APP_VERSION = '1.5.0';
 const STORAGE_KEY = 'comma_last_seen_version';
 
 /**

@@ -28,6 +28,8 @@ import {
 } from "lucide-react-native";
 
 import { Text } from "@/src/components/ui/text";
+import { Card } from "@/src/components/ui/card";
+import { StatCard } from "@/src/components/ui/StatCard";
 import { CurrencyText } from "@/src/components/ui/CurrencyText";
 import { EmptyState } from "@/src/components/ui/EmptyState";
 import { withAlpha, getColors } from "@/src/theme/colors";
@@ -71,7 +73,6 @@ const makeDS = (C: Palette) =>
     rPill: 20,
 
     pagePad: 16,
-    cardPad: 16,
     rowPad: 12,
   }) as const;
 
@@ -130,7 +131,7 @@ function MaintenanceLogRow({
   const DS = useThemedStyles(makeDS);
   const s = useThemedStyles(makeStyles);
   return (
-    <View style={s.mItem}>
+    <Card className="flex-row items-center gap-3">
       <View style={s.mIconContainer}>
         {getMaintenanceIcon(log.type, accentColor)}
       </View>
@@ -158,7 +159,7 @@ function MaintenanceLogRow({
       >
         <Trash2 size={14} color={DS.dangerText} />
       </TouchableOpacity>
-    </View>
+    </Card>
   );
 }
 
@@ -457,20 +458,19 @@ export default function VehicleDetailScreen() {
   const listHeader = (
     <>
       {/* Vehicle Stats Row */}
-      <View style={s.statsRow}>
-        <View style={s.statCard}>
-          <Text variant="headingXl" tabular style={s.statValue}>{stats?.totalShifts ?? 0}</Text>
-          <Text variant="labelXs" style={s.statLabel}>Total Shifts</Text>
-        </View>
-        <View style={s.statCard}>
-          <Text variant="headingXl" tabular style={s.statValue}>{(stats?.totalActiveMileage ?? 0).toFixed(1)}</Text>
-          <Text variant="labelXs" style={s.statLabel}>{profile.distanceUnit} Active</Text>
-        </View>
+      <View className="flex-row gap-3 mb-4">
+        <StatCard icon="calendar" value={stats?.totalShifts ?? 0} label="Total Shifts" className="flex-1" />
+        <StatCard
+          icon="car"
+          value={(stats?.totalActiveMileage ?? 0).toFixed(1)}
+          label={`${profile.distanceUnit} Active`}
+          className="flex-1"
+        />
       </View>
 
       {/* Edit / Info Form */}
-      <View style={s.card}>
-        <Text variant="labelM" style={s.cardTitle}>Vehicle Info</Text>
+      <Card className="mb-4">
+        <Text variant="labelXs" className="mb-3">Vehicle Info</Text>
 
         {/* Name */}
         <View style={s.row}>
@@ -618,12 +618,12 @@ export default function VehicleDetailScreen() {
             </TouchableOpacity>
           </View>
         )}
-      </View>
+      </Card>
 
       {/* Annual Tax Profiles Section */}
-      <View style={s.card}>
+      <Card className="mb-4">
         <View style={s.cardHeaderRow}>
-          <Text variant="labelM" style={s.cardTitle}>Annual Tax Profiles</Text>
+          <Text variant="labelXs">Annual Tax Profiles</Text>
           <TouchableOpacity
             onPress={() => setShowAddTaxProfile((v) => !v)}
             accessibilityRole="button"
@@ -643,7 +643,7 @@ export default function VehicleDetailScreen() {
         {/* Add Year Profile Form */}
         {showAddTaxProfile && (
           <View style={{ marginTop: 14, borderTopWidth: 0.5, borderColor: DS.sep, paddingTop: 14 }}>
-            <Text variant="labelM" style={[s.cardTitle, { marginBottom: 12 }]}>Configure Year Profile</Text>
+            <Text variant="labelXs" style={{ marginBottom: 12 }}>Configure Year Profile</Text>
 
             {/* Year Input */}
             <View style={s.row}>
@@ -819,12 +819,12 @@ export default function VehicleDetailScreen() {
             ))}
           </View>
         )}
-      </View>
+      </Card>
 
       {/* Maintenance Log Section */}
       <View style={{ gap: 12, marginBottom: 12 }}>
         <View style={s.cardHeaderRow}>
-          <Text variant="labelM" style={s.cardTitle}>Maintenance Log</Text>
+          <Text variant="labelXs">Maintenance Log</Text>
           <TouchableOpacity
             onPress={() => setShowAddMaintenance((v) => !v)}
             accessibilityRole="button"
@@ -843,8 +843,8 @@ export default function VehicleDetailScreen() {
 
         {/* Add Maintenance Form */}
         {showAddMaintenance && (
-          <View style={s.card}>
-            <Text variant="labelM" style={[s.cardTitle, { marginBottom: 12 }]}>Add Maintenance Log</Text>
+          <Card>
+            <Text variant="labelXs" style={{ marginBottom: 12 }}>Add Maintenance Log</Text>
             
             <View style={[s.chips, { marginBottom: 14 }]}>
               {MAINTENANCE_TYPES.map((t) => {
@@ -917,7 +917,7 @@ export default function VehicleDetailScreen() {
                 <Text variant="labelM" style={{ color: accentColorContrast }}>Save Log</Text>
               )}
             </TouchableOpacity>
-          </View>
+          </Card>
         )}
       </View>
     </>
@@ -1003,28 +1003,8 @@ const makeStyles = (C: Palette) => {
   saveBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: DS.rPill, backgroundColor: DS.brand, minWidth: 64, alignItems: "center", justifyContent: "center" },
   saveBtnCancel: { backgroundColor: DS.dangerSurface, borderWidth: 0.5, borderColor: DS.dangerBorder },
 
-  // Stats
-  statsRow: { flexDirection: "row", gap: 12, marginBottom: 16 },
-  statCard: {
-    flex: 1,
-    backgroundColor: DS.cardBg,
-    borderRadius: DS.rCard,
-    borderWidth: 0.5,
-    borderColor: DS.cardBorder,
-    padding: DS.cardPad,
-    alignItems: "center",
-  },
-  statValue: {
-    marginBottom: 4,
-  },
-  statLabel: {
-    color: DS.textSecondary,
-  },
-
   // Cards
-  card: { backgroundColor: DS.cardBg, borderRadius: DS.rCard, borderWidth: 0.5, borderColor: DS.cardBorder, overflow: "hidden", padding: DS.cardPad, marginBottom: 16 },
   cardHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  cardTitle: { textTransform: "uppercase", letterSpacing: 0.5 },
   row: { marginBottom: 14 },
   rowLabel: { color: DS.textSecondary, marginBottom: 6 },
   rowInline: { flexDirection: "row", gap: 12, marginBottom: 14 },
@@ -1092,16 +1072,6 @@ const makeStyles = (C: Palette) => {
 
   // Maintenance list
   mListSep: { height: 10 },
-  mItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: DS.cardBg,
-    borderRadius: DS.rCard,
-    borderWidth: 0.5,
-    borderColor: DS.cardBorder,
-    padding: DS.cardPad,
-    gap: 12,
-  },
   mIconContainer: {
     width: 40,
     height: 40,

@@ -14,10 +14,11 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { Plus, Trash2, ArrowDownRight, ArrowUpRight } from "lucide-react-native";
+import { Plus, Trash2, ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react-native";
 import Svg, { Path } from "react-native-svg";
 import { ExpenseCategoryIcon } from "@/src/components/ui/ExpenseCategoryIcon";
 import { Text } from "@/src/components/ui/text";
+import { Card } from "@/src/components/ui/card";
 import { EmptyState } from "@/src/components/ui/EmptyState";
 import {
   getExpensesByMonth,
@@ -43,25 +44,6 @@ export { getExpenseCategories, getCategoryMeta, type ExpenseCategory };
 export type ExpenseCategoryId = string;
 
 const isWeb = Platform.OS === "web";
-
-// ─── Custom Icons ────────────────────────────────────────────────────────────
-const ChevronLeft = ({ size = 22, color }: { size?: number; color?: string }) => {
-  const C = useColors();
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color ?? C.contentPrimary} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-      <Path d="m15 18-6-6 6-6" />
-    </Svg>
-  );
-};
-
-const ChevronRight = ({ size = 22, color }: { size?: number; color?: string }) => {
-  const C = useColors();
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color ?? C.contentPrimary} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-      <Path d="m9 18 6-6-6-6" />
-    </Svg>
-  );
-};
 
 type ExpenseItem = {
   id: string;
@@ -501,7 +483,7 @@ export default function ExpensesScreen() {
                   accessibilityLabel="Previous month"
                   style={styles.arrowBtn}
                 >
-                  <ChevronLeft color={C.contentPrimary} />
+                  <ChevronLeft size={22} strokeWidth={3} color={C.contentPrimary} />
                 </Pressable>
 
                 <View style={styles.amountRow}>
@@ -519,13 +501,13 @@ export default function ExpensesScreen() {
                   accessibilityState={{ disabled: isCurrentOrFutureMonth }}
                   style={[styles.arrowBtn, isCurrentOrFutureMonth && { opacity: 0.35 }]}
                 >
-                  <ChevronRight color={isCurrentOrFutureMonth ? C.contentDisabled : C.contentPrimary} />
+                  <ChevronRight size={22} strokeWidth={3} color={isCurrentOrFutureMonth ? C.contentDisabled : C.contentPrimary} />
                 </Pressable>
               </View>
             </View>
 
             {/* ── Bar Chart Graph ── */}
-            <View style={styles.chartContainer}>
+            <Card className="mx-4 mb-5">
               {maxWeekTotal > 0 && (
                 <View style={styles.highLineOverlay} pointerEvents="none">
                   <View style={styles.dashedLine} />
@@ -565,13 +547,13 @@ export default function ExpensesScreen() {
                   );
                 })}
               </View>
-            </View>
+            </Card>
 
             {/* ── YTD summary Bento ── */}
             <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
               <View style={{ flexDirection: "row", gap: 12 }}>
-                <View style={{ flex: 1, backgroundColor: C.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, borderRadius: 16, padding: 16 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                <Card className="flex-1 gap-2">
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                     <View style={{ backgroundColor: withAlpha(C.success, 0.12), padding: 4, borderRadius: 8 }}>
                       <ArrowDownRight size={14} color={C.success} />
                     </View>
@@ -580,9 +562,9 @@ export default function ExpensesScreen() {
                   <Text tabular style={{ fontSize: 32, fontWeight: "800", color: C.contentPrimary, letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                     {formatCurrency(ytdSummary?.deductible ?? 0, country)}
                   </Text>
-                </View>
-                <View style={{ flex: 1, backgroundColor: C.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, borderRadius: 16, padding: 16 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                </Card>
+                <Card className="flex-1 gap-2">
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                     <View style={{ backgroundColor: withAlpha(C.destructive, 0.12), padding: 4, borderRadius: 8 }}>
                       <ArrowUpRight size={14} color={C.destructive} />
                     </View>
@@ -591,7 +573,7 @@ export default function ExpensesScreen() {
                   <Text tabular style={{ fontSize: 32, fontWeight: "800", color: C.contentPrimary, letterSpacing: -0.5, lineHeight: 38, paddingVertical: 2, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                     {formatCurrency(ytdSummary?.nonDeductible ?? 0, country)}
                   </Text>
-                </View>
+                </Card>
               </View>
             </View>
 
@@ -871,15 +853,6 @@ const makeStyles = (C: Palette) => StyleSheet.create({
     lineHeight: 48,
     paddingVertical: 2,
     includeFontPadding: false,
-  },
-  chartContainer: {
-    backgroundColor: C.surface02,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.lineSubtle,
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 20,
   },
   highLineOverlay: {
     position: "absolute",

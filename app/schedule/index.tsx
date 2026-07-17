@@ -16,6 +16,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import * as Notifications from "expo-notifications";
 import { Text } from "@/src/components/ui/text";
+import { Card } from "@/src/components/ui/card";
 import { CurrencyText } from "@/src/components/ui/CurrencyText";
 import { getShiftsPaginated } from "@/src/database/queries/shifts";
 import { useSettingsStore } from "@/store/useSettingsStore";
@@ -54,20 +55,17 @@ const makeDS = (C: Palette) =>
     textPrimary: C.contentPrimary,
     textSecondary: C.contentSecondary,
     textMuted: C.contentMuted,
-    textLabel: C.contentMuted,
 
     danger: C.destructive,
     dangerSurface: withAlpha(C.destructive, 0.1),
     dangerBorder: withAlpha(C.destructive, 0.2),
     dangerText: C.destructive,
 
-    rCard: 16,
     rInput: 12,
     rChip: 8,
     rPill: 20,
 
     pagePad: 16,
-    cardPad: 16,
     rowPad: 12,
   }) as const;
 
@@ -678,7 +676,7 @@ export default function ScheduleScreen() {
         
         {/* Plan Shift Form */}
         {isPlanning && (
-          <View style={s.card}>
+          <Card className="gap-3">
             <Text style={s.cardTitle}>
               {planType === "single" ? "Plan Single Shift" : "Plan Recurring Shift"}
             </Text>
@@ -875,12 +873,12 @@ export default function ScheduleScreen() {
             </TouchableOpacity>
 
 
-          </View>
+          </Card>
         )}
 
         {/* Week View Grid */}
         <View>
-          <Text style={s.groupLabel}>Week Overview</Text>
+          <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>Week Overview</Text>
           <View style={s.weekRow}>
             {weekDays.map((day, idx) => {
               const key = day.toISOString().split("T")[0];
@@ -928,7 +926,7 @@ export default function ScheduleScreen() {
         </View>
 
         {/* Month Calendar Card */}
-        <View style={s.card}>
+        <Card className="gap-3">
           <View style={s.monthHeader}>
             <TouchableOpacity
               onPress={prevMonth}
@@ -1020,10 +1018,10 @@ export default function ScheduleScreen() {
               })}
             </View>
           )}
-        </View>
+        </Card>
 
         {/* Selected Date Summary & Day Details */}
-        <View style={s.card}>
+        <Card className="gap-3">
           <View style={s.detailHeaderRow}>
             <View>
               <Text style={s.detailTitle}>
@@ -1205,12 +1203,12 @@ export default function ScheduleScreen() {
               })}
             </View>
           )}
-        </View>
+        </Card>
 
 
 
         {/* Planned Shifts & Templates list */}
-        <View style={s.card}>
+        <Card className="gap-3">
           <Text style={s.cardTitle}>Planned Shifts & Templates</Text>
           {templates.length === 0 ? (
             <EmptyState
@@ -1264,10 +1262,10 @@ export default function ScheduleScreen() {
               })}
             </View>
           )}
-        </View>
+        </Card>
 
         {/* Work Schedule Preset Card */}
-        <View style={s.card}>
+        <Card className="gap-3">
           <Text style={s.cardTitle}>Work Schedule Preset</Text>
           <Text variant="paragraphS" style={{ marginBottom: 12 }}>
             Choose a recurring preset to help shape your weekly goals and targets.
@@ -1301,7 +1299,7 @@ export default function ScheduleScreen() {
               );
             })}
           </View>
-        </View>
+        </Card>
 
       </ScrollView>
 
@@ -1425,26 +1423,13 @@ const makeStyles = (C: Palette) => {
     paddingBottom: 40,
     gap: 16,
   },
-  card: {
-    backgroundColor: DS.cardBg,
-    borderRadius: DS.rCard,
-    borderWidth: 0.5,
-    borderColor: DS.cardBorder,
-    padding: DS.cardPad,
-    gap: 12,
-  },
   cardTitle: {
     fontSize: 14,
     fontWeight: "800",
     color: DS.textPrimary,
   },
   groupLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: DS.textLabel,
-    letterSpacing: 0.9,
     marginBottom: 8,
-    textTransform: "uppercase",
     paddingHorizontal: 2,
   },
 

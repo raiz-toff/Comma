@@ -45,6 +45,7 @@ import { resolveAvailablePlatformIds } from "@/src/registry/market/resolve";
 import { insertTaxHistory } from "@/src/database/queries/tax";
 import { getDBPlatforms, updateDBPlatform, type DBPlatform } from "@/src/database/queries/platforms";
 import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
+import { Card } from "@/src/components/ui/card";
 import { db } from "@/src/database/client";
 import { settings, shifts, expenses } from "@/src/database/schema";
 import { generateShiftsCSV, generateExpensesCSV } from "@/utils/reportGenerator";
@@ -114,37 +115,6 @@ async function readSetting(key: string): Promise<string> {
 }
 
 // ─── Primitive components ────────────────────────────────────────────────────
-
-/** Floating uppercase label above a card group — matches PWA `settings-section-title`. */
-function GroupLabel({ text }: { text: string }) {
-  const s = useThemedStyles(makeStyles);
-  return <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>{text.toUpperCase()}</Text>;
-}
-
-/** Rounded card surface. Pass `danger` for the red-tinted danger zone variant. */
-function Card({
-  children,
-  danger = false,
-}: {
-  children: React.ReactNode;
-  danger?: boolean;
-}) {
-  const DS = useThemedStyles(makeDS);
-  const s = useThemedStyles(makeStyles);
-  return (
-    <View
-      style={[
-        s.card,
-        danger && {
-          backgroundColor: DS.dangerSurface,
-          borderColor: DS.dangerBorder,
-        },
-      ]}
-    >
-      {children}
-    </View>
-  );
-}
 
 /** Hairline separator between rows inside a card. */
 function Sep() {
@@ -1010,8 +980,8 @@ export default function SettingsScreen() {
           <>
             {isDemoMode && (
               <>
-                <GroupLabel text="Demo Mode" />
-                <Card>
+                <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>Demo Mode</Text>
+                <Card className="p-0 gap-0">
                   <Row label="Demo data active" hint="Exit to configure your real account." last>
                     <Btn
                       label="Exit demo"
@@ -1027,7 +997,7 @@ export default function SettingsScreen() {
               </>
             )}
 
-            <GroupLabel text="Profile" />
+            <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>Profile</Text>
             <TouchableOpacity
               onPress={() => router.push("/settings/profile")}
               accessibilityRole="button"
@@ -1064,8 +1034,8 @@ export default function SettingsScreen() {
               <ChevronRight size={16} color={DS.textSecondary} />
             </TouchableOpacity>
 
-            <GroupLabel text="Optional Features" />
-            <Card>
+            <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>Optional Features</Text>
+            <Card className="p-0 gap-0">
               {FEATURE_MODULES.filter((f) => !f.core && f.userToggleable).map((feature, idx, arr) => {
                 const defaultVal = GIG_DRIVER_DEFAULTS[feature.key] ?? false;
                 const active = feature.key in (featureOverrides || {})
@@ -1120,8 +1090,8 @@ export default function SettingsScreen() {
         {/* ═══════════════════ TAB: APPEARANCE ═══════════════════ */}
         {activeTab === "appearance" && (
           <>
-            <GroupLabel text="Interface" />
-            <Card>
+            <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>Interface</Text>
+            <Card className="p-0 gap-0">
               <Row label="Accent color" block last>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={s.swatches}>
@@ -1158,8 +1128,8 @@ export default function SettingsScreen() {
               </Row>
             </Card>
 
-            <GroupLabel text="Regional & Locale" />
-            <Card>
+            <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>Regional & Locale</Text>
+            <Card className="p-0 gap-0">
               <Row label="Currency" hint={`Locked to your country currency (${currency})`} last={false}>
                 <Text variant="labelM" className="text-content-secondary">
                   {currency}
@@ -1209,7 +1179,7 @@ export default function SettingsScreen() {
             const resolvedLabel = cfg.customLabel || dbPlatform?.label || PLATFORMS[pKey]?.label || pKey;
 
             return (
-              <Card key={pKey}>
+              <Card key={pKey} className="p-0 gap-0">
                 <TouchableOpacity
                   activeOpacity={cfg.active ? 0.7 : 1.0}
                   onPress={cfg.active ? toggleExpand : undefined}
@@ -1381,9 +1351,9 @@ export default function SettingsScreen() {
                   Platforms available in your region ({countryDef.label})
                 </Text>
               </View>
-              <GroupLabel text="Active Platforms" />
+              <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>Active Platforms</Text>
               {activeKeys.length === 0 ? (
-                <Card>
+                <Card className="p-0 gap-0">
                   <View style={{ padding: 16, alignItems: "center" }}>
                     <Text variant="paragraphS" className="text-content-secondary" style={{ textAlign: "center" }}>
                       No active platforms. Enable one below to get started.
@@ -1400,8 +1370,8 @@ export default function SettingsScreen() {
 
               {inactiveKeys.length > 0 && (
                 <View style={{ marginTop: 8 }}>
-                  <GroupLabel text="Other Available Platforms" />
-                  <Card>
+                  <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>Other Available Platforms</Text>
+                  <Card className="p-0 gap-0">
                     <TouchableOpacity
                       onPress={() => setShowOtherPlatforms(!showOtherPlatforms)}
                       accessibilityRole="button"
@@ -1467,8 +1437,8 @@ export default function SettingsScreen() {
 
               {/* Add Custom Platform section */}
               <View style={{ marginTop: 12 }}>
-                <GroupLabel text="Add Custom Platform" />
-                <Card>
+                <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>Add Custom Platform</Text>
+                <Card className="p-0 gap-0">
                   {!isAddingCustom ? (
                     <TouchableOpacity
                       onPress={() => setIsAddingCustom(true)}
@@ -1664,8 +1634,8 @@ export default function SettingsScreen() {
         {/* ═══════════════════ TAB: ALERTS ═══════════════════ */}
         {activeTab === "alerts" && (
           <>
-            <GroupLabel text="Notification Reminders" />
-            <Card>
+            <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>Notification Reminders</Text>
+            <Card className="p-0 gap-0">
               {([
                 { key: "shiftReminders", label: "Shift reminders", hint: "Alert when a scheduled shift is near" },
                 { key: "goalAlerts", label: "Goal achievements", hint: "Notify on weekly or monthly milestones" },
@@ -1687,8 +1657,8 @@ export default function SettingsScreen() {
               ))}
             </Card>
 
-            <GroupLabel text="Navigation" />
-            <Card>
+            <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>Navigation</Text>
+            <Card className="p-0 gap-0">
               <Row label="Keyboard shortcuts" hint="View all navigation combos" last>
                 <Btn label="View" variant="ghost" onPress={() => setShowShortcuts(true)} />
               </Row>
@@ -1699,8 +1669,8 @@ export default function SettingsScreen() {
         {/* ═══════════════════ TAB: DATA ═══════════════════ */}
         {activeTab === "data" && (
           <>
-            <GroupLabel text="Cloud Sync" />
-            <Card>
+            <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>Cloud Sync</Text>
+            <Card className="p-0 gap-0">
               <Row
                 label="Cloud Sync"
                 hint="Connect Google Drive once. On one device it's your automatic backup; on another, your data stays in sync. Free."
@@ -1710,8 +1680,8 @@ export default function SettingsScreen() {
               </Row>
             </Card>
 
-            <GroupLabel text="Import / Export" />
-            <Card>
+            <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>Import / Export</Text>
+            <Card className="p-0 gap-0">
               <Row label="Export CSV" hint="Download shift or expense logs as CSV files" last={false}>
                 <Btn label="Export" variant="ghost" onPress={handleExportCSV} />
               </Row>
@@ -1720,8 +1690,8 @@ export default function SettingsScreen() {
               </Row>
             </Card>
 
-            <GroupLabel text="Maintenance" />
-            <Card>
+            <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>Maintenance</Text>
+            <Card className="p-0 gap-0">
               <Row label="Data health check" hint="Inspect database relations and date validity" last={false}>
                 <Btn
                   label={isCheckingIntegrity ? "Checking…" : "Audit"}
@@ -1753,8 +1723,11 @@ export default function SettingsScreen() {
               </View>
             ) : null}
 
-            <GroupLabel text="Danger Zone" />
-            <Card danger>
+            <Text variant="labelXs" className="text-content-muted" style={s.groupLabel}>Danger Zone</Text>
+            <Card
+              className="p-0 gap-0"
+              style={{ backgroundColor: DS.dangerSurface, borderColor: DS.dangerBorder }}
+            >
               <Row
                 label="Reset platform data"
                 hint="Permanently deletes all shifts linked to a platform"
@@ -1888,9 +1861,6 @@ const makeStyles = (C: Palette) => {
 
   // ── Section label ───────────────────────────────────────────────────────────
   groupLabel: { marginBottom: 6, marginTop: 20, paddingHorizontal: 2 },
-
-  // ── Card ─────────────────────────────────────────────────────────────────────
-  card: { backgroundColor: DS.cardBg, borderRadius: DS.rCard, borderWidth: 0.5, borderColor: DS.cardBorder, overflow: "hidden" },
 
   // ── Separator ───────────────────────────────────────────────────────────────
   sep: { height: StyleSheet.hairlineWidth, backgroundColor: DS.sep, marginHorizontal: DS.cardPad },

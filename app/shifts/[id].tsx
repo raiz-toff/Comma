@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { Text } from "@/src/components/ui/text";
+import { Card } from "@/src/components/ui/card";
 import { PlatformBadge } from "@/src/components/ui/PlatformBadge";
 import { CurrencyText } from "@/src/components/ui/CurrencyText";
 import { EmptyState } from "@/src/components/ui/EmptyState";
@@ -820,7 +821,7 @@ export default function ShiftDetailScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView contentContainerStyle={columnStyle} contentContainerClassName="p-4 pb-16 flex flex-col gap-4" keyboardShouldPersistTaps="handled">
         {/* Combined Map & Details Card */}
-        <View className="bg-surface-02 border border-line-subtle rounded-xl overflow-hidden">
+        <Card className="p-0 gap-0 overflow-hidden">
           {/* Map on the top */}
           <View style={{ height: 200, width: "100%" }}>
             <RouteDetailMap routePathJson={shift.routePath} strokeColor={routeStrokeColor} isNavigatingBack={isNavigatingBack} />
@@ -899,11 +900,11 @@ export default function ShiftDetailScreen() {
               </View>
             ) : null}
           </View>
-        </View>
+        </Card>
 
         {/* Platform breakdown card */}
         {shiftPlatformsList && shiftPlatformsList.length > 0 && (
-          <View className="bg-surface-02 border border-line-subtle rounded-xl p-5 flex flex-col gap-4">
+          <Card className="p-5 gap-4">
             <Text variant="headingS" className="tracking-tight">Platform Breakdown</Text>
             
             <View className="flex-col gap-4">
@@ -957,11 +958,11 @@ export default function ShiftDetailScreen() {
                 );
               })}
             </View>
-          </View>
+          </Card>
         )}
 
         {/* Mileage breakdown card */}
-        <View className="bg-surface-02 border border-line-subtle rounded-xl p-5 flex flex-col gap-4">
+        <Card className="p-5 gap-4">
           <Text variant="headingS" className="tracking-tight">Mileage Breakdown</Text>
 
           <View className="flex-col gap-3">
@@ -989,11 +990,11 @@ export default function ShiftDetailScreen() {
               <View style={{ flex: Math.max(0.01, deadMiles), backgroundColor: C.destructive }} />
             </View>
           </View>
-        </View>
+        </Card>
 
         {/* Route Timeline */}
         {timelineEvents && timelineEvents.length >= 2 && (
-          <View className="bg-surface-02 border border-line-subtle rounded-xl p-5 flex flex-col gap-4">
+          <Card className="p-5 gap-4">
             <Text variant="headingS" className="tracking-tight">Route Timeline</Text>
 
             <View className="flex flex-col">
@@ -1063,11 +1064,11 @@ export default function ShiftDetailScreen() {
                 );
               })}
             </View>
-          </View>
+          </Card>
         )}
 
         {/* Expenses List Section */}
-        <View className="bg-surface-02 border border-line-subtle rounded-xl p-5 flex flex-col gap-4">
+        <Card className="p-5 gap-4">
           <View className="flex-row justify-between items-center">
             <Text variant="headingS" className="tracking-tight">Linked Expenses</Text>
             <TouchableOpacity
@@ -1190,7 +1191,7 @@ export default function ShiftDetailScreen() {
               })}
             </View>
           )}
-        </View>
+        </Card>
 
         {/* Delete Shift Button */}
         <TouchableOpacity

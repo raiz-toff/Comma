@@ -16,6 +16,7 @@ import { router } from "expo-router";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { AlertTriangle, Settings, Calculator, Calendar, ChevronRight } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
+import { Card } from "@/src/components/ui/card";
 import { CurrencyText } from "@/src/components/ui/CurrencyText";
 import { withAlpha } from "@/src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
@@ -321,7 +322,7 @@ export default function TaxScreen() {
           <Text variant="headingM">Tax · {currentYear}</Text>
         </View>
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20, backgroundColor: C.background }}>
-          <View style={S.card}>
+          <Card className="gap-3">
             <View style={S.emptyIcon}>
               <Calculator size={26} color={accentColor} />
             </View>
@@ -329,7 +330,7 @@ export default function TaxScreen() {
             <Text variant="paragraphM" style={S.emptyBody}>
               In {countryDef.label}, gig platform earnings are handled directly by the platforms. Independent self-assessment is not required.
             </Text>
-          </View>
+          </Card>
         </View>
       </SafeAreaView>
     );
@@ -377,7 +378,7 @@ export default function TaxScreen() {
           ))}
 
           {/* ── Tax Jar Card ── */}
-          <View style={S.card}>
+          <Card className="gap-3">
             <Text variant="labelXs" style={S.cardLabel}>SAVED THIS YEAR</Text>
             <View style={S.jarRow}>
               <CurrencyText
@@ -422,7 +423,7 @@ export default function TaxScreen() {
                 <Text variant="labelM" style={{ color: accentColor }}>+ Log</Text>
               </Pressable>
             </View>
-          </View>
+          </Card>
 
           {/* ── Obligations Card ── */}
           <ScalePressable

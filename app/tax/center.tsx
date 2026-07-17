@@ -14,6 +14,7 @@ import { router } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Calculator, Clock, Download } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
+import { Card } from "@/src/components/ui/card";
 import { withAlpha } from "@/src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { useLayout } from "@/src/hooks/useLayout";
@@ -538,7 +539,7 @@ export default function TaxCenterScreen() {
           <Text variant="headingM" style={{ marginLeft: 12 }}>Tax Center</Text>
         </View>
         <View style={[S.loader, { padding: 24 }]}>
-          <View style={S.card}>
+          <Card>
             <View style={S.emptyIcon}>
               <Calculator size={24} color={accentColor} />
             </View>
@@ -547,7 +548,7 @@ export default function TaxCenterScreen() {
               In {countryDef.label}, gig platform earnings are handled directly
               by platforms. Independent self-assessment is not required.
             </Text>
-          </View>
+          </Card>
         </View>
       </SafeAreaView>
     );
@@ -614,8 +615,8 @@ export default function TaxCenterScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Virtual Tax Jar ── */}
-        <View style={S.card}>
-          <Text variant="labelXs" style={S.cardLabel}>TAX SAVINGS JAR</Text>
+        <Card>
+          <Text variant="labelXs" className="text-content-muted">TAX SAVINGS JAR</Text>
           <Text variant="headingXl" tabular style={{ color: accentColor, marginTop: 8 }}>
             {fmt(localJarValue)}
           </Text>
@@ -674,31 +675,31 @@ export default function TaxCenterScreen() {
               </ScalePressable>
             ))}
           </View>
-        </View>
+        </Card>
 
         {/* ── Income snapshot ── */}
         <View style={S.twoCol}>
-          <View style={[S.card, { flex: 1 }]}>
-            <Text variant="labelXs" style={S.cardLabel}>TOTAL EARNINGS</Text>
+          <Card className="flex-1">
+            <Text variant="labelXs" className="text-content-muted">TOTAL EARNINGS</Text>
             <Text variant="headingS" tabular style={{ marginTop: 8 }}>
               {fmt(summary?.gross || 0)}
             </Text>
             <Text variant="paragraphS" style={S.miniNote}>Pay + tips + bonuses</Text>
-          </View>
-          <View style={[S.card, { flex: 1 }]}>
-            <Text variant="labelXs" style={S.cardLabel}>EXPENSES</Text>
+          </Card>
+          <Card className="flex-1">
+            <Text variant="labelXs" className="text-content-muted">EXPENSES</Text>
             <Text variant="headingS" tabular style={{ marginTop: 8, color: C.destructive }}>
               {fmt(summary?.businessExpenses || 0)}
             </Text>
             <Text variant="paragraphS" style={S.miniNote}>Money you spent to do the work</Text>
-          </View>
+          </Card>
         </View>
 
         {/* ── Net income ── */}
-        <View style={S.card}>
+        <Card>
           <View style={S.rowBetween}>
             <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text variant="labelXs" style={S.cardLabel}>WHAT YOU'LL BE TAXED ON</Text>
+              <Text variant="labelXs" className="text-content-muted">WHAT YOU'LL BE TAXED ON</Text>
               <Text
                 variant="headingXl"
                 tabular
@@ -708,7 +709,7 @@ export default function TaxCenterScreen() {
               </Text>
             </View>
             <View style={{ alignItems: "flex-end" }}>
-              <Text variant="labelXs" style={S.cardLabel}>YOURS TO KEEP</Text>
+              <Text variant="labelXs" className="text-content-muted">YOURS TO KEEP</Text>
               <Text variant="labelM" tabular style={[S.mutedValue, { marginTop: 6 }]}>
                 {fmt(Math.max(0, netIncome - targetSetAside))}
               </Text>
@@ -717,11 +718,11 @@ export default function TaxCenterScreen() {
               </Text>
             </View>
           </View>
-        </View>
+        </Card>
 
         {/* ── Estimated obligations ── */}
-        <View style={S.card}>
-          <Text variant="labelXs" style={S.cardLabel}>
+        <Card>
+          <Text variant="labelXs" className="text-content-muted">
             ESTIMATED TAXES YOU OWE · {selectedYear}
           </Text>
 
@@ -855,12 +856,12 @@ export default function TaxCenterScreen() {
               {fmt(totalObligations)}
             </Text>
           </View>
-        </View>
+        </Card>
 
         {/* ── HST Tracker — CA registered only ── */}
         {profile.country === "CA" && profile.hstRegistered && (
-          <View style={S.card}>
-            <Text variant="labelXs" style={S.cardLabel}>SALES TAX (HST) TRACKER</Text>
+          <Card>
+            <Text variant="labelXs" className="text-content-muted">SALES TAX (HST) TRACKER</Text>
             <View style={{ marginTop: 14 }}>
               <View style={S.oblRow}>
                 <View style={S.oblLeft}>
@@ -894,13 +895,13 @@ export default function TaxCenterScreen() {
                 </Text>
               </View>
             </View>
-          </View>
+          </Card>
         )}
 
         {/* ── Quarterly run-rate ── */}
         {quarterlyProjection && (
-          <View style={S.card}>
-            <Text variant="labelXs" style={S.cardLabel}>
+          <Card>
+            <Text variant="labelXs" className="text-content-muted">
               Q{quarterlyProjection.currentQuarter} ESTIMATE FOR THE YEAR
             </Text>
             {quarterlyProjection.isLimitedData && (
@@ -944,12 +945,12 @@ export default function TaxCenterScreen() {
                 </Text>
               </View>
             </View>
-          </View>
+          </Card>
         )}
 
         {/* ── Installment deadlines ── */}
-        <View style={S.card}>
-          <Text variant="labelXs" style={S.cardLabel}>UPCOMING TAX PAYMENT DATES</Text>
+        <Card>
+          <Text variant="labelXs" className="text-content-muted">UPCOMING TAX PAYMENT DATES</Text>
           <View style={{ marginTop: 14 }}>
             {deadlines.map((d, idx) => {
               const overdue = d.daysUntil < 0;
@@ -1017,11 +1018,11 @@ export default function TaxCenterScreen() {
               );
             })}
           </View>
-        </View>
+        </Card>
 
         {/* ── Export ── */}
-        <View style={S.card}>
-          <Text variant="labelXs" style={S.cardLabel}>EXPORT TAX SUMMARY</Text>
+        <Card>
+          <Text variant="labelXs" className="text-content-muted">EXPORT TAX SUMMARY</Text>
           <View style={S.exportRow}>
             <ScalePressable
               onPress={() => handleExport("json")}
@@ -1046,7 +1047,7 @@ export default function TaxCenterScreen() {
               </Text>
             </ScalePressable>
           </View>
-        </View>
+        </Card>
 
         <Text variant="paragraphS" style={S.disclaimer}>
           These are rough estimates using flat rates — they don't account for
@@ -1111,14 +1112,6 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   },
 
   // Cards
-  card: {
-    backgroundColor: C.surface02,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.lineSubtle,
-    borderRadius: 20,
-    padding: 18,
-  },
-  cardLabel: { color: C.contentMuted },
   twoCol: { flexDirection: "row", gap: 10 },
   rowBetween: {
     flexDirection: "row",

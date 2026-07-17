@@ -18,6 +18,7 @@ import { router, useLocalSearchParams, Stack } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { DatePickerModal } from "@/src/components/ui/DatePickerModal";
 import { Text } from "@/src/components/ui/text";
+import { Card } from "@/src/components/ui/card";
 import {
   insertExpense,
   updateExpense,
@@ -519,7 +520,7 @@ export default function AddExpenseModal() {
         {step === 1 && (
           <View className="flex flex-col gap-5">
             {/* Amount Input */}
-            <View className="bg-surface-03 border border-line-subtle rounded-lg py-10 flex flex-col items-center justify-center">
+            <Card className="py-10 px-0 gap-0 items-center justify-center">
               <Text variant="labelXs" className="text-content-secondary mb-2">Expense Amount</Text>
               <View className="flex flex-row items-center justify-center">
                 <Text style={{ fontSize: 44, fontWeight: "800", color: accentColor, marginRight: 6, lineHeight: 52, includeFontPadding: false }}>$</Text>
@@ -536,10 +537,10 @@ export default function AddExpenseModal() {
                   style={{ fontSize: 44, fontWeight: "900", color: C.contentPrimary, textAlign: "center", minWidth: 160, fontVariant: ["tabular-nums"] }}
                 />
               </View>
-            </View>
+            </Card>
 
             {/* Date Selection */}
-            <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-1.5">
+            <Card className="gap-1.5">
               <Text variant="labelXs" className="text-content-secondary">Expense Date</Text>
               {isWeb ? (
                 <input
@@ -571,10 +572,10 @@ export default function AddExpenseModal() {
                   onClose={() => setShowDatePicker(false)}
                 />
               )}
-            </View>
+            </Card>
 
             {/* Merchant Autocomplete Card */}
-            <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-2" style={{ zIndex: 1000 }}>
+            <Card className="gap-2" style={{ zIndex: 1000 }}>
               <Text variant="labelXs" className="text-content-secondary">Merchant / Vendor</Text>
               <TextInput
                 value={merchant}
@@ -619,10 +620,10 @@ export default function AddExpenseModal() {
                   </View>
                 );
               })()}
-            </View>
+            </Card>
 
             {/* Recurring Expense Toggle */}
-            <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-3">
+            <Card className="gap-3">
               <View className="flex-row justify-between items-center">
                 <View>
                   <Text variant="labelXs" className="text-content-secondary">Recurring Expense</Text>
@@ -661,7 +662,7 @@ export default function AddExpenseModal() {
                   ))}
                 </View>
               )}
-            </View>
+            </Card>
 
             {/* Next Button */}
             <TouchableOpacity
@@ -687,7 +688,7 @@ export default function AddExpenseModal() {
         {step === 2 && (
           <View className="flex flex-col gap-5">
             {/* Category Grid */}
-            <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-2">
+            <Card className="gap-2">
               <Text variant="labelXs" className="text-content-secondary mb-2">Category Selection</Text>
               <View className="flex flex-row flex-wrap gap-2 justify-start">
                 {expenseCategories.map((cat) => {
@@ -746,10 +747,10 @@ export default function AddExpenseModal() {
               <Text variant="paragraphS" className="text-content-muted mt-1 italic">
                 * Long-press a custom category to delete it.
               </Text>
-            </View>
+            </Card>
 
             {/* Deductible toggle */}
-            <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-3">
+            <Card className="gap-3">
               <Text variant="labelXs" className="text-content-secondary">Tax Deductible</Text>
               <View className="flex-row bg-surface-02 p-1 rounded-md border border-line-subtle">
                 <TouchableOpacity
@@ -784,7 +785,7 @@ export default function AddExpenseModal() {
                   </Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </Card>
 
             {/* Business use % panel — only shown when deductible */}
             {isDeductible && (() => {
@@ -794,7 +795,7 @@ export default function AddExpenseModal() {
                 ? (parsedAmt * deductiblePct / 100).toFixed(2)
                 : null;
               return (
-                <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-3">
+                <Card className="gap-3">
                   {/* Tax code hint */}
                   {meta.taxCode && (
                     <View className="flex-row items-center gap-2">
@@ -884,7 +885,7 @@ export default function AddExpenseModal() {
                       <Text variant="labelM" tabular className="text-success">${deductibleAmount}</Text>
                     </View>
                   )}
-                </View>
+                </Card>
               );
             })()}
 
@@ -914,7 +915,7 @@ export default function AddExpenseModal() {
           <View className="flex flex-col gap-5">
             {/* Vehicle Linkage */}
             {vehiclesList.length > 0 && (
-              <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-3">
+              <Card className="gap-3">
                 <Text variant="labelXs" className="text-content-secondary">Vehicle Link</Text>
                 <View className="flex-row flex-wrap gap-2">
                   {/* None option */}
@@ -957,11 +958,11 @@ export default function AddExpenseModal() {
                     );
                   })}
                 </View>
-              </View>
+              </Card>
             )}
 
             {/* Shift Linkage */}
-            <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-3">
+            <Card className="gap-3">
               <View className="flex-row justify-between items-center mb-0.5">
                 <Text variant="labelXs" className="text-content-secondary">Link to Shift (Recommended)</Text>
                 {linkedShiftId ? (
@@ -1016,7 +1017,7 @@ export default function AddExpenseModal() {
                   })}
                 </ScrollView>
               )}
-            </View>
+            </Card>
 
             {/* Bottom Actions */}
             <View className="flex-row gap-3 mt-2">
@@ -1043,7 +1044,7 @@ export default function AddExpenseModal() {
         {step === 4 && (
           <View className="flex flex-col gap-5">
             {/* Notes & Receipt Upload */}
-            <View className="bg-surface-03 border border-line-subtle rounded-lg p-4 flex flex-col gap-5">
+            <Card className="gap-5">
               <View className="flex flex-col gap-1.5">
                 <Text variant="labelXs" className="text-content-secondary">Notes</Text>
                 <TextInput
@@ -1111,7 +1112,7 @@ export default function AddExpenseModal() {
                   </TouchableOpacity>
                 )}
               </View>
-            </View>
+            </Card>
 
             {/* Bottom Actions */}
             <View className="flex-row gap-3 mt-2">

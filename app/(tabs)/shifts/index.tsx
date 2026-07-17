@@ -12,6 +12,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Text } from "@/src/components/ui/text";
+import { Card } from "@/src/components/ui/card";
 import { EmptyState } from "@/src/components/ui/EmptyState";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { useSettingsStore } from "@/store/useSettingsStore";
@@ -21,6 +22,7 @@ import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useLayout } from "@/src/hooks/useLayout";
 import { getShiftsPaginated } from "@/src/database/queries/shifts";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
+import { ChevronRight } from "lucide-react-native";
 import Svg, { Path, Polyline, Circle, Line, Rect } from "react-native-svg";
 
 // ─── Custom Icons ────────────────────────────────────────────────────────────
@@ -30,16 +32,6 @@ const ChevronLeft = ({ size = 22, color: colorProp }: { size?: number; color?: s
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
       <Path d="m15 18-6-6 6-6" />
-    </Svg>
-  );
-};
-
-const ChevronRight = ({ size = 22, color: colorProp }: { size?: number; color?: string }) => {
-  const C = useColors();
-  const color = colorProp ?? C.contentPrimary;
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-      <Path d="m9 18 6-6-6-6" />
     </Svg>
   );
 };
@@ -673,13 +665,13 @@ export default function ShiftsScreen() {
                   accessibilityState={{ disabled: isCurrentOrFutureWeek }}
                   style={[styles.arrowBtn, isCurrentOrFutureWeek && styles.arrowBtnDisabled]}
                 >
-                  <ChevronRight color={isCurrentOrFutureWeek ? C.contentDisabled : C.contentPrimary} />
+                  <ChevronRight size={22} strokeWidth={3} color={isCurrentOrFutureWeek ? C.contentDisabled : C.contentPrimary} />
                 </Pressable>
               </View>
             </View>
 
             {/* ─── Bar Chart Graph ──────────────────────────────────────────── */}
-            <View style={styles.chartContainer}>
+            <Card style={{ marginVertical: 10 }}>
               {maxDayTotal > 0 && (
                 <View style={styles.highLineOverlay} pointerEvents="none">
                   <View style={styles.dashedLine} />
@@ -726,32 +718,32 @@ export default function ShiftsScreen() {
                   );
                 })}
               </View>
-            </View>
+            </Card>
 
             {/* ─── Weekly Stats Section ─────────────────────────────────────── */}
             <View style={styles.statsContainer}>
               <View style={styles.statsRow}>
-                <View style={styles.statCard}>
-                  <Text variant="labelXs" className="text-content-secondary" style={{ marginBottom: 6 }}>Online</Text>
-                  <Text variant="headingM" tabular>{(totalOnlineSeconds / 3600).toFixed(1)} hrs</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Text variant="labelXs" className="text-content-secondary" style={{ marginBottom: 6 }}>Active</Text>
-                  <Text variant="headingM" tabular>{(totalActiveSeconds / 3600).toFixed(1)} hrs</Text>
-                </View>
+                <Card className="flex-1">
+                  <Text variant="labelXs" className="text-content-secondary">Online</Text>
+                  <Text variant="headingM" tabular style={{ marginTop: 8 }}>{(totalOnlineSeconds / 3600).toFixed(1)} hrs</Text>
+                </Card>
+                <Card className="flex-1">
+                  <Text variant="labelXs" className="text-content-secondary">Active</Text>
+                  <Text variant="headingM" tabular style={{ marginTop: 8 }}>{(totalActiveSeconds / 3600).toFixed(1)} hrs</Text>
+                </Card>
               </View>
 
               <View style={styles.statsRow}>
-                <View style={styles.statCard}>
-                  <Text variant="labelXs" className="text-content-secondary" style={{ marginBottom: 6 }}>Deadmile / Total Miles</Text>
-                  <Text variant="headingM" tabular>
+                <Card className="flex-1">
+                  <Text variant="labelXs" className="text-content-secondary">Deadmile / Total Miles</Text>
+                  <Text variant="headingM" tabular style={{ marginTop: 8 }}>
                     {totalDeadMileage.toFixed(1)} / {totalMiles.toFixed(1)} {profile?.distanceUnit || "mi"}
                   </Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Text variant="labelXs" className="text-content-secondary" style={{ marginBottom: 6 }}>Orders</Text>
-                  <Text variant="headingM" tabular>{displayedShifts.length > 0 ? totalOrders : 0}</Text>
-                </View>
+                </Card>
+                <Card className="flex-1">
+                  <Text variant="labelXs" className="text-content-secondary">Orders</Text>
+                  <Text variant="headingM" tabular style={{ marginTop: 8 }}>{displayedShifts.length > 0 ? totalOrders : 0}</Text>
+                </Card>
               </View>
             </View>
 
@@ -962,14 +954,6 @@ const makeStyles = (C: Palette) => StyleSheet.create({
     paddingVertical: 2,
     includeFontPadding: false,
   },
-  chartContainer: {
-    backgroundColor: C.surface02,
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.lineSubtle,
-    padding: 16,
-    marginVertical: 10,
-  },
   highLineOverlay: {
     position: "absolute",
     left: 16,
@@ -1143,13 +1127,5 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   statsRow: {
     flexDirection: "row",
     gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: C.surface02,
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.lineSubtle,
-    padding: 16,
   },
 });

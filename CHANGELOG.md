@@ -2,6 +2,11 @@
 
 All notable changes to Comma are documented here.
 
+## [1.5.0] — 2026-07-17 (versionCode 11)
+
+### Changed
+- **Consistent card look across the app (app)**: shifts, expenses, tax, goals, schedule, settings and every dashboard widget now share the same rounded corners, spacing and hairline borders instead of dozens of screens each drawing their own slightly different card. Nothing you do changed — it's the same information in the same places, just drawn from one shared design instead of many one-off copies.
+
 ## [1.4.2] — 2026-07-15 (versionCode 10)
 
 ### Added

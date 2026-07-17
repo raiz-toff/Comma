@@ -2,7 +2,8 @@ import React from "react";
 import { View } from "react-native";
 import { TrendingUp } from "lucide-react-native";
 import { Text } from "../ui/text";
-import { KPI, withAlpha } from "@/src/theme/colors";
+import { IconBadge } from "../ui/IconBadge";
+import { KPI } from "@/src/theme/colors";
 import { useColors } from "@/src/theme/useColors";
 
 interface DailyData {
@@ -31,9 +32,7 @@ export default function WeeklyProjectionWidget({ dailyData, country }: WeeklyPro
 
   return (
     <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 16, gap: 12 }}>
-      <View style={{ backgroundColor: withAlpha(KPI.net, 0.12), padding: 12, borderRadius: 16 }}>
-        <TrendingUp size={32} color={KPI.net} strokeWidth={2.5} />
-      </View>
+      <IconBadge icon={TrendingUp} color={KPI.net} tone="tinted" size="lg" strokeWidth={2.5} />
 
       <View style={{ alignItems: "center" }}>
         <Text variant="headingXl" tabular style={{ color: C.contentPrimary, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>{formatCurrency(projection)}</Text>

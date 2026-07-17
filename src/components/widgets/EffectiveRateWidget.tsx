@@ -2,7 +2,8 @@ import React from "react";
 import { View } from "react-native";
 import { Zap } from "lucide-react-native";
 import { Text } from "../ui/text";
-import { KPI, withAlpha } from "@/src/theme/colors";
+import { IconBadge } from "../ui/IconBadge";
+import { KPI } from "@/src/theme/colors";
 import { useColors } from "@/src/theme/useColors";
 
 interface EffectiveRateWidgetProps {
@@ -29,9 +30,7 @@ export default function EffectiveRateWidget({ effectiveRate, avgRate, country }:
 
   return (
     <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 16, gap: 12 }}>
-      <View style={{ backgroundColor: withAlpha(KPI.rate, 0.12), padding: 12, borderRadius: 16 }}>
-        <Zap size={32} color={KPI.rate} strokeWidth={2.5} />
-      </View>
+      <IconBadge icon={Zap} color={KPI.rate} tone="tinted" size="lg" strokeWidth={2.5} />
       <View style={{ alignItems: "center" }}>
         <Text variant="headingXl" tabular numberOfLines={1} adjustsFontSizeToFit>{formatCurrency(effectiveRate)}<Text variant="paragraphL">/hr</Text></Text>
         <Text variant="labelXs" tabular style={{ color, marginTop: 4 }}>{subText}</Text>

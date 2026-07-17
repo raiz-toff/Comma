@@ -25,6 +25,7 @@ import {
 } from "lucide-react-native";
 
 import { Text } from "@/src/components/ui/text";
+import { Card } from "@/src/components/ui/card";
 import { EmptyState } from "@/src/components/ui/EmptyState";
 import { withAlpha } from "@/src/theme/colors";
 import { useThemedStyles, type Palette } from "@/src/theme/useColors";
@@ -216,8 +217,8 @@ export default function VehiclesScreen() {
         <ScrollView contentContainerStyle={[s.scroll, columnStyle]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           {/* Add Vehicle Form */}
           {showAddForm && (
-            <View style={s.card}>
-              <Text variant="labelM" style={s.cardTitle}>New Vehicle</Text>
+            <Card className="mb-4">
+              <Text variant="labelXs" className="mb-3">New Vehicle</Text>
 
               {/* Name */}
               <View style={s.row}>
@@ -320,7 +321,7 @@ export default function VehiclesScreen() {
                   </>
                 )}
               </TouchableOpacity>
-            </View>
+            </Card>
           )}
 
           {/* Vehicle List */}
@@ -397,9 +398,7 @@ const makeStyles = (C: Palette) => {
   saveBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: DS.rPill, backgroundColor: DS.brand, minWidth: 64, alignItems: "center", justifyContent: "center" },
   saveBtnCancel: { backgroundColor: DS.dangerSurface, borderWidth: 0.5, borderColor: DS.dangerBorder },
 
-  // Card & row
-  card: { backgroundColor: DS.cardBg, borderRadius: DS.rCard, borderWidth: 0.5, borderColor: DS.cardBorder, overflow: "hidden", padding: DS.cardPad, marginBottom: 16 },
-  cardTitle: { textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 },
+  // Row
   row: { marginBottom: 14 },
   rowLabel: { color: DS.textSecondary, marginBottom: 6 },
   rowInline: { flexDirection: "row", gap: 12, marginBottom: 14 },

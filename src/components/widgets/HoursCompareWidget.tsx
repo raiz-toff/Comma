@@ -1,6 +1,7 @@
 import React from "react";
 import { View } from "react-native";
 import { Text } from "../ui/text";
+import { RatioBar } from "../ui/RatioBar";
 import { KPI, TIERS, withAlpha } from "@/src/theme/colors";
 import { useColors } from "@/src/theme/useColors";
 
@@ -34,13 +35,12 @@ export default function HoursCompareWidget({ activeHrs, onlineHrs }: HoursCompar
         </View>
       </View>
 
-      <View
-        accessible={true}
+      <RatioBar
+        mode="percent"
+        height={10}
         accessibilityLabel={`Active time is ${ratio.toFixed(0)}% of online time, ${tier.label}`}
-        style={{ height: 10, borderRadius: 8, backgroundColor: C.surface04, overflow: "hidden" }}
-      >
-        <View style={{ height: "100%", width: `${Math.max(2, ratio)}%`, backgroundColor: tier.color, borderRadius: 8 }} />
-      </View>
+        segments={[{ value: Math.max(2, ratio), color: tier.color }]}
+      />
 
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <Text variant="labelXs" className="text-content-muted">Active / Online Ratio</Text>

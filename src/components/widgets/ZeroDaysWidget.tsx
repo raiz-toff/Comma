@@ -2,6 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import { XCircle } from "lucide-react-native";
 import { Text } from "../ui/text";
+import { IconBadge } from "../ui/IconBadge";
 import { KPI, withAlpha } from "@/src/theme/colors";
 import { useColors } from "@/src/theme/useColors";
 
@@ -27,9 +28,7 @@ export default function ZeroDaysWidget({ zeroDays, totalDays }: ZeroDaysWidgetPr
     <View style={{ gap: 16 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <View style={{ backgroundColor: withAlpha(badge.color, 0.12), padding: 8, borderRadius: 12 }}>
-            <XCircle size={16} color={badge.color} strokeWidth={2.5} />
-          </View>
+          <IconBadge icon={XCircle} color={badge.color} tone="tinted" size="sm" strokeWidth={2.5} />
           <Text variant="labelM" style={{ color: C.contentSecondary }}>Zero-Earning Days</Text>
         </View>
         <View style={{ backgroundColor: withAlpha(badge.color, 0.12), paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>

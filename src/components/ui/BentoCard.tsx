@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Pressable, View, type GestureResponderEvent } from "react-native";
+import { Pressable, StyleSheet, View, type GestureResponderEvent } from "react-native";
 import { Text } from "./text";
 import { cn } from "@/src/lib/utils";
 
@@ -34,12 +34,17 @@ export function BentoCard({
       onPress={onPress}
       accessibilityRole={onPress ? "button" : undefined}
       className={cn(
-        "border border-line-subtle bg-card rounded-lg p-4 flex flex-col justify-between overflow-hidden",
+        // rounded-lg = this project's custom 16px "cards" radius (tailwind.config.js
+        // overrides the stock scale — 2xl here means 28px "modals", not 16px).
+        "border-line-subtle bg-card rounded-lg p-4 flex flex-col justify-between overflow-hidden",
         onPress && "active:opacity-90",
         sizeClasses[size],
         className
       )}
-      style={accentColor ? { borderLeftWidth: 4, borderLeftColor: accentColor } : undefined}
+      style={{
+        borderWidth: StyleSheet.hairlineWidth,
+        ...(accentColor ? { borderLeftWidth: 4, borderLeftColor: accentColor } : {}),
+      }}
     >
       <View className="flex-1 flex-col">
         {title && (

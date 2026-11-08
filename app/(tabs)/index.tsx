@@ -1,18 +1,18 @@
 import React, { useEffect, useState, useRef } from "react";
 import {
-  ScrollView,
-  View,
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Alert,
-  Platform,
-  AppState,
-  Modal,
-  TextInput,
-  useWindowDimensions,
-  KeyboardAvoidingView,
-  Animated as RNAnimated,
+ScrollView,
+View,
+ActivityIndicator,
+Pressable,
+StyleSheet,
+Alert,
+Platform,
+AppState,
+Modal,
+TextInput,
+useWindowDimensions,
+KeyboardAvoidingView,
+Animated as RNAnimated,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,7 +22,6 @@ import { Card } from "../../src/components/ui/card";
 import { withAlpha } from "../../src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { EmptyState } from "../../src/components/ui/EmptyState";
-import { BlurView } from "expo-blur";
 import { ReceiptText, Calendar, Play, AlertCircle } from "lucide-react-native";
 import { useActiveShift, type GigPlatform } from "../../store/useActiveShift";
 import CommaTracker from "../../modules/comma-tracker";
@@ -32,35 +31,33 @@ import { getVehicles } from "../../src/database/queries/vehicles";
 import OnboardingWizard from "../../components/OnboardingWizard";
 import { ActivationChecklist } from "../../components/ActivationChecklist";
 import { useVocabulary } from "../../src/hooks/useVocabulary";
-import { useFeatureEnabled } from "../../hooks/useFeatureEnabled";
 import {
-  getTodayStats,
-  getWeekStats,
-  getGoalProgress,
-  getFinancialOverviewForRange,
-  getPeriodStats,
-  getVehicleMileageBreakdown,
-  getWeekVehicleMileageBreakdown,
+getTodayStats,
+getWeekStats,
+getGoalProgress,
+getFinancialOverviewForRange,
+getPeriodStats,
+getVehicleMileageBreakdown,
+getWeekVehicleMileageBreakdown,
 } from "../../src/database/queries/analytics";
 import { getEffectiveMileageRate, calculateMileageWriteOff, calculateMileageWriteOffForBreakdown } from "../../src/database/queries/taxProfiles";
 import { getShiftsPaginated, getUnreconciledShifts, getGPSOnlyShifts, reconcileOdometerAnchors } from "../../src/database/queries/shifts";
 import { PlatformBadge } from "../../src/components/ui/PlatformBadge";
 import { AppBottomSheet, type AppBottomSheetRef } from "../../src/components/ui/AppBottomSheet";
-import { CelebrationSheet, type CelebrationSheetRef } from "../../src/components/celebration/CelebrationSheet";
 import { useBackupStatus } from "../../hooks/useBackupStatus";
 import { useLayout } from "../../src/hooks/useLayout";
 import { useDeviceLocationSetup } from "../../hooks/useDeviceLocationSetup";
-import Svg, { Path, Circle, Defs, LinearGradient, Stop, Polyline, Line } from "react-native-svg";
+import Svg, { Path, Circle, Polyline, Line } from "react-native-svg";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
 import { PLATFORMS } from "../../src/registry/platforms";
 import { PlatformLogo, DEMO_STRIP_HEIGHT } from "../../src/components/GlobalTopHeader";
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  runOnJS,
+useSharedValue,
+useAnimatedStyle,
+withSpring,
+withTiming,
+runOnJS,
 } from 'react-native-reanimated';
 
 /*
@@ -133,72 +130,6 @@ const SquareIcon = ({ size = 14, color: colorProp }: { size?: number; color?: st
   );
 };
 
-const RouteIcon = ({ size = 16, color: colorProp }: { size?: number; color?: string }) => {
-  const C = useColors();
-  const color = colorProp ?? C.contentPrimary;
-  return (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-    <Circle cx="5.5" cy="18.5" r="2.5" />
-    <Circle cx="18.5" cy="5.5" r="2.5" />
-    <Path d="M5.5 16V9a4 4 0 0 1 4-4h5" />
-  </Svg>
-  );
-};
-
-const ClockIcon = ({ size = 16, color: colorProp }: { size?: number; color?: string }) => {
-  const C = useColors();
-  const color = colorProp ?? C.contentPrimary;
-  return (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-    <Circle cx="12" cy="12" r="10" />
-    <Path d="M12 6v6l4 2" />
-  </Svg>
-  );
-};
-
-const TrendIcon = ({ size = 16, color: colorProp }: { size?: number; color?: string }) => {
-  const C = useColors();
-  const color = colorProp ?? C.contentPrimary;
-  return (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="m22 7-8.5 8.5-5-5L2 17" />
-    <Path d="M16 7h6v6" />
-  </Svg>
-  );
-};
-
-const ReceiptIcon = ({ size = 16, color: colorProp }: { size?: number; color?: string }) => {
-  const C = useColors();
-  const color = colorProp ?? C.contentPrimary;
-  return (
-  <Svg width={size} height={size} viewBox="0 0 1024 1024" fill="none">
-    <Path
-      d="M731.15 585.97c-100.99 0-182.86 81.87-182.86 182.86s81.87 182.86 182.86 182.86 182.86-81.87 182.86-182.86-81.87-182.86-182.86-182.86z m0 292.57c-60.5 0-109.71-49.22-109.71-109.71s49.22-109.71 109.71-109.71c60.5 0 109.71 49.22 109.71 109.71s-49.21 109.71-109.71 109.71z"
-      fill={color}
-    />
-    <Path
-      d="M758.58 692.98h-54.86v87.27l69.4 68.79 38.6-38.97-53.14-52.68zM219.51 474.96h219.43v73.14H219.51z"
-      fill={color}
-    />
-    <Path
-      d="M182.61 365.86h585.62v179.48h73.14V145.21c0-39.96-32.5-72.48-72.46-72.48h-27.36c-29.18 0-55.04 16.73-65.88 42.59-5.71 13.64-27.82 13.66-33.57-0.02-10.86-25.86-36.71-42.57-65.88-42.57h-18.16c-29.18 0-55.04 16.73-65.88 42.59-5.71 13.64-27.82 13.66-33.57-0.02-10.86-25.86-36.71-42.57-65.88-42.57H375.3c-29.18 0-55.04 16.73-65.88 42.59-5.71 13.64-27.82 13.66-33.57-0.02-10.86-25.86-36.71-42.57-65.88-42.57H182.4c-39.96 0-72.48 32.52-72.48 72.48v805.14h401.21v-73.14H183.04l-0.43-511.35z m25.81-222.29c14.25 34.09 47.32 56.11 84.23 56.11 36.89 0 69.96-22.02 82.66-53.8l15.86-2.3c14.25 34.09 47.32 56.11 84.23 56.11 36.89 0 69.96-22.02 82.66-53.8l16.59-2.3c14.25 34.09 47.32 56.11 84.23 56.11 36.89 0 69.96-22.02 82.66-53.8l26.68-0.66v147.5H182.54l-0.13-146.84 26.01-2.33z"
-      fill={color}
-    />
-  </Svg>
-  );
-};
-
-const BellIcon = ({ size = 18, color: colorProp }: { size?: number; color?: string }) => {
-  const C = useColors();
-  const color = colorProp ?? C.contentPrimary;
-  return (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-    <Path d="M13.73 21a2 2 0 0 1-3.46 0" />
-  </Svg>
-  );
-};
-
 const getFormattedHeaderDate = () => {
   const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'short', day: 'numeric' };
   return new Date().toLocaleDateString('en-US', options);
@@ -209,80 +140,6 @@ const getGreeting = () => {
   if (hr < 12) return "Good morning";
   if (hr < 17) return "Good afternoon";
   return "Good evening";
-};
-
-// ─── Custom Sparkline ────────────────────────────────────────────────────────
-const Sparkline = ({ points, color, height = 36 }: { points: number[]; color: string; height?: number }) => {
-  const safe = points?.length >= 2 ? points : [5, 9, 6, 14, 10, 18, 13, 22, 17, 28, 21, 34];
-  const max = Math.max(...safe, 1);
-  const min = Math.min(...safe);
-  const range = (max - min) || 1;
-  const w = 100;
-
-  const coords = safe.map((p, i) => {
-    const x = (i / (safe.length - 1)) * w;
-    const y = height - ((p - min) / range) * (height - 6) - 3;
-    return { x, y };
-  });
-
-  let line = `M ${coords[0].x.toFixed(1)} ${coords[0].y.toFixed(1)}`;
-  for (let i = 0; i < coords.length - 1; i++) {
-    const p0 = coords[i];
-    const p1 = coords[i + 1];
-    const cp1x = p0.x + (p1.x - p0.x) / 3;
-    const cp1y = p0.y;
-    const cp2x = p0.x + (2 * (p1.x - p0.x)) / 3;
-    const cp2y = p1.y;
-    line += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p1.x.toFixed(1)} ${p1.y.toFixed(1)}`;
-  }
-
-  const area = `${line} L ${w} ${height} L 0 ${height} Z`;
-  const gradId = `sg-${color.replace("#", "")}`;
-
-  return (
-    <View style={{ height, width: "100%" }}>
-      <Svg width="100%" height="100%" viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none">
-        <Defs>
-          <LinearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor={color} stopOpacity={0.18} />
-            <Stop offset="100%" stopColor={color} stopOpacity={0} />
-          </LinearGradient>
-        </Defs>
-        <Path d={area} fill={`url(#${gradId})`} />
-        <Path d={line} fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-      </Svg>
-    </View>
-  );
-};
-
-// ─── Ring Progress ──────────────────────────────────────────────────────────
-const RingProgress = ({ pct, color, size = 28 }: { pct: number; color: string; size?: number }) => {
-  const C = useColors();
-  const r = 10;
-  const stroke = 3;
-  const circ = 2 * Math.PI * r;
-  // Clamp; a non-finite pct draws an empty ring rather than emitting
-  // stroke-dashoffset="NaN", which is not a valid SVG length and throws.
-  const safePct = Number.isFinite(pct) ? Math.min(Math.max(pct, 0), 100) : 0;
-  const offset = circ - (safePct / 100) * circ;
-
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Circle cx="12" cy="12" r={r} fill="none" stroke={C.surface03} strokeWidth={stroke} />
-      <Circle
-        cx="12"
-        cy="12"
-        r={r}
-        fill="none"
-        stroke={color}
-        strokeWidth={stroke}
-        strokeDasharray={circ}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-        transform="rotate(-90 12 12)"
-      />
-    </Svg>
-  );
 };
 
 // ─── Home Skeleton ───────────────────────────────────────────────────────────
@@ -325,103 +182,11 @@ function ymd(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
-function startOfWeekDate(d: Date, startDay: number) {
-  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const delta = (x.getDay() - startDay + 7) % 7;
-  x.setDate(x.getDate() - delta);
-  return x;
-}
-
-function rangeForPreset(preset: string, now: Date, weekStart: number) {
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  const today = ymd(now);
-  if (preset === "day") return { start: today, end: today, preset: "day" };
-  if (preset === "week") return { start: ymd(startOfWeekDate(now, weekStart)), end: today, preset: "week" };
-  if (preset === "month") {
-    const start = `${y}-${String(m + 1).padStart(2, "0")}-01`;
-    return { start, end: today, preset: "month" };
-  }
-  return { start: today, end: today, preset: "day" };
-}
-
-const formatDuration = (secs: number) => {
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-};
-
 const formatTime = (total: number) => {
   const h = Math.floor(total / 3600).toString().padStart(2, "0");
   const m = Math.floor((total % 3600) / 60).toString().padStart(2, "0");
   const s = (total % 60).toString().padStart(2, "0");
   return `${h}:${m}:${s}`;
-};
-
-const LiveRouteMap = ({ points, strokeColor }: { points: Array<{ latitude: number; longitude: number }>; strokeColor: string }) => {
-  const C = useColors();
-  if (!points || points.length < 2) {
-    return (
-      <View style={{ height: 120, width: "85%", backgroundColor: C.surface01, borderRadius: 12, borderWidth: 0.5, borderColor: C.lineSubtle, justifyContent: "center", alignItems: "center", gap: 6, marginVertical: 8 }}>
-        <Text variant="paragraphS">Waiting for GPS coordinates...</Text>
-      </View>
-    );
-  }
-
-  const lats = points.map((p) => p.latitude);
-  const lngs = points.map((p) => p.longitude);
-
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-
-  const latRange = maxLat - minLat || 0.001;
-  const lngRange = maxLng - minLng || 0.001;
-
-  const width = 300;
-  const height = 120;
-  const padding = 12;
-
-  const svgPoints = points.map((p) => {
-    const x = padding + ((p.longitude - minLng) / lngRange) * (width - 2 * padding);
-    const y = padding + (1 - (p.latitude - minLat) / latRange) * (height - 2 * padding);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(" ");
-
-  const startPoint = points[0];
-  const endPoint = points[points.length - 1];
-
-  const startX = padding + ((startPoint.longitude - minLng) / lngRange) * (width - 2 * padding);
-  const startY = padding + (1 - (startPoint.latitude - minLat) / latRange) * (height - 2 * padding);
-
-  const endX = padding + ((endPoint.longitude - minLng) / lngRange) * (width - 2 * padding);
-  const endY = padding + (1 - (endPoint.latitude - minLat) / latRange) * (height - 2 * padding);
-
-  return (
-    <View style={{ height: height, width: "85%", backgroundColor: C.surface01, borderRadius: 12, borderWidth: 0.5, borderColor: C.lineSubtle, overflow: "hidden", marginVertical: 8 }}>
-      <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
-        <Line x1="0" y1="30" x2="300" y2="30" stroke={C.surface02} strokeWidth="0.5" />
-        <Line x1="0" y1="60" x2="300" y2="60" stroke={C.surface02} strokeWidth="0.5" />
-        <Line x1="0" y1="90" x2="300" y2="90" stroke={C.surface02} strokeWidth="0.5" />
-        <Line x1="75" y1="0" x2="75" y2="120" stroke={C.surface02} strokeWidth="0.5" />
-        <Line x1="150" y1="0" x2="150" y2="120" stroke={C.surface02} strokeWidth="0.5" />
-        <Line x1="225" y1="0" x2="225" y2="120" stroke={C.surface02} strokeWidth="0.5" />
-        
-        <Polyline
-          points={svgPoints}
-          fill="none"
-          stroke={strokeColor}
-          strokeWidth="3.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        <Circle cx={startX} cy={startY} r="4" fill={C.primary} />
-        <Circle cx={endX} cy={endY} r="5" fill={strokeColor} stroke={C.contentPrimary} strokeWidth="1" />
-      </Svg>
-    </View>
-  );
 };
 
 const RouteMinimap = ({ routePathJson, strokeColor }: { routePathJson: string; strokeColor: string }) => {
@@ -673,7 +438,6 @@ export default function HomeScreen() {
     activeVehicleFilter,
     preferredVehicleId,
     isOnboardingCompleted,
-    streakDays,
     isHeaderVisible,
     setHeaderVisible,
   } = useSettingsStore();
@@ -681,7 +445,6 @@ export default function HomeScreen() {
   const { accentColor, accentColorContrast, platformColor } = usePlatformTheme();
 
   const { t: vocab } = useVocabulary();
-  const isGoalsEnabled = useFeatureEnabled("goals");
 
   const platformTextColor = React.useMemo(() => {
     if (!activePlatformFilter || activePlatformFilter === "all") return C.contentPrimary;
@@ -724,10 +487,6 @@ export default function HomeScreen() {
   // Overlay state
   const [showClockOverlay, setShowClockOverlay] = useState(false);
   const [endedShiftId, setEndedShiftId] = useState<string | null>(null);
-
-  // Bulletin Mode — a badge unlocked this shift, celebrated after the completion modal closes.
-  const [pendingBadgeId, setPendingBadgeId] = useState<string | null>(null);
-  const celebrationRef = useRef<CelebrationSheetRef>(null);
 
   // Backup reminder — honors the user's "Backup overdue" alert toggle; dismissible for the session.
   const { data: backupStatus } = useBackupStatus(isOnboardingCompleted);
@@ -783,17 +542,6 @@ export default function HomeScreen() {
       transform: [{ translateY: sheetTranslateY.value }],
     };
   });
-
-  // Present the celebration once the "Shift Completed" modal has closed, so the
-  // two moments don't overlap. Small delay lets the modal finish dismissing.
-  useEffect(() => {
-    if (!endedShiftId && pendingBadgeId) {
-      const id = pendingBadgeId;
-      setPendingBadgeId(null);
-      const t = setTimeout(() => celebrationRef.current?.celebrate(id), 350);
-      return () => clearTimeout(t);
-    }
-  }, [endedShiftId, pendingBadgeId]);
 
   // Queries
   const { data: vehicles = [] } = useQuery({
@@ -1087,15 +835,9 @@ export default function HomeScreen() {
   const handleEndShift = async () => {
     const payload = await endShift();
     reset();
-    const newBadges = await useSettingsStore.getState().evaluateGamification();
     queryClient.invalidateQueries({ queryKey: ["analytics"] });
     queryClient.invalidateQueries({ queryKey: ["shifts"] });
     setShowClockOverlay(false);
-
-    // Bulletin Mode — celebrate the first freshly-unlocked badge from this shift.
-    if (newBadges.length > 0) {
-      setPendingBadgeId(newBadges[0]);
-    }
 
     if (payload?.shiftId) {
       setEndedShiftId(payload.shiftId);
@@ -1318,7 +1060,7 @@ export default function HomeScreen() {
             </View>
 
             {/* ── Weekly Goal Progress Card ────────────────────────────────── */}
-            {isGoalsEnabled && weeklyGoals.slice(0, 1).map((g: any) => {
+            {weeklyGoals.slice(0, 1).map((g: any) => {
               const current = g.currentValue ?? 0;
               const target = g.targetValue ?? 1;
               const percent = Math.min(100, Math.round((current / target) * 100));
@@ -1341,10 +1083,6 @@ export default function HomeScreen() {
                         {g.unit === "currency" ? fmt(current) : `${current.toFixed(1)} hrs`} of {g.unit === "currency" ? fmt(target) : `${target} hrs`}
                       </Text>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: withAlpha(C.warning, 0.12), paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 0.5, borderColor: withAlpha(C.warning, 0.3) }}>
-                          <Text style={{ fontSize: 12, marginRight: 2 }}>🔥</Text>
-                          <Text variant="labelXs" tabular style={{ color: C.warning }}>{streakDays} DAY STREAK</Text>
-                        </View>
                         <View style={{ backgroundColor: percent >= 100 ? withAlpha(accentColor, 0.15) : C.surface04, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 0.5, borderColor: percent >= 100 ? withAlpha(accentColor, 0.25) : C.lineStrong }}>
                           <Text variant="labelXs" tabular style={{ color: percent >= 100 ? accentColor : C.contentSecondary }}>{percent}% DONE</Text>
                         </View>
@@ -1962,9 +1700,6 @@ export default function HomeScreen() {
           </View>
         )}
       </AppBottomSheet>
-
-      {/* ── Bulletin Mode · Milestone Celebration ─────────────────────── */}
-      <CelebrationSheet ref={celebrationRef} />
 
     </SafeAreaView>
   );

@@ -1,4 +1,3 @@
-import { type FeatureKey } from "../modules";
 import { type VocabularyKey } from "../vocabulary";
 
 export interface TaxProfile {
@@ -93,11 +92,7 @@ export interface CountryDef {
     paymentCard: number | null;
   };
 
-  // ── Extended feature and vocabulary overrides ──────────────────────────────
-  featureOverrides: {
-    force_on: FeatureKey[];   // country hard-enables these (user cannot turn off)
-    force_off: FeatureKey[];  // country hard-disables these (user cannot turn on)
-  };
+  // ── Vocabulary overrides ───────────────────────────────────────────────────
   vocabularyOverrides: Partial<Record<VocabularyKey, string>>;
 }
 

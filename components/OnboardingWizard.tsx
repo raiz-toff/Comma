@@ -1,12 +1,12 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
-  View,
-  Pressable,
-  ActivityIndicator,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
+View,
+Pressable,
+ActivityIndicator,
+Modal,
+KeyboardAvoidingView,
+Platform,
+StyleSheet,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -15,21 +15,20 @@ import { Text } from "../src/components/ui/text";
 import { useColors } from "@/src/theme/useColors";
 import { useSettingsStore, type DriverProfile, type VehicleDraft } from "../store/useSettingsStore";
 import { getCountryDef } from "../src/registry/countries/index";
-import { type FeatureKey } from "../src/registry/modules";
 import { restoreBackupFile } from "../src/services/backupFile";
 import { GoogleDriveLogo } from "../src/components/logos/GoogleDriveLogo";
 import {
-  WelcomeScreen,
-  CountryRegionStep,
-  LastShiftStep,
-  FirstShiftReveal,
-  NoShiftYetStep,
+WelcomeScreen,
+CountryRegionStep,
+LastShiftStep,
+FirstShiftReveal,
+NoShiftYetStep,
 } from "./OnboardingSteps";
 import { PermissionsOnboarding } from "../src/components/onboarding/PermissionsOnboarding";
 import {
-  computeFirstShift,
-  ASSUMED_VEHICLE_TYPE,
-  type FirstShiftMath,
+computeFirstShift,
+ASSUMED_VEHICLE_TYPE,
+type FirstShiftMath,
 } from "../src/services/onboarding/firstShift";
 import { insertShift } from "../src/database/queries/shifts";
 import { getVehicles } from "../src/database/queries/vehicles";
@@ -48,15 +47,6 @@ const STEP_LOCATION = 0;
 const STEP_LAST_SHIFT = 1;
 const TOTAL_STEPS = 2;
 
-// Default all user-toggleable features to on
-const DEFAULT_FEATURES: Partial<Record<FeatureKey, boolean>> = {
-  analytics_advanced: true,
-  tax_workspace: true,
-  goals: true,
-  schedule: false,
-  pdf_reports: true,
-};
-
 /** Kept in step with the reveal's assumption so the write-off it promised stays true afterwards. */
 const DEFAULT_VEHICLE: VehicleDraft = {
   nickname: "My Car",
@@ -69,7 +59,7 @@ const DEFAULT_VEHICLE: VehicleDraft = {
 const DEFAULT_WEEKLY_GOAL = 500;
 
 export default function OnboardingWizard() {
-  const { completeOnboarding, updateFeatureOverride, loadSampleData, loadSettings, isLoading } =
+  const { completeOnboarding, loadSampleData, loadSettings, isLoading } =
     useSettingsStore();
   const C = useColors();
   const insets = useSafeAreaInsets();
@@ -126,12 +116,9 @@ export default function OnboardingWizard() {
     locale: { weekStartDay: 1, timeFormat: "12h" },
   });
 
-  /** Writes the profile, the assumed vehicle, and the feature defaults. */
+  /** Writes the profile and the assumed vehicle. */
   const persistSetup = async () => {
     await completeOnboarding(buildProfile(), DEFAULT_VEHICLE, null, true);
-    for (const [key, val] of Object.entries(DEFAULT_FEATURES)) {
-      await updateFeatureOverride(key as FeatureKey, val as boolean);
-    }
   };
 
   /**

@@ -1,14 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
-  ScrollView,
-  View,
-  TextInput,
-  TouchableOpacity,
-  Platform,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  StyleSheet,
-  Alert,
+ScrollView,
+View,
+TextInput,
+TouchableOpacity,
+Platform,
+ActivityIndicator,
+KeyboardAvoidingView, Alert
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,8 +26,6 @@ import { useSettingsStore } from "../../store/useSettingsStore";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
 import { useLayout } from "@/src/hooks/useLayout";
 import Svg, { Polyline, Circle, Line } from "react-native-svg";
-
-type GigPlatform = string;
 
 const isWeb = Platform.OS === "web";
 
@@ -549,9 +545,6 @@ export default function AddShiftModal() {
 
       await saveShiftWithPlatforms(targetShiftId, Boolean(shiftId), shiftPayload, platformEntries);
 
-      // Evaluate gamification and smart notifications
-      await useSettingsStore.getState().evaluateGamification();
-      
       // Invalidate queries to reload dashboard/list pages
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
       queryClient.invalidateQueries({ queryKey: ["shifts"] });
@@ -660,7 +653,7 @@ export default function AddShiftModal() {
                       <Text variant="paragraphS" className="text-content-secondary font-semibold flex-1">No active platforms. Enable them in settings.</Text>
                       <Button
                         size="sm"
-                        onPress={() => router.push("/settings?tab=platforms")}
+                        onPress={() => router.push("/settings")}
                         className="ml-2"
                       >
                         <Text>Go to Settings</Text>

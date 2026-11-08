@@ -1,30 +1,24 @@
 import React from "react";
 import { Tabs, usePathname, useRouter } from "expo-router";
 import ReportsScreen from "../reports/index";
-import { View, Platform, ColorValue, Animated, Pressable, ScrollView, StyleSheet, BackHandler, useWindowDimensions, PanResponder } from "react-native";
+import { View, Animated, Pressable, ScrollView, StyleSheet, BackHandler, useWindowDimensions, PanResponder } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { usePlatformTheme } from "../../src/hooks/usePlatformTheme";
 import GlobalTopHeader from "../../src/components/GlobalTopHeader";
 import {
-  Home,
-  Clock,
-  BarChart3,
-  Receipt,
-  Target,
-  Calculator,
-  FileText,
-  Calendar,
-  Car,
-  Settings as SettingsIcon,
+Clock, Target,
+Calculator,
+FileText,
+Car,
+Settings as SettingsIcon
 } from "lucide-react-native";
 import { Text } from "../../src/components/ui/text";
 import { withAlpha } from "../../src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
-import { PLATFORMS, PLATFORM_REGISTRY, type PlatformKey } from "@/src/registry/platforms";
+import { PLATFORM_REGISTRY } from "@/src/registry/platforms";
 import { getCountryDef } from "@/src/registry/index";
-import { useFeatureEnabled } from "../../hooks/useFeatureEnabled";
-import Svg, { Path, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 import { PlatformLogo, PLATFORM_LOGO_IDS } from "@/src/components/GlobalTopHeader";
 
 const DashboardIcon = ({ size = 22, color: colorProp, strokeWidth = 1.5 }: { size?: number; color?: string; strokeWidth?: number }) => {
@@ -125,141 +119,8 @@ const AboutIcon = ({ size = 18, color: colorProp }: { size?: number; color?: str
   );
 };
 
-// Custom pure View icon implementations to avoid react-native-svg native dependency crashes
-const HomeIcon = ({ color, size = 20 }: { color: ColorValue; size?: number }) => {
-  const C = useColors();
-  return (
-  <View style={{ width: size, height: size, justifyContent: "center", alignItems: "center" }}>
-    <View
-      style={{
-        width: 0,
-        height: 0,
-        borderStyle: "solid",
-        borderLeftWidth: size / 2,
-        borderRightWidth: size / 2,
-        borderBottomWidth: size * 0.45,
-        borderLeftColor: "transparent",
-        borderRightColor: "transparent",
-        borderBottomColor: color as string,
-      }}
-    />
-    <View
-      style={{
-        width: size * 0.8,
-        height: size * 0.45,
-        backgroundColor: color as string,
-        marginTop: -1,
-        borderBottomLeftRadius: 2,
-        borderBottomRightRadius: 2,
-        justifyContent: "flex-end",
-        alignItems: "center",
-      }}
-    >
-      <View style={{ width: size * 0.25, height: size * 0.25, backgroundColor: C.surface02, borderTopLeftRadius: 1, borderTopRightRadius: 1 }} />
-    </View>
-  </View>
-  );
-};
-
-const ClockPlayIcon = ({ color, size = 20 }: { color: ColorValue; size?: number }) => (
-  <View style={{ width: size, height: size, justifyContent: "center", alignItems: "center" }}>
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        borderWidth: 2,
-        borderColor: color as string,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <View
-        style={{
-          width: 0,
-          height: 0,
-          borderStyle: "solid",
-          borderLeftWidth: size * 0.3,
-          borderTopWidth: size * 0.2,
-          borderBottomWidth: size * 0.2,
-          borderLeftColor: color as string,
-          borderTopColor: "transparent",
-          borderBottomColor: "transparent",
-          marginLeft: size * 0.08,
-        }}
-      />
-    </View>
-  </View>
-);
-
-const ChartBarIcon = ({ color, size = 20 }: { color: ColorValue; size?: number }) => (
-  <View
-    style={{
-      width: size,
-      height: size,
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "flex-end",
-      paddingHorizontal: size * 0.1,
-      paddingVertical: size * 0.1,
-    }}
-  >
-    <View style={{ width: size * 0.2, height: size * 0.4, backgroundColor: color as string, borderRadius: 1 }} />
-    <View style={{ width: size * 0.2, height: size * 0.8, backgroundColor: color as string, borderRadius: 1 }} />
-    <View style={{ width: size * 0.2, height: size * 0.6, backgroundColor: color as string, borderRadius: 1 }} />
-  </View>
-);
-
-const ReceiptIcon = ({ color, size = 20 }: { color: ColorValue; size?: number }) => (
-  <View
-    style={{
-      width: size * 0.8,
-      height: size,
-      borderWidth: 2,
-      borderColor: color as string,
-      borderRadius: 2,
-      padding: size * 0.1,
-      justifyContent: "space-around",
-      alignItems: "center",
-    }}
-  >
-    <View style={{ width: "80%", height: 1.5, backgroundColor: color as string }} />
-    <View style={{ width: "80%", height: 1.5, backgroundColor: color as string }} />
-    <View style={{ width: "50%", height: 1.5, backgroundColor: color as string, alignSelf: "flex-start", marginLeft: "10%" }} />
-  </View>
-);
-
-const CalculatorIcon = ({ color, size = 20 }: { color: ColorValue; size?: number }) => (
-  <View
-    style={{
-      width: size * 0.8,
-      height: size,
-      borderWidth: 2,
-      borderColor: color as string,
-      borderRadius: 3,
-      padding: 2,
-      justifyContent: "space-between",
-    }}
-  >
-    <View style={{ width: "100%", height: "25%", backgroundColor: color as string, opacity: 0.3, borderRadius: 1 }} />
-    <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignContent: "space-between", marginTop: 2 }}>
-      {[1, 2, 3, 4, 5, 6].map((i) => (
-        <View key={i} style={{ width: "28%", height: "40%", backgroundColor: color as string, borderRadius: 0.5 }} />
-      ))}
-    </View>
-  </View>
-);
-
-const DotsIcon = ({ color, size = 20 }: { color: ColorValue; size?: number }) => (
-  <View style={{ width: size, height: size, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 3 }}>
-    <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: color as string }} />
-    <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: color as string }} />
-    <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: color as string }} />
-  </View>
-);
-
 export default function TabLayout() {
-  const { isOnboardingCompleted, profile, activePlatformFilter, xpLevel, unlockedBadgeIds, xpTotal } = useSettingsStore();
+  const { isOnboardingCompleted, profile, activePlatformFilter } = useSettingsStore();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
   const C = useColors();
   const styles = useThemedStyles(makeStyles);
@@ -267,11 +128,6 @@ export default function TabLayout() {
   const pathname = usePathname();
   const router = useRouter();
   const { width: screenWidth } = useWindowDimensions();
-
-  const isTaxEnabled = useFeatureEnabled("tax_workspace");
-  const isGoalsEnabled = useFeatureEnabled("goals");
-  const isScheduleEnabled = useFeatureEnabled("schedule");
-  const isAnalyticsEnabled = useFeatureEnabled("analytics_advanced");
 
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const [isReportsOpen, setIsReportsOpen] = React.useState(false);
@@ -408,27 +264,22 @@ export default function TabLayout() {
     const items = [
       { label: "Dashboard", path: "/", icon: DashboardIcon },
       { label: "Shifts", path: "/shifts", icon: Clock },
-      ...(isAnalyticsEnabled ? [{ label: "Analytics", path: "/analytics", icon: AnalyticsIcon }] : []),
+      { label: "Analytics", path: "/analytics", icon: AnalyticsIcon },
       { label: "Expenses", path: "/expenses", icon: ExpensesIcon },
+      { label: "Goals", path: "/goals", icon: Target },
     ];
-    if (isGoalsEnabled) {
-      items.push({ label: "Goals", path: "/goals", icon: Target });
-    }
-    if (isTaxEnabled && countryDef.hasSelfAssessmentTax !== false) {
+    if (countryDef.hasSelfAssessmentTax !== false) {
       items.push({ label: "Tax", path: "/tax", icon: Calculator });
     }
     items.push(
       { label: "Reports", path: "/reports", icon: FileText }
     );
-    if (isScheduleEnabled) {
-      items.push({ label: "Schedule", path: "/schedule", icon: Calendar });
-    }
     items.push(
       { label: "Vehicles", path: "/vehicles", icon: Car },
       { label: "Settings", path: "/settings", icon: SettingsIcon }
     );
     return items;
-  }, [profile?.country, isTaxEnabled, isGoalsEnabled, isScheduleEnabled]);
+  }, [profile?.country]);
 
   const toggleDrawer = () => {
     setIsDrawerOpen((prev) => !prev);

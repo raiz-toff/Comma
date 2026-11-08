@@ -86,10 +86,6 @@ export const CA: CountryDef = {
     defaultRegionCode: "ON",
     taxInstallmentReminderDays: 10,
   },
-  featureOverrides: {
-    force_on: [],
-    force_off: [],
-  },
   vocabularyOverrides: {
     active_miles: "active km",
     dead_miles: "dead km",

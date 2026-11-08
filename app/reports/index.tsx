@@ -1,13 +1,13 @@
-import React, { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
-  ScrollView,
-  View,
-  TouchableOpacity,
-  Pressable,
-  ActivityIndicator,
-  Platform,
-  Modal,
-  StyleSheet,
+ScrollView,
+View,
+TouchableOpacity,
+Pressable,
+ActivityIndicator,
+Platform,
+Modal,
+StyleSheet,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
@@ -16,7 +16,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { DatePickerModal } from "@/src/components/ui/DatePickerModal";
 import { FeedbackDialog, BusyOverlay, type FeedbackVariant } from "@/src/components/ui/FeedbackDialog";
-import { X, FileText, Table, BarChart2, Download, CalendarDays, Settings, ChevronRight } from "lucide-react-native";
+import { X, FileText, Table, BarChart2, Download, CalendarDays, ChevronRight } from "lucide-react-native";
 import Svg, { Path } from "react-native-svg";
 import { Text } from "@/src/components/ui/text";
 import { Card } from "@/src/components/ui/card";
@@ -28,7 +28,6 @@ import { getPeriodStats, getMonthlyStatsForYear, getNetIncome } from "@/src/data
 import { generateShiftsCSV, generateExpensesCSV, generatePDFSummary } from "@/utils/reportGenerator";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
-import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
 import { notifyExport } from "@/src/services/notify";
 
 const isWeb = Platform.OS === "web";
@@ -112,7 +111,6 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
   const { gridStyle, dialogStyle } = useLayout();
   const { profile, isOnboardingCompleted } = useSettingsStore();
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
-  const isPdfEnabled = useFeatureEnabled("pdf_reports");
 
   const [periodMode, setPeriodMode] = useState<PeriodMode>("month");
   const [selectedMonth, setSelectedMonth] = useState<Date>(() => startOfMonth(new Date()));
@@ -635,40 +633,32 @@ export default function ReportsScreen({ onClose }: { onClose?: () => void } = {}
             disabled={!!busyExport}
             accessibilityRole="button"
             accessibilityState={{ disabled: !!busyExport }}
-            onPress={() => {
-              if (!isPdfEnabled) {
-                router.push("/settings");
-                return;
-              }
-              handleExportPDF();
-            }}
+            onPress={handleExportPDF}
             style={[
               styles.exportRow,
-              isPdfEnabled && { backgroundColor: accentColor, borderWidth: 0, borderColor: "transparent" },
+              { backgroundColor: accentColor, borderWidth: 0, borderColor: "transparent" },
               !!busyExport && { opacity: 0.6 },
             ]}
           >
             <View style={styles.exportRowLeft}>
               <View style={[
                 styles.exportIconWrap,
-                isPdfEnabled && { backgroundColor: withAlpha(C.background, 0.15), borderWidth: 0 },
+                { backgroundColor: withAlpha(C.background, 0.15), borderWidth: 0 },
               ]}>
-                <FileText size={20} color={isPdfEnabled ? accentColorContrast : accentColor} />
+                <FileText size={20} color={accentColorContrast} />
               </View>
               <View style={{ gap: 2 }}>
-                <Text variant="labelM" style={isPdfEnabled && { color: accentColorContrast }}>
+                <Text variant="labelM" style={{ color: accentColorContrast }}>
                   Generate PDF Summary
                 </Text>
-                <Text variant="paragraphS" style={[styles.exportRowSub, isPdfEnabled && { color: accentColorContrast, opacity: 0.7 }]}>
-                  {isPdfEnabled ? "Print-safe tax summary report" : "Unlock in Settings to enable"}
+                <Text variant="paragraphS" style={[styles.exportRowSub, { color: accentColorContrast, opacity: 0.7 }]}>
+                  Print-safe tax summary report
                 </Text>
               </View>
             </View>
             {busyExport === "pdf"
               ? <ActivityIndicator size="small" color={accentColorContrast} />
-              : isPdfEnabled
-                ? <Download size={16} color={accentColorContrast} />
-                : <Settings size={16} color={accentColor} />
+              : <Download size={16} color={accentColorContrast} />
             }
           </TouchableOpacity>
         </View>

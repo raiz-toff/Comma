@@ -4,7 +4,6 @@ How a new version of Comma gets built, published to GitHub, shipped to Google Pl
 
 This page is for maintainers. You need the release keystore and the Play service-account key — neither is in the repository, and neither can be recreated from it.
 
-<StepFlow accent="amber" steps={[{ title: "Bump", body: "node scripts/version.mjs bump 1.4.0 — never hand-edit a version." }, { title: "Build", body: "./build.sh — then install the real artifact on a real device." }, { title: "Publish", body: "GitHub release, Play upload, then OTA for JS-only fixes." }]} caption="versionCode must increase on every Play upload, and the release keystore cannot be recreated. A release build is not a debug build." />
 
 ---
 
@@ -15,10 +14,8 @@ This page is for maintainers. You need the release keystore and the Play service
 | **APK** (`comma-vX.Y.Z.apk`) | GitHub Releases — the sideload download | `./build.sh` → option 2 |
 | **AAB** (`app-release.aab`) | Google Play | `./build.sh` → option 3 |
 | **OTA update** (JS + assets only) | Installed apps, on next launch | `eas update` |
-| **Web app** | Vercel (`comma-psi.vercel.app`) | Automatic on push to `main` |
-| **Docs** | Vercel (`comma-docs.vercel.app`) | Automatic on push to `main` |
 
-The web app and docs need nothing from you — they deploy from `main`. Everything below is about the Android app.
+The legal pages in `legal/` (served at `/privacy` and `/delete-data`) deploy separately and only change when the privacy policy does.
 
 ---
 
@@ -64,11 +61,10 @@ It rewrites every place that states a version, increments `versionCode`, and ope
 |---|---|
 | `app.json` | `expo.version` — the source of truth every other file follows |
 | `package.json` | `version` |
-| `web/src/modules/changelog/changelog.js` | `APP_VERSION` — the web "What's New" modal and support reports |
 | `android/app/build.gradle` | `versionName`, and `versionCode` (**integer, must increase every Play upload**) |
 | `CHANGELOG.md` | a new `## [1.4.0]` entry |
 
-Do not edit these by hand. They drifted to 1.3.1 / 1.0.0 / 1.3.0 across four files while this
+Do not edit these by hand. They once drifted to 1.3.1 / 1.0.0 / 1.3.0 while this
 page said "kept in step by hand", which is why the script exists. Verify any time with:
 
 ```bash
@@ -83,9 +79,7 @@ used:
 gh release view --json tagName
 ```
 
-Then **write the CHANGELOG entry** (the GitHub release notes are written from it, and the docs
-site publishes it at `/changelog`), and refresh the web "What's New" highlights in
-`web/src/modules/changelog/changelog.js` so they describe the version you're shipping.
+Then **write the CHANGELOG entry** — the GitHub release notes are written from it.
 
 > `runtimeVersion` follows `appVersion` (`app.json`). Changing the version name **starts a new OTA lineage**: updates published for `1.3.1` will not reach `1.3.0` binaries. That's intended — it stops a JS bundle from landing on a binary whose native code it doesn't match.
 
@@ -192,8 +186,7 @@ Clone the repo, then bring the pieces that aren't in it:
 
 ```
 [ ] node scripts/version.mjs bump X.Y.Z   (then: node scripts/version.mjs check)
-[ ] CHANGELOG.md entry written  (publishes to the docs site at /changelog)
-[ ] Web "What's New" highlights refreshed for this version
+[ ] CHANGELOG.md entry written
 [ ] ./build.sh → APK and/or AAB
 [ ] Installed the artifact on a real device and opened it (styles render? text visible?)
 [ ] git tag vX.Y.Z && push

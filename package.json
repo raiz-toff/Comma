@@ -6,7 +6,6 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
@@ -14,8 +13,7 @@
     "version:check": "node scripts/version.mjs check",
     "version:sync": "node scripts/version.mjs sync",
     "version:bump": "node scripts/version.mjs bump",
-    "parity": "node scripts/check-country-parity.mjs",
-    "verify": "npm run typecheck && npm run version:check && npm run parity"
+    "verify": "npm run typecheck && npm run version:check"
   },
   "dependencies": {
     "@gorhom/bottom-sheet": "^5.2.8",

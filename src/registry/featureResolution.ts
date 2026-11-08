@@ -1,31 +1,21 @@
 /**
- * Pure feature/context resolution — NO React, NO React Native, NO store.
- *
- * Extracted from useAppContext so the dependency-resolution rules (the fiddly part) can be
- * unit-tested without booting the app. The hook is now a thin reactive wrapper over this.
+ * Pure app-context resolution (country, vocabulary, platforms) — NO React, NO store.
+ * Imports leaf modules rather than the `registry/index` barrel to stay dependency-free.
  */
 
-// Imported from the leaf modules, NOT the `registry/index` barrel: the barrel also re-exports
-// the badge SVGs, which pull in react-native — that would drag the whole RN runtime into what
-// is meant to be pure, dependency-free logic (and makes it untestable outside the app).
 import { getCountryDef, type CountryDef } from "./countries/index";
 import { type VocabularyKey } from "./vocabulary";
 import { getPlatformsByCountry, type PlatformDef } from "./platforms/index";
-import { type FeatureKey } from "./modules";
 import {
-  getOperationalModel,
-  type OperationalModelDef,
-  type OperationalModelId,
+getOperationalModel,
+type OperationalModelDef,
+type OperationalModelId,
 } from "./operationalModels";
-import { resolveFeatures, GIG_DRIVER_DEFAULTS } from "./featureFlags";
-
-export { resolveFeatures, GIG_DRIVER_DEFAULTS };
 
 export interface ResolvedAppContext {
   operationalModel: OperationalModelDef;
   country: CountryDef;
   vocabulary: Record<VocabularyKey, string>;
-  features: Record<FeatureKey, boolean>;
   platforms: PlatformDef[];
 }
 
@@ -55,19 +45,16 @@ function buildVocabulary(
 
 export function resolveAppContext(
   operationalModelId: OperationalModelId,
-  countryKey: string,
-  userOverrides: Partial<Record<FeatureKey, boolean>>
+  countryKey: string
 ): ResolvedAppContext {
   const model = getOperationalModel(operationalModelId);
   const country = getCountryDef(countryKey);
 
-  const features = resolveFeatures(countryKey, userOverrides);
-
-  // 5. Build vocabulary from operational model + country overrides
+  // Build vocabulary from operational model + country overrides
   const vocabulary = buildVocabulary(model, country.vocabularyOverrides || {});
 
-  // 6. Filter platforms to this country
+  // Filter platforms to this country
   const platforms = getPlatformsByCountry(countryKey);
 
-  return { operationalModel: model, country, vocabulary, features, platforms };
+  return { operationalModel: model, country, vocabulary, platforms };
 }

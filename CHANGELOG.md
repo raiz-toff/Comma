@@ -2,6 +2,21 @@
 
 All notable changes to Comma are documented here.
 
+## [Unreleased]
+
+### Changed
+- **A simpler Analytics tab**: the grid of cards and tabs is gone. Analytics is now one plain list for the period you pick — earnings, tips, expenses and net; shifts, hours and what you made per hour; active and dead distance; and earnings by platform.
+- **Settings on one page**: no more tabs and no Save button. Your profile, platforms, week start, time format, sync reminder, Cloud Sync, CSV export/import and Reset app are all on one screen, and every change saves the moment you make it.
+- **Goals is just goals**: the Goals screen shows your earnings, hours, shift and distance targets and nothing else.
+- **PDF summaries are always on**: Reports' **Generate PDF Summary** no longer needs switching on in Settings first.
+
+### Removed
+- **The Comma web app**: Comma is now an Android app only. Your data lives on your phone, and Cloud Sync to your own Google Drive works exactly as before.
+- **XP, levels, streaks, badges and weekly challenges**, including the celebration pop-up after a shift.
+- **The Schedule screen** and its shift reminders. Any reminders you'd already set are cancelled the next time you open the app.
+- **Optional feature switches**: Analytics, Tax, Goals and Reports are simply part of the app now.
+- **Settings you couldn't use**: notification toggles that never did anything, keyboard shortcuts, the accent color picker, per-platform colors and pay rates, custom platforms, the data health check, and "Reset platform data". Use **Other** for an app that isn't listed.
+
 ## [1.5.0] — 2026-07-17 (versionCode 11)
 
 ### Changed

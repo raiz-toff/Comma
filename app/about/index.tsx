@@ -162,9 +162,9 @@ export default function AboutScreen() {
         <Card className="p-0 gap-0 overflow-hidden" style={s.links}>
           <LinkRow
             icon={<BookOpen size={18} color={accentColor} />}
-            label="Help & Docs"
-            sub="Guides, FAQ & troubleshooting"
-            onPress={() => Linking.openURL("https://comma-docs.vercel.app")}
+            label="Privacy Policy"
+            sub="What Comma stores, and how to delete it"
+            onPress={() => Linking.openURL("https://comma-docs.vercel.app/privacy")}
           />
           <View style={s.linkSep} />
           <LinkRow

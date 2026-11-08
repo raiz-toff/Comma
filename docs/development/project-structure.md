@@ -1,8 +1,7 @@
 # Project Structure
 
-An annotated map of the Comma monorepo: the Android/Expo phone app at the root, the web PWA under `web/`, these docs under `docs/`, and the docs site under `docs-site/`.
+An annotated map of the Comma repository: an Android app built with Expo, plus the static legal pages the Play Store links to.
 
-<LayerStack accent="indigo" layers={[{ name: "/", note: "the Expo phone app" }, { name: "web/", note: "the vanilla-JS PWA" }, { name: "docs/", note: "these pages — the source of truth" }, { name: "docs-site/", note: "the Fumadocs site that renders them" }]} caption="One monorepo, four parts. The phone app lives at the root because Expo expects to." />
 
 ---
 
@@ -10,22 +9,21 @@ An annotated map of the Comma monorepo: the Android/Expo phone app at the root, 
 
 ```
 Comma/
-├── app/                 # Phone app — Expo Router routes (screens)
-├── components/          # Phone app — top-level shared components
-├── src/                 # Phone app — application source
-├── store/               # Phone app — Zustand stores
-├── hooks/               # Phone app — cross-cutting hooks
-├── providers/           # Phone app — React context providers
-├── modules/             # Phone app — native Expo modules (Kotlin/Swift)
-├── utils/               # Phone app — shared utilities
-├── assets/              # Phone app — icons, fonts, images
+├── app/                 # Expo Router routes (screens)
+├── components/          # top-level shared components
+├── src/                 # application source
+├── store/               # Zustand stores
+├── hooks/               # cross-cutting hooks
+├── providers/           # React context providers
+├── modules/             # native Expo modules (Kotlin/Swift)
+├── utils/               # shared utilities
+├── assets/              # icons, fonts, images
 ├── android/             # Generated native Android project (untracked)
 ├── ios/                 # Generated native iOS project (untracked)
 │
-├── web/                 # The web PWA (vanilla JS, Dexie, hash router)
-├── docs/                # These documentation pages (Markdown source)
-├── docs-site/           # Fumadocs (Next.js) site that renders docs/
-├── scripts/             # Repo scripts (release, country parity, tooling)
+├── docs/development/    # Developer notes (this folder)
+├── legal/               # Privacy policy + data-deletion pages (served at /privacy, /delete-data)
+├── scripts/             # Repo scripts (versioning, Play upload)
 ├── plans/               # Internal implementation plans
 │
 ├── app.json             # Expo config: bundle id, version, plugins, permissions
@@ -51,13 +49,13 @@ app/
 │   ├── index.tsx        # Dashboard + onboarding gate
 │   ├── shifts/          # Shifts list
 │   ├── expenses/        # Expenses list
-│   ├── analytics.tsx    # Analytics (flag-gated)
+│   ├── analytics.tsx    # Analytics (plain number list)
 │   ├── tax/             # Tax center
 │   └── more.tsx
 ├── setup/               # Activation-checklist screens (platforms, vehicle, goal)
 ├── shift/, shifts/      # Create and detail/edit a shift
 ├── expense/             # Create and detail/edit an expense
-├── vehicles/, goals/, tax/, reports/, schedule/
+├── vehicles/, goals/, tax/, reports/
 ├── settings/            # index, backup, profile, import
 ├── about/, notifications.tsx
 └── docs/                # Internal design notes (Markdown, not routes)
@@ -94,8 +92,8 @@ src/
 │   ├── cryptoHelper.ts      # End-to-end encryption (AES-256-GCM, PBKDF2)
 │   ├── cryptoEnvelope.ts    # Envelope format (plain vs encrypted)
 │   ├── backupFile.ts        # Local export/restore
-│   ├── gamification.ts      # XP, badges, streaks
-│   ├── notify.ts            # Local notifications
+│   ├── inbox.ts             # In-app notification inbox + tax-deadline reminders
+│   ├── notify.ts            # Push to the inbox from anywhere
 │   ├── permissions/         # Location-access permission flow
 │   ├── onboarding/          # activationChecklist.ts, firstShift.ts
 │   └── sync/                # Change-log cloud-sync engine (see below)
@@ -106,11 +104,11 @@ src/
 │   │   ├── CA/              # Canada: index.ts, provinces/, tax/ (only country)
 │   │   └── mileageRates.ts
 │   ├── platforms/           # Built-in gig platforms by country
-│   ├── operationalModels/, badges/, market/
+│   ├── operationalModels/, market/
 │   └── expenseCategories.ts
 │
-├── components/              # Reusable React Native components (ui/, widgets/, shifts/…)
-├── hooks/                   # usePlatformTheme, useFeatureEnabled, useVocabulary…
+├── components/              # Reusable React Native components (ui/, shifts/…)
+├── hooks/                   # usePlatformTheme, useVocabulary…
 ├── theme/                   # Design tokens (colors)
 └── lib/                     # Pure utilities (geo, polyline, error handler)
 ```
@@ -136,7 +134,7 @@ sync/
 ```
 store/
 ├── useActiveShift.ts   # Live shift state (timer, distance, pause)
-├── useSettingsStore.ts # Profile, preferences, gamification
+├── useSettingsStore.ts # Profile, preferences, notification inbox
 └── demoRoutes.ts       # Demo-mode sample routes
 
 hooks/
@@ -159,47 +157,8 @@ modules/comma-tracker/
 
 ---
 
-## `web/` — the web PWA
-
-```
-web/
-├── build.js            # esbuild dev/prod build
-├── package.json        # dev = node build.js --dev, build = --prod
-├── src/
-│   ├── main.js         # Entry + hash router
-│   ├── core/
-│   │   └── gps-tracker.js   # Foreground/tab-open GPS tracker
-│   ├── services/sync/  # Change-log cloud-sync engine (mirrors src/services/sync)
-│   ├── registry/
-│   │   └── countries/  # CA.country.js (only country), _TEMPLATE.country.js, index.js
-│   ├── modules/        # Feature modules (onboarding, backup, tax, goals, …)
-│   ├── css/, ui/, views/, libs/, utils/
-├── public/, icons/     # Static assets, manifest, service worker source
-└── dist/               # Build output
-```
-
----
-
-## `docs/` and `docs-site/`
-
-```
-docs/                   # Markdown source for these pages
-├── getting-started/, guides/, reference/
-├── features/, backup-and-sync/
-├── architecture/, development/
-└── index.md, privacy.md, delete-data.md
-
-docs-site/              # Fumadocs (Next.js) renderer
-├── scripts/sync-content.mjs   # Copies docs/ into the site before dev/build
-└── package.json               # dev = sync + next dev
-```
-
----
-
 ## `scripts/`
 
 | Script | Purpose |
 |---|---|
-| `check-country-parity.mjs` | Verifies the phone and web country registries agree |
 | `submit-play.mjs` | Uploads an AAB to Google Play |
-| `start-valhalla.sh`, `test-valhalla-matching.sh` | Routing/map-matching tooling |

@@ -12,13 +12,11 @@ sync shipped. One file, one truth.
 
 The short version:
 
-1. Comma is TWO apps sharing ONE vault — the phone app (`src/`, `app/`) and the web PWA
-   (`web/src/`). They read and write each other's files, and nothing checks that they agree
-   at compile time. If you change sync, database schema, the crypto envelope, or the country
-   registry, you MUST handle the twin file in the other app. See AGENTS.md §1.
+1. Comma is an Android app whose vault lives in the driver's own Google Drive. Old vaults and
+   older app versions must keep working: if you change sync, database schema, the crypto
+   envelope, or the country registry, handle files written by previous versions. See AGENTS.md §1.
 2. Version numbers come from `node scripts/version.mjs`. Never hand-edit them.
-3. Every user-visible change gets a CHANGELOG.md entry in the same commit. That file is
-   published as the /changelog page on the docs site.
+3. Every user-visible change gets a CHANGELOG.md entry in the same commit.
 4. No `any` types. All DB aggregation happens inside SQLite via Drizzle — never `.reduce()`
    or `.filter()` over rows pulled into JS.
 5. Build only what was asked. No speculative stubs or boilerplate for future screens.

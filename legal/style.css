@@ -1,0 +1,21 @@
+/* Light and dark palettes from src/theme/colors.ts (AGENTS.md §7). */
+:root {
+  --bg: #FCFCFD; --line: #E5E5EB; --text: #0E0E11; --muted: #53535A; --accent: #15803D;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0A0A0C; --line: #26262C; --text: #F6F6F7; --muted: #9B9BA4; --accent: #22c55e; }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.65 "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 680px; margin: 0 auto; padding: 48px 16px 80px; }
+h1 { font-family: "DM Serif Display", Georgia, serif; font-weight: 400; font-size: 2.25rem; line-height: 1.2; margin: 0 0 4px; }
+h2 { font-size: 1.15rem; margin: 40px 0 8px; padding-top: 24px; border-top: 1px solid var(--line); }
+h3 { font-size: 1rem; margin: 24px 0 4px; }
+.meta { color: var(--muted); margin: 0 0 24px; }
+a { color: var(--accent); }
+code { font-family: "DM Mono", ui-monospace, monospace; font-size: 0.9em; }
+ul { padding-left: 20px; }
+nav { display: flex; gap: 16px; margin-bottom: 32px; font-size: 0.9rem; }

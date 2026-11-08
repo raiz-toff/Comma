@@ -43,18 +43,10 @@ const SITES = [
     set: (s, v) => s.replace(/("version":\s*")[^"]+(")/, `$1${v}$2`),
   },
   {
-    file: 'web/src/modules/changelog/changelog.js',
-    label: 'APP_VERSION',
-    // Drives the web "What's New" modal and window.__comma.version in support reports.
-    get: (s) => s.match(/APP_VERSION\s*=\s*'([^']+)'/)?.[1],
-    set: (s, v) => s.replace(/(APP_VERSION\s*=\s*')[^']+(')/, `$1${v}$2`),
-  },
-  {
     file: 'CHANGELOG.md',
     label: 'latest release heading',
-    // The docs site renders this file verbatim at /changelog, so the newest
-    // heading here IS the version the world sees.
-    get: (s) => s.match(/^##\s*\[([^\]]+)\]/m)?.[1],
+    // Skips an `## [Unreleased]` heading — that's work not yet shipped.
+    get: (s) => s.match(/^##\s*\[(\d+\.\d+\.\d+)\]/m)?.[1],
     set: null, // written by `bump`, which adds a whole entry rather than editing one
   },
   {
@@ -164,11 +156,14 @@ async function bump(next) {
     console.log(`  ${gradle} — absent (not a build machine); bump versionCode there before you build`);
   }
 
-  // Open a CHANGELOG entry. The docs site renders CHANGELOG.md at /changelog,
-  // so this is also how the release reaches the website — no second step.
+  // Open a CHANGELOG entry for the release.
   const changelog = await read('CHANGELOG.md');
-  if (!changelog.includes(`## [${next}]`)) {
-    const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  if (/^## \[Unreleased\]/m.test(changelog)) {
+    // Work already logged under Unreleased becomes this release's entry.
+    await write('CHANGELOG.md', changelog.replace(/^## \[Unreleased\].*$/m, `## [${next}] — ${today}`));
+    console.log(`  CHANGELOG.md — [Unreleased] → [${next}]`);
+  } else if (!changelog.includes(`## [${next}]`)) {
     const entry = `## [${next}] — ${today}\n\n### Added\n- \n\n### Changed\n- \n\n### Fixed\n- \n\n`;
     const at = changelog.search(/^## \[/m);
     await write(
@@ -180,8 +175,7 @@ async function bump(next) {
 
   console.log(
     `\n✓ ${current} → ${next}\n` +
-      `  Next: write the CHANGELOG entry, then refresh the web What's New highlights\n` +
-      `  in web/src/modules/changelog/changelog.js so they describe ${next}.`,
+      `  Next: write the CHANGELOG entry.`,
   );
 }
 

@@ -6,52 +6,44 @@ import { settings, vehicles, shifts, expenses, goals, platforms, shiftPlatforms,
 import * as schema from "../src/database/schema";
 import type { ExpoSQLiteDatabase } from "drizzle-orm/expo-sqlite";
 import { eq } from "drizzle-orm";
-
-// Transaction handle type derived from the drizzle expo-sqlite db (the runtime `db` export is
-// typed `any` for the web fallback, so we recover a precise tx type for transaction callbacks).
-type Tx = Parameters<Parameters<ExpoSQLiteDatabase<typeof schema>["transaction"]>[0]>[0];
 import { resetSyncStateForReset, applyPostResetSyncStateWeb, applyPostResetSyncStateNative } from "../src/database/syncState";
 import { clearDeviceAuthSecrets } from "../src/services/googleDrive";
 import { DEMO_ROUTES } from './demoRoutes';
 import { getDBPlatforms, updateDBPlatform, seedDBPlatforms, type DBPlatform } from "../src/database/queries/platforms";
 import { getPlatformsByCountry } from "../src/registry/platforms";
 
+// Transaction handle type derived from the drizzle expo-sqlite db (the runtime `db` export is
+// typed `any` for the web fallback, so we recover a precise tx type for transaction callbacks).
+type Tx = Parameters<Parameters<ExpoSQLiteDatabase<typeof schema>["transaction"]>[0]>[0];
+
 import { type ExpenseCategory } from "../src/registry/expenseCategories";
 import { getCountryDef, type CountryDef, resolveProvinceDef, type ProvinceDef, getMileagePresetRate } from "../src/registry/countries/index";
 import { getVehicleMileageEligibility } from "../src/registry/countries/mileageRates";
 import { upsertTaxProfile } from "../src/database/queries/taxProfiles";
 import { getMarketContext, type MarketContext } from "../src/registry/market/resolve";
-import { type FeatureKey, type OperationalModelId, getWithholdingPresetPct } from "../src/registry/index";
-import {
-  GamificationService,
-  getNextMondayIso,
-  type Challenge,
-  type NotificationItem,
-  type PersonalRecords,
-  type GamificationState,
-} from "../src/services/gamification";
+import { type OperationalModelId, getWithholdingPresetPct } from "../src/registry/index";
+import { InboxService, type NotificationItem, type InboxState } from "../src/services/inbox";
 import { type AddNotificationInput } from "../src/services/notify";
 
 const isWeb = Platform.OS === "web";
 
 /**
- * Serializes read-modify-write access to the persisted gamification state blob
- * (XP/streaks/badges/notifications all share one SQLite row). Without this,
- * a notification write firing during evaluateGamification can clobber awarded XP/badges.
+ * Serializes read-modify-write access to the persisted inbox row, so two notification
+ * writes landing together can't drop one another.
  */
-let gamificationStateLock: Promise<unknown> = Promise.resolve();
+let inboxLock: Promise<unknown> = Promise.resolve();
 
-function runGamificationStateMutation(
-  mutate: (state: GamificationState) => GamificationState | Promise<GamificationState>
-): Promise<GamificationState> {
-  const run = gamificationStateLock.then(async () => {
-    const state = await GamificationService.loadState();
+function runInboxMutation(
+  mutate: (state: InboxState) => InboxState | Promise<InboxState>
+): Promise<InboxState> {
+  const run = inboxLock.then(async () => {
+    const state = await InboxService.loadState();
     const next = await mutate(state);
-    await GamificationService.saveState(next);
+    await InboxService.saveState(next);
     return next;
   });
   // Keep the chain alive even if one mutation throws.
-  gamificationStateLock = run.then(
+  inboxLock = run.then(
     () => {},
     () => {}
   );
@@ -133,20 +125,7 @@ interface SettingsState {
   provinceDef: ProvinceDef | null;
   marketContext: MarketContext | null;
 
-  // Gamification & Notifications State
-  xpTotal: number;
-  xpLevel: number;
-  streakDays: number;
-  streakFrozenCount: number;
-  bestStreak: number;
-  unlockedBadgeIds: string[];
-  challenges: Challenge[];
   notifications: NotificationItem[];
-  personalRecords: PersonalRecords;
-  lastEvaluationMonth: string | null;
-
-  // Persona Feature Overrides
-  featureOverrides: Partial<Record<FeatureKey, boolean>>;
 
   // Actions
   loadSettings: () => Promise<void>;
@@ -167,11 +146,9 @@ interface SettingsState {
   updateProfile: (patch: Partial<DriverProfile>) => Promise<void>;
   /** Apply the registry withholding preset for the current country+region. */
   applyTaxPreset: (regionCode: string) => Promise<void>;
-  /** Update user-level feature overrides. */
-  updateFeatureOverride: (key: FeatureKey, val: boolean) => Promise<void>;
 
-  // Gamification Actions
-  evaluateGamification: () => Promise<string[]>;
+  // Inbox actions
+  refreshInbox: () => Promise<void>;
   addNotification: (input: AddNotificationInput) => Promise<void>;
   dismissNotification: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
@@ -281,25 +258,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   preferredVehicleId: null,
   isHeaderVisible: true,
   dbPlatforms: [],
-  featureOverrides: {},
   countryDef: null,
   provinceDef: null,
   marketContext: null,
 
-  // Gamification default state
-  xpTotal: 0,
-  xpLevel: 1,
-  streakDays: 0,
-  streakFrozenCount: 1,
-  bestStreak: 0,
-  unlockedBadgeIds: [],
-  challenges: [],
   notifications: [],
-  personalRecords: {
-    bestShiftGross: 0,
-    bestNetHourly: 0,
-  },
-  lastEvaluationMonth: null,
 
   setActivePlatformFilter: (filter: string) => {
     const profile = get().profile;
@@ -352,7 +315,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         const rawDemoMode = localStorage.getItem("comma_demo_mode");
         const rawAppConfig = localStorage.getItem("comma_app_config");
 
-        let appConfig = { operationalModelId: 'delivery_fixed' as OperationalModelId, country: 'CA', featureOverrides: {} as Partial<Record<FeatureKey, boolean>> };
+        let appConfig = { operationalModelId: 'delivery_fixed' as OperationalModelId, country: 'CA' };
         if (rawAppConfig) {
           try {
             appConfig = JSON.parse(rawAppConfig);
@@ -387,7 +350,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         loadedProfile.selectedPlatforms = dbPlatforms.filter(p => p.isActive).map(p => p.id);
 
         const localeDefs = syncLocaleDefsFromProfile(loadedProfile);
-        const gamificationState = await GamificationService.evaluateAll();
+        const inboxState = await InboxService.evaluate();
         let finalFilter = localStorage.getItem("comma_active_platform_filter") || "all";
         if (loadedProfile.selectedPlatforms && loadedProfile.selectedPlatforms.length === 1) {
           finalFilter = loadedProfile.selectedPlatforms[0];
@@ -400,10 +363,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           isDemoMode: rawDemoMode === "true",
           activePlatformFilter: finalFilter,
           preferredVehicleId: localStorage.getItem("comma_preferred_vehicle_id") || null,
-          featureOverrides: appConfig.featureOverrides || {},
           isLoading: false,
           ...localeDefs,
-          ...gamificationState,
+          ...inboxState,
         });
 
       } catch {
@@ -426,7 +388,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       const pvid = st["preferred_vehicle_id"] || null;
       const onboardingCompleted = st["onboarding_completed"] === "true";
 
-      let appConfig = { operationalModelId: 'delivery_fixed' as OperationalModelId, country: 'CA', featureOverrides: {} as Partial<Record<FeatureKey, boolean>> };
+      let appConfig = { operationalModelId: 'delivery_fixed' as OperationalModelId, country: 'CA' };
       if (appConfigStr) {
         try {
           appConfig = JSON.parse(appConfigStr);
@@ -493,7 +455,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         : vehicleRows[0]?.id || null;
 
       const localeDefs = syncLocaleDefsFromProfile(nextProfile);
-      const gamificationState = await GamificationService.evaluateAll();
+      const inboxState = await InboxService.evaluate();
       let finalFilter = filter;
       if (nextProfile.selectedPlatforms && nextProfile.selectedPlatforms.length === 1) {
         finalFilter = nextProfile.selectedPlatforms[0];
@@ -506,10 +468,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         isDemoMode: isDemo,
         activePlatformFilter: finalFilter,
         preferredVehicleId: preferredVehicleId,
-        featureOverrides: appConfig.featureOverrides || {},
         isLoading: false,
         ...localeDefs,
-        ...gamificationState,
+        ...inboxState,
       });
 
     } catch (error) {
@@ -565,7 +526,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const appConfig = {
       operationalModelId: finalProfile.operationalModelId || 'delivery_fixed' as OperationalModelId,
       country: finalProfile.country || 'CA',
-      featureOverrides: {} as Partial<Record<FeatureKey, boolean>>,
     };
     const appConfigJson = JSON.stringify(appConfig);
 
@@ -621,7 +581,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         profile: finalProfile,
         activeVehicle: vehicle,
         activePlatformFilter: finalProfile.selectedPlatforms?.length === 1 ? finalProfile.selectedPlatforms[0] : "all",
-        featureOverrides: {},
         isLoading: false,
         ...localeDefs,
       });
@@ -736,7 +695,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         profile: finalProfile,
         activeVehicle: vehicle,
         activePlatformFilter: finalProfile.selectedPlatforms?.length === 1 ? finalProfile.selectedPlatforms[0] : "all",
-        featureOverrides: {},
         isLoading: false,
         ...localeDefs,
       });
@@ -831,7 +789,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const appConfig = {
       operationalModelId: updated.operationalModelId || 'delivery_fixed' as OperationalModelId,
       country: updated.country || 'CA',
-      featureOverrides: get().featureOverrides || {},
     };
     const appConfigJson = JSON.stringify(appConfig);
 
@@ -851,34 +808,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           .onConflictDoUpdate({ target: settings.key, set: { value: appConfigJson } });
       } catch (e) {
         console.error("Failed to persist profile update:", e);
-      }
-    }
-  },
-
-  updateFeatureOverride: async (key: FeatureKey, val: boolean) => {
-    const currentOverrides = get().featureOverrides || {};
-    const updatedOverrides = { ...currentOverrides, [key]: val };
-
-    set({ featureOverrides: updatedOverrides });
-
-    const profile = get().profile;
-    const appConfig = {
-      operationalModelId: profile.operationalModelId || 'delivery_fixed' as OperationalModelId,
-      country: profile.country || 'CA',
-      featureOverrides: updatedOverrides,
-    };
-    const appConfigJson = JSON.stringify(appConfig);
-
-    if (isWeb) {
-      localStorage.setItem("comma_app_config", appConfigJson);
-    } else {
-      try {
-        await db
-          .insert(settings)
-          .values({ key: "app_config", value: appConfigJson })
-          .onConflictDoUpdate({ target: settings.key, set: { value: appConfigJson } });
-      } catch (e) {
-        console.error("Failed to persist feature override:", e);
       }
     }
   },
@@ -989,37 +918,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       localStorage.setItem("comma_profile", JSON.stringify(finalProfile));
 
       const now = new Date();
-
-      const templateConfigs = [
-        { dayOffset: 0, platform: "doordash", start: "08:00", end: "11:30" },
-        { dayOffset: 0, platform: "ubereats", start: "16:00", end: "20:00" },
-        { dayOffset: 1, platform: "skip",     start: "11:00", end: "15:00" },
-        { dayOffset: 2, platform: "doordash", start: "12:00", end: "16:00" },
-        { dayOffset: 3, platform: "ubereats", start: "09:00", end: "13:00" },
-        { dayOffset: 3, platform: "skip",     start: "17:00", end: "20:00" },
-        { dayOffset: 4, platform: "doordash", start: "16:00", end: "20:00" },
-        { dayOffset: 5, platform: "ubereats", start: "11:00", end: "15:00" },
-        { dayOffset: 6, platform: "skip",     start: "08:00", end: "12:00" },
-        { dayOffset: 6, platform: "doordash", start: "15:00", end: "19:30" },
-        { dayOffset: 7, platform: "ubereats", start: "12:00", end: "16:00" },
-        { dayOffset: 8, platform: "skip",     start: "16:00", end: "20:00" },
-        { dayOffset: 9, platform: "doordash", start: "09:00", end: "13:00" },
-        { dayOffset: 9, platform: "ubereats", start: "17:00", end: "20:00" },
-      ];
-      const demoTemplates = templateConfigs.map((cfg, idx) => {
-        const tDate = new Date(now);
-        tDate.setDate(now.getDate() + cfg.dayOffset);
-        return {
-          id: `demo_template_${idx}`,
-          platform: cfg.platform,
-          dayOfWeek: tDate.getDay(),
-          startTime: cfg.start,
-          endTime: cfg.end,
-          reminderMinutes: 30,
-          date: tDate.toISOString().split("T")[0],
-        };
-      });
-      localStorage.setItem("comma_shift_templates", JSON.stringify(demoTemplates));
 
       const demoShifts = [];
       const demoExpenses = [];
@@ -1158,44 +1056,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
       const now = new Date();
 
-      const templateConfigs = [
-        { dayOffset: 0, platform: "doordash", start: "08:00", end: "11:30" },
-        { dayOffset: 0, platform: "ubereats", start: "16:00", end: "20:00" },
-        { dayOffset: 1, platform: "skip",     start: "11:00", end: "15:00" },
-        { dayOffset: 2, platform: "doordash", start: "12:00", end: "16:00" },
-        { dayOffset: 3, platform: "ubereats", start: "09:00", end: "13:00" },
-        { dayOffset: 3, platform: "skip",     start: "17:00", end: "20:00" },
-        { dayOffset: 4, platform: "doordash", start: "16:00", end: "20:00" },
-        { dayOffset: 5, platform: "ubereats", start: "11:00", end: "15:00" },
-        { dayOffset: 6, platform: "skip",     start: "08:00", end: "12:00" },
-        { dayOffset: 6, platform: "doordash", start: "15:00", end: "19:30" },
-        { dayOffset: 7, platform: "ubereats", start: "12:00", end: "16:00" },
-        { dayOffset: 8, platform: "skip",     start: "16:00", end: "20:00" },
-        { dayOffset: 9, platform: "doordash", start: "09:00", end: "13:00" },
-        { dayOffset: 9, platform: "ubereats", start: "17:00", end: "20:00" },
-      ];
-      const demoTemplates = templateConfigs.map((cfg, idx) => {
-        const tDate = new Date(now);
-        tDate.setDate(now.getDate() + cfg.dayOffset);
-        return {
-          id: `demo_template_${idx}`,
-          platform: cfg.platform,
-          dayOfWeek: tDate.getDay(),
-          startTime: cfg.start,
-          endTime: cfg.end,
-          reminderMinutes: 30,
-          date: tDate.toISOString().split("T")[0],
-        };
-      });
-
-      await db
-        .insert(settings)
-        .values({ key: "shift_templates", value: JSON.stringify(demoTemplates) })
-        .onConflictDoUpdate({
-          target: settings.key,
-          set: { value: JSON.stringify(demoTemplates) },
-        });
-
       const demoShifts: (typeof shifts.$inferInsert)[] = [];
       const demoExpenses: (typeof expenses.$inferInsert)[] = [];
       const platforms = ["doordash", "ubereats", "skip"];
@@ -1302,9 +1162,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       });
 
       await get().loadSettings();
-      // Set isDemoMode before evaluateGamification so triggerNativeNotification suppresses OS pushes
+      // Set isDemoMode before refreshing the inbox so demo data never fires OS notifications.
       set({ isDemoMode: true });
-      await get().evaluateGamification();
+      await get().refreshInbox();
       set({ isLoading: false });
       // Bust the query cache so the dashboard re-fetches immediately with demo data
       queryClient.invalidateQueries();
@@ -1343,58 +1203,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         await db.delete(settings).where(eq(settings.key, key));
       }
 
-      // Save empty gamification state on clear
-      const defaultState: GamificationState = {
-        xpTotal: 0,
-        xpLevel: 1,
-        streakDays: 0,
-        streakLastDay: null,
-        streakFrozenCount: 1,
-        bestStreak: 0,
-        personalRecords: { bestShiftGross: 0, bestNetHourly: 0 },
-        unlockedBadgeIds: [],
-        lastEvaluationMonth: null,
-        challenges: [
-          {
-            id: "challenge_earn_500_week",
-            name: "Earn 500 This Week",
-            description: "Reach $500 gross earnings this week.",
-            metric: "earnings",
-            target: 500,
-            current: 0,
-            completedAt: null,
-            startedAt: new Date().toISOString(),
-            nextResetDate: getNextMondayIso(),
-            weekStartedAt: new Date().toISOString(),
-          },
-          {
-            id: "challenge_20_deliveries_week",
-            name: "20 Deliveries",
-            description: "Complete 20 deliveries this week.",
-            metric: "deliveries",
-            target: 20,
-            current: 0,
-            completedAt: null,
-            startedAt: new Date().toISOString(),
-            nextResetDate: getNextMondayIso(),
-            weekStartedAt: new Date().toISOString(),
-          },
-          {
-            id: "challenge_5_shift_streak",
-            name: "5 Shift Streak",
-            description: "Log shifts on 5 consecutive days.",
-            metric: "streak",
-            target: 5,
-            current: 0,
-            completedAt: null,
-            startedAt: new Date().toISOString(),
-            nextResetDate: getNextMondayIso(),
-            weekStartedAt: new Date().toISOString(),
-          },
-        ],
-        notifications: [],
-      };
-      await GamificationService.saveState(defaultState);
+      const defaultState: InboxState = { notifications: [] };
+      await InboxService.saveState(defaultState);
 
       set({
         isOnboardingCompleted: false,
@@ -1411,26 +1221,20 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
   },
 
-  evaluateGamification: async () => {
-    // Capture the badge set before evaluation so we can surface NEW unlocks (Bulletin Mode).
-    const prevUnlocked = new Set(get().unlockedBadgeIds ?? []);
-
-    // Serialize against notification writes so neither clobbers the shared state blob.
-    const run = gamificationStateLock.then(() => GamificationService.evaluateAll(get().isDemoMode));
-    gamificationStateLock = run.then(
+  refreshInbox: async () => {
+    // Serialized against notification writes so neither clobbers the shared inbox row.
+    const run = inboxLock.then(() => InboxService.evaluate(get().isDemoMode));
+    inboxLock = run.then(
       () => {},
       () => {}
     );
     const updated = await run;
-    set({ ...updated });
-
-    // Return badge IDs unlocked during THIS evaluation, for the celebration sheet.
-    return (updated.unlockedBadgeIds ?? []).filter((id) => !prevUnlocked.has(id));
+    set({ notifications: updated.notifications });
   },
 
   addNotification: async (input: AddNotificationInput) => {
     const now = new Date();
-    const next = await runGamificationStateMutation((state) => {
+    const next = await runInboxMutation((state) => {
       // Throttle: skip if the newest notification shares the title within 5s.
       if (input.dedupeKey) {
         const newest = state.notifications[0];
@@ -1454,7 +1258,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         createdAt: now.toISOString(),
         actionUrl: input.actionUrl,
         iconKey: input.iconKey,
-        badgeId: input.badgeId,
       });
       if (state.notifications.length > 100) {
         state.notifications = state.notifications.slice(0, 100);
@@ -1465,7 +1268,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
 
   dismissNotification: async (id: string) => {
-    const next = await runGamificationStateMutation((state) => {
+    const next = await runInboxMutation((state) => {
       state.notifications = state.notifications.filter((n) => n.id !== id);
       return state;
     });
@@ -1473,7 +1276,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
 
   markAllNotificationsRead: async () => {
-    const next = await runGamificationStateMutation((state) => {
+    const next = await runInboxMutation((state) => {
       state.notifications = state.notifications.map((n) => ({ ...n, read: true }));
       return state;
     });
@@ -1481,7 +1284,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
 
   clearAllNotifications: async () => {
-    const next = await runGamificationStateMutation((state) => {
+    const next = await runInboxMutation((state) => {
       state.notifications = [];
       return state;
     });

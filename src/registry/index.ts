@@ -59,15 +59,6 @@ export {
   type VocabularyKey,
 } from "./vocabulary";
 
-// ── Feature modules ───────────────────────────────────────────────────────────
-export {
-  type FeatureKey,
-  type FeatureModule,
-  FEATURE_MODULES,
-  TOGGLEABLE_FEATURE_KEYS,
-  FEATURE_MODULE_MAP,
-} from "./modules";
-
 // ── Other registries ──────────────────────────────────────────────────────────
 export {
   CANADIAN_CRA_CATEGORIES,
@@ -79,11 +70,3 @@ export {
   type ExpenseCategory,
   type ExpenseCategoryKey,
 } from "./expenseCategories";
-
-export {
-  BadgeRegistry,
-  BADGES,
-  type BadgeDefinition,
-  type BadgeContext,
-  type BadgeSweepStats,
-} from "./badges/index";

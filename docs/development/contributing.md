@@ -1,14 +1,13 @@
 # Contributing
 
-Thanks for contributing to Comma. This document covers the conventions, patterns, and process across both apps in the monorepo.
+Thanks for contributing to Comma. This document covers the conventions, patterns, and process for working on the app.
 
-<Chips accent="emerald" items={["feat", "fix", "refactor", "docs", "test", "chore"]} caption="Conventional Commits, strict TypeScript, no any. Adding a country or a platform is data in two mirrored registries — phone and web — never new logic." />
 
 ---
 
 ## Code style
 
-### TypeScript (phone app)
+### TypeScript
 
 - **Strict mode.** No `any`. `tsconfig.json` sets `strict: true`. If a type is genuinely dynamic, use `unknown` and narrow it.
 - **No type assertions without justification.** `as SomeType` is acceptable when feeding output from a runtime source (e.g. SQLite results); document why if it is non-obvious.
@@ -57,27 +56,25 @@ Do not add comments that restate what the code does.
 
 Comma ships **Canada only**. Earlier US, UK, and Nepal definitions were **removed** pending accurate, signed-off tax and mileage numbers — the app must never offer a country whose rules haven't been verified. Nothing in the app branches on the country id; every tax, mileage, currency, and onboarding path reads from the country definition, so adding a market is writing one new definition file per app, not new logic.
 
-A country is **one registry file per app**, and both must agree.
+A country is one folder in the registry:
 
-1. **Write the phone definition** at `src/registry/countries/<CC>/index.ts` (a directory: `index.ts`, plus `provinces/` and `tax/` as needed). It must define:
+1. **Write the definition** at `src/registry/countries/<CC>/index.ts` (a directory: `index.ts`, plus `provinces/` and `tax/` as needed). It must define:
    - `currency` and `symbol`
    - `distanceUnit` (`km` or `mi`)
    - `tax` rules (default withholding, region preset type, region label, and so on)
    - `mileage` — a rate table, or explicitly `null` for "no researched rates" (the key must be present, so a new country makes a deliberate choice)
    - `defaultAvailablePlatforms`
-2. **Write the web definition** at `web/src/registry/countries/<CC>.country.js` with the same fields (see `web/src/registry/countries/_TEMPLATE.country.js`).
-3. **Register it on both sides.** This is the step that actually turns a country on:
-   - phone: add it to `COUNTRY_MAP` in `src/registry/countries/index.ts`, and add its regions to `ALL_REGIONS`
-   - web: add it to the `COUNTRIES` array in `web/src/registry/countries/index.js`
-4. **Keep the two in parity.** Run `node scripts/check-country-parity.mjs` — it verifies the phone and web registries define the same countries with matching shapes. A country registered on one app but not the other, or with mismatched fields, fails the check.
+2. **Register it** in `COUNTRY_MAP` in `src/registry/countries/index.ts`, and add its regions to `ALL_REGIONS`.
 
-The registries fail loudly on a half-added country: `assertCountryRegistryValid()` throws if a registered country is missing a required field, and an unregistered country requested at runtime logs an error and falls back to Canada rather than silently serving the wrong tax rate.
+Full walkthrough: [adding-a-country.md](./adding-a-country.md).
+
+The registry fails loudly on a half-added country: `assertCountryRegistryValid()` throws if a registered country is missing a required field, and an unregistered country requested at runtime logs an error and falls back to Canada rather than silently serving the wrong tax rate.
 
 ---
 
 ## Adding a supported platform
 
-Platforms are defined in `src/registry/platforms/` (phone) and `web/src/registry/` (web), grouped by country.
+Platforms are defined in `src/registry/platforms/`, grouped by country.
 
 1. Add an entry to the appropriate country's platform list:
    ```ts
@@ -93,10 +90,9 @@ Platforms are defined in `src/registry/platforms/` (phone) and `web/src/registry
      sortPriority: 10,
    }
    ```
-2. Mirror it on the other app so both offer the same platforms in that country.
-3. The platform then appears automatically in the activation list for drivers in that country — there is no separate wiring.
+2. The platform then appears automatically in the activation list for drivers in that country — there is no separate wiring.
 
-Drivers can also add their own custom platforms at runtime; a built-in definition is only needed to offer one out of the box.
+Drivers whose app isn't listed log it under "Other".
 
 ---
 
@@ -122,7 +118,7 @@ Features not ready for everyone should be gated:
 3. **TypeScript must pass:** `npx tsc --noEmit` with no errors.
 4. **Lint must pass:** `npm run lint` with no errors.
 5. **Test what you build.** If you add a query, run it on a device or emulator with real data — type checking verifies shape, not behavior.
-6. **Touching a country?** Run `node scripts/check-country-parity.mjs`.
+6. **Touching a country?** Every number needs a source and a year — cite it in a comment.
 
 ### PR description checklist
 
@@ -164,7 +160,7 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`.
 Open an issue at [github.com/raiz-toff/Comma](https://github.com/raiz-toff/Comma) with:
 
 - App version (from About)
-- Which app (phone or web), device model, and OS version
+- Device model and Android version
 - Steps to reproduce
 - Expected versus actual behavior
 - Logs if available

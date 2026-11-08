@@ -1,7 +1,6 @@
 /**
  * Local backup FILE export/restore — the second data-safety mechanism next to Cloud Sync
- * (2026-07-03). Plain unencrypted JSON the user holds themselves, mirroring the web app's
- * Settings → "Download backup file" / "Import backup file".
+ * (2026-07-03). Plain unencrypted JSON the user holds themselves.
  *
  *  - `exportBackupFile()` — snapshot all BACKUP_TABLES (via `buildBackupPayload`) into
  *    `comma-backup-YYYYMMDD.json` and hand it to the OS share sheet (save to Files/Drive,
@@ -13,9 +12,8 @@
  *    and keeping them would make this device impersonate the source (skipped logs, filename
  *    collisions). Fresh id + cursors 0 + sync OFF — the user re-enables sync deliberately.
  *
- * NOTE: web-app backup files (`comma-vault-backup-*.json`, `{exportedAt, schemaVersion,
- * tables}`) are a different format — import those in the WEB app (Settings → Data), and the
- * data reaches this phone via Cloud Sync.
+ * NOTE: backup files from the retired web app (`{exportedAt, schemaVersion, tables}`) are a
+ * different format and are rejected with an explanation.
  */
 
 import * as FileSystem from "expo-file-system/legacy";
@@ -114,7 +112,7 @@ export async function restoreBackupFile(): Promise<RestoreFileResult> {
 
   if ((payload as any)?.exportedAt && (payload as any)?.schemaVersion != null) {
     throw new Error(
-      "This is a WEB app backup. Import it in the web app (Settings → Data → Import backup file) — it will reach this phone through Cloud Sync."
+      "This backup came from the Comma web app, which has been retired, and can't be opened on the phone. If that data is also in Cloud Sync, connect Google Drive instead."
     );
   }
   if (!payload || payload.app !== "comma" || !payload.tables || typeof payload.tables !== "object") {

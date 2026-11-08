@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { View, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { Target, BarChart3, Calendar, Car, Settings, Info, Calculator, ChevronRight } from "lucide-react-native";
+import { Target, BarChart3, Car, Settings, Info, Calculator, ChevronRight } from "lucide-react-native";
 import { Text } from "../../src/components/ui/text";
 import { useColors } from "@/src/theme/useColors";
 import { useSettingsStore } from "../../store/useSettingsStore";
@@ -106,13 +106,6 @@ export default function MoreScreen() {
             subtitle="Export spreadsheets and summaries"
             icon={BarChart3}
             onPress={() => router.push("/reports")}
-            accentColor={accentColor}
-          />
-          <MenuItem
-            title="Schedule"
-            subtitle="Adjust weekly shifts presets"
-            icon={Calendar}
-            onPress={() => router.push("/schedule")}
             accentColor={accentColor}
           />
           <MenuItem

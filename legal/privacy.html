@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comma Privacy Policy</title>
+<meta name="description" content="Comma collects no data about you. Your earnings, location and financial records stay on your device.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono&family=DM+Sans:wght@400;600&family=DM+Serif+Display&display=swap">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+<nav><a href="/privacy">Privacy Policy</a><a href="/delete-data">Delete your data</a></nav>
+
+<h1>Privacy Policy</h1>
+<p class="meta">Last updated: November 8, 2026</p>
+
+<h2>Summary</h2>
+<p>Comma collects no data about you. It sends no analytics, no telemetry, and no crash reports to any server. Your earnings, location, and financial records stay on your device.</p>
+
+<h2>What data Comma stores</h2>
+<p>All data is stored locally in a SQLite database in the app's private storage, which other apps cannot read without root access:</p>
+<ul>
+  <li>Shifts: start and end time, earnings, tips, GPS route</li>
+  <li>Expenses: amount, category, merchant, receipt photos</li>
+  <li>Vehicles: name, type, odometer readings, maintenance history</li>
+  <li>Profile: name, country, region, currency preference</li>
+  <li>Goals: your earnings targets</li>
+  <li>Tax history: regional rate changes</li>
+</ul>
+<p>None of this is sent to any server, except optionally to your own Google Drive (see below).</p>
+
+<h2>Google Drive (optional)</h2>
+<p>If you turn on Google Drive sync:</p>
+<ul>
+  <li>Comma requests the <code>drive.appdata</code> scope. This gives Comma access only to its own hidden folder in your Drive, not to any of your personal files.</li>
+  <li>Your data is <strong>encrypted on your device</strong> before upload, with a key derived from your sync password. Comma's developer cannot decrypt your files, and neither can Google.</li>
+  <li>Files sit only in Comma's hidden <code>appDataFolder</code> and do not show in your Drive file browser.</li>
+  <li>You can revoke Comma's Drive access at any time from your Google account's security settings.</li>
+</ul>
+
+<h2>Location data</h2>
+<p>Comma uses your device's GPS during an active shift to track mileage. Location data is:</p>
+<ul>
+  <li>Stored locally in the SQLite database</li>
+  <li>Not sent to any server</li>
+  <li>Not included in Google Drive sync, apart from the encoded route line stored on each shift</li>
+  <li>Never sold or shared with third parties</li>
+</ul>
+
+<h2>Analytics and telemetry</h2>
+<p>Comma includes no crash reporting, no analytics, no advertising SDKs, and no third-party SDK that sends user data. The app makes no network requests except to Google's APIs and token endpoint, and only when you have turned on Drive sync.</p>
+
+<h2>Advertising identifiers</h2>
+<p>Comma does not access your device's advertising identifier and does not track you across apps or websites.</p>
+
+<h2>Data retention</h2>
+<p>Your data stays on your device until you delete the app or use <strong>Settings → Reset App</strong>. There is no server-side retention because there is no server.</p>
+<p>If you turned on Google Drive sync, your encrypted files stay in Drive until you reset sync from the app, delete them from your Google account, or remove Comma's access to Drive.</p>
+
+<h2>Data portability</h2>
+<p>You own your data and can export it at any time: shifts and expenses as CSV from <strong>Settings → Export CSV</strong>, or a PDF summary from <strong>Reports</strong>.</p>
+
+<h2>Contact</h2>
+<p>For privacy questions or data requests, email <a href="mailto:valium-banjo-badly@duck.com">valium-banjo-badly@duck.com</a>.</p>
+</main>
+</body>
+</html>

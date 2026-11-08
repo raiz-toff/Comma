@@ -12,14 +12,12 @@ npx expo start
 [`AGENTS.md`](./AGENTS.md) is the contract for this repository — for people and for AI coding
 agents alike. It is short. The three rules that matter most:
 
-1. **Comma is two apps sharing one vault.** The phone app (`src/`, `app/`) and the web PWA
-   (`web/src/`) read and write each other's files, and *nothing checks that they agree at
-   compile time*. If you change sync, database schema, the crypto envelope, or the country
-   registry, the twin file in the other app has to be handled too — otherwise it breaks at
-   the user's data rather than at the build.
+1. **Old vaults must keep opening.** Drivers' Google Drive files were written by older app
+   versions. If you change sync, the database schema, the crypto envelope, or the country
+   registry, make sure older files and older app versions still work — otherwise it breaks
+   at the user's data rather than at the build.
 2. **Version numbers come from `node scripts/version.mjs`.** Never hand-edit them.
-3. **Every user-visible change gets a `CHANGELOG.md` entry in the same commit.** That file is
-   published as the `/changelog` page on the docs site.
+3. **Every user-visible change gets a `CHANGELOG.md` entry in the same commit.**
 
 ## Rules
 
@@ -28,7 +26,7 @@ agents alike. It is short. The three rules that matter most:
 - Use `expo-image`, not React Native's `<Image>`
 - Use the design tokens — never invent a hex value, shadow, or spacing number
 - No `console.log` in commits
-- Docs live in `docs/`; `docs-site/content/` is generated, so don't edit it
+- Developer docs live in `docs/development/`
 
 ## PRs
 
@@ -38,5 +36,5 @@ build it.
 Run the same checks CI does before opening a PR:
 
 ```bash
-npm run verify   # typecheck + version sites agree + phone/web country registries agree
+npm run verify   # typecheck + version sites agree
 ```

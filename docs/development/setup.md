@@ -1,8 +1,7 @@
 # Development Setup
 
-This guide gets all three parts of the monorepo running locally: the phone app, the web app, and this documentation site.
+This guide gets the Comma Android app running locally.
 
-<Chips accent="cyan" items={["Node 20+", "npm 10+", "JDK 17+", "Android SDK"]} caption="Three apps in one repo: the phone app, the web PWA, and this docs site. GPS work needs a native dev build — there is no working Expo Go path." />
 
 ---
 
@@ -10,11 +9,8 @@ This guide gets all three parts of the monorepo running locally: the phone app, 
 
 - **Node.js** 20 or newer (`node --version`)
 - **npm** 10 or newer (bundled with Node)
-- For the **phone app** only:
-  - **JDK 17** or newer
-  - **Android SDK** (via Android Studio), with `ANDROID_HOME` set and a device or emulator available
-
-The web app and the docs site need only Node.
+- **JDK 17** or newer
+- **Android SDK** (via Android Studio), with `ANDROID_HOME` set and a device or emulator available
 
 ---
 
@@ -77,42 +73,7 @@ sqlite3 comma.db
 
 ---
 
-## Web app
-
-The web app is a dependency-light PWA built with esbuild. It has its own `package.json` under `web/`:
-
-```bash
-cd web
-npm install
-npm run dev     # esbuild dev build + local serve
-```
-
-For a production build:
-
-```bash
-npm run build   # writes web/dist/
-npm run preview # serve the built output
-```
-
-The web app stores its data in the browser (IndexedDB), so nothing else is required to run it.
-
----
-
-## Docs site
-
-These pages are authored as Markdown in `docs/` and rendered by a Fumadocs (Next.js) app in `docs-site/`. The content is generated from `docs/` by `scripts/sync-content.mjs`, which runs automatically before `dev` and `build`.
-
-```bash
-cd docs-site
-npm install
-npm run dev     # runs the content sync, then next dev
-```
-
-To edit a page, change the Markdown under `docs/` and re-run (or keep `dev` running); the sync step copies it into the site. `npm run build` produces the production site.
-
----
-
-## Quality gates (phone app)
+## Quality gates
 
 Run from the repository root:
 
@@ -126,7 +87,7 @@ npm test           # Jest
 
 ## Demo mode
 
-To explore either app without entering real data, load demo mode from the welcome gate ("try the demo") or from Settings. It seeds sample shifts, expenses, vehicles, and goals so analytics and reports have something to show. Sync is disabled while demo data is loaded, so nothing sample ever reaches a real Drive.
+To explore the app without entering real data, load demo mode from the welcome gate ("try the demo") or from Settings. It seeds sample shifts, expenses, vehicles, and goals so analytics and reports have something to show. Sync is disabled while demo data is loaded, so nothing sample ever reaches a real Drive.
 
 ---
 
@@ -140,4 +101,4 @@ To explore either app without entering real data, load demo mode from the welcom
 
 **Google Sign-In crashes** — confirm `GOOGLE_WEB_CLIENT_ID` matches the OAuth client, and that your debug keystore's SHA-1 is registered in Google Cloud Console.
 
-**"Module not found" after adding a package** — use `npx expo install <package>` for phone dependencies so you get an Expo-compatible version; rebuild the native binary if the package has native code.
+**"Module not found" after adding a package** — use `npx expo install <package>` so you get an Expo-compatible version; rebuild the native binary if the package has native code.

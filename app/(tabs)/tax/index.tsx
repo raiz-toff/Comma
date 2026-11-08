@@ -1,14 +1,14 @@
 import React, { useMemo, useEffect, useRef, useState } from "react";
 import {
-  ScrollView,
-  View,
-  ActivityIndicator,
-  StyleSheet,
-  Pressable,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
+ScrollView,
+View,
+ActivityIndicator,
+StyleSheet,
+Pressable,
+Modal,
+TextInput,
+KeyboardAvoidingView,
+Platform,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
@@ -24,28 +24,27 @@ import { useSettingsStore } from "@/store/useSettingsStore";
 import { DEMO_STRIP_HEIGHT } from "@/src/components/GlobalTopHeader";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useLayout } from "@/src/hooks/useLayout";
-import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
 import {
-  getCountryDef,
-  getRegionsByCountry,
-  getMileagePresetRate,
-  resolveProvinceDef,
+getCountryDef,
+getRegionsByCountry,
+getMileagePresetRate,
+resolveProvinceDef,
 } from "@/src/registry/index";
 import { getPlatformDef } from "@/src/registry/platforms";
 import { getPeriodStats, getVehicleMileageBreakdown } from "@/src/database/queries/analytics";
 import { calculateMileageWriteOffForBreakdown } from "@/src/database/queries/taxProfiles";
 import { getExpenseYTDSummary } from "@/src/database/queries/expenses";
 import {
-  getTaxHistory,
-  getTaxJarBalance,
-  setTaxJarBalance,
+getTaxHistory,
+getTaxJarBalance,
+setTaxJarBalance,
 } from "@/src/database/queries/tax";
 import {
-  calculatePensionContributions,
-  calculateHSTOwing,
-  calculateSelfEmploymentTax,
-  calculateHMRCMileageDeduction,
-  calculateUKNationalInsurance,
+calculatePensionContributions,
+calculateHSTOwing,
+calculateSelfEmploymentTax,
+calculateHMRCMileageDeduction,
+calculateUKNationalInsurance,
 } from "@/utils/taxCalculations";
 import { getEarningsByPlatform } from "@/src/database/queries/analytics";
 
@@ -80,12 +79,6 @@ export default function TaxScreen() {
   const { accentColor, accentColorDim, accentColorMid, accentColorContrast } = usePlatformTheme();
   // Called here, with the other hooks, because this screen early-returns twice below.
   const { gridStyle, dialogStyle } = useLayout();
-
-  const isTaxEnabled = useFeatureEnabled("tax_workspace");
-
-  useEffect(() => {
-    if (!isTaxEnabled && isOnboardingCompleted) router.replace("/");
-  }, [isTaxEnabled, isOnboardingCompleted]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isJarModalOpen, setIsJarModalOpen] = useState(false);
@@ -310,10 +303,6 @@ export default function TaxScreen() {
     : countryDef.label;
 
   const isLoading = loadingStats || loadingExpenses;
-
-  // Guard AFTER all hooks — an early return between hooks changes the hook
-  // count across renders and crashes when the feature flag flips.
-  if (!isTaxEnabled) return null;
 
   if (countryDef.hasSelfAssessmentTax === false) {
     return (

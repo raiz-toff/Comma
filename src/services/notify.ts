@@ -8,8 +8,6 @@ export type AddNotificationInput = {
   actionUrl?: string;
   /** Operational glyph selector: "backup"|"restore"|"export"|"wipe"|"import"|"error". */
   iconKey?: string;
-  /** When set, the panel renders the badge SVG for this id. */
-  badgeId?: string;
   /** Skip insert if the newest notification shares this title within a short window. */
   dedupeKey?: string;
 };

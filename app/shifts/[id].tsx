@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from "react";
 import {
-  ScrollView,
-  View,
-  TouchableOpacity,
-  Alert,
-  Platform,
-  ActivityIndicator,
-  TextInput,
-  Modal,
-  Linking,
-  KeyboardAvoidingView,
-  StyleSheet,
+ScrollView,
+View,
+TouchableOpacity,
+Alert,
+Platform,
+ActivityIndicator,
+TextInput,
+Modal,
+Linking,
+KeyboardAvoidingView,
+StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -30,7 +30,7 @@ import { useSettingsStore } from "@/store/useSettingsStore";
 import { getExpenseCategories, getCategoryMeta } from "@/src/registry/expenseCategories";
 import { cn } from "@/src/lib/utils";
 import { PLATFORMS, type PlatformKey } from "@/src/registry/platforms";
-import { ArrowLeft, Clock3, Gauge, MapPinned, PencilLine, Plus, Route, Trash2, ReceiptText, Maximize2 } from "lucide-react-native";
+import { ArrowLeft, MapPinned, Trash2, Maximize2 } from "lucide-react-native";
 import Svg, { Polyline, Circle, Line } from "react-native-svg";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useLayout } from "@/src/hooks/useLayout";
@@ -481,7 +481,6 @@ export default function ShiftDetailScreen() {
     const performDelete = async () => {
       try {
         await deleteShift(id!);
-        await useSettingsStore.getState().evaluateGamification();
         queryClient.invalidateQueries({ queryKey: ["shifts"] });
         queryClient.invalidateQueries({ queryKey: ["analytics"] });
         router.replace("/(tabs)/shifts");
@@ -537,7 +536,6 @@ export default function ShiftDetailScreen() {
         notes: expenseNotes.trim() || null,
       });
 
-      await useSettingsStore.getState().evaluateGamification();
       queryClient.invalidateQueries({ queryKey: ["shift-expenses", id] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
       
@@ -567,7 +565,6 @@ export default function ShiftDetailScreen() {
     const performDelete = async () => {
       try {
         await deleteExpense(expId);
-        await useSettingsStore.getState().evaluateGamification();
         queryClient.invalidateQueries({ queryKey: ["shift-expenses", id] });
         queryClient.invalidateQueries({ queryKey: ["analytics"] });
       } catch (err) {

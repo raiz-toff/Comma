@@ -1,20 +1,18 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import {
-  ScrollView,
-  View,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  TextInput,
-  Modal,
-  Pressable,
-  StyleSheet,
+ScrollView,
+View,
+TouchableOpacity,
+ActivityIndicator,
+Alert,
+Platform,
+TextInput,
+Modal, StyleSheet
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { Award, Flame, Star, TrendingUp, Plus, Edit2, Trash2, X, Target, Shield } from "lucide-react-native";
+import { Plus, Edit2, Trash2, X } from "lucide-react-native";
 import { Text } from "@/src/components/ui/text";
 import { Card } from "@/src/components/ui/card";
 import { EmptyState } from "@/src/components/ui/EmptyState";
@@ -22,17 +20,10 @@ import { KPI, withAlpha } from "@/src/theme/colors";
 import { useColors } from "@/src/theme/useColors";
 import { getGoalsWithProgress, insertGoal, updateGoal, deleteGoal } from "@/src/database/queries/goals";
 import { markActivationDone } from "@/src/services/onboarding/activationChecklist";
-import { getEarningsByDay } from "@/src/database/queries/analytics";
-import { db } from "@/src/database/client";
-import { shifts } from "@/src/database/schema";
-import { desc } from "drizzle-orm";
 import { useSettingsStore } from "@/store/useSettingsStore";
-import { useFeatureEnabled } from "@/hooks/useFeatureEnabled";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
 import { useLayout } from "@/src/hooks/useLayout";
 import Svg, { Circle } from "react-native-svg";
-import { BADGES, type BadgeDefinition } from "@/src/registry/index";
-import { BadgeSvg } from "@/src/registry/badges/BadgeSvgs";
 
 const isWeb = Platform.OS === "web";
 
@@ -74,34 +65,6 @@ function formatCurrencyParts(value: number, country?: string) {
     symbol: parts.find((p) => p.type === "currency")?.value || "$",
     value: parts.filter((p) => p.type !== "currency").map((p) => p.value).join(""),
   };
-}
-
-function timeAgo(isoStr: string): string {
-  const diff = Date.now() - new Date(isoStr).getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days === 0) return "today";
-  if (days === 1) return "1d ago";
-  return `${days}d ago`;
-}
-
-function daysUntilReset(nextResetDate: string | null): number {
-  if (!nextResetDate) return 7;
-  const diff = new Date(nextResetDate).getTime() - Date.now();
-  return Math.max(0, Math.ceil(diff / 86400000));
-}
-
-function getStreakMilestone(streakDays: number): { target: number; label: string } {
-  if (streakDays < 7) return { target: 7, label: "7-day streak" };
-  if (streakDays < 30) return { target: 30, label: "30-day streak" };
-  if (streakDays < 100) return { target: 100, label: "100-day streak" };
-  return { target: 100, label: "Legend" };
-}
-
-function getXpFromNotificationTitle(title: string): string {
-  if (title.includes("Badge Unlocked")) return "+40 XP";
-  if (title.includes("Challenge Complete")) return "+60 XP";
-  if (title.includes("Level Up")) return "Level Up!";
-  return "+XP";
 }
 
 // ─── Circular Progress ────────────────────────────────────────────────────────
@@ -171,30 +134,9 @@ export default function GoalsScreen() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const C = useColors();
-  const {
-    profile,
-    isOnboardingCompleted,
-    xpTotal,
-    xpLevel,
-    streakDays,
-    streakFrozenCount,
-    unlockedBadgeIds,
-    challenges,
-    notifications,
-    isDemoMode,
-  } = useSettingsStore();
+  const { profile, isOnboardingCompleted, isDemoMode } = useSettingsStore();
   const { accentColor, accentColorContrast } = usePlatformTheme();
-  // Above the `return null` below — rules of hooks.
   const { columnStyle, dialogStyle } = useLayout();
-
-  const isGoalsEnabled = useFeatureEnabled("goals");
-  React.useEffect(() => {
-    if (!isGoalsEnabled && isOnboardingCompleted) router.replace("/");
-  }, [isGoalsEnabled, isOnboardingCompleted]);
-  if (!isGoalsEnabled) return null;
-
-  // ── Tab state ──
-  const [activeTab, setActiveTab] = useState(0);
 
   // ── Goal form state ──
   const [isAdding, setIsAdding] = useState(false);
@@ -205,10 +147,6 @@ export default function GoalsScreen() {
   const [period, setPeriod] = useState<typeof GOAL_PERIODS[number]["id"]>("weekly");
   const [isSaving, setIsSaving] = useState(false);
 
-  // ── Badge detail modal ──
-  const [selectedBadge, setSelectedBadge] = useState<BadgeDefinition | null>(null);
-  const [showShieldTooltip, setShowShieldTooltip] = useState(false);
-
   // ── Queries ──
   const { data: goalsList = [], isLoading } = useQuery({
     queryKey: ["goals", "progress"],
@@ -216,45 +154,8 @@ export default function GoalsScreen() {
     enabled: isOnboardingCompleted,
   });
 
-  useQuery({
-    queryKey: ["analytics", "by-day", "goals"],
-    queryFn: () => getEarningsByDay(4),
-    enabled: isOnboardingCompleted,
-  });
-
-  const { data: bestShift } = useQuery({
-    queryKey: ["goals", "best-shift"],
-    queryFn: async () => {
-      if (isWeb) return { grossRevenue: 250 };
-      const res = await db.select().from(shifts).orderBy(desc(shifts.grossRevenue)).limit(1);
-      return res[0] ?? null;
-    },
-    enabled: isOnboardingCompleted,
-  });
-
   // ── Derived values ──
   const weeklyEarningsGoal = goalsList.find((g: any) => g.period === "weekly" && g.unit === "currency");
-  const badgesUnlocked = unlockedBadgeIds?.length ?? 0;
-  const badgesTotal = BADGES.length;
-
-  const sortedBadges = useMemo(
-    () =>
-      [...BADGES].sort((a, b) => {
-        const au = unlockedBadgeIds.includes(a.id);
-        const bu = unlockedBadgeIds.includes(b.id);
-        return au === bu ? 0 : au ? -1 : 1;
-      }),
-    [unlockedBadgeIds]
-  );
-
-  const recentXpNotifications = useMemo(
-    () => notifications.filter((n) => n.type === "success").slice(0, 4),
-    [notifications]
-  );
-
-  const streakMilestone = getStreakMilestone(streakDays);
-  const streakPct = streakDays >= 100 ? 100 : (streakDays / streakMilestone.target) * 100;
-
   // ── Handlers ──
   const handleOpenForm = (goal?: any) => {
     if (goal) {
@@ -474,218 +375,6 @@ export default function GoalsScreen() {
     </>
   );
 
-  const ProgressTab = (
-    <>
-      {/* XP & Level card */}
-      <Card className="p-5">
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Award size={16} color={C.info} />
-            <Text variant="labelXs" style={{ color: C.contentSecondary }}>Driver XP</Text>
-          </View>
-          <View style={{ backgroundColor: withAlpha(C.info, 0.13), borderWidth: 1, borderColor: withAlpha(C.info, 0.25), borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
-            <Text variant="labelXs" tabular style={{ color: C.info }}>LVL {xpLevel}</Text>
-          </View>
-        </View>
-
-        <Text variant="headingXl" tabular style={{ includeFontPadding: false, marginBottom: 4 }} adjustsFontSizeToFit numberOfLines={1}>
-          {xpTotal.toLocaleString()} <Text style={{ fontSize: 16, color: C.contentMuted, fontWeight: "600" }}>XP</Text>
-        </Text>
-
-        <View
-          style={{ height: 5, backgroundColor: C.lineSubtle, borderRadius: 3, marginVertical: 10, overflow: "hidden" }}
-          accessible={true}
-          accessibilityLabel={`${xpTotal % 100}% progress to next level`}
-        >
-          <View style={{ height: "100%", width: `${xpTotal % 100}%`, backgroundColor: C.info, borderRadius: 3 }} />
-        </View>
-        <Text variant="paragraphS" tabular>{100 - (xpTotal % 100)} XP to Level {xpLevel + 1}</Text>
-
-        {/* Recent XP events */}
-        {recentXpNotifications.length > 0 && (
-          <View style={{ marginTop: 16, gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.lineSubtle, paddingTop: 14 }}>
-            {recentXpNotifications.map((n) => (
-              <View key={n.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <Text variant="paragraphS" className="text-content-secondary" style={{ flex: 1 }} numberOfLines={1}>{n.title}</Text>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                  <Text variant="labelXs" tabular style={{ color: C.info }}>{getXpFromNotificationTitle(n.title)}</Text>
-                  <Text variant="paragraphS">{timeAgo(n.createdAt)}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-      </Card>
-
-      {/* Streak card */}
-      <Card className="p-5">
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 20 }}>
-          <Flame size={16} color={C.destructive} />
-          <Text variant="labelXs" style={{ color: C.contentSecondary }}>Day Streak</Text>
-        </View>
-
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 20 }}>
-          <CircularProgress progressPct={streakPct} size={110} strokeWidth={8} color={C.destructive}>
-            <Text variant="headingXl" tabular style={{ includeFontPadding: false }}>{streakDays}</Text>
-            <Text variant="labelXs" style={{ color: C.contentSecondary }}>days</Text>
-          </CircularProgress>
-
-          <View style={{ flex: 1, gap: 12 }}>
-            <View>
-              <Text variant="labelXs" style={{ color: C.contentMuted, marginBottom: 4 }}>Next milestone</Text>
-              <Text variant="labelM">
-                {streakDays >= 100 ? "Legend 🏆" : `${streakMilestone.target - streakDays} days to ${streakMilestone.label}`}
-              </Text>
-            </View>
-
-            {/* Shield row */}
-            <Pressable
-              onPress={() => setShowShieldTooltip(true)}
-              accessibilityRole="button"
-              accessibilityLabel={`${streakFrozenCount} of 3 streak shields. Tap for details`}
-              hitSlop={8}
-              style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-            >
-              {Array.from({ length: Math.min(3, Math.max(0, streakFrozenCount)) }).map((_, i) => (
-                <Shield key={i} size={18} color={KPI.hours} fill={withAlpha(KPI.hours, 0.19)} />
-              ))}
-              {Array.from({ length: Math.max(0, 3 - streakFrozenCount) }).map((_, i) => (
-                <Shield key={`empty-${i}`} size={18} color={C.contentDisabled} />
-              ))}
-              <Text variant="labelXs" tabular style={{ color: KPI.hours, marginLeft: 2 }}>
-                {streakFrozenCount}/3 shields
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      </Card>
-
-      {/* Challenges section */}
-      <Card className="p-5">
-        <Text variant="headingS" style={{ marginBottom: 18 }}>Weekly Challenges</Text>
-        <View style={{ gap: 16 }}>
-          {challenges && challenges.length > 0 ? (
-            challenges.map((c) => {
-              const pct = Math.min(100, Math.round((c.current / c.target) * 100));
-              const isCompleted = !!c.completedAt;
-              const resetDays = daysUntilReset(c.nextResetDate ?? null);
-              return (
-                <View key={c.id}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 }}>
-                    <View
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 20,
-                        backgroundColor: isCompleted ? withAlpha(C.success, 0.25) : C.surface02,
-                        borderWidth: 1,
-                        borderColor: isCompleted ? withAlpha(C.success, 0.25) : C.lineSubtle,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Target size={18} color={isCompleted ? C.success : C.warning} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 3 }}>
-                        <Text variant="labelM">{c.name}</Text>
-                        <Text variant="labelM" tabular style={{ color: isCompleted ? C.success : C.warning }}>
-                          {isCompleted ? "✓ Done" : `${pct}%`}
-                        </Text>
-                      </View>
-                      <Text variant="paragraphS" className="text-content-secondary">{c.description}</Text>
-                    </View>
-                  </View>
-                  <View
-                    style={{ height: 4, backgroundColor: C.lineSubtle, borderRadius: 2, overflow: "hidden", marginBottom: 6 }}
-                    accessible={true}
-                    accessibilityLabel={`Challenge ${pct}% complete`}
-                  >
-                    <View style={{ height: "100%", width: `${pct}%`, backgroundColor: isCompleted ? C.success : C.warning, borderRadius: 2 }} />
-                  </View>
-                  <Text variant="paragraphS" tabular>
-                    {isCompleted ? `Resets in ${resetDays} day${resetDays === 1 ? "" : "s"}` : `${resetDays} day${resetDays === 1 ? "" : "s"} remaining`}
-                  </Text>
-                </View>
-              );
-            })
-          ) : (
-            <EmptyState
-              icon="target"
-              title="No active challenges"
-              message="New challenges will appear here."
-              className="py-2"
-            />
-          )}
-        </View>
-      </Card>
-
-      {/* Badges grid */}
-      <Card className="p-5">
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Star size={16} color={KPI.hours} />
-            <Text variant="headingS">Driver Badges</Text>
-          </View>
-          <Text variant="paragraphS" className="text-content-secondary" tabular>{badgesUnlocked} / {badgesTotal}</Text>
-        </View>
-
-        <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-          {sortedBadges.map((badge) => {
-            const isUnlocked = unlockedBadgeIds.includes(badge.id);
-            return (
-              <View key={badge.id} style={{ width: "25%", padding: 4 }}>
-                <Pressable
-                  onPress={() => setSelectedBadge(badge)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${badge.name} badge${isUnlocked ? "" : ", locked"}`}
-                  style={{
-                      aspectRatio: 1,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: isUnlocked ? C.surface04 : C.surface01,
-                      borderWidth: 1,
-                      borderColor: isUnlocked ? C.lineStrong : C.lineSubtle,
-                      borderRadius: 16,
-                    }}
-                >
-                  <BadgeSvg id={badge.id} size={36} locked={!isUnlocked} />
-                </Pressable>
-              </View>
-            );
-          })}
-        </View>
-
-        <Text variant="paragraphS" style={{ textAlign: "center", marginTop: 14 }}>
-          Tap a badge to see details
-        </Text>
-      </Card>
-
-      {/* Best shift stat */}
-      <TouchableOpacity
-        onPress={() => {
-          if (bestShift?.id) {
-            router.push({ pathname: "/shifts/[id]", params: { id: bestShift.id, from: "goals" } });
-          }
-        }}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        style={{ backgroundColor: C.surface02, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, borderRadius: 16, padding: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
-      >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <TrendingUp size={18} color={accentColor} />
-          <View>
-            <Text variant="labelXs" style={{ color: C.contentSecondary }}>Best Shift — All Time</Text>
-            <Text variant="headingL" tabular style={{ marginTop: 2, includeFontPadding: false }}>
-              {formatCurrency(bestShift?.grossRevenue ?? 0, profile.country)}
-            </Text>
-          </View>
-        </View>
-        <Text style={{ fontSize: 18, color: C.contentMuted }}>›</Text>
-      </TouchableOpacity>
-    </>
-  );
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.background }} edges={["bottom", "left", "right"]}>
       <ScrollView contentContainerStyle={[{ paddingBottom: 120, paddingTop: insets.top ? insets.top + 16 : 36 }, columnStyle]}>
@@ -699,39 +388,17 @@ export default function GoalsScreen() {
           >
             <X size={22} color={C.contentPrimary} />
           </TouchableOpacity>
-          <Text variant="headingS">Goals & Progress</Text>
+          <Text variant="headingS">Goals</Text>
           <View style={{ width: 44 }} />
         </View>
 
-        {/* Tab switcher */}
-        <View style={{ flexDirection: "row", marginHorizontal: 16, marginBottom: 20, backgroundColor: C.surface03, borderRadius: 12, padding: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle }}>
-          {(["Goals", "Progress"] as const).map((tab, i) => (
-            <Pressable
-              key={tab}
-              onPress={() => setActiveTab(i)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: activeTab === i }}
-              style={{
-                  flex: 1,
-                  paddingVertical: 10,
-                  alignItems: "center",
-                  backgroundColor: activeTab === i ? C.surface04 : "transparent",
-                  borderRadius: 8,
-                }}
-            >
-              <Text variant="labelM" style={{ color: activeTab === i ? C.contentPrimary : C.contentSecondary }}>{tab}</Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {/* Tab content */}
         {isLoading ? (
           <View style={{ paddingVertical: 60, alignItems: "center" }}>
             <ActivityIndicator size="large" color={accentColor} />
           </View>
         ) : (
           <View style={{ paddingHorizontal: 16, gap: 16 }}>
-            {activeTab === 0 ? GoalsTab : ProgressTab}
+            {GoalsTab}
           </View>
         )}
       </ScrollView>
@@ -837,67 +504,6 @@ export default function GoalsScreen() {
         </View>
       </Modal>
 
-      {/* ── Badge Detail Modal ── */}
-      <Modal visible={!!selectedBadge} transparent animationType="fade">
-        <Pressable style={{ flex: 1, backgroundColor: C.scrim, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 }} onPress={() => setSelectedBadge(null)}>
-          <Pressable onPress={(e) => e.stopPropagation()}>
-            <View style={[{ backgroundColor: C.surface03, borderRadius: 28, padding: 32, alignItems: "center", gap: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle, minWidth: 280 }, dialogStyle]}>
-              {selectedBadge && (
-                <BadgeSvg
-                  id={selectedBadge.id}
-                  size={72}
-                  locked={!unlockedBadgeIds.includes(selectedBadge.id)}
-                />
-              )}
-              <Text variant="headingM" style={{ textAlign: "center" }}>{selectedBadge?.name}</Text>
-              <Text variant="paragraphM" style={{ textAlign: "center" }}>{selectedBadge?.description}</Text>
-
-              {selectedBadge && unlockedBadgeIds.includes(selectedBadge.id) ? (
-                <View style={{ backgroundColor: withAlpha(C.success, 0.25), borderWidth: 1, borderColor: withAlpha(C.success, 0.25), borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6, marginTop: 4 }}>
-                  <Text variant="labelXs" style={{ color: C.success }}>✓ UNLOCKED</Text>
-                </View>
-              ) : (
-                <View style={{ backgroundColor: C.surface03, borderWidth: 1, borderColor: C.lineSubtle, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6, marginTop: 4 }}>
-                  <Text variant="labelXs" style={{ color: C.contentSecondary }}>LOCKED</Text>
-                </View>
-              )}
-
-              <TouchableOpacity
-                onPress={() => setSelectedBadge(null)}
-                accessibilityRole="button"
-                style={{ marginTop: 8, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: C.surface04, borderRadius: 12 }}
-              >
-                <Text variant="labelM">Close</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* ── Shield Tooltip Modal ── */}
-      <Modal visible={showShieldTooltip} transparent animationType="fade">
-        <Pressable style={{ flex: 1, backgroundColor: C.scrim, justifyContent: "center", alignItems: "center", paddingHorizontal: 32 }} onPress={() => setShowShieldTooltip(false)}>
-          <View style={[{ backgroundColor: C.surface03, borderRadius: 20, padding: 24, gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: C.lineSubtle }, dialogStyle]}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <Shield size={20} color={KPI.hours} />
-              <Text variant="headingS">Streak Shields</Text>
-            </View>
-            <Text variant="paragraphM">
-              A shield lets you skip one day without breaking your streak. You earn 1 shield per level-up and 1 per calendar month, up to a maximum of 3.
-            </Text>
-            <Text variant="paragraphM">
-              You currently have <Text style={{ color: KPI.hours, fontWeight: "800" }}>{streakFrozenCount} shield{streakFrozenCount !== 1 ? "s" : ""}</Text> remaining.
-            </Text>
-            <TouchableOpacity
-              onPress={() => setShowShieldTooltip(false)}
-              accessibilityRole="button"
-              style={{ marginTop: 8, paddingVertical: 12, backgroundColor: C.surface04, borderRadius: 12, alignItems: "center" }}
-            >
-              <Text variant="labelM">Got it</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
   );
 }

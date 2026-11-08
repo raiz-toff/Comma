@@ -4,16 +4,16 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { router } from "expo-router";
 import { Text } from "@/src/components/ui/text";
 import {
-  BellOff,
-  AlertCircle,
-  Info,
-  Trophy,
-  X,
-  ArrowLeft,
-  Upload,
-  Download,
-  Trash2,
-  XCircle,
+BellOff,
+AlertCircle,
+Info,
+Trophy,
+X,
+ArrowLeft,
+Upload,
+Download,
+Trash2,
+XCircle,
 } from "lucide-react-native";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { usePlatformTheme } from "@/src/hooks/usePlatformTheme";
@@ -21,8 +21,7 @@ import { useLayout } from "@/src/hooks/useLayout";
 import { withAlpha } from "@/src/theme/colors";
 import { useColors, useThemedStyles, type Palette } from "@/src/theme/useColors";
 import { EmptyState } from "@/src/components/ui/EmptyState";
-import { BadgeSvg } from "@/src/registry/badges/BadgeSvgs";
-import type { NotificationItem } from "@/src/services/gamification";
+import type { NotificationItem } from "@/src/services/inbox";
 
 // ─── Time grouping ────────────────────────────────────────────────────────────
 
@@ -64,9 +63,6 @@ type NotificationSection = { title: string; data: NotificationItem[]; isFirst: b
 // ─── Row ──────────────────────────────────────────────────────────────────────
 
 function renderIcon(item: NotificationItem, accentColor: string, C: Palette) {
-  if (item.badgeId) {
-    return <BadgeSvg id={item.badgeId} size={24} />;
-  }
   const c = item.read ? C.contentMuted : accentColor;
   switch (item.iconKey) {
     case "backup":
@@ -268,7 +264,7 @@ export default function NotificationsScreen() {
           <EmptyState
             icon={BellOff}
             title="All caught up!"
-            message="You have no new notifications. We'll alert you here when goals are reached, streaks are at risk, or backups and exports complete."
+            message="You have no new notifications. We'll alert you here when tax deadlines are near, or backups and exports complete."
             className="py-24"
           />
         }

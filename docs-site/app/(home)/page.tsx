@@ -144,6 +144,21 @@ function Receipt() {
 export default function HomePage() {
   return (
     <main className="container mx-auto max-w-5xl px-4">
+      {/* Retirement notice: see issue #16. */}
+      <aside className="mt-6 rounded-lg border border-fd-border bg-fd-card px-5 py-4 text-sm leading-6 text-fd-muted-foreground">
+        <p className="font-semibold text-fd-foreground">Comma is retired.</p>
+        <p className="mt-1">
+          It is no longer developed, and no new features or fixes are planned. Its successor is{' '}
+          <a className="font-medium text-fd-foreground underline" href="https://github.com/raiz-toff/Milewage">
+            MileWage
+          </a>
+          , but it is a different app and not a drop-in upgrade. Comma keeps everything on the phone, with no
+          account and no server. MileWage is self-hosted: the phone records the shift, and a server you run
+          yourself keeps the data. There is no migration, so moving to MileWage means starting fresh. If
+          &ldquo;no server&rdquo; is what you want, staying on Comma as it is remains a reasonable choice, and
+          the final release stays available to download.
+        </p>
+      </aside>
       {/* Hero */}
       <section className="grid items-center gap-12 border-b border-fd-border py-20 md:grid-cols-[1.2fr_1fr] md:py-24">
         <div>

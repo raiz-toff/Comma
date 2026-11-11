@@ -1,3 +1,17 @@
+> [!IMPORTANT]
+> **Comma is retired.** It is no longer developed, and no new features or fixes are planned.
+> Its successor is **[MileWage](https://github.com/raiz-toff/Milewage)**, where all new work goes.
+>
+> The two are different apps, and MileWage is not a drop-in upgrade:
+>
+> - **Comma** keeps everything on the phone, with no account and no server.
+> - **MileWage** is self-hosted: the phone records the shift, and a server you run yourself
+>   (a home server or Raspberry Pi, reached over Tailscale) keeps the data.
+> - **There is no migration.** MileWage does not import Comma data; moving means starting fresh.
+>
+> If "no server" is what you want, staying on Comma as it is remains a reasonable choice. The
+> [final release](https://github.com/raiz-toff/CommaApp/releases/latest) stays available to download.
+
 <p align="center">
   <img src="marketing/final/web/github-banner-1280x400.png" alt="Comma — track every shift, keep every byte" width="100%" />
 </p>
@@ -23,6 +37,18 @@ Everything lives in this repository — the phone app, the web app, and the docs
 - **Docs** ([`docs/`](docs/)) — user guides and architecture notes, published at [comma-docs.vercel.app](https://comma-docs.vercel.app) via the [`docs-site/`](docs-site/) Nextra app.
 
 The two apps share the same backup format, so a vault can move between them.
+
+## What's in this repository
+
+Comma ended in three forms, each kept on its own branch:
+
+| Branch | What it holds |
+|---|---|
+| [`main`](https://github.com/raiz-toff/CommaApp/tree/main) | The full Comma: the React Native Android app, the web app and the docs site. Released as v1.5.0. |
+| [`feat/android-only`](https://github.com/raiz-toff/CommaApp/tree/feat/android-only) | Comma cut down to a smaller Android-only app: no web app, docs site or gamification. Never released. |
+| [`native-android`](https://github.com/raiz-toff/CommaApp/tree/native-android) | **Comma Simple**, a rewrite in Kotlin and Jetpack Compose that does only the essentials: shifts with GPS distance, expenses, reports and Google Drive backup. The code is in [`native/`](https://github.com/raiz-toff/CommaApp/tree/native-android/native). |
+
+The [final release](https://github.com/raiz-toff/CommaApp/releases/latest) has an APK for both the full app and Comma Simple.
 
 ## Screenshots
 

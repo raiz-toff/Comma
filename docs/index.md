@@ -10,7 +10,7 @@ Comma is a privacy-first earnings tracker for gig workers in Canada: it records 
 
 | Platform | Where | Notes |
 |---|---|---|
-| Android | [github.com/raiz-toff/Comma/releases/latest](https://github.com/raiz-toff/Comma/releases/latest) | Download the APK and sideload it by allowing "Install unknown apps". A Play Store listing is planned. |
+| Android | [github.com/raiz-toff/Comma/releases/latest](https://github.com/raiz-toff/Comma/releases/latest) | Download the APK and sideload it by allowing "Install unknown apps". |
 | Web | [comma-psi.vercel.app](https://comma-psi.vercel.app) | Opens in any modern browser and installs as a PWA. See [Web App (PWA)](./features/web-app.md). |
 | Source | [github.com/raiz-toff/Comma](https://github.com/raiz-toff/Comma) | One monorepo holding the phone app, the web app, and these docs. |
 

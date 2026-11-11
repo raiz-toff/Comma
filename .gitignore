@@ -71,3 +71,6 @@ assets/mylogo.png
 
 # Build output (APKs etc.) — never commit
 /builds/
+
+# Gradle caches inside the native module
+modules/comma-tracker/android/.gradle/

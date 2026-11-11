@@ -1,0 +1,4 @@
+<resources>
+    <!-- Only the window behind the first frame; the UI is themed in ui/Theme.kt. -->
+    <style name="Theme.Comma" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

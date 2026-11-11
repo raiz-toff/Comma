@@ -4,7 +4,11 @@ All notable changes to Comma are documented here.
 
 ## [Unreleased]
 
+### Added
+- **Comma Simple**: a second, much smaller app built natively for Android. It records shifts with GPS distance, keeps your expenses, shows weekly, monthly and yearly reports, and backs up to your own Google Drive or to a file. Installed over Comma, it brings your existing shifts and expenses across on first launch.
+
 ### Changed
+- **Comma is retired**: no new features or fixes are planned. Its successor is MileWage, a separate self-hosted app that does not import Comma data.
 - **A simpler Analytics tab**: the grid of cards and tabs is gone. Analytics is now one plain list for the period you pick — earnings, tips, expenses and net; shifts, hours and what you made per hour; active and dead distance; and earnings by platform.
 - **Settings on one page**: no more tabs and no Save button. Your profile, platforms, week start, time format, sync reminder, Cloud Sync, CSV export/import and Reset app are all on one screen, and every change saves the moment you make it.
 - **Goals is just goals**: the Goals screen shows your earnings, hours, shift and distance targets and nothing else.

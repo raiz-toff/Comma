@@ -7,6 +7,11 @@ Comma is a privacy-first earnings tracker for gig drivers. It is an
 data lives on their own phone, and the only thing that ever leaves it is an encrypted file
 they chose to put in their own Google Drive.
 
+`native/` holds **Comma Simple**, a separate, smaller Kotlin app that ships under the same
+package name. It has its own Gradle build and its own version in `native/app/build.gradle.kts`;
+the version script and the rules below about sync, schema and the country registry are about
+the React Native app. See [`native/README.md`](./native/README.md).
+
 Three rules matter more than the rest. If you read nothing else, read these:
 
 1. **Old vaults must keep opening.** Drivers' Drive files were written by older versions.

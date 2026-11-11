@@ -1,3 +1,17 @@
+> [!IMPORTANT]
+> **Comma is retired.** It is no longer developed, and no new features or fixes are planned.
+> Its successor is **[MileWage](https://github.com/raiz-toff/Milewage)**, where all new work goes.
+>
+> The two are different apps, and MileWage is not a drop-in upgrade:
+>
+> - **Comma** keeps everything on the phone, with no account and no server.
+> - **MileWage** is self-hosted: the phone records the shift, and a server you run yourself
+>   (a home server or Raspberry Pi, reached over Tailscale) keeps the data.
+> - **There is no migration.** MileWage does not import Comma data; moving means starting fresh.
+>
+> If "no server" is what you want, staying on Comma as it is remains a reasonable choice. The
+> [final release](https://github.com/raiz-toff/CommaApp/releases/latest) stays available to download.
+
 <p align="center">
   <img src="marketing/final/web/github-banner-1280x400.png" alt="Comma — track every shift, keep every byte" width="100%" />
 </p>
@@ -12,6 +26,22 @@ Android earnings tracker for gig drivers in Canada. Tracks shifts, mileage, expe
 Built for DoorDash, Uber Eats, SkipTheDishes, Instacart, Amazon Flex, and others.
 
 **[Download for Android](https://github.com/raiz-toff/CommaApp/releases/latest)** · **[Privacy policy](https://comma-docs.vercel.app/privacy)**
+
+## Two apps, pick one
+
+The final release carries two APKs. They share one package name, so a phone can have only one
+installed at a time.
+
+| | Comma | Comma Simple |
+|---|---|---|
+| Code | this repository's React Native app | [`native/`](native/), Kotlin and Jetpack Compose |
+| Does | shifts, GPS routes, expenses, vehicles, goals, tax estimates, reports, CSV and PDF export | shifts, GPS distance, expenses, reports |
+| Google Drive | encrypted sync between phones, with a sync password | one plain backup file in the app's private Drive folder, no password |
+| Size | about 160 MB | about 2 MB |
+
+Installing Comma Simple over Comma keeps your shifts and expenses: it copies them across on
+first launch. Going the other way means uninstalling first. Comma Simple cannot read an
+encrypted Comma sync vault, and Comma cannot read a Comma Simple backup.
 
 ## Screenshots
 

@@ -27,6 +27,18 @@ Built for DoorDash, Uber Eats, SkipTheDishes, Instacart, Amazon Flex, and others
 
 **[Download for Android](https://github.com/raiz-toff/CommaApp/releases/latest)** · **[Privacy policy](https://comma-docs.vercel.app/privacy)**
 
+## What's in this repository
+
+Comma ended in three forms, each kept on its own branch:
+
+| Branch | What it holds |
+|---|---|
+| [`main`](https://github.com/raiz-toff/CommaApp/tree/main) | The full Comma: the React Native Android app, the web app and the docs site. Released as v1.5.0. |
+| [`feat/android-only`](https://github.com/raiz-toff/CommaApp/tree/feat/android-only) | Comma cut down to a smaller Android-only app: no web app, docs site or gamification. Never released. |
+| [`native-android`](https://github.com/raiz-toff/CommaApp/tree/native-android) | **Comma Simple**, a rewrite in Kotlin and Jetpack Compose that does only the essentials: shifts with GPS distance, expenses, reports and Google Drive backup. The code is in [`native/`](https://github.com/raiz-toff/CommaApp/tree/native-android/native). |
+
+The [final release](https://github.com/raiz-toff/CommaApp/releases/latest) has an APK for both the full app and Comma Simple.
+
 ## Two apps, pick one
 
 The final release carries two APKs. They share one package name, so a phone can have only one
